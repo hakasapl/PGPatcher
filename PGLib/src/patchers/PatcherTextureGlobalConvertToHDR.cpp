@@ -5,6 +5,15 @@
 
 using namespace std;
 
+auto PatcherTextureGlobalConvertToHDR::initShader() -> bool
+{
+    if (s_shader != nullptr) {
+        return true;
+    }
+
+    return getPGD3D()->initShader(SHADER_NAME, s_shader);
+}
+
 auto PatcherTextureGlobalConvertToHDR::getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory
 {
     return [](const std::filesystem::path& ddsPath, DirectX::ScratchImage* dds) {
@@ -33,5 +42,12 @@ PatcherTextureGlobalConvertToHDR::PatcherTextureGlobalConvertToHDR(
 
 void PatcherTextureGlobalConvertToHDR::applyPatch(bool& ddsModified)
 {
-    getPGD3D()->convertToHDR(getDDS(), ddsModified, s_luminanceMult, s_outputFormat);
+    DirectX::ScratchImage newDDS;
+    ShaderParams params = { .luminanceMult = s_luminanceMult };
+    if (!getPGD3D()->applyShaderToTexture(*getDDS(), newDDS, s_shader, s_outputFormat, &params, sizeof(ShaderParams))) {
+        return;
+    }
+
+    *getDDS() = std::move(newDDS);
+    ddsModified = true;
 }

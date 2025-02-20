@@ -13,7 +13,17 @@ private:
     static inline float s_luminanceMult = 1.0F;
     static inline DXGI_FORMAT s_outputFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
+    static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
+
+    static constexpr const char* SHADER_NAME = "ParallaxToCM.hlsl";
+
+    struct ShaderParams {
+        float luminanceMult;
+    };
+
 public:
+    static auto initShader() -> bool;
+
     /**
      * @brief Get the Factory object
      *

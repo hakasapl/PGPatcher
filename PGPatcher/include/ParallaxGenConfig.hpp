@@ -126,8 +126,12 @@ public:
         // Post-Patchers
         struct PostPatcher {
             bool optimizeMeshes = false;
+            bool fixSSS = false;
 
-            auto operator==(const PostPatcher& other) const -> bool { return optimizeMeshes == other.optimizeMeshes; }
+            auto operator==(const PostPatcher& other) const -> bool
+            {
+                return optimizeMeshes == other.optimizeMeshes && fixSSS == other.fixSSS;
+            }
         } PostPatcher;
 
         // Lists

@@ -12,6 +12,7 @@
 #include "ParallaxGenUI.hpp"
 #include "ParallaxGenUtil.hpp"
 #include "ParallaxGenWarnings.hpp"
+#include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -19,6 +20,8 @@
 #include "patchers/PatcherMeshShaderTransformParallaxToCM.hpp"
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
+#include "patchers/PatcherTextureHookConvertToCM.hpp"
+#include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 
 #include <boost/algorithm/string/join.hpp>
@@ -139,14 +142,20 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     auto mmd = ModManagerDirectory(params.ModManager.type);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
-    auto pgd3d = ParallaxGenD3D(&pgd, params.Output.dir, exePath);
+    auto pgd3d = ParallaxGenD3D(&pgd, exePath / "shaders");
     auto pg = ParallaxGen(params.Output.dir, &pgd, &pgd3d, params.PostPatcher.optimizeMeshes);
 
     Patcher::loadStatics(pgd, pgd3d);
 
     // Check if GPU needs to be initialized
     Logger::info("Initializing GPU");
-    pgd3d.initGPU();
+    if (!pgd3d.initGPU()) {
+        Logger::critical("Failed to initialize GPU. Exiting.");
+    }
+
+    if (!pgd3d.initShaders()) {
+        Logger::critical("Failed to initialize internal shaders. Exiting.");
+    }
 
     //
     // Generation
@@ -223,10 +232,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         params.TextureRules.vanillaBSAList, params.Processing.mapFromMeshes, params.Processing.multithread,
         params.Processing.highMem);
 
-    // Find CM maps
-    if (params.ShaderPatcher.complexMaterial) {
-        pgd3d.findCMMaps(params.TextureRules.vanillaBSAList);
-    }
+    // Classify textures (for CM etc.)
+    Logger::info("Starting extended classification of textures");
+    pgd3d.extendedTexClassify(params.TextureRules.vanillaBSAList);
+    Logger::info("Extended classification done");
 
     // Create patcher factory
     PatcherUtil::PatcherMeshSet meshPatchers;
@@ -266,6 +275,20 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()].emplace(
             PatcherMeshShaderTransformParallaxToCM::getToShader(),
             PatcherMeshShaderTransformParallaxToCM::getFactory());
+
+        // initialize patcher hooks
+        if (!PatcherTextureHookConvertToCM::initShader()) {
+            Logger::critical("Failed to initialize ConvertToCM shader");
+        }
+    }
+
+    if (params.PostPatcher.fixSSS) {
+        Logger::debug("Adding SSS fix post-patcher");
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
+
+        if (!PatcherTextureHookFixSSS::initShader()) {
+            Logger::critical("Failed to initialize FixSSS shader");
+        }
     }
 
     const PatcherUtil::PatcherTextureSet texPatchers;
@@ -321,7 +344,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         spdlog::info("Saving diag JSON file...");
         const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_DIAG.json";
         ofstream diagJSONFile(diffJSONPath);
-        diagJSONFile << PGDiag::getJSON().dump(2) << "\n";
+        diagJSONFile << PGDiag::getJSON().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
         diagJSONFile.close();
     }
 

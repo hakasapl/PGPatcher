@@ -148,6 +148,9 @@ private:
     wxCheckBox* m_postPatcherOptimizeMeshesCheckbox;
     void onPostPatcherOptimizeMeshesChange(wxCommandEvent& event);
 
+    wxCheckBox* m_postPatcherFixSSSCheckbox;
+    void onPostPatcherFixSSSChange(wxCommandEvent& event);
+
     // Mesh Rules
     wxListCtrl* m_meshRulesAllowList;
     void onMeshRulesAllowListChange(wxListEvent& event);

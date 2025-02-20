@@ -9,9 +9,6 @@
  * @brief Transform patcher to upgrade Parallax to CM
  */
 class PatcherMeshShaderTransformParallaxToCM : public PatcherMeshShaderTransform {
-private:
-    static std::mutex s_upgradeCMMutex; /** < Mutex for the upgrade to CM */
-
 public:
     /**
      * @brief Get the Factory object for Parallax > CM transform

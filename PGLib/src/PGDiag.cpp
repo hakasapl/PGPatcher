@@ -11,7 +11,7 @@ nlohmann::json PGDiag::s_diagJSON;
 mutex PGDiag::s_diagJSONMutex;
 bool PGDiag::s_enabled = false;
 
-thread_local vector<nlohmann::json*> PGDiag::s_ptrPrefixStack;
+thread_local vector<string> PGDiag::s_ptrPrefixStack;
 
 // ScopedPrefix class implementation
 PGDiag::Prefix::Prefix(const wstring& prefix, const nlohmann::json::value_t& type)
@@ -27,21 +27,13 @@ PGDiag::Prefix::Prefix(const string& prefix, const nlohmann::json::value_t& type
         return;
     }
 
-    if (s_ptrPrefixStack.empty()) {
-        s_ptrPrefixStack.push_back(&s_diagJSON);
+    // create object if needed
+    auto* ptrJSON = resolvePrefix();
+    if (!ptrJSON->contains(prefix)) {
+        (*ptrJSON)[prefix] = nlohmann::json(type);
     }
 
-    // create new object with key prefixStr and type type
-    if (!s_ptrPrefixStack.back()->contains(prefix)) {
-        (*s_ptrPrefixStack.back())[prefix] = nlohmann::json(type);
-    }
-
-    s_ptrPrefixStack.push_back(&s_ptrPrefixStack.back()->at(prefix));
-
-    // check that type of s_ptrDiagJSONPrefix[prefixStr] is type
-    if (s_ptrPrefixStack.back()->type() != type) {
-        throw runtime_error("Type mismatch");
-    }
+    s_ptrPrefixStack.push_back(prefix);
 }
 
 PGDiag::Prefix::~Prefix()
@@ -56,6 +48,17 @@ PGDiag::Prefix::~Prefix()
         // remove last element of s_ptrPrefixStack
         s_ptrPrefixStack.pop_back();
     }
+}
+
+auto PGDiag::Prefix::resolvePrefix() -> nlohmann::json*
+{
+    nlohmann::json* outPtr = &s_diagJSON;
+
+    for (const auto& prefix : s_ptrPrefixStack) {
+        outPtr = &outPtr->at(prefix);
+    }
+
+    return outPtr;
 }
 
 void PGDiag::init()

@@ -14,12 +14,14 @@ private:
     static std::mutex s_diagJSONMutex;
     static bool s_enabled;
 
-    thread_local static std::vector<nlohmann::json*> s_ptrPrefixStack;
+    thread_local static std::vector<std::string> s_ptrPrefixStack;
 
 public:
     // Scoped prefix class
     class Prefix {
     public:
+        static auto resolvePrefix() -> nlohmann::json*;
+
         explicit Prefix(const std::wstring& prefix, const nlohmann::json::value_t& type);
         explicit Prefix(const std::string& prefix, const nlohmann::json::value_t& type);
         ~Prefix();
@@ -33,6 +35,8 @@ public:
     static auto getJSON() -> nlohmann::json;
     static auto isEnabled() -> bool;
 
+    // yes, this is necessary and cannot be done using template functions because this method needs to be exported from
+    // DLL for use in EXEs
     static void insert(const std::wstring& key, const std::wstring& value);
     static void insert(const std::wstring& key, const wchar_t* value);
     static void insert(const std::wstring& key, const std::string& value);
@@ -102,19 +106,17 @@ private:
             return;
         }
 
-        if (s_ptrPrefixStack.empty()) {
-            s_ptrPrefixStack.push_back(&s_diagJSON);
-        }
+        auto* ptrJSON = Prefix::resolvePrefix();
 
         // check that type of nlohmann::json::object
-        if (s_ptrPrefixStack.back()->type() != nlohmann::json::value_t::object) {
+        if (ptrJSON->type() != nlohmann::json::value_t::object) {
             throw std::runtime_error("Cannot insert to non-object type");
         }
 
         if constexpr (std::is_same_v<T, std::wstring>) {
-            (*s_ptrPrefixStack.back())[key] = ParallaxGenUtil::utf16toUTF8(value);
+            (*ptrJSON)[key] = ParallaxGenUtil::utf16toUTF8(value);
         } else {
-            (*s_ptrPrefixStack.back())[key] = value;
+            (*ptrJSON)[key] = value;
         }
     }
 
@@ -126,15 +128,17 @@ private:
             return;
         }
 
+        auto* ptrJSON = Prefix::resolvePrefix();
+
         // check that type is nlohmann::json::array
-        if (s_ptrPrefixStack.back()->type() != nlohmann::json::value_t::array) {
+        if (ptrJSON->type() != nlohmann::json::value_t::array) {
             throw std::runtime_error("Cannot push back to non-array type");
         }
 
         if constexpr (std::is_same_v<T, std::wstring>) {
-            s_ptrPrefixStack.back()->push_back(ParallaxGenUtil::utf16toUTF8(value));
+            ptrJSON->push_back(ParallaxGenUtil::utf16toUTF8(value));
         } else {
-            s_ptrPrefixStack.back()->push_back(value);
+            ptrJSON->push_back(value);
         }
     }
 };

@@ -364,6 +364,10 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
             patcherObjects.shaderTransformPatchers[shader].emplace(transformShader, std::move(transform));
         }
     }
+    for (const auto& factory : m_meshPatchers.postPatchers) {
+        auto patcher = factory(nifFile, &nif);
+        patcherObjects.postPatchers.emplace_back(std::move(patcher));
+    }
     for (const auto& factory : m_meshPatchers.globalPatchers) {
         auto patcher = factory(nifFile, &nif);
         patcherObjects.globalPatchers.emplace_back(std::move(patcher));
@@ -749,52 +753,57 @@ auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, Ni
         }
     }
 
-    if (matches.empty()) {
-        if (forceShader == nullptr) {
-            // no shaders to apply
-            PGDiag::insert("rejectReason", "No shaders to apply");
-            return false;
-        }
-
+    if (matches.empty() && forceShader != nullptr) {
         // Force shader means we can just apply the shader and return
         // the only case this should be executing is if an alternate texture exists
         shaderApplied = *forceShader;
         // Find correct patcher
         const auto& patcher = patchers.shaderPatchers.at(*forceShader);
-        return patcher->applyShader(*nifShape);
+        patcher->applyShader(*nifShape);
+        changed = true;
     }
 
     // Get winning match
-    auto winningShaderMatch = PatcherUtil::getWinningMatch(matches, m_modPriority);
-    PGDiag::insert("winningShaderMatch", winningShaderMatch.getJSON());
+    if (!matches.empty()) {
+        auto winningShaderMatch = PatcherUtil::getWinningMatch(matches, m_modPriority);
+        PGDiag::insert("winningShaderMatch", winningShaderMatch.getJSON());
 
-    // Apply transforms
-    if (PatcherUtil::applyTransformIfNeeded(winningShaderMatch, patchers)) {
-        PGDiag::insert("shaderTransformResult", winningShaderMatch.getJSON());
+        // Apply transforms
+        if (PatcherUtil::applyTransformIfNeeded(winningShaderMatch, patchers)) {
+            PGDiag::insert("shaderTransformResult", winningShaderMatch.getJSON());
+        }
+
+        shaderApplied = winningShaderMatch.shader;
+        if (shaderApplied != NIFUtil::ShapeShader::UNKNOWN) {
+            // loop through patchers
+            NIFUtil::TextureSet newSlots;
+            changed |= patchers.shaderPatchers.at(winningShaderMatch.shader)
+                           ->applyPatch(*nifShape, winningShaderMatch.match, newSlots);
+
+            PGDiag::insert("newTextures", NIFUtil::textureSetToStr(newSlots));
+
+            // Post warnings if any
+            for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
+                ParallaxGenWarnings::mismatchWarn(
+                    winningShaderMatch.match.matchedPath, newSlots.at(static_cast<int>(curMatchedFrom)));
+            }
+
+            ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
+        }
     }
 
-    shaderApplied = winningShaderMatch.shader;
+    // apply postpatchers
+    {
+        const PGDiag::Prefix diagPostPatcherPrefix("postPatchers", nlohmann::json::value_t::object);
+        for (const auto& postPatcher : patchers.postPatchers) {
+            const Logger::Prefix prefixPatches(postPatcher->getPatcherName());
+            const bool postPatcherChanged = postPatcher->applyPatch(*nifShape);
 
-    if (shaderApplied == NIFUtil::ShapeShader::NONE || shaderApplied == NIFUtil::ShapeShader::UNKNOWN) {
-        // no shader to apply
-        PGDiag::insert("rejectReason", "No shader to apply");
-        return false;
+            PGDiag::insert(postPatcher->getPatcherName(), postPatcherChanged);
+
+            changed |= postPatcherChanged && postPatcher->triggerSave();
+        }
     }
-
-    // loop through patchers
-    NIFUtil::TextureSet newSlots;
-    changed |= patchers.shaderPatchers.at(winningShaderMatch.shader)
-                   ->applyPatch(*nifShape, winningShaderMatch.match, newSlots);
-
-    PGDiag::insert("newTextures", NIFUtil::textureSetToStr(newSlots));
-
-    // Post warnings if any
-    for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
-        ParallaxGenWarnings::mismatchWarn(
-            winningShaderMatch.match.matchedPath, newSlots.at(static_cast<int>(curMatchedFrom)));
-    }
-
-    ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
 
     return changed;
 }
@@ -815,7 +824,7 @@ auto ParallaxGen::processDDS(const filesystem::path& ddsFile) -> ParallaxGenTask
     }
 
     DirectX::ScratchImage ddsImage;
-    if (m_pgd3D->getDDS(ddsFile, ddsImage) != ParallaxGenTask::PGResult::SUCCESS) {
+    if (!m_pgd3D->getDDS(ddsFile, ddsImage)) {
         Logger::error(L"Unable to load DDS file: {}", ddsFile.wstring());
         return ParallaxGenTask::PGResult::FAILURE;
     }
