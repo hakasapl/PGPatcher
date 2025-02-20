@@ -15,7 +15,6 @@ PatcherTextureHook::PatcherTextureHook(std::filesystem::path texPath, std::strin
     }
 
     if (!getPGD3D()->getDDS(getDDSPath(), m_ddsImage)) {
-        // TODO should we be error logging here?
-        Logger::error(L"Unable to load DDS file: {}", getDDSPath().wstring());
+        Logger::debug(L"Unable to find/load DDS file: {}", getDDSPath().wstring());
     }
 }

@@ -941,6 +941,8 @@ auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, DirectX::ScratchIma
 
         // Load DDS file
         hr = DirectX::LoadFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
+    } else {
+        return false;
     }
 
     if (FAILED(hr)) {
@@ -978,6 +980,8 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
 
         // Load DDS file
         hr = DirectX::GetMetadataFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, ddsMeta);
+    } else {
+        return false;
     }
 
     if (FAILED(hr)) {
