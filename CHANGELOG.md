@@ -6,6 +6,7 @@
 - Fixed diagnostics JSON having some data in incorrect places due to stale pointers
 - Improved GPU operation performance
 - Added "Fix Subsurface Scattering" post-patcher
+- Upgraded CM maps will no longer have red channel as this often is mismatched
 
 ## [0.8.9] - 2025-02-10
 
