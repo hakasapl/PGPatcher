@@ -4,6 +4,8 @@
 
 - Fixed unhandled exception around UTF8 chars when diagnostics were enabled
 - Fixed diagnostics JSON having some data in incorrect places due to stale pointers
+- Improved GPU operation performance
+- Added "Fix Subsurface Scattering" post-patcher
 
 ## [0.8.9] - 2025-02-10
 
