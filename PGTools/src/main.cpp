@@ -16,6 +16,7 @@
 #include "ParallaxGenWarnings.hpp"
 
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
+#include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -23,6 +24,8 @@
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
 #include "patchers/PatcherTextureGlobalConvertToHDR.hpp"
+#include "patchers/PatcherTextureHookConvertToCM.hpp"
+#include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 
@@ -87,14 +90,20 @@ void mainRunner(PGToolsCLIArgs& args)
         args.Patch.output = filesystem::absolute(args.Patch.output);
 
         auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output, nullptr);
-        auto pgd3D = ParallaxGenD3D(&pgd, args.Patch.output, exePath);
+        auto pgd3D = ParallaxGenD3D(&pgd, exePath / "shaders");
         auto pg = ParallaxGen(args.Patch.output, &pgd, &pgd3D, args.Patch.patchers.contains("optimize"));
 
         Patcher::loadStatics(pgd, pgd3D);
         ParallaxGenWarnings::init(&pgd, {});
 
         // Check if GPU needs to be initialized
-        pgd3D.initGPU();
+        if (!pgd3D.initGPU()) {
+            spdlog::critical("Failed to initialize GPU. Exiting.");
+        }
+
+        if (!pgd3D.initShaders()) {
+            spdlog::critical("Failed to initialize internal shaders. Exiting.");
+        }
 
         // Create output directory
         try {
@@ -150,12 +159,8 @@ void mainRunner(PGToolsCLIArgs& args)
             patcherDefs[patcher.substr(0, openBracket)] = optionSet;
         }
 
-        if (patcherDefs.contains("complexmaterial")) {
-            // Find CM maps
-            spdlog::info("Finding complex material env maps");
-            pgd3D.findCMMaps({});
-            spdlog::info("Done finding complex material env maps");
-        }
+        // extended classifications
+        pgd3D.extendedTexClassify({});
 
         // Create patcher factory
         PatcherUtil::PatcherMeshSet meshPatchers;
@@ -184,9 +189,17 @@ void mainRunner(PGToolsCLIArgs& args)
             meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()].emplace(
                 PatcherMeshShaderTransformParallaxToCM::getToShader(),
                 PatcherMeshShaderTransformParallaxToCM::getFactory());
+
+            PatcherTextureHookConvertToCM::initShader();
         }
         if (patcherDefs.contains("particlelightstolp")) {
             meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::getFactory());
+        }
+
+        if (patcherDefs.contains("fixsss")) {
+            meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
+
+            PatcherTextureHookFixSSS::initShader();
         }
 
         PatcherUtil::PatcherTextureSet texPatchers;

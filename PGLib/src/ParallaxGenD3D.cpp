@@ -1,8 +1,6 @@
 #include "ParallaxGenD3D.hpp"
 
-#include "NIFUtil.hpp"
 #include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenTask.hpp"
 #include "ParallaxGenUtil.hpp"
 
 #include <dxgiformat.h>
@@ -32,9 +30,9 @@
 #include <mutex>
 #include <string>
 
-#include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <winnt.h>
 
 #include "Logger.hpp"
 
@@ -46,24 +44,15 @@ using Microsoft::WRL::ComPtr;
 // reinterpret cast is needed often for type casting with DX11
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-ParallaxGenD3D::ParallaxGenD3D(ParallaxGenDirectory* pgd, filesystem::path outputDir, filesystem::path exePath)
+ParallaxGenD3D::ParallaxGenD3D(ParallaxGenDirectory* pgd, filesystem::path shaderPath)
     : m_pgd(pgd)
-    , m_outputDir(std::move(outputDir))
-    , m_exePath(std::move(exePath))
+    , m_shaderPath(std::move(shaderPath))
 {
 }
 
-auto ParallaxGenD3D::findCMMaps(const std::vector<std::wstring>& bsaExcludes) -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExcludes) -> bool
 {
-    Logger::info("Finding complex material maps");
-
-    if (m_ptrDevice == nullptr || m_ptrContext == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
-
     auto& envMasks = m_pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK);
-
-    ParallaxGenTask::PGResult pgResult = ParallaxGenTask::PGResult::SUCCESS;
 
     // loop through maps
     for (auto& envSlot : envMasks) {
@@ -82,24 +71,17 @@ auto ParallaxGenD3D::findCMMaps(const std::vector<std::wstring>& bsaExcludes) ->
             bool hasEnvMask = false;
             if (!bFileInVanillaBSA) {
                 try {
-                    ParallaxGenTask::updatePGResult(pgResult,
-                        checkIfCM(envMask.path, result, hasEnvMask, hasGlosiness, hasMetalness),
-                        ParallaxGenTask::PGResult::SUCCESS_WITH_WARNINGS);
+                    checkIfCM(envMask.path, result, hasEnvMask, hasGlosiness, hasMetalness);
                 } catch (const exception& e) {
-                    spdlog::error(L"Failed to check if {} is a complex material: {}", envMask.path.wstring(),
+                    Logger::debug(L"Failed to check if {} is a complex material: {}", envMask.path.wstring(),
                         asciitoUTF16(e.what()));
-                    pgResult = ParallaxGenTask::PGResult::SUCCESS_WITH_WARNINGS;
                     continue;
                 }
-            } else {
-                spdlog::trace(L"Envmask {} is contained in excluded BSA - skipping complex material check",
-                    envMask.path.wstring());
             }
 
             if (result) {
                 // remove old env mask
                 cmMaps.emplace_back(envMask, hasEnvMask, hasGlosiness, hasMetalness);
-                spdlog::trace(L"Found complex material env mask: {}", envMask.path.wstring());
             }
         }
 
@@ -123,25 +105,23 @@ auto ParallaxGenD3D::findCMMaps(const std::vector<std::wstring>& bsaExcludes) ->
         }
     }
 
-    Logger::info("Done finding complex material env maps");
-
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::checkIfCM(const filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness,
-    bool& hasMetalness) -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::checkIfCM(
+    const filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness, bool& hasMetalness) -> bool
 {
     // get metadata (should only pull headers, which is much faster)
     DirectX::TexMetadata ddsImageMeta {};
-    auto pgResult = getDDSMetadata(ddsPath, ddsImageMeta);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return pgResult;
+    if (!getDDSMetadata(ddsPath, ddsImageMeta)) {
+        result = false;
+        return false;
     }
 
     // If Alpha is opaque move on
     if (ddsImageMeta.GetAlphaMode() == DirectX::TEX_ALPHA_MODE_OPAQUE) {
         result = false;
-        return ParallaxGenTask::PGResult::SUCCESS;
+        return false;
     }
 
     // bool bcCompressed = false;
@@ -183,25 +163,27 @@ auto ParallaxGenD3D::checkIfCM(const filesystem::path& ddsPath, bool& result, bo
         break;
     default:
         result = false;
-        return ParallaxGenTask::PGResult::SUCCESS;
+        return true;
     }
 
     // Read image
     DirectX::ScratchImage image;
-    pgResult = getDDS(ddsPath, image);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        spdlog::error(L"Failed to load DDS file (Skipping): {}", ddsPath.wstring());
-        return pgResult;
+    if (!getDDS(ddsPath, image)) {
+        Logger::debug(L"Failed to load DDS file (Skipping): {}", ddsPath.wstring());
+        return false;
     }
 
     array<int, 4> values {};
-    values = countValuesGPU(image);
+    if (!countPixelValues(image, values)) {
+        result = false;
+        return false;
+    }
 
     const size_t numPixels = ddsImageMeta.width * ddsImageMeta.height;
     if (values[3] > numPixels / 2) {
         // check alpha
         result = false;
-        return ParallaxGenTask::PGResult::SUCCESS;
+        return true;
     }
 
     if (values[0] > 0) {
@@ -218,10 +200,10 @@ auto ParallaxGenD3D::checkIfCM(const filesystem::path& ddsPath, bool& result, bo
     }
 
     result = true;
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::countValuesGPU(const DirectX::ScratchImage& image) -> array<int, 4>
+auto ParallaxGenD3D::countPixelValues(const DirectX::ScratchImage& image, array<int, 4>& outData) -> bool
 {
     if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderCountAlphaValues == nullptr)) {
         throw runtime_error("GPU not initialized");
@@ -229,14 +211,14 @@ auto ParallaxGenD3D::countValuesGPU(const DirectX::ScratchImage& image) -> array
 
     // Create GPU texture
     ComPtr<ID3D11Texture2D> inputTex;
-    if (createTexture2D(image, inputTex) != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
+    if (!createTexture2D(image, inputTex)) {
+        return false;
     }
 
     // Create SRV
     ComPtr<ID3D11ShaderResourceView> inputSRV;
-    if (createShaderResourceView(inputTex, inputSRV) != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
+    if (!createShaderResourceView(inputTex, inputSRV)) {
+        return false;
     }
 
     // Create buffer for output
@@ -250,8 +232,8 @@ auto ParallaxGenD3D::countValuesGPU(const DirectX::ScratchImage& image) -> array
 
     array<unsigned int, 4> outputData = { 0, 0, 0, 0 };
     ComPtr<ID3D11Buffer> outputBuffer;
-    if (createBuffer(outputData.data(), bufferDesc, outputBuffer) != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
+    if (!createBuffer(outputData.data(), bufferDesc, outputBuffer)) {
+        return false;
     }
 
     // Create UAV for output buffer
@@ -262,34 +244,27 @@ auto ParallaxGenD3D::countValuesGPU(const DirectX::ScratchImage& image) -> array
     uavDesc.Buffer.NumElements = 4;
 
     ComPtr<ID3D11UnorderedAccessView> outputBufferUAV;
-    if (createUnorderedAccessView(outputBuffer, uavDesc, outputBufferUAV) != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
+    if (!createUnorderedAccessView(outputBuffer, uavDesc, outputBufferUAV)) {
+        return false;
     }
 
     // Dispatch shader
-    m_ptrContext->CSSetShader(m_shaderCountAlphaValues.Get(), nullptr, 0);
-    m_ptrContext->CSSetShaderResources(0, 1, inputSRV.GetAddressOf());
-    m_ptrContext->CSSetUnorderedAccessViews(0, 1, outputBufferUAV.GetAddressOf(), nullptr);
-
     const DirectX::TexMetadata imageMeta = image.GetMetadata();
-    if (blockingDispatch(static_cast<UINT>(imageMeta.width), static_cast<UINT>(imageMeta.height), 1)
-        != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
+    if (!blockingDispatch(m_shaderCountAlphaValues, { inputSRV }, { outputBufferUAV }, {},
+            static_cast<UINT>(imageMeta.width), static_cast<UINT>(imageMeta.height), 1)) {
+        return false;
     }
 
     // Clean Up Objects
     inputTex.Reset();
     inputSRV.Reset();
 
-    // Clean up shader resources
-    array<ID3D11ShaderResourceView*, 2> nullSRV = { nullptr, nullptr };
-    m_ptrContext->CSSetShaderResources(0, 1, nullSRV.data());
-    array<ID3D11UnorderedAccessView*, 2> nullUAV = { nullptr, nullptr };
-    m_ptrContext->CSSetUnorderedAccessViews(0, 1, nullUAV.data(), nullptr);
-    m_ptrContext->CSSetShader(nullptr, nullptr, 0);
-
     // Read back data
-    vector<array<int, 4>> data = readBack<array<int, 4>>(outputBuffer);
+
+    vector<array<int, 4>> data;
+    if (!readBack<array<int, 4>>(outputBuffer, data)) {
+        return false;
+    }
 
     // Cleanup
     outputBuffer.Reset();
@@ -297,25 +272,21 @@ auto ParallaxGenD3D::countValuesGPU(const DirectX::ScratchImage& image) -> array
 
     m_ptrContext->Flush(); // Flush GPU to avoid leaks
 
-    return data[0];
+    outData = data[0];
+    return true;
 }
 
 auto ParallaxGenD3D::checkIfAspectRatioMatches(
     const std::filesystem::path& ddsPath1, const std::filesystem::path& ddsPath2) -> bool
 {
-
-    ParallaxGenTask::PGResult pgResult {};
-
     // get metadata (should only pull headers, which is much faster)
     DirectX::TexMetadata ddsImageMeta1 {};
-    pgResult = getDDSMetadata(ddsPath1, ddsImageMeta1);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
+    if (!getDDSMetadata(ddsPath1, ddsImageMeta1)) {
         return false;
     }
 
     DirectX::TexMetadata ddsImageMeta2 {};
-    pgResult = getDDSMetadata(ddsPath2, ddsImageMeta2);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
+    if (!getDDSMetadata(ddsPath2, ddsImageMeta2)) {
         return false;
     }
 
@@ -331,7 +302,7 @@ auto ParallaxGenD3D::checkIfAspectRatioMatches(
 // GPU Code
 //
 
-void ParallaxGenD3D::initGPU()
+auto ParallaxGenD3D::initGPU() -> bool
 {
 // initialize GPU device and context
 #ifdef _DEBUG
@@ -353,483 +324,60 @@ void ParallaxGenD3D::initGPU()
         &m_ptrContext // Sets the instance device immediate context
     );
 
-    // check if device was found successfully
-    if (FAILED(hr)) {
-        spdlog::error("D3D11 device creation failure error: {}", getHRESULTErrorMessage(hr));
-        spdlog::critical("Unable to find any DX11 capable devices. Disable any GPU-accelerated "
-                         "features to continue.");
-        exit(1);
-    }
-
-    // Init Shaders
-    initShaders();
+    return !FAILED(hr);
 }
 
-void ParallaxGenD3D::initShaders()
+auto ParallaxGenD3D::initShaders() -> bool
 {
-    ParallaxGenTask::PGResult pgResult {};
-
-    // TODO don't repeat error handling code
-    // ConvertToHDR.hlsl
-    pgResult = createComputeShader(L"ConvertToHDR.hlsl", m_shaderConvertToHDR);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        spdlog::critical("Failed to create compute shader. Exiting.");
-        exit(1);
-    }
-
-    // MergeToComplexMaterial.hlsl
-    pgResult = createComputeShader(L"MergeToComplexMaterial.hlsl", m_shaderMergeToComplexMaterial);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        spdlog::critical("Failed to create compute shader. Exiting.");
-        exit(1);
-    }
-
-    // CountAlphaValues.hlsl
-    pgResult = createComputeShader(L"CountAlphaValues.hlsl", m_shaderCountAlphaValues);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        spdlog::critical("Failed to create compute shader. Exiting.");
-        exit(1);
-    }
+    // Initialize shaders
+    return initShader("CountAlphaValues.hlsl", m_shaderCountAlphaValues);
 }
 
-auto ParallaxGenD3D::compileShader(const std::filesystem::path& filename, ComPtr<ID3DBlob>& shaderBlob) const
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID3D11ComputeShader>& outShader) const
+    -> bool
 {
-    spdlog::trace(L"Starting compiling shader: {}", filename.wstring());
+    const Logger::Prefix prefix(L"ParallaxGenD3D::initShader " + filename.wstring());
 
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
+    // Load shader
+    ComPtr<ID3DBlob> shaderBlob;
+    HRESULT hr {};
 #if defined(_DEBUG)
     const DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG;
 #else
     const DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #endif
 
-    const filesystem::path shaderAbsPath = m_exePath / "shaders" / filename;
+    const filesystem::path shaderAbsPath = m_shaderPath / filename;
 
+    // Compile shader
     ComPtr<ID3DBlob> ptrErrorBlob;
-    const HRESULT hr = D3DCompileFromFile(shaderAbsPath.c_str(), nullptr, nullptr, "main", "cs_5_0", dwShaderFlags, 0,
+    hr = D3DCompileFromFile(shaderAbsPath.c_str(), nullptr, nullptr, "main", "cs_5_0", dwShaderFlags, 0,
         shaderBlob.ReleaseAndGetAddressOf(), ptrErrorBlob.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         if (ptrErrorBlob != nullptr) {
-            spdlog::critical(L"Failed to compile shader {}: {}, {}", filename.wstring(),
-                asciitoUTF16(getHRESULTErrorMessage(hr)), static_cast<wchar_t*>(ptrErrorBlob->GetBufferPointer()));
+            Logger::debug(L"Failed to compile shader: {}, {}", asciitoUTF16(getHRESULTErrorMessage(hr)),
+                static_cast<wchar_t*>(ptrErrorBlob->GetBufferPointer()));
             ptrErrorBlob.Reset();
         } else {
-            spdlog::critical(
-                L"Failed to compile shader {}: {}", filename.wstring(), asciitoUTF16(getHRESULTErrorMessage(hr)));
+            Logger::debug(L"Failed to compile shader: {}", asciitoUTF16(getHRESULTErrorMessage(hr)));
         }
 
-        exit(1);
+        return false;
     }
 
-    spdlog::debug(L"Shader {} compiled successfully", filename.wstring());
-
-    return ParallaxGenTask::PGResult::SUCCESS;
-}
-
-auto ParallaxGenD3D::createComputeShader(const wstring& shaderPath, ComPtr<ID3D11ComputeShader>& shaderDest)
-    -> ParallaxGenTask::PGResult
-{
-    // Load shader
-    ComPtr<ID3DBlob> compiledShader;
-    compileShader(shaderPath, compiledShader);
-
-    // Create shader
-    const HRESULT hr = m_ptrDevice->CreateComputeShader(compiledShader->GetBufferPointer(),
-        compiledShader->GetBufferSize(), nullptr, shaderDest.ReleaseAndGetAddressOf());
+    // Create compute shader on GPU
+    hr = m_ptrDevice->CreateComputeShader(
+        shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, outShader.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
-        spdlog::debug("Failed to create compute shader: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        Logger::debug("Failed to create compute shader: {}", getHRESULTErrorMessage(hr));
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
-}
-
-auto ParallaxGenD3D::upgradeToComplexMaterial(
-    const std::filesystem::path& parallaxMap, const std::filesystem::path& envMap) -> DirectX::ScratchImage
-{
-    if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderMergeToComplexMaterial == nullptr)) {
-        throw runtime_error("GPU was not initialized");
-    }
-
-    const lock_guard<mutex> lock(m_gpuOperationMutex);
-
-    ParallaxGenTask::PGResult pgResult {};
-
-    const bool parallaxExists = !parallaxMap.empty();
-    const bool envExists = !envMap.empty();
-
-    // Check if any texture was supplied
-    if (!parallaxExists && !envExists) {
-        return {};
-    }
-
-    if (envExists && m_pgd->getTextureType(envMap) == NIFUtil::TextureType::COMPLEXMATERIAL) {
-        spdlog::trace(L"Skipping shader upgrade for {} as it is already a complex material", envMap.wstring());
-        return {};
-    }
-
-    // get parallax map
-    DirectX::ScratchImage parallaxMapDDS;
-    if (parallaxExists && getDDS(parallaxMap, parallaxMapDDS) != ParallaxGenTask::PGResult::SUCCESS) {
-        spdlog::debug(L"Failed to load DDS file: {}", parallaxMap.wstring());
-        return {};
-    }
-    const DirectX::TexMetadata parallaxMeta = parallaxMapDDS.GetMetadata();
-
-    // get env map
-    DirectX::ScratchImage envMapDDS;
-    if (envExists && getDDS(envMap, envMapDDS) != ParallaxGenTask::PGResult::SUCCESS) {
-        spdlog::debug(L"Failed to load DDS file: {}", parallaxMap.wstring());
-        return {};
-    }
-    const DirectX::TexMetadata envMeta = envMapDDS.GetMetadata();
-
-    // Check dimensions
-    size_t parallaxHeight = 0;
-    size_t parallaxWidth = 0;
-    float parallaxAspectRatio = 0.0F;
-    if (parallaxExists) {
-        parallaxHeight = parallaxMeta.height;
-        parallaxWidth = parallaxMeta.width;
-        parallaxAspectRatio = static_cast<float>(parallaxWidth) / static_cast<float>(parallaxHeight);
-    }
-
-    size_t envHeight = 0;
-    size_t envWidth = 0;
-    float envAspectRatio = 0.0F;
-    if (envExists) {
-        envHeight = envMeta.height;
-        envWidth = envMeta.width;
-        envAspectRatio = static_cast<float>(envWidth) / static_cast<float>(envHeight);
-    }
-
-    // Compare aspect ratios if both exist
-    if (parallaxExists && envExists && parallaxAspectRatio != envAspectRatio) {
-        spdlog::trace(L"Rejecting shader upgrade for {} due to aspect ratio mismatch with {}", parallaxMap.wstring(),
-            envMap.wstring());
-        return {};
-    }
-
-    // Create GPU Textures objects
-    ComPtr<ID3D11Texture2D> parallaxMapGPU;
-    ComPtr<ID3D11ShaderResourceView> parallaxMapSRV;
-    if (parallaxExists) {
-        pgResult = createTexture2D(parallaxMapDDS, parallaxMapGPU);
-        if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-            spdlog::debug(L"Failed to create GPU texture for {}", parallaxMap.wstring());
-            return {};
-        }
-        pgResult = createShaderResourceView(parallaxMapGPU, parallaxMapSRV);
-        if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-            spdlog::debug(L"Failed to create GPU SRV for {}", parallaxMap.wstring());
-            return {};
-        }
-    }
-    ComPtr<ID3D11Texture2D> envMapGPU;
-    ComPtr<ID3D11ShaderResourceView> envMapSRV;
-    if (envExists) {
-        pgResult = createTexture2D(envMapDDS, envMapGPU);
-        if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-            return {};
-        }
-        pgResult = createShaderResourceView(envMapGPU, envMapSRV);
-        if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-            return {};
-        }
-    }
-
-    // Define parameters in constant buffer
-    const UINT resultWidth = static_cast<UINT>(max(parallaxWidth, envWidth));
-    const UINT resultHeight = static_cast<UINT>(max(parallaxHeight, envHeight));
-
-    // calculate scaling weights
-    float parallaxScalingWidth = 1.0F;
-    float parallaxScalingHeight = 1.0F;
-    float envScalingWidth = 1.0F;
-    float envScalingHeight = 1.0F;
-
-    if (envExists && parallaxExists) {
-        parallaxScalingWidth = static_cast<float>(parallaxWidth) / static_cast<float>(resultWidth);
-        parallaxScalingHeight = static_cast<float>(parallaxHeight) / static_cast<float>(resultHeight);
-        envScalingWidth = static_cast<float>(envWidth) / static_cast<float>(resultWidth);
-        envScalingHeight = static_cast<float>(envHeight) / static_cast<float>(resultHeight);
-    }
-
-    ShaderMergeToComplexMaterialParams shaderParams {};
-    shaderParams.envMapScalingFactor = DirectX::XMFLOAT2(envScalingWidth, envScalingHeight);
-    shaderParams.parallaxMapScalingFactor = DirectX::XMFLOAT2(parallaxScalingWidth, parallaxScalingHeight);
-    shaderParams.envMapAvailable = static_cast<BOOL>(envExists);
-    shaderParams.parallaxMapAvailable = static_cast<BOOL>(parallaxExists);
-    shaderParams.intScalingFactor = MAX_CHANNEL_VALUE;
-
-    ComPtr<ID3D11Buffer> constantBuffer;
-    pgResult = createConstantBuffer(&shaderParams, sizeof(ShaderMergeToComplexMaterialParams), constantBuffer);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-
-    // Create output texture
-    D3D11_TEXTURE2D_DESC outputTextureDesc = {};
-    if (parallaxExists) {
-        parallaxMapGPU->GetDesc(&outputTextureDesc);
-    } else {
-        envMapGPU->GetDesc(&outputTextureDesc);
-    }
-    outputTextureDesc.Width = resultWidth;
-    outputTextureDesc.Height = resultHeight;
-    outputTextureDesc.MipLevels = 0;
-    outputTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    outputTextureDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-
-    ComPtr<ID3D11Texture2D> outputTexture;
-    pgResult = createTexture2D(outputTextureDesc, outputTexture);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-    // Query the texture's description to get the actual number of mip levels
-    D3D11_TEXTURE2D_DESC createdOutputTextureDesc = {};
-    outputTexture->GetDesc(&createdOutputTextureDesc);
-    const UINT resultMips = createdOutputTextureDesc.MipLevels;
-
-    ComPtr<ID3D11UnorderedAccessView> outputUAV;
-    pgResult = createUnorderedAccessView(outputTexture, outputUAV);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-
-    // Create buffer for output
-    ShaderMergeToComplexMaterialOutputBuffer minMaxInitData
-        = { .minEnvValue = UINT_MAX, .maxEnvValue = 0, .minParallaxValue = UINT_MAX, .maxParallaxValue = 0 };
-
-    D3D11_BUFFER_DESC bufferDesc = {};
-    bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    bufferDesc.ByteWidth = sizeof(ShaderMergeToComplexMaterialOutputBuffer);
-    bufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-    bufferDesc.CPUAccessFlags = 0;
-    bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    bufferDesc.StructureByteStride = sizeof(UINT);
-
-    ComPtr<ID3D11Buffer> outputBuffer;
-    pgResult = createBuffer(&minMaxInitData, bufferDesc, outputBuffer);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-
-    // Create UAV for output buffer
-    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = 4;
-
-    ComPtr<ID3D11UnorderedAccessView> outputBufferUAV;
-    pgResult = createUnorderedAccessView(outputBuffer, uavDesc, outputBufferUAV);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-
-    // Dispatch shader
-    m_ptrContext->CSSetShader(m_shaderMergeToComplexMaterial.Get(), nullptr, 0);
-    m_ptrContext->CSSetConstantBuffers(0, 1, constantBuffer.GetAddressOf());
-    m_ptrContext->CSSetShaderResources(0, 1, envMapSRV.GetAddressOf());
-    m_ptrContext->CSSetShaderResources(1, 1, parallaxMapSRV.GetAddressOf());
-    m_ptrContext->CSSetUnorderedAccessViews(0, 1, outputUAV.GetAddressOf(), nullptr);
-    m_ptrContext->CSSetUnorderedAccessViews(1, 1, outputBufferUAV.GetAddressOf(), nullptr);
-
-    pgResult = blockingDispatch(resultWidth, resultHeight, 1);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-
-    // Clean up shader resources
-    array<ID3D11ShaderResourceView*, 2> nullSRV = { nullptr, nullptr };
-    m_ptrContext->CSSetShaderResources(0, 2, nullSRV.data());
-    array<ID3D11UnorderedAccessView*, 2> nullUAV = { nullptr, nullptr };
-    m_ptrContext->CSSetUnorderedAccessViews(0, 2, nullUAV.data(), nullptr);
-    array<ID3D11Buffer*, 1> nullBuffer = { nullptr };
-    m_ptrContext->CSSetConstantBuffers(0, 1, nullBuffer.data());
-    m_ptrContext->CSSetShader(nullptr, nullptr, 0);
-
-    // Release some objects
-    parallaxMapGPU.Reset();
-    envMapGPU.Reset();
-    parallaxMapSRV.Reset();
-    envMapSRV.Reset();
-    constantBuffer.Reset();
-
-    // Generate mips
-    D3D11_TEXTURE2D_DESC outputTextureMipsDesc = {};
-    outputTexture->GetDesc(&outputTextureMipsDesc);
-    outputTextureMipsDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    outputTextureMipsDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-    ComPtr<ID3D11Texture2D> outputTextureMips;
-    pgResult = createTexture2D(outputTextureMipsDesc, outputTextureMips);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-    ComPtr<ID3D11ShaderResourceView> outputMipsSRV;
-    pgResult = createShaderResourceView(outputTextureMips, outputMipsSRV);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
-        return {};
-    }
-
-    // Copy texture
-    m_ptrContext->CopyResource(outputTextureMips.Get(), outputTexture.Get());
-    m_ptrContext->GenerateMips(outputMipsSRV.Get());
-    m_ptrContext->CopyResource(outputTexture.Get(), outputTextureMips.Get());
-
-    // cleanup
-    outputTextureMips.Reset();
-    outputMipsSRV.Reset();
-
-    // Read back output buffer
-    auto outputBufferData = readBack<UINT>(outputBuffer);
-
-    // Read back texture (DEBUG)
-    auto outputTextureData = readBack(outputTexture);
-
-    // More cleaning
-    outputTexture.Reset();
-    outputUAV.Reset();
-    outputBuffer.Reset();
-    outputBufferUAV.Reset();
-
-    // Flush GPU to avoid leaks
-    m_ptrContext->Flush();
-
-    // Import into directx scratchimage
-    const DirectX::ScratchImage outputImage = loadRawPixelsToScratchImage(
-        outputTextureData, resultWidth, resultHeight, resultMips, DXGI_FORMAT_R8G8B8A8_UNORM);
-
-    // Compress DDS
-    // BC3 works best with heightmaps
-    DirectX::ScratchImage compressedImage;
-    const HRESULT hr = DirectX::Compress(outputImage.GetImages(), outputImage.GetImageCount(),
-        outputImage.GetMetadata(), DXGI_FORMAT_BC3_UNORM, DirectX::TEX_COMPRESS_DEFAULT, 1.0F, compressedImage);
-    if (FAILED(hr)) {
-        spdlog::debug("Failed to compress output DDS file: {}", getHRESULTErrorMessage(hr));
-        return {};
-    }
-
-    return compressedImage;
-}
-
-void ParallaxGenD3D::convertToHDR(
-    DirectX::ScratchImage* dds, bool& ddsModified, const float& luminanceMult, const DXGI_FORMAT& outputFormat)
-{
-    if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderMergeToComplexMaterial == nullptr)) {
-        throw runtime_error("GPU was not initialized");
-    }
-
-    if (dds == nullptr) {
-        throw runtime_error("DDS image is null");
-    }
-
-    const lock_guard<mutex> lock(m_gpuOperationMutex);
-
-    const DirectX::TexMetadata inputMeta = dds->GetMetadata();
-
-    // Load texture on GPU
-    ComPtr<ID3D11Texture2D> inputDDSGPU;
-    if (createTexture2D(*dds, inputDDSGPU) != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    // Create shader resource view
-    ComPtr<ID3D11ShaderResourceView> inputDDSSRV;
-    if (createShaderResourceView(inputDDSGPU, inputDDSSRV) != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    // Create constant parameter buffer
-    ShaderConvertToHDRParams shaderParams {};
-    shaderParams.luminanceMult = luminanceMult;
-
-    ComPtr<ID3D11Buffer> constantBuffer;
-    if (createConstantBuffer(&shaderParams, sizeof(ShaderConvertToHDRParams), constantBuffer)
-        != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    // Create output texture
-    D3D11_TEXTURE2D_DESC outputDDSDesc = {};
-    inputDDSGPU->GetDesc(&outputDDSDesc);
-    outputDDSDesc.Format = outputFormat;
-    outputDDSDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-
-    ComPtr<ID3D11Texture2D> outputDDSGPU;
-    if (createTexture2D(outputDDSDesc, outputDDSGPU) != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    ComPtr<ID3D11UnorderedAccessView> outputDDSUAV;
-    if (createUnorderedAccessView(outputDDSGPU, outputDDSUAV) != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    // Dispatch shader
-    m_ptrContext->CSSetShader(m_shaderConvertToHDR.Get(), nullptr, 0);
-    m_ptrContext->CSSetConstantBuffers(0, 1, constantBuffer.GetAddressOf());
-    m_ptrContext->CSSetShaderResources(0, 1, inputDDSSRV.GetAddressOf());
-    m_ptrContext->CSSetUnorderedAccessViews(0, 1, outputDDSUAV.GetAddressOf(), nullptr);
-
-    if (blockingDispatch(static_cast<UINT>(inputMeta.width), static_cast<UINT>(inputMeta.height), 1)
-        != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    // Clean up shader resources
-    array<ID3D11Buffer*, 1> nullBuffer = { nullptr };
-    m_ptrContext->CSSetConstantBuffers(0, 1, nullBuffer.data());
-    array<ID3D11ShaderResourceView*, 1> nullSRV = { nullptr };
-    m_ptrContext->CSSetShaderResources(0, 1, nullSRV.data());
-    array<ID3D11UnorderedAccessView*, 1> nullUAV = { nullptr };
-    m_ptrContext->CSSetUnorderedAccessViews(0, 1, nullUAV.data(), nullptr);
-    m_ptrContext->CSSetShader(nullptr, nullptr, 0);
-
-    // Release some objects
-    inputDDSGPU.Reset();
-    inputDDSSRV.Reset();
-    constantBuffer.Reset();
-
-    // Generate mips
-    D3D11_TEXTURE2D_DESC outputDDSMipsDesc = {};
-    outputDDSGPU->GetDesc(&outputDDSMipsDesc);
-    outputDDSMipsDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-    outputDDSMipsDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-    ComPtr<ID3D11Texture2D> outputDDSMipsGPU;
-    if (createTexture2D(outputDDSMipsDesc, outputDDSMipsGPU) != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    ComPtr<ID3D11ShaderResourceView> outputMipsSRV;
-    if (createShaderResourceView(outputDDSMipsGPU, outputMipsSRV) != ParallaxGenTask::PGResult::SUCCESS) {
-        return;
-    }
-
-    // Copy texture
-    m_ptrContext->CopyResource(outputDDSMipsGPU.Get(), outputDDSGPU.Get());
-    m_ptrContext->GenerateMips(outputMipsSRV.Get());
-    m_ptrContext->CopyResource(outputDDSGPU.Get(), outputDDSMipsGPU.Get());
-
-    // cleanup
-    outputDDSMipsGPU.Reset();
-    outputMipsSRV.Reset();
-
-    // Read back texture
-    auto outputTextureData = readBack(outputDDSGPU);
-
-    // More cleaning
-    outputDDSGPU.Reset();
-    outputDDSUAV.Reset();
-
-    // Flush GPU to avoid leaks
-    m_ptrContext->Flush();
-
-    // Import into directx scratchimage
-    *dds = loadRawPixelsToScratchImage(
-        outputTextureData, inputMeta.width, inputMeta.height, inputMeta.mipLevels, outputFormat);
-    ddsModified = true;
+    return true;
 }
 
 //
@@ -837,9 +385,12 @@ void ParallaxGenD3D::convertToHDR(
 //
 auto ParallaxGenD3D::isPowerOfTwo(unsigned int x) -> bool { return (x != 0U) && ((x & (x - 1)) == 0U); }
 
-auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPtr<ID3D11Texture2D>& dest) const
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPtr<ID3D11Texture2D>& dest) const -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     // Define error object
     HRESULT hr {};
 
@@ -847,27 +398,39 @@ auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPt
     auto textureMeta = texture.GetMetadata();
     if (!isPowerOfTwo(static_cast<unsigned int>(textureMeta.width))
         || !isPowerOfTwo(static_cast<unsigned int>(textureMeta.height))) {
-        spdlog::debug("Texture dimensions must be a power of 2: {}x{}", textureMeta.width, textureMeta.height);
-        return ParallaxGenTask::PGResult::FAILURE;
+        Logger::debug(
+            "Cannot create GPU Texture: Dimensions must be a power of 2: {}x{}", textureMeta.width, textureMeta.height);
+        return false;
     }
 
     // Create texture
     hr = DirectX::CreateTexture(m_ptrDevice.Get(), texture.GetImages(), texture.GetImageCount(), texture.GetMetadata(),
         reinterpret_cast<ID3D11Resource**>(dest.ReleaseAndGetAddressOf()));
+
     if (FAILED(hr)) {
         // Log on failure
         spdlog::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
 auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, ComPtr<ID3D11Texture2D>& dest) const
-    -> ParallaxGenTask::PGResult
+    -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     // Smart Pointer to hold texture for output
     D3D11_TEXTURE2D_DESC textureOutDesc;
     existingTexture->GetDesc(&textureOutDesc);
+    if (textureOutDesc.Width % 2 != 0 || textureOutDesc.Height % 2 != 0) {
+        Logger::debug("Cannot create GPU Texture: Dimensions must be a power of 2: {}x{}", textureOutDesc.Width,
+            textureOutDesc.Height);
+        return false;
+    }
 
     HRESULT hr {};
 
@@ -876,16 +439,19 @@ auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, C
     if (FAILED(hr)) {
         // Log on failure
         spdlog::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
     // Create texture from description
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Texture2D>& dest) const
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Texture2D>& dest) const -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     // Define error object
     HRESULT hr {};
 
@@ -894,15 +460,19 @@ auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Te
     if (FAILED(hr)) {
         // Log on failure
         spdlog::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
 auto ParallaxGenD3D::createShaderResourceView(
-    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11ShaderResourceView>& dest) const -> ParallaxGenTask::PGResult
+    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11ShaderResourceView>& dest) const -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     // Define error object
     HRESULT hr {};
 
@@ -916,15 +486,19 @@ auto ParallaxGenD3D::createShaderResourceView(
     if (FAILED(hr)) {
         // Log on failure
         spdlog::debug("Failed to create ID3D11ShaderResourceView on GPU: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
 auto ParallaxGenD3D::createUnorderedAccessView(
-    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11UnorderedAccessView>& dest) const -> ParallaxGenTask::PGResult
+    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11UnorderedAccessView>& dest) const -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     // Define error object
     HRESULT hr {};
 
@@ -938,45 +512,54 @@ auto ParallaxGenD3D::createUnorderedAccessView(
     if (FAILED(hr)) {
         // Log on failure
         spdlog::debug("Failed to create ID3D11UnorderedAccessView on GPU: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
 auto ParallaxGenD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
-    const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc, ComPtr<ID3D11UnorderedAccessView>& dest) const
-    -> ParallaxGenTask::PGResult
+    const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc, ComPtr<ID3D11UnorderedAccessView>& dest) const -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     HRESULT hr {};
 
     hr = m_ptrDevice->CreateUnorderedAccessView(gpuResource.Get(), &desc, &dest);
     if (FAILED(hr)) {
         spdlog::debug("Failed to create ID3D11UnorderedAccessView on GPU: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, ComPtr<ID3D11Buffer>& dest) const
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, ComPtr<ID3D11Buffer>& dest) const -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = data;
 
     const HRESULT hr = m_ptrDevice->CreateBuffer(&desc, &initData, dest.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         spdlog::debug("Failed to create ID3D11Buffer on GPU: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, ComPtr<ID3D11Buffer>& dest) const
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, ComPtr<ID3D11Buffer>& dest) const -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
     // Define error object
     HRESULT hr {};
 
@@ -1000,15 +583,69 @@ auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, Co
     if (FAILED(hr)) {
         // Log on failure
         spdlog::debug("Failed to create ID3D11Buffer on GPU: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::blockingDispatch(UINT threadGroupCountX, UINT threadGroupCountY, UINT threadGroupCountZ) const
-    -> ParallaxGenTask::PGResult
+void ParallaxGenD3D::copyResource(const ComPtr<ID3D11Resource>& src, const ComPtr<ID3D11Resource>& dest)
 {
+    if (m_ptrContext == nullptr) {
+        throw runtime_error("Context not initialized");
+    }
+
+    const lock_guard<mutex> lock(m_gpuOperationMutex);
+    m_ptrContext->CopyResource(dest.Get(), src.Get());
+}
+
+void ParallaxGenD3D::generateMips(const ComPtr<ID3D11ShaderResourceView>& srv)
+{
+    if (m_ptrContext == nullptr) {
+        throw runtime_error("Context not initialized");
+    }
+
+    const lock_guard<mutex> lock(m_gpuOperationMutex);
+    m_ptrContext->GenerateMips(srv.Get());
+}
+
+void ParallaxGenD3D::flushGPU()
+{
+    if (m_ptrContext == nullptr) {
+        throw runtime_error("Context not initialized");
+    }
+
+    const lock_guard<mutex> lock(m_gpuOperationMutex);
+    m_ptrContext->Flush();
+}
+
+auto ParallaxGenD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
+    const std::vector<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>>& srvs,
+    const std::vector<Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>>& uavs,
+    const std::vector<Microsoft::WRL::ComPtr<ID3D11Buffer>>& constantBuffers, UINT threadGroupCountX,
+    UINT threadGroupCountY, UINT threadGroupCountZ) -> bool
+{
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("GPU not initialized");
+    }
+
+    if (m_ptrContext == nullptr) {
+        throw runtime_error("Context not initialized");
+    }
+
+    const lock_guard<mutex> lock(m_gpuOperationMutex);
+
+    m_ptrContext->CSSetShader(shader.Get(), nullptr, 0);
+    for (UINT i = 0; i < srvs.size(); i++) {
+        m_ptrContext->CSSetShaderResources(i, 1, srvs[i].GetAddressOf());
+    }
+    for (UINT i = 0; i < uavs.size(); i++) {
+        m_ptrContext->CSSetUnorderedAccessViews(i, 1, uavs[i].GetAddressOf(), nullptr);
+    }
+    for (UINT i = 0; i < constantBuffers.size(); i++) {
+        m_ptrContext->CSSetConstantBuffers(i, 1, constantBuffers[i].GetAddressOf());
+    }
+
     // Error object
     HRESULT hr {};
 
@@ -1019,7 +656,7 @@ auto ParallaxGenD3D::blockingDispatch(UINT threadGroupCountX, UINT threadGroupCo
     hr = m_ptrDevice->CreateQuery(&queryDesc, ptrQuery.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         spdlog::debug("Failed to create query: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
     // Run the shader
@@ -1036,19 +673,38 @@ auto ParallaxGenD3D::blockingDispatch(UINT threadGroupCountX, UINT threadGroupCo
         D3D11_ASYNC_GETDATA_DONOTFLUSH); // block until complete
     if (FAILED(hr)) {
         spdlog::debug("Failed to get query data: {}", getHRESULTErrorMessage(hr));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
     ptrQuery.Reset();
 
+    // Clean up
+    static const array<ID3D11ShaderResourceView*, 1> nullSRV = { nullptr };
+    static const array<ID3D11UnorderedAccessView*, 1> nullUAV = { nullptr };
+    static const array<ID3D11Buffer*, 1> nullBuffer = { nullptr };
+
+    m_ptrContext->CSSetShader(nullptr, nullptr, 0);
+    for (UINT i = 0; i < srvs.size(); i++) {
+        m_ptrContext->CSSetShaderResources(i, 1, nullSRV.data());
+    }
+    for (UINT i = 0; i < uavs.size(); i++) {
+        m_ptrContext->CSSetUnorderedAccessViews(i, 1, nullUAV.data(), nullptr);
+    }
+    for (UINT i = 0; i < constantBuffers.size(); i++) {
+        m_ptrContext->CSSetConstantBuffers(i, 1, nullBuffer.data());
+    }
+
     // return success
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource) const -> vector<unsigned char>
+auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource, DirectX::ScratchImage& outImage) -> bool
 {
+    if (m_ptrContext == nullptr) {
+        throw runtime_error("Context not initialized");
+    }
+
     // Error object
     HRESULT hr {};
-    ParallaxGenTask::PGResult pgResult {};
 
     // Grab texture description
     D3D11_TEXTURE2D_DESC stagingTex2DDesc;
@@ -1154,50 +810,66 @@ auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource) const 
 
     // Create staging texture
     ComPtr<ID3D11Texture2D> stagingTex2D;
-    pgResult = createTexture2D(stagingTex2DDesc, stagingTex2D);
-    if (pgResult != ParallaxGenTask::PGResult::SUCCESS) {
+    if (!createTexture2D(stagingTex2DDesc, stagingTex2D)) {
         spdlog::debug("Failed to create staging texture: {}", getHRESULTErrorMessage(hr));
-        return {};
+        return false;
     }
 
     // Copy resource to staging texture
-    m_ptrContext->CopyResource(stagingTex2D.Get(), gpuResource.Get());
+    copyResource(gpuResource, stagingTex2D);
 
     std::vector<unsigned char> outputData;
 
-    // Iterate over each mip level
-    for (UINT mipLevel = 0; mipLevel < mipLevels; ++mipLevel) {
-        // Get dimensions for the current mip level
-        const UINT mipWidth = std::max(1U, stagingTex2DDesc.Width >> mipLevel);
-        const UINT mipHeight = std::max(1U, stagingTex2DDesc.Height >> mipLevel);
+    // Iterate over each mip level and read back
+    {
+        const lock_guard<mutex> lock(m_gpuOperationMutex);
 
-        // Map the mip level to the CPU
-        D3D11_MAPPED_SUBRESOURCE mappedResource;
-        hr = m_ptrContext->Map(stagingTex2D.Get(), mipLevel, D3D11_MAP_READ, 0, &mappedResource);
-        if (FAILED(hr)) {
-            spdlog::debug("[GPU] Failed to map resource to CPU during read back at mip level {}: {}", mipLevel,
-                getHRESULTErrorMessage(hr));
-            return {};
+        for (UINT mipLevel = 0; mipLevel < mipLevels; ++mipLevel) {
+            // Get dimensions for the current mip level
+            const UINT mipWidth = std::max(1U, stagingTex2DDesc.Width >> mipLevel);
+            const UINT mipHeight = std::max(1U, stagingTex2DDesc.Height >> mipLevel);
+
+            // Map the mip level to the CPU
+            D3D11_MAPPED_SUBRESOURCE mappedResource;
+            hr = m_ptrContext->Map(stagingTex2D.Get(), mipLevel, D3D11_MAP_READ, 0, &mappedResource);
+
+            if (FAILED(hr)) {
+                spdlog::debug("Failed to map resource to CPU during read back at mip level {}: {}", mipLevel,
+                    getHRESULTErrorMessage(hr));
+                return false;
+            }
+
+            // Copy the data from the mapped resource to the output vector
+            auto* srcData = reinterpret_cast<unsigned char*>(mappedResource.pData);
+            for (UINT row = 0; row < mipHeight; ++row) {
+                unsigned char* rowStart = srcData + (row * mappedResource.RowPitch);
+                outputData.insert(outputData.end(), rowStart, rowStart + (mipWidth * bytesPerPixel));
+            }
+
+            // Unmap the resource for this mip level
+            m_ptrContext->Unmap(stagingTex2D.Get(), mipLevel);
         }
-
-        // Copy the data from the mapped resource to the output vector
-        auto* srcData = reinterpret_cast<unsigned char*>(mappedResource.pData);
-        for (UINT row = 0; row < mipHeight; ++row) {
-            unsigned char* rowStart = srcData + (row * mappedResource.RowPitch);
-            outputData.insert(outputData.end(), rowStart, rowStart + (mipWidth * bytesPerPixel));
-        }
-
-        // Unmap the resource for this mip level
-        m_ptrContext->Unmap(stagingTex2D.Get(), mipLevel);
     }
 
     stagingTex2D.Reset();
 
-    return outputData;
+    // Import into directx scratchimage
+    outImage = loadRawPixelsToScratchImage(
+        outputData, stagingTex2DDesc.Width, stagingTex2DDesc.Height, mipLevels, stagingTex2DDesc.Format);
+
+    return true;
 }
 
-template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource) const -> vector<T>
+template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource, vector<T>& outData) -> bool
 {
+    if (m_ptrDevice == nullptr) {
+        throw runtime_error("Device not initialized");
+    }
+
+    if (m_ptrContext == nullptr) {
+        throw runtime_error("Context not initialized");
+    }
+
     // Error object
     HRESULT hr {};
 
@@ -1213,42 +885,47 @@ template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& 
 
     // Create the staging buffer
     ComPtr<ID3D11Buffer> stagingBuffer;
+
     hr = m_ptrDevice->CreateBuffer(&bufferDesc, nullptr, stagingBuffer.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
-        spdlog::debug("[GPU] Failed to create staging buffer: {}", getHRESULTErrorMessage(hr));
-        return std::vector<T>();
+        spdlog::debug("Failed to create staging buffer: {}", getHRESULTErrorMessage(hr));
+        return false;
     }
 
     // copy resource
-    m_ptrContext->CopyResource(stagingBuffer.Get(), gpuResource.Get());
+    copyResource(gpuResource, stagingBuffer);
 
     // map resource to CPU
-    D3D11_MAPPED_SUBRESOURCE mappedResource;
-    hr = m_ptrContext->Map(stagingBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
-    if (FAILED(hr)) {
-        spdlog::debug("[GPU] Failed to map resource to CPU during read back: {}", getHRESULTErrorMessage(hr));
-        return vector<T>();
+    {
+        const lock_guard<mutex> lock(m_gpuOperationMutex);
+
+        D3D11_MAPPED_SUBRESOURCE mappedResource;
+        hr = m_ptrContext->Map(stagingBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
+        if (FAILED(hr)) {
+            spdlog::debug("Failed to map resource to CPU during read back: {}", getHRESULTErrorMessage(hr));
+            return false;
+        }
+
+        // Access the texture data from MappedResource.pData
+        const size_t numElements = bufferDesc.ByteWidth / sizeof(T);
+        vector<T> outputData(
+            reinterpret_cast<T*>(mappedResource.pData), reinterpret_cast<T*>(mappedResource.pData) + numElements);
+        outData = std::move(outputData);
+
+        // Cleaup
+        m_ptrContext->Unmap(stagingBuffer.Get(), 0); // cleanup map
     }
-
-    // Access the texture data from MappedResource.pData
-    const size_t numElements = bufferDesc.ByteWidth / sizeof(T);
-    std::vector<T> outputData(
-        reinterpret_cast<T*>(mappedResource.pData), reinterpret_cast<T*>(mappedResource.pData) + numElements);
-
-    // Cleaup
-    m_ptrContext->Unmap(stagingBuffer.Get(), 0); // cleanup map
 
     stagingBuffer.Reset();
 
-    return outputData;
+    return true;
 }
 
 //
 // Texture Helpers
 //
 
-auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, DirectX::ScratchImage& dds) const
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, DirectX::ScratchImage& dds) const -> bool
 {
     HRESULT hr {};
 
@@ -1264,25 +941,18 @@ auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, DirectX::ScratchIma
 
         // Load DDS file
         hr = DirectX::LoadFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
-    } else {
-        spdlog::trace(L"Reading DDS file from output dir {}", ddsPath.wstring());
-        const filesystem::path fullPath = m_outputDir / ddsPath;
-
-        // Load DDS file
-        hr = DirectX::LoadFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
     }
 
     if (FAILED(hr)) {
         spdlog::debug(
             L"Failed to load DDS file from {}: {}", ddsPath.wstring(), asciitoUTF16(getHRESULTErrorMessage(hr)));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
 }
 
-auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::TexMetadata& ddsMeta)
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::TexMetadata& ddsMeta) -> bool
 {
     // Use lock_guard to make this method thread-safe
     const lock_guard<mutex> lock(m_ddsMetaDataMutex);
@@ -1291,7 +961,7 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
     // TODO set cache to something on failure
     if (m_ddsMetaDataCache.find(ddsPath) != m_ddsMetaDataCache.end()) {
         ddsMeta = m_ddsMetaDataCache[ddsPath];
-        return ParallaxGenTask::PGResult::SUCCESS;
+        return true;
     }
 
     HRESULT hr {};
@@ -1308,24 +978,121 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
 
         // Load DDS file
         hr = DirectX::GetMetadataFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, ddsMeta);
-    } else {
-        spdlog::trace(L"Reading DDS file from output dir {}", ddsPath.wstring());
-        const filesystem::path fullPath = m_outputDir / ddsPath;
-
-        // Load DDS file
-        hr = DirectX::GetMetadataFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, ddsMeta);
     }
 
     if (FAILED(hr)) {
         spdlog::debug(L"Failed to load DDS file metadata from {}: {}", ddsPath.wstring(),
             asciitoUTF16(getHRESULTErrorMessage(hr)));
-        return ParallaxGenTask::PGResult::FAILURE;
+        return false;
     }
 
     // update cache
     m_ddsMetaDataCache[ddsPath] = ddsMeta;
 
-    return ParallaxGenTask::PGResult::SUCCESS;
+    return true;
+}
+
+auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture, DirectX::ScratchImage& outTexture,
+    const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader, const DXGI_FORMAT& outFormat, const void* shaderParams,
+    const UINT& shaderParamsSize) -> bool
+{
+    if (shader == nullptr) {
+        throw runtime_error("Shader was not initialized");
+    }
+
+    if (inTexture.GetImageCount() < 1) {
+        return false;
+    }
+
+    const DirectX::TexMetadata inputMeta = inTexture.GetMetadata();
+
+    // Load texture on GPU
+    ComPtr<ID3D11Texture2D> inputDDSGPU;
+    if (!createTexture2D(inTexture, inputDDSGPU)) {
+        return false;
+    }
+
+    // Create shader resource view
+    ComPtr<ID3D11ShaderResourceView> inputDDSSRV;
+    if (!createShaderResourceView(inputDDSGPU, inputDDSSRV)) {
+        return false;
+    }
+
+    // Create constant parameter buffer
+    ComPtr<ID3D11Buffer> constantBuffer;
+    if (shaderParams != nullptr && !createConstantBuffer(shaderParams, shaderParamsSize, constantBuffer)) {
+        return false;
+    }
+
+    // Create output texture
+    D3D11_TEXTURE2D_DESC outputDDSDesc = {};
+    inputDDSGPU->GetDesc(&outputDDSDesc);
+    outputDDSDesc.Format = outFormat;
+    outputDDSDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+
+    ComPtr<ID3D11Texture2D> outputDDSGPU;
+    if (!createTexture2D(outputDDSDesc, outputDDSGPU)) {
+        return false;
+    }
+
+    ComPtr<ID3D11UnorderedAccessView> outputDDSUAV;
+    if (!createUnorderedAccessView(outputDDSGPU, outputDDSUAV)) {
+        return false;
+    }
+
+    // Dispatch shader
+    vector<ComPtr<ID3D11Buffer>> constantBuffers;
+    if (shaderParams != nullptr) {
+        constantBuffers.push_back(constantBuffer);
+    }
+
+    if (!blockingDispatch(shader, { inputDDSSRV }, { outputDDSUAV }, constantBuffers,
+            static_cast<UINT>(inputMeta.width), static_cast<UINT>(inputMeta.height), 1)) {
+        return false;
+    }
+
+    // Release some objects
+    inputDDSGPU.Reset();
+    inputDDSSRV.Reset();
+    constantBuffer.Reset();
+
+    // Generate mips
+    D3D11_TEXTURE2D_DESC outputDDSMipsDesc = {};
+    outputDDSGPU->GetDesc(&outputDDSMipsDesc);
+    outputDDSMipsDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    outputDDSMipsDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+    ComPtr<ID3D11Texture2D> outputDDSMipsGPU;
+    if (!createTexture2D(outputDDSMipsDesc, outputDDSMipsGPU)) {
+        return false;
+    }
+
+    ComPtr<ID3D11ShaderResourceView> outputMipsSRV;
+    if (!createShaderResourceView(outputDDSMipsGPU, outputMipsSRV)) {
+        return false;
+    }
+
+    // Copy texture
+    copyResource(outputDDSGPU.Get(), outputDDSMipsGPU.Get());
+    generateMips(outputMipsSRV.Get());
+    copyResource(outputDDSMipsGPU.Get(), outputDDSGPU.Get());
+
+    // cleanup
+    outputDDSMipsGPU.Reset();
+    outputMipsSRV.Reset();
+
+    // Read back texture
+    if (!readBack(outputDDSGPU, outTexture)) {
+        return false;
+    }
+
+    // More cleaning
+    outputDDSGPU.Reset();
+    outputDDSUAV.Reset();
+
+    // Flush GPU to avoid leaks
+    flushGPU();
+
+    return true;
 }
 
 auto ParallaxGenD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& rawPixels, const size_t& width,

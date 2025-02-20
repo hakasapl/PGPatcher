@@ -219,6 +219,9 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("optimizemeshes")) {
             paramJ["postpatcher"]["optimizemeshes"].get_to<bool>(m_params.PostPatcher.optimizeMeshes);
         }
+        if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("fixsss")) {
+            paramJ["postpatcher"]["fixsss"].get_to<bool>(m_params.PostPatcher.fixSSS);
+        }
 
         // "meshrules"
         if (paramJ.contains("meshrules") && paramJ["meshrules"].contains("allowlist")) {
@@ -486,6 +489,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
 
     // "postpatcher"
     j["params"]["postpatcher"]["optimizemeshes"] = m_params.PostPatcher.optimizeMeshes;
+    j["params"]["postpatcher"]["fixsss"] = m_params.PostPatcher.fixSSS;
 
     // "meshrules"
     j["params"]["meshrules"]["allowlist"] = utf16VectorToUTF8(m_params.MeshRules.allowList);

@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "patchers/base/PatcherMeshGlobal.hpp"
+#include "patchers/base/PatcherMeshPost.hpp"
 #include "patchers/base/PatcherMeshPre.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
@@ -29,6 +30,7 @@ public:
         std::unordered_map<NIFUtil::ShapeShader,
             std::map<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformObject>>
             shaderTransformPatchers;
+        std::vector<PatcherMeshPost::PatcherMeshPostObject> postPatchers;
     };
 
     /**
@@ -42,6 +44,7 @@ public:
         std::unordered_map<NIFUtil::ShapeShader,
             std::map<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory>>
             shaderTransformPatchers;
+        std::vector<PatcherMeshPost::PatcherMeshPostFactory> postPatchers;
     };
 
     struct PatcherTextureObjectSet {
