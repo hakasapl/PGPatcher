@@ -19,7 +19,7 @@ void main(uint3 id : SV_DispatchThreadID)
     // Read input color
     float3 color = origPixel.rgb;
 
-    float3 albedo = pow(max(0, color), fAlbedoSatPower * length(color));
+    float3 albedo = pow(max(0.001, color), fAlbedoSatPower * length(color));  // length(color) suppress saturation of darker colors
     albedo = saturate(lerp(albedo, normalize(albedo), fAlbedoNorm));
 
     // Write final output
