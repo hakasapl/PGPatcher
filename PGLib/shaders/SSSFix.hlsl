@@ -18,15 +18,9 @@ void main(uint3 id : SV_DispatchThreadID)
 
     // Read input color
     float3 color = origPixel.rgb;
-    // Get brightness
-    float brightness = length(color);
-    // Raise the color to a power that depends on brightness, clamping negative values
-    float3 poweredColor = pow(max(0, color), fAlbedoSatPower * brightness);
-    // Normalize the powered color
-    float3 normalizedColor = normalize(poweredColor);
-    // Find albedo
-    float3 albedo = lerp(poweredColor, normalizedColor, fAlbedoNorm);
-    albedo = saturate(albedo);
+
+    float3 albedo = pow(max(0, color), fAlbedoSatPower * length(color));
+    albedo = saturate(lerp(albedo, normalize(albedo), fAlbedoNorm));
 
     // Write final output
     Output[id.xy] = float4(albedo, origPixel.a);
