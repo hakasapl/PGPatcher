@@ -1,3 +1,10 @@
+set(EXE_NAME "pgtools")
+configure_file(
+    ${CMAKE_SOURCE_DIR}/resources/meta.rc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/resources/meta.rc
+    @ONLY
+)
+
 # Add Files
 set (HEADERS
 )
@@ -7,7 +14,11 @@ set(SOURCES
 )
 
 include_directories("include")
-add_executable(pgtools ${SOURCES} ${HEADERS})
+add_executable(pgtools
+    ${SOURCES}
+    ${HEADERS}
+    ${CMAKE_CURRENT_BINARY_DIR}/resources/meta.rc
+)
 
 # Packages
 find_package(CLI11 REQUIRED CONFIG)

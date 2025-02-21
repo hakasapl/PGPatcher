@@ -10,6 +10,7 @@
 - Added default fields support for PBR jsons
 - Added "vertex_color_lum_mult" to PBR jsons
 - Added critical error for modlist.txt from MO2 being empty
+- Added metadata to exe (properties > details in windows)
 
 ## [0.8.9] - 2025-02-10
 

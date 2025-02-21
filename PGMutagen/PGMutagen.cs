@@ -919,7 +919,7 @@ public class PGMutagen
             }
             catch (Exception ex)
             {
-                MessageHandler.Log("Failed to get TXST slots for record {} / {}", 3, txstObj.FormKey.ToString(), ex.Message);
+                MessageHandler.Log("Failed to get TXST slots for record " + GetRecordDesc(txstObj), 3);
                 for (int i = 0; i < 9; i++)
                 {
                     slotsArray[i] = IntPtr.Zero;
