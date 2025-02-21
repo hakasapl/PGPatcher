@@ -1,6 +1,8 @@
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 
+#include <Geometry.hpp>
 #include <Shaders.hpp>
+#include <VertexData.hpp>
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -9,6 +11,10 @@
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
+
+#include <boost/gil.hpp>
+#include <boost/gil/extension/toolbox/color_converters.hpp>
+#include <boost/gil/extension/toolbox/color_spaces/hsl.hpp>
 
 #include "Logger.hpp"
 #include "NIFUtil.hpp"
@@ -70,8 +76,33 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
 
         try {
             nlohmann::json j = nlohmann::json::parse(configFileStr);
+            nlohmann::json jDefaults;
+            nlohmann::json jEntries;
+
+            // check if j is a json object
+            if (j.is_object()) {
+                if (!j.contains("default") || !j.contains("entries")) {
+                    Logger::error(L"TruePBR Config {} is an object without \"default\" and \"entries\", ignoring",
+                        config.wstring());
+                    continue;
+                }
+
+                jDefaults = j["default"];
+                jEntries = j["entries"];
+            } else {
+                jDefaults = nlohmann::json::object();
+                jEntries = j;
+            }
+
             // loop through each Element
-            for (auto& element : j) {
+            for (auto& element : jEntries) {
+                // merge defaults with element
+                for (const auto& [key, value] : jDefaults.items()) {
+                    if (!element.contains(key)) {
+                        element[key] = value;
+                    }
+                }
+
                 // Preprocessing steps here
                 if (element.contains("texture")) {
                     element["match_diffuse"] = element["texture"];
@@ -684,6 +715,35 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
         if (nifShader->HasVertexColors() != newVertexColors) {
             nifShader->SetVertexColors(newVertexColors);
             changed = true;
+        }
+    }
+
+    // "vertex_color_lum_mult" attribute
+    if (truePBRData.contains("vertex_color_lum_mult") && nifShape->HasVertexColors()) {
+        const auto newVertexColorMult = truePBRData["vertex_color_lum_mult"].get<float>();
+
+        vector<BSVertexData>* vertData = nullptr;
+        if (dynamic_cast<nifly::BSTriShape*>(nifShape) != nullptr) {
+            vertData = &dynamic_cast<nifly::BSTriShape*>(nifShape)->vertData;
+        } else if (dynamic_cast<nifly::BSMeshLODTriShape*>(nifShape) != nullptr) {
+            vertData = &dynamic_cast<nifly::BSMeshLODTriShape*>(nifShape)->vertData;
+        }
+
+        if (vertData != nullptr) {
+            for (auto& vert : *vertData) {
+                // Convert to HSL and multiply luminance then convert back
+                boost::gil::rgb8_pixel_t vertRGB(vert.colorData[0], vert.colorData[1], vert.colorData[2]);
+                boost::gil::hsl32f_pixel_t vertHSL;
+                boost::gil::color_convert(vertRGB, vertHSL);
+
+                const auto newLVal = clamp(vertHSL[2] * newVertexColorMult, 0.0F, 1.0F);
+                vertHSL[2] = newLVal;
+                boost::gil::color_convert(vertHSL, vertRGB);
+
+                vert.colorData[0] = vertRGB[0];
+                vert.colorData[1] = vertRGB[1];
+                vert.colorData[2] = vertRGB[2];
+            }
         }
     }
 

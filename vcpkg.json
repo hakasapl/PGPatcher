@@ -24,6 +24,7 @@
       "name": "cli11",
       "version>=": "2.4.2"
     },
+    "cpptrace",
     {
       "name": "directxtex",
       "features": [
@@ -69,6 +70,6 @@
       "name": "wxwidgets",
       "version>=": "3.2.5#3"
     },
-    "cpptrace"
+    "boost-gil"
   ]
 }
