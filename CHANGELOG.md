@@ -9,6 +9,7 @@
 - Upgraded CM maps will no longer have red channel as this often is mismatched
 - Added default fields support for PBR jsons
 - Added "vertex_color_lum_mult" to PBR jsons
+- Added critical error for modlist.txt from MO2 being empty
 
 ## [0.8.9] - 2025-02-10
 
