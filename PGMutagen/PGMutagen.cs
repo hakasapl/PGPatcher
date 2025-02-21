@@ -202,11 +202,18 @@ public class PGMutagen
                 loadOrderList.Add(Marshal.PtrToStringUni(loadOrder[i]) ?? string.Empty);
             }
 
-            Env = GameEnvironment.Typical.Builder<ISkyrimMod, ISkyrimModGetter>((GameRelease)GameType)
-              .WithTargetDataFolder(dataPath)
-              .WithLoadOrder(loadOrderList.ToArray())
-              .WithOutputMod(OutMod)
-              .Build();
+            try
+            {
+                Env = GameEnvironment.Typical.Builder<ISkyrimMod, ISkyrimModGetter>((GameRelease)GameType)
+                    .WithTargetDataFolder(dataPath)
+                    .WithLoadOrder(loadOrderList.ToArray())
+                    .WithOutputMod(OutMod)
+                    .Build();
+            }
+            catch (Exception ex)
+            {
+                MessageHandler.Log("Failed to build plugin environment. This is usually due to a bad plugin in your load order. Message: " + ex.Message, 5);
+            }
         }
         catch (Exception ex)
         {
