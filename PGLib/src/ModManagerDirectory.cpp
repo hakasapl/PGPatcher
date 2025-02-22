@@ -104,6 +104,7 @@ void ModManagerDirectory::populateModFileMapMO2(
     }
 
     ifstream modListFileF(modListFile);
+    bool foundOneMod = false;
 
     // loop through modlist.txt
     string modStr;
@@ -146,6 +147,8 @@ void ModManagerDirectory::populateModFileMapMO2(
             exit(1);
         }
 
+        foundOneMod = true;
+
         m_allMods.insert(mod);
         m_inferredOrder.insert(m_inferredOrder.begin(), mod);
 
@@ -181,6 +184,11 @@ void ModManagerDirectory::populateModFileMapMO2(
             spdlog::error(
                 L"Error reading mod directory {} (skipping): {}", mod, ParallaxGenUtil::asciitoUTF16(e.what()));
         }
+    }
+
+    if (!foundOneMod) {
+        spdlog::critical(L"MO2 modlist.txt was empty, no mods found");
+        exit(1);
     }
 
     modListFileF.close();

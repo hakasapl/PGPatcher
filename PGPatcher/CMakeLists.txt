@@ -1,3 +1,11 @@
+# Configure resource templates
+set(EXE_NAME "PGPatcher")
+configure_file(
+    ${CMAKE_SOURCE_DIR}/resources/meta.rc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/resources/meta.rc
+    @ONLY
+)
+
 # Add Files
 set (HEADERS
     "include/ParallaxGenConfig.hpp"
@@ -16,7 +24,12 @@ set(SOURCES
 )
 
 include_directories("include")
-add_executable(PGPatcher ${SOURCES} ${HEADERS} icon.rc)
+add_executable(PGPatcher
+    ${SOURCES}
+    ${HEADERS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.rc
+    ${CMAKE_CURRENT_BINARY_DIR}/resources/meta.rc
+)
 
 # Packages
 find_package(CLI11 REQUIRED CONFIG)

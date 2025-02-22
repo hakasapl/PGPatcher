@@ -1,0 +1,28 @@
+#include <windows.h>
+
+1 VERSIONINFO
+ FILEVERSION @PG_VERSION_MAJOR@,@PG_VERSION_MINOR@,@PG_VERSION_PATCH@,@PG_VERSION_TEST@
+ PRODUCTVERSION @PG_VERSION_MAJOR@,@PG_VERSION_MINOR@,@PG_VERSION_PATCH@,@PG_VERSION_TEST@
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+{
+    BLOCK "StringFileInfo"
+    {
+        BLOCK "040904B0"
+        {
+            VALUE "FileDescription",  "@EXE_NAME@\0"
+            VALUE "FileVersion",      "@PG_VERSION_MAJOR@.@PG_VERSION_MINOR@.@PG_VERSION_PATCH@.@PG_VERSION_TEST@\0"
+            VALUE "InternalName",     "@EXE_NAME@\0"
+            VALUE "OriginalFilename", "@EXE_NAME@.exe\0"
+            VALUE "ProductName",      "@EXE_NAME@\0"
+            VALUE "ProductVersion",   "@PG_VERSION_MAJOR@.@PG_VERSION_MINOR@.@PG_VERSION_PATCH@.@PG_VERSION_TEST@\0"
+        }
+    }
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", 0x0409, 1200
+    }
+}

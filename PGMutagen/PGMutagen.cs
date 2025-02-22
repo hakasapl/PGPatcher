@@ -202,11 +202,18 @@ public class PGMutagen
                 loadOrderList.Add(Marshal.PtrToStringUni(loadOrder[i]) ?? string.Empty);
             }
 
-            Env = GameEnvironment.Typical.Builder<ISkyrimMod, ISkyrimModGetter>((GameRelease)GameType)
-              .WithTargetDataFolder(dataPath)
-              .WithLoadOrder(loadOrderList.ToArray())
-              .WithOutputMod(OutMod)
-              .Build();
+            try
+            {
+                Env = GameEnvironment.Typical.Builder<ISkyrimMod, ISkyrimModGetter>((GameRelease)GameType)
+                    .WithTargetDataFolder(dataPath)
+                    .WithLoadOrder(loadOrderList.ToArray())
+                    .WithOutputMod(OutMod)
+                    .Build();
+            }
+            catch (Exception ex)
+            {
+                MessageHandler.Log("Failed to build plugin environment. This is usually due to a bad plugin in your load order. Message: " + ex.Message, 5);
+            }
         }
         catch (Exception ex)
         {
@@ -865,55 +872,66 @@ public class PGMutagen
             var txstObj = TXSTObjs[txstIndex];
 
             // Populate the slotsArray with string pointers
-            if (!txstObj.Diffuse.IsNullOrEmpty())
+            try
             {
-                var Diffuse = AddPrefixIfNotExists("textures\\", txstObj.Diffuse).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Diffuse: " + Diffuse, 0);
-                slotsArray[0] = Marshal.StringToHGlobalUni(Diffuse);
+                if (!txstObj.Diffuse.IsNullOrEmpty())
+                {
+                    var Diffuse = AddPrefixIfNotExists("textures\\", txstObj.Diffuse).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Diffuse: " + Diffuse, 0);
+                    slotsArray[0] = Marshal.StringToHGlobalUni(Diffuse);
+                }
+                if (!txstObj.NormalOrGloss.IsNullOrEmpty())
+                {
+                    var NormalOrGloss = AddPrefixIfNotExists("textures\\", txstObj.NormalOrGloss).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] NormalOrGloss: " + NormalOrGloss, 0);
+                    slotsArray[1] = Marshal.StringToHGlobalUni(NormalOrGloss);
+                }
+                if (!txstObj.GlowOrDetailMap.IsNullOrEmpty())
+                {
+                    var GlowOrDetailMap = AddPrefixIfNotExists("textures\\", txstObj.GlowOrDetailMap).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] GlowOrDetailMap: " + GlowOrDetailMap, 0);
+                    slotsArray[2] = Marshal.StringToHGlobalUni(GlowOrDetailMap);
+                }
+                if (!txstObj.Height.IsNullOrEmpty())
+                {
+                    var Height = AddPrefixIfNotExists("textures\\", txstObj.Height).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Height: " + Height, 0);
+                    slotsArray[3] = Marshal.StringToHGlobalUni(Height);
+                }
+                if (!txstObj.Environment.IsNullOrEmpty())
+                {
+                    var Environment = AddPrefixIfNotExists("textures\\", txstObj.Environment).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Environment: " + Environment, 0);
+                    slotsArray[4] = Marshal.StringToHGlobalUni(Environment);
+                }
+                if (!txstObj.EnvironmentMaskOrSubsurfaceTint.IsNullOrEmpty())
+                {
+                    var EnvironmentMaskOrSubsurfaceTint = AddPrefixIfNotExists("textures\\", txstObj.EnvironmentMaskOrSubsurfaceTint).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] EnvironmentMaskOrSubsurfaceTint: " + EnvironmentMaskOrSubsurfaceTint, 0);
+                    slotsArray[5] = Marshal.StringToHGlobalUni(EnvironmentMaskOrSubsurfaceTint);
+                }
+                if (!txstObj.Multilayer.IsNullOrEmpty())
+                {
+                    var Multilayer = AddPrefixIfNotExists("textures\\", txstObj.Multilayer).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Multilayer: " + Multilayer, 0);
+                    slotsArray[6] = Marshal.StringToHGlobalUni(Multilayer);
+                }
+                if (!txstObj.BacklightMaskOrSpecular.IsNullOrEmpty())
+                {
+                    var BacklightMaskOrSpecular = AddPrefixIfNotExists("textures\\", txstObj.BacklightMaskOrSpecular).ToLower();
+                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] BacklightMaskOrSpecular: " + BacklightMaskOrSpecular, 0);
+                    slotsArray[7] = Marshal.StringToHGlobalUni(BacklightMaskOrSpecular);
+                }
+                slotsArray[8] = IntPtr.Zero;
             }
-            if (!txstObj.NormalOrGloss.IsNullOrEmpty())
+            catch (Exception ex)
             {
-                var NormalOrGloss = AddPrefixIfNotExists("textures\\", txstObj.NormalOrGloss).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] NormalOrGloss: " + NormalOrGloss, 0);
-                slotsArray[1] = Marshal.StringToHGlobalUni(NormalOrGloss);
+                MessageHandler.Log("Failed to get TXST slots for record " + GetRecordDesc(txstObj), 3);
+                for (int i = 0; i < 9; i++)
+                {
+                    slotsArray[i] = IntPtr.Zero;
+                }
             }
-            if (!txstObj.GlowOrDetailMap.IsNullOrEmpty())
-            {
-                var GlowOrDetailMap = AddPrefixIfNotExists("textures\\", txstObj.GlowOrDetailMap).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] GlowOrDetailMap: " + GlowOrDetailMap, 0);
-                slotsArray[2] = Marshal.StringToHGlobalUni(GlowOrDetailMap);
-            }
-            if (!txstObj.Height.IsNullOrEmpty())
-            {
-                var Height = AddPrefixIfNotExists("textures\\", txstObj.Height).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Height: " + Height, 0);
-                slotsArray[3] = Marshal.StringToHGlobalUni(Height);
-            }
-            if (!txstObj.Environment.IsNullOrEmpty())
-            {
-                var Environment = AddPrefixIfNotExists("textures\\", txstObj.Environment).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Environment: " + Environment, 0);
-                slotsArray[4] = Marshal.StringToHGlobalUni(Environment);
-            }
-            if (!txstObj.EnvironmentMaskOrSubsurfaceTint.IsNullOrEmpty())
-            {
-                var EnvironmentMaskOrSubsurfaceTint = AddPrefixIfNotExists("textures\\", txstObj.EnvironmentMaskOrSubsurfaceTint).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] EnvironmentMaskOrSubsurfaceTint: " + EnvironmentMaskOrSubsurfaceTint, 0);
-                slotsArray[5] = Marshal.StringToHGlobalUni(EnvironmentMaskOrSubsurfaceTint);
-            }
-            if (!txstObj.Multilayer.IsNullOrEmpty())
-            {
-                var Multilayer = AddPrefixIfNotExists("textures\\", txstObj.Multilayer).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Multilayer: " + Multilayer, 0);
-                slotsArray[6] = Marshal.StringToHGlobalUni(Multilayer);
-            }
-            if (!txstObj.BacklightMaskOrSpecular.IsNullOrEmpty())
-            {
-                var BacklightMaskOrSpecular = AddPrefixIfNotExists("textures\\", txstObj.BacklightMaskOrSpecular).ToLower();
-                MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] BacklightMaskOrSpecular: " + BacklightMaskOrSpecular, 0);
-                slotsArray[7] = Marshal.StringToHGlobalUni(BacklightMaskOrSpecular);
-            }
-            slotsArray[8] = IntPtr.Zero;
         }
         catch (Exception ex)
         {

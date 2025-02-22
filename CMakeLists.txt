@@ -22,12 +22,17 @@ add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 set(PROJECT_NAME "PGPatcher")
 
 # Initialize Project
-set(PG_VERSION 0.8.10)
+set(PG_VERSION_MAJOR 0)
+set(PG_VERSION_MINOR 8)
+set(PG_VERSION_PATCH 10)
+set(PG_VERSION_TEST 2)
+
+set(PG_VERSION "${PG_VERSION_MAJOR}.${PG_VERSION_MINOR}.${PG_VERSION_PATCH}.${PG_VERSION_TEST}")
 project(${PROJECT_NAME} VERSION ${PG_VERSION})
 add_compile_definitions(PG_VERSION="${PG_VERSION}")
 
 # Set test version (set this to 0 for prod releases)
-add_compile_definitions(PG_TEST_VERSION=1)
+add_compile_definitions(PG_TEST_VERSION=${PG_VERSION_TEST})
 
 # Setup Folders
 set(EXTRN_BUILD_DIR ${CMAKE_BINARY_DIR}/external/blds)
