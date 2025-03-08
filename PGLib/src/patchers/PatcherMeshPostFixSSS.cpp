@@ -34,7 +34,7 @@ auto PatcherMeshPostFixSSS::applyPatch(nifly::NiShape& nifShape) -> bool
     const auto diffuseMap = NIFUtil::getTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::DIFFUSE);
     const auto glowMap = NIFUtil::getTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW);
 
-    if (!boost::iequals(diffuseMap, glowMap) && !glowMap.empty()) {
+    if (!boost::iequals(diffuseMap, glowMap)) {
         return false;
     }
 
