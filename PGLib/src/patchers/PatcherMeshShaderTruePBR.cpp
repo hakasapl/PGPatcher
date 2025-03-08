@@ -758,6 +758,12 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
         }
     }
 
+    // "zbuffer_write" attribute
+    if (truePBRData.contains("zbuffer_write")) {
+        auto newZBufferWrite = truePBRData["zbuffer_write"].get<bool>();
+        changed |= NIFUtil::configureShaderFlag(nifShaderBSLSP, SLSF2_ZBUFFER_WRITE, newZBufferWrite);
+    }
+
     // "specular_level" attribute
     if (truePBRData.contains("specular_level")) {
         auto newSpecularLevel = truePBRData["specular_level"].get<float>();
