@@ -1,0 +1,3 @@
+Diagnostics:
+  ClangTidy:
+    FastCheckFilter: None
