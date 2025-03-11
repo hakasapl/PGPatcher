@@ -211,8 +211,8 @@ void ParallaxGenPlugin::libCreateTXSTPatch(const int& txstIndex, const array<wst
     libThrowExceptionIfExists();
 }
 
-auto ParallaxGenPlugin::libCreateNewTXSTPatch(
-    const int& altTexIndex, const array<wstring, NUM_TEXTURE_SLOTS>& slots, const string& newEDID) -> int
+auto ParallaxGenPlugin::libCreateNewTXSTPatch(const int& altTexIndex, const array<wstring, NUM_TEXTURE_SLOTS>& slots,
+    const string& newEDID, const unsigned int& newFormID) -> int
 {
     const lock_guard<mutex> lock(s_libMutex);
 
@@ -224,7 +224,7 @@ auto ParallaxGenPlugin::libCreateNewTXSTPatch(
 
     // Call the CreateNewTXSTPatch function with AltTexIndex and the array of wide string pointers
     int newTXSTId = 0;
-    CreateNewTXSTPatch(altTexIndex, slotsArray.data(), newEDID.c_str(), &newTXSTId);
+    CreateNewTXSTPatch(altTexIndex, slotsArray.data(), newEDID.c_str(), newFormID, &newTXSTId);
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 
@@ -367,6 +367,10 @@ void ParallaxGenPlugin::libSetModelRecNIF(const int& modelRecHandle, const wstri
 }
 
 // Statics
+unordered_map<int, unsigned int> ParallaxGenPlugin::s_txstFormIDs;
+unordered_set<unsigned int> ParallaxGenPlugin::s_txstResrvedFormIDs;
+unsigned int ParallaxGenPlugin::s_curTXSTFormID = 0;
+
 mutex ParallaxGenPlugin::s_createdTXSTMutex;
 unordered_map<array<wstring, NUM_TEXTURE_SLOTS>, pair<int, string>, ParallaxGenPlugin::ArrayHash,
     ParallaxGenPlugin::ArrayEqual>
@@ -400,6 +404,28 @@ void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::p
 
     libInitialize(
         mutagenGameTypeMap.at(game.getGameType()), exePath, game.getGameDataPath().wstring(), game.getActivePlugins());
+}
+
+void ParallaxGenPlugin::loadTXSTCache(const nlohmann::json& txstCache)
+{
+    // loop through json objects
+    for (const auto& [key, value] : txstCache.items()) {
+        // convert key to array
+        s_txstFormIDs[stoi(key)] = value.get<unsigned int>();
+        s_txstResrvedFormIDs.insert(value.get<unsigned int>());
+    }
+}
+
+auto ParallaxGenPlugin::getTXSTCache() -> nlohmann::json
+{
+    nlohmann::json txstCache;
+
+    // loop through map
+    for (const auto& [key, value] : s_txstFormIDs) {
+        txstCache[to_string(key)] = value;
+    }
+
+    return txstCache;
 }
 
 void ParallaxGenPlugin::populateObjs() { libPopulateObjs(); }
@@ -605,7 +631,22 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
             // Create a new TXST record
             spdlog::trace(L"Plugin Patching | {} | {} | Creating a new TXST record and patching", nifPath, index3D);
             const string newEDID = fmt::format("PGTXST{:05d}", s_edidCounter++);
-            curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID);
+
+            // check if original TXST id exists in reserved IDs
+            if (s_txstFormIDs.contains(txstIndex)) {
+                // use old formid for new record
+                curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, s_txstFormIDs[txstIndex]);
+            } else {
+                // find next available formid
+                unsigned int newFormID = ++s_curTXSTFormID;
+                while (s_txstResrvedFormIDs.contains(newFormID)) {
+                    ++newFormID;
+                }
+
+                curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
+                s_txstFormIDs[txstIndex] = newFormID;
+            }
+
             patchers.shaderPatchers.at(winningShaderMatch.shader)
                 ->processNewTXSTRecord(winningShaderMatch.match, newEDID);
             s_createdTXSTs[newSlots] = { curResult.txstIndex, newEDID };

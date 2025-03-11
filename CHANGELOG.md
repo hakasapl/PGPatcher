@@ -9,8 +9,13 @@
 - Upgraded CM maps will no longer have red channel as this often is mismatched
 - Added default fields support for PBR jsons
 - Added "vertex_color_lum_mult" to PBR jsons
+- Added "vertex_color_sat_mult" to PBR jsons
 - Added critical error for modlist.txt from MO2 being empty
 - Added metadata to exe (properties > details in windows)
+- Fixed .dds case check for texture hook patchers
+- Added "zbuffer_write" option for PBR jsons
+- Fix load order not checking case which results in duplicate modkeys when installing CC mods manually
+- Added caching for TXST form ids to ensure persistency (is that a word?) between runs
 
 ## [0.8.9] - 2025-02-10
 

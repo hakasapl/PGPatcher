@@ -6,6 +6,7 @@
 #include <mutex>
 #include <nlohmann/json_fwd.hpp>
 #include <unordered_map>
+#include <vector>
 #include <windows.h>
 
 #include <boost/functional/hash.hpp>
@@ -43,7 +44,7 @@ private:
     static void libCreateTXSTPatch(const int& txstIndex, const std::array<std::wstring, NUM_TEXTURE_SLOTS>& slots);
 
     static auto libCreateNewTXSTPatch(const int& altTexIndex, const std::array<std::wstring, NUM_TEXTURE_SLOTS>& slots,
-        const std::string& newEDID) -> int;
+        const std::string& newEDID, const unsigned int& newFormID) -> int;
 
     /// @brief assign texture set to an "alternate texture", i.e. the "new texture" entry
     /// @param[in] altTexIndex global index of the alternate texture
@@ -104,6 +105,10 @@ private:
             return true;
         }
     };
+
+    static std::unordered_map<int, unsigned int> s_txstFormIDs;
+    static std::unordered_set<unsigned int> s_txstResrvedFormIDs;
+    static unsigned int s_curTXSTFormID;
     static std::unordered_map<std::array<std::wstring, NUM_TEXTURE_SLOTS>, std::pair<int, std::string>, ArrayHash,
         ArrayEqual>
         s_createdTXSTs;
@@ -122,6 +127,9 @@ public:
     static void initialize(const BethesdaGame& game, const std::filesystem::path& exePath);
 
     static void populateObjs();
+
+    static void loadTXSTCache(const nlohmann::json& txstCache);
+    static auto getTXSTCache() -> nlohmann::json;
 
     struct TXSTResult {
         std::wstring matchedNIF;
