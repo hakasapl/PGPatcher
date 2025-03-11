@@ -40,7 +40,7 @@ One of the main goals for PG is to allow texture artists to worry about just tha
 A special thanks to:
 
 [list]
-[*]In no particular order the amazing folks on the community shaders discord who answer all my questions (not limited to this list): [url=https://next.nexusmods.com/profile/leostevano/about-me]Leostevano[/url], [url=https://next.nexusmods.com/profile/Tomatokillz/about-me?gameId=1704]Tomato[/url], [url=https://next.nexusmods.com/profile/Faultierfan/about-me]Faultier[/url], [url=https://next.nexusmods.com/profile/RealExist/about-me]RealExist[/url]
+[*]In no particular order the amazing folks on the community shaders discord who answer all my questions (not limited to this list): [url=https://next.nexusmods.com/profile/leostevano/about-me]Leostevano[/url], [url=https://next.nexusmods.com/profile/Faultierfan/about-me]Faultier[/url], [url=https://next.nexusmods.com/profile/RealExist/about-me]RealExist[/url]
 [*][url=https://www.nexusmods.com/skyrimspecialedition/users/1366316]Spongeman131[/url] for their SSEedit script [url=https://www.nexusmods.com/skyrimspecialedition/mods/33846]NIF Batch Processing Script[/url], which was instrumental on figuring out how to modify meshes to enable parallax
 [*][url=https://www.nexusmods.com/skyrimspecialedition/users/930789]Kulharin[/url] for their SSEedit script [url=https://www.nexusmods.com/skyrimspecialedition/mods/96777/?tab=files]itAddsComplexMaterialParallax[/url], which served the same purpose for figuring out how to modify meshes to enable complex material
 [/list]

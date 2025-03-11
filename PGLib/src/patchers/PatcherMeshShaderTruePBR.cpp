@@ -718,10 +718,9 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
         }
     }
 
-    // "vertex_color_lum_mult" attribute
-    if (truePBRData.contains("vertex_color_lum_mult") && nifShape->HasVertexColors()) {
-        const auto newVertexColorMult = truePBRData["vertex_color_lum_mult"].get<float>();
-
+    // "vertex_color_lum_mult" and "vertex_color_sat_mult" attribute
+    if (nifShape->HasVertexColors()
+        && (truePBRData.contains("vertex_color_lum_mult") || truePBRData.contains("vertex_color_sat_mult"))) {
         vector<BSVertexData>* vertData = nullptr;
         if (dynamic_cast<nifly::BSTriShape*>(nifShape) != nullptr) {
             vertData = &dynamic_cast<nifly::BSTriShape*>(nifShape)->vertData;
@@ -736,8 +735,20 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
                 boost::gil::hsl32f_pixel_t vertHSL;
                 boost::gil::color_convert(vertRGB, vertHSL);
 
-                const auto newLVal = clamp(vertHSL[2] * newVertexColorMult, 0.0F, 1.0F);
-                vertHSL[2] = newLVal;
+                float newLVal = vertHSL[2];
+                if (truePBRData.contains("vertex_color_lum_mult")) {
+                    const auto newVertexColorMult = truePBRData["vertex_color_lum_mult"].get<float>();
+                    newLVal = 1 - (1 - vertHSL[2]) * newVertexColorMult;
+                }
+
+                float newSVal = vertHSL[1];
+                if (truePBRData.contains("vertex_color_sat_mult")) {
+                    const auto newVertexColorMult = truePBRData["vertex_color_sat_mult"].get<float>();
+                    newSVal = vertHSL[1] * newVertexColorMult;
+                }
+
+                vertHSL[1] = clamp(newSVal, 0.0F, 1.0F);
+                vertHSL[2] = clamp(newLVal, 0.0F, 1.0F);
                 boost::gil::color_convert(vertHSL, vertRGB);
 
                 vert.colorData[0] = vertRGB[0];
@@ -745,6 +756,12 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
                 vert.colorData[2] = vertRGB[2];
             }
         }
+    }
+
+    // "zbuffer_write" attribute
+    if (truePBRData.contains("zbuffer_write")) {
+        auto newZBufferWrite = truePBRData["zbuffer_write"].get<bool>();
+        changed |= NIFUtil::configureShaderFlag(nifShaderBSLSP, SLSF2_ZBUFFER_WRITE, newZBufferWrite);
     }
 
     // "specular_level" attribute

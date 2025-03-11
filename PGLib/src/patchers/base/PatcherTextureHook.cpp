@@ -10,7 +10,7 @@ PatcherTextureHook::PatcherTextureHook(std::filesystem::path texPath, std::strin
 {
     // only allow DDS files
     const string ddsFileExt = getDDSPath().extension().string();
-    if (ddsFileExt != ".dds") {
+    if (!boost::iequals(ddsFileExt, ".dds")) {
         throw runtime_error("File is not a DDS file");
     }
 

@@ -344,8 +344,11 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
                 }
 
                 // check if already exists in outputLO
-                if (std::ranges::find(outputLO, ParallaxGenUtil::utf8toUTF16(line)) == outputLO.end()
+                if (std::ranges::find_if(outputLO,
+                        [&](const std::wstring& s) { return boost::iequals(s, ParallaxGenUtil::utf8toUTF16(line)); })
+                        == outputLO.end()
                     && filesystem::exists(m_gameDataPath / line)) {
+
                     outputLO.push_back(ParallaxGenUtil::utf8toUTF16(line));
                 }
             }
@@ -376,8 +379,11 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
             // this is an active plugin
             line = line.substr(1);
 
-            if (std::ranges::find(outputLO, ParallaxGenUtil::utf8toUTF16(line)) == outputLO.end()
-                && filesystem::exists(m_gameDataPath / line)) {
+            if (std::ranges::find_if(outputLO,
+                    [&](const std::wstring& s) { return boost::iequals(s, ParallaxGenUtil::utf8toUTF16(line)); })
+                    == outputLO.end()
+                && filesystem::exists(m_gameDataPath / ParallaxGenUtil::utf8toUTF16(line))) {
+
                 outputLO.push_back(ParallaxGenUtil::utf8toUTF16(line));
             }
         }

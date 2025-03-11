@@ -83,8 +83,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Test message if required
     if (PG_TEST_VERSION > 0) {
-        Logger::warn(
-            "This is an EXPERIMENTAL development build of PG Patcher: {} Test Build {}", PG_VERSION, PG_TEST_VERSION);
+        Logger::warn("This is an EXPERIMENTAL development build of PG Patcher");
     }
 
     // Alpha message
@@ -197,11 +196,23 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGDiag::insert("ActivePlugins", ParallaxGenUtil::utf16VectorToUTF8(activePlugins));
 
     // Init PGP library
+    const auto txstFormIDCacheFile = exePath / "cache" / "txstFormIDs.json";
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
         ParallaxGenPlugin::loadStatics(&pgd);
         ParallaxGenPlugin::initialize(bg, exePath);
         ParallaxGenPlugin::populateObjs();
+
+        if (filesystem::exists(txstFormIDCacheFile)) {
+            ifstream f(txstFormIDCacheFile);
+            try {
+                const auto data = nlohmann::json::parse(f);
+                ParallaxGenPlugin::loadTXSTCache(data);
+            } catch (const nlohmann::json::parse_error& e) {
+                Logger::error("Failed to parse txstFormIDs.json: {}", e.what());
+            }
+            f.close();
+        }
     }
 
     // Populate file map from data directory
@@ -355,6 +366,12 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         pg.zipMeshes();
         pg.deleteOutputDir(false);
     }
+
+    // Save caches
+    filesystem::create_directories(exePath / "cache");
+    ofstream f(txstFormIDCacheFile);
+    f << ParallaxGenPlugin::getTXSTCache().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
+    f.close();
 
     const auto endTime = chrono::high_resolution_clock::now();
     timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();

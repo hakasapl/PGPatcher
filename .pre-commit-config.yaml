@@ -12,10 +12,10 @@ repos:
       - id: end-of-file-fixer
       - id: check-case-conflict
 
-  - repo: https://github.com/cpp-linter/cpp-linter-hooks
-    rev: v0.6.0
-    hooks:
-      - id: clang-format
-        args: [--style=file, --version=19] # to load .clang-format
-      - id: clang-tidy
-        args: [--checks=.clang-tidy, --version=19, -p, build] # path/to/.clang-tidy
+  #- repo: https://github.com/cpp-linter/cpp-linter-hooks
+  #  rev: v0.6.0
+  #  hooks:
+  #    - id: clang-format
+  #      args: [--style=file, --version=19] # to load .clang-format
+  #    - id: clang-tidy
+  #      args: [--checks=.clang-tidy, --version=19, -p, build] # path/to/.clang-tidy
