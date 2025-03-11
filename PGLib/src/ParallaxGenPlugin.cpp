@@ -367,7 +367,7 @@ void ParallaxGenPlugin::libSetModelRecNIF(const int& modelRecHandle, const wstri
 }
 
 // Statics
-unordered_map<int, unsigned int> ParallaxGenPlugin::s_txstFormIDs;
+unordered_map<string, unsigned int> ParallaxGenPlugin::s_txstFormIDs;
 unordered_set<unsigned int> ParallaxGenPlugin::s_txstResrvedFormIDs;
 unsigned int ParallaxGenPlugin::s_curTXSTFormID = 0;
 
@@ -411,7 +411,7 @@ void ParallaxGenPlugin::loadTXSTCache(const nlohmann::json& txstCache)
     // loop through json objects
     for (const auto& [key, value] : txstCache.items()) {
         // convert key to array
-        s_txstFormIDs[stoi(key)] = value.get<unsigned int>();
+        s_txstFormIDs[key] = value.get<unsigned int>();
         s_txstResrvedFormIDs.insert(value.get<unsigned int>());
     }
 }
@@ -422,7 +422,7 @@ auto ParallaxGenPlugin::getTXSTCache() -> nlohmann::json
 
     // loop through map
     for (const auto& [key, value] : s_txstFormIDs) {
-        txstCache[to_string(key)] = value;
+        txstCache[key] = value;
     }
 
     return txstCache;
@@ -451,9 +451,13 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
         string altTexJSONKey;
         string txstJSONKey;
 
+        const auto altTexFormIDTuple = libGetAltTexFormID(altTexIndex);
+        const auto txstFormIDCacheKey = ParallaxGenUtil::utf16toUTF8(get<1>(altTexFormIDTuple)) + "/"
+            + to_string(get<0>(altTexFormIDTuple)) + "/" + matchType;
+
         if (PGDiag::isEnabled()) {
             // this is somewhat costly so we only run it if diagnostics are enabled
-            altTexJSONKey = getKeyFromFormID(libGetAltTexFormID(altTexIndex)) + " / " + matchType;
+            altTexJSONKey = getKeyFromFormID(altTexFormIDTuple) + " / " + matchType;
             txstJSONKey = getKeyFromFormID(libGetTXSTFormID(txstIndex));
         }
 
@@ -633,9 +637,10 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
             const string newEDID = fmt::format("PGTXST{:05d}", s_edidCounter++);
 
             // check if original TXST id exists in reserved IDs
-            if (s_txstFormIDs.contains(txstIndex)) {
+            if (s_txstFormIDs.contains(txstFormIDCacheKey)) {
                 // use old formid for new record
-                curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, s_txstFormIDs[txstIndex]);
+                curResult.txstIndex
+                    = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, s_txstFormIDs[txstFormIDCacheKey]);
             } else {
                 // find next available formid
                 unsigned int newFormID = ++s_curTXSTFormID;
@@ -644,7 +649,7 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
                 }
 
                 curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
-                s_txstFormIDs[txstIndex] = newFormID;
+                s_txstFormIDs[txstFormIDCacheKey] = newFormID;
             }
 
             patchers.shaderPatchers.at(winningShaderMatch.shader)

@@ -106,7 +106,7 @@ private:
         }
     };
 
-    static std::unordered_map<int, unsigned int> s_txstFormIDs;
+    static std::unordered_map<std::string, unsigned int> s_txstFormIDs;
     static std::unordered_set<unsigned int> s_txstResrvedFormIDs;
     static unsigned int s_curTXSTFormID;
     static std::unordered_map<std::array<std::wstring, NUM_TEXTURE_SLOTS>, std::pair<int, std::string>, ArrayHash,
