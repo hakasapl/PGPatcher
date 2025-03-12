@@ -368,6 +368,7 @@ void ParallaxGenPlugin::libSetModelRecNIF(const int& modelRecHandle, const wstri
 
 // Statics
 unordered_map<string, unsigned int> ParallaxGenPlugin::s_txstFormIDs;
+unordered_map<string, unsigned int> ParallaxGenPlugin::s_newTXSTFormIDs;
 unordered_set<unsigned int> ParallaxGenPlugin::s_txstResrvedFormIDs;
 unsigned int ParallaxGenPlugin::s_curTXSTFormID = 0;
 
@@ -375,9 +376,6 @@ mutex ParallaxGenPlugin::s_createdTXSTMutex;
 unordered_map<array<wstring, NUM_TEXTURE_SLOTS>, pair<int, string>, ParallaxGenPlugin::ArrayHash,
     ParallaxGenPlugin::ArrayEqual>
     ParallaxGenPlugin::s_createdTXSTs;
-
-mutex ParallaxGenPlugin::s_edidCounterMutex;
-int ParallaxGenPlugin::s_edidCounter = 0;
 
 ParallaxGenDirectory* ParallaxGenPlugin::s_pgd;
 
@@ -408,6 +406,8 @@ void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::p
 
 void ParallaxGenPlugin::loadTXSTCache(const nlohmann::json& txstCache)
 {
+    s_newTXSTFormIDs.clear();
+
     // loop through json objects
     for (const auto& [key, value] : txstCache.items()) {
         // convert key to array
@@ -421,7 +421,7 @@ auto ParallaxGenPlugin::getTXSTCache() -> nlohmann::json
     nlohmann::json txstCache;
 
     // loop through map
-    for (const auto& [key, value] : s_txstFormIDs) {
+    for (const auto& [key, value] : s_newTXSTFormIDs) {
         txstCache[key] = value;
     }
 
@@ -453,7 +453,7 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
 
         const auto altTexFormIDTuple = libGetAltTexFormID(altTexIndex);
         const auto txstFormIDCacheKey = ParallaxGenUtil::utf16toUTF8(get<1>(altTexFormIDTuple)) + "/"
-            + to_string(get<0>(altTexFormIDTuple)) + "/" + matchType;
+            + to_string(get<0>(altTexFormIDTuple)) + "/" + matchType + "/" + to_string(index3D);
 
         if (PGDiag::isEnabled()) {
             // this is somewhat costly so we only run it if diagnostics are enabled
@@ -634,23 +634,28 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
 
             // Create a new TXST record
             spdlog::trace(L"Plugin Patching | {} | {} | Creating a new TXST record and patching", nifPath, index3D);
-            const string newEDID = fmt::format("PGTXST{:05d}", s_edidCounter++);
 
-            // check if original TXST id exists in reserved IDs
+            // Find formID to use
+            unsigned int newFormID = 0;
             if (s_txstFormIDs.contains(txstFormIDCacheKey)) {
                 // use old formid for new record
-                curResult.txstIndex
-                    = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, s_txstFormIDs[txstFormIDCacheKey]);
+                newFormID = s_txstFormIDs[txstFormIDCacheKey];
             } else {
                 // find next available formid
-                unsigned int newFormID = ++s_curTXSTFormID;
-                while (s_txstResrvedFormIDs.contains(newFormID)) {
-                    ++newFormID;
-                }
-
-                curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
-                s_txstFormIDs[txstFormIDCacheKey] = newFormID;
+                while (s_txstResrvedFormIDs.contains(++s_curTXSTFormID)) { }
+                newFormID = s_curTXSTFormID;
             }
+
+            if (newFormID == 0) {
+                throw runtime_error("Failed to find a new form ID for TXST record");
+            }
+
+            // Find EDID
+            const string newEDID = fmt::format("PGTXST{:06X}", newFormID);
+
+            // create new TXST record with chosen form ID
+            curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
+            s_newTXSTFormIDs[txstFormIDCacheKey] = newFormID;
 
             patchers.shaderPatchers.at(winningShaderMatch.shader)
                 ->processNewTXSTRecord(winningShaderMatch.match, newEDID);
