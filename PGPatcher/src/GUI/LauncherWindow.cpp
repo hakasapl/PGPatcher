@@ -119,7 +119,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_mo2ProfileChoice->Bind(wxEVT_CHOICE, &LauncherWindow::onMO2ProfileChange, this);
 
     // Checkbox to use MO2 order
-    m_mo2UseOrderCheckbox = new wxCheckBox(this, wxID_ANY, "Use MO2 Loose File Order (Recommended)");
+    m_mo2UseOrderCheckbox = new wxCheckBox(this, wxID_ANY, "Use MO2 Loose File Order");
     m_mo2UseOrderCheckbox->SetToolTip("Use the order set in MO2's left pane instead of manually defining an order");
     m_mo2UseOrderCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onMO2UseOrderChange, this);
 
@@ -226,7 +226,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialOptionsSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
-    m_shaderPatcherTruePBRCheckbox = new wxCheckBox(this, wxID_ANY, "True PBR");
+    m_shaderPatcherTruePBRCheckbox = new wxCheckBox(this, wxID_ANY, "True PBR (CS Only)");
     m_shaderPatcherTruePBRCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherTruePBRChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherTruePBRCheckbox, 0, wxALL, BORDER_SIZE);
 
@@ -339,7 +339,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_processingOptionsSizer->Add(m_processingPluginPatchingCheckbox, 0, wxALL, BORDER_SIZE);
 
     m_processingPluginPatchingOptions = new wxStaticBoxSizer(wxVERTICAL, this, "Plugin Patching Options");
-    m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin");
+    m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin (Not Recommended)");
     m_processingPluginPatchingOptionsESMifyCheckbox->SetToolTip(
         "ESM flags the output plugin (don't check this if you don't know what you're doing)");
     m_processingPluginPatchingOptionsESMifyCheckbox->Bind(
