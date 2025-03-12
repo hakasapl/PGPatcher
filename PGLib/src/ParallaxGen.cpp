@@ -392,11 +392,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
     // it in plugins
     vector<tuple<NiShape*, int, int, string>> shapeTracker;
 
-    if (boost::icontains(nifFile.filename().wstring(), L"shiplongboat01.nif")) {
-        // LOD meshes are not supported
-        spdlog::error("HERE");
-    }
-
     // Loop through each shape in NIF
     for (NiShape* nifShape : shapes) {
         if (nifShape == nullptr) {
