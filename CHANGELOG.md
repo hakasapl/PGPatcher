@@ -16,6 +16,8 @@
 - Added "zbuffer_write" option for PBR jsons
 - Fix load order not checking case which results in duplicate modkeys when installing CC mods manually
 - Added caching for TXST form ids to ensure persistency (is that a word?) between runs
+- Fixed some invalid shader permutations being patched (they will now be ignored)
+- Changed wording on some GUI elements to be more clear
 
 ## [0.8.9] - 2025-02-10
 
