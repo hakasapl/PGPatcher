@@ -924,7 +924,7 @@ public class PGMutagen
                 }
                 slotsArray[8] = IntPtr.Zero;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 MessageHandler.Log("Failed to get TXST slots for record " + GetRecordDesc(txstObj), 3);
                 for (int i = 0; i < 9; i++)
@@ -1204,7 +1204,7 @@ public class PGMutagen
                     *WinningPluginName = Marshal.StringToHGlobalUni(PluginNameStr);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 *WinningPluginName = Marshal.StringToHGlobalUni("UNKNOWN");
             }
@@ -1243,7 +1243,7 @@ public class PGMutagen
                     *WinningPluginName = Marshal.StringToHGlobalUni(PluginNameStr);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 *WinningPluginName = Marshal.StringToHGlobalUni("UNKNOWN");
             }
@@ -1283,7 +1283,7 @@ public class PGMutagen
                     *WinningPluginName = Marshal.StringToHGlobalUni(PluginNameStr);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 *WinningPluginName = Marshal.StringToHGlobalUni("UNKNOWN");
             }

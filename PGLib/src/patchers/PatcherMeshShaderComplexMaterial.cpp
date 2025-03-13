@@ -56,7 +56,14 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape) -> bool
         && (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
             || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
             || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
-        Logger::trace(L"Shape Rejected: Anisotropic lighting flags and other lighting flags are set");
+        Logger::trace(L"Shape Rejected: Unable shader permutation");
+        return false;
+    }
+
+    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
+        && NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
+        && NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
+        Logger::trace(L"Shape Rejected: Unable shader permutation");
         return false;
     }
 

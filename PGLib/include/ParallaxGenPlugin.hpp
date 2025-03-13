@@ -106,16 +106,15 @@ private:
         }
     };
 
-    static std::unordered_map<int, unsigned int> s_txstFormIDs;
+    static std::unordered_map<std::string, unsigned int> s_txstFormIDs;
+    static std::unordered_map<std::string, unsigned int> s_newTXSTFormIDs;
     static std::unordered_set<unsigned int> s_txstResrvedFormIDs;
+    static std::unordered_set<unsigned int> s_txstUsedFormIDs;
     static unsigned int s_curTXSTFormID;
     static std::unordered_map<std::array<std::wstring, NUM_TEXTURE_SLOTS>, std::pair<int, std::string>, ArrayHash,
         ArrayEqual>
         s_createdTXSTs;
     static std::mutex s_createdTXSTMutex;
-
-    static int s_edidCounter;
-    static std::mutex s_edidCounterMutex;
 
     // Runner vars
     static std::unordered_map<std::wstring, int>* s_modPriority;

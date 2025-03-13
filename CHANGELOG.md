@@ -16,6 +16,10 @@
 - Added "zbuffer_write" option for PBR jsons
 - Fix load order not checking case which results in duplicate modkeys when installing CC mods manually
 - Added caching for TXST form ids to ensure persistency (is that a word?) between runs
+- Fixed invalid shader permutation for CM + rim lighting + soft lighting + back lighting
+- Changed wording on some GUI elements to be more clear
+- Crash dumps will now include the local memory state
+- Fixed crash dumps not having timestamp in the filename
 
 ## [0.8.9] - 2025-02-10
 

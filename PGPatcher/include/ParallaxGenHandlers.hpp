@@ -18,18 +18,9 @@ private:
 
     static constexpr const char* CRASHDUMP_DIR = "log";
 
-    static inline _MINIDUMP_TYPE s_miniDumpType = MiniDumpNormal;
+    static inline _MINIDUMP_TYPE s_miniDumpType = MiniDumpWithPrivateWriteCopyMemory;
 
 public:
-    static void setDumpType(const bool& fullDump = false)
-    {
-        if (fullDump) {
-            s_miniDumpType = MiniDumpWithFullMemory;
-        } else {
-            s_miniDumpType = MiniDumpNormal;
-        }
-    }
-
     static auto WINAPI customExceptionHandler(EXCEPTION_POINTERS* exceptionInfo) -> LONG
     {
         if (s_crashLogged.exchange(true)) {
@@ -40,14 +31,14 @@ public:
         string timestamp;
         const time_t t = time(nullptr);
         tm tm {};
-        if (localtime_s(&tm, &t) != 0) {
+        if (localtime_s(&tm, &t) == 0) {
             ostringstream oss;
             oss << put_time(&tm, "%Y-%m-%d_%H-%M-%S");
-            timestamp = oss.str();
+            timestamp = "_" + oss.str();
         }
 
         // Create the dump file path
-        const filesystem::path dumpFilePath = filesystem::path(CRASHDUMP_DIR) / ("pg_crash_" + timestamp + ".dmp");
+        const filesystem::path dumpFilePath = filesystem::path(CRASHDUMP_DIR) / ("pg_crash" + timestamp + ".dmp");
         filesystem::create_directories(CRASHDUMP_DIR);
 
         // Post message to standard console
