@@ -18,6 +18,8 @@
 - Added caching for TXST form ids to ensure persistency (is that a word?) between runs
 - Fixed some invalid shader permutations being patched (they will now be ignored)
 - Changed wording on some GUI elements to be more clear
+- Crash dumps will now include the local memory state
+- Fixed crash dumps not having timestamp in the filename
 
 ## [0.8.9] - 2025-02-10
 
