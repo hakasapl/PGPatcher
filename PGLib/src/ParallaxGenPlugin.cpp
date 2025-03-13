@@ -370,6 +370,7 @@ void ParallaxGenPlugin::libSetModelRecNIF(const int& modelRecHandle, const wstri
 unordered_map<string, unsigned int> ParallaxGenPlugin::s_txstFormIDs;
 unordered_map<string, unsigned int> ParallaxGenPlugin::s_newTXSTFormIDs;
 unordered_set<unsigned int> ParallaxGenPlugin::s_txstResrvedFormIDs;
+unordered_set<unsigned int> ParallaxGenPlugin::s_txstUsedFormIDs;
 unsigned int ParallaxGenPlugin::s_curTXSTFormID = 0;
 
 mutex ParallaxGenPlugin::s_createdTXSTMutex;
@@ -637,7 +638,8 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
 
             // Find formID to use
             unsigned int newFormID = 0;
-            if (s_txstFormIDs.contains(txstFormIDCacheKey)) {
+            if (s_txstFormIDs.contains(txstFormIDCacheKey)
+                && !s_txstUsedFormIDs.contains(s_txstFormIDs[txstFormIDCacheKey])) {
                 // use old formid for new record
                 newFormID = s_txstFormIDs[txstFormIDCacheKey];
             } else {
@@ -649,6 +651,13 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
             if (newFormID == 0) {
                 throw runtime_error("Failed to find a new form ID for TXST record");
             }
+
+            if (s_txstUsedFormIDs.contains(newFormID)) {
+                throw runtime_error("Form ID already in use");
+            }
+
+            // Insert used FORMID
+            s_txstUsedFormIDs.insert(newFormID);
 
             // Find EDID
             const string newEDID = fmt::format("PGTXST{:06X}", newFormID);
