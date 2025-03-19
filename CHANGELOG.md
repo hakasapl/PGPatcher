@@ -1,7 +1,8 @@
 # Changelog
 
-## [0.8.10] - UNRELEASED
+## [0.8.10] - 2025-03-19
 
+- FormIDs will now be kept persistent across runs where possible
 - Fixed unhandled exception around UTF8 chars when diagnostics were enabled
 - Fixed diagnostics JSON having some data in incorrect places due to stale pointers
 - Improved GPU operation performance
@@ -11,11 +12,10 @@
 - Added "vertex_color_lum_mult" to PBR jsons
 - Added "vertex_color_sat_mult" to PBR jsons
 - Added critical error for modlist.txt from MO2 being empty
-- Added metadata to exe (properties > details in windows)
+- Added metadata to exe (properties > details in Windows)
 - Fixed .dds case check for texture hook patchers
 - Added "zbuffer_write" option for PBR jsons
 - Fix load order not checking case which results in duplicate modkeys when installing CC mods manually
-- Added caching for TXST form ids to ensure persistency (is that a word?) between runs
 - Fixed invalid shader permutation for CM + rim lighting + soft lighting + back lighting
 - Changed wording on some GUI elements to be more clear
 - Crash dumps will now include the local memory state
