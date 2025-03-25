@@ -648,6 +648,11 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
                 newFormID = s_curTXSTFormID;
             }
 
+            static constexpr unsigned int MAX_FORMID = 0xFFFFFF;
+            if (newFormID > MAX_FORMID) {
+                throw runtime_error("Form ID overflow");
+            }
+
             if (newFormID == 0) {
                 throw runtime_error("Failed to find a new form ID for TXST record");
             }
