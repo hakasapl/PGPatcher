@@ -486,6 +486,77 @@ auto BethesdaDirectory::getBSALoadOrder() const -> vector<wstring>
     return outBSAOrder;
 }
 
+auto BethesdaDirectory::getFileMTime(const filesystem::path& relPath) -> size_t
+{
+    // find bsa/loose file to open
+    const BethesdaFile file = getFileFromMap(relPath);
+    if (file.path.empty()) {
+        if (m_logging) {
+            spdlog::error(L"File not found in file map: {}", relPath.wstring());
+        }
+        throw runtime_error("File not found in file map");
+    }
+
+    filesystem::path checkPath;
+    if (file.bsaFile == nullptr) {
+        if (file.generated) {
+            checkPath = m_generatedDir / relPath;
+        } else {
+            checkPath = m_dataDir / file.path;
+        }
+    } else {
+        checkPath = m_dataDir / file.bsaFile->path;
+    }
+
+    if (!filesystem::exists(checkPath)) {
+        if (m_logging) {
+            spdlog::error(L"File not found: {}", checkPath.wstring());
+        }
+        throw runtime_error("File not found");
+    }
+
+    return filesystem::last_write_time(checkPath).time_since_epoch().count();
+}
+
+auto BethesdaDirectory::getFileSize(const filesystem::path& relPath) -> uintmax_t
+{
+    // find bsa/loose file to open
+    const BethesdaFile file = getFileFromMap(relPath);
+    if (file.path.empty()) {
+        if (m_logging) {
+            spdlog::error(L"File not found in file map: {}", relPath.wstring());
+        }
+        throw runtime_error("File not found in file map");
+    }
+
+    const shared_ptr<BSAFile> bsaStruct = file.bsaFile;
+    if (bsaStruct == nullptr) {
+        filesystem::path filePath;
+        if (file.generated) {
+            filePath = m_generatedDir / relPath;
+        } else {
+            filePath = m_dataDir / relPath;
+        }
+
+        return filesystem::file_size(filePath);
+    }
+
+    const filesystem::path bsaPath = bsaStruct->path;
+
+    // this is a bsa archive file
+    const bsa::tes4::archive bsaObj = bsaStruct->archive;
+
+    string parentPath = utf16toASCII(relPath.parent_path().wstring());
+    string filename = utf16toASCII(relPath.filename().wstring());
+
+    const auto bsaFile = bsaObj[parentPath][filename];
+    if (!bsaFile) {
+        throw runtime_error("File not found in BSA archive");
+    }
+
+    return bsaFile->size();
+}
+
 auto BethesdaDirectory::getAsciiPathLower(const filesystem::path& path) -> filesystem::path
 {
     if (!isPathAscii(path)) {
