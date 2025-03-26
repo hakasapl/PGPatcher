@@ -3,6 +3,7 @@
 #include <mutex>
 #include <spdlog/spdlog.h>
 #include <unordered_map>
+#include <utility>
 #include <winbase.h>
 
 #include "Logger.hpp"
@@ -195,22 +196,6 @@ auto ParallaxGenPlugin::libGetTXSTSlots(const int& txstIndex) -> array<wstring, 
     return outputArray;
 }
 
-void ParallaxGenPlugin::libCreateTXSTPatch(const int& txstIndex, const array<wstring, NUM_TEXTURE_SLOTS>& slots)
-{
-    const lock_guard<mutex> lock(s_libMutex);
-
-    // Prepare the array of const wchar_t* pointers from the Slots array
-    array<const wchar_t*, NUM_TEXTURE_SLOTS> slotsArray = { nullptr };
-    for (int i = 0; i < NUM_TEXTURE_SLOTS; ++i) {
-        slotsArray.at(i) = slots.at(i).c_str(); // Point to the internal wide string data of each wstring
-    }
-
-    // Call the CreateTXSTPatch function with TXSTIndex and the array of wide string pointers
-    CreateTXSTPatch(txstIndex, slotsArray.data());
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
-}
-
 auto ParallaxGenPlugin::libCreateNewTXSTPatch(const int& altTexIndex, const array<wstring, NUM_TEXTURE_SLOTS>& slots,
     const string& newEDID, const unsigned int& newFormID) -> int
 {
@@ -218,7 +203,7 @@ auto ParallaxGenPlugin::libCreateNewTXSTPatch(const int& altTexIndex, const arra
 
     // Prepare the array of const wchar_t* pointers from the Slots array
     array<const wchar_t*, NUM_TEXTURE_SLOTS> slotsArray = { nullptr };
-    for (int i = 0; i < NUM_TEXTURE_SLOTS; ++i) {
+    for (int i = 0; cmp_less(i, NUM_TEXTURE_SLOTS); ++i) {
         slotsArray.at(i) = slots.at(i).c_str(); // Point to the internal wide string data of each wstring
     }
 

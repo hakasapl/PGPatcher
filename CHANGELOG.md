@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.8.11] - UNRELEASED
+
+- Fixed issue for Skyrim VR with mismatching formids between output plugins
+
 ## [0.8.10] - 2025-03-19
 
 - FormIDs will now be kept persistent across runs where possible

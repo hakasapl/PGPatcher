@@ -41,8 +41,6 @@ private:
     /// @return array of texture files for all texture slots
     static auto libGetTXSTSlots(const int& txstIndex) -> std::array<std::wstring, NUM_TEXTURE_SLOTS>;
 
-    static void libCreateTXSTPatch(const int& txstIndex, const std::array<std::wstring, NUM_TEXTURE_SLOTS>& slots);
-
     static auto libCreateNewTXSTPatch(const int& altTexIndex, const std::array<std::wstring, NUM_TEXTURE_SLOTS>& slots,
         const std::string& newEDID, const unsigned int& newFormID) -> int;
 

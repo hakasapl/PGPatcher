@@ -12,7 +12,6 @@ using Mutagen.Bethesda.Environments;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Plugins.Records;
 using Noggog;
-using Mutagen.Bethesda.Plugins.Utility;
 
 // Harmony
 using HarmonyLib;
@@ -90,6 +89,8 @@ public class PGMutagen
     private static Dictionary<Tuple<string, int>, List<Tuple<int, int>>>? TXSTRefs;
     private static HashSet<int> ModifiedModeledRecords = [];
     private static SkyrimRelease GameType;
+
+    private static uint maxFormID = 0;
 
     // tracks masters in each split plugin
     private static List<HashSet<ModKey>> OutputMasterTracker = [];
@@ -329,8 +330,6 @@ public class PGMutagen
         return ModelRecs;
     }
 
-    private static HashSet<int> TXSTErrorTracker = [];
-
     [UnmanagedCallersOnly(EntryPoint = "PopulateObjs", CallConvs = [typeof(CallConvCdecl)])]
     public static void PopulateObjs()
     {
@@ -341,15 +340,22 @@ public class PGMutagen
                 throw new Exception("Initialize must be called before PopulateObjs");
             }
 
+            //
+            // 1. Add all TXST records in the load order to TXSTObjs
+            //
             TXSTObjs = [];
             foreach (var textureSet in Env.LoadOrder.PriorityOrder.TextureSet().WinningOverrides())
             {
-                MessageHandler.Log("[PopulateObjs] Adding TXST record as index " + TXSTObjs.Count + ": " + GetRecordDesc(textureSet), 0);
                 TXSTObjs.Add(textureSet);
             }
 
+            //
+            // 2. Add all MODL records in the load order to ModelOriginals
+            //
             TXSTRefs = [];
+            // model rec counter is simply a unique identifier for each model record to differentiate them. It is not used as a handle.
             int ModelRecCounter = 0;
+            // DCIdx is the current index in ModelCopes, ModelCopiesEditable, and ModelOriginals
             var DCIdx = -1;
             foreach (var txstRefObj in EnumerateModelRecordsSafe())
             {
@@ -358,8 +364,7 @@ public class PGMutagen
 
                 if (ModelRecs.Count == 0)
                 {
-                    // Skip if there is nothing to search
-                    MessageHandler.Log("[PopulateObjs] No models found for record: " + GetRecordDesc(txstRefObj), 0);
+                    // Skip if there are no MODL records in this record
                     continue;
                 }
 
@@ -368,20 +373,24 @@ public class PGMutagen
                 {
                     if (modelRec.Item1.AlternateTextures is null)
                     {
-                        // no alternate textures
-                        MessageHandler.Log("[PopulateObjs] No alternate textures found for a model record: " + GetRecordDesc(txstRefObj), 0);
+                        // no alternate textures in this MODL record, we can skip
                         continue;
                     }
 
                     if (!CopiedRecord)
                     {
-                        // Deep copy major record
+                        // Deep copy major record (it has not been copied yet)
                         try
                         {
-                            ModelOriginals.Add(txstRefObj);
+                            // Run deep copies
                             var DeepCopy = txstRefObj.DeepCopy();
-                            ModelCopies.Add(DeepCopy);
                             var DeepCopyEditable = txstRefObj.DeepCopy();
+
+                            // Store original parent record
+                            ModelOriginals.Add(txstRefObj);
+
+                            // Save model copies
+                            ModelCopies.Add(DeepCopy);
                             ModelCopiesEditable.Add(DeepCopyEditable);
                             DCIdx = ModelCopies.Count - 1;
                             CopiedRecord = true;
@@ -395,15 +404,11 @@ public class PGMutagen
 
                     // find lowercase nifname
                     string nifName = modelRec.Item1.File;
-
-                    // Otherwise this causes issues with deepcopy
                     nifName = RemovePrefixIfExists("\\", nifName);
-
                     nifName = nifName.ToLower();
                     nifName = AddPrefixIfNotExists("meshes\\", nifName);
 
-                    MessageHandler.Log("[PopulateObjs] NIF Name '" + nifName + "' found in model record in record " + GetRecordDesc(txstRefObj), 0);
-
+                    // loop through each alternate texture
                     foreach (var alternateTexture in modelRec.Item1.AlternateTextures)
                     {
                         // Add to global
@@ -411,37 +416,34 @@ public class PGMutagen
                         AltTexRefs.Add(AltTexEntry);
                         var AltTexId = AltTexRefs.Count - 1;
 
+                        // index3D is the alternate texture index 3d in the recorc
                         int index3D = alternateTexture.Index;
+                        // texture set record used for alternate texture
                         var newTXST = alternateTexture.NewTexture;
 
+                        // create lookup key
                         var key = new Tuple<string, int>(nifName, index3D);
 
-                        MessageHandler.Log("[PopulateObjs] Adding to AltTexRefs as index " + AltTexId + ": " + key.ToString(), 0);
-
+                        // find the index of the TXST record in the TXSTObjs list (this is a handle)
                         int newTXSTIndex = TXSTObjs.FindIndex(x => x.FormKey == newTXST.FormKey);
                         if (newTXSTIndex < 0)
                         {
-                            var CurHashCode = newTXST.GetHashCode();
-                            if (TXSTErrorTracker.Add(CurHashCode))
-                            {
-                                MessageHandler.Log("Referenced TXST record in " + GetRecordDesc(txstRefObj) + " / " + key.ToString() + " does not exist", 3);
-                            }
+                            // TXST record doesn't exist, skip
                             continue;
                         }
 
+                        // Add txstrefs key to list if it doesn't exist
                         var newTXSTObj = TXSTObjs[newTXSTIndex];
-
-                        if (newTXSTIndex >= 0)
+                        if (!TXSTRefs.ContainsKey(key))
                         {
-                            if (!TXSTRefs.ContainsKey(key))
-                            {
-                                TXSTRefs[key] = [];
-                            }
-                            TXSTRefs[key].Add(new Tuple<int, int>(newTXSTIndex, AltTexId));
-                            MessageHandler.Log("[PopulateObjs] Adding Alt Tex Reference: " + key.ToString() + " -> " + GetRecordDesc(newTXSTObj), 0);
+                            TXSTRefs[key] = [];
                         }
+
+                        // Add txst reference with TXST handle and alternate texture handle
+                        TXSTRefs[key].Add(new Tuple<int, int>(newTXSTIndex, AltTexId));
                     }
 
+                    // increment modelreccounter
                     ModelRecCounter++;
                 }
             }
@@ -457,36 +459,38 @@ public class PGMutagen
     {
         try
         {
-            if (Env is null)
+            if (Env is null || OutMod == null)
             {
                 throw new Exception("Initialize must be called before Finalize");
             }
 
+            // Get output path from C++
             string outputPath = Marshal.PtrToStringUni(outputPathPtr) ?? string.Empty;
 
-            if (OutMod == null)
+            // Check if OutMod can be ESL flagged
+            if (maxFormID <= 0xFFF)
             {
-                throw new Exception("OutMod is null");
+                OutMod.IsSmallMaster = true;
             }
 
-            // First, write parallaxgen.esm
-            ModCompaction.CompactToWithFallback(OutMod, MasterStyle.Small);
+            // Flag as ESM if user wants
             if (esmify == 1)
             {
                 OutMod.IsMaster = true;
             }
 
-            if (OutMod.EnumerateMajorRecords().Count() == 0)
+            if (!OutMod.EnumerateMajorRecords().Any())
             {
-                MessageHandler.Log("[Finalize] No records to write to ParallaxGen.esm", 0);
+                // No records in OutMod, exit.
                 return;
             }
 
-            // Write the output plugin
-            MessageHandler.Log("[Finalize] Writing ParallaxGen.esm", 0);
+            // Write OutMod
+            // We disable formid compactness check for VR specifically as we require Skyrim VR ESL support mod so we CAN use those extra formids
             OutMod.BeginWrite
                 .ToPath(Path.Combine(outputPath, OutMod.ModKey.FileName))
                 .WithLoadOrder(Env.LoadOrder)
+                .NoFormIDCompactnessCheck()
                 .Write();
 
             // Add all modified model records to the output mod
@@ -499,197 +503,160 @@ public class PGMutagen
                 if (ModifiedRecord is Mutagen.Bethesda.Skyrim.Activator activator)
                 {
                     outputMod.Activators.Add(activator);
-                    MessageHandler.Log("[Finalize] Adding Activator: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Ammunition ammunition)
                 {
                     outputMod.Ammunitions.Add(ammunition);
-                    MessageHandler.Log("[Finalize] Adding Ammunition: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is AnimatedObject @object)
                 {
                     outputMod.AnimatedObjects.Add(@object);
-                    MessageHandler.Log("[Finalize] Adding Animated Object: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Armor armor)
                 {
                     outputMod.Armors.Add(armor);
-                    MessageHandler.Log("[Finalize] Adding Armor: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is ArmorAddon addon)
                 {
                     outputMod.ArmorAddons.Add(addon);
-                    MessageHandler.Log("[Finalize] Adding Armor Addon: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is ArtObject object1)
                 {
                     outputMod.ArtObjects.Add(object1);
-                    MessageHandler.Log("[Finalize] Adding Art Object: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is BodyPartData data)
                 {
                     outputMod.BodyParts.Add(data);
-                    MessageHandler.Log("[Finalize] Adding Body Part Data: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Book book)
                 {
                     outputMod.Books.Add(book);
-                    MessageHandler.Log("[Finalize] Adding Book: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is CameraShot shot)
                 {
                     outputMod.CameraShots.Add(shot);
-                    MessageHandler.Log("[Finalize] Adding Camera Shot: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Climate climate)
                 {
                     outputMod.Climates.Add(climate);
-                    MessageHandler.Log("[Finalize] Adding Climate: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Container container)
                 {
                     outputMod.Containers.Add(container);
-                    MessageHandler.Log("[Finalize] Adding Container: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Door door)
                 {
                     outputMod.Doors.Add(door);
-                    MessageHandler.Log("[Finalize] Adding Door: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Explosion explosion)
                 {
                     outputMod.Explosions.Add(explosion);
-                    MessageHandler.Log("[Finalize] Adding Explosion: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Flora flora)
                 {
                     outputMod.Florae.Add(flora);
-                    MessageHandler.Log("[Finalize] Adding Flora: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Furniture furniture)
                 {
                     outputMod.Furniture.Add(furniture);
-                    MessageHandler.Log("[Finalize] Adding Furniture: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Grass grass)
                 {
                     outputMod.Grasses.Add(grass);
-                    MessageHandler.Log("[Finalize] Adding Grass: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Hazard hazard)
                 {
                     outputMod.Hazards.Add(hazard);
-                    MessageHandler.Log("[Finalize] Adding Hazard: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is HeadPart part)
                 {
                     outputMod.HeadParts.Add(part);
-                    MessageHandler.Log("[Finalize] Adding Head Part: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is IdleMarker marker)
                 {
                     outputMod.IdleMarkers.Add(marker);
-                    MessageHandler.Log("[Finalize] Adding Idle Marker: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Impact impact)
                 {
                     outputMod.Impacts.Add(impact);
-                    MessageHandler.Log("[Finalize] Adding Impact: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Ingestible ingestible)
                 {
                     outputMod.Ingestibles.Add(ingestible);
-                    MessageHandler.Log("[Finalize] Adding Ingestible: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Ingredient ingredient)
                 {
                     outputMod.Ingredients.Add(ingredient);
-                    MessageHandler.Log("[Finalize] Adding Ingredient: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Key key)
                 {
                     outputMod.Keys.Add(key);
-                    MessageHandler.Log("[Finalize] Adding Key: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is LeveledNpc npc)
                 {
                     outputMod.LeveledNpcs.Add(npc);
-                    MessageHandler.Log("[Finalize] Adding Leveled NPC: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Light light)
                 {
                     outputMod.Lights.Add(light);
-                    MessageHandler.Log("[Finalize] Adding Light: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is MaterialObject object2)
                 {
                     outputMod.MaterialObjects.Add(object2);
-                    MessageHandler.Log("[Finalize] Adding Material Object: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is MiscItem item)
                 {
                     outputMod.MiscItems.Add(item);
-                    MessageHandler.Log("[Finalize] Adding Misc Item: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is MoveableStatic @static)
                 {
                     outputMod.MoveableStatics.Add(@static);
-                    MessageHandler.Log("[Finalize] Adding Moveable Static: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Projectile projectile)
                 {
                     outputMod.Projectiles.Add(projectile);
-                    MessageHandler.Log("[Finalize] Adding Projectile: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Scroll scroll)
                 {
                     outputMod.Scrolls.Add(scroll);
-                    MessageHandler.Log("[Finalize] Adding Scroll: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is SoulGem gem)
                 {
                     outputMod.SoulGems.Add(gem);
-                    MessageHandler.Log("[Finalize] Adding Soul Gem: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Static static1)
                 {
                     outputMod.Statics.Add(static1);
-                    MessageHandler.Log("[Finalize] Adding Static: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is TalkingActivator activator1)
                 {
                     outputMod.TalkingActivators.Add(activator1);
-                    MessageHandler.Log("[Finalize] Adding Talking Activator: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Tree tree)
                 {
                     outputMod.Trees.Add(tree);
-                    MessageHandler.Log("[Finalize] Adding Tree: " + GetRecordDesc(ModifiedRecord), 0);
                 }
                 else if (ModifiedRecord is Weapon weapon)
                 {
                     outputMod.Weapons.Add(weapon);
-                    MessageHandler.Log("[Finalize] Adding Weapon: " + GetRecordDesc(ModifiedRecord), 0);
                 }
             }
 
-            if (OutMod == null)
-            {
-                throw new Exception("OutMod is null");
-            }
-
+            // Add OutMod to a new load order for saving other plugins
             var newLo = Env.LoadOrder.ListedOrder.Select(x => x.ModKey).And(OutMod.ModKey);
             foreach (var mod in OutputSplitMods)
             {
+                // Add each _X.esp plugin to the new load order
                 newLo = newLo.And(mod.ModKey);
             }
 
             // Loop through each output split mod
             foreach (var mod in OutputSplitMods)
             {
-                // convert to ESL if able
-                ModCompaction.CompactToWithFallback(mod, MasterStyle.Small);
+                // Set ESL flag (these plugins can ALWAYS be ESL flagged because every record is an override)
+                mod.IsSmallMaster = true;
 
+                // Set ESM flag if user wants
                 if (esmify == 1)
                 {
                     mod.IsMaster = true;
@@ -717,7 +684,7 @@ public class PGMutagen
             throw new Exception("Initialize must be called before getModToAdd");
         }
 
-        // curMasterList is the masters needed for the current record
+        // curMasterList is the masters needed for the current record (including the record itself)
         var curMasterList = majorRecord.EnumerateFormLinks().Select(x => x.FormKey.ModKey).ToHashSet();
         curMasterList.Add(majorRecord.FormKey.ModKey);
 
@@ -727,6 +694,7 @@ public class PGMutagen
             // check if curMasterList is a subset of the masters in the current plugin
             if (curMasterList.IsSubsetOf(OutputMasterTracker[i]))
             {
+                // if it is, the current plugin can be used as there is no other masters to add
                 return OutputSplitMods[i];
             }
 
@@ -735,6 +703,8 @@ public class PGMutagen
             newMasterList.UnionWith(curMasterList);
             if (newMasterList.Count < 254)
             {
+                // If the new master list is still less than 254, then we can use it
+                // We must update the master list of the current plugin for next loop
                 OutputMasterTracker[i] = newMasterList;
                 return OutputSplitMods[i];
             }
@@ -769,19 +739,20 @@ public class PGMutagen
                 throw new Exception("PopulateObjs must be called before GetMatchingTXSTObjs");
             }
 
+            // This function has 2 modes. When length is not null, the caller wants the length of the output arrays.
             if (length is not null)
             {
                 *length = 0;
             }
 
+            // Get the lowercase nifname (with meshes\ prefix) from C++
             string nifName = Marshal.PtrToStringUni(nifNamePtr) ?? string.Empty;
             nifName = nifName.ToLower();
 
+            // Create lookup key
             var key = new Tuple<string, int>(nifName, index3D);
 
-            // Log input params
-            MessageHandler.Log("[GetMatchingTXSTObjs] Getting Matching TXST Objects for: " + key.ToString(), 0);
-
+            // Create txstList, which is an output list of matching TXST objects
             List<Tuple<int, int, string, string>> txstList = [];
             if (TXSTRefs.TryGetValue(key, out List<Tuple<int, int>>? value))
             {
@@ -792,6 +763,7 @@ public class PGMutagen
             }
 
             // find alternate nif Name if able
+            // The _0 and _1 are implicit for some armors so we need to check both
             string altNifName = "";
             if (nifName.EndsWith("_1.nif"))
             {
@@ -805,8 +777,8 @@ public class PGMutagen
                 altNifName = nifName.Substring(0, nifName.Length - 6) + "_1.nif";
             }
 
+            // Alternate key to lookup
             var altKey = new Tuple<string, int>(altNifName, index3D);
-
             if (TXSTRefs.TryGetValue(altKey, out List<Tuple<int, int>>? valueAlt))
             {
                 foreach (var txst in valueAlt)
@@ -814,7 +786,7 @@ public class PGMutagen
                     var altTexRef = AltTexRefs[txst.Item2];
                     if (altTexRef.Item4 == "MODL")
                     {
-                        // Skip if not _1 _0 type of MODL
+                        // Skip if not _1 _0 type of MODL (ensure we only match stuff that actually needs to be matched)
                         continue;
                     }
 
@@ -824,33 +796,29 @@ public class PGMutagen
 
             if (length is not null)
             {
+                // Set length to the count of matching TXST objects
                 *length = txstList.Count;
-                MessageHandler.Log("[GetMatchingTXSTObjs] Found " + txstList.Count + " Matching TXST Objects", 0);
             }
 
             if (TXSTHandles is null || AltTexHandles is null || MatchedNIF is null || MatchedType is null)
             {
+                // If any of the output pointers are null, return immediately
                 return;
             }
 
             // Manually copy the elements from the list to the pointer
             for (int i = 0; i < txstList.Count; i++)
             {
+                // Assign the output values for C++ to read
                 TXSTHandles[i] = txstList[i].Item1;
                 AltTexHandles[i] = txstList[i].Item2;
                 MatchedNIF[i] = txstList[i].Item3.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalUni(txstList[i].Item3);
                 MatchedType[i] = txstList[i].Item4.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalAnsi(txstList[i].Item4);
-
-                MessageHandler.Log("[GetMatchingTXSTObjs] Found Matching TXST: " + key.ToString() + " -> " + GetRecordDesc(TXSTObjs[txstList[i].Item1]), 0);
             }
         }
         catch (Exception ex)
         {
             ExceptionHandler.SetLastException(ex);
-            if (length is not null)
-            {
-                *length = 0;
-            }
         }
     }
 
@@ -866,9 +834,7 @@ public class PGMutagen
                 throw new Exception("Invalid TXST index or not populated");
             }
 
-            // print txst Index
-            MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "]", 0);
-
+            // Pull the TXST object from the list
             var txstObj = TXSTObjs[txstIndex];
 
             // Populate the slotsArray with string pointers
@@ -936,97 +902,6 @@ public class PGMutagen
         catch (Exception ex)
         {
             ExceptionHandler.SetLastException(ex);
-
-            // Set all slots to IntPtr.Zero on failure
-            for (int i = 0; i < 9; i++)
-            {
-                slotsArray[i] = IntPtr.Zero;
-            }
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "CreateTXSTPatch", CallConvs = [typeof(CallConvCdecl)])]
-    public static unsafe void CreateTXSTPatch(
-      [DNNE.C99Type("const int")] int txstIndex,
-      [DNNE.C99Type("const wchar_t**")] IntPtr* slots)
-    {
-        try
-        {
-            if (OutMod is null)
-            {
-                throw new Exception("Initialize must be called before CreateTXSTPatch");
-            }
-
-            // print txstIndex
-            MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "]", 0);
-
-            var origTXSTObj = TXSTObjs[txstIndex];
-
-            // Create a new TXST record
-            var newTXSTObj = OutMod.TextureSets.GetOrAddAsOverride(origTXSTObj);
-
-            // TODO maybe there's a way to not have to have a value for every empty value? (check old slots?)
-            // Define slot actions for assigning texture set slots
-            string? NewDiffuse = Marshal.PtrToStringUni(slots[0]);
-            if (NewDiffuse is not null)
-            {
-                var Diffuse = RemovePrefixIfExists("textures\\", NewDiffuse);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] Diffuse: " + Diffuse, 0);
-                newTXSTObj.Diffuse = Diffuse;
-            }
-            string? NewNormalOrGloss = Marshal.PtrToStringUni(slots[1]);
-            if (NewNormalOrGloss is not null)
-            {
-                var NormalOrGloss = RemovePrefixIfExists("textures\\", NewNormalOrGloss);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] NormalOrGloss: " + NormalOrGloss, 0);
-                newTXSTObj.NormalOrGloss = NormalOrGloss;
-            }
-            string? NewGlowOrDetailMap = Marshal.PtrToStringUni(slots[2]);
-            if (NewGlowOrDetailMap is not null)
-            {
-                var GlowOrDetailMap = RemovePrefixIfExists("textures\\", NewGlowOrDetailMap);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] GlowOrDetailMap: " + GlowOrDetailMap, 0);
-                newTXSTObj.GlowOrDetailMap = GlowOrDetailMap;
-            }
-            string? NewHeight = Marshal.PtrToStringUni(slots[3]);
-            if (NewHeight is not null)
-            {
-                var Height = RemovePrefixIfExists("textures\\", NewHeight);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] Height: " + Height, 0);
-                newTXSTObj.Height = Height;
-            }
-            string? NewEnvironment = Marshal.PtrToStringUni(slots[4]);
-            if (NewEnvironment is not null)
-            {
-                var Environment = RemovePrefixIfExists("textures\\", NewEnvironment);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] Environment: " + Environment, 0);
-                newTXSTObj.Environment = Environment;
-            }
-            string? NewEnvironmentMaskOrSubsurfaceTint = Marshal.PtrToStringUni(slots[5]);
-            if (NewEnvironmentMaskOrSubsurfaceTint is not null)
-            {
-                var EnvironmentMaskOrSubsurfaceTint = RemovePrefixIfExists("textures\\", NewEnvironmentMaskOrSubsurfaceTint);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] EnvironmentMaskOrSubsurfaceTint: " + EnvironmentMaskOrSubsurfaceTint, 0);
-                newTXSTObj.EnvironmentMaskOrSubsurfaceTint = EnvironmentMaskOrSubsurfaceTint;
-            }
-            string? NewMultilayer = Marshal.PtrToStringUni(slots[6]);
-            if (NewMultilayer is not null)
-            {
-                var Multilayer = RemovePrefixIfExists("textures\\", NewMultilayer);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] Multilayer: " + Multilayer, 0);
-                newTXSTObj.Multilayer = Multilayer;
-            }
-            string? NewBacklightMaskOrSpecular = Marshal.PtrToStringUni(slots[7]);
-            if (NewBacklightMaskOrSpecular is not null)
-            {
-                var BacklightMaskOrSpecular = RemovePrefixIfExists("textures\\", NewBacklightMaskOrSpecular);
-                MessageHandler.Log("[CreateTXSTPatch] [TXST Index: " + txstIndex + "] BacklightMaskOrSpecular: " + BacklightMaskOrSpecular, 0);
-                newTXSTObj.BacklightMaskOrSpecular = BacklightMaskOrSpecular;
-            }
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
         }
     }
 
@@ -1035,84 +910,79 @@ public class PGMutagen
     {
         try
         {
-            if (OutMod is null)
+            if (OutMod is null || Env is null)
             {
                 throw new Exception("Initialize must be called before CreateNewTXSTPatch");
             }
 
-            // Get EDID
+            // Get EDID from C++
             string NewEDIDStr = Marshal.PtrToStringAnsi(NewEDID) ?? string.Empty;
 
-            // Create a new TXST record
+            // Create a new TXST record at a specific formID
             var newFormKey = new FormKey(OutMod.ModKey, NewFormID);
-            var newTXSTObj = OutMod.TextureSets.AddNew(newFormKey);
+            var newTXSTObj = new TextureSet(newFormKey, Env.GameRelease.ToSkyrimRelease());
 
             newTXSTObj.EditorID = NewEDIDStr;
-            MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "]", 0);
 
             // Define slot actions for assigning texture set slots
             string? NewDiffuse = Marshal.PtrToStringUni(slots[0]);
             if (!NewDiffuse.IsNullOrEmpty())
             {
                 var Diffuse = RemovePrefixIfExists("textures\\", NewDiffuse);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] Diffuse: " + Diffuse, 0);
                 newTXSTObj.Diffuse = Diffuse;
             }
             string? NewNormalOrGloss = Marshal.PtrToStringUni(slots[1]);
             if (!NewNormalOrGloss.IsNullOrEmpty())
             {
                 var NormalOrGloss = RemovePrefixIfExists("textures\\", NewNormalOrGloss);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] NormalOrGloss: " + NormalOrGloss, 0);
                 newTXSTObj.NormalOrGloss = NormalOrGloss;
             }
             string? NewGlowOrDetailMap = Marshal.PtrToStringUni(slots[2]);
             if (!NewGlowOrDetailMap.IsNullOrEmpty())
             {
                 var GlowOrDetailMap = RemovePrefixIfExists("textures\\", NewGlowOrDetailMap);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] GlowOrDetailMap: " + GlowOrDetailMap, 0);
                 newTXSTObj.GlowOrDetailMap = GlowOrDetailMap;
             }
             string? NewHeight = Marshal.PtrToStringUni(slots[3]);
             if (!NewHeight.IsNullOrEmpty())
             {
                 var Height = RemovePrefixIfExists("textures\\", NewHeight);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] Height: " + Height, 0);
                 newTXSTObj.Height = Height;
             }
             string? NewEnvironment = Marshal.PtrToStringUni(slots[4]);
             if (!NewEnvironment.IsNullOrEmpty())
             {
                 var Environment = RemovePrefixIfExists("textures\\", NewEnvironment);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] Environment: " + Environment, 0);
                 newTXSTObj.Environment = Environment;
             }
             string? NewEnvironmentMaskOrSubsurfaceTint = Marshal.PtrToStringUni(slots[5]);
             if (!NewEnvironmentMaskOrSubsurfaceTint.IsNullOrEmpty())
             {
                 var EnvironmentMaskOrSubsurfaceTint = RemovePrefixIfExists("textures\\", NewEnvironmentMaskOrSubsurfaceTint);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] EnvironmentMaskOrSubsurfaceTint: " + EnvironmentMaskOrSubsurfaceTint, 0);
                 newTXSTObj.EnvironmentMaskOrSubsurfaceTint = EnvironmentMaskOrSubsurfaceTint;
             }
             string? NewMultilayer = Marshal.PtrToStringUni(slots[6]);
             if (!NewMultilayer.IsNullOrEmpty())
             {
                 var Multilayer = RemovePrefixIfExists("textures\\", NewMultilayer);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] Multilayer: " + Multilayer, 0);
                 newTXSTObj.Multilayer = Multilayer;
             }
             string? NewBacklightMaskOrSpecular = Marshal.PtrToStringUni(slots[7]);
             if (!NewBacklightMaskOrSpecular.IsNullOrEmpty())
             {
                 var BacklightMaskOrSpecular = RemovePrefixIfExists("textures\\", NewBacklightMaskOrSpecular);
-                MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] BacklightMaskOrSpecular: " + BacklightMaskOrSpecular, 0);
                 newTXSTObj.BacklightMaskOrSpecular = BacklightMaskOrSpecular;
             }
 
+            OutMod.TextureSets.Add(newTXSTObj);
             TXSTObjs.Add(newTXSTObj);
             *ResultTXSTId = TXSTObjs.Count - 1;
-            MessageHandler.Log("[CreateNewTXSTPatch] [Alt Tex Index: " + AltTexHandle + "] Created TXST with ID: " + *ResultTXSTId, 0);
 
-            //SetModelAltTexManage(AltTexHandle, *ResultTXSTId);
+            // set maxFormID if needed
+            if (NewFormID > maxFormID)
+            {
+                maxFormID = NewFormID;
+            }
         }
         catch (Exception ex)
         {
@@ -1120,23 +990,20 @@ public class PGMutagen
         }
     }
 
-    private static void SetModelAltTexManage(int AltTexHandle, int TXSTHandle)
+    [UnmanagedCallersOnly(EntryPoint = "SetModelAltTex", CallConvs = [typeof(CallConvCdecl)])]
+    public static void SetModelAltTex([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const int")] int TXSTHandle)
     {
         try
         {
-            MessageHandler.Log("[SetModelAltTexManage] [Alt Tex Index: " + AltTexHandle + "] [TXST Index: " + TXSTHandle + "]", 0);
-
             var AltTexObj = GetAltTexFromHandle(AltTexHandle);
-
             if (AltTexObj.Item1 is null)
             {
-                MessageHandler.Log("[SetModelAltTexManage] [Alt Tex Index: " + AltTexHandle + "] Alt Texture Not Found", 4);
-                return;
+                throw new Exception("Alt Texture handle not found");
             }
 
             if (AltTexObj.Item1.NewTexture.FormKey == TXSTObjs[TXSTHandle].FormKey)
             {
-                MessageHandler.Log("[SetModelAltTexManage] [Alt Tex Index: " + AltTexHandle + "] [TXST Index: " + TXSTHandle + "] TXST is the same as the current one", 0);
+                // The formkey is already the same so we do nothing
                 return;
             }
 
@@ -1149,30 +1016,58 @@ public class PGMutagen
         }
     }
 
-    [UnmanagedCallersOnly(EntryPoint = "SetModelAltTex", CallConvs = [typeof(CallConvCdecl)])]
-    public static void SetModelAltTex([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const int")] int TXSTHandle)
-    {
-        MessageHandler.Log("[SetModelAltTex] [Alt Tex Index: " + AltTexHandle + "] [TXST Index: " + TXSTHandle + "]", 0);
-        SetModelAltTexManage(AltTexHandle, TXSTHandle);
-    }
-
     [UnmanagedCallersOnly(EntryPoint = "Set3DIndex", CallConvs = [typeof(CallConvCdecl)])]
     public static void Set3DIndex([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const int")] int NewIndex)
     {
         try
         {
-            MessageHandler.Log("[Set3DIndex] [Alt Tex Index: " + AltTexHandle + "] [New Index: " + NewIndex + "]", 0);
-
             var AltTexObj = GetAltTexFromHandle(AltTexHandle);
-
             if (AltTexObj.Item1 is null)
             {
-                MessageHandler.Log("[Set3DIndex] [Alt Tex Index: " + AltTexHandle + "] Alt Texture Not Found", 4);
-                return;
+                throw new Exception("Alt Texture handle not found");
             }
 
             AltTexObj.Item1.Index = NewIndex;
             ModifiedModeledRecords.Add(AltTexObj.Item3);
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "SetModelRecNIF", CallConvs = [typeof(CallConvCdecl)])]
+    public static void SetModelRecNIF([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const wchar_t*")] IntPtr NIFPathPtr)
+    {
+        try
+        {
+            var AltTexObj = GetAltTexFromHandle(AltTexHandle);
+            var ModelRec = AltTexObj.Item2;
+
+            if (ModelRec is null)
+            {
+                throw new Exception("Model Record does not have a model");
+            }
+
+            var NIFPath = Marshal.PtrToStringUni(NIFPathPtr);
+            if (NIFPath is null)
+            {
+                throw new Exception("NIF Path is null");
+            }
+
+            // remove "meshes" from beginning of NIFPath if exists
+            NIFPath = RemovePrefixIfExists("meshes\\", NIFPath);
+
+            // Check if NIFPath is different from ModelRec ignore case
+            if (NIFPath.Equals(ModelRec.File, StringComparison.OrdinalIgnoreCase))
+            {
+                MessageHandler.Log("[SetModelRecNIF] [Alt Tex Index: " + AltTexHandle + "] [NIF Path: " + NIFPath + "] NIF Path is the same as the current one", 0);
+                return;
+            }
+
+            ModelRec.File = NIFPath;
+            ModifiedModeledRecords.Add(AltTexObj.Item3);
+            MessageHandler.Log("[SetModelRecNIF] [Alt Tex Index: " + AltTexHandle + "] [NIF Path: " + NIFPath + "]", 0);
         }
         catch (Exception ex)
         {
@@ -1301,48 +1196,10 @@ public class PGMutagen
     [UnmanagedCallersOnly(EntryPoint = "GetModelRecHandleFromAltTexHandle", CallConvs = [typeof(CallConvCdecl)])]
     public static unsafe void GetModelRecHandleFromAltTexHandle([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("int*")] int* ModelRecHandle)
     {
+        // TODO move this to getmatchingtxstrecords
         try
         {
             *ModelRecHandle = AltTexRefs[AltTexHandle].Item3;
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "SetModelRecNIF", CallConvs = [typeof(CallConvCdecl)])]
-    public static void SetModelRecNIF([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const wchar_t*")] IntPtr NIFPathPtr)
-    {
-        try
-        {
-            var AltTexObj = GetAltTexFromHandle(AltTexHandle);
-            var ModelRec = AltTexObj.Item2;
-
-            if (ModelRec is null)
-            {
-                throw new Exception("Model Record does not have a model");
-            }
-
-            var NIFPath = Marshal.PtrToStringUni(NIFPathPtr);
-            if (NIFPath is null)
-            {
-                throw new Exception("NIF Path is null");
-            }
-
-            // remove "meshes" from beginning of NIFPath if exists
-            NIFPath = RemovePrefixIfExists("meshes\\", NIFPath);
-
-            // Check if NIFPath is different from ModelRec ignore case
-            if (NIFPath.Equals(ModelRec.File, StringComparison.OrdinalIgnoreCase))
-            {
-                MessageHandler.Log("[SetModelRecNIF] [Alt Tex Index: " + AltTexHandle + "] [NIF Path: " + NIFPath + "] NIF Path is the same as the current one", 0);
-                return;
-            }
-
-            ModelRec.File = NIFPath;
-            ModifiedModeledRecords.Add(AltTexObj.Item3);
-            MessageHandler.Log("[SetModelRecNIF] [Alt Tex Index: " + AltTexHandle + "] [NIF Path: " + NIFPath + "]", 0);
         }
         catch (Exception ex)
         {
