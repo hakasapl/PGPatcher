@@ -93,7 +93,7 @@ void ParallaxGenPlugin::libThrowExceptionIfExists()
     const wstring messageOut(message);
     LocalFree(static_cast<HGLOBAL>(message)); // Only free if memory was allocated.
 
-    throw runtime_error("ParallaxGenMutagenWrapper.dll: " + ParallaxGenUtil::utf16toASCII(messageOut));
+    throw runtime_error("PGMutagen.dll: " + ParallaxGenUtil::utf16toASCII(messageOut));
 }
 
 void ParallaxGenPlugin::libInitialize(
