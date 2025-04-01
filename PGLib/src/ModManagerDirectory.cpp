@@ -10,6 +10,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "BethesdaDirectory.hpp"
 #include "ParallaxGenUtil.hpp"
 
 using namespace std;
@@ -153,8 +154,19 @@ void ModManagerDirectory::populateModFileMapMO2(
         m_inferredOrder.insert(m_inferredOrder.begin(), mod);
 
         try {
-            for (const auto& file : filesystem::recursive_directory_iterator(
-                     curModDir, filesystem::directory_options::skip_permission_denied)) {
+            for (auto it = filesystem::recursive_directory_iterator(
+                     curModDir, filesystem::directory_options::skip_permission_denied);
+                it != filesystem::recursive_directory_iterator(); ++it) {
+                const auto file = *it;
+
+                if (BethesdaDirectory::isHidden(file.path())) {
+                    if (file.is_directory()) {
+                        // If it's a directory, don't recurse into it
+                        it.disable_recursion_pending();
+                    }
+                    continue;
+                }
+
                 if (!filesystem::is_regular_file(file)) {
                     continue;
                 }

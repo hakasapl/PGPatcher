@@ -346,34 +346,36 @@ void BethesdaDirectory::addLooseFilesToMap()
         spdlog::info("Adding loose files to file map.");
     }
 
-    for (const auto& entry :
-        filesystem::recursive_directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied)) {
-        try {
-            if (entry.is_regular_file()) {
-                const filesystem::path& filePath = entry.path();
-                const filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
+    for (auto it
+        = filesystem::recursive_directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied);
+        it != filesystem::recursive_directory_iterator(); ++it) {
+        const auto entry = *it;
 
-                // check type of file, skip BSAs and ESPs
-                if (!isFileAllowed(filePath)) {
-                    continue;
-                }
-
-                if (m_logging) {
-                    spdlog::trace(L"Adding loose file to map: {}", relativePath.wstring());
-                }
-
-                wstring curMod;
-                if (m_mmd != nullptr) {
-                    curMod = m_mmd->getMod(relativePath);
-                }
-                updateFileMap(relativePath, nullptr, curMod);
-            }
-        } catch (const std::exception& e) {
-            if (m_logging) {
-                spdlog::error(L"Failed to load file from iterator (Skipping): {}", asciitoUTF16(e.what()));
+        if (isHidden(entry.path())) {
+            if (entry.is_directory()) {
+                // If it's a directory, don't recurse into it
+                it.disable_recursion_pending();
             }
             continue;
         }
+
+        const filesystem::path& filePath = entry.path();
+        const filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
+
+        // check type of file, skip BSAs and ESPs
+        if (!isFileAllowed(filePath)) {
+            continue;
+        }
+
+        if (m_logging) {
+            spdlog::trace(L"Adding loose file to map: {}", relativePath.wstring());
+        }
+
+        wstring curMod;
+        if (m_mmd != nullptr) {
+            curMod = m_mmd->getMod(relativePath);
+        }
+        updateFileMap(relativePath, nullptr, curMod);
     }
 }
 
@@ -728,7 +730,7 @@ auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> Beth
 
     const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
-    if (m_fileMap.find(lowerPath) == m_fileMap.end()) {
+    if (!m_fileMap.contains(lowerPath)) {
         return BethesdaFile { .path = filesystem::path(), .bsaFile = nullptr };
     }
 
@@ -800,6 +802,27 @@ auto BethesdaDirectory::checkGlob(const LPCWSTR& str, LPCWSTR& winningGlob, cons
             winningGlob = glob;
             return true;
         }
+    }
+
+    return false;
+}
+
+auto BethesdaDirectory::isHidden(const filesystem::path& path) -> bool
+{
+    // check if file is hidden in filesystem
+    DWORD const fileAttributes = GetFileAttributesW(path.c_str());
+    if (fileAttributes != INVALID_FILE_ATTRIBUTES && (fileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0) {
+        return true;
+    }
+
+    // check if file is a dotfile
+    if (path.filename().wstring().starts_with(L".")) {
+        return true;
+    }
+
+    // check if file ends in .mohidden (MO2 hidden file)
+    if (boost::iequals(path.extension().wstring(), ".mohidden")) {
+        return true;
     }
 
     return false;

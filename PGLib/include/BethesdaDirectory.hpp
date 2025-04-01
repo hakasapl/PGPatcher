@@ -313,6 +313,15 @@ public:
      */
     static auto checkGlob(const std::wstring& str, const std::vector<std::wstring>& globList) -> bool;
 
+    /**
+     * @brief Check if file or folder is hidden
+     *
+     * @param path Path to check
+     * @return true if file is hidden
+     * @return false if file is not hidden
+     */
+    static auto isHidden(const std::filesystem::path& path) -> bool;
+
 private:
     /**
      * @brief Looks through each BSA and adds files to the file map

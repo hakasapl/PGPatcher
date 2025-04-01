@@ -4,6 +4,8 @@
 
 - Fixed issue for Skyrim VR with mismatching formids between output plugins
 - Fixed 3d index being calculated incorrectly for some meshes
+- Fixed MO2 operator++ crash for cases where MO2 does not put hidden folders in the VFS
+- Fixed mohidden files/folders being included in file map
 
 ## [0.8.10] - 2025-03-19
 
