@@ -22,6 +22,6 @@
     <ItemGroup>
         <PackageReference Include="DNNE" Version="2.0.7" />
         <PackageReference Include="Lib.Harmony" Version="2.3.3" />
-        <PackageReference Include="Mutagen.Bethesda.Skyrim" Version="0.48.1" />
+        <PackageReference Include="Mutagen.Bethesda.Skyrim" Version="0.49.0" />
     </ItemGroup>
 </Project>

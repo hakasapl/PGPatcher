@@ -89,18 +89,6 @@ public:
     [[nodiscard]] static auto getDiffJSONName() -> std::filesystem::path;
 
 private:
-    // Helper structs
-    struct VectorHash {
-        auto operator()(const std::vector<NIFUtil::ShapeShader>& vec) const -> std::size_t
-        {
-            std::size_t hash = 0;
-            for (const auto& shader : vec) {
-                boost::hash_combine(hash, static_cast<int>(shader));
-            }
-            return hash;
-        }
-    };
-
     // thread safe JSON update
     static void threadSafeJSONUpdate(
         const std::function<void(nlohmann::json&)>& operation, nlohmann::json& j, std::mutex& mutex);
@@ -112,7 +100,7 @@ private:
 
     // TODO this should return bool
     auto processNIF(const std::filesystem::path& nifFile, const std::vector<std::byte>& nifBytes, bool& nifModified,
-        const std::vector<NIFUtil::ShapeShader>* forceShaders = nullptr,
+        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr,
         std::vector<std::pair<std::filesystem::path, nifly::NifFile>>* dupNIFs = nullptr,
         const bool& patchPlugin = true, PatcherUtil::ConflictModResults* conflictMods = nullptr) -> nifly::NifFile;
 

@@ -4,6 +4,7 @@
 #include <nifly/Geometry.hpp>
 #include <nifly/NifFile.hpp>
 #include <nifly/Object3d.hpp>
+#include <nifly/Particles.hpp>
 #include <nifly/Shaders.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
@@ -36,6 +37,20 @@ auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
     }
 
     return strFromShaderMap.at(ShapeShader::NONE);
+}
+
+auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
+{
+    const static unordered_map<string, ShapeShader> shaderFromStrMap
+        = { { "none", ShapeShader::NONE }, { "pbr", ShapeShader::TRUEPBR },
+              { "complex material", ShapeShader::COMPLEXMATERIAL }, { "parallax", ShapeShader::VANILLAPARALLAX } };
+
+    const auto searchKey = boost::to_lower_copy(shader);
+    if (shaderFromStrMap.find(searchKey) != shaderFromStrMap.end()) {
+        return shaderFromStrMap.at(searchKey);
+    }
+
+    return ShapeShader::NONE;
 }
 
 auto NIFUtil::getStrFromTexAttribute(const TextureAttribute& attribute) -> std::string
@@ -506,4 +521,31 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
     }
 
     return outSlots;
+}
+
+auto NIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<nifly::NiShape*, int>
+{
+    if (nif == nullptr) {
+        throw runtime_error("NIF is null");
+    }
+
+    vector<NiObject*> tree;
+    nif->GetTree(tree);
+    unordered_map<NiShape*, int> shapes;
+    int oldIndex3D = 0;
+    for (auto& obj : tree) {
+        auto* const curShape = dynamic_cast<NiShape*>(obj);
+        if (curShape != nullptr) {
+            shapes[curShape] = oldIndex3D++;
+            continue;
+        }
+
+        // other stuff that should increment oldIndex3D
+        if (dynamic_cast<NiParticleSystem*>(obj) != nullptr) {
+            // Particle system, increment index3d
+            oldIndex3D++;
+        }
+    }
+
+    return shapes;
 }

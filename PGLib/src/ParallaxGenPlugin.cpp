@@ -3,6 +3,7 @@
 #include <mutex>
 #include <spdlog/spdlog.h>
 #include <unordered_map>
+#include <utility>
 #include <winbase.h>
 
 #include "Logger.hpp"
@@ -92,7 +93,7 @@ void ParallaxGenPlugin::libThrowExceptionIfExists()
     const wstring messageOut(message);
     LocalFree(static_cast<HGLOBAL>(message)); // Only free if memory was allocated.
 
-    throw runtime_error("ParallaxGenMutagenWrapper.dll: " + ParallaxGenUtil::utf16toASCII(messageOut));
+    throw runtime_error("PGMutagen.dll: " + ParallaxGenUtil::utf16toASCII(messageOut));
 }
 
 void ParallaxGenPlugin::libInitialize(
@@ -195,22 +196,6 @@ auto ParallaxGenPlugin::libGetTXSTSlots(const int& txstIndex) -> array<wstring, 
     return outputArray;
 }
 
-void ParallaxGenPlugin::libCreateTXSTPatch(const int& txstIndex, const array<wstring, NUM_TEXTURE_SLOTS>& slots)
-{
-    const lock_guard<mutex> lock(s_libMutex);
-
-    // Prepare the array of const wchar_t* pointers from the Slots array
-    array<const wchar_t*, NUM_TEXTURE_SLOTS> slotsArray = { nullptr };
-    for (int i = 0; i < NUM_TEXTURE_SLOTS; ++i) {
-        slotsArray.at(i) = slots.at(i).c_str(); // Point to the internal wide string data of each wstring
-    }
-
-    // Call the CreateTXSTPatch function with TXSTIndex and the array of wide string pointers
-    CreateTXSTPatch(txstIndex, slotsArray.data());
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
-}
-
 auto ParallaxGenPlugin::libCreateNewTXSTPatch(const int& altTexIndex, const array<wstring, NUM_TEXTURE_SLOTS>& slots,
     const string& newEDID, const unsigned int& newFormID) -> int
 {
@@ -218,7 +203,7 @@ auto ParallaxGenPlugin::libCreateNewTXSTPatch(const int& altTexIndex, const arra
 
     // Prepare the array of const wchar_t* pointers from the Slots array
     array<const wchar_t*, NUM_TEXTURE_SLOTS> slotsArray = { nullptr };
-    for (int i = 0; i < NUM_TEXTURE_SLOTS; ++i) {
+    for (int i = 0; cmp_less(i, NUM_TEXTURE_SLOTS); ++i) {
         slotsArray.at(i) = slots.at(i).c_str(); // Point to the internal wide string data of each wstring
     }
 
@@ -648,6 +633,11 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
                 newFormID = s_curTXSTFormID;
             }
 
+            static constexpr unsigned int MAX_FORMID = 0xFFFFFF;
+            if (newFormID > MAX_FORMID) {
+                throw runtime_error("Form ID overflow");
+            }
+
             if (newFormID == 0) {
                 throw runtime_error("Failed to find a new form ID for TXST record");
             }
@@ -714,43 +704,40 @@ void ParallaxGenPlugin::assignMesh(const wstring& nifPath, const wstring& baseNI
 }
 
 void ParallaxGenPlugin::set3DIndices(
-    const wstring& nifPath, const vector<tuple<nifly::NiShape*, int, int, string>>& shapeTracker)
+    const wstring& nifPath, const int& oldIndex3D, const int& newIndex3D, const std::string& shapeKey)
 {
     const lock_guard<mutex> lock(s_processShapeMutex);
 
     const Logger::Prefix prefix(L"set3DIndices");
 
-    // Loop through shape tracker
-    for (const auto& [shape, oldIndex3D, newIndex3D, shapeLabel] : shapeTracker) {
-        // find matches
-        const auto matches = libGetMatchingTXSTObjs(nifPath, oldIndex3D);
+    // find matches
+    const auto matches = libGetMatchingTXSTObjs(nifPath, oldIndex3D);
 
-        // Set indices
-        for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType] : matches) {
-            if (!boost::iequals(nifPath, matchedNIF)) {
-                // Skip if not the base NIF
-                continue;
-            }
-
-            if (oldIndex3D == newIndex3D) {
-                // No change
-                continue;
-            }
-
-            string altTexJSONKey;
-            if (PGDiag::isEnabled()) {
-                // this is somewhat costly so we only run it if diagnostics are enabled
-                altTexJSONKey = getKeyFromFormID(libGetAltTexFormID(altTexIndex)) + " / " + matchType;
-            }
-
-            const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
-            const PGDiag::Prefix diagShapeKeyPrefix(shapeLabel, nlohmann::json::value_t::object);
-
-            PGDiag::insert("newIndex3D", newIndex3D);
-
-            Logger::trace(L"Setting 3D index for AltTex {} to {}", altTexIndex, newIndex3D);
-            libSet3DIndex(altTexIndex, newIndex3D);
+    // Set indices
+    for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType] : matches) {
+        if (!boost::iequals(nifPath, matchedNIF)) {
+            // Skip if not the base NIF
+            continue;
         }
+
+        if (oldIndex3D == newIndex3D) {
+            // No change
+            continue;
+        }
+
+        string altTexJSONKey;
+        if (PGDiag::isEnabled()) {
+            // this is somewhat costly so we only run it if diagnostics are enabled
+            altTexJSONKey = getKeyFromFormID(libGetAltTexFormID(altTexIndex)) + " / " + matchType;
+        }
+
+        const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
+        const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
+
+        PGDiag::insert("newIndex3D", newIndex3D);
+
+        Logger::trace(L"Setting 3D index for AltTex {} to {}", altTexIndex, newIndex3D);
+        libSet3DIndex(altTexIndex, newIndex3D);
     }
 }
 

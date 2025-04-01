@@ -41,8 +41,6 @@ private:
     /// @return array of texture files for all texture slots
     static auto libGetTXSTSlots(const int& txstIndex) -> std::array<std::wstring, NUM_TEXTURE_SLOTS>;
 
-    static void libCreateTXSTPatch(const int& txstIndex, const std::array<std::wstring, NUM_TEXTURE_SLOTS>& slots);
-
     static auto libCreateNewTXSTPatch(const int& altTexIndex, const std::array<std::wstring, NUM_TEXTURE_SLOTS>& slots,
         const std::string& newEDID, const unsigned int& newFormID) -> int;
 
@@ -146,8 +144,8 @@ public:
     static void assignMesh(
         const std::wstring& nifPath, const std::wstring& baseNIFPath, const std::vector<TXSTResult>& result);
 
-    static void set3DIndices(const std::wstring& nifPath,
-        const std::vector<std::tuple<nifly::NiShape*, int, int, std::string>>& shapeTracker);
+    static void set3DIndices(
+        const std::wstring& nifPath, const int& oldIndex3D, const int& newIndex3D, const std::string& shapeKey);
 
     static void savePlugin(const std::filesystem::path& outputDir, bool esmify);
 
