@@ -397,6 +397,10 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
         // Define forced shader if needed
         const NIFUtil::ShapeShader* ptrShaderForce = nullptr;
         if (forceShaders != nullptr && forceShaders->contains(oldIndex3D)) {
+            if (forceShaders->at(oldIndex3D) == NIFUtil::ShapeShader::UNKNOWN) {
+                // skip unknown force shaders (invalid shapes)
+                continue;
+            }
             ptrShaderForce = &forceShaders->at(oldIndex3D);
         }
 
@@ -489,11 +493,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
                 if (shaderApplied == NIFUtil::ShapeShader::UNKNOWN) {
                     // Set shader in nif shape
                     shaderApplied = shadersAppliedMesh[oldIndex3D];
-                }
-
-                if (shaderApplied == NIFUtil::ShapeShader::UNKNOWN) {
-                    // No shader applied, skip
-                    shaderApplied = NIFUtil::ShapeShader::NONE;
                 }
 
                 resultShaders[oldIndex3D] = shaderApplied;
