@@ -22,6 +22,11 @@ enum class ShapeShader : uint8_t { UNKNOWN, NONE, VANILLAPARALLAX, COMPLEXMATERI
 /// @return string containing the name of the shader
 auto getStrFromShader(const ShapeShader& shader) -> std::string;
 
+/// @brief get the shader type from a string
+/// @param[in] shader string containing the name of the shader
+/// @return the shader type
+auto getShaderFromStr(const std::string& shader) -> ShapeShader;
+
 /// @brief zero-based index of texture in BSShaderTextureSet
 /// there can be more than one type of textures assigned to a a texture slot, the slot name describes the default one
 enum class TextureSlots : uint8_t {
@@ -243,5 +248,7 @@ auto getSearchPrefixes(nifly::NifFile const& nif, nifly::NiShape* nifShape)
 /// @return array of texture names without suffixes
 auto getSearchPrefixes(const std::array<std::wstring, NUM_TEXTURE_SLOTS>& oldSlots)
     -> std::array<std::wstring, NUM_TEXTURE_SLOTS>;
+
+auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiShape*, int>;
 
 } // namespace NIFUtil

@@ -144,8 +144,8 @@ public:
     static void assignMesh(
         const std::wstring& nifPath, const std::wstring& baseNIFPath, const std::vector<TXSTResult>& result);
 
-    static void set3DIndices(const std::wstring& nifPath,
-        const std::vector<std::tuple<nifly::NiShape*, int, int, std::string>>& shapeTracker);
+    static void set3DIndices(
+        const std::wstring& nifPath, const int& oldIndex3D, const int& newIndex3D, const std::string& shapeKey);
 
     static void savePlugin(const std::filesystem::path& outputDir, bool esmify);
 

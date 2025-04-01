@@ -704,43 +704,40 @@ void ParallaxGenPlugin::assignMesh(const wstring& nifPath, const wstring& baseNI
 }
 
 void ParallaxGenPlugin::set3DIndices(
-    const wstring& nifPath, const vector<tuple<nifly::NiShape*, int, int, string>>& shapeTracker)
+    const wstring& nifPath, const int& oldIndex3D, const int& newIndex3D, const std::string& shapeKey)
 {
     const lock_guard<mutex> lock(s_processShapeMutex);
 
     const Logger::Prefix prefix(L"set3DIndices");
 
-    // Loop through shape tracker
-    for (const auto& [shape, oldIndex3D, newIndex3D, shapeLabel] : shapeTracker) {
-        // find matches
-        const auto matches = libGetMatchingTXSTObjs(nifPath, oldIndex3D);
+    // find matches
+    const auto matches = libGetMatchingTXSTObjs(nifPath, oldIndex3D);
 
-        // Set indices
-        for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType] : matches) {
-            if (!boost::iequals(nifPath, matchedNIF)) {
-                // Skip if not the base NIF
-                continue;
-            }
-
-            if (oldIndex3D == newIndex3D) {
-                // No change
-                continue;
-            }
-
-            string altTexJSONKey;
-            if (PGDiag::isEnabled()) {
-                // this is somewhat costly so we only run it if diagnostics are enabled
-                altTexJSONKey = getKeyFromFormID(libGetAltTexFormID(altTexIndex)) + " / " + matchType;
-            }
-
-            const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
-            const PGDiag::Prefix diagShapeKeyPrefix(shapeLabel, nlohmann::json::value_t::object);
-
-            PGDiag::insert("newIndex3D", newIndex3D);
-
-            Logger::trace(L"Setting 3D index for AltTex {} to {}", altTexIndex, newIndex3D);
-            libSet3DIndex(altTexIndex, newIndex3D);
+    // Set indices
+    for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType] : matches) {
+        if (!boost::iequals(nifPath, matchedNIF)) {
+            // Skip if not the base NIF
+            continue;
         }
+
+        if (oldIndex3D == newIndex3D) {
+            // No change
+            continue;
+        }
+
+        string altTexJSONKey;
+        if (PGDiag::isEnabled()) {
+            // this is somewhat costly so we only run it if diagnostics are enabled
+            altTexJSONKey = getKeyFromFormID(libGetAltTexFormID(altTexIndex)) + " / " + matchType;
+        }
+
+        const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
+        const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
+
+        PGDiag::insert("newIndex3D", newIndex3D);
+
+        Logger::trace(L"Setting 3D index for AltTex {} to {}", altTexIndex, newIndex3D);
+        libSet3DIndex(altTexIndex, newIndex3D);
     }
 }
 
