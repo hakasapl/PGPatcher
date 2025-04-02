@@ -264,7 +264,8 @@ auto ParallaxGen::processNIF(const filesystem::path& nifFile, nlohmann::json* di
     try {
         nifFileData = m_pgd->getFile(nifFile);
     } catch (const exception& e) {
-        Logger::error(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::trace(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::error(L"Unable to load NIF (most likely corrupt): {}", nifFile.wstring());
         result = ParallaxGenTask::PGResult::FAILURE;
         return result;
     }
@@ -346,7 +347,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
     try {
         nif = NIFUtil::loadNIFFromBytes(nifBytes);
     } catch (const exception& e) {
-        Logger::error(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::trace(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::error(L"Unable to load NIF (most likely corrupt): {}", nifFile.wstring());
         return {};
     }
 
