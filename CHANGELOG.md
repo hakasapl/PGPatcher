@@ -6,6 +6,7 @@
 - Fixed 3d index being calculated incorrectly for some meshes
 - Fixed MO2 operator++ crash for cases where MO2 does not put hidden folders in the VFS
 - Fixed mohidden files/folders being included in file map
+- Fixed existing output folder deletion checks being case-sensitive
 
 ## [0.8.10] - 2025-03-19
 
