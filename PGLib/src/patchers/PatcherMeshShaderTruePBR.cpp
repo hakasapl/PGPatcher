@@ -751,9 +751,20 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
                 vertHSL[2] = clamp(newLVal, 0.0F, 1.0F);
                 boost::gil::color_convert(vertHSL, vertRGB);
 
-                vert.colorData[0] = vertRGB[0];
-                vert.colorData[1] = vertRGB[1];
-                vert.colorData[2] = vertRGB[2];
+                if (vert.colorData[0] != vertRGB[0]) {
+                    vert.colorData[0] = vertRGB[0];
+                    changed = true;
+                }
+
+                if (vert.colorData[1] != vertRGB[1]) {
+                    vert.colorData[1] = vertRGB[1];
+                    changed = true;
+                }
+
+                if (vert.colorData[2] != vertRGB[2]) {
+                    vert.colorData[2] = vertRGB[2];
+                    changed = true;
+                }
             }
         }
     }
