@@ -9,6 +9,8 @@
 - Fixed existing output folder deletion checks being case-sensitive
 - Fixed PBR vertex_color modifiers not triggering a NIF change
 - Fixed PBR empty slot commands having "texture" prepended to them causing errors
+- Corrupt NIFs should be handled more gracefully now with an error message indicating which NIF
+- PBR patcher will no longer use base names of match_diffuse and match_normal
 
 ## [0.8.10] - 2025-03-19
 
