@@ -8,6 +8,7 @@
 - Fixed mohidden files/folders being included in file map
 - Fixed existing output folder deletion checks being case-sensitive
 - Fixed PBR vertex_color modifiers not triggering a NIF change
+- Fixed PBR empty slot commands having "texture" prepended to them causing errors
 
 ## [0.8.10] - 2025-03-19
 
