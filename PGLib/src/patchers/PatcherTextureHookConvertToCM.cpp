@@ -26,7 +26,7 @@ auto PatcherTextureHookConvertToCM::applyPatch(filesystem::path& newPath) -> boo
         throw runtime_error("DDS not initialized");
     }
 
-    const auto texBase = NIFUtil::getTexBase(getDDSPath());
+    const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::PARALLAX);
     newPath = texBase + L"_m.dds";
 
     if (getPGD()->isGenerated(newPath)) {
