@@ -225,7 +225,7 @@ auto textureSetToStr(const TextureSet& set) -> TextureSetStr;
 /// @brief get the texture name without suffix, i.e. without _n.dds
 /// @param[in] texPath the path to get the base for
 /// @return base path
-auto getTexBase(const std::filesystem::path& texPath) -> std::wstring;
+auto getTexBase(const std::filesystem::path& texPath, const TextureSlots& slot = TextureSlots::UNKNOWN) -> std::wstring;
 
 /// @brief get the matching textures for a given base path
 /// @param[in] base base texture name

@@ -135,7 +135,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         // "match_normal" attribute
         if (config.second.contains("match_normal")) {
             auto revNormal = ParallaxGenUtil::utf8toUTF16(config.second["match_normal"].get<string>());
-            // revNormal = NIFUtil::getTexBase(revNormal);
+            revNormal = NIFUtil::getTexBase(revNormal, NIFUtil::TextureSlots::NORMAL);
             std::ranges::reverse(revNormal);
 
             getTruePBRNormalInverse()[boost::to_lower_copy(revNormal)].push_back(config.first);
@@ -145,7 +145,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         // "match_diffuse" attribute
         if (config.second.contains("match_diffuse")) {
             auto revDiffuse = ParallaxGenUtil::utf8toUTF16(config.second["match_diffuse"].get<string>());
-            // revDiffuse = NIFUtil::getTexBase(revDiffuse);
+            revDiffuse = NIFUtil::getTexBase(revDiffuse, NIFUtil::TextureSlots::DIFFUSE);
             std::ranges::reverse(revDiffuse);
 
             getTruePBRDiffuseInverse()[boost::to_lower_copy(revDiffuse)].push_back(config.first);
@@ -441,12 +441,10 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
     }
 
     // Get PBR path, which is the path without the matched field
-    auto matchedFieldStr = curCfg.contains("match_normal") ? curCfg["match_normal"].get<string>()
-                                                           : curCfg["match_diffuse"].get<string>();
-    auto matchedFieldBase = NIFUtil::getTexBase(matchedFieldStr);
-    texPath.erase(texPath.length() - matchedFieldBase.length(), matchedFieldBase.length());
-
-    auto matchedField = ParallaxGenUtil::utf8toUTF16(matchedFieldStr);
+    auto matchedField = curCfg.contains("match_normal")
+        ? NIFUtil::getTexBase(curCfg["match_normal"].get<string>(), NIFUtil::TextureSlots::NORMAL)
+        : NIFUtil::getTexBase(curCfg["match_diffuse"].get<string>(), NIFUtil::TextureSlots::DIFFUSE);
+    texPath.erase(texPath.length() - matchedField.length(), matchedField.length());
 
     // "rename" attribute
     if (curCfg.contains("rename")) {

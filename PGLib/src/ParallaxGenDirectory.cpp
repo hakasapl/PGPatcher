@@ -433,7 +433,7 @@ auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path, const 
     const NIFUtil::TextureType& type, const unordered_set<NIFUtil::TextureAttribute>& attributes) -> void
 {
     // Get texture base
-    const auto& base = NIFUtil::getTexBase(path);
+    const auto& base = NIFUtil::getTexBase(path, slot);
     const auto& slotInt = static_cast<size_t>(slot);
 
     // Add to texture map

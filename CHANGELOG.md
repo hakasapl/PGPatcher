@@ -10,7 +10,7 @@
 - Fixed PBR vertex_color modifiers not triggering a NIF change
 - Fixed PBR empty slot commands having "texture" prepended to them causing errors
 - Corrupt NIFs should be handled more gracefully now with an error message indicating which NIF
-- PBR patcher will no longer use base names of match_diffuse and match_normal
+- Texture name base checks will only operate on a per-slot basis now instead of checking suffixes for every slot
 - Fixed "textures" appearing more than once in NIF texture paths causing issues
 
 ## [0.8.10] - 2025-03-19

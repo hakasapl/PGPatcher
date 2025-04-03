@@ -466,7 +466,7 @@ auto NIFUtil::textureSetToStr(const TextureSet& set) -> TextureSetStr
     return outSet;
 }
 
-auto NIFUtil::getTexBase(const std::filesystem::path& path) -> std::wstring
+auto NIFUtil::getTexBase(const std::filesystem::path& path, const TextureSlots& slot) -> std::wstring
 {
     const auto& suffixMap = getTexSuffixMap();
 
@@ -474,7 +474,11 @@ auto NIFUtil::getTexBase(const std::filesystem::path& path) -> std::wstring
     const auto pathWithoutExtension = path.parent_path() / path.stem();
     const auto& pathStr = pathWithoutExtension.wstring();
 
-    for (const auto& [suffix, slot] : suffixMap) {
+    for (const auto& [suffix, curSlot] : suffixMap) {
+        if (slot != TextureSlots::UNKNOWN && slot != get<0>(curSlot)) {
+            continue;
+        }
+
         if (boost::iends_with(pathStr, suffix)) {
             return pathStr.substr(0, pathStr.size() - suffix.size());
         }
@@ -532,7 +536,7 @@ auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape) ->
         }
 
         // Get default suffixes
-        const auto texBase = getTexBase(texture);
+        const auto texBase = getTexBase(texture, static_cast<TextureSlots>(i));
         outPrefixes.at(i) = texBase;
     }
 
@@ -548,7 +552,7 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
             continue;
         }
 
-        const auto texBase = getTexBase(oldSlots.at(i));
+        const auto texBase = getTexBase(oldSlots.at(i), static_cast<TextureSlots>(i));
         outSlots.at(i) = texBase;
     }
 
