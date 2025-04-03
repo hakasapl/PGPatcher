@@ -21,6 +21,10 @@ auto PatcherMeshPreFixTextureSlotCount::applyPatch(nifly::NiShape& nifShape) -> 
     auto* nifShader = getNIF()->GetShader(&nifShape);
 
     auto* txstRec = getNIF()->GetHeader().GetBlock(nifShader->TextureSetRef());
+    if (txstRec == nullptr) {
+        return false;
+    }
+
     if (txstRec->textures.size() < SLOT_COUNT) {
         txstRec->textures.resize(SLOT_COUNT);
         changed = true;

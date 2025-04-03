@@ -44,24 +44,18 @@ target_link_libraries(PGPatcher PRIVATE
     cpptrace::cpptrace
 )
 
-install(TARGETS PGPatcher DESTINATION . )
-install(FILES $<TARGET_RUNTIME_DLLS:PGPatcher> DESTINATION . )
+# Asset moving
+add_custom_command(TARGET PGPatcher POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:PGPatcher>/assets
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:PGPatcher>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets
+        $<TARGET_FILE_DIR:PGPatcher>/assets
+)
 
-# manual copy DLLs not caught by TARGET_RUNTIME_DLLS TODO why do I have to do this manually?
-if (${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo" OR ${CMAKE_BUILD_TYPE} STREQUAL "MinSizeRel")
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/wxbase32u_vc_x64_custom.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/wxmsw32u_core_vc_x64_custom.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pcre2-16.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/jpeg62.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libpng16.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tiff.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liblzma.dll DESTINATION . )
-elseif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/wxbase32ud_vc_x64_custom.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/wxmsw32ud_core_vc_x64_custom.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pcre2-16d.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/jpeg62.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libpng16d.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tiffd.dll DESTINATION . )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liblzma.dll DESTINATION . )
-endif()
+install(TARGETS PGPatcher DESTINATION . )
+
+install(DIRECTORY ${CMAKE_BINARY_DIR}/assets DESTINATION . )
+
+file(GLOB PGPATCHER_DLLS "${CMAKE_CURRENT_BINARY_DIR}/*.dll")
+install(FILES ${PGPATCHER_DLLS} DESTINATION .)

@@ -1,11 +1,11 @@
 #include "NIFUtil.hpp"
 #include "ParallaxGenUtil.hpp"
 
-#include <nifly/Geometry.hpp>
-#include <nifly/NifFile.hpp>
-#include <nifly/Object3d.hpp>
-#include <nifly/Particles.hpp>
-#include <nifly/Shaders.hpp>
+#include <Geometry.hpp>
+#include <NifFile.hpp>
+#include <Object3d.hpp>
+#include <Particles.hpp>
+#include <Shaders.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -23,6 +23,8 @@
 
 #include <cstddef>
 #include <cstdint>
+
+#include <windows.h>
 
 using namespace std;
 
@@ -226,6 +228,17 @@ auto NIFUtil::getTexTypesStr() -> vector<string>
     return texTypesStr;
 }
 
+extern "C" auto loadNifWithSEH(nifly::NifFile* pNif, std::istream* pStream) -> bool
+{
+    __try {
+        pNif->Load(*pStream);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        // Catch the access violation or other SEH exception
+        return false;
+    }
+}
+
 auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes) -> nifly::NifFile
 {
     // NIF file object
@@ -243,9 +256,28 @@ auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes) -> nifly:
         nifBytes.size());
     boost::iostreams::stream<boost::iostreams::array_source> nifStream(nifArraySource);
 
-    nif.Load(nifStream);
-    if (!nif.IsValid()) {
+    if (!loadNifWithSEH(&nif, &nifStream)) {
+        throw runtime_error("Failed to load NIF file");
+    }
+
+    if (!nif.IsValid() || !nif.GetHeader().IsValid()) {
         throw runtime_error("Invalid NIF");
+    }
+
+    // Check shapes
+    const auto shapes = nif.GetShapes();
+    for (const auto& shape : shapes) {
+        if (shape == nullptr) {
+            throw runtime_error("Invalid NIF: Shape is null");
+        }
+
+        auto* nifShader = nif.GetShader(shape);
+        if (nifShader != nullptr && nifShader->HasTextureSet()) {
+            auto* txstRec = nif.GetHeader().GetBlock(nifShader->TextureSetRef());
+            if (txstRec == nullptr) {
+                throw runtime_error("Invalid NIF: TextureSetRef is null");
+            }
+        }
     }
 
     return nif;

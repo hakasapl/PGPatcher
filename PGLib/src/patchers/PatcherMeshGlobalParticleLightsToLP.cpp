@@ -11,7 +11,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <nlohmann/json.hpp>
 
-#include <nifly/Particles.hpp>
+#include <Particles.hpp>
 
 #include <fstream>
 

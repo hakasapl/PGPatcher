@@ -135,7 +135,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         // "match_normal" attribute
         if (config.second.contains("match_normal")) {
             auto revNormal = ParallaxGenUtil::utf8toUTF16(config.second["match_normal"].get<string>());
-            revNormal = NIFUtil::getTexBase(revNormal);
+            // revNormal = NIFUtil::getTexBase(revNormal);
             std::ranges::reverse(revNormal);
 
             getTruePBRNormalInverse()[boost::to_lower_copy(revNormal)].push_back(config.first);
@@ -145,7 +145,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         // "match_diffuse" attribute
         if (config.second.contains("match_diffuse")) {
             auto revDiffuse = ParallaxGenUtil::utf8toUTF16(config.second["match_diffuse"].get<string>());
-            revDiffuse = NIFUtil::getTexBase(revDiffuse);
+            // revDiffuse = NIFUtil::getTexBase(revDiffuse);
             std::ranges::reverse(revDiffuse);
 
             getTruePBRDiffuseInverse()[boost::to_lower_copy(revDiffuse)].push_back(config.first);
@@ -751,9 +751,20 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
                 vertHSL[2] = clamp(newLVal, 0.0F, 1.0F);
                 boost::gil::color_convert(vertHSL, vertRGB);
 
-                vert.colorData[0] = vertRGB[0];
-                vert.colorData[1] = vertRGB[1];
-                vert.colorData[2] = vertRGB[2];
+                if (vert.colorData[0] != vertRGB[0]) {
+                    vert.colorData[0] = vertRGB[0];
+                    changed = true;
+                }
+
+                if (vert.colorData[1] != vertRGB[1]) {
+                    vert.colorData[1] = vertRGB[1];
+                    changed = true;
+                }
+
+                if (vert.colorData[2] != vertRGB[2]) {
+                    vert.colorData[2] = vertRGB[2];
+                    changed = true;
+                }
             }
         }
     }
@@ -949,7 +960,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(
             std::string newSlot = truePBRData[slotName].get<std::string>();
 
             // Prepend "textures\\" if it's not already there
-            if (!boost::istarts_with(newSlot, "textures\\")) {
+            if (!newSlot.empty() && !boost::istarts_with(newSlot, "textures\\")) {
                 newSlot.insert(0, "textures\\");
             }
 

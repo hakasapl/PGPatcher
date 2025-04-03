@@ -4,6 +4,7 @@
 #include <Geometry.hpp>
 #include <NifFile.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio.hpp>
 #include <boost/crc.hpp>
@@ -158,12 +159,13 @@ void ParallaxGen::zipMeshes() const
 void ParallaxGen::deleteOutputDir(const bool& preOutput) const
 {
     static const unordered_set<filesystem::path> foldersToDelete
-        = { "meshes", "textures", "LightPlacer", "PBRTextureSets", "Strings" };
+        = { "meshes", "textures", "lightplacer", "pbrtexturesets", "strings" };
     static const unordered_set<filesystem::path> filesToDelete
-        = { "ParallaxGen.esp", getDiffJSONName(), "ParallaxGen_DIAG.json" };
-    static const vector<pair<wstring, wstring>> filesToDeleteParseRules = { { L"PG_", L".esp" } };
+        = { "parallaxgen.esp", boost::to_lower_copy(getDiffJSONName().wstring()), "parallaxgen_diag.json" };
+    static const vector<pair<wstring, wstring>> filesToDeleteParseRules = { { L"pg_", L".esp" } };
     static const unordered_set<filesystem::path> filesToIgnore = { "meta.ini" };
-    static const unordered_set<filesystem::path> filesToDeletePreOutput = { getOutputZipName() };
+    static const unordered_set<filesystem::path> filesToDeletePreOutput
+        = { boost::to_lower_copy(getOutputZipName().wstring()) };
 
     if (!filesystem::exists(m_outputDir) || !filesystem::is_directory(m_outputDir)) {
         return;
@@ -171,10 +173,12 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput) const
 
     vector<filesystem::path> filesToDeleteParsed;
     for (const auto& entry : filesystem::directory_iterator(m_outputDir)) {
+        const filesystem::path entryFilename = boost::to_lower_copy(entry.path().filename().wstring());
+
         bool outerContinue = false;
         for (const auto& [filesToDeleteStartsWith, filesToDeleteEndsWith] : filesToDeleteParseRules) {
-            if (boost::istarts_with(entry.path().filename().wstring(), filesToDeleteStartsWith)
-                && boost::iends_with(entry.path().filename().wstring(), filesToDeleteEndsWith)) {
+            if (boost::starts_with(entryFilename.wstring(), filesToDeleteStartsWith)
+                && boost::ends_with(entryFilename.wstring(), filesToDeleteEndsWith)) {
                 filesToDeleteParsed.push_back(entry.path().filename());
                 outerContinue = true;
                 break;
@@ -186,12 +190,12 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput) const
         }
 
         if (entry.is_regular_file()
-            && (filesToDelete.contains(entry.path().filename()) || filesToIgnore.contains(entry.path().filename())
-                || filesToDeletePreOutput.contains(entry.path().filename()))) {
+            && (filesToDelete.contains(entryFilename) || filesToIgnore.contains(entryFilename)
+                || filesToDeletePreOutput.contains(entryFilename))) {
             continue;
         }
 
-        if (entry.is_directory() && foldersToDelete.contains(entry.path().filename())) {
+        if (entry.is_directory() && foldersToDelete.contains(entryFilename)) {
             continue;
         }
 
@@ -260,7 +264,8 @@ auto ParallaxGen::processNIF(const filesystem::path& nifFile, nlohmann::json* di
     try {
         nifFileData = m_pgd->getFile(nifFile);
     } catch (const exception& e) {
-        Logger::error(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::trace(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::error(L"Unable to load NIF (most likely corrupt): {}", nifFile.wstring());
         result = ParallaxGenTask::PGResult::FAILURE;
         return result;
     }
@@ -342,7 +347,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
     try {
         nif = NIFUtil::loadNIFFromBytes(nifBytes);
     } catch (const exception& e) {
-        Logger::error(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::trace(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+        Logger::error(L"Unable to load NIF (most likely corrupt): {}", nifFile.wstring());
         return {};
     }
 
@@ -397,6 +403,10 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
         // Define forced shader if needed
         const NIFUtil::ShapeShader* ptrShaderForce = nullptr;
         if (forceShaders != nullptr && forceShaders->contains(oldIndex3D)) {
+            if (forceShaders->at(oldIndex3D) == NIFUtil::ShapeShader::UNKNOWN) {
+                // skip unknown force shaders (invalid shapes)
+                continue;
+            }
             ptrShaderForce = &forceShaders->at(oldIndex3D);
         }
 
@@ -489,11 +499,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
                 if (shaderApplied == NIFUtil::ShapeShader::UNKNOWN) {
                     // Set shader in nif shape
                     shaderApplied = shadersAppliedMesh[oldIndex3D];
-                }
-
-                if (shaderApplied == NIFUtil::ShapeShader::UNKNOWN) {
-                    // No shader applied, skip
-                    shaderApplied = NIFUtil::ShapeShader::NONE;
                 }
 
                 resultShaders[oldIndex3D] = shaderApplied;
