@@ -29,8 +29,3 @@ target_link_libraries(pgtools PRIVATE
     CLI11::CLI11
     cpptrace::cpptrace
 )
-
-install(TARGETS pgtools DESTINATION . )
-
-file(GLOB PGTOOLS_DLLS "${CMAKE_CURRENT_BINARY_DIR}/*.dll")
-install(FILES ${PGTOOLS_DLLS} DESTINATION .)

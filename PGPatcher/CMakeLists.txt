@@ -44,18 +44,5 @@ target_link_libraries(PGPatcher PRIVATE
     cpptrace::cpptrace
 )
 
-# Asset moving
-add_custom_command(TARGET PGPatcher POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:PGPatcher>/assets
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:PGPatcher>/assets
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets
-        $<TARGET_FILE_DIR:PGPatcher>/assets
-)
-
-install(TARGETS PGPatcher DESTINATION . )
-
-install(DIRECTORY ${CMAKE_BINARY_DIR}/assets DESTINATION . )
-
-file(GLOB PGPATCHER_DLLS "${CMAKE_CURRENT_BINARY_DIR}/*.dll")
-install(FILES ${PGPATCHER_DLLS} DESTINATION .)
+# Copy Folders
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/)
