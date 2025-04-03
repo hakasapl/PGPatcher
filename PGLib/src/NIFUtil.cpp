@@ -1,11 +1,11 @@
 #include "NIFUtil.hpp"
 #include "ParallaxGenUtil.hpp"
 
-#include <nifly/Geometry.hpp>
-#include <nifly/NifFile.hpp>
-#include <nifly/Object3d.hpp>
-#include <nifly/Particles.hpp>
-#include <nifly/Shaders.hpp>
+#include <Geometry.hpp>
+#include <NifFile.hpp>
+#include <Object3d.hpp>
+#include <Particles.hpp>
+#include <Shaders.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>

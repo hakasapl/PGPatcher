@@ -31,4 +31,6 @@ target_link_libraries(pgtools PRIVATE
 )
 
 install(TARGETS pgtools DESTINATION . )
-install(FILES $<TARGET_RUNTIME_DLLS:pgtools> DESTINATION . )
+
+file(GLOB PGTOOLS_DLLS "${CMAKE_CURRENT_BINARY_DIR}/*.dll")
+install(FILES ${PGTOOLS_DLLS} DESTINATION .)

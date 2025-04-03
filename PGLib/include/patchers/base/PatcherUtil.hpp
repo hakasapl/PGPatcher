@@ -61,9 +61,9 @@ public:
      */
     struct ShaderPatcherMatch {
         std::wstring mod;
-        NIFUtil::ShapeShader shader;
-        PatcherMeshShader::PatcherMatch match;
-        NIFUtil::ShapeShader shaderTransformTo;
+        NIFUtil::ShapeShader shader {};
+        PatcherMeshShader::PatcherMatch match {};
+        NIFUtil::ShapeShader shaderTransformTo {};
 
         [[nodiscard]] auto getJSON() const -> nlohmann::json
         {
@@ -78,6 +78,20 @@ public:
             }
 
             return json;
+        }
+
+        [[nodiscard]] static auto fromJSON(const nlohmann::json& json) -> ShaderPatcherMatch
+        {
+            ShaderPatcherMatch match;
+            match.mod = ParallaxGenUtil::utf8toUTF16(json["mod"].get<std::string>());
+            match.shader = NIFUtil::getShaderFromStr(json["shader"].get<std::string>());
+            match.shaderTransformTo = NIFUtil::getShaderFromStr(json["shaderTransformTo"].get<std::string>());
+            match.match.matchedPath = ParallaxGenUtil::utf8toUTF16(json["matchedPath"].get<std::string>());
+            for (const auto& matchedFrom : json["matchedFrom"]) {
+                match.match.matchedFrom.insert(static_cast<NIFUtil::TextureSlots>(matchedFrom.get<int>()));
+            }
+
+            return match;
         }
     };
 
