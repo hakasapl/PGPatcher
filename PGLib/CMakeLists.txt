@@ -16,7 +16,6 @@ find_package(directxtex REQUIRED CONFIG)
 find_package(miniz REQUIRED CONFIG)
 find_package(nlohmann_json REQUIRED CONFIG)
 find_package(nlohmann_json_schema_validator REQUIRED)
-find_package(nifly REQUIRED CONFIG)
 find_package(cpptrace REQUIRED CONFIG)
 
 set(DirectXTK_LIBS
