@@ -28,9 +28,3 @@ add_custom_target(PGMutagen
 				   COMMENT "Building PGMutagen ${MSBUILD_CONFIGURATION},x64"
                    WORKING_DIRECTORY ${PGMUTAGEN_DIR}
                    BYPRODUCTS ${PGMUTAGEN_OUTPUT_DIR}/PGMutagenNE.lib)
-
-# Install DLLs from mutagenwrapper
-file(GLOB PGMUTAGEN_DLLS "${PGMUTAGEN_OUTPUT_DIR}/*.dll")
-install(FILES ${PGMUTAGEN_DLLS} DESTINATION .)
-
-install(FILES ${PGMUTAGEN_OUTPUT_DIR}/PGMutagen.runtimeconfig.json DESTINATION . )

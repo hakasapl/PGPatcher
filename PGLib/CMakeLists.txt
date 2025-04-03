@@ -62,9 +62,3 @@ add_custom_command(TARGET PGLib POST_BUILD
 # include and link mutagen wrapper output
 add_dependencies(PGLib PGMutagen)
 include_directories(${PGMUTAGEN_OUTPUT_DIR})
-
-file(GLOB PGLIB_DLLS "${CMAKE_CURRENT_BINARY_DIR}/*.dll")
-install(FILES ${PGLIB_DLLS} DESTINATION .)
-
-# Copy assets to install
-install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders DESTINATION . )

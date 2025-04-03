@@ -37,22 +37,14 @@ add_compile_definitions(PG_VERSION="${PG_VERSION}")
 # Set test version (set this to 0 for prod releases)
 add_compile_definitions(PG_TEST_VERSION=${PG_VERSION_TEST})
 
-# Setup Folders
-set(EXTRN_BUILD_DIR ${CMAKE_BINARY_DIR}/external/blds)
-set(EXTRN_INSTALL_DIR ${CMAKE_BINARY_DIR}/external/installed)
-file(MAKE_DIRECTORY ${EXTRN_BUILD_DIR})
-file(MAKE_DIRECTORY ${EXTRN_INSTALL_DIR})
-# Set CMAKE module path to include external install dir
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${EXTRN_INSTALL_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# NIFLY
-message(STATUS "Install NIFLY external...")
-execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/nifly -B ${EXTRN_BUILD_DIR}/nifly -DCMAKE_INSTALL_PREFIX=${EXTRN_INSTALL_DIR} -DBUILD_TESTING=OFF)
-execute_process(COMMAND ${CMAKE_COMMAND} --build ${EXTRN_BUILD_DIR}/nifly --target install --config ${CMAKE_BUILD_TYPE})
+# Externals
+add_subdirectory(external/nifly)
 
 # Submodules
 set(PGMUTAGEN_DIR ${CMAKE_SOURCE_DIR}/PGMutagen)
-set(PGMUTAGEN_OUTPUT_DIR ${CMAKE_BINARY_DIR}/PGMutagen)
+set(PGMUTAGEN_OUTPUT_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 add_subdirectory(PGMutagen)
 
 add_subdirectory(PGPatcher)
