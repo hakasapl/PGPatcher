@@ -11,6 +11,7 @@
 - Fixed PBR empty slot commands having "texture" prepended to them causing errors
 - Corrupt NIFs should be handled more gracefully now with an error message indicating which NIF
 - PBR patcher will no longer use base names of match_diffuse and match_normal
+- Fixed "textures" appearing more than once in NIF texture paths causing issues
 
 ## [0.8.10] - 2025-03-19
 

@@ -25,6 +25,8 @@ public:
     struct NIFShapeMeta {
         std::unordered_map<NIFUtil::ShapeShader, bool> canApply;
         PatcherUtil::ShaderPatcherMatch winningMatch;
+        int oldIndex3D;
+        int newIndex3D;
         NIFUtil::TextureSet textures;
     };
 
