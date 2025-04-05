@@ -120,4 +120,15 @@ public:
      * @return ShaderPatcherMatch Transformed match
      */
     static auto applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool;
+
+private:
+    static inline std::mutex s_processShapeMutex;
+    static inline std::unordered_map<NIFUtil::TextureSet, std::vector<PatcherUtil::ShaderPatcherMatch>,
+        NIFUtil::TextureSetHash>
+        s_shaderMatchCache;
+
+public:
+    static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
+        PatcherUtil::ConflictModResults* conflictMods = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 };

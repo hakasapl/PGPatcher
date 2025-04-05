@@ -422,7 +422,8 @@ auto ParallaxGenPlugin::getKeyFromFormID(const tuple<unsigned int, wstring, wstr
         + format("{:X}", get<0>(formID));
 }
 
-void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nifShape, const int& index3D,
+void ParallaxGenPlugin::processShape(const wstring& nifPath,
+    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& index3D,
     PatcherUtil::PatcherMeshObjectSet& patchers, vector<TXSTResult>& results, const string& shapeKey,
     PatcherUtil::ConflictModResults* conflictMods)
 {
@@ -451,9 +452,6 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
         const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
         PGDiag::insert("origIndex3D", index3D);
 
-        //  Allowed shaders from result of patchers
-        vector<PatcherUtil::ShaderPatcherMatch> matches;
-
         // Output information
         TXSTResult curResult;
 
@@ -476,78 +474,9 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath, nifly::NiShape* nif
             }
         }
 
-        // Loop through each shader
-        unordered_set<wstring> modSet;
-        for (const auto& [shader, patcher] : patchers.shaderPatchers) {
-            if (shader == NIFUtil::ShapeShader::NONE) {
-                // TEMPORARILY disable default patcher
-                continue;
-            }
-
-            // note: name is defined in source code in UTF8-encoded files
-            const Logger::Prefix prefixPatches(patcher->getPatcherName());
-
-            // Check if shader should be applied
-            vector<PatcherMeshShader::PatcherMatch> curMatches;
-            if (!patcher->shouldApply(baseSlots, curMatches)) {
-                Logger::trace(L"Rejecting: Shader not applicable");
-                continue;
-            }
-
-            for (const auto& match : curMatches) {
-                PatcherUtil::ShaderPatcherMatch curMatch;
-                curMatch.mod = s_pgd->getMod(match.matchedPath);
-                curMatch.shader = shader;
-                curMatch.match = match;
-                curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
-
-                // See if transform is possible
-                if (patchers.shaderTransformPatchers.contains(shader)) {
-                    const auto& availableTransforms = patchers.shaderTransformPatchers.at(shader);
-                    // loop from highest element of map to 0
-                    for (const auto& availableTransform : ranges::reverse_view(availableTransforms)) {
-                        if (patchers.shaderPatchers.at(availableTransform.first)->canApply(*nifShape)) {
-                            // Found a transform that can apply, set the transform in the match
-                            curMatch.shaderTransformTo = availableTransform.first;
-                            break;
-                        }
-                    }
-                }
-
-                // Add to matches if shader can apply (or if transform shader exists and can apply)
-                if (patcher->canApply(*nifShape) || curMatch.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
-                    matches.push_back(curMatch);
-                    modSet.insert(curMatch.mod);
-                }
-            }
-        }
-
-        // Populate conflict mods if set
+        const auto matches = PatcherUtil::getMatches(baseSlots, patchers, canApply, conflictMods);
         if (conflictMods != nullptr) {
-            if (modSet.size() > 1) {
-                const lock_guard<mutex> lock(conflictMods->mutex);
-
-                // add mods to conflict set
-                for (const auto& match : matches) {
-                    if (conflictMods->mods.find(match.mod) == conflictMods->mods.end()) {
-                        conflictMods->mods.insert(
-                            { match.mod, { set<NIFUtil::ShapeShader>(), unordered_set<wstring>() } });
-                    }
-
-                    get<0>(conflictMods->mods[match.mod]).insert(match.shader);
-                    get<1>(conflictMods->mods[match.mod]).insert(modSet.begin(), modSet.end());
-                }
-            }
-
-            continue;
-        }
-
-        // Populate diag JSON if set with each match
-        {
-            const PGDiag::Prefix diagShaderPatcherPrefix("shaderPatcherMatches", nlohmann::json::value_t::array);
-            for (const auto& match : matches) {
-                PGDiag::pushBack(match.getJSON());
-            }
+            return;
         }
 
         // Get winning match

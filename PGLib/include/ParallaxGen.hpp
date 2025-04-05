@@ -47,21 +47,6 @@ private:
     PatcherUtil::PatcherMeshSet m_meshPatchers;
     std::unordered_map<std::wstring, int>* m_modPriority;
 
-    // Define a hash function for ShapeKey
-    struct ShapeKeyHash {
-        auto operator()(const ShapeKey& key) const -> size_t
-        {
-            // Hash the nifPath and ShapeIndex individually
-            const std::size_t h1 = std::hash<std::wstring> {}(key.nifPath);
-            const std::size_t h2 = std::hash<int> {}(key.shapeIndex);
-
-            return h1 ^ (h2 << 1); // shifting to reduce collisions
-        }
-    };
-
-    std::unordered_map<ShapeKey, std::vector<PatcherUtil::ShaderPatcherMatch>, ShapeKeyHash> m_allowedShadersCache;
-    std::mutex m_allowedShadersCacheMutex;
-
 public:
     //
     // The following methods are called from main.cpp and are public facing
@@ -106,7 +91,8 @@ private:
 
     // processes a shape within a NIF file
     auto processShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
-        const int& shapeIndex, PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& shapeIndex,
+        PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
         PatcherUtil::ConflictModResults* conflictMods = nullptr, const NIFUtil::ShapeShader* forceShader = nullptr)
         -> bool;
 

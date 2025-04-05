@@ -137,7 +137,8 @@ public:
         NIFUtil::ShapeShader shader {};
     };
 
-    static void processShape(const std::wstring& nifPath, nifly::NiShape* nifShape, const int& index3D,
+    static void processShape(const std::wstring& nifPath,
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& index3D,
         PatcherUtil::PatcherMeshObjectSet& patchers, std::vector<TXSTResult>& results, const std::string& shapeKey,
         PatcherUtil::ConflictModResults* conflictMods = nullptr);
 

@@ -2,6 +2,7 @@
 #include "Logger.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGDiag.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGen.hpp"
 #include "ParallaxGenConfig.hpp"
 #include "ParallaxGenD3D.hpp"
@@ -139,6 +140,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     auto mmd = ModManagerDirectory(params.ModManager.type);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
+    PGGlobals::setPGD(&pgd);
     auto pgd3d = ParallaxGenD3D(&pgd, exePath / "shaders");
     auto pg = ParallaxGen(params.Output.dir, &pgd, &pgd3d, params.PostPatcher.optimizeMeshes);
 

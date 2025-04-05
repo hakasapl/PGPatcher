@@ -12,6 +12,21 @@ namespace NIFUtil {
 using TextureSet = std::array<std::wstring, NUM_TEXTURE_SLOTS>;
 using TextureSetStr = std::array<std::string, NUM_TEXTURE_SLOTS>;
 
+struct TextureSetHash {
+    auto operator()(const TextureSet& ts) const -> std::size_t
+    {
+        static constexpr auto MAGIC_HASH = 0x9e3779b9; // Golden ratio
+        static constexpr auto BIT_MIX_LEFT = 6;
+        static constexpr auto BIT_MIX_RIGHT = 2;
+        std::size_t h = 0;
+        for (const auto& s : ts) {
+            h ^= std::hash<std::wstring> {}(s) + MAGIC_HASH + (h << BIT_MIX_LEFT)
+                + (h >> BIT_MIX_RIGHT); // hash combine
+        }
+        return h;
+    }
+};
+
 static constexpr float MIN_FLOAT_COMPARISON = 10e-05F;
 
 // These need to be in the order of worst shader to best shader

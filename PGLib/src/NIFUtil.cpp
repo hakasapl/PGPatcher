@@ -261,21 +261,32 @@ auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes) -> nifly:
     }
 
     if (!nif.IsValid() || !nif.GetHeader().IsValid()) {
-        throw runtime_error("Invalid NIF");
+        throw runtime_error("NIF did not load properly");
     }
 
     // Check shapes
     const auto shapes = nif.GetShapes();
     for (const auto& shape : shapes) {
         if (shape == nullptr) {
-            throw runtime_error("Invalid NIF: Shape is null");
+            throw runtime_error("NIF contains a null shape");
         }
 
         auto* nifShader = nif.GetShader(shape);
         if (nifShader != nullptr && nifShader->HasTextureSet()) {
             auto* txstRec = nif.GetHeader().GetBlock(nifShader->TextureSetRef());
             if (txstRec == nullptr) {
-                throw runtime_error("Invalid NIF: TextureSetRef is null");
+                throw runtime_error("NIF contains reference to texture set that does not exist");
+            }
+        }
+
+        // Check for any non-ascii chars
+        for (uint32_t slot = 0; slot < NUM_TEXTURE_SLOTS; slot++) {
+            string texture;
+            nif.GetTextureSlot(shape, texture, slot);
+
+            if (!ParallaxGenUtil::containsOnlyAscii(texture)) {
+                // NIFs cannot have non-ascii chars in their texture slots
+                throw runtime_error("NIF contains non-ascii characters in texture slot(s)");
             }
         }
     }

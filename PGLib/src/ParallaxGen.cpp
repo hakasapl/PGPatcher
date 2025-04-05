@@ -347,8 +347,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
     try {
         nif = NIFUtil::loadNIFFromBytes(nifBytes);
     } catch (const exception& e) {
-        Logger::trace(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
-        Logger::error(L"Unable to load NIF (most likely corrupt): {}", nifFile.wstring());
+        Logger::error(L"Failed to load NIF (most likely corrupt) {}: {}", nifFile.wstring(), utf8toUTF16(e.what()));
         return {};
     }
 
@@ -414,28 +413,56 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
         const auto shapeBlockID = nif.GetBlockID(nifShape);
         const auto shapeName = nifShape->name.get();
         const auto shapeIDStr = to_string(shapeBlockID) + " / " + shapeName;
+        const string shapeBlockName = nifShape->GetBlockName();
         const Logger::Prefix prefixShape(shapeIDStr);
-
-        // Check for any non-ascii chars
-        for (uint32_t slot = 0; slot < NUM_TEXTURE_SLOTS; slot++) {
-            string texture;
-            nif.GetTextureSlot(nifShape, texture, slot);
-
-            if (!containsOnlyAscii(texture)) {
-                // NIFs cannot have non-ascii chars in their texture slots
-                spdlog::error(L"NIF {} has texture slot(s) with invalid non-ASCII chars (skipping)", nifFile.wstring());
-                nifModified = false;
-                return {};
-            }
-        }
-
         NIFUtil::ShapeShader shaderApplied = NIFUtil::ShapeShader::UNKNOWN;
+        unordered_map<NIFUtil::ShapeShader, bool> canApplyMap;
 
         {
             const PGDiag::Prefix diagShapesPrefix("shapes", nlohmann::json::value_t::object);
             const PGDiag::Prefix diagShapeIDPrefix(shapeIDStr, nlohmann::json::value_t::object);
-            nifModified |= processShape(
-                nifFile, nif, nifShape, oldIndex3D, patcherObjects, shaderApplied, conflictMods, ptrShaderForce);
+
+            // Check if shape should be patched or not
+            if (shapeBlockName != "NiTriShape" && shapeBlockName != "BSTriShape" && shapeBlockName != "BSLODTriShape"
+                && shapeBlockName != "BSMeshLODTriShape") {
+                PGDiag::insert("rejectReason", "Incorrect shape block type: " + shapeName);
+                continue;
+            }
+
+            // get NIFShader type
+            if (!nifShape->HasShaderProperty()) {
+                PGDiag::insert("rejectReason", "No NIFShader property");
+                continue;
+            }
+
+            // get NIFShader from shape
+            NiShader* nifShader = nif.GetShader(nifShape);
+            if (nifShader == nullptr) {
+                PGDiag::insert("rejectReason", "No NIFShader block");
+                continue;
+            }
+
+            // check that NIFShader is a BSLightingShaderProperty
+            const string nifShaderName = nifShader->GetBlockName();
+            if (nifShaderName != "BSLightingShaderProperty") {
+                PGDiag::insert("rejectReason", "Incorrect NIFShader block type: " + nifShaderName);
+                continue;
+            }
+
+            // check that NIFShader has a texture set
+            if (!nifShader->HasTextureSet()) {
+                PGDiag::insert("rejectReason", "No texture set");
+                continue;
+            }
+
+            // Create canapply map
+            for (const auto& [shader, patcher] : patcherObjects.shaderPatchers) {
+                // Check if shader can be applied
+                canApplyMap[shader] = patcher->canApply(*nifShape);
+            }
+
+            nifModified |= processShape(nifFile, nif, nifShape, canApplyMap, oldIndex3D, patcherObjects, shaderApplied,
+                conflictMods, ptrShaderForce);
         }
 
         shadersAppliedMesh[oldIndex3D] = shaderApplied;
@@ -447,7 +474,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
             {
                 const PGDiag::Prefix diagPluginPrefix("plugins", nlohmann::json::value_t::object);
                 ParallaxGenPlugin::processShape(
-                    nifFile.wstring(), nifShape, oldIndex3D, patcherObjects, results, shapeIDStr, conflictMods);
+                    nifFile.wstring(), canApplyMap, oldIndex3D, patcherObjects, results, shapeIDStr, conflictMods);
             }
 
             // Loop through results
@@ -587,7 +614,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
     return nif;
 }
 
-auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, NiShape* nifShape, const int& shapeIndex,
+auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, NiShape* nifShape,
+    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& shapeIndex,
     PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
     PatcherUtil::ConflictModResults* conflictMods, const NIFUtil::ShapeShader* forceShader) -> bool
 {
@@ -600,43 +628,8 @@ auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, Ni
         throw runtime_error("Force shader is UNKNOWN");
     }
 
-    // Check for exclusions
-    // only allow BSLightingShaderProperty blocks
-    const string nifShapeName = nifShape->GetBlockName();
-    if (nifShapeName != "NiTriShape" && nifShapeName != "BSTriShape" && nifShapeName != "BSLODTriShape"
-        && nifShapeName != "BSMeshLODTriShape") {
-
-        PGDiag::insert("rejectReason", "Incorrect shape block type: " + nifShapeName);
-        return false;
-    }
-
-    // get NIFShader type
-    if (!nifShape->HasShaderProperty()) {
-        PGDiag::insert("rejectReason", "No NIFShader property");
-        return false;
-    }
-
-    // get NIFShader from shape
-    NiShader* nifShader = nif.GetShader(nifShape);
-    if (nifShader == nullptr) {
-        PGDiag::insert("rejectReason", "No NIFShader block");
-        return false;
-    }
-
-    // check that NIFShader is a BSLightingShaderProperty
-    const string nifShaderName = nifShader->GetBlockName();
-    if (nifShaderName != "BSLightingShaderProperty") {
-        PGDiag::insert("rejectReason", "Incorrect NIFShader block type: " + nifShaderName);
-        return false;
-    }
-
-    // check that NIFShader has a texture set
-    if (!nifShader->HasTextureSet()) {
-        PGDiag::insert("rejectReason", "No texture set");
-        return false;
-    }
-
-    PGDiag::insert("origTextures", NIFUtil::textureSetToStr(NIFUtil::getTextureSlots(&nif, nifShape)));
+    const auto slots = NIFUtil::getTextureSlots(&nif, nifShape);
+    PGDiag::insert("origTextures", NIFUtil::textureSetToStr(slots));
 
     // apply prepatchers
     {
@@ -654,93 +647,12 @@ auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, Ni
     shaderApplied = NIFUtil::ShapeShader::NONE;
 
     // Create cache key for lookup
-    bool cacheExists = false;
     const ParallaxGen::ShapeKey cacheKey = { .nifPath = nifPath, .shapeIndex = shapeIndex };
 
     // Allowed shaders from result of patchers
-    vector<PatcherUtil::ShaderPatcherMatch> matches;
-
-    // Restore cache if exists
-    {
-        const lock_guard<mutex> lock(m_allowedShadersCacheMutex);
-
-        // Check if shape has already been processed
-        if (m_allowedShadersCache.find(cacheKey) != m_allowedShadersCache.end()) {
-            cacheExists = true;
-            matches = m_allowedShadersCache.at(cacheKey);
-        }
-    }
-
-    // Loop through each shader patcher if cache does not exist
-    unordered_set<wstring> modSet;
-    if (!cacheExists) {
-        for (const auto& [shader, patcher] : patchers.shaderPatchers) {
-            if (shader == NIFUtil::ShapeShader::NONE) {
-                // TEMPORARILY disable default patcher
-                continue;
-            }
-
-            const Logger::Prefix prefixPatches(patcher->getPatcherName());
-
-            // Check if shader should be applied
-            vector<PatcherMeshShader::PatcherMatch> curMatches;
-            if (!patcher->shouldApply(*nifShape, curMatches)) {
-                Logger::trace(L"Rejecting: Shader not applicable");
-                continue;
-            }
-
-            for (const auto& match : curMatches) {
-                PatcherUtil::ShaderPatcherMatch curMatch;
-                curMatch.mod = m_pgd->getMod(match.matchedPath);
-                curMatch.shader = shader;
-                curMatch.match = match;
-                curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
-
-                // See if transform is possible
-                if (patchers.shaderTransformPatchers.contains(shader)) {
-                    const auto& availableTransforms = patchers.shaderTransformPatchers.at(shader);
-                    // loop from highest element of map to 0
-                    for (const auto& availableTransform : ranges::reverse_view(availableTransforms)) {
-                        if (patchers.shaderPatchers.at(availableTransform.first)->canApply(*nifShape)) {
-                            // Found a transform that can apply, set the transform in the match
-                            curMatch.shaderTransformTo = availableTransform.first;
-                            break;
-                        }
-                    }
-                }
-
-                // Add to matches if shader can apply (or if transform shader exists and can apply)
-                if (patcher->canApply(*nifShape) || curMatch.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
-                    matches.push_back(curMatch);
-                    modSet.insert(curMatch.mod);
-                }
-            }
-        }
-
-        {
-            // write to cache
-            const lock_guard<mutex> lock(m_allowedShadersCacheMutex);
-            m_allowedShadersCache[cacheKey] = matches;
-        }
-    }
-
-    // Populate conflict mods if set
-    if (conflictMods != nullptr && !matches.empty()) {
-        if (modSet.size() > 1) {
-            const lock_guard<mutex> lock(conflictMods->mutex);
-
-            // add mods to conflict set
-            for (const auto& match : matches) {
-                if (conflictMods->mods.find(match.mod) == conflictMods->mods.end()) {
-                    conflictMods->mods.insert({ match.mod, { set<NIFUtil::ShapeShader>(), unordered_set<wstring>() } });
-                }
-
-                get<0>(conflictMods->mods[match.mod]).insert(match.shader);
-                get<1>(conflictMods->mods[match.mod]).insert(modSet.begin(), modSet.end());
-            }
-        }
-
-        return false;
+    auto matches = PatcherUtil::getMatches(slots, patchers, canApply, conflictMods);
+    if (conflictMods != nullptr) {
+        return true;
     }
 
     // if forceshader is set, remove any matches that cannot be applied
@@ -751,14 +663,6 @@ auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, Ni
             } else {
                 ++it;
             }
-        }
-    }
-
-    // Populate diag JSON if set with each match
-    {
-        const PGDiag::Prefix diagShaderPatcherPrefix("shaderPatcherMatches", nlohmann::json::value_t::array);
-        for (const auto& match : matches) {
-            PGDiag::pushBack(match.getJSON());
         }
     }
 
