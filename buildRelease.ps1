@@ -15,6 +15,10 @@ if (-not $scriptDir) {
 
 # Setup folders with absolute paths
 $buildDir = Join-Path -Path $scriptDir -ChildPath "build"
+if (-not (Test-Path -Path $buildDir -PathType Container)) {
+    New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
+}
+
 $sourceBinDir = Join-Path -Path $buildDir -ChildPath "bin"
 $installDir = Join-Path -Path $scriptDir -ChildPath "install"
 $distDir = Join-Path -Path $scriptDir -ChildPath "dist"
