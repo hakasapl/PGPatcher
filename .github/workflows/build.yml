@@ -25,7 +25,7 @@ jobs:
 
     - name: Build Release
       run: |
-        ./buildRelease.bat
+        ./buildRelease.ps1
 
     - name: Upload Release
       uses: actions/upload-artifact@v4
