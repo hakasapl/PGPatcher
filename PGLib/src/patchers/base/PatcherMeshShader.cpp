@@ -44,7 +44,6 @@ auto PatcherMeshShader::getTextureSet(nifly::NiShape& nifShape) -> array<wstring
 auto PatcherMeshShader::setTextureSet(nifly::NiShape& nifShape, const array<wstring, NUM_TEXTURE_SLOTS>& textures)
     -> bool
 {
-    // TODO this can be local not static
     const lock_guard<mutex> lock(s_patchedTextureSetsMutex);
 
     auto* const nifShader = getNIF()->GetShader(&nifShape);

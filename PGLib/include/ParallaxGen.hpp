@@ -14,6 +14,7 @@
 #include "NIFUtil.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
+#include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenTask.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 
@@ -78,16 +79,28 @@ private:
     static void threadSafeJSONUpdate(
         const std::function<void(nlohmann::json&)>& operation, nlohmann::json& j, std::mutex& mutex);
 
+    struct NifFileResult {
+        nifly::NifFile nifFile;
+        std::vector<ParallaxGenPlugin::TXSTResult> txstResults;
+        std::unordered_map<int, NIFUtil::ShapeShader> shadersAppliedMesh;
+        std::vector<std::tuple<int, int, std::string>> idxCorrections;
+    };
+
+    static auto getMeshesFromPluginResults(const std::unordered_map<int, NIFUtil::ShapeShader>& shadersAppliedMesh,
+        const std::vector<int>& shapeIdxs,
+        const std::unordered_map<int, std::unordered_map<int, ParallaxGenPlugin::TXSTResult>>& recordHandleTracker)
+        -> std::unordered_map<int,
+            std::pair<std::vector<ParallaxGenPlugin::TXSTResult>, std::unordered_map<int, NIFUtil::ShapeShader>>>;
+
     // processes a NIF file (enable parallax if needed)
     auto processNIF(const std::filesystem::path& nifFile, nlohmann::json* diffJSON, std::mutex* diffJSONMutex,
         const bool& patchPlugin = true, PatcherUtil::ConflictModResults* conflictMods = nullptr)
         -> ParallaxGenTask::PGResult;
 
-    // TODO this should return bool
-    auto processNIF(const std::filesystem::path& nifFile, const std::vector<std::byte>& nifBytes, bool& nifModified,
-        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr,
-        std::vector<std::pair<std::filesystem::path, nifly::NifFile>>* dupNIFs = nullptr,
-        const bool& patchPlugin = true, PatcherUtil::ConflictModResults* conflictMods = nullptr) -> nifly::NifFile;
+    auto processNIF(const std::filesystem::path& nifFile, const std::vector<std::byte>& nifBytes,
+        std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
+        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr, const bool& patchPlugin = true,
+        PatcherUtil::ConflictModResults* conflictMods = nullptr) -> bool;
 
     // processes a shape within a NIF file
     auto processShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
