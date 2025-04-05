@@ -28,14 +28,14 @@ set(PROJECT_NAME "PGPatcher")
 set(PG_VERSION_MAJOR 0)
 set(PG_VERSION_MINOR 8)
 set(PG_VERSION_PATCH 11)
-set(PG_VERSION_TEST 3)
+set(PG_VERSION_TEST 4)
 
 set(PG_VERSION "${PG_VERSION_MAJOR}.${PG_VERSION_MINOR}.${PG_VERSION_PATCH}.${PG_VERSION_TEST}")
 project(${PROJECT_NAME} VERSION ${PG_VERSION})
 add_compile_definitions(PG_VERSION="${PG_VERSION}")
 
-# Set test version (set this to 0 for prod releases)
-add_compile_definitions(PG_TEST_VERSION=${PG_VERSION_TEST})
+# Set to 1 for test builds, 0 for prod builds
+add_compile_definitions(PG_TEST_BUILD=0)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 

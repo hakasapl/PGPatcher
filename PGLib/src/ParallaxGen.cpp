@@ -459,8 +459,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
 
                 if (recordHandleTracker.contains(result.modelRecHandle)
                     && recordHandleTracker[result.modelRecHandle].contains(oldIndex3D)) {
-                    // Duplicate result (isn't supposed to happen)
-                    throw runtime_error("Duplicate result for modelRecHandle and oldIndex3D");
+                    // Duplicate result (isn't supposed to happen, issue with a plugin)
+                    continue;
                 }
 
                 recordHandleTracker[result.modelRecHandle][oldIndex3D] = result;

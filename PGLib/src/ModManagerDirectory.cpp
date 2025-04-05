@@ -71,10 +71,6 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         // Update file map
         spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
 
-        if (!ParallaxGenUtil::containsOnlyAscii(relPath.wstring())) {
-            spdlog::debug(L"Path {} from {} contains non-ASCII characters", relPath.wstring(), deploymentDir.wstring());
-        }
-
         m_modFileMap[ParallaxGenUtil::toLowerASCII(relPath.wstring())] = modName;
     }
 }
@@ -177,18 +173,13 @@ void ModManagerDirectory::populateModFileMapMO2(
                 }
 
                 auto relPath = filesystem::relative(file, curModDir);
-                spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), mod);
-
-                if (!ParallaxGenUtil::containsOnlyAscii(relPath.wstring())) {
-                    spdlog::debug(
-                        L"Path {} in directory {} contains non-ASCII characters", relPath.wstring(), modDir.wstring());
-                }
-
                 const filesystem::path relPathLower = ParallaxGenUtil::toLowerASCII(relPath.wstring());
                 // check if already in map
                 if (m_modFileMap.contains(relPathLower)) {
                     continue;
                 }
+
+                spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
 
                 m_modFileMap[relPathLower] = mod;
             }
