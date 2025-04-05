@@ -336,6 +336,10 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
     vector<pair<filesystem::path, nifly::NifFile>>* dupNIFs, const bool& patchPlugin,
     PatcherUtil::ConflictModResults* conflictMods) -> nifly::NifFile
 {
+    if (boost::icontains(nifFile.wstring(), "furpeltmantlef_0.nif")) {
+        spdlog::info("HERE");
+    }
+
     if (patchPlugin && dupNIFs == nullptr) {
         // duplicating nifs is required for plugin patching
         throw runtime_error("DupNIFs must be set if patchPlugin is true");
@@ -459,8 +463,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
 
                 if (recordHandleTracker.contains(result.modelRecHandle)
                     && recordHandleTracker[result.modelRecHandle].contains(oldIndex3D)) {
-                    // Duplicate result (isn't supposed to happen)
-                    throw runtime_error("Duplicate result for modelRecHandle and oldIndex3D");
+                    // Duplicate result (isn't supposed to happen, issue with a plugin)
+                    continue;
                 }
 
                 recordHandleTracker[result.modelRecHandle][oldIndex3D] = result;
