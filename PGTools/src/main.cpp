@@ -74,11 +74,10 @@ void mainRunner(PGToolsCLIArgs& args)
     // Get EXE path
     const auto exePath = getExecutablePath().parent_path();
 
-    // Test message if required
-    if (PG_TEST_VERSION > 0) {
-        spdlog::warn(
-            "This is an EXPERIMENTAL development build of ParallaxGen: {} Test Build {}", PG_VERSION, PG_TEST_VERSION);
-    }
+#if PG_TEST_BUILD
+    // Post test message for test builds
+    spdlog::warn("This is an EXPERIMENTAL development build of PG Patcher");
+#endif
 
     // Check if patch subcommand was used
     if (args.Patch.subCommand->parsed()) {

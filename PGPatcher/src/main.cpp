@@ -80,10 +80,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Welcome Message
     Logger::info("Welcome to PG Patcher version {}!", PG_VERSION);
 
-    // Test message if required
-    if (PG_TEST_VERSION > 0) {
-        Logger::warn("This is an EXPERIMENTAL development build of PG Patcher");
-    }
+#if PG_TEST_BUILD
+    // Post test message for test builds
+    Logger::warn("This is an EXPERIMENTAL development build of PG Patcher");
+#endif
 
     // Alpha message
     Logger::warn("ParallaxGen is currently in BETA. Please file detailed bug reports on nexus or github.");
@@ -128,7 +128,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     }
 
     PGDiag::insert("Version", PG_VERSION);
-    PGDiag::insert("TestVersion", PG_TEST_VERSION);
     PGDiag::insert("UserConfig", pgc.getUserConfigJSON());
 
     // print output location
