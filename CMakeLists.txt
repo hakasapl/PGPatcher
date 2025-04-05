@@ -35,7 +35,7 @@ project(${PROJECT_NAME} VERSION ${PG_VERSION})
 add_compile_definitions(PG_VERSION="${PG_VERSION}")
 
 # Set to 1 for test builds, 0 for prod builds
-add_compile_definitions(PG_TEST_BUILD=1)
+add_compile_definitions(PG_TEST_BUILD=0)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
