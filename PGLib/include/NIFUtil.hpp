@@ -42,6 +42,10 @@ auto getStrFromShader(const ShapeShader& shader) -> std::string;
 /// @return the shader type
 auto getShaderFromStr(const std::string& shader) -> ShapeShader;
 
+auto getTextureSlotsFromStr(const std::string& slots) -> TextureSet;
+
+auto getStrFromTextureSlots(const TextureSet& slots) -> std::string;
+
 /// @brief zero-based index of texture in BSShaderTextureSet
 /// there can be more than one type of textures assigned to a a texture slot, the slot name describes the default one
 enum class TextureSlots : uint8_t {

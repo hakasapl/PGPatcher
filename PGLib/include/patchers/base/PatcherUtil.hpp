@@ -119,7 +119,8 @@ public:
      * @param Patchers Patcher set to use
      * @return ShaderPatcherMatch Transformed match
      */
-    static auto applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool;
+    static auto applyTransformIfNeeded(
+        ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers, const bool& matchOnly = false) -> bool;
 
 private:
     static inline std::mutex s_processShapeMutex;

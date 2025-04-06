@@ -92,6 +92,12 @@ private:
         -> std::unordered_map<int,
             std::pair<std::vector<ParallaxGenPlugin::TXSTResult>, std::unordered_map<int, NIFUtil::ShapeShader>>>;
 
+    auto nifShouldProcess(const std::filesystem::path& nifFile, nlohmann::json& nifCache,
+        std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs,
+        PatcherUtil::ConflictModResults* conflictMods = nullptr) -> bool;
+
+    static auto getDuplicateNIFPath(const std::filesystem::path& nifPath, const int& index) -> std::filesystem::path;
+
     // processes a NIF file (enable parallax if needed)
     auto processNIF(const std::filesystem::path& nifFile, nlohmann::json* diffJSON, std::mutex* diffJSONMutex,
         const bool& patchPlugin = true, PatcherUtil::ConflictModResults* conflictMods = nullptr)
@@ -99,13 +105,13 @@ private:
 
     auto processNIF(const std::filesystem::path& nifFile, const std::vector<std::byte>& nifBytes,
         std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
-        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr, const bool& patchPlugin = true,
-        PatcherUtil::ConflictModResults* conflictMods = nullptr) -> bool;
+        nlohmann::json& nifCache, const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr,
+        const bool& patchPlugin = true, PatcherUtil::ConflictModResults* conflictMods = nullptr) -> bool;
 
     // processes a shape within a NIF file
     auto processShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
-        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& shapeIndex,
-        PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
+        nlohmann::json& shapeCache, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
+        const int& shapeIndex, PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
         PatcherUtil::ConflictModResults* conflictMods = nullptr, const NIFUtil::ShapeShader* forceShader = nullptr)
         -> bool;
 

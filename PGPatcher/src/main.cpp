@@ -1,6 +1,7 @@
 #include "BethesdaGame.hpp"
 #include "Logger.hpp"
 #include "ModManagerDirectory.hpp"
+#include "PGCache.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGen.hpp"
@@ -215,6 +216,19 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         }
     }
 
+    // INIT PGCache
+    const auto nifCacheFile = exePath / "cache" / "nifCache.json";
+    if (filesystem::exists(nifCacheFile)) {
+        ifstream f(nifCacheFile);
+        try {
+            const auto data = nlohmann::json::parse(f);
+            PGCache::loadNIFCache(data);
+        } catch (const nlohmann::json::parse_error& e) {
+            Logger::error("Failed to parse nifCache.json: {}", e.what());
+        }
+        f.close();
+    }
+
     // Populate file map from data directory
     if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty() && !params.ModManager.mo2Profile.empty()) {
@@ -372,6 +386,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     ofstream f(txstFormIDCacheFile);
     f << ParallaxGenPlugin::getTXSTCache().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
     f.close();
+
+    ofstream f2(nifCacheFile);
+    f2 << PGCache::saveNIFCache().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
+    f2.close();
 
     const auto endTime = chrono::high_resolution_clock::now();
     timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();

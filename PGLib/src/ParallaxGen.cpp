@@ -29,6 +29,7 @@
 
 #include "Logger.hpp"
 #include "NIFUtil.hpp"
+#include "PGCache.hpp"
 #include "PGDiag.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
@@ -36,6 +37,7 @@
 #include "ParallaxGenTask.hpp"
 #include "ParallaxGenUtil.hpp"
 #include "ParallaxGenWarnings.hpp"
+#include "patchers/base/PatcherUtil.hpp"
 
 using namespace std;
 using namespace ParallaxGenUtil;
@@ -158,11 +160,11 @@ void ParallaxGen::zipMeshes() const
 
 void ParallaxGen::deleteOutputDir(const bool& preOutput) const
 {
-    static const unordered_set<filesystem::path> foldersToDelete
-        = { "meshes", "textures", "lightplacer", "pbrtexturesets", "strings" };
+    static const unordered_set<filesystem::path> foldersToDelete = { "lightplacer", "pbrtexturesets", "strings" };
     static const unordered_set<filesystem::path> filesToDelete
         = { "parallaxgen.esp", boost::to_lower_copy(getDiffJSONName().wstring()), "parallaxgen_diag.json" };
     static const vector<pair<wstring, wstring>> filesToDeleteParseRules = { { L"pg_", L".esp" } };
+    static const unordered_set<filesystem::path> foldersToIgnore = { "meshes", "textures" };
     static const unordered_set<filesystem::path> filesToIgnore = { "meta.ini" };
     static const unordered_set<filesystem::path> filesToDeletePreOutput
         = { boost::to_lower_copy(getOutputZipName().wstring()) };
@@ -195,7 +197,8 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput) const
             continue;
         }
 
-        if (entry.is_directory() && foldersToDelete.contains(entryFilename)) {
+        if (entry.is_directory()
+            && (foldersToDelete.contains(entryFilename) || foldersToIgnore.contains(entryFilename))) {
             continue;
         }
 
@@ -299,6 +302,254 @@ auto ParallaxGen::getMeshesFromPluginResults(const std::unordered_map<int, NIFUt
     return output;
 }
 
+auto ParallaxGen::nifShouldProcess(const std::filesystem::path& nifFile, nlohmann::json& nifCache,
+    std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs,
+    PatcherUtil::ConflictModResults* conflictMods) -> bool
+{
+    createdNIFs.clear();
+    nifCache.clear();
+
+    const auto outputFile = m_outputDir / nifFile;
+
+    if (!PGCache::getNIFCache(nifFile, nifCache)) {
+        return false;
+    }
+
+    // Cache is valid!
+
+    if (!nifCache.contains("modified") || !nifCache["modified"].is_boolean()) {
+        // no modified flag in cache, so we need to process
+        return false;
+    }
+
+    if (!nifCache["modified"].get<bool>()) {
+        // nif was not modified but cache is valid
+        return true;
+    }
+
+    // past this point nif was modified so we have more to check
+
+    // cache says nif was modified and saved to output
+    if (!filesystem::exists(outputFile)) {
+        // Output file doesn't exist, so we need to process
+        return false;
+    }
+
+    // check for CRC info
+    if (!nifCache.contains("oldCRC32") || !nifCache["oldCRC32"].is_number()) {
+        // no CRC in cache, so we need to process
+        return false;
+    }
+
+    if (!nifCache.contains("newCRC32") || !nifCache["newCRC32"].is_number()) {
+        // no CRC in cache, so we need to process
+        return false;
+    }
+
+    // find winning match from cache data
+    if (!nifCache.contains("shapes") || !nifCache["shapes"].is_object()) {
+        // no shapes in cache, so we need to process
+        return false;
+    }
+
+    // 1. build patchers
+    auto patcherObjects = PatcherUtil::PatcherMeshObjectSet();
+    for (const auto& [shader, factory] : m_meshPatchers.shaderPatchers) {
+        auto patcher = factory(nifFile, nullptr);
+        patcherObjects.shaderPatchers.emplace(shader, std::move(patcher));
+    }
+    for (const auto& [shader, factory] : m_meshPatchers.shaderTransformPatchers) {
+        for (const auto& [transformShader, transformFactory] : factory) {
+            auto transform = transformFactory(nifFile, nullptr);
+            patcherObjects.shaderTransformPatchers[shader].emplace(transformShader, std::move(transform));
+        }
+    }
+
+    // 2. Loop through each shape in NIF
+    unordered_map<int, NIFUtil::ShapeShader> shadersAppliedMesh;
+    unordered_map<int, unordered_map<int, ParallaxGenPlugin::TXSTResult>> recordHandleTracker;
+    vector<int> shapeIdxs;
+
+    NifFileResult mainNifParams;
+
+    const auto& shapeCache = nifCache["shapes"];
+    for (const auto& [old3DIndex, shape] : shapeCache.items()) {
+        if (!shape.contains("newindex3d") || !shape["newindex3d"].is_number()) {
+            // no newindex3d in cache, so we need to process
+            return false;
+        }
+
+        // 3. Create canApply map
+        if (!shape.contains("canapply") || !shape["canapply"].is_object()) {
+            // no canApply map which means shape was not processed
+            continue;
+        }
+
+        unordered_map<NIFUtil::ShapeShader, bool> canApplyMap;
+        for (const auto& [shader, canApply] : shape["canapply"].items()) {
+            if (!canApply.is_boolean()) {
+                // canApply is not a boolean, so we need to process
+                return false;
+            }
+
+            const auto curCanApplyShader = NIFUtil::getShaderFromStr(shader);
+            if (curCanApplyShader == NIFUtil::ShapeShader::UNKNOWN) {
+                // unknown shader, so we need to process
+                return false;
+            }
+
+            canApplyMap[curCanApplyShader] = canApply.get<bool>();
+        }
+
+        // 4. Get slots from cache
+        if (!shape.contains("slots") || !shape["slots"].is_string()) {
+            // no slots in cache, so we need to process
+            return false;
+        }
+
+        const auto slotsStr = shape["slots"].get<string>();
+        const auto slots = NIFUtil::getTextureSlotsFromStr(slotsStr);
+
+        // 5. Get matches
+        const auto curMatches = PatcherUtil::getMatches(slots, patcherObjects, canApplyMap, conflictMods);
+
+        // 6. Get plugin results
+        if (!shape.contains("blockid") || !shape["blockid"].is_number()) {
+            // no blockid in cache, so we need to process
+            return false;
+        }
+        const auto shapeBlockID = shape["blockid"].get<int>();
+
+        if (!shape.contains("name") || !shape["name"].is_string()) {
+            // no name in cache, so we need to process
+            return false;
+        }
+        const auto shapeName = shape["name"].get<string>();
+        const auto shapeIDStr = to_string(shapeBlockID) + " / " + shapeName;
+
+        const auto cacheOldIndex3D = atoi(old3DIndex.c_str());
+        shapeIdxs.push_back(cacheOldIndex3D);
+
+        const auto cacheNewIndex3D = shape["newindex3d"].get<int>();
+        const tuple<int, int, string> idxCorrection = { cacheOldIndex3D, cacheNewIndex3D, shapeName };
+        mainNifParams.idxCorrections.push_back(idxCorrection);
+
+        // Get all plugin results
+        vector<ParallaxGenPlugin::TXSTResult> results;
+        {
+            const PGDiag::Prefix diagPluginPrefix("plugins", nlohmann::json::value_t::object);
+            ParallaxGenPlugin::processShape(
+                nifFile.wstring(), canApplyMap, cacheOldIndex3D, patcherObjects, results, shapeIDStr, conflictMods);
+        }
+
+        // Loop through results
+        for (const auto& result : results) {
+            if (!recordHandleTracker.contains(result.modelRecHandle)) {
+                // Create new entry for modelRecHandle
+                recordHandleTracker[result.modelRecHandle] = {};
+            }
+
+            if (recordHandleTracker.contains(result.modelRecHandle)
+                && recordHandleTracker[result.modelRecHandle].contains(cacheOldIndex3D)) {
+                // Duplicate result (isn't supposed to happen, issue with a plugin)
+                continue;
+            }
+
+            recordHandleTracker[result.modelRecHandle][cacheOldIndex3D] = result;
+        }
+
+        if (conflictMods != nullptr) {
+            // all we need if we're only looking at conflictmods
+            continue;
+        }
+
+        // 7. Get winning match
+        if (!shape.contains("winningmatch") || !shape["winningmatch"].is_object()) {
+            // no winning match in cache, so we need to process
+            return false;
+        }
+
+        const auto cacheWinningMatch = PatcherUtil::ShaderPatcherMatch::fromJSON(shape["winningmatch"]);
+        auto winningMatch = PatcherUtil::getWinningMatch(curMatches, m_modPriority);
+        PatcherUtil::applyTransformIfNeeded(winningMatch, patcherObjects, true);
+
+        if (winningMatch.shader == NIFUtil::ShapeShader::UNKNOWN) {
+            // reset to none (because processShape() would do this if it wasn't for cache)
+            winningMatch.shader = NIFUtil::ShapeShader::NONE;
+        }
+        shadersAppliedMesh[cacheOldIndex3D] = winningMatch.shader;
+
+        if (cacheWinningMatch.mod != winningMatch.mod) {
+            // winning match does not match
+            return false;
+        }
+
+        // populate createdNIFs with cache data
+    }
+
+    // 8. Get meshes from plugin results
+
+    // get meshes from plugin results
+    const auto resultsToApply = getMeshesFromPluginResults(shadersAppliedMesh, shapeIdxs, recordHandleTracker);
+    for (const auto& [dupIdx, results] : resultsToApply) {
+        if (dupIdx == 0) {
+            // no duplicate mesh, so we can skip
+            mainNifParams.txstResults = results.first;
+            mainNifParams.shadersAppliedMesh = results.second;
+            continue;
+        }
+
+        const auto curShadersApplied = results.second;
+        for (const auto& [oldIndex3D, shaderApplied] : curShadersApplied) {
+            if (!shapeCache.contains(to_string(oldIndex3D)) || !shapeCache[to_string(oldIndex3D)].is_object()) {
+                // oldIndex3D not in cache, so we need to process
+                return false;
+            }
+
+            const auto& curShapeCache = shapeCache[to_string(oldIndex3D)];
+            if (!curShapeCache.contains("appliedshader") || !curShapeCache["appliedshader"].is_object()) {
+                // no applied shader in cache, so we need to process
+                return false;
+            }
+
+            const auto& appliedShaderCache = curShapeCache["appliedshader"];
+            if (!appliedShaderCache.contains(to_string(dupIdx)) || !appliedShaderCache[to_string(dupIdx)].is_string()) {
+                return false;
+            }
+
+            const auto appliedShaderCacheStr = appliedShaderCache[to_string(dupIdx)].get<string>();
+            const auto appliedShaderCacheShader = NIFUtil::getShaderFromStr(appliedShaderCacheStr);
+            if (appliedShaderCacheShader != shaderApplied) {
+                // applied shader does not match
+                return false;
+            }
+        }
+
+        // add to createdNIFs
+        NifFileResult nifParams;
+        nifParams.txstResults = results.first;
+        nifParams.shadersAppliedMesh = results.second;
+        createdNIFs[getDuplicateNIFPath(nifFile, dupIdx)] = nifParams;
+    }
+
+    createdNIFs[nifFile] = mainNifParams;
+
+    return true;
+}
+
+auto ParallaxGen::getDuplicateNIFPath(const std::filesystem::path& nifPath, const int& index) -> std::filesystem::path
+{
+    // Different from mesh which means duplicate is needed
+    filesystem::path newNIFPath;
+    auto it = nifPath.begin();
+    newNIFPath /= *it++ / (L"pg" + to_wstring(index));
+    while (it != nifPath.end()) {
+        newNIFPath /= *it++;
+    }
+
+    return newNIFPath;
+}
+
 auto ParallaxGen::processNIF(const filesystem::path& nifFile, nlohmann::json* diffJSON, mutex* diffJSONMutex,
     const bool& patchPlugin, PatcherUtil::ConflictModResults* conflictMods) -> ParallaxGenTask::PGResult
 {
@@ -314,30 +565,37 @@ auto ParallaxGen::processNIF(const filesystem::path& nifFile, nlohmann::json* di
     const Logger::Prefix prefixNIF(nifFile.wstring());
     Logger::trace(L"Starting processing");
 
-    // Determine output path for patched NIF
-    if (filesystem::exists(m_outputDir / nifFile)) {
-        Logger::error(L"NIF Rejected: File already exists");
-        result = ParallaxGenTask::PGResult::FAILURE;
-        return result;
-    }
-
-    // Load NIF file
-    vector<std::byte> nifFileData;
-    try {
-        nifFileData = m_pgd->getFile(nifFile);
-    } catch (const exception& e) {
-        Logger::trace(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
-        Logger::error(L"Unable to load NIF (most likely corrupt): {}", nifFile.wstring());
-        result = ParallaxGenTask::PGResult::FAILURE;
-        return result;
-    }
-
-    // Process NIF
-    bool nifModified = false;
     unordered_map<filesystem::path, NifFileResult> createdNIFs;
 
-    processNIF(nifFile, nifFileData, createdNIFs, nifModified, nullptr, patchPlugin, conflictMods);
-    if (!nifModified) {
+    nlohmann::json nifCache;
+    const bool validNifCache = nifShouldProcess(nifFile, nifCache, createdNIFs, conflictMods);
+
+    vector<std::byte> nifFileData;
+    if (!validNifCache) {
+        nifCache.clear();
+
+        // Load NIF file
+        try {
+            nifFileData = m_pgd->getFile(nifFile);
+        } catch (const exception& e) {
+            Logger::trace(L"NIF Rejected: Unable to load NIF: {}", utf8toUTF16(e.what()));
+            Logger::error(L"Unable to load NIF (most likely corrupt): {}", nifFile.wstring());
+            result = ParallaxGenTask::PGResult::FAILURE;
+            return result;
+        }
+
+        // Process NIF
+        bool nifModified = false;
+        processNIF(nifFile, nifFileData, createdNIFs, nifModified, nifCache, nullptr, patchPlugin, conflictMods);
+        nifCache["modified"] = nifModified;
+        if (!nifModified) {
+            PGCache::setNIFCache(nifFile, nifCache);
+            return result;
+        }
+    }
+
+    if (validNifCache && !nifCache["modified"].get<bool>()) {
+        // NIF is not modified, so we can skip
         return result;
     }
 
@@ -346,35 +604,55 @@ auto ParallaxGen::processNIF(const filesystem::path& nifFile, nlohmann::json* di
 
         unsigned int crcBefore = 0;
         if (needsDiff) {
-            // created NIF is the same filename as original so we need to write to diff file
-            // Calculate CRC32 hash before
-            boost::crc_32_type crcBeforeResult {};
-            crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
-            crcBefore = crcBeforeResult.checksum();
+            if (validNifCache) {
+                crcBefore = nifCache["oldCRC32"].get<unsigned int>();
+            } else {
+                // created NIF is the same filename as original so we need to write to diff file
+                // Calculate CRC32 hash before
+                boost::crc_32_type crcBeforeResult {};
+                crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
+                crcBefore = crcBeforeResult.checksum();
+
+                nifCache["oldCRC32"] = crcBefore;
+            }
         }
 
-        // create directories if required
         const filesystem::path outputFile = m_outputDir / createdNIFFile;
-        filesystem::create_directories(outputFile.parent_path());
+        if (!validNifCache) {
+            // create directories if required
+            filesystem::create_directories(outputFile.parent_path());
 
-        if (nifParams.nifFile.Save(outputFile, m_nifSaveOptions) != 0) {
-            Logger::error(L"Unable to save NIF file {}", createdNIFFile.wstring());
-            result = ParallaxGenTask::PGResult::FAILURE;
-            continue;
+            // delete old nif if exists
+            if (filesystem::exists(outputFile)) {
+                filesystem::remove(outputFile);
+            }
+
+            if (nifParams.nifFile.Save(outputFile, m_nifSaveOptions) != 0) {
+                Logger::error(L"Unable to save NIF file {}", createdNIFFile.wstring());
+                result = ParallaxGenTask::PGResult::FAILURE;
+                continue;
+            }
+
+            Logger::debug(L"Saving patched NIF to output");
+
+            // Clear NIF from memory (no longer needed)
+            nifParams.nifFile.Clear();
         }
-
-        Logger::debug(L"Saving patched NIF to output");
-
-        // Clear NIF from memory (no longer needed)
-        nifParams.nifFile.Clear();
 
         if (needsDiff) {
-            // created NIF is the same filename as original so we need to write to diff file
-            // Calculate CRC32 hash after
-            const auto outputFileBytes = getFileBytes(outputFile);
-            boost::crc_32_type crcResultAfter {};
-            crcResultAfter.process_bytes(outputFileBytes.data(), outputFileBytes.size());
-            const auto crcAfter = crcResultAfter.checksum();
+            unsigned int crcAfter = 0;
+            if (validNifCache) {
+                crcAfter = nifCache["newCRC32"].get<unsigned int>();
+            } else {
+                // created NIF is the same filename as original so we need to write to diff file
+                // Calculate CRC32 hash after
+                const auto outputFileBytes = getFileBytes(outputFile);
+                boost::crc_32_type crcResultAfter {};
+                crcResultAfter.process_bytes(outputFileBytes.data(), outputFileBytes.size());
+                crcAfter = crcResultAfter.checksum();
+
+                nifCache["newCRC32"] = crcAfter;
+            }
 
             // Add to diff JSON
             if (diffJSON != nullptr) {
@@ -400,11 +678,16 @@ auto ParallaxGen::processNIF(const filesystem::path& nifFile, nlohmann::json* di
         }
     }
 
+    // Save NIF cache
+    if (!validNifCache) {
+        PGCache::setNIFCache(nifFile, nifCache);
+    }
+
     return result;
 }
 
 auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<std::byte>& nifBytes,
-    std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
+    std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified, nlohmann::json& nifCache,
     const unordered_map<int, NIFUtil::ShapeShader>* forceShaders, const bool& patchPlugin,
     PatcherUtil::ConflictModResults* conflictMods) -> bool
 {
@@ -460,6 +743,11 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
     unordered_map<int, unordered_map<int, ParallaxGenPlugin::TXSTResult>> recordHandleTracker;
 
     // Loop through each shape in NIF
+    if (forceShaders == nullptr && (!nifCache.contains("shapes") || !nifCache["shapes"].is_object())) {
+        // no shapes in cache, so we need to process
+        nifCache["shapes"] = nlohmann::json::object();
+    }
+
     for (const auto& [nifShape, oldIndex3D] : shapes) {
         // Define forced shader if needed
         const NIFUtil::ShapeShader* ptrShaderForce = nullptr;
@@ -518,14 +806,38 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
                 continue;
             }
 
+            if (forceShaders == nullptr) {
+                if (!nifCache["shapes"].contains(to_string(oldIndex3D))) {
+                    nifCache["shapes"][to_string(oldIndex3D)] = nlohmann::json::object();
+                }
+
+                if (!nifCache["shapes"][to_string(oldIndex3D)].contains("canapply")) {
+                    nifCache["shapes"][to_string(oldIndex3D)]["canapply"] = nlohmann::json::object();
+                }
+
+                if (!nifCache["shapes"][to_string(oldIndex3D)].contains("blockid")) {
+                    nifCache["shapes"][to_string(oldIndex3D)]["blockid"] = shapeBlockID;
+                }
+
+                if (!nifCache["shapes"][to_string(oldIndex3D)].contains("name")) {
+                    nifCache["shapes"][to_string(oldIndex3D)]["name"] = shapeName;
+                }
+            }
+
             // Create canapply map
             for (const auto& [shader, patcher] : patcherObjects.shaderPatchers) {
                 // Check if shader can be applied
                 canApplyMap[shader] = patcher->canApply(*nifShape);
+
+                if (forceShaders == nullptr) {
+                    // Add to cache
+                    nifCache["shapes"][to_string(oldIndex3D)]["canapply"][NIFUtil::getStrFromShader(shader)]
+                        = canApplyMap[shader];
+                }
             }
 
-            nifModified |= processShape(nifFile, nif, nifShape, canApplyMap, oldIndex3D, patcherObjects,
-                shadersAppliedMesh[oldIndex3D], conflictMods, ptrShaderForce);
+            nifModified |= processShape(nifFile, nif, nifShape, nifCache["shapes"][to_string(oldIndex3D)], canApplyMap,
+                oldIndex3D, patcherObjects, shadersAppliedMesh[oldIndex3D], conflictMods, ptrShaderForce);
         }
 
         // Update nifModified if shape was modified
@@ -574,19 +886,24 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
         const auto resultsToApply = getMeshesFromPluginResults(shadersAppliedMesh, shapeIdxs, recordHandleTracker);
         for (const auto& [dupIdx, results] : resultsToApply) {
             if (dupIdx > 0) {
-                // Different from mesh which means duplicate is needed
-                filesystem::path newNIFPath;
-                auto it = nifFile.begin();
-                newNIFPath /= *it++ / (L"pg" + to_wstring(dupIdx));
-                while (it != nifFile.end()) {
-                    newNIFPath /= *it++;
-                }
-
+                const auto newNIFPath = getDuplicateNIFPath(nifFile, dupIdx);
                 // create a duplicate nif file
-                if (processNIF(newNIFPath, nifBytes, createdNIFs, nifModified, &results.second, false, nullptr)) {
+                if (processNIF(
+                        newNIFPath, nifBytes, createdNIFs, nifModified, nifCache, &results.second, false, nullptr)) {
                     createdNIFs[newNIFPath].txstResults = results.first;
                     createdNIFs[newNIFPath].shadersAppliedMesh = results.second;
                 }
+
+                for (const auto& [oldIndex3D, shader] : results.second) {
+                    auto& curShapeCache = nifCache["shapes"][to_string(oldIndex3D)];
+                    if (!curShapeCache.contains("appliedshader")) {
+                        curShapeCache["appliedshader"] = nlohmann::json::object();
+                    }
+                    if (!curShapeCache["appliedshader"].contains(to_string(dupIdx))) {
+                        curShapeCache["appliedshader"][to_string(dupIdx)] = NIFUtil::getStrFromShader(shader);
+                    }
+                }
+
                 continue;
             }
 
@@ -630,6 +947,12 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
             }
 
             const auto newIndex3D = newShapes.at(nifShape);
+
+            auto& curShapeCache = nifCache["shapes"][to_string(oldIndex3D)];
+            if (!curShapeCache.contains("newindex3d")) {
+                curShapeCache["newindex3d"] = newIndex3D;
+            }
+
             const tuple<int, int, string> idxChange = { oldIndex3D, newIndex3D, nifShape->name.get() };
             createdNIFs[nifFile].idxCorrections.push_back(idxChange);
         }
@@ -641,7 +964,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifFile, const vector<
 }
 
 auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, NiShape* nifShape,
-    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& shapeIndex,
+    nlohmann::json& shapeCache, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& shapeIndex,
     PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
     PatcherUtil::ConflictModResults* conflictMods, const NIFUtil::ShapeShader* forceShader) -> bool
 {
@@ -655,6 +978,10 @@ auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, Ni
     }
 
     const auto slots = NIFUtil::getTextureSlots(&nif, nifShape);
+    if (forceShader == nullptr && !shapeCache.contains("slots")) {
+        shapeCache["slots"] = NIFUtil::getStrFromTextureSlots(slots);
+    }
+
     PGDiag::insert("origTextures", NIFUtil::textureSetToStr(slots));
 
     // apply prepatchers
@@ -702,9 +1029,11 @@ auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, Ni
         changed = true;
     }
 
+    PatcherUtil::ShaderPatcherMatch winningShaderMatch;
     // Get winning match
     if (!matches.empty()) {
-        auto winningShaderMatch = PatcherUtil::getWinningMatch(matches, m_modPriority);
+        winningShaderMatch = PatcherUtil::getWinningMatch(matches, m_modPriority);
+
         PGDiag::insert("winningShaderMatch", winningShaderMatch.getJSON());
 
         // Apply transforms
@@ -729,6 +1058,10 @@ auto ParallaxGen::processShape(const filesystem::path& nifPath, NifFile& nif, Ni
 
             ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
         }
+    }
+
+    if (forceShader == nullptr && !shapeCache.contains("winningmatch")) {
+        shapeCache["winningmatch"] = winningShaderMatch.getJSON();
     }
 
     // apply postpatchers
