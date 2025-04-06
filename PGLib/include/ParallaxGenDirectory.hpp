@@ -77,6 +77,8 @@ public:
 private:
     auto findFiles() -> void;
 
+    static auto shouldProcessNIF(const std::filesystem::path& nifPath, nlohmann::json& nifCache) -> bool;
+
     auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& cacheNIF = false)
         -> ParallaxGenTask::PGResult;
 

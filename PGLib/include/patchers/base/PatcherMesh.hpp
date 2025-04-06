@@ -31,6 +31,8 @@ protected:
      */
     [[nodiscard]] auto getNIF() const -> nifly::NifFile*;
 
+    void setNIF(nifly::NifFile* nif);
+
 public:
     /**
      * @brief Construct a new Patcher object

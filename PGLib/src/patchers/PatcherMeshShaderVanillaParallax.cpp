@@ -23,13 +23,15 @@ auto PatcherMeshShaderVanillaParallax::getShaderType() -> NIFUtil::ShapeShader
 PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::path nifPath, nifly::NifFile* nif)
     : PatcherMeshShader(std::move(nifPath), nif, "VanillaParallax")
 {
-    // Determine if NIF has attached havok animations
-    vector<NiObject*> nifBlockTree;
-    nif->GetTree(nifBlockTree);
+    if (nif != nullptr) {
+        // Determine if NIF has attached havok animations
+        vector<NiObject*> nifBlockTree;
+        nif->GetTree(nifBlockTree);
 
-    for (NiObject* nifBlock : nifBlockTree) {
-        if (boost::iequals(nifBlock->GetBlockName(), "BSBehaviorGraphExtraData")) {
-            m_hasAttachedHavok = true;
+        for (NiObject* nifBlock : nifBlockTree) {
+            if (boost::iequals(nifBlock->GetBlockName(), "BSBehaviorGraphExtraData")) {
+                m_hasAttachedHavok = true;
+            }
         }
     }
 }

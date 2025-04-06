@@ -93,6 +93,15 @@ public:
 
             return match;
         }
+
+        // equality operator
+        auto operator==(const ShaderPatcherMatch& other) const -> bool
+        {
+            return mod == other.mod && shader == other.shader && shaderTransformTo == other.shaderTransformTo
+                && match.matchedPath == other.match.matchedPath && match.matchedFrom == other.match.matchedFrom;
+        }
+        // inequality operator
+        auto operator!=(const ShaderPatcherMatch& other) const -> bool { return !(*this == other); }
     };
 
     struct ConflictModResults {
@@ -119,5 +128,17 @@ public:
      * @param Patchers Patcher set to use
      * @return ShaderPatcherMatch Transformed match
      */
-    static auto applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool;
+    static auto applyTransformIfNeeded(
+        ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers, const bool& matchOnly = false) -> bool;
+
+private:
+    static inline std::mutex s_processShapeMutex;
+    static inline std::unordered_map<NIFUtil::TextureSet, std::vector<PatcherUtil::ShaderPatcherMatch>,
+        NIFUtil::TextureSetHash>
+        s_shaderMatchCache;
+
+public:
+    static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
+        PatcherUtil::ConflictModResults* conflictMods = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 };

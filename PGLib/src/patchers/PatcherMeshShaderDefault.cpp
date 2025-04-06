@@ -70,4 +70,10 @@ auto PatcherMeshShaderDefault::applyPatchSlots(const NIFUtil::TextureSet& oldSlo
 
 void PatcherMeshShaderDefault::processNewTXSTRecord(const PatcherMatch& match, const std::string& edid) { }
 
-auto PatcherMeshShaderDefault::applyShader([[maybe_unused]] nifly::NiShape& nifShape) -> bool { return false; }
+auto PatcherMeshShaderDefault::applyShader([[maybe_unused]] nifly::NiShape& nifShape) -> bool
+{
+    // Set texture set to itself so that it is preserved as "used"
+    setTextureSet(nifShape, NIFUtil::getTextureSlots(getNIF(), &nifShape));
+
+    return false;
+}

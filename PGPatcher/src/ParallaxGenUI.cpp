@@ -28,9 +28,10 @@ void ParallaxGenUI::init()
     }
 }
 
-auto ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc) -> ParallaxGenConfig::PGParams
+auto ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc, const std::filesystem::path& cacheDir)
+    -> ParallaxGenConfig::PGParams
 {
-    auto* launcher = new LauncherWindow(pgc); // NOLINT(cppcoreguidelines-owning-memory)
+    auto* launcher = new LauncherWindow(pgc, cacheDir); // NOLINT(cppcoreguidelines-owning-memory)
     if (launcher->ShowModal() == wxID_OK) {
         return launcher->getParams();
     }

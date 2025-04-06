@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.8.12] - UNRELEASED
+
+- Added persistent caching for NIFs for faster updating of existing outputs
+- Fixed duplicate meshes with no shader type sometimes getting wrong textures due to common texture sets
+
 ## [0.8.11] - 2025-04-05
 
 - Fixed issue for Skyrim VR with mismatching formids between output plugins

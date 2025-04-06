@@ -33,8 +33,8 @@ private:
     /// @param[in] name3D "3D name" - name of the shape
     /// @param[in] index3D "3D index" - index of the shape in the nif
     /// @return TXST objects, pairs of (texture set index,alternate textures ids)
-    static auto libGetMatchingTXSTObjs(const std::wstring& nifName, const int& index3D)
-        -> std::vector<std::tuple<int, int, std::wstring, std::string>>;
+    static auto libGetMatchingTXSTObjs(const std::wstring& nifName, const int& index3D) -> std::vector<
+        std::tuple<int, int, std::wstring, std::string, std::wstring, unsigned int, std::wstring, unsigned int>>;
 
     /// @brief get the assigned textures of all slots in a texture set
     /// @param[in] txstIndex index of the texture set
@@ -53,15 +53,6 @@ private:
     /// @param[in] altTexIndex global index of the alternate texture
     /// @param[in] index3D index to set
     static void libSet3DIndex(const int& altTexIndex, const int& index3D);
-
-    /// @brief get the form id and mod name of the given texture set
-    /// @param[in] txstIndex  the texture set
-    /// @return pair of form id and mod name
-    static auto libGetTXSTFormID(const int& txstIndex) -> std::tuple<unsigned int, std::wstring, std::wstring>;
-
-    static auto libGetModelRecFormID(const int& modelRecHandle) -> std::tuple<unsigned int, std::wstring, std::wstring>;
-
-    static auto libGetAltTexFormID(const int& altTexIndex) -> std::tuple<unsigned int, std::wstring, std::wstring>;
 
     /// @brief get the model record handle from the alternate texture handle
     /// @param[in] altTexIndex global index of the alternate texture
@@ -132,12 +123,17 @@ public:
         std::wstring matchedNIF;
         int modelRecHandle {};
         int altTexIndex {};
+        unsigned int altTexFormID {};
+        std::wstring altTexModKey;
         int txstIndex {};
+        unsigned int txstFormID {};
+        std::wstring txstModKey;
         std::string matchType;
         NIFUtil::ShapeShader shader {};
     };
 
-    static void processShape(const std::wstring& nifPath, nifly::NiShape* nifShape, const int& index3D,
+    static void processShape(const std::wstring& nifPath,
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& index3D,
         PatcherUtil::PatcherMeshObjectSet& patchers, std::vector<TXSTResult>& results, const std::string& shapeKey,
         PatcherUtil::ConflictModResults* conflictMods = nullptr);
 

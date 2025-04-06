@@ -6,6 +6,7 @@
 
 #include <boost/algorithm/string/join.hpp>
 
+#include <filesystem>
 #include <wx/arrstr.h>
 #include <wx/listbase.h>
 #include <wx/statline.h>
@@ -17,9 +18,10 @@ using namespace std;
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 // class LauncherWindow
-LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
+LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cacheDir)
     : wxDialog(nullptr, wxID_ANY, "PG Patcher Options", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
           wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP)
+    , m_cacheDir(std::move(cacheDir))
     , m_pgc(pgc)
     , m_textureMapTypeCombo(nullptr)
     , m_advancedOptionsSizer(new wxBoxSizer(wxVERTICAL))
@@ -306,6 +308,15 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_saveConfigButton->Bind(wxEVT_BUTTON, &LauncherWindow::onSaveConfigButtonPressed, this);
 
     rightSizer->Add(m_saveConfigButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
+    // Clear cache button
+    m_clearCacheButton = new wxButton(this, wxID_ANY, "Clear Cache");
+    wxFont clearCacheButtonFont = m_clearCacheButton->GetFont();
+    clearCacheButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
+    m_clearCacheButton->SetFont(clearCacheButtonFont);
+    m_clearCacheButton->Bind(wxEVT_BUTTON, &LauncherWindow::onClearCacheButtonPressed, this);
+
+    rightSizer->Add(m_clearCacheButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Add a horizontal line
     auto* separatorLine = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
@@ -1101,6 +1112,9 @@ void LauncherWindow::updateDisabledElements()
 
     // save button
     m_saveConfigButton->Enable(curParams != m_pgc.getParams());
+
+    // clear cache button
+    m_clearCacheButton->Enable(filesystem::exists(m_cacheDir) && !filesystem::is_empty(m_cacheDir));
 }
 
 void LauncherWindow::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)
@@ -1151,6 +1165,31 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
     m_pgc.setParams(ParallaxGenConfig::getDefaultParams());
 
     loadConfig();
+
+    updateDisabledElements();
+}
+
+void LauncherWindow::onClearCacheButtonPressed([[maybe_unused]] wxCommandEvent& event)
+{
+    // Show a confirmation dialog
+    const int response = wxMessageBox("Are you sure you want to clear PGPatcher cache? This should only be done if you "
+                                      "are experiencing issues with the output.",
+        "Confirm Clear Cache", wxYES_NO | wxICON_WARNING, this);
+
+    if (response != wxYES) {
+        return;
+    }
+
+    if (!filesystem::exists(m_cacheDir)) {
+        return;
+    }
+
+    // Delete every JSON file in cache dir
+    for (const auto& entry : filesystem::directory_iterator(m_cacheDir)) {
+        if (entry.path().extension() == ".json") {
+            filesystem::remove(entry.path());
+        }
+    }
 
     updateDisabledElements();
 }

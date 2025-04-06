@@ -1,7 +1,9 @@
 #include "BethesdaGame.hpp"
 #include "Logger.hpp"
 #include "ModManagerDirectory.hpp"
+#include "PGCache.hpp"
 #include "PGDiag.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGen.hpp"
 #include "ParallaxGenConfig.hpp"
 #include "ParallaxGenD3D.hpp"
@@ -73,6 +75,8 @@ auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exe
 
     // Move File
     filesystem::copy_file(assetPath, outputPath, filesystem::copy_options::overwrite_existing);
+
+    PGGlobals::getPGD()->addGeneratedFile(dynCubeMapPath, L"");
 }
 
 void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
@@ -106,9 +110,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     auto params = pgc.getParams();
 
     // Show launcher UI
+    const filesystem::path cacheDir = exePath / "cache";
     if (!args.autostart) {
         Logger::info("Showing launcher UI");
-        params = ParallaxGenUI::showLauncher(pgc);
+        params = ParallaxGenUI::showLauncher(pgc, cacheDir);
     }
 
     // Validate config
@@ -139,6 +144,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     auto mmd = ModManagerDirectory(params.ModManager.type);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
+    PGGlobals::setPGD(&pgd);
     auto pgd3d = ParallaxGenD3D(&pgd, exePath / "shaders");
     auto pg = ParallaxGen(params.Output.dir, &pgd, &pgd3d, params.PostPatcher.optimizeMeshes);
 
@@ -194,7 +200,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGDiag::insert("ActivePlugins", ParallaxGenUtil::utf16VectorToUTF8(activePlugins));
 
     // Init PGP library
-    const auto txstFormIDCacheFile = exePath / "cache" / "txstFormIDs.json";
+    // TODO unify these cache write functions
+    const auto txstFormIDCacheFile = cacheDir / "txstFormIDs.json";
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
         ParallaxGenPlugin::loadStatics(&pgd);
@@ -211,6 +218,19 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             }
             f.close();
         }
+    }
+
+    // INIT PGCache
+    const auto nifCacheFile = cacheDir / "nifCache.json";
+    if (filesystem::exists(nifCacheFile)) {
+        ifstream f(nifCacheFile);
+        try {
+            const auto data = nlohmann::json::parse(f);
+            PGCache::loadNIFCache(data);
+        } catch (const nlohmann::json::parse_error& e) {
+            Logger::error("Failed to parse nifCache.json: {}", e.what());
+        }
+        f.close();
     }
 
     // Populate file map from data directory
@@ -355,9 +375,13 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         ofstream diagJSONFile(diffJSONPath);
         diagJSONFile << PGDiag::getJSON().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
         diagJSONFile.close();
+        pgd.addGeneratedFile("ParallaxGen_DIAG,json", L"");
     }
 
     deployAssets(params.Output.dir, exePath);
+
+    // clean up any stale files
+    pg.cleanStaleOutput();
 
     // archive
     if (params.Output.zip) {
@@ -370,6 +394,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     ofstream f(txstFormIDCacheFile);
     f << ParallaxGenPlugin::getTXSTCache().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
     f.close();
+
+    ofstream f2(nifCacheFile);
+    f2 << PGCache::saveNIFCache().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
+    f2.close();
 
     const auto endTime = chrono::high_resolution_clock::now();
     timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();

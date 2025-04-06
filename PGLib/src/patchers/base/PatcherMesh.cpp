@@ -10,4 +10,14 @@ PatcherMesh::PatcherMesh(filesystem::path nifPath, nifly::NifFile* nif, string p
 }
 
 auto PatcherMesh::getNIFPath() const -> filesystem::path { return m_nifPath; }
-auto PatcherMesh::getNIF() const -> nifly::NifFile* { return m_nif; }
+
+auto PatcherMesh::getNIF() const -> nifly::NifFile*
+{
+    if (m_nif == nullptr) {
+        throw std::runtime_error("NIF is null");
+    }
+
+    return m_nif;
+}
+
+void PatcherMesh::setNIF(nifly::NifFile* nif) { m_nif = nif; }

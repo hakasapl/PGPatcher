@@ -1,14 +1,10 @@
 #pragma once
 
-#include <NifFile.hpp>
-
+#include <cstdint>
+#include <filesystem>
 #include <mutex>
 
 #include <nlohmann/json.hpp>
-
-#include "NIFUtil.hpp"
-#include "ParallaxGenDirectory.hpp"
-#include "patchers/base/PatcherUtil.hpp"
 
 class PGCache {
 private:
@@ -16,42 +12,36 @@ private:
     static std::mutex s_nifCacheMutex;
     static nlohmann::json s_nifCache;
 
-    // Other statics
-    static ParallaxGenDirectory* s_pgd;
+    static std::mutex s_texCacheMutex;
+    static nlohmann::json s_texCache;
+
     static bool s_cacheEnabled;
 
+    enum class CacheType : uint8_t { NIF, TEX };
+
 public:
-    // Structs
-    struct NIFShapeMeta {
-        std::unordered_map<NIFUtil::ShapeShader, bool> canApply;
-        PatcherUtil::ShaderPatcherMatch winningMatch;
-        int oldIndex3D;
-        int newIndex3D;
-        NIFUtil::TextureSet textures;
-    };
+    // Enable or disable cache
+    static void enableCache(bool enable);
+    static auto isCacheEnabled() -> bool;
 
-    struct NIFMeta {
-        bool fromCache;
-        unsigned int oldCRC32;
-        unsigned int newCRC32;
-        std::vector<NIFShapeMeta> shapes;
-    };
+    // Global loading and saving functions
+    static void loadNIFCache(nlohmann::json cacheData);
+    static auto saveNIFCache() -> nlohmann::json;
 
-    // Methods
-    static void loadStatics(ParallaxGenDirectory* pgd, const bool& cacheEnabled);
+    // TEX cache functions
+    static auto getTEXCache(const std::filesystem::path& relPath, nlohmann::json& cacheData) -> bool;
+    static void setTEXCache(
+        const std::filesystem::path& relPath, const nlohmann::json& cacheData, const size_t& mtime = 0);
 
-    // cache functions
-    static void loadCache(const nlohmann::json& cache);
-    static void clearCache();
-    static auto getCache() -> nlohmann::json;
+    // NIF cache functions
+    static auto getNIFCache(const std::filesystem::path& relPath, nlohmann::json& cacheData) -> bool;
+    static void setNIFCache(
+        const std::filesystem::path& relPath, const nlohmann::json& cacheData, const size_t& mtime = 0);
 
-    // meta functions
-    static auto getNIFMeta(const std::filesystem::path& nifPath, nifly::NifFile* nif) -> NIFMeta;
-    static void setNIFMeta(const std::filesystem::path& nifPath, const NIFMeta& meta);
-
-    // save/load NIF functions
-    static auto loadNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, unsigned int* oldCRC32 = nullptr)
+private:
+    // helpers
+    static auto getFileCache(const std::filesystem::path& relPath, nlohmann::json& cacheData, const CacheType& type)
         -> bool;
-    static auto saveNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, unsigned int* newCRC32 = nullptr)
-        -> bool;
+    static void setFileCache(const std::filesystem::path& relPath, const nlohmann::json& cacheData,
+        const CacheType& type, const size_t& mtime = 0);
 };

@@ -8,7 +8,9 @@
 #include <Shaders.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
 
@@ -31,20 +33,20 @@ using namespace std;
 auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
 {
     const static unordered_map<NIFUtil::ShapeShader, string> strFromShaderMap
-        = { { ShapeShader::NONE, "None" }, { ShapeShader::TRUEPBR, "PBR" },
-              { ShapeShader::COMPLEXMATERIAL, "Complex Material" }, { ShapeShader::VANILLAPARALLAX, "Parallax" } };
+        = { { ShapeShader::NONE, "none" }, { ShapeShader::UNKNOWN, "unknown" }, { ShapeShader::TRUEPBR, "pbr" },
+              { ShapeShader::COMPLEXMATERIAL, "complex material" }, { ShapeShader::VANILLAPARALLAX, "parallax" } };
 
     if (strFromShaderMap.find(shader) != strFromShaderMap.end()) {
         return strFromShaderMap.at(shader);
     }
 
-    return strFromShaderMap.at(ShapeShader::NONE);
+    return strFromShaderMap.at(ShapeShader::UNKNOWN);
 }
 
 auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
 {
     const static unordered_map<string, ShapeShader> shaderFromStrMap
-        = { { "none", ShapeShader::NONE }, { "pbr", ShapeShader::TRUEPBR },
+        = { { "none", ShapeShader::NONE }, { "unknown", ShapeShader::UNKNOWN }, { "pbr", ShapeShader::TRUEPBR },
               { "complex material", ShapeShader::COMPLEXMATERIAL }, { "parallax", ShapeShader::VANILLAPARALLAX } };
 
     const auto searchKey = boost::to_lower_copy(shader);
@@ -52,7 +54,32 @@ auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
         return shaderFromStrMap.at(searchKey);
     }
 
-    return ShapeShader::NONE;
+    return ShapeShader::UNKNOWN;
+}
+
+auto NIFUtil::getTextureSlotsFromStr(const string& slots) -> TextureSet
+{
+    TextureSet textureSlots;
+    vector<string> splitSlots;
+    boost::split(splitSlots, slots, boost::is_any_of(","));
+    for (size_t i = 0; i < splitSlots.size(); ++i) {
+        if (i < NUM_TEXTURE_SLOTS) {
+            textureSlots.at(i) = ParallaxGenUtil::utf8toUTF16(splitSlots[i]);
+        }
+    }
+    return textureSlots;
+}
+
+auto NIFUtil::getStrFromTextureSlots(const TextureSet& slots) -> string
+{
+    string strSlots;
+    for (const auto& slot : slots) {
+        if (!strSlots.empty()) {
+            strSlots += ",";
+        }
+        strSlots += ParallaxGenUtil::utf16toUTF8(slot);
+    }
+    return strSlots;
 }
 
 auto NIFUtil::getStrFromTexAttribute(const TextureAttribute& attribute) -> std::string
@@ -261,21 +288,32 @@ auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes) -> nifly:
     }
 
     if (!nif.IsValid() || !nif.GetHeader().IsValid()) {
-        throw runtime_error("Invalid NIF");
+        throw runtime_error("NIF did not load properly");
     }
 
     // Check shapes
     const auto shapes = nif.GetShapes();
     for (const auto& shape : shapes) {
         if (shape == nullptr) {
-            throw runtime_error("Invalid NIF: Shape is null");
+            throw runtime_error("NIF contains a null shape");
         }
 
         auto* nifShader = nif.GetShader(shape);
         if (nifShader != nullptr && nifShader->HasTextureSet()) {
             auto* txstRec = nif.GetHeader().GetBlock(nifShader->TextureSetRef());
             if (txstRec == nullptr) {
-                throw runtime_error("Invalid NIF: TextureSetRef is null");
+                throw runtime_error("NIF contains reference to texture set that does not exist");
+            }
+        }
+
+        // Check for any non-ascii chars
+        for (uint32_t slot = 0; slot < NUM_TEXTURE_SLOTS; slot++) {
+            string texture;
+            nif.GetTextureSlot(shape, texture, slot);
+
+            if (!ParallaxGenUtil::containsOnlyAscii(texture)) {
+                // NIFs cannot have non-ascii chars in their texture slots
+                throw runtime_error("NIF contains non-ascii characters in texture slot(s)");
             }
         }
     }
