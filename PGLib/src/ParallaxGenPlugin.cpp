@@ -137,12 +137,13 @@ void ParallaxGenPlugin::libFinalize(const filesystem::path& outputPath, const bo
 }
 
 auto ParallaxGenPlugin::libGetMatchingTXSTObjs(const wstring& nifName, const int& index3D)
-    -> vector<tuple<int, int, wstring, string>>
+    -> vector<tuple<int, int, wstring, string, wstring, unsigned int, wstring, unsigned int>>
 {
     const lock_guard<mutex> lock(s_libMutex);
 
     int length = 0;
-    GetMatchingTXSTObjs(nifName.c_str(), index3D, nullptr, nullptr, nullptr, nullptr, &length);
+    GetMatchingTXSTObjs(
+        nifName.c_str(), index3D, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &length);
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 
@@ -150,12 +151,17 @@ auto ParallaxGenPlugin::libGetMatchingTXSTObjs(const wstring& nifName, const int
     vector<int> altTexIdArray(length);
     vector<wchar_t*> matchedNIFArray(length);
     vector<char*> matchTypeArray(length);
+    vector<wchar_t*> altTexModKeys(length);
+    vector<unsigned int> altTexFormIDs(length);
+    vector<wchar_t*> txstModKeys(length);
+    vector<unsigned int> txstFormIDs(length);
     GetMatchingTXSTObjs(nifName.c_str(), index3D, txstIdArray.data(), altTexIdArray.data(), matchedNIFArray.data(),
-        matchTypeArray.data(), nullptr);
+        matchTypeArray.data(), altTexModKeys.data(), altTexFormIDs.data(), txstModKeys.data(), txstFormIDs.data(),
+        nullptr);
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 
-    vector<tuple<int, int, wstring, string>> outputArray(length);
+    vector<tuple<int, int, wstring, string, wstring, unsigned int, wstring, unsigned int>> outputArray(length);
     for (int i = 0; i < length; ++i) {
         const auto* matchedNIFStr = static_cast<const wchar_t*>(matchedNIFArray.at(i));
         LocalFree(static_cast<HGLOBAL>(matchedNIFArray.at(i)));
@@ -163,7 +169,14 @@ auto ParallaxGenPlugin::libGetMatchingTXSTObjs(const wstring& nifName, const int
         const auto* matchTypeStr = static_cast<const char*>(matchTypeArray.at(i));
         LocalFree(static_cast<HGLOBAL>(matchTypeArray.at(i)));
 
-        outputArray[i] = { txstIdArray[i], altTexIdArray[i], matchedNIFStr, matchTypeStr };
+        const auto* altTexModKeyStr = static_cast<const wchar_t*>(altTexModKeys.at(i));
+        LocalFree(static_cast<HGLOBAL>(altTexModKeys.at(i)));
+
+        const auto* txstModKeyStr = static_cast<const wchar_t*>(txstModKeys.at(i));
+        LocalFree(static_cast<HGLOBAL>(txstModKeys.at(i)));
+
+        outputArray[i] = { txstIdArray[i], altTexIdArray[i], matchedNIFStr, matchTypeStr, altTexModKeyStr,
+            altTexFormIDs[i], txstModKeyStr, txstFormIDs[i] };
     }
 
     return outputArray;
@@ -232,102 +245,6 @@ void ParallaxGenPlugin::libSet3DIndex(const int& altTexIndex, const int& index3D
     Set3DIndex(altTexIndex, index3D);
     libLogMessageIfExists();
     libThrowExceptionIfExists();
-}
-
-auto ParallaxGenPlugin::libGetTXSTFormID(const int& txstIndex) -> tuple<unsigned int, wstring, wstring>
-{
-    const lock_guard<mutex> lock(s_libMutex);
-
-    wchar_t* pluginName = nullptr;
-    wchar_t* winningPluginName = nullptr;
-    unsigned int formID = 0;
-    GetTXSTFormID(txstIndex, &formID, &pluginName, &winningPluginName);
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
-
-    wstring pluginNameString;
-    if (pluginName != nullptr) {
-        pluginNameString = wstring(pluginName);
-        LocalFree(static_cast<HGLOBAL>(pluginName)); // Only free if memory was allocated.
-    } else {
-        // Handle the case where PluginName is null
-        pluginNameString = L"Unknown";
-    }
-
-    wstring winningPluginNameString;
-    if (winningPluginName != nullptr) {
-        winningPluginNameString = wstring(winningPluginName);
-        LocalFree(static_cast<HGLOBAL>(winningPluginName)); // Only free if memory was allocated.
-    } else {
-        // Handle the case where WinningPluginName is null
-        winningPluginNameString = L"Unknown";
-    }
-
-    return make_tuple(formID, pluginNameString, winningPluginNameString);
-}
-
-auto ParallaxGenPlugin::libGetModelRecFormID(const int& modelRecHandle) -> tuple<unsigned int, wstring, wstring>
-{
-    const lock_guard<mutex> lock(s_libMutex);
-
-    wchar_t* pluginName = nullptr;
-    wchar_t* winningPluginName = nullptr;
-    unsigned int formID = 0;
-    GetModelRecFormID(modelRecHandle, &formID, &pluginName, &winningPluginName);
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
-
-    wstring pluginNameString;
-    if (pluginName != nullptr) {
-        pluginNameString = wstring(pluginName);
-        LocalFree(static_cast<HGLOBAL>(pluginName)); // Only free if memory was allocated.
-    } else {
-        // Handle the case where PluginName is null
-        pluginNameString = L"Unknown";
-    }
-
-    wstring winningPluginNameString;
-    if (winningPluginName != nullptr) {
-        winningPluginNameString = wstring(winningPluginName);
-        LocalFree(static_cast<HGLOBAL>(winningPluginName)); // Only free if memory was allocated.
-    } else {
-        // Handle the case where WinningPluginName is null
-        winningPluginNameString = L"Unknown";
-    }
-
-    return make_tuple(formID, pluginNameString, winningPluginNameString);
-}
-
-auto ParallaxGenPlugin::libGetAltTexFormID(const int& altTexIndex) -> tuple<unsigned int, wstring, wstring>
-{
-    const lock_guard<mutex> lock(s_libMutex);
-
-    wchar_t* pluginName = nullptr;
-    wchar_t* winningPluginName = nullptr;
-    unsigned int formID = 0;
-    GetAltTexFormID(altTexIndex, &formID, &pluginName, &winningPluginName);
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
-
-    wstring pluginNameString;
-    if (pluginName != nullptr) {
-        pluginNameString = wstring(pluginName);
-        LocalFree(static_cast<HGLOBAL>(pluginName)); // Only free if memory was allocated.
-    } else {
-        // Handle the case where PluginName is null
-        pluginNameString = L"Unknown";
-    }
-
-    wstring winningPluginNameString;
-    if (winningPluginName != nullptr) {
-        winningPluginNameString = wstring(winningPluginName);
-        LocalFree(static_cast<HGLOBAL>(winningPluginName)); // Only free if memory was allocated.
-    } else {
-        // Handle the case where WinningPluginName is null
-        winningPluginNameString = L"Unknown";
-    }
-
-    return make_tuple(formID, pluginNameString, winningPluginNameString);
 }
 
 auto ParallaxGenPlugin::libGetModelRecHandleFromAltTexHandle(const int& altTexIndex) -> int
@@ -433,19 +350,20 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath,
 
     // loop through matches
     const auto matches = libGetMatchingTXSTObjs(nifPath, index3D);
-    for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType] : matches) {
+    for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType, altTexModKey, altTexFormID, txstModKey,
+             txstFormID] : matches) {
         // create keys for diagnostics
         string altTexJSONKey;
         string txstJSONKey;
 
-        const auto altTexFormIDTuple = libGetAltTexFormID(altTexIndex);
-        const auto txstFormIDCacheKey = ParallaxGenUtil::utf16toUTF8(get<1>(altTexFormIDTuple)) + "/"
-            + to_string(get<0>(altTexFormIDTuple)) + "/" + matchType + "/" + to_string(index3D);
+        const auto txstFormIDCacheKey = ParallaxGenUtil::utf16toUTF8(altTexModKey) + "/" + to_string(altTexFormID) + "/"
+            + matchType + "/" + to_string(index3D);
 
         if (PGDiag::isEnabled()) {
             // this is somewhat costly so we only run it if diagnostics are enabled
-            altTexJSONKey = getKeyFromFormID(altTexFormIDTuple) + " / " + matchType;
-            txstJSONKey = getKeyFromFormID(libGetTXSTFormID(txstIndex));
+            altTexJSONKey
+                = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
+            txstJSONKey = ParallaxGenUtil::utf16toUTF8(txstModKey) + " / " + to_string(txstFormID);
         }
 
         const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
@@ -454,6 +372,10 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath,
 
         // Output information
         TXSTResult curResult;
+        curResult.txstModKey = txstModKey;
+        curResult.txstFormID = txstFormID;
+        curResult.altTexModKey = altTexModKey;
+        curResult.altTexFormID = altTexFormID;
 
         // Get TXST slots
         PGDiag::insert("origTXST", txstJSONKey);
@@ -609,7 +531,8 @@ void ParallaxGenPlugin::assignMesh(const wstring& nifPath, const wstring& baseNI
 
         if (PGDiag::isEnabled()) {
             // this is somewhat costly so we only run it if diagnostics are enabled
-            altTexJSONKey = getKeyFromFormID(libGetAltTexFormID(curResult.altTexIndex)) + " / " + curResult.matchType;
+            altTexJSONKey = ParallaxGenUtil::utf16toUTF8(curResult.altTexModKey) + " / "
+                + to_string(curResult.altTexFormID) + " / " + curResult.matchType;
         }
 
         const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
@@ -643,7 +566,8 @@ void ParallaxGenPlugin::set3DIndices(
     const auto matches = libGetMatchingTXSTObjs(nifPath, oldIndex3D);
 
     // Set indices
-    for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType] : matches) {
+    for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType, altTexModKey, altTexFormID, txstModKey,
+             txstFormID] : matches) {
         if (!boost::iequals(nifPath, matchedNIF)) {
             // Skip if not the base NIF
             continue;
@@ -657,7 +581,8 @@ void ParallaxGenPlugin::set3DIndices(
         string altTexJSONKey;
         if (PGDiag::isEnabled()) {
             // this is somewhat costly so we only run it if diagnostics are enabled
-            altTexJSONKey = getKeyFromFormID(libGetAltTexFormID(altTexIndex)) + " / " + matchType;
+            altTexJSONKey
+                = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
         }
 
         const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);

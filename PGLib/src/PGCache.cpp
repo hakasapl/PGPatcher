@@ -36,15 +36,16 @@ auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& 
     const auto fileMTime = pgd->getFileMTime(nifPath);
     const auto cacheMTime = cacheData["mtime"].get<size_t>();
     if (fileMTime != cacheMTime) {
-        return false;
-    }
-
-    // Check file size
-    const auto fileSize = pgd->getFileSize(nifPath);
-    const auto cacheSize = cacheData["size"].get<uintmax_t>();
-    if (fileSize != cacheSize) { // NOLINT(readability-simplify-boolean-expr)
         return false; // NOLINT(readability-simplify-boolean-expr)
     }
+
+    // File size check is very costly, disabled for now
+    // Check file size
+    // const auto fileSize = pgd->getFileSize(nifPath);
+    // const auto cacheSize = cacheData["size"].get<uintmax_t>();
+    // if (fileSize != cacheSize) { // NOLINT(readability-simplify-boolean-expr)
+    //    return false; // NOLINT(readability-simplify-boolean-expr)
+    //}
 
     return true;
 }

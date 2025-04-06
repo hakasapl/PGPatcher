@@ -82,11 +82,11 @@ public class PGMutagen
     private static SkyrimMod? OutMod;
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
     private static List<ITextureSetGetter> TXSTObjs = [];
-    private static List<Tuple<IAlternateTextureGetter, int, int, string>> AltTexRefs = [];
+    private static List<Tuple<IAlternateTextureGetter, int, int, string, string, uint>> AltTexRefs = [];
     private static List<IMajorRecordGetter> ModelOriginals = [];
     private static List<IMajorRecord> ModelCopies = [];
     private static List<IMajorRecord> ModelCopiesEditable = [];
-    private static Dictionary<Tuple<string, int>, List<Tuple<int, int>>>? TXSTRefs;
+    private static Dictionary<Tuple<string, int>, List<Tuple<int, int, string, uint>>>? TXSTRefs;
     private static HashSet<int> ModifiedModeledRecords = [];
     private static SkyrimRelease GameType;
 
@@ -412,7 +412,7 @@ public class PGMutagen
                     foreach (var alternateTexture in modelRec.Item1.AlternateTextures)
                     {
                         // Add to global
-                        var AltTexEntry = new Tuple<IAlternateTextureGetter, int, int, string>(alternateTexture, DCIdx, ModelRecCounter, modelRec.Item2);
+                        var AltTexEntry = new Tuple<IAlternateTextureGetter, int, int, string, string, uint>(alternateTexture, DCIdx, ModelRecCounter, modelRec.Item2, txstRefObj.FormKey.ModKey.ToString(), txstRefObj.FormKey.ID);
                         AltTexRefs.Add(AltTexEntry);
                         var AltTexId = AltTexRefs.Count - 1;
 
@@ -440,7 +440,7 @@ public class PGMutagen
                         }
 
                         // Add txst reference with TXST handle and alternate texture handle
-                        TXSTRefs[key].Add(new Tuple<int, int>(newTXSTIndex, AltTexId));
+                        TXSTRefs[key].Add(new Tuple<int, int, string, uint>(newTXSTIndex, AltTexId, newTXSTObj.FormKey.ModKey.ToString(), newTXSTObj.FormKey.ID));
                     }
 
                     // increment modelreccounter
@@ -730,6 +730,10 @@ public class PGMutagen
       [DNNE.C99Type("int*")] int* AltTexHandles,
       [DNNE.C99Type("wchar_t**")] IntPtr* MatchedNIF,
       [DNNE.C99Type("char**")] IntPtr* MatchedType,
+      [DNNE.C99Type("wchar_t**")] IntPtr* AltTexModKey,
+      [DNNE.C99Type("unsigned int*")] uint* AltTexFormID,
+      [DNNE.C99Type("wchar_t**")] IntPtr* TXSTModKey,
+      [DNNE.C99Type("unsigned int*")] uint* TXSTFormID,
       [DNNE.C99Type("int*")] int* length)
     {
         try
@@ -753,12 +757,14 @@ public class PGMutagen
             var key = new Tuple<string, int>(nifName, index3D);
 
             // Create txstList, which is an output list of matching TXST objects
-            List<Tuple<int, int, string, string>> txstList = [];
-            if (TXSTRefs.TryGetValue(key, out List<Tuple<int, int>>? value))
+            List<Tuple<int, int, string, string, string, uint, string>> txstList = [];
+            List<Tuple<uint>> txstList2 = [];
+            if (TXSTRefs.TryGetValue(key, out List<Tuple<int, int, string, uint>>? value))
             {
                 foreach (var txst in value)
                 {
-                    txstList.Add(new Tuple<int, int, string, string>(txst.Item1, txst.Item2, nifName, AltTexRefs[txst.Item2].Item4));
+                    txstList.Add(new Tuple<int, int, string, string, string, uint, string>(txst.Item1, txst.Item2, nifName, AltTexRefs[txst.Item2].Item4, AltTexRefs[txst.Item2].Item5, AltTexRefs[txst.Item2].Item6, txst.Item3));
+                    txstList2.Add(new Tuple<uint>(txst.Item4));
                 }
             }
 
@@ -779,7 +785,7 @@ public class PGMutagen
 
             // Alternate key to lookup
             var altKey = new Tuple<string, int>(altNifName, index3D);
-            if (TXSTRefs.TryGetValue(altKey, out List<Tuple<int, int>>? valueAlt))
+            if (TXSTRefs.TryGetValue(altKey, out List<Tuple<int, int, string, uint>>? valueAlt))
             {
                 foreach (var txst in valueAlt)
                 {
@@ -790,7 +796,8 @@ public class PGMutagen
                         continue;
                     }
 
-                    txstList.Add(new Tuple<int, int, string, string>(txst.Item1, txst.Item2, altNifName, altTexRef.Item4));
+                    txstList.Add(new Tuple<int, int, string, string, string, uint, string>(txst.Item1, txst.Item2, altNifName, altTexRef.Item4, altTexRef.Item5, altTexRef.Item6, txst.Item3));
+                    txstList2.Add(new Tuple<uint>(txst.Item4));
                 }
             }
 
@@ -800,7 +807,7 @@ public class PGMutagen
                 *length = txstList.Count;
             }
 
-            if (TXSTHandles is null || AltTexHandles is null || MatchedNIF is null || MatchedType is null)
+            if (TXSTHandles is null || AltTexHandles is null || MatchedNIF is null || MatchedType is null || AltTexModKey is null || TXSTModKey is null)
             {
                 // If any of the output pointers are null, return immediately
                 return;
@@ -814,6 +821,10 @@ public class PGMutagen
                 AltTexHandles[i] = txstList[i].Item2;
                 MatchedNIF[i] = txstList[i].Item3.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalUni(txstList[i].Item3);
                 MatchedType[i] = txstList[i].Item4.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalAnsi(txstList[i].Item4);
+                AltTexModKey[i] = txstList[i].Item5.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalUni(txstList[i].Item5);
+                AltTexFormID[i] = txstList[i].Item6;
+                TXSTModKey[i] = txstList[i].Item7.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalUni(txstList[i].Item7);
+                TXSTFormID[i] = txstList2[i].Item1;
             }
         }
         catch (Exception ex)
