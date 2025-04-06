@@ -352,19 +352,13 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath,
     const auto matches = libGetMatchingTXSTObjs(nifPath, index3D);
     for (const auto& [txstIndex, altTexIndex, matchedNIF, matchType, altTexModKey, altTexFormID, txstModKey,
              txstFormID] : matches) {
-        // create keys for diagnostics
-        string altTexJSONKey;
-        string txstJSONKey;
-
         const auto txstFormIDCacheKey = ParallaxGenUtil::utf16toUTF8(altTexModKey) + "/" + to_string(altTexFormID) + "/"
             + matchType + "/" + to_string(index3D);
 
-        if (PGDiag::isEnabled()) {
-            // this is somewhat costly so we only run it if diagnostics are enabled
-            altTexJSONKey
-                = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
-            txstJSONKey = ParallaxGenUtil::utf16toUTF8(txstModKey) + " / " + to_string(txstFormID);
-        }
+        // this is somewhat costly so we only run it if diagnostics are enabled
+        const auto altTexJSONKey
+            = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
+        const auto txstJSONKey = ParallaxGenUtil::utf16toUTF8(txstModKey) + " / " + to_string(txstFormID);
 
         const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
         const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
@@ -527,13 +521,8 @@ void ParallaxGenPlugin::assignMesh(const wstring& nifPath, const wstring& baseNI
 
     // Loop through results
     for (const auto& curResult : result) {
-        string altTexJSONKey;
-
-        if (PGDiag::isEnabled()) {
-            // this is somewhat costly so we only run it if diagnostics are enabled
-            altTexJSONKey = ParallaxGenUtil::utf16toUTF8(curResult.altTexModKey) + " / "
-                + to_string(curResult.altTexFormID) + " / " + curResult.matchType;
-        }
+        const auto altTexJSONKey = ParallaxGenUtil::utf16toUTF8(curResult.altTexModKey) + " / "
+            + to_string(curResult.altTexFormID) + " / " + curResult.matchType;
 
         const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
         PGDiag::insert("origModel", baseNIFPath);
@@ -578,12 +567,8 @@ void ParallaxGenPlugin::set3DIndices(
             continue;
         }
 
-        string altTexJSONKey;
-        if (PGDiag::isEnabled()) {
-            // this is somewhat costly so we only run it if diagnostics are enabled
-            altTexJSONKey
-                = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
-        }
+        const auto altTexJSONKey
+            = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
 
         const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
         const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
@@ -595,4 +580,8 @@ void ParallaxGenPlugin::set3DIndices(
     }
 }
 
-void ParallaxGenPlugin::savePlugin(const filesystem::path& outputDir, bool esmify) { libFinalize(outputDir, esmify); }
+void ParallaxGenPlugin::savePlugin(const filesystem::path& outputDir, bool esmify)
+{
+    libFinalize(outputDir, esmify);
+    // TODO add to generated files
+}

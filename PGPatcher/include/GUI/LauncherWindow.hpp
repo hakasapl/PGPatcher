@@ -25,7 +25,7 @@ public:
      *
      * @param pgc PGC object for UI to use
      */
-    LauncherWindow(ParallaxGenConfig& pgc);
+    LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cacheDir);
 
     /**
      * @brief Get the Params object (meant to be called after the user presses okay)
@@ -39,6 +39,8 @@ private:
     constexpr static int DEFAULT_HEIGHT = 800;
     constexpr static int BORDER_SIZE = 5;
     constexpr static int BUTTON_FONT_SIZE = 12;
+
+    std::filesystem::path m_cacheDir; /** Path to the cache directory */
 
     ParallaxGenConfig& m_pgc; /** Reference to the ParallaxGenConfig object */
 
@@ -229,6 +231,7 @@ private:
     wxButton*
         m_saveConfigButton; /** Stores the SaveConfigButton as a member var in case it needs to be disabled/enabled */
     wxButton* m_loadConfigButton;
+    wxButton* m_clearCacheButton;
 
     /**
      * @brief Event handler that triggers when the user presses "Start Patching" - performs validation
@@ -257,6 +260,13 @@ private:
      * @param event wxWidgets event object
      */
     void onRestoreDefaultsButtonPressed(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the user presses the "Clear Cache" button
+     *
+     * @param event wxWidgets event object
+     */
+    void onClearCacheButtonPressed(wxCommandEvent& event);
 
     /**
      * @brief Event handler that triggers when the user presses the X on the dialog window, which closes the application

@@ -75,6 +75,8 @@ auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exe
 
     // Move File
     filesystem::copy_file(assetPath, outputPath, filesystem::copy_options::overwrite_existing);
+
+    PGGlobals::getPGD()->addGeneratedFile(dynCubeMapPath, L"");
 }
 
 void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
@@ -108,9 +110,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     auto params = pgc.getParams();
 
     // Show launcher UI
+    const filesystem::path cacheDir = exePath / "cache";
     if (!args.autostart) {
         Logger::info("Showing launcher UI");
-        params = ParallaxGenUI::showLauncher(pgc);
+        params = ParallaxGenUI::showLauncher(pgc, cacheDir);
     }
 
     // Validate config
@@ -197,7 +200,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGDiag::insert("ActivePlugins", ParallaxGenUtil::utf16VectorToUTF8(activePlugins));
 
     // Init PGP library
-    const auto txstFormIDCacheFile = exePath / "cache" / "txstFormIDs.json";
+    // TODO unify these cache write functions
+    const auto txstFormIDCacheFile = cacheDir / "txstFormIDs.json";
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
         ParallaxGenPlugin::loadStatics(&pgd);
@@ -217,7 +221,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     }
 
     // INIT PGCache
-    const auto nifCacheFile = exePath / "cache" / "nifCache.json";
+    const auto nifCacheFile = cacheDir / "nifCache.json";
     if (filesystem::exists(nifCacheFile)) {
         ifstream f(nifCacheFile);
         try {
@@ -371,9 +375,13 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         ofstream diagJSONFile(diffJSONPath);
         diagJSONFile << PGDiag::getJSON().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
         diagJSONFile.close();
+        pgd.addGeneratedFile("ParallaxGen_DIAG,json", L"");
     }
 
     deployAssets(params.Output.dir, exePath);
+
+    // clean up any stale files
+    pg.cleanStaleOutput();
 
     // archive
     if (params.Output.zip) {

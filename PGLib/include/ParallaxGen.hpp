@@ -32,17 +32,6 @@ private:
     // sort blocks enabled, optimize disabled (for now)
     nifly::NifSaveOptions m_nifSaveOptions = { .optimize = false, .sortBlocks = false };
 
-    struct ShapeKey {
-        std::wstring nifPath;
-        int shapeIndex;
-
-        // Equality operator to compare two ShapeKey objects
-        auto operator==(const ShapeKey& other) const -> bool
-        {
-            return nifPath == other.nifPath && shapeIndex == other.shapeIndex;
-        }
-    };
-
     // Runner vars
     PatcherUtil::PatcherTextureSet m_texPatchers;
     PatcherUtil::PatcherMeshSet m_meshPatchers;
@@ -69,6 +58,8 @@ public:
     void zipMeshes() const;
     // deletes entire output folder
     void deleteOutputDir(const bool& preOutput = true) const;
+    // deletes any stale files from previous outputs
+    void cleanStaleOutput();
     // get output zip name
     [[nodiscard]] static auto getOutputZipName() -> std::filesystem::path;
     // get diff json name
@@ -93,7 +84,7 @@ private:
             std::pair<std::vector<ParallaxGenPlugin::TXSTResult>, std::unordered_map<int, NIFUtil::ShapeShader>>>;
 
     auto nifShouldProcess(const std::filesystem::path& nifFile, nlohmann::json& nifCache,
-        std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs,
+        std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, const bool& patchPlugin,
         PatcherUtil::ConflictModResults* conflictMods = nullptr) -> bool;
 
     static auto getDuplicateNIFPath(const std::filesystem::path& nifPath, const int& index) -> std::filesystem::path;
@@ -111,7 +102,7 @@ private:
     // processes a shape within a NIF file
     auto processShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
         nlohmann::json& shapeCache, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
-        const int& shapeIndex, PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
+        PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
         PatcherUtil::ConflictModResults* conflictMods = nullptr, const NIFUtil::ShapeShader* forceShader = nullptr)
         -> bool;
 

@@ -6,6 +6,10 @@
 std::mutex PGCache::s_nifCacheMutex;
 nlohmann::json PGCache::s_nifCache = nlohmann::json::object();
 
+bool PGCache::s_cacheEnabled = true;
+auto PGCache::enableCache(bool enable) -> void { s_cacheEnabled = enable; }
+auto PGCache::isCacheEnabled() -> bool { return s_cacheEnabled; }
+
 auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& cacheData) -> bool
 {
     cacheData.clear();
@@ -28,7 +32,7 @@ auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& 
     }
 
     // invalidate if invalidation fields are missing
-    if (!cacheData.contains("mtime") || !cacheData.contains("size")) {
+    if (!cacheData.contains("mtime")) {
         return false;
     }
 
@@ -39,26 +43,22 @@ auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& 
         return false; // NOLINT(readability-simplify-boolean-expr)
     }
 
-    // File size check is very costly, disabled for now
-    // Check file size
-    // const auto fileSize = pgd->getFileSize(nifPath);
-    // const auto cacheSize = cacheData["size"].get<uintmax_t>();
-    // if (fileSize != cacheSize) { // NOLINT(readability-simplify-boolean-expr)
-    //    return false; // NOLINT(readability-simplify-boolean-expr)
-    //}
-
     return true;
 }
 
-auto PGCache::setNIFCache(const std::filesystem::path& nifPath, const nlohmann::json& nifData) -> void
+auto PGCache::setNIFCache(const std::filesystem::path& nifPath, const nlohmann::json& nifData, const size_t& mtime)
+    -> void
 {
     const auto cacheKey = ParallaxGenUtil::utf16toUTF8(nifPath.wstring());
 
     // set file modified time and size
     auto* const pgd = PGGlobals::getPGD();
     nlohmann::json cacheData = nifData;
-    cacheData["mtime"] = pgd->getFileMTime(nifPath);
-    cacheData["size"] = pgd->getFileSize(nifPath);
+    if (mtime > 0) {
+        cacheData["mtime"] = mtime;
+    } else {
+        cacheData["mtime"] = pgd->getFileMTime(nifPath);
+    }
 
     // set cache data
     {

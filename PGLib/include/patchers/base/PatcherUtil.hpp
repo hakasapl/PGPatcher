@@ -93,6 +93,15 @@ public:
 
             return match;
         }
+
+        // equality operator
+        auto operator==(const ShaderPatcherMatch& other) const -> bool
+        {
+            return mod == other.mod && shader == other.shader && shaderTransformTo == other.shaderTransformTo
+                && match.matchedPath == other.match.matchedPath && match.matchedFrom == other.match.matchedFrom;
+        }
+        // inequality operator
+        auto operator!=(const ShaderPatcherMatch& other) const -> bool { return !(*this == other); }
     };
 
     struct ConflictModResults {
