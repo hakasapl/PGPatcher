@@ -6,17 +6,48 @@
 std::mutex PGCache::s_nifCacheMutex;
 nlohmann::json PGCache::s_nifCache = nlohmann::json::object();
 
+std::mutex PGCache::s_texCacheMutex;
+nlohmann::json PGCache::s_texCache = nlohmann::json::object();
+
 bool PGCache::s_cacheEnabled = true;
 auto PGCache::enableCache(bool enable) -> void { s_cacheEnabled = enable; }
 auto PGCache::isCacheEnabled() -> bool { return s_cacheEnabled; }
 
-auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& cacheData) -> bool
+auto PGCache::getTEXCache(const std::filesystem::path& relPath, nlohmann::json& cacheData) -> bool
+{
+    return getFileCache(relPath, cacheData, CacheType::TEX);
+}
+
+void PGCache::setTEXCache(const std::filesystem::path& relPath, const nlohmann::json& cacheData, const size_t& mtime)
+{
+    setFileCache(relPath, cacheData, CacheType::TEX, mtime);
+}
+
+auto PGCache::getNIFCache(const std::filesystem::path& relPath, nlohmann::json& cacheData) -> bool
+{
+    return getFileCache(relPath, cacheData, CacheType::NIF);
+}
+
+void PGCache::setNIFCache(const std::filesystem::path& relPath, const nlohmann::json& cacheData, const size_t& mtime)
+{
+    setFileCache(relPath, cacheData, CacheType::NIF, mtime);
+}
+
+auto PGCache::getFileCache(const std::filesystem::path& relPath, nlohmann::json& cacheData, const CacheType& type)
+    -> bool
 {
     cacheData.clear();
-    const auto cacheKey = ParallaxGenUtil::utf16toUTF8(nifPath.wstring());
+    const auto cacheKey = ParallaxGenUtil::utf16toUTF8(relPath.wstring());
 
     // check if cache exists and pull it
-    {
+    if (type == CacheType::TEX) {
+        const std::lock_guard<std::mutex> lock(s_texCacheMutex);
+        if (s_texCache.contains(cacheKey)) {
+            cacheData = s_texCache[cacheKey];
+        } else {
+            return false;
+        }
+    } else if (type == CacheType::NIF) {
         const std::lock_guard<std::mutex> lock(s_nifCacheMutex);
         if (s_nifCache.contains(cacheKey)) {
             cacheData = s_nifCache[cacheKey];
@@ -27,7 +58,7 @@ auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& 
 
     // check if cache should be invalidated
     auto* const pgd = PGGlobals::getPGD();
-    if (!pgd->isFile(nifPath)) {
+    if (!pgd->isFile(relPath)) {
         return false;
     }
 
@@ -37,7 +68,7 @@ auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& 
     }
 
     // Check file modified time
-    const auto fileMTime = pgd->getFileMTime(nifPath);
+    const auto fileMTime = pgd->getFileMTime(relPath);
     const auto cacheMTime = cacheData["mtime"].get<size_t>();
     if (fileMTime != cacheMTime) {
         return false; // NOLINT(readability-simplify-boolean-expr)
@@ -46,24 +77,27 @@ auto PGCache::getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& 
     return true;
 }
 
-auto PGCache::setNIFCache(const std::filesystem::path& nifPath, const nlohmann::json& nifData, const size_t& mtime)
-    -> void
+void PGCache::setFileCache(
+    const std::filesystem::path& relPath, const nlohmann::json& cacheData, const CacheType& type, const size_t& mtime)
 {
-    const auto cacheKey = ParallaxGenUtil::utf16toUTF8(nifPath.wstring());
+    const auto cacheKey = ParallaxGenUtil::utf16toUTF8(relPath.wstring());
 
     // set file modified time and size
     auto* const pgd = PGGlobals::getPGD();
-    nlohmann::json cacheData = nifData;
+    nlohmann::json saveCacheData = cacheData;
     if (mtime > 0) {
-        cacheData["mtime"] = mtime;
+        saveCacheData["mtime"] = mtime;
     } else {
-        cacheData["mtime"] = pgd->getFileMTime(nifPath);
+        saveCacheData["mtime"] = pgd->getFileMTime(relPath);
     }
 
     // set cache data
-    {
+    if (type == CacheType::TEX) {
+        const std::lock_guard<std::mutex> lock(s_texCacheMutex);
+        s_texCache[cacheKey] = saveCacheData;
+    } else if (type == CacheType::NIF) {
         const std::lock_guard<std::mutex> lock(s_nifCacheMutex);
-        s_nifCache[cacheKey] = cacheData;
+        s_nifCache[cacheKey] = saveCacheData;
     }
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <mutex>
 
@@ -11,7 +12,12 @@ private:
     static std::mutex s_nifCacheMutex;
     static nlohmann::json s_nifCache;
 
+    static std::mutex s_texCacheMutex;
+    static nlohmann::json s_texCache;
+
     static bool s_cacheEnabled;
+
+    enum class CacheType : uint8_t { NIF, TEX };
 
 public:
     // Enable or disable cache
@@ -22,8 +28,20 @@ public:
     static void loadNIFCache(nlohmann::json cacheData);
     static auto saveNIFCache() -> nlohmann::json;
 
-    // NIF functions
-    static auto getNIFCache(const std::filesystem::path& nifPath, nlohmann::json& cacheData) -> bool;
+    // TEX cache functions
+    static auto getTEXCache(const std::filesystem::path& relPath, nlohmann::json& cacheData) -> bool;
+    static void setTEXCache(
+        const std::filesystem::path& relPath, const nlohmann::json& cacheData, const size_t& mtime = 0);
+
+    // NIF cache functions
+    static auto getNIFCache(const std::filesystem::path& relPath, nlohmann::json& cacheData) -> bool;
     static void setNIFCache(
-        const std::filesystem::path& nifPath, const nlohmann::json& nifData, const size_t& mtime = 0);
+        const std::filesystem::path& relPath, const nlohmann::json& cacheData, const size_t& mtime = 0);
+
+private:
+    // helpers
+    static auto getFileCache(const std::filesystem::path& relPath, nlohmann::json& cacheData, const CacheType& type)
+        -> bool;
+    static void setFileCache(const std::filesystem::path& relPath, const nlohmann::json& cacheData,
+        const CacheType& type, const size_t& mtime = 0);
 };
