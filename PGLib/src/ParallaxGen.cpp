@@ -477,7 +477,10 @@ auto ParallaxGen::nifShouldProcess(const std::filesystem::path& nifFile, nlohman
 
         const auto cacheWinningMatch = PatcherUtil::ShaderPatcherMatch::fromJSON(shape["winningmatch"]);
         auto winningMatch = PatcherUtil::getWinningMatch(curMatches, m_modPriority);
-        PatcherUtil::applyTransformIfNeeded(winningMatch, patcherObjects, true);
+        if (PatcherUtil::applyTransformIfNeeded(winningMatch, patcherObjects, true)) {
+            // for now, transforms are not cached
+            return false;
+        }
 
         if (winningMatch.shader == NIFUtil::ShapeShader::UNKNOWN) {
             // no winning match in cache, so we need to process
