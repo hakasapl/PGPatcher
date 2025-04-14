@@ -2,7 +2,8 @@
 
 ## [0.8.12] - UNRELEASED
 
-- Added persistent caching for NIFs for faster updating of existing outputs
+- Added persistent caching for NIFs and DDSs for faster updating of existing outputs
+- Improved efficiency of mod folder mapping by only checking relevant folders
 - Fixed duplicate meshes with no shader type sometimes getting wrong textures due to common texture sets
 
 ## [0.8.11] - 2025-04-05

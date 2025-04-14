@@ -10,13 +10,11 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <mutex>
 #include <spdlog/spdlog.h>
 
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -109,11 +107,6 @@ void ParallaxGenConfig::loadConfig()
 
 auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
 {
-    // "mod_order" field
-    if (j.contains("mod_order")) {
-        setModOrder(utf8VectorToUTF16(j["mod_order"].get<vector<string>>()));
-    }
-
     // "params" field
     if (j.contains("params")) {
         const auto& paramJ = j["params"];
@@ -285,39 +278,6 @@ void ParallaxGenConfig::replaceForwardSlashes(nlohmann::json& json)
     }
 }
 
-auto ParallaxGenConfig::getModOrder() -> vector<wstring>
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    return m_modOrder;
-}
-
-auto ParallaxGenConfig::getModPriority(const wstring& mod) -> int
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    if (m_modPriority.contains(mod)) {
-        return m_modPriority[mod];
-    }
-
-    return -1;
-}
-
-auto ParallaxGenConfig::getModPriorityMap() -> unordered_map<wstring, int>
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    return m_modPriority;
-}
-
-void ParallaxGenConfig::setModOrder(const vector<wstring>& modOrder)
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    this->m_modOrder = modOrder;
-
-    m_modPriority.clear();
-    for (size_t i = 0; i < modOrder.size(); i++) {
-        m_modPriority[modOrder[i]] = static_cast<int>(i);
-    }
-}
-
 auto ParallaxGenConfig::getParams() const -> PGParams { return m_params; }
 
 void ParallaxGenConfig::setParams(const PGParams& params) { this->m_params = params; }
@@ -438,9 +398,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
 {
     // build output json
     nlohmann::json j = m_userConfig;
-
-    // Mod Order
-    j["mod_order"] = utf16VectorToUTF8(m_modOrder);
 
     // Params
 

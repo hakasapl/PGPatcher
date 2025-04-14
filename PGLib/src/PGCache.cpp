@@ -101,14 +101,62 @@ void PGCache::setFileCache(
     }
 }
 
-void PGCache::loadNIFCache(nlohmann::json cacheData)
+auto PGCache::loadNIFCache(const nlohmann::json& cacheData) -> bool
 {
     const std::lock_guard<std::mutex> lock(s_nifCacheMutex);
-    s_nifCache = std::move(cacheData);
+
+    // check if cache is valid
+    if (!cacheData.contains("version")) {
+        return false;
+    }
+
+    const auto version = cacheData["version"].get<std::string>();
+    if (version != PG_VERSION) {
+        // invalidate cache on version change
+        return false;
+    }
+
+    s_nifCache = cacheData;
+    return true;
 }
 
 auto PGCache::saveNIFCache() -> nlohmann::json
 {
     const std::lock_guard<std::mutex> lock(s_nifCacheMutex);
-    return s_nifCache;
+
+    // add version to cache
+    nlohmann::json saveCacheData = s_nifCache;
+    saveCacheData["version"] = PG_VERSION;
+
+    return saveCacheData;
+}
+
+auto PGCache::loadTexCache(const nlohmann::json& cacheData) -> bool
+{
+    const std::lock_guard<std::mutex> lock(s_texCacheMutex);
+
+    // check if cache is valid
+    if (!cacheData.contains("version")) {
+        return false;
+    }
+
+    const auto version = cacheData["version"].get<std::string>();
+    if (version != PG_VERSION) {
+        // invalidate cache on version change
+        return false;
+    }
+
+    s_texCache = cacheData;
+    return true;
+}
+
+auto PGCache::saveTexCache() -> nlohmann::json
+{
+    const std::lock_guard<std::mutex> lock(s_texCacheMutex);
+
+    // add version to cache
+    nlohmann::json saveCacheData = s_texCache;
+    saveCacheData["version"] = PG_VERSION;
+
+    return saveCacheData;
 }

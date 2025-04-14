@@ -3,6 +3,8 @@
 #include <nlohmann/json_fwd.hpp>
 #include <unordered_map>
 
+#include "ModManagerDirectory.hpp"
+#include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshGlobal.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
 #include "patchers/base/PatcherMeshPre.hpp"
@@ -60,7 +62,7 @@ public:
      * @brief Describes a match with transform properties
      */
     struct ShaderPatcherMatch {
-        std::wstring mod;
+        std::shared_ptr<ModManagerDirectory::Mod> mod;
         NIFUtil::ShapeShader shader {};
         PatcherMeshShader::PatcherMatch match {};
         NIFUtil::ShapeShader shaderTransformTo {};
@@ -68,7 +70,9 @@ public:
         [[nodiscard]] auto getJSON() const -> nlohmann::json
         {
             nlohmann::json json = nlohmann::json::object();
-            json["mod"] = ParallaxGenUtil::utf16toUTF8(mod);
+            if (mod != nullptr) {
+                json["mod"] = ParallaxGenUtil::utf16toUTF8(mod->name);
+            }
             json["shader"] = NIFUtil::getStrFromShader(shader);
             json["shaderTransformTo"] = NIFUtil::getStrFromShader(shaderTransformTo);
             json["matchedPath"] = ParallaxGenUtil::utf16toUTF8(match.matchedPath);
@@ -83,7 +87,11 @@ public:
         [[nodiscard]] static auto fromJSON(const nlohmann::json& json) -> ShaderPatcherMatch
         {
             ShaderPatcherMatch match;
-            match.mod = ParallaxGenUtil::utf8toUTF16(json["mod"].get<std::string>());
+            if (json.contains("mod") && json["mod"].is_string()) {
+                match.mod = PGGlobals::getMMD()->getMod(ParallaxGenUtil::utf8toUTF16(json["mod"].get<std::string>()));
+            } else {
+                match.mod = nullptr;
+            }
             match.shader = NIFUtil::getShaderFromStr(json["shader"].get<std::string>());
             match.shaderTransformTo = NIFUtil::getShaderFromStr(json["shaderTransformTo"].get<std::string>());
             match.match.matchedPath = ParallaxGenUtil::utf8toUTF16(json["matchedPath"].get<std::string>());
@@ -104,12 +112,6 @@ public:
         auto operator!=(const ShaderPatcherMatch& other) const -> bool { return !(*this == other); }
     };
 
-    struct ConflictModResults {
-        std::unordered_map<std::wstring, std::tuple<std::set<NIFUtil::ShapeShader>, std::unordered_set<std::wstring>>>
-            mods;
-        std::mutex mutex;
-    };
-
     /**
      * @brief Get the Winning Match object (checks mod priority)
      *
@@ -118,8 +120,7 @@ public:
      * @param ModPriority Mod priority map
      * @return ShaderPatcherMatch Winning match
      */
-    static auto getWinningMatch(const std::vector<ShaderPatcherMatch>& matches,
-        const std::unordered_map<std::wstring, int>* modPriority = nullptr) -> ShaderPatcherMatch;
+    static auto getWinningMatch(const std::vector<ShaderPatcherMatch>& matches) -> ShaderPatcherMatch;
 
     /**
      * @brief Helper method to run a transform if needed on a match
@@ -128,8 +129,7 @@ public:
      * @param Patchers Patcher set to use
      * @return ShaderPatcherMatch Transformed match
      */
-    static auto applyTransformIfNeeded(
-        ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers, const bool& matchOnly = false) -> bool;
+    static auto applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool;
 
 private:
     static inline std::mutex s_processShapeMutex;
@@ -139,6 +139,6 @@ private:
 
 public:
     static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
-        PatcherUtil::ConflictModResults* conflictMods = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const bool& dryRun)
+        -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 };

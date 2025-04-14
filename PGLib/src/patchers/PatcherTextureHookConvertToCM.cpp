@@ -6,6 +6,24 @@
 using namespace std;
 using namespace Microsoft::WRL;
 
+auto PatcherTextureHookConvertToCM::addToProcessList(const filesystem::path& texPath) -> void
+{
+    const lock_guard<mutex> lock(s_texToProcessMutex);
+    s_texToProcess.insert(texPath);
+}
+
+auto PatcherTextureHookConvertToCM::isInProcessList(const filesystem::path& texPath) -> bool
+{
+    const lock_guard<mutex> lock(s_texToProcessMutex);
+    return s_texToProcess.contains(texPath);
+}
+
+auto PatcherTextureHookConvertToCM::getOutputFilename(const filesystem::path& texPath) -> filesystem::path
+{
+    const auto texBase = NIFUtil::getTexBase(texPath, NIFUtil::TextureSlots::PARALLAX);
+    return texBase + L"_m.dds";
+}
+
 auto PatcherTextureHookConvertToCM::initShader() -> bool
 {
     if (s_shader != nullptr) {
@@ -15,19 +33,19 @@ auto PatcherTextureHookConvertToCM::initShader() -> bool
     return getPGD3D()->initShader(SHADER_NAME, s_shader);
 }
 
-PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(filesystem::path texPath)
-    : PatcherTextureHook(std::move(texPath), "ParallaxToCM")
+PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::path ddsPath, DirectX::ScratchImage* dds)
+    : PatcherTextureHook(std::move(ddsPath), dds, "ParallaxToCM")
 {
 }
 
-auto PatcherTextureHookConvertToCM::applyPatch(filesystem::path& newPath) -> bool
+auto PatcherTextureHookConvertToCM::applyPatch() -> bool
 {
     if (getDDS() == nullptr) {
         throw runtime_error("DDS not initialized");
     }
 
     const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::PARALLAX);
-    newPath = texBase + L"_m.dds";
+    const auto newPath = texBase + L"_m.dds";
 
     if (getPGD()->isGenerated(newPath)) {
         // already generated

@@ -3,12 +3,11 @@
 #include <mutex>
 #include <spdlog/spdlog.h>
 
+#include "PGGlobals.hpp"
+
 using namespace std;
 
 // statics
-ParallaxGenDirectory* ParallaxGenWarnings::s_pgd = nullptr;
-const std::unordered_map<std::wstring, int>* ParallaxGenWarnings::s_modPriority = nullptr;
-
 unordered_map<wstring, unordered_set<wstring>> ParallaxGenWarnings::s_mismatchWarnTracker;
 mutex ParallaxGenWarnings::s_mismatchWarnTrackerMutex;
 
@@ -21,11 +20,8 @@ mutex ParallaxGenWarnings::s_meshWarnTrackerMutex;
 unordered_set<pair<wstring, wstring>, ParallaxGenWarnings::PairHash> ParallaxGenWarnings::s_meshWarnDebugTracker;
 mutex ParallaxGenWarnings::s_meshWarnDebugTrackerMutex;
 
-void ParallaxGenWarnings::init(ParallaxGenDirectory* pgd, const unordered_map<wstring, int>* modPriority)
+void ParallaxGenWarnings::init()
 {
-    ParallaxGenWarnings::s_pgd = pgd;
-    ParallaxGenWarnings::s_modPriority = modPriority;
-
     s_mismatchWarnTracker.clear();
     s_mismatchWarnDebugTracker.clear();
     s_meshWarnTracker.clear();
@@ -34,15 +30,13 @@ void ParallaxGenWarnings::init(ParallaxGenDirectory* pgd, const unordered_map<ws
 
 void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring& baseTex)
 {
+    auto* const pgd = PGGlobals::getPGD();
+
     // construct key
-    auto matchedPathMod = s_pgd->getMod(matchedPath);
-    auto baseTexMod = s_pgd->getMod(baseTex);
+    auto matchedPathMod = pgd->getMod(matchedPath);
+    auto baseTexMod = pgd->getMod(baseTex);
 
-    if (baseTexMod.empty()) {
-        baseTexMod = L"Vanilla Game";
-    }
-
-    if (matchedPathMod.empty() || baseTexMod.empty()) {
+    if (matchedPathMod == nullptr || baseTexMod == nullptr) {
         return;
     }
 
@@ -52,17 +46,19 @@ void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring
 
     {
         const lock_guard<mutex> lock(s_mismatchWarnDebugTrackerMutex);
-        s_mismatchWarnDebugTracker[matchedPathMod].insert(std::make_pair(matchedPath, baseTex));
+        s_mismatchWarnDebugTracker[matchedPathMod->name].insert(std::make_pair(matchedPath, baseTex));
     }
 
     {
         const lock_guard<mutex> lock2(s_mismatchWarnTrackerMutex);
-        s_mismatchWarnTracker[matchedPathMod].insert(baseTexMod);
+        s_mismatchWarnTracker[matchedPathMod->name].insert(baseTexMod->name);
     }
 }
 
 void ParallaxGenWarnings::printWarnings()
 {
+    auto* const pgd = PGGlobals::getPGD();
+
     if (!s_mismatchWarnTracker.empty()) {
         spdlog::warn(
             "Potential Texture mismatches were found, there may be visual issues, Please verify for each warning if "
@@ -88,19 +84,21 @@ void ParallaxGenWarnings::printWarnings()
         spdlog::debug(L"Mod \"{}\":", matchedMod.first);
 
         for (auto texturePair : matchedMod.second) {
-            auto baseTexMod = s_pgd->getMod(texturePair.second);
-            spdlog::debug(L"  - {} used with {} from \"{}\"", texturePair.first, texturePair.second, baseTexMod);
+            auto baseTexMod = pgd->getMod(texturePair.second);
+            spdlog::debug(L"  - {} used with {} from \"{}\"", texturePair.first, texturePair.second, baseTexMod->name);
         }
     }
 }
 
 void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& nifPath)
 {
-    // construct key
-    auto matchedPathMod = s_pgd->getMod(matchedPath);
-    auto nifPathMod = s_pgd->getMod(nifPath);
+    auto* const pgd = PGGlobals::getPGD();
 
-    if (matchedPathMod.empty() || nifPathMod.empty()) {
+    // construct key
+    auto matchedPathMod = pgd->getMod(matchedPath);
+    auto nifPathMod = pgd->getMod(nifPath);
+
+    if (matchedPathMod == nullptr || nifPathMod == nullptr) {
         return;
     }
 
@@ -108,16 +106,12 @@ void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& ni
         return;
     }
 
-    int priority = 0;
-    if (s_modPriority != nullptr && s_modPriority->find(nifPathMod) != s_modPriority->end()) {
-        priority = s_modPriority->at(nifPathMod);
-    }
-
+    const int priority = nifPathMod->priority;
     if (priority < 0) {
         return;
     }
 
-    auto key = make_pair(matchedPathMod, nifPathMod);
+    auto key = make_pair(matchedPathMod->name, nifPathMod->name);
 
     // Issue debug log
     {
@@ -130,7 +124,7 @@ void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& ni
         s_meshWarnDebugTracker.insert(keyDebug);
 
         spdlog::debug(L"[Potential Mesh Mismatch] Matched path {} from mod {} were used on mesh {} from mod {}",
-            matchedPath, matchedPathMod, nifPath, nifPathMod);
+            matchedPath, matchedPathMod->name, nifPath, nifPathMod->name);
     }
 
     // check if warning was already issued

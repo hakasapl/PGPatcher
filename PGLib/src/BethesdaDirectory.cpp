@@ -219,7 +219,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath, const bool& cac
     return outFileBytes;
 }
 
-auto BethesdaDirectory::getMod(const filesystem::path& relPath) -> wstring
+auto BethesdaDirectory::getMod(const filesystem::path& relPath) -> shared_ptr<ModManagerDirectory::Mod>
 {
     if (m_fileMap.empty()) {
         throw runtime_error("File map was not populated");
@@ -229,9 +229,9 @@ auto BethesdaDirectory::getMod(const filesystem::path& relPath) -> wstring
     return file.mod;
 }
 
-void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath, const wstring& mod)
+void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath, std::shared_ptr<ModManagerDirectory::Mod> mod)
 {
-    updateFileMap(relPath, nullptr, mod, true);
+    updateFileMap(relPath, nullptr, std::move(mod), true);
 }
 
 auto BethesdaDirectory::clearCache() -> void
@@ -371,9 +371,9 @@ void BethesdaDirectory::addLooseFilesToMap()
             spdlog::trace(L"Adding loose file to map: {}", relativePath.wstring());
         }
 
-        wstring curMod;
+        shared_ptr<ModManagerDirectory::Mod> curMod;
         if (m_mmd != nullptr) {
-            curMod = m_mmd->getMod(relativePath);
+            curMod = m_mmd->getModByFile(relativePath);
         }
         updateFileMap(relativePath, nullptr, curMod);
     }
@@ -440,9 +440,9 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 }
 
                 // add to filemap
-                wstring bsaMod;
+                shared_ptr<ModManagerDirectory::Mod> bsaMod;
                 if (m_mmd != nullptr) {
-                    bsaMod = m_mmd->getMod(bsaName);
+                    bsaMod = m_mmd->getModByFile(bsaName);
                 }
                 updateFileMap(curPath, bsaStructPtr, bsaMod);
             }
@@ -738,14 +738,14 @@ auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> Beth
 }
 
 void BethesdaDirectory::updateFileMap(const filesystem::path& filePath, shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
-    const wstring& mod, const bool& generated)
+    std::shared_ptr<ModManagerDirectory::Mod> mod, const bool& generated)
 {
     const lock_guard<mutex> lock(m_fileMapMutex);
 
     const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
     const BethesdaFile newBFile
-        = { .path = filePath, .bsaFile = std::move(bsaFile), .mod = mod, .generated = generated };
+        = { .path = filePath, .bsaFile = std::move(bsaFile), .mod = std::move(mod), .generated = generated };
 
     m_fileMap[lowerPath] = newBFile;
 
