@@ -340,7 +340,7 @@ auto ParallaxGenPlugin::getKeyFromFormID(const tuple<unsigned int, wstring, wstr
 }
 
 void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dryRun,
-    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, PatcherUtil::PatcherMeshObjectSet& patchers,
+    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const PatcherUtil::PatcherMeshObjectSet& patchers,
     const int& index3D, const std::string& shapeKey, std::vector<TXSTResult>& results)
 {
     const lock_guard<mutex> lock(s_processShapeMutex);

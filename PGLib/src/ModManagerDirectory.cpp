@@ -322,6 +322,15 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
         exit(1);
     }
 
+    if (useMO2Order) {
+        // invert priorities
+        for (const auto& [modName, mod] : m_modMap) {
+            if (mod->priority != -1) {
+                mod->priority = basePriority - mod->priority - 1;
+            }
+        }
+    }
+
     modListFileF.close();
 }
 

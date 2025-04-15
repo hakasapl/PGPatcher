@@ -68,6 +68,14 @@ public:
      */
     static void cleanStaleOutput();
 
+    /**
+     * @brief Check if the output directory is empty
+     *
+     * @return true if the output directory is empty
+     * @return false if the output directory is not empty
+     */
+    static auto isOutputEmpty() -> bool;
+
     static auto getDiffJSON() -> nlohmann::json;
 
 private:
@@ -148,7 +156,7 @@ private:
      */
     static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
         const bool& dryRun, nlohmann::json& shapeCache, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
-        PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
+        const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
         const NIFUtil::ShapeShader* forceShader = nullptr) -> bool;
 
     static auto getMeshesFromPluginResults(const std::unordered_map<int, NIFUtil::ShapeShader>& shadersAppliedMesh,
@@ -157,6 +165,9 @@ private:
         -> std::unordered_map<int,
             std::pair<std::vector<ParallaxGenPlugin::TXSTResult>, std::unordered_map<int, NIFUtil::ShapeShader>>>;
 
+    static auto createNIFPatcherObjects(const std::filesystem::path& nifPath, nifly::NifFile* nif)
+        -> PatcherUtil::PatcherMeshObjectSet;
+
     static auto getDuplicateNIFPath(const std::filesystem::path& nifPath, const int& index) -> std::filesystem::path;
 
     // DDS Runners
@@ -164,4 +175,7 @@ private:
         std::unordered_set<std::filesystem::path>& createdDDS) -> bool;
 
     static auto patchDDS(const std::filesystem::path& ddsPath) -> ParallaxGenTask::PGResult;
+
+    static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath, DirectX::ScratchImage* dds)
+        -> PatcherUtil::PatcherTextureObjectSet;
 };

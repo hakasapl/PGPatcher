@@ -120,22 +120,22 @@ void zipDirectory(const filesystem::path& dirPath, const filesystem::path& zipPa
 
 auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exePath) -> void
 {
-    // Install default cubemap file
-    static const filesystem::path dynCubeMapPath = "textures/cubemaps/dynamic1pxcubemap_black.dds";
-
     Logger::info("Installing default dynamic cubemap file");
 
     // Create Directory
-    const filesystem::path outputCubemapPath = outputDir / dynCubeMapPath.parent_path();
+    const filesystem::path outputCubemapPath
+        = outputDir / PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH.parent_path();
     filesystem::create_directories(outputCubemapPath);
 
     const filesystem::path assetPath = filesystem::path(exePath) / "assets/dynamic1pxcubemap_black.dds";
-    const filesystem::path outputPath = filesystem::path(outputDir) / dynCubeMapPath;
+    const filesystem::path outputPath
+        = filesystem::path(outputDir) / PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH;
 
     // Move File
     filesystem::copy_file(assetPath, outputPath, filesystem::copy_options::overwrite_existing);
 
-    PGGlobals::getPGD()->addGeneratedFile(dynCubeMapPath, nullptr);
+    // Add any files to ignore as generated files
+    PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH, nullptr);
 }
 
 void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
@@ -428,13 +428,23 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Check for empty output
     bool outputEmpty = false;
-    if (params.Output.dir.empty()) {
+    if (ParallaxGen::isOutputEmpty()) {
         // output is empty
         Logger::warn("Output directory is empty. No files were generated. Is your data path set correctly?");
         outputEmpty = true;
     }
 
+    // Save caches
+    Logger::info("Saving cache files...");
+    filesystem::create_directories(cacheDir);
+    ParallaxGenUtil::saveJSON(txstFormIDCacheFile, ParallaxGenPlugin::getTXSTCache(), true);
+    ParallaxGenUtil::saveJSON(nifCacheFile, PGCache::saveNIFCache(), true);
+    ParallaxGenUtil::saveJSON(texCacheFile, PGCache::saveTexCache(), true);
+
     if (!outputEmpty) {
+        // Deploy Assets
+        deployAssets(params.Output.dir, exePath);
+
         // Save diag JSON
         if (params.Processing.diagnostics) {
             spdlog::info("Saving diag JSON file...");
@@ -443,8 +453,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
             pgd.addGeneratedFile("ParallaxGen_DIAG,json", nullptr);
         }
-
-        deployAssets(params.Output.dir, exePath);
 
         // Save diff json
         const auto diffJSON = ParallaxGen::getDiffJSON();
@@ -462,12 +470,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             zipDirectory(params.Output.dir, zipPath);
             ParallaxGen::deleteOutputDir(false);
         }
-
-        // Save caches
-        filesystem::create_directories(cacheDir);
-        ParallaxGenUtil::saveJSON(txstFormIDCacheFile, ParallaxGenPlugin::getTXSTCache(), true);
-        ParallaxGenUtil::saveJSON(nifCacheFile, PGCache::saveNIFCache(), true);
-        ParallaxGenUtil::saveJSON(texCacheFile, PGCache::saveTexCache(), true);
     }
 
     const auto endTime = chrono::high_resolution_clock::now();

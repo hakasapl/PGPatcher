@@ -133,8 +133,9 @@ public:
     };
 
     static void processShape(const std::wstring& nifPath, const bool& dryRun,
-        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, PatcherUtil::PatcherMeshObjectSet& patchers,
-        const int& index3D, const std::string& shapeKey, std::vector<TXSTResult>& results);
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
+        const PatcherUtil::PatcherMeshObjectSet& patchers, const int& index3D, const std::string& shapeKey,
+        std::vector<TXSTResult>& results);
 
     static void assignMesh(
         const std::wstring& nifPath, const std::wstring& baseNIFPath, const std::vector<TXSTResult>& result);

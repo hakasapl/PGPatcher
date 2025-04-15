@@ -73,7 +73,17 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     if (!dryRun) {
         const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
         if (PatcherUtil::s_shaderMatchCache.contains(slots)) {
-            matches = PatcherUtil::s_shaderMatchCache[slots];
+            auto cachedMatches = PatcherUtil::s_shaderMatchCache[slots];
+
+            // Check canApply map
+            for (auto& match : cachedMatches) {
+                if ((canApply.contains(match.shader) && canApply.at(match.shader))
+                    || (canApply.contains(match.shaderTransformTo) && canApply.at(match.shaderTransformTo))) {
+                    // Only include matches that canapply
+                    matches.push_back(match);
+                }
+            }
+
             return matches;
         }
     }

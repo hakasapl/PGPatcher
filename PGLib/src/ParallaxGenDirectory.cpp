@@ -301,9 +301,11 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     // Loop through each shape
     bool hasAtLeastOneTextureSet = false;
     const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
+    // clear shapes in cache
+    nifCache["shapes"] = nlohmann::json::object_t();
     for (const auto& [shape, oldindex3d] : shapes) {
         // add to cache
-        nifCache["shapes"][to_string(oldindex3d)]["texturemap"] = nlohmann::json::object_t {};
+        nifCache["shapes"][to_string(oldindex3d)]["texturemap"] = nlohmann::json::object_t();
 
         if (!shape->HasShaderProperty()) {
             // No shader, skip

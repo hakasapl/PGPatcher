@@ -19,6 +19,8 @@ private:
     static bool s_disableMLP; /** If true MLP should be replaced with CM */
 
 public:
+    static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures/cubemaps/dynamic1pxcubemap_black.dds";
+
     /**
      * @brief Get the Factory object
      *

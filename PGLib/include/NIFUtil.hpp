@@ -259,7 +259,7 @@ auto getTexMatch(const std::wstring& base, const TextureType& desiredType,
 /// @param[in] nif the nif
 /// @param nifShape the shape
 /// @return array of texture names without suffixes
-auto getSearchPrefixes(nifly::NifFile const& nif, nifly::NiShape* nifShape)
+auto getSearchPrefixes(nifly::NifFile const& nif, nifly::NiShape* nifShape, const bool& findBaseSlots = false)
     -> std::array<std::wstring, NUM_TEXTURE_SLOTS>;
 
 /// @brief Gets all the texture prefixes for a texture set. ie. _n.dds is removed etc. for each slot
