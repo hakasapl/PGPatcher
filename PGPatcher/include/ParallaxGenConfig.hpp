@@ -60,14 +60,12 @@ public:
             bool bsa = true;
             bool pluginPatching = true;
             bool pluginESMify = false;
-            bool mapFromMeshes = true;
             bool diagnostics = false;
 
             auto operator==(const Processing& other) const -> bool
             {
                 return multithread == other.multithread && highMem == other.highMem && bsa == other.bsa
-                    && pluginPatching == other.pluginPatching && mapFromMeshes == other.mapFromMeshes
-                    && diagnostics == other.diagnostics;
+                    && pluginPatching == other.pluginPatching && diagnostics == other.diagnostics;
             }
         } Processing;
 
@@ -153,8 +151,6 @@ public:
                 return vanillaBSAList == other.vanillaBSAList && textureMaps == other.textureMaps;
             }
         } TextureRules;
-
-        [[nodiscard]] auto getString() const -> std::wstring;
 
         auto operator==(const PGParams& other) const -> bool
         {

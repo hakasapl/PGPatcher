@@ -325,8 +325,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Map files
     pgd.mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
-        params.TextureRules.vanillaBSAList, params.Processing.mapFromMeshes, params.Processing.multithread,
-        params.Processing.highMem);
+        params.TextureRules.vanillaBSAList, params.Processing.multithread, params.Processing.highMem);
 
     // Classify textures (for CM etc.)
     Logger::info("Starting extended classification of textures");

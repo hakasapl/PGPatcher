@@ -92,7 +92,7 @@ auto ParallaxGenDirectory::findFiles() -> void
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
-    const bool& mapFromMeshes, const bool& multithreading, const bool& cacheNIFs) -> void
+    const bool& multithreading, const bool& cacheNIFs) -> void
 {
     findFiles();
 
@@ -120,13 +120,6 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
         if (!nifBlocklist.empty() && checkGlobMatchInVector(mesh.wstring(), nifBlocklist)) {
             // Skip mesh because it is on blocklist
             spdlog::trace(L"Loading NIFs | Skipping Mesh due to Blocklist | Mesh: {}", mesh.wstring());
-            taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
-            continue;
-        }
-
-        if (!mapFromMeshes) {
-            // Skip mapping textures from meshes
-            m_meshes.insert(mesh);
             taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
             continue;
         }
