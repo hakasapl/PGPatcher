@@ -936,8 +936,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
 
     unordered_set<int> foundShapeIDxs;
     for (const auto& [nifShape, oldIndex3D] : shapes) {
-        foundShapeIDxs.insert(oldIndex3D);
-
         // Define forced shader if needed
         const NIFUtil::ShapeShader* ptrShaderForce = nullptr;
         if (forceShaders != nullptr && forceShaders->contains(oldIndex3D)) {
@@ -994,6 +992,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
                 PGDiag::insert("rejectReason", "No texture set");
                 continue;
             }
+
+            foundShapeIDxs.insert(oldIndex3D);
 
             if (!dryRun && forceShaders == nullptr) {
                 nifCache["shapes"][to_string(oldIndex3D)]["canapply"] = nlohmann::json::object();
