@@ -59,24 +59,83 @@ struct ParallaxGenCLIArgs {
 };
 
 namespace {
+
+void addFileToZip(mz_zip_archive& zip, const filesystem::path& filePath, const filesystem::path& zipPath)
+{
+    // ignore Zip file itself
+    if (filePath == zipPath) {
+        return;
+    }
+
+    vector<std::byte> buffer = ParallaxGenUtil::getFileBytes(filePath);
+
+    const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
+    const string relativeFilePathAscii = ParallaxGenUtil::utf16toASCII(relativePath.wstring());
+
+    // add file to Zip
+    if (mz_zip_writer_add_mem(&zip, relativeFilePathAscii.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
+        == 0) {
+        spdlog::error(L"Error adding file to zip: {}", filePath.wstring());
+        exit(1);
+    }
+}
+
+void zipDirectory(const filesystem::path& dirPath, const filesystem::path& zipPath)
+{
+    mz_zip_archive zip;
+
+    // init to 0
+    memset(&zip, 0, sizeof(zip));
+
+    // Check if file already exists and delete
+    if (filesystem::exists(zipPath)) {
+        spdlog::info(L"Deleting existing output Zip file: {}", zipPath.wstring());
+        filesystem::remove(zipPath);
+    }
+
+    // initialize file
+    const string zipPathString = ParallaxGenUtil::utf16toUTF8(zipPath);
+    if (mz_zip_writer_init_file(&zip, zipPathString.c_str(), 0) == 0) {
+        spdlog::critical(L"Error creating Zip file: {}", zipPath.wstring());
+        exit(1);
+    }
+
+    // add each file in directory to Zip
+    for (const auto& entry : filesystem::recursive_directory_iterator(dirPath)) {
+        if (filesystem::is_regular_file(entry.path())) {
+            addFileToZip(zip, entry.path(), zipPath);
+        }
+    }
+
+    // finalize Zip
+    if (mz_zip_writer_finalize_archive(&zip) == 0) {
+        spdlog::critical(L"Error finalizing Zip archive: {}", zipPath.wstring());
+        exit(1);
+    }
+
+    mz_zip_writer_end(&zip);
+
+    spdlog::info(L"Please import this file into your mod manager: {}", zipPath.wstring());
+}
+
 auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exePath) -> void
 {
-    // Install default cubemap file
-    static const filesystem::path dynCubeMapPath = "textures/cubemaps/dynamic1pxcubemap_black.dds";
-
     Logger::info("Installing default dynamic cubemap file");
 
     // Create Directory
-    const filesystem::path outputCubemapPath = outputDir / dynCubeMapPath.parent_path();
+    const filesystem::path outputCubemapPath
+        = outputDir / PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH.parent_path();
     filesystem::create_directories(outputCubemapPath);
 
     const filesystem::path assetPath = filesystem::path(exePath) / "assets/dynamic1pxcubemap_black.dds";
-    const filesystem::path outputPath = filesystem::path(outputDir) / dynCubeMapPath;
+    const filesystem::path outputPath
+        = filesystem::path(outputDir) / PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH;
 
     // Move File
     filesystem::copy_file(assetPath, outputPath, filesystem::copy_options::overwrite_existing);
 
-    PGGlobals::getPGD()->addGeneratedFile(dynCubeMapPath, L"");
+    // Add any files to ignore as generated files
+    PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH, nullptr);
 }
 
 void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
@@ -92,8 +151,11 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Alpha message
     Logger::warn("ParallaxGen is currently in BETA. Please file detailed bug reports on nexus or github.");
 
-    // Create cfg directory if it does not exist
+    // Define paths
     const filesystem::path cfgDir = exePath / "cfg";
+    const filesystem::path cacheDir = exePath / "cache";
+
+    // Create cfg directory if it does not exist
     if (!filesystem::exists(cfgDir)) {
         Logger::info(L"There is no existing configuration. Creating config directory \"{}\"", cfgDir.wstring());
         filesystem::create_directories(cfgDir);
@@ -110,7 +172,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     auto params = pgc.getParams();
 
     // Show launcher UI
-    const filesystem::path cacheDir = exePath / "cache";
     if (!args.autostart) {
         Logger::info("Showing launcher UI");
         params = ParallaxGenUI::showLauncher(pgc, cacheDir);
@@ -140,13 +201,15 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGDiag::insert("OutputDir", params.Output.dir.wstring());
 
     // Create relevant objects
+    // TODO control the lifetime of these in PGLib
     auto bg = BethesdaGame(params.Game.type, true, params.Game.dir);
 
     auto mmd = ModManagerDirectory(params.ModManager.type);
+    PGGlobals::setMMD(&mmd);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
     PGGlobals::setPGD(&pgd);
     auto pgd3d = ParallaxGenD3D(&pgd, exePath / "shaders");
-    auto pg = ParallaxGen(params.Output.dir, &pgd, &pgd3d, params.PostPatcher.optimizeMeshes);
+    PGGlobals::setPGD3D(&pgd3d);
 
     Patcher::loadStatics(pgd, pgd3d);
 
@@ -193,14 +256,13 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     const auto activePlugins = bg.getActivePlugins(false, true);
     if (ranges::find(activePlugins, L"dyndolod.esp") != activePlugins.end()) {
         Logger::critical(
-            "DynDoLOD and TexGen outputs must be disabled prior to running ParallaxGen. It is recommended to "
-            "generate LODs after running ParallaxGen with the ParallaxGen output enabled.");
+            "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
+            "generate LODs after running PGPatcher with the PGPatcher output enabled.");
     }
 
     PGDiag::insert("ActivePlugins", ParallaxGenUtil::utf16VectorToUTF8(activePlugins));
 
     // Init PGP library
-    // TODO unify these cache write functions
     const auto txstFormIDCacheFile = cacheDir / "txstFormIDs.json";
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
@@ -208,46 +270,51 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         ParallaxGenPlugin::initialize(bg, exePath);
         ParallaxGenPlugin::populateObjs();
 
-        if (filesystem::exists(txstFormIDCacheFile)) {
-            ifstream f(txstFormIDCacheFile);
-            try {
-                const auto data = nlohmann::json::parse(f);
-                ParallaxGenPlugin::loadTXSTCache(data);
-            } catch (const nlohmann::json::parse_error& e) {
-                Logger::error("Failed to parse txstFormIDs.json: {}", e.what());
-            }
-            f.close();
+        nlohmann::json txstFormIDCache;
+        if (ParallaxGenUtil::getJSON(txstFormIDCacheFile, txstFormIDCache)) {
+            ParallaxGenPlugin::loadTXSTCache(txstFormIDCache);
         }
     }
 
     // INIT PGCache
+    Logger::info("Initializing cache");
     const auto nifCacheFile = cacheDir / "nifCache.json";
-    if (filesystem::exists(nifCacheFile)) {
-        ifstream f(nifCacheFile);
-        try {
-            const auto data = nlohmann::json::parse(f);
-            PGCache::loadNIFCache(data);
-        } catch (const nlohmann::json::parse_error& e) {
-            Logger::error("Failed to parse nifCache.json: {}", e.what());
+    nlohmann::json nifCache;
+    if (ParallaxGenUtil::getJSON(nifCacheFile, nifCache)) {
+        if (!PGCache::loadNIFCache(nifCache)) {
+            Logger::info("NIF Cache Version update detected. Cache is invalidated.");
         }
-        f.close();
+    }
+    const auto texCacheFile = cacheDir / "texCache.json";
+    nlohmann::json texCache;
+    if (ParallaxGenUtil::getJSON(texCacheFile, texCache)) {
+        if (!PGCache::loadTexCache(texCache)) {
+            Logger::info("TEX Cache Version update detected. Cache is invalidated.");
+        }
     }
 
-    // Populate file map from data directory
+    // Populate mod info
+    nlohmann::json modJSON;
+    const auto modListFile = cfgDir / "mods.json";
+    if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
+        mmd.loadJSON(modJSON);
+    }
+
     if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty() && !params.ModManager.mo2Profile.empty()) {
         // MO2
-        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.ModManager.mo2Profile, params.Output.dir);
+        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.ModManager.mo2Profile, params.Output.dir,
+            params.ModManager.mo2UseOrder);
     } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
         // Vortex
         mmd.populateModFileMapVortex(bg.getGameDataPath());
     }
 
     // delete existing output
-    pg.deleteOutputDir();
+    ParallaxGen::deleteOutputDir();
 
     // Check if ParallaxGen output already exists in data directory
-    const filesystem::path pgStateFilePath = bg.getGameDataPath() / ParallaxGen::getDiffJSONName();
+    const filesystem::path pgStateFilePath = bg.getGameDataPath() / "ParallaxGen_Diff.json";
     if (filesystem::exists(pgStateFilePath)) {
         Logger::critical("ParallaxGen meshes exist in your data directory, please delete before "
                          "re-running.");
@@ -258,8 +325,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Map files
     pgd.mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
-        params.TextureRules.vanillaBSAList, params.Processing.mapFromMeshes, params.Processing.multithread,
-        params.Processing.highMem);
+        params.TextureRules.vanillaBSAList, params.Processing.multithread, params.Processing.highMem);
 
     // Classify textures (for CM etc.)
     Logger::info("Starting extended classification of textures");
@@ -321,43 +387,31 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     }
 
     const PatcherUtil::PatcherTextureSet texPatchers;
-    pg.loadPatchers(meshPatchers, texPatchers);
+    ParallaxGen::loadPatchers(meshPatchers, texPatchers);
 
-    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
-        // Check if MO2 is used and MO2 use order is checked
-        if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
-            && params.ModManager.mo2UseOrder) {
-            // Get mod order from MO2
-            const auto& modOrder = mmd.getInferredOrder();
-            pgc.setModOrder(modOrder);
-        } else {
-            // Find conflicts
-            const auto modConflicts
-                = pg.findModConflicts(params.Processing.multithread, params.Processing.pluginPatching);
-            const auto existingOrder = pgc.getModOrder();
+    // Check if MO2 is used and MO2 use order is checked
+    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE
+        && (params.ModManager.type != ModManagerDirectory::ModManagerType::MODORGANIZER2
+            || !params.ModManager.mo2UseOrder)) {
+        // Find conflicts
+        ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
 
-            if (!modConflicts.empty()) {
-                // pause timer for UI
-                timeTaken
-                    += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
+        // pause timer for UI
+        timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
 
-                // Select mod order
-                Logger::info("Mod conflicts found. Showing mod order dialog.");
-                auto selectedOrder = ParallaxGenUI::selectModOrder(modConflicts, existingOrder);
-                startTime = chrono::high_resolution_clock::now();
+        // Select mod order
+        Logger::info("Mod conflicts found. Showing mod order dialog.");
+        ParallaxGenUI::selectModOrder();
+        startTime = chrono::high_resolution_clock::now();
 
-                pgc.setModOrder(selectedOrder);
-            }
-        }
-
-        pgc.saveUserConfig();
+        // save changes to mod priority
+        const auto modJSONSave = mmd.getJSON();
+        ParallaxGenUtil::saveJSON(modListFile, modJSONSave, true);
     }
 
     // Patch meshes if set
-    auto modPriorityMap = pgc.getModPriorityMap();
-    pg.loadModPriorityMap(&modPriorityMap);
-    ParallaxGenWarnings::init(&pgd, &modPriorityMap);
-    pg.patch(params.Processing.multithread, params.Processing.pluginPatching);
+    ParallaxGenWarnings::init();
+    ParallaxGen::patch(params.Processing.multithread, params.Processing.pluginPatching);
 
     // Release cached files, if any
     pgd.clearCache();
@@ -368,36 +422,54 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
     }
 
-    // Save diag JSON
-    if (params.Processing.diagnostics) {
-        spdlog::info("Saving diag JSON file...");
-        const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_DIAG.json";
-        ofstream diagJSONFile(diffJSONPath);
-        diagJSONFile << PGDiag::getJSON().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
-        diagJSONFile.close();
-        pgd.addGeneratedFile("ParallaxGen_DIAG,json", L"");
-    }
-
-    deployAssets(params.Output.dir, exePath);
-
     // clean up any stale files
-    pg.cleanStaleOutput();
+    ParallaxGen::cleanStaleOutput();
 
-    // archive
-    if (params.Output.zip) {
-        pg.zipMeshes();
-        pg.deleteOutputDir(false);
+    // Check for empty output
+    bool outputEmpty = false;
+    if (ParallaxGen::isOutputEmpty()) {
+        // output is empty
+        Logger::warn("Output directory is empty. No files were generated. Is your data path set correctly?");
+        outputEmpty = true;
     }
 
     // Save caches
-    filesystem::create_directories(exePath / "cache");
-    ofstream f(txstFormIDCacheFile);
-    f << ParallaxGenPlugin::getTXSTCache().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
-    f.close();
+    Logger::info("Saving cache files...");
+    filesystem::create_directories(cacheDir);
+    ParallaxGenUtil::saveJSON(txstFormIDCacheFile, ParallaxGenPlugin::getTXSTCache(), true);
+    ParallaxGenUtil::saveJSON(nifCacheFile, PGCache::saveNIFCache(), true);
+    ParallaxGenUtil::saveJSON(texCacheFile, PGCache::saveTexCache(), true);
 
-    ofstream f2(nifCacheFile);
-    f2 << PGCache::saveNIFCache().dump(2, ' ', false, nlohmann::detail::error_handler_t::replace) << "\n";
-    f2.close();
+    if (!outputEmpty) {
+        // Deploy Assets
+        deployAssets(params.Output.dir, exePath);
+
+        // Save diag JSON
+        if (params.Processing.diagnostics) {
+            spdlog::info("Saving diag JSON file...");
+            const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_DIAG.json";
+            ParallaxGenUtil::saveJSON(diffJSONPath, PGDiag::getJSON(), true);
+
+            pgd.addGeneratedFile("ParallaxGen_DIAG,json", nullptr);
+        }
+
+        // Save diff json
+        const auto diffJSON = ParallaxGen::getDiffJSON();
+        if (!diffJSON.empty()) {
+            const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_Diff.json";
+            ParallaxGenUtil::saveJSON(diffJSONPath, diffJSON, true);
+
+            pgd.addGeneratedFile("ParallaxGen_Diff.json", nullptr);
+        }
+
+        // archive
+        if (params.Output.zip) {
+            // create zip file
+            const auto zipPath = params.Output.dir / "PGPatcher_Output.zip";
+            zipDirectory(params.Output.dir, zipPath);
+            ParallaxGen::deleteOutputDir(false);
+        }
+    }
 
     const auto endTime = chrono::high_resolution_clock::now();
     timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();

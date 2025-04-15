@@ -178,4 +178,53 @@ auto getThreadID() -> string
     return oss.str();
 }
 
+auto getJSON(const std::filesystem::path& filePath, nlohmann::json& json) -> bool
+{
+    ifstream inputFile(filePath);
+    if (!inputFile.is_open()) {
+        // Unable to open file
+        return false;
+    }
+
+    try {
+        inputFile >> json;
+    } catch (...) {
+        // Handle JSON parsing error
+        return false;
+    }
+
+    inputFile.close();
+    return true;
+}
+
+auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json, const bool& readable) -> bool
+{
+    ofstream outputFile(filePath, ios::binary);
+    if (!outputFile.is_open()) {
+        // Unable to open file
+        return false;
+    }
+
+    if (readable) {
+        outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);
+    } else {
+        outputFile << json.dump(0, ' ', false, nlohmann::detail::error_handler_t::replace);
+    }
+
+    outputFile.close();
+    return true;
+}
+
+auto checkIfStringInJSONArray(const nlohmann::json& json, const string& str) -> bool
+{
+    if (json.is_array()) {
+        for (const auto& item : json) {
+            if (item.is_string() && item.get<string>() == str) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace ParallaxGenUtil

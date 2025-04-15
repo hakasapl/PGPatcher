@@ -5,6 +5,24 @@
 using namespace std;
 using namespace Microsoft::WRL;
 
+auto PatcherTextureHookFixSSS::addToProcessList(const filesystem::path& texPath) -> void
+{
+    const lock_guard<mutex> lock(s_texToProcessMutex);
+    s_texToProcess.insert(texPath);
+}
+
+auto PatcherTextureHookFixSSS::isInProcessList(const filesystem::path& texPath) -> bool
+{
+    const lock_guard<mutex> lock(s_texToProcessMutex);
+    return s_texToProcess.contains(texPath);
+}
+
+auto PatcherTextureHookFixSSS::getOutputFilename(const filesystem::path& texPath) -> filesystem::path
+{
+    const auto texBase = NIFUtil::getTexBase(texPath, NIFUtil::TextureSlots::DIFFUSE);
+    return texBase + L"_s.dds";
+}
+
 auto PatcherTextureHookFixSSS::initShader() -> bool
 {
     if (s_shader != nullptr) {
@@ -14,19 +32,19 @@ auto PatcherTextureHookFixSSS::initShader() -> bool
     return getPGD3D()->initShader(SHADER_NAME, s_shader);
 }
 
-PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(filesystem::path texPath)
-    : PatcherTextureHook(std::move(texPath), "SSSFix")
+PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(std::filesystem::path ddsPath, DirectX::ScratchImage* dds)
+    : PatcherTextureHook(std::move(ddsPath), dds, "SSSFix")
 {
 }
 
-auto PatcherTextureHookFixSSS::applyPatch(filesystem::path& newPath) -> bool
+auto PatcherTextureHookFixSSS::applyPatch() -> bool
 {
     if (getDDS() == nullptr) {
         throw runtime_error("DDS not initialized");
     }
 
     const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::DIFFUSE);
-    newPath = texBase + L"_s.dds";
+    const auto newPath = texBase + L"_s.dds";
 
     if (getPGD()->isGenerated(newPath)) {
         // already generated

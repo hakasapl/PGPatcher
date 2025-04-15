@@ -339,10 +339,9 @@ auto ParallaxGenPlugin::getKeyFromFormID(const tuple<unsigned int, wstring, wstr
         + format("{:X}", get<0>(formID));
 }
 
-void ParallaxGenPlugin::processShape(const wstring& nifPath,
-    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const int& index3D,
-    PatcherUtil::PatcherMeshObjectSet& patchers, vector<TXSTResult>& results, const string& shapeKey,
-    PatcherUtil::ConflictModResults* conflictMods)
+void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dryRun,
+    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const PatcherUtil::PatcherMeshObjectSet& patchers,
+    const int& index3D, const std::string& shapeKey, std::vector<TXSTResult>& results)
 {
     const lock_guard<mutex> lock(s_processShapeMutex);
 
@@ -390,13 +389,13 @@ void ParallaxGenPlugin::processShape(const wstring& nifPath,
             }
         }
 
-        const auto matches = PatcherUtil::getMatches(baseSlots, patchers, canApply, conflictMods);
-        if (conflictMods != nullptr) {
+        const auto matches = PatcherUtil::getMatches(baseSlots, patchers, canApply, dryRun);
+        if (dryRun) {
             return;
         }
 
         // Get winning match
-        auto winningShaderMatch = PatcherUtil::getWinningMatch(matches, s_modPriority);
+        auto winningShaderMatch = PatcherUtil::getWinningMatch(matches);
         PGDiag::insert("winningShaderMatch", winningShaderMatch.getJSON());
 
         curResult.matchedNIF = matchedNIF;

@@ -1,28 +1,31 @@
 #include "patchers/base/PatcherUtil.hpp"
 
 #include "Logger.hpp"
+#include "ModManagerDirectory.hpp"
 #include "NIFUtil.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
+#include <memory>
 
 using namespace std;
 
 // TODO these methods should probably move into shader and transform classes respectively
-auto PatcherUtil::getWinningMatch(
-    const vector<ShaderPatcherMatch>& matches, const unordered_map<wstring, int>* modPriority) -> ShaderPatcherMatch
+auto PatcherUtil::getWinningMatch(const vector<ShaderPatcherMatch>& matches) -> ShaderPatcherMatch
 {
     // Find winning mod
     int maxPriority = -1;
     auto winningShaderMatch = PatcherUtil::ShaderPatcherMatch();
 
     for (const auto& match : matches) {
-        const Logger::Prefix prefixMod(match.mod);
-        Logger::trace(L"Checking mod");
-
+        wstring modName;
         int curPriority = -1;
-        if (modPriority != nullptr && modPriority->find(match.mod) != modPriority->end()) {
-            curPriority = modPriority->at(match.mod);
+        if (match.mod != nullptr) {
+            modName = match.mod->name;
+            curPriority = match.mod->priority;
         }
+
+        const Logger::Prefix prefixMod(modName);
+        Logger::trace("Checking mod");
 
         if (curPriority < maxPriority) {
             // skip mods with lower priority than current winner
@@ -35,12 +38,11 @@ auto PatcherUtil::getWinningMatch(
         winningShaderMatch = match;
     }
 
-    Logger::trace(L"Winning mod: {}", winningShaderMatch.mod);
+    Logger::trace(L"Winning mod: {}", winningShaderMatch.mod == nullptr ? L"" : winningShaderMatch.mod->name);
     return winningShaderMatch;
 }
 
-auto PatcherUtil::applyTransformIfNeeded(
-    ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers, const bool& matchOnly) -> bool
+auto PatcherUtil::applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool
 {
     // Transform if required
     if (match.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
@@ -48,9 +50,7 @@ auto PatcherUtil::applyTransformIfNeeded(
         auto* const transform = patchers.shaderTransformPatchers.at(match.shader).at(match.shaderTransformTo).get();
 
         // Transform Shader
-        if (!matchOnly) {
-            transform->transform(match.match, match.match);
-        }
+        transform->transform(match.match, match.match);
 
         match.shader = match.shaderTransformTo;
         match.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
@@ -62,7 +62,7 @@ auto PatcherUtil::applyTransformIfNeeded(
 }
 
 auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, PatcherUtil::ConflictModResults* conflictMods)
+    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const bool& dryRun)
     -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
     if (PGGlobals::getPGD() == nullptr) {
@@ -70,17 +70,25 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     vector<PatcherUtil::ShaderPatcherMatch> matches;
-
-    if (conflictMods == nullptr) {
-        // only check cache if conflictmods is null
+    if (!dryRun) {
         const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
         if (PatcherUtil::s_shaderMatchCache.contains(slots)) {
-            matches = PatcherUtil::s_shaderMatchCache[slots];
+            auto cachedMatches = PatcherUtil::s_shaderMatchCache[slots];
+
+            // Check canApply map
+            for (auto& match : cachedMatches) {
+                if ((canApply.contains(match.shader) && canApply.at(match.shader))
+                    || (canApply.contains(match.shaderTransformTo) && canApply.at(match.shaderTransformTo))) {
+                    // Only include matches that canapply
+                    matches.push_back(match);
+                }
+            }
+
             return matches;
         }
     }
 
-    unordered_set<wstring> modSet;
+    unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
     for (const auto& [shader, patcher] : patchers.shaderPatchers) {
         if (shader == NIFUtil::ShapeShader::NONE) {
             // TEMPORARILY disable default patcher
@@ -121,7 +129,10 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             if ((canApply.contains(shader) && canApply.at(shader))
                 || curMatch.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
                 matches.push_back(curMatch);
-                modSet.insert(curMatch.mod);
+                if (curMatch.mod != nullptr) {
+                    // add mod to set
+                    modSet.insert(curMatch.mod);
+                }
             }
         }
     }
@@ -133,18 +144,14 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     // Populate conflict mods if set
-    if (conflictMods != nullptr) {
+    if (dryRun) {
         if (modSet.size() > 1) {
-            const lock_guard<mutex> lock(conflictMods->mutex);
-
             // add mods to conflict set
             for (const auto& match : matches) {
-                if (conflictMods->mods.find(match.mod) == conflictMods->mods.end()) {
-                    conflictMods->mods.insert({ match.mod, { set<NIFUtil::ShapeShader>(), unordered_set<wstring>() } });
-                }
+                const lock_guard<mutex> lock(match.mod->mutex);
 
-                get<0>(conflictMods->mods[match.mod]).insert(match.shader);
-                get<1>(conflictMods->mods[match.mod]).insert(modSet.begin(), modSet.end());
+                match.mod->shaders.insert(match.shader);
+                match.mod->conflicts.insert(modSet.begin(), modSet.end());
             }
         }
 

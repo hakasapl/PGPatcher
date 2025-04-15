@@ -10,6 +10,7 @@
 #include <unordered_set>
 
 #include "PGCache.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGen.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
@@ -93,11 +94,12 @@ void mainRunner(PGToolsCLIArgs& args)
         args.Patch.output = filesystem::absolute(args.Patch.output);
 
         auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output, nullptr);
+        PGGlobals::setPGD(&pgd);
         auto pgd3D = ParallaxGenD3D(&pgd, exePath / "shaders");
-        auto pg = ParallaxGen(args.Patch.output, &pgd, &pgd3D, args.Patch.patchers.contains("optimize"));
+        PGGlobals::setPGD3D(&pgd3D);
 
         Patcher::loadStatics(pgd, pgd3D);
-        ParallaxGenWarnings::init(&pgd, {});
+        ParallaxGenWarnings::init();
 
         // Check if GPU needs to be initialized
         if (!pgd3D.initGPU()) {
@@ -124,13 +126,13 @@ void mainRunner(PGToolsCLIArgs& args)
         }
 
         // delete existing output
-        pg.deleteOutputDir();
+        ParallaxGen::deleteOutputDir();
 
         // Init file map
         pgd.populateFileMap(false);
 
         // Map files
-        pgd.mapFiles({}, {}, {}, {}, args.Patch.mapTexturesFromMeshes, args.multithreading, args.Patch.highMem);
+        pgd.mapFiles({}, {}, {}, {}, args.multithreading, args.Patch.highMem);
 
         // Split patchers into names and options
         unordered_map<string, unordered_map<string, string>> patcherDefs;
@@ -211,8 +213,8 @@ void mainRunner(PGToolsCLIArgs& args)
             PatcherTextureGlobalConvertToHDR::loadOptions(patcherDefs["converttohdr"]);
         }
 
-        pg.loadPatchers(meshPatchers, texPatchers);
-        pg.patch(args.multithreading, false);
+        ParallaxGen::loadPatchers(meshPatchers, texPatchers);
+        ParallaxGen::patch(args.multithreading, false);
 
         // Finalize step
         if (patcherDefs.contains("particlelightstolp")) {
@@ -262,8 +264,6 @@ void addArguments(CLI::App& app, PGToolsCLIArgs& args)
     args.Patch.subCommand->add_option("source", args.Patch.source, "Source directory")->default_str("");
     args.Patch.subCommand->add_option("output", args.Patch.output, "Output directory")
         ->default_str("ParallaxGen_Output");
-    args.Patch.subCommand->add_flag(
-        "--map-textures-from-meshes", args.Patch.mapTexturesFromMeshes, "Map textures from meshes (default: false)");
     args.Patch.subCommand->add_flag("--high-mem", args.Patch.highMem, "High memory usage mode (default: false)");
 }
 }

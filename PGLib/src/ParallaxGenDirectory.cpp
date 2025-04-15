@@ -92,7 +92,7 @@ auto ParallaxGenDirectory::findFiles() -> void
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
-    const bool& mapFromMeshes, const bool& multithreading, const bool& cacheNIFs) -> void
+    const bool& multithreading, const bool& cacheNIFs) -> void
 {
     findFiles();
 
@@ -120,13 +120,6 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
         if (!nifBlocklist.empty() && checkGlobMatchInVector(mesh.wstring(), nifBlocklist)) {
             // Skip mesh because it is on blocklist
             spdlog::trace(L"Loading NIFs | Skipping Mesh due to Blocklist | Mesh: {}", mesh.wstring());
-            taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
-            continue;
-        }
-
-        if (!mapFromMeshes) {
-            // Skip mapping textures from meshes
-            m_meshes.insert(mesh);
             taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
             continue;
         }
@@ -301,9 +294,11 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     // Loop through each shape
     bool hasAtLeastOneTextureSet = false;
     const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
+    // clear shapes in cache
+    nifCache["shapes"] = nlohmann::json::object_t();
     for (const auto& [shape, oldindex3d] : shapes) {
         // add to cache
-        nifCache["shapes"][to_string(oldindex3d)]["texturemap"] = nlohmann::json::object_t {};
+        nifCache["shapes"][to_string(oldindex3d)]["texturemap"] = nlohmann::json::object_t();
 
         if (!shape->HasShaderProperty()) {
             // No shader, skip

@@ -1,10 +1,9 @@
 #pragma once
 
 #include <filesystem>
-#include <mutex>
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
-#include <unordered_map>
+#include <string>
 
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
@@ -61,14 +60,12 @@ public:
             bool bsa = true;
             bool pluginPatching = true;
             bool pluginESMify = false;
-            bool mapFromMeshes = true;
             bool diagnostics = false;
 
             auto operator==(const Processing& other) const -> bool
             {
                 return multithread == other.multithread && highMem == other.highMem && bsa == other.bsa
-                    && pluginPatching == other.pluginPatching && mapFromMeshes == other.mapFromMeshes
-                    && diagnostics == other.diagnostics;
+                    && pluginPatching == other.pluginPatching && diagnostics == other.diagnostics;
             }
         } Processing;
 
@@ -155,8 +152,6 @@ public:
             }
         } TextureRules;
 
-        [[nodiscard]] auto getString() const -> std::wstring;
-
         auto operator==(const PGParams& other) const -> bool
         {
             return Game == other.Game && ModManager == other.ModManager && Output == other.Output
@@ -173,11 +168,6 @@ private:
     static std::filesystem::path s_exePath; /** Stores the ExePath of ParallaxGen.exe */
 
     PGParams m_params; /** Stores the configured parameters */
-
-    std::mutex m_modOrderMutex; /** Mutex for locking mod order */
-    std::vector<std::wstring> m_modOrder; /** Stores the mod order configuration */
-    std::unordered_map<std::wstring, int>
-        m_modPriority; /** Stores the priority numbering for mods for constant time lookups */
 
     nlohmann::json m_userConfig; /** Stores the user config JSON object */
 
@@ -200,35 +190,6 @@ public:
      * @brief Loads the config files in the `cfg` folder
      */
     void loadConfig();
-
-    /**
-     * @brief Get the Mod Order object
-     *
-     * @return std::vector<std::wstring> Mod order
-     */
-    [[nodiscard]] auto getModOrder() -> std::vector<std::wstring>;
-
-    /**
-     * @brief Get mod priority for a given mod
-     *
-     * @param mod mod to check
-     * @return int priority of mod (-1 if not found)
-     */
-    [[nodiscard]] auto getModPriority(const std::wstring& mod) -> int;
-
-    /**
-     * @brief Get the Mod Priority Map object
-     *
-     * @return std::unordered_map<std::wstring, int> Mod priority map
-     */
-    [[nodiscard]] auto getModPriorityMap() -> std::unordered_map<std::wstring, int>;
-
-    /**
-     * @brief Set the Mod Order object (also saves to user json)
-     *
-     * @param modOrder new mod order to set
-     */
-    void setModOrder(const std::vector<std::wstring>& modOrder);
 
     /**
      * @brief Get the current Params

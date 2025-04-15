@@ -9,10 +9,6 @@
  * @brief Base class for prepatchers
  */
 class PatcherTextureHook : public PatcherTexture {
-private:
-    // Instance vars
-    DirectX::ScratchImage m_ddsImage;
-
 protected:
     static inline std::mutex s_generatedFileTrackerMutex;
 
@@ -23,7 +19,7 @@ public:
     using PatcherGlobalObject = std::unique_ptr<PatcherTextureHook>;
 
     // Constructors
-    PatcherTextureHook(std::filesystem::path texPath, std::string patcherName);
+    PatcherTextureHook(std::filesystem::path texPath, DirectX::ScratchImage* tex, std::string patcherName);
     virtual ~PatcherTextureHook() = default;
     PatcherTextureHook(const PatcherTextureHook& other) = delete;
     auto operator=(const PatcherTextureHook& other) -> PatcherTextureHook& = delete;
@@ -36,5 +32,5 @@ public:
      * @return true Patch was applied
      * @return false Patch was not applied
      */
-    virtual auto applyPatch(std::filesystem::path& newPath) -> bool = 0;
+    virtual auto applyPatch() -> bool = 0;
 };

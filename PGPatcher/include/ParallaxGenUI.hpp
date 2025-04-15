@@ -10,12 +10,7 @@
 #include <wx/sizer.h>
 #include <wx/wx.h>
 
-#include <string>
-#include <vector>
-
 #include "ParallaxGenConfig.hpp"
-
-#include "NIFUtil.hpp"
 
 class ParallaxGenUI {
 public:
@@ -35,13 +30,6 @@ public:
 
     /**
      * @brief Shows the mod selection dialog to the user (Hangs thread until user presses okay)
-     *
-     * @param Conflicts Mod conflict map
-     * @param ExistingMods Mods that already exist in the order
-     * @return std::vector<std::wstring> Vector of mods sorted by the user
      */
-    static auto selectModOrder(
-        const std::unordered_map<std::wstring,
-            std::tuple<std::set<NIFUtil::ShapeShader>, std::unordered_set<std::wstring>>>& conflicts,
-        const std::vector<std::wstring>& existingMods) -> std::vector<std::wstring>;
+    static void selectModOrder();
 };

@@ -4,7 +4,9 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <fstream>
+
 #include <regex>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 
@@ -20,19 +22,84 @@ ModManagerDirectory::ModManagerDirectory(const ModManagerType& mmType)
 {
 }
 
-auto ModManagerDirectory::getModFileMap() const -> const unordered_map<filesystem::path, wstring>&
+auto ModManagerDirectory::getModFileMap() const -> const unordered_map<filesystem::path, shared_ptr<Mod>>&
 {
     return m_modFileMap;
 }
 
-auto ModManagerDirectory::getMod(const filesystem::path& relPath) const -> wstring
+auto ModManagerDirectory::getModByFile(const filesystem::path& relPath) const -> shared_ptr<Mod>
 {
     auto relPathLower = filesystem::path(ParallaxGenUtil::toLowerASCII(relPath.wstring()));
     if (m_modFileMap.contains(relPathLower)) {
         return m_modFileMap.at(relPathLower);
     }
 
-    return L"";
+    return nullptr;
+}
+
+auto ModManagerDirectory::getMods() const -> vector<shared_ptr<Mod>>
+{
+    vector<shared_ptr<Mod>> mods;
+    for (const auto& [modName, mod] : m_modMap) {
+        if (modName.empty()) {
+            continue; // skip empty mod
+        }
+
+        mods.push_back(mod);
+    }
+
+    return mods;
+}
+
+auto ModManagerDirectory::getMod(const wstring& modName) const -> shared_ptr<Mod>
+{
+    if (m_modMap.contains(modName)) {
+        return m_modMap.at(modName);
+    }
+
+    return nullptr;
+}
+
+void ModManagerDirectory::loadJSON(const nlohmann::json& json)
+{
+    if (!json.is_object()) {
+        throw runtime_error("JSON is not an object");
+    }
+
+    for (const auto& [modName, priority] : json.items()) {
+        if (modName.empty()) {
+            continue;
+        }
+
+        if (!priority.is_number_integer()) {
+            throw runtime_error("JSON mod priority is not an integer");
+        }
+
+        shared_ptr<Mod> modPtr = nullptr;
+        const auto modNameWStr = ParallaxGenUtil::utf8toUTF16(modName);
+        if (!m_modMap.contains(modNameWStr)) {
+            // create mod if it doesn't exist
+            modPtr = make_shared<Mod>();
+            modPtr->name = modNameWStr;
+            m_modMap[modNameWStr] = modPtr;
+        }
+
+        modPtr->isNew = false;
+        modPtr->priority = priority.get<int>();
+    }
+}
+
+auto ModManagerDirectory::getJSON() -> nlohmann::json
+{
+    nlohmann::json json = nlohmann::json::object();
+
+    for (const auto& [modName, mod] : m_modMap) {
+        if (mod->priority != -1) {
+            json[ParallaxGenUtil::utf16toUTF8(modName)] = mod->priority;
+        }
+    }
+
+    return json;
 }
 
 void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deploymentDir)
@@ -60,23 +127,43 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     // loop through files
     for (const auto& file : vortexDeployment["files"]) {
         auto relPath = filesystem::path(ParallaxGenUtil::utf8toUTF16(file["relPath"].get<string>()));
+
+        // Check if relPath is within s_foldersToMap
+        // Get the first path component of relPath
+        if (!boost::iequals(relPath.extension().wstring(), ".bsa")
+            && !s_foldersToMap.contains(boost::to_lower_copy(relPath.begin()->wstring()))) {
+            // skip if not mapping from this folder
+            continue;
+        }
+
         auto modName = ParallaxGenUtil::utf8toUTF16(file["source"].get<string>());
 
         // filter out modname suffix
         const static wregex vortexSuffixRe(L"-[0-9]+-.*");
         modName = regex_replace(modName, vortexSuffixRe, L"");
 
-        m_allMods.insert(modName);
+        shared_ptr<Mod> modPtr = nullptr;
+        if (m_modMap.contains(modName)) {
+            // skip if already in map
+            modPtr = m_modMap.at(modName);
+        } else {
+            modPtr = make_shared<Mod>();
+            modPtr->name = modName;
+            modPtr->isNew = true;
+            modPtr->priority = -1;
+        }
+
+        modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
 
         // Update file map
         spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
 
-        m_modFileMap[ParallaxGenUtil::toLowerASCII(relPath.wstring())] = modName;
+        m_modFileMap[ParallaxGenUtil::toLowerASCII(relPath.wstring())] = modPtr;
     }
 }
 
-void ModManagerDirectory::populateModFileMapMO2(
-    const filesystem::path& instanceDir, const wstring& profile, const filesystem::path& outputDir)
+void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instanceDir, const wstring& profile,
+    const filesystem::path& outputDir, const bool& useMO2Order)
 {
     // required file is modlist.txt in the profile folder
 
@@ -105,6 +192,7 @@ void ModManagerDirectory::populateModFileMapMO2(
 
     // loop through modlist.txt
     string modStr;
+    int basePriority = 0;
     while (getline(modListFileF, modStr)) {
         wstring mod = ParallaxGenUtil::utf8toUTF16(modStr);
         if (mod.empty()) {
@@ -146,33 +234,76 @@ void ModManagerDirectory::populateModFileMapMO2(
 
         foundOneMod = true;
 
-        m_allMods.insert(mod);
-        m_inferredOrder.insert(m_inferredOrder.begin(), mod);
+        shared_ptr<Mod> modPtr = nullptr;
+        if (m_modMap.contains(mod)) {
+            // skip if already in map
+            modPtr = m_modMap.at(mod);
+        } else {
+            modPtr = make_shared<Mod>();
+            modPtr->name = mod;
+            modPtr->isNew = true;
+            modPtr->priority = -1;
+        }
 
-        try {
-            for (auto it = filesystem::recursive_directory_iterator(
-                     curModDir, filesystem::directory_options::skip_permission_denied);
-                it != filesystem::recursive_directory_iterator(); ++it) {
-                const auto file = *it;
+        modPtr->modManagerOrder = basePriority++;
+        if (useMO2Order) {
+            modPtr->priority = modPtr->modManagerOrder;
+        }
 
-                if (BethesdaDirectory::isHidden(file.path())) {
-                    if (file.is_directory()) {
-                        // If it's a directory, don't recurse into it
-                        it.disable_recursion_pending();
+        m_modMap[mod] = modPtr;
+
+        // loop through each folder to map
+        for (const auto& folder : s_foldersToMap) {
+            const auto curSearchDir = curModDir / folder;
+            if (!filesystem::exists(curSearchDir)) {
+                // skip if folder doesn't exist
+                continue;
+            }
+
+            try {
+                for (auto it = filesystem::recursive_directory_iterator(
+                         curSearchDir, filesystem::directory_options::skip_permission_denied);
+                    it != filesystem::recursive_directory_iterator(); ++it) {
+                    const auto file = *it;
+
+                    if (BethesdaDirectory::isHidden(file.path())) {
+                        if (file.is_directory()) {
+                            // If it's a directory, don't recurse into it
+                            it.disable_recursion_pending();
+                        }
+                        continue;
                     }
-                    continue;
-                }
 
-                if (!filesystem::is_regular_file(file)) {
-                    continue;
-                }
+                    if (!filesystem::is_regular_file(file)) {
+                        continue;
+                    }
 
-                // skip meta.ini file
-                if (boost::iequals(file.path().filename().wstring(), L"meta.ini")) {
-                    continue;
-                }
+                    // skip meta.ini file
+                    if (boost::iequals(file.path().filename().wstring(), L"meta.ini")) {
+                        continue;
+                    }
 
-                auto relPath = filesystem::relative(file, curModDir);
+                    auto relPath = filesystem::relative(file, curModDir);
+                    const filesystem::path relPathLower = ParallaxGenUtil::toLowerASCII(relPath.wstring());
+                    // check if already in map
+                    if (m_modFileMap.contains(relPathLower)) {
+                        continue;
+                    }
+
+                    spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
+
+                    m_modFileMap[relPathLower] = modPtr;
+                }
+            } catch (const filesystem::filesystem_error& e) {
+                spdlog::error(
+                    L"Error reading mod directory {} (skipping): {}", mod, ParallaxGenUtil::asciitoUTF16(e.what()));
+            }
+        }
+
+        // map any BSAs
+        for (const auto& file : filesystem::directory_iterator(curModDir)) {
+            if (file.is_regular_file() && boost::iequals(file.path().extension().wstring(), ".bsa")) {
+                const auto relPath = filesystem::relative(file, curModDir);
                 const filesystem::path relPathLower = ParallaxGenUtil::toLowerASCII(relPath.wstring());
                 // check if already in map
                 if (m_modFileMap.contains(relPathLower)) {
@@ -181,17 +312,23 @@ void ModManagerDirectory::populateModFileMapMO2(
 
                 spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
 
-                m_modFileMap[relPathLower] = mod;
+                m_modFileMap[relPathLower] = modPtr;
             }
-        } catch (const filesystem::filesystem_error& e) {
-            spdlog::error(
-                L"Error reading mod directory {} (skipping): {}", mod, ParallaxGenUtil::asciitoUTF16(e.what()));
         }
     }
 
     if (!foundOneMod) {
         spdlog::critical(L"MO2 modlist.txt was empty, no mods found");
         exit(1);
+    }
+
+    if (useMO2Order) {
+        // invert priorities
+        for (const auto& [modName, mod] : m_modMap) {
+            if (mod->priority != -1) {
+                mod->priority = basePriority - mod->priority - 1;
+            }
+        }
     }
 
     modListFileF.close();
@@ -249,8 +386,6 @@ auto ModManagerDirectory::getMO2ProfilesFromInstanceDir(const filesystem::path& 
 
     return profiles;
 }
-
-auto ModManagerDirectory::getInferredOrder() const -> const vector<wstring>& { return m_inferredOrder; }
 
 auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceDir)
     -> std::pair<std::filesystem::path, std::filesystem::path>

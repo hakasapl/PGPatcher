@@ -1,16 +1,11 @@
 #pragma once
 
 #include <mutex>
+#include <unordered_map>
 #include <unordered_set>
-
-#include "ParallaxGenDirectory.hpp"
 
 class ParallaxGenWarnings {
 private:
-    // Dependency objects
-    static ParallaxGenDirectory* s_pgd; /** Pointer to initialized ParallaxGenDirectory object */
-    static const std::unordered_map<std::wstring, int>* s_modPriority; /** Pointer to initialized ModPriority object */
-
     /**
      * @brief Struct that stores hash function for pair of wstrings (used for trackers)
      */
@@ -38,7 +33,7 @@ private:
     static std::mutex s_meshWarnDebugTrackerMutex; /** Mutex for MeshWarnDebugTracker */
 
 public:
-    static void init(ParallaxGenDirectory* pgd, const std::unordered_map<std::wstring, int>* modPriority);
+    static void init();
 
     static void mismatchWarn(const std::wstring& matchedPath, const std::wstring& baseTex);
 

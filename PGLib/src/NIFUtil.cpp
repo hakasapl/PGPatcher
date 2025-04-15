@@ -512,8 +512,13 @@ auto NIFUtil::getTexBase(const std::filesystem::path& path, const TextureSlots& 
     const auto pathWithoutExtension = path.parent_path() / path.stem();
     const auto& pathStr = pathWithoutExtension.wstring();
 
+    if (slot == TextureSlots::UNKNOWN) {
+        // just return path without extension
+        return pathStr;
+    }
+
     for (const auto& [suffix, curSlot] : suffixMap) {
-        if (slot != TextureSlots::UNKNOWN && slot != get<0>(curSlot)) {
+        if (slot != get<0>(curSlot)) {
             continue;
         }
 
@@ -559,7 +564,8 @@ auto NIFUtil::getTexMatch(const wstring& base, const TextureType& desiredType,
     return {};
 }
 
-auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape) -> array<wstring, NUM_TEXTURE_SLOTS>
+auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape, const bool& findBaseSlots)
+    -> array<wstring, NUM_TEXTURE_SLOTS>
 {
     array<wstring, NUM_TEXTURE_SLOTS> outPrefixes;
 
@@ -574,7 +580,15 @@ auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape) ->
         }
 
         // Get default suffixes
-        const auto texBase = getTexBase(texture, static_cast<TextureSlots>(i));
+        wstring texBase;
+        if (findBaseSlots) {
+            // Get the base texture name without suffix
+            texBase = getTexBase(ParallaxGenUtil::asciitoUTF16(texture), static_cast<TextureSlots>(i));
+        } else {
+            // Get the full texture name
+            texBase = getTexBase(ParallaxGenUtil::asciitoUTF16(texture));
+        }
+
         outPrefixes.at(i) = texBase;
     }
 

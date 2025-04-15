@@ -4,8 +4,6 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include <boost/algorithm/string/predicate.hpp>
 
-#include "Logger.hpp"
-
 using namespace std;
 
 auto PatcherMeshPostFixSSS::getFactory() -> PatcherMeshPost::PatcherMeshPostFactory
@@ -48,15 +46,7 @@ auto PatcherMeshPostFixSSS::applyPatch(nifly::NiShape& nifShape) -> bool
     }
 
     // create texture hook
-    filesystem::path newSSSMap;
-
-    {
-        PatcherTextureHookFixSSS texHook(diffuseMap);
-        if (!texHook.applyPatch(newSSSMap)) {
-            Logger::error("Failed to fix SSS for texture: {}", diffuseMap);
-            return false;
-        }
-    }
-
-    return NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW, newSSSMap);
+    PatcherTextureHookFixSSS::addToProcessList(diffuseMap);
+    return NIFUtil::setTextureSlot(
+        getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW, PatcherTextureHookFixSSS::getOutputFilename(diffuseMap));
 }

@@ -71,8 +71,8 @@ public:
     /// @param cacheNIFs Faster but higher memory consumption
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist, const std::vector<std::wstring>& nifAllowlist,
         const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
-        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& mapFromMeshes = true,
-        const bool& multithreading = true, const bool& cacheNIFs = false) -> void;
+        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true,
+        const bool& cacheNIFs = false) -> void;
 
 private:
     auto findFiles() -> void;

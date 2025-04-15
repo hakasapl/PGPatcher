@@ -370,13 +370,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     m_processingHighMemCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingHighMemChange, this);
     m_processingOptionsSizer->Add(m_processingHighMemCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_processingMapFromMeshesCheckbox = new wxCheckBox(this, wxID_ANY, "Map Textures From Meshes");
-    m_processingMapFromMeshesCheckbox->SetToolTip(
-        "Attempts to map textures from meshes instead of relying entirely on the "
-        "DDS suffixes (slower, but more accurate)");
-    m_processingMapFromMeshesCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMapFromMeshesChange, this);
-    m_processingOptionsSizer->Add(m_processingMapFromMeshesCheckbox, 0, wxALL, BORDER_SIZE);
-
     m_processingBSACheckbox = new wxCheckBox(this, wxID_ANY, "Read BSAs");
     m_processingBSACheckbox->SetToolTip("Read meshes/textures from BSAs in addition to loose files");
     m_processingBSACheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingBSAChange, this);
@@ -545,7 +538,6 @@ void LauncherWindow::loadConfig()
     m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
     m_processingHighMemCheckbox->SetValue(initParams.Processing.highMem);
-    m_processingMapFromMeshesCheckbox->SetValue(initParams.Processing.mapFromMeshes);
     m_processingBSACheckbox->SetValue(initParams.Processing.bsa);
     m_enableDiagnosticsCheckbox->SetValue(initParams.Processing.diagnostics);
 
@@ -714,11 +706,6 @@ void LauncherWindow::onProcessingMultithreadingChange([[maybe_unused]] wxCommand
 }
 
 void LauncherWindow::onProcessingHighMemChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
-
-void LauncherWindow::onProcessingMapFromMeshesChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateDisabledElements();
-}
 
 void LauncherWindow::onEnableDiagnosticsChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
@@ -913,7 +900,6 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
     params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
     params.Processing.highMem = m_processingHighMemCheckbox->GetValue();
-    params.Processing.mapFromMeshes = m_processingMapFromMeshesCheckbox->GetValue();
     params.Processing.bsa = m_processingBSACheckbox->GetValue();
     params.Processing.diagnostics = m_enableDiagnosticsCheckbox->GetValue();
 
@@ -1098,16 +1084,6 @@ void LauncherWindow::updateDisabledElements()
     } else {
         m_shaderPatcherParallaxCheckbox->Enable(true);
         m_shaderPatcherComplexMaterialCheckbox->Enable(true);
-    }
-
-    // PBR rules
-    if (curParams.ShaderPatcher.truePBR && !curParams.ShaderPatcher.parallax
-        && !curParams.ShaderPatcher.complexMaterial) {
-        // disable map from meshes
-        m_processingMapFromMeshesCheckbox->SetValue(false);
-        m_processingMapFromMeshesCheckbox->Enable(false);
-    } else {
-        m_processingMapFromMeshesCheckbox->Enable(true);
     }
 
     // save button

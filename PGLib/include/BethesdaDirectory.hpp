@@ -48,13 +48,15 @@ private:
     struct BethesdaFile {
         std::filesystem::path path;
         std::shared_ptr<BSAFile> bsaFile;
-        std::wstring mod;
+        std::shared_ptr<ModManagerDirectory::Mod> mod;
         bool generated;
 
         [[nodiscard]] auto getDiagJSON() const -> nlohmann::json
         {
             auto j = nlohmann::json::object();
-            j["mod"] = ParallaxGenUtil::utf16toUTF8(mod);
+            if (mod != nullptr) {
+                j["mod"] = ParallaxGenUtil::utf16toUTF8(mod->name);
+            }
 
             if (bsaFile != nullptr) {
                 j["bsa"] = ParallaxGenUtil::utf16toUTF8(bsaFile->path.wstring());
@@ -173,7 +175,7 @@ public:
      * @param relPath path to the file relative to the data directory
      * @return std::wstring mod label
      */
-    [[nodiscard]] auto getMod(const std::filesystem::path& relPath) -> std::wstring;
+    [[nodiscard]] auto getMod(const std::filesystem::path& relPath) -> std::shared_ptr<ModManagerDirectory::Mod>;
 
     /**
      * @brief Create a Generated file in the file map
@@ -181,7 +183,7 @@ public:
      * @param relPath path of the generated file
      * @param mod wstring mod label to assign
      */
-    void addGeneratedFile(const std::filesystem::path& relPath, const std::wstring& mod);
+    void addGeneratedFile(const std::filesystem::path& relPath, std::shared_ptr<ModManagerDirectory::Mod> mod);
 
     /**
      * @brief Clear the file cache
@@ -390,7 +392,7 @@ private:
      * @param bsaFile BSA file or nullptr if it doesn't exist
      */
     void updateFileMap(const std::filesystem::path& filePath, std::shared_ptr<BSAFile> bsaFile,
-        const std::wstring& mod = L"", const bool& generated = false);
+        std::shared_ptr<ModManagerDirectory::Mod> mod, const bool& generated = false);
 
     /**
      * @brief Convert a list of wstrings to a LPCWSTRs

@@ -10,13 +10,11 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <mutex>
 #include <spdlog/spdlog.h>
 
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -109,11 +107,6 @@ void ParallaxGenConfig::loadConfig()
 
 auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
 {
-    // "mod_order" field
-    if (j.contains("mod_order")) {
-        setModOrder(utf8VectorToUTF16(j["mod_order"].get<vector<string>>()));
-    }
-
     // "params" field
     if (j.contains("params")) {
         const auto& paramJ = j["params"];
@@ -168,9 +161,6 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("pluginesmify")) {
             paramJ["processing"]["pluginesmify"].get_to<bool>(m_params.Processing.pluginESMify);
-        }
-        if (paramJ.contains("processing") && paramJ["processing"].contains("mapfrommeshes")) {
-            paramJ["processing"]["mapfrommeshes"].get_to<bool>(m_params.Processing.mapFromMeshes);
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("diagnostics")) {
             paramJ["processing"]["diagnostics"].get_to<bool>(m_params.Processing.diagnostics);
@@ -282,39 +272,6 @@ void ParallaxGenConfig::replaceForwardSlashes(nlohmann::json& json)
         for (auto& element : json) {
             replaceForwardSlashes(element);
         }
-    }
-}
-
-auto ParallaxGenConfig::getModOrder() -> vector<wstring>
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    return m_modOrder;
-}
-
-auto ParallaxGenConfig::getModPriority(const wstring& mod) -> int
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    if (m_modPriority.contains(mod)) {
-        return m_modPriority[mod];
-    }
-
-    return -1;
-}
-
-auto ParallaxGenConfig::getModPriorityMap() -> unordered_map<wstring, int>
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    return m_modPriority;
-}
-
-void ParallaxGenConfig::setModOrder(const vector<wstring>& modOrder)
-{
-    const lock_guard<mutex> lock(m_modOrderMutex);
-    this->m_modOrder = modOrder;
-
-    m_modPriority.clear();
-    for (size_t i = 0; i < modOrder.size(); i++) {
-        m_modPriority[modOrder[i]] = static_cast<int>(i);
     }
 }
 
@@ -439,9 +396,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // build output json
     nlohmann::json j = m_userConfig;
 
-    // Mod Order
-    j["mod_order"] = utf16VectorToUTF8(m_modOrder);
-
     // Params
 
     // "game"
@@ -467,7 +421,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["processing"]["bsa"] = m_params.Processing.bsa;
     j["params"]["processing"]["pluginpatching"] = m_params.Processing.pluginPatching;
     j["params"]["processing"]["pluginesmify"] = m_params.Processing.pluginESMify;
-    j["params"]["processing"]["mapfrommeshes"] = m_params.Processing.mapFromMeshes;
     j["params"]["processing"]["diagnostics"] = m_params.Processing.diagnostics;
 
     // "prepatcher"
@@ -520,29 +473,4 @@ void ParallaxGenConfig::saveUserConfig()
     } catch (const exception& e) {
         spdlog::error("Failed to save user config: {}", e.what());
     }
-}
-
-auto ParallaxGenConfig::PGParams::getString() const -> wstring
-{
-    wstring outStr;
-    outStr += L"GameDir: " + Game.dir.wstring() + L"\n";
-    outStr += L"GameType: " + utf8toUTF16(BethesdaGame::getStrFromGameType(Game.type)) + L"\n";
-    outStr += L"ModManagerType: " + utf8toUTF16(ModManagerDirectory::getStrFromModManagerType(ModManager.type)) + L"\n";
-    outStr += L"MO2InstanceDir: " + ModManager.mo2InstanceDir.wstring() + L"\n";
-    outStr += L"MO2Profile: " + ModManager.mo2Profile + L"\n";
-    outStr += L"OutputDir: " + Output.dir.wstring() + L"\n";
-    outStr += L"ZipOutput: " + to_wstring(static_cast<int>(Output.zip)) + L"\n";
-    outStr += L"Multithread: " + to_wstring(static_cast<int>(Processing.multithread)) + L"\n";
-    outStr += L"HighMem: " + to_wstring(static_cast<int>(Processing.highMem)) + L"\n";
-    outStr += L"BSA: " + to_wstring(static_cast<int>(Processing.bsa)) + L"\n";
-    outStr += L"PluginPatching: " + to_wstring(static_cast<int>(Processing.pluginPatching)) + L"\n";
-    outStr += L"MapFromMeshes: " + to_wstring(static_cast<int>(Processing.mapFromMeshes)) + L"\n";
-    outStr += L"DisableMLP: " + to_wstring(static_cast<int>(PrePatcher.disableMLP)) + L"\n";
-    outStr += L"Parallax: " + to_wstring(static_cast<int>(ShaderPatcher.parallax)) + L"\n";
-    outStr += L"ComplexMaterial: " + to_wstring(static_cast<int>(ShaderPatcher.complexMaterial)) + L"\n";
-    outStr += L"TruePBR: " + to_wstring(static_cast<int>(ShaderPatcher.truePBR)) + L"\n";
-    outStr += L"ParallaxToCM: " + to_wstring(static_cast<int>(ShaderTransforms.parallaxToCM)) + L"\n";
-    outStr += L"OptimizeMeshes: " + to_wstring(static_cast<int>(PostPatcher.optimizeMeshes));
-
-    return outStr;
 }

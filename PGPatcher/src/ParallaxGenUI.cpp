@@ -13,6 +13,7 @@
 
 #include "GUI/LauncherWindow.hpp"
 #include "GUI/ModSortDialog.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
 #include "ParallaxGenUtil.hpp"
 
@@ -39,84 +40,79 @@ auto ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc, const std::filesystem::
     return {};
 }
 
-auto ParallaxGenUI::selectModOrder(
-    const std::unordered_map<std::wstring, tuple<std::set<NIFUtil::ShapeShader>, unordered_set<wstring>>>& conflicts,
-    const std::vector<std::wstring>& existingMods) -> std::vector<std::wstring>
+void ParallaxGenUI::selectModOrder()
 {
+    auto* const mmd = PGGlobals::getMMD();
 
-    std::vector<std::pair<NIFUtil::ShapeShader, std::wstring>> modOrder;
-    for (const auto& [mod, value] : conflicts) {
-        const auto& shaderSet = std::get<0>(value);
-        modOrder.emplace_back(*prev(shaderSet.end()), mod); // Get the first shader
-    }
-
-    // Sort by ShapeShader first, and then by key name lexicographically
-    std::ranges::sort(modOrder, [](const auto& lhs, const auto& rhs) {
-        if (lhs.first == rhs.first) {
-            return lhs.second < rhs.second; // Secondary sort by wstring key
+    // get allmods and sort by priority
+    auto allMods = mmd->getMods();
+    std::ranges::sort(allMods, [](const auto& lhs, const auto& rhs) {
+        // If `isNew` differs, put the one with `isNew == true` first.
+        if (lhs->isNew != rhs->isNew) {
+            return lhs->isNew > rhs->isNew;
         }
-        return lhs.first < rhs.first; // Primary sort by ShapeShader
+
+        // Otherwise, sort by `priority`.
+        return lhs->priority < rhs->priority;
     });
 
-    vector<wstring> finalModOrder;
-
-    // Add new mods
-    for (const auto& [shader, mod] : modOrder) {
-        if (std::ranges::find(existingMods, mod) == existingMods.end()) {
-            // add to new mods
-            finalModOrder.push_back(mod);
-        }
-    }
-
-    // Add existing mods
-    for (const auto& mod : existingMods) {
-        // check if existing mods contain the mod
-        if (conflicts.find(mod) != conflicts.end()) {
-            // add to final mod order
-            finalModOrder.push_back(mod);
-        }
-    }
-
-    // split into vectors
+    // data we need for dialog
     vector<wstring> modStrs;
     vector<wstring> shaderCombinedStrs;
     vector<bool> isNew;
     unordered_map<wstring, unordered_set<wstring>> conflictTracker;
 
-    // first loop through existing order to restore is
-
-    for (const auto& mod : finalModOrder) {
-        if (mod.empty()) {
-            // skip unmanaged stuff
+    // loop through each mod
+    for (const auto& mod : allMods) {
+        if (mod->conflicts.empty()) {
+            // skip mods with no conflicts
             continue;
         }
 
-        modStrs.push_back(mod);
+        modStrs.push_back(mod->name);
 
-        vector<wstring> shaderStrs;
-        for (const auto& shader : get<0>(conflicts.at(mod))) {
+        wstring shaderStr;
+        for (const auto& shader : mod->shaders) {
             if (shader == NIFUtil::ShapeShader::NONE) {
                 // don't print none type
                 continue;
             }
 
-            shaderStrs.insert(shaderStrs.begin(), ParallaxGenUtil::utf8toUTF16(NIFUtil::getStrFromShader(shader)));
+            shaderStr += ParallaxGenUtil::utf8toUTF16(NIFUtil::getStrFromShader(shader)) + L",";
         }
-
-        auto shaderStr = boost::join(shaderStrs, L",");
+        if (!shaderStr.empty()) {
+            shaderStr.pop_back(); // remove last comma
+        }
         shaderCombinedStrs.push_back(shaderStr);
 
-        // check if mod is in existing order
-        isNew.push_back(std::ranges::find(existingMods, mod) == existingMods.end());
+        isNew.push_back(mod->isNew);
 
-        // add to conflict tracker
-        conflictTracker.insert({ mod, get<1>(conflicts.at(mod)) });
+        for (const auto& conflict : mod->conflicts) {
+            if (conflict->name.empty()) {
+                continue; // skip empty mod
+            }
+
+            conflictTracker[mod->name].insert(conflict->name);
+        }
     }
 
+    if (modStrs.empty()) {
+        // no mods with conflicts, so no need to show dialog
+        return;
+    }
+
+    vector<wstring> sortedOrder;
     ModSortDialog dialog(modStrs, shaderCombinedStrs, isNew, conflictTracker);
     if (dialog.ShowModal() == wxID_OK) {
-        return dialog.getSortedItems();
+        sortedOrder = dialog.getSortedItems();
     }
 
-    return modStrs; // Return the original order if cancelled or closed
+    // set priorities
+    int priority = 0;
+    for (const auto& modName : sortedOrder) {
+        auto mod = mmd->getMod(modName);
+        if (mod) {
+            mod->priority = priority++;
+        }
+    }
 }

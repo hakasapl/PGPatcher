@@ -2,6 +2,7 @@
 
 #include <Shaders.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/replace.hpp>
 
 #include "Logger.hpp"
 #include "NIFUtil.hpp"
@@ -174,9 +175,10 @@ auto PatcherMeshShaderComplexMaterial::applyPatchSlots(
     const bool enableDynCubemaps
         = !(ParallaxGenDirectory::checkGlobMatchInVector(getNIFPath().wstring(), s_dynCubemapBlocklist)
             || ParallaxGenDirectory::checkGlobMatchInVector(matchedPath, s_dynCubemapBlocklist));
+
+    static const auto dynCubemapPathSlashFix = boost::replace_all_copy(s_DYNCUBEMAPPATH.wstring(), L"/", L"\\");
     if (enableDynCubemaps) {
-        newSlots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)]
-            = L"textures\\cubemaps\\dynamic1pxcubemap_black.dds";
+        newSlots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = dynCubemapPathSlashFix;
     }
 
     return newSlots != oldSlots;

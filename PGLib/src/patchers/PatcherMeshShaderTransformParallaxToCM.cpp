@@ -7,8 +7,6 @@
 
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 
-#include "Logger.hpp"
-
 using namespace std;
 
 auto PatcherMeshShaderTransformParallaxToCM::getFactory()
@@ -43,17 +41,8 @@ auto PatcherMeshShaderTransformParallaxToCM::transform(
     result = fromMatch;
 
     // create texture hook
-    filesystem::path complexMap;
-
-    {
-        PatcherTextureHookConvertToCM texHook(heightMap);
-        if (!texHook.applyPatch(complexMap)) {
-            Logger::error(L"Failed to convert height map to complex material: {}", heightMap);
-            return false;
-        }
-
-        result.matchedPath = complexMap.wstring();
-    }
+    PatcherTextureHookConvertToCM::addToProcessList(heightMap);
+    result.matchedPath = PatcherTextureHookConvertToCM::getOutputFilename(heightMap);
 
     return true;
 }

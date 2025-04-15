@@ -25,8 +25,11 @@ public:
     static auto isCacheEnabled() -> bool;
 
     // Global loading and saving functions
-    static void loadNIFCache(nlohmann::json cacheData);
+    static auto loadNIFCache(const nlohmann::json& cacheData) -> bool;
     static auto saveNIFCache() -> nlohmann::json;
+
+    static auto loadTexCache(const nlohmann::json& cacheData) -> bool;
+    static auto saveTexCache() -> nlohmann::json;
 
     // TEX cache functions
     static auto getTEXCache(const std::filesystem::path& relPath, nlohmann::json& cacheData) -> bool;
