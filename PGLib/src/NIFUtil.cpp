@@ -595,7 +595,8 @@ auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape, co
     return outPrefixes;
 }
 
-auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlots) -> array<wstring, NUM_TEXTURE_SLOTS>
+auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlots, const bool& findBaseSlots)
+    -> array<wstring, NUM_TEXTURE_SLOTS>
 {
     array<wstring, NUM_TEXTURE_SLOTS> outSlots;
 
@@ -604,7 +605,14 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
             continue;
         }
 
-        const auto texBase = getTexBase(oldSlots.at(i), static_cast<TextureSlots>(i));
+        wstring texBase;
+        if (findBaseSlots) {
+            // Get the base texture name without suffix
+            texBase = getTexBase(oldSlots.at(i), static_cast<TextureSlots>(i));
+        } else {
+            // Get the full texture name
+            texBase = getTexBase(oldSlots.at(i));
+        }
         outSlots.at(i) = texBase;
     }
 

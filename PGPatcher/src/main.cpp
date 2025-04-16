@@ -450,7 +450,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_DIAG.json";
             ParallaxGenUtil::saveJSON(diffJSONPath, PGDiag::getJSON(), true);
 
-            pgd.addGeneratedFile("ParallaxGen_DIAG,json", nullptr);
+            pgd.addGeneratedFile("ParallaxGen_DIAG.json", nullptr);
         }
 
         // Save diff json

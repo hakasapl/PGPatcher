@@ -1,13 +1,20 @@
 #include "PGCache.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenUtil.hpp"
+#include <mutex>
 
 // statics
 std::mutex PGCache::s_nifCacheMutex;
 nlohmann::json PGCache::s_nifCache = nlohmann::json::object();
 
+std::mutex PGCache::s_newNifCacheMutex;
+nlohmann::json PGCache::s_newNifCache = nlohmann::json::object();
+
 std::mutex PGCache::s_texCacheMutex;
 nlohmann::json PGCache::s_texCache = nlohmann::json::object();
+
+std::mutex PGCache::s_newTexCacheMutex;
+nlohmann::json PGCache::s_newTexCache = nlohmann::json::object();
 
 bool PGCache::s_cacheEnabled = true;
 auto PGCache::enableCache(bool enable) -> void { s_cacheEnabled = enable; }
@@ -93,11 +100,11 @@ void PGCache::setFileCache(
 
     // set cache data
     if (type == CacheType::TEX) {
-        const std::lock_guard<std::mutex> lock(s_texCacheMutex);
-        s_texCache[cacheKey] = saveCacheData;
+        const std::lock_guard<std::mutex> lock(s_newTexCacheMutex);
+        s_newTexCache[cacheKey].update(saveCacheData);
     } else if (type == CacheType::NIF) {
-        const std::lock_guard<std::mutex> lock(s_nifCacheMutex);
-        s_nifCache[cacheKey] = saveCacheData;
+        const std::lock_guard<std::mutex> lock(s_newNifCacheMutex);
+        s_newNifCache[cacheKey].update(saveCacheData);
     }
 }
 
@@ -123,9 +130,16 @@ auto PGCache::loadNIFCache(const nlohmann::json& cacheData) -> bool
 auto PGCache::saveNIFCache() -> nlohmann::json
 {
     const std::lock_guard<std::mutex> lock(s_nifCacheMutex);
+    const std::lock_guard<std::mutex> lock2(s_newNifCacheMutex);
 
     // add version to cache
     nlohmann::json saveCacheData = s_nifCache;
+
+    // merge new cache into old cache
+    for (const auto& [key, value] : s_newNifCache.items()) {
+        saveCacheData[key] = value;
+    }
+
     saveCacheData["version"] = PG_VERSION;
 
     return saveCacheData;
@@ -153,9 +167,15 @@ auto PGCache::loadTexCache(const nlohmann::json& cacheData) -> bool
 auto PGCache::saveTexCache() -> nlohmann::json
 {
     const std::lock_guard<std::mutex> lock(s_texCacheMutex);
+    const std::lock_guard<std::mutex> lock2(s_newTexCacheMutex);
 
     // add version to cache
     nlohmann::json saveCacheData = s_texCache;
+
+    for (const auto& [key, value] : s_newTexCache.items()) {
+        saveCacheData[key] = value;
+    }
+
     saveCacheData["version"] = PG_VERSION;
 
     return saveCacheData;

@@ -12,8 +12,14 @@ private:
     static std::mutex s_nifCacheMutex;
     static nlohmann::json s_nifCache;
 
+    static std::mutex s_newNifCacheMutex;
+    static nlohmann::json s_newNifCache;
+
     static std::mutex s_texCacheMutex;
     static nlohmann::json s_texCache;
+
+    static std::mutex s_newTexCacheMutex;
+    static nlohmann::json s_newTexCache;
 
     static bool s_cacheEnabled;
 

@@ -215,16 +215,9 @@ auto ParallaxGenDirectory::shouldProcessNIF(const filesystem::path& nifPath, nlo
     }
 
     // Check if NIF is in cache
-    if (!nifCache.contains("shapes") || !nifCache["shapes"].is_object()) {
+    if (!nifCache.contains("texturemapping") || !nifCache["texturemapping"].is_object()) {
         // no modified flag in cache, so we need to process
         return false;
-    }
-
-    for (const auto& [oldindex3d, shape] : nifCache["shapes"].items()) {
-        if (!shape.is_object() || !shape.contains("texturemap") || !shape["texturemap"].is_object()) {
-            // no texturemap in cache, so we need to process
-            return false;
-        }
     }
 
     return true;
@@ -245,14 +238,13 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     if (cacheValid) {
         // load mappings from cache
         bool hasAtLeastOneTextureSet = false;
-        for (const auto& [oldIndex3D, shape] : nifCache["shapes"].items()) {
-            for (const auto& [texture, mapping] : shape["texturemap"].items()) {
+        for (const auto& [oldIndex3D, params] : nifCache["texturemapping"].items()) {
+            for (const auto& [texture, mapping] : params.items()) {
                 hasAtLeastOneTextureSet = true;
 
-                if (texture.empty() || !mapping.is_object() || !mapping.contains("slot") || !mapping["slot"].is_number()
+                if (!mapping.is_object() || !mapping.contains("slot") || !mapping["slot"].is_number()
                     || !mapping.contains("type") || !mapping["type"].is_string()) {
-                    // Skip invalid mapping
-                    continue;
+                    throw runtime_error("Cache Corrupt: Invalid mapping for NIF " + utf16toUTF8(nifPath.wstring()));
                 }
 
                 const auto slot = mapping["slot"].get<int>();
@@ -295,10 +287,10 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     bool hasAtLeastOneTextureSet = false;
     const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
     // clear shapes in cache
-    nifCache["shapes"] = nlohmann::json::object_t();
+    nifCache["texturemapping"] = nlohmann::json::object_t();
     for (const auto& [shape, oldindex3d] : shapes) {
         // add to cache
-        nifCache["shapes"][to_string(oldindex3d)]["texturemap"] = nlohmann::json::object_t();
+        nifCache["texturemapping"][to_string(oldindex3d)] = nlohmann::json::object_t();
 
         if (!shape->HasShaderProperty()) {
             // No shader, skip
@@ -463,8 +455,8 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
                 nifPath.wstring(), asciitoUTF16(texture), slot, utf8toUTF16(NIFUtil::getStrFromTexType(textureType)));
 
             // add to cache
-            nifCache["shapes"][to_string(oldindex3d)]["texturemap"][texture]["slot"] = static_cast<size_t>(slot);
-            nifCache["shapes"][to_string(oldindex3d)]["texturemap"][texture]["type"]
+            nifCache["texturemapping"][to_string(oldindex3d)][texture]["slot"] = static_cast<size_t>(slot);
+            nifCache["texturemapping"][to_string(oldindex3d)][texture]["type"]
                 = NIFUtil::getStrFromTexType(textureType);
 
             // Update unconfirmed textures map

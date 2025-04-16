@@ -217,7 +217,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     -> bool
 {
     // get search prefixes
-    auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots);
+    auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots, false);
 
     map<size_t, tuple<nlohmann::json, wstring>> truePBRData;
     // "match_normal" attribute: Binary search for normal map
