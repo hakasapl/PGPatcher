@@ -251,10 +251,6 @@ public:
      */
     [[nodiscard]] auto getBSALoadOrder() const -> std::vector<std::wstring>;
 
-    [[nodiscard]] auto getFileMTime(const std::filesystem::path& relPath) -> size_t;
-
-    [[nodiscard]] auto getFileSize(const std::filesystem::path& relPath) -> uintmax_t;
-
     // Helpers
 
     /**

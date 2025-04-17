@@ -107,20 +107,6 @@ private:
     // NIF Helpers
 
     /**
-     * @brief Check if a NIF file should be processed based on cached values
-     *
-     * @param nifPath relative path to the NIF file
-     * @param patchPlugin whether to generate plugin patches
-     * @param dryRun whether to run in dry run mode (no changes made)
-     * @param[out] nifCache NIF cache JSON object
-     * @param[out] createdNIFs map of created NIFs
-     * @return true if the NIF file should be processed
-     * @return false if the NIF file should not be processed (createdNIFs is only valid for this case)
-     */
-    static auto shouldProcessNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, const bool& dryRun,
-        nlohmann::json& nifCache, std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs) -> bool;
-
-    /**
      * @brief Process a single NIF file
      *
      * @param nifPath relative path to the NIF file
@@ -135,7 +121,7 @@ private:
      * @return false if the NIF file was not processed successfully
      */
     static auto processNIF(const std::filesystem::path& nifPath, const std::vector<std::byte>& nifBytes,
-        const bool& patchPlugin, const bool& dryRun, nlohmann::json& nifCache,
+        const bool& patchPlugin, const bool& dryRun,
         std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
         const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr) -> bool;
 
@@ -155,7 +141,7 @@ private:
      * @return false if the NIF shape was not processed successfully
      */
     static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
-        const bool& dryRun, nlohmann::json& shapeCache, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
+        const bool& dryRun, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
         const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
         const NIFUtil::ShapeShader* forceShader = nullptr) -> bool;
 
@@ -171,9 +157,6 @@ private:
     static auto getDuplicateNIFPath(const std::filesystem::path& nifPath, const int& index) -> std::filesystem::path;
 
     // DDS Runners
-    static auto shouldProcessDDS(const std::filesystem::path& ddsPath, nlohmann::json& ddsCache,
-        std::unordered_set<std::filesystem::path>& createdDDS) -> bool;
-
     static auto patchDDS(const std::filesystem::path& ddsPath) -> ParallaxGenTask::PGResult;
 
     static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath, DirectX::ScratchImage* dds)

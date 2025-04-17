@@ -1,7 +1,6 @@
 #include "ParallaxGenD3D.hpp"
 
 #include "NIFUtil.hpp"
-#include "PGCache.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenUtil.hpp"
 
@@ -70,48 +69,6 @@ auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExc
             bool hasGlosiness = false;
             bool hasEnvMask = false;
 
-            nlohmann::json ddsCache;
-            // get cache
-            if (PGCache::getTEXCache(envMask.path, ddsCache)) {
-                // cache is valid
-                if (!ddsCache["extendedclassify"].contains("type")
-                    || !ddsCache["extendedclassify"]["type"].is_string()) {
-                    // no type in cache, so we need to check it
-                    throw runtime_error("Extendedclassify cache is invalid, no type found");
-                }
-
-                result = ddsCache["extendedclassify"]["type"].get<std::string>()
-                    == NIFUtil::getStrFromTexType(NIFUtil::TextureType::COMPLEXMATERIAL);
-
-                // loop through attributes
-                for (const auto& attribute : ddsCache["extendedclassify"]["attributes"]) {
-                    if (!attribute.is_string()) {
-                        throw runtime_error("Extendedclassify cache is invalid, attribute is not a string");
-                    }
-
-                    const auto attributeStr = attribute.get<std::string>();
-                    if (attributeStr == NIFUtil::getStrFromTexAttribute(NIFUtil::TextureAttribute::CM_ENVMASK)) {
-                        hasEnvMask = true;
-                    } else if (attributeStr
-                        == NIFUtil::getStrFromTexAttribute(NIFUtil::TextureAttribute::CM_GLOSSINESS)) {
-                        hasGlosiness = true;
-                    } else if (attributeStr
-                        == NIFUtil::getStrFromTexAttribute(NIFUtil::TextureAttribute::CM_METALNESS)) {
-                        hasMetalness = true;
-                    }
-                }
-
-                if (result) {
-                    cmMaps.emplace_back(envMask, hasEnvMask, hasGlosiness, hasMetalness);
-                    continue;
-                }
-            }
-
-            // clear ddsCache because we are going to repopulate it
-            ddsCache["extendedclassify"] = nlohmann::json::object();
-            ddsCache["extendedclassify"]["type"] = "";
-            ddsCache["extendedclassify"]["attributes"] = nlohmann::json::array();
-
             const bool bFileInVanillaBSA = m_pgd->isFileInBSA(envMask.path, bsaExcludes);
             if (!bFileInVanillaBSA) {
                 try {
@@ -123,31 +80,10 @@ auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExc
                 }
             }
 
-            // add to cache
-            if (result) {
-                ddsCache["extendedclassify"]["type"]
-                    = NIFUtil::getStrFromTexType(NIFUtil::TextureType::COMPLEXMATERIAL);
-            }
-            if (hasMetalness) {
-                ddsCache["extendedclassify"]["attributes"].push_back(
-                    NIFUtil::getStrFromTexAttribute(NIFUtil::TextureAttribute::CM_METALNESS));
-            }
-            if (hasGlosiness) {
-                ddsCache["extendedclassify"]["attributes"].push_back(
-                    NIFUtil::getStrFromTexAttribute(NIFUtil::TextureAttribute::CM_GLOSSINESS));
-            }
-            if (hasEnvMask) {
-                ddsCache["extendedclassify"]["attributes"].push_back(
-                    NIFUtil::getStrFromTexAttribute(NIFUtil::TextureAttribute::CM_ENVMASK));
-            }
-
             if (result) {
                 // remove old env mask
                 cmMaps.emplace_back(envMask, hasEnvMask, hasGlosiness, hasMetalness);
             }
-
-            // update cache
-            PGCache::setTEXCache(envMask.path, ddsCache);
         }
 
         // update map

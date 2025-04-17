@@ -21,7 +21,6 @@
 #include "BethesdaDirectory.hpp"
 #include "ModManagerDirectory.hpp"
 #include "NIFUtil.hpp"
-#include "PGCache.hpp"
 #include "PGDiag.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
@@ -208,61 +207,10 @@ auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const ve
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto ParallaxGenDirectory::shouldProcessNIF(const filesystem::path& nifPath, nlohmann::json& nifCache) -> bool
-{
-    if (!PGCache::getNIFCache(nifPath, nifCache)) {
-        return false;
-    }
-
-    // Check if NIF is in cache
-    if (!nifCache.contains("texturemapping") || !nifCache["texturemapping"].is_object()) {
-        // no modified flag in cache, so we need to process
-        return false;
-    }
-
-    return true;
-}
-
 auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, const bool& cacheNIFs)
     -> ParallaxGenTask::PGResult
 {
     auto result = ParallaxGenTask::PGResult::SUCCESS;
-
-    bool cacheValid = true;
-    nlohmann::json nifCache;
-    if (!PGCache::isCacheEnabled() || !shouldProcessNIF(nifPath, nifCache)) {
-        // Cache is not valid, so we need to process
-        cacheValid = false;
-    }
-
-    if (cacheValid) {
-        // load mappings from cache
-        bool hasAtLeastOneTextureSet = false;
-        for (const auto& [oldIndex3D, params] : nifCache["texturemapping"].items()) {
-            for (const auto& [texture, mapping] : params.items()) {
-                hasAtLeastOneTextureSet = true;
-
-                if (!mapping.is_object() || !mapping.contains("slot") || !mapping["slot"].is_number()
-                    || !mapping.contains("type") || !mapping["type"].is_string()) {
-                    throw runtime_error("Cache Corrupt: Invalid mapping for NIF " + utf16toUTF8(nifPath.wstring()));
-                }
-
-                const auto slot = mapping["slot"].get<int>();
-                const auto typeStr = mapping["type"].get<string>();
-                const auto type = NIFUtil::getTexTypeFromStr(typeStr);
-
-                // Update unconfirmed textures map
-                updateUnconfirmedTexturesMap(texture, static_cast<NIFUtil::TextureSlots>(slot), type);
-            }
-        }
-
-        if (hasAtLeastOneTextureSet) {
-            // Add mesh to set
-            addMesh(nifPath);
-        }
-
-        return result;
-    }
 
     // Load NIF
     vector<std::byte> nifBytes;
@@ -287,11 +235,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     bool hasAtLeastOneTextureSet = false;
     const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
     // clear shapes in cache
-    nifCache["texturemapping"] = nlohmann::json::object_t();
     for (const auto& [shape, oldindex3d] : shapes) {
-        // add to cache
-        nifCache["texturemapping"][to_string(oldindex3d)] = nlohmann::json::object_t();
-
         if (!shape->HasShaderProperty()) {
             // No shader, skip
             continue;
@@ -454,18 +398,10 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
             spdlog::trace(L"Mapping Textures | Slot Found | NIF: {} | Texture: {} | Slot: {} | Type: {}",
                 nifPath.wstring(), asciitoUTF16(texture), slot, utf8toUTF16(NIFUtil::getStrFromTexType(textureType)));
 
-            // add to cache
-            nifCache["texturemapping"][to_string(oldindex3d)][texture]["slot"] = static_cast<size_t>(slot);
-            nifCache["texturemapping"][to_string(oldindex3d)][texture]["type"]
-                = NIFUtil::getStrFromTexType(textureType);
-
             // Update unconfirmed textures map
             updateUnconfirmedTexturesMap(texture, static_cast<NIFUtil::TextureSlots>(slot), textureType);
         }
     }
-
-    // Save cache if needed
-    PGCache::setNIFCache(nifPath, nifCache);
 
     if (hasAtLeastOneTextureSet) {
         // Add mesh to set

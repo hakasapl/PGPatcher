@@ -70,6 +70,23 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     vector<PatcherUtil::ShaderPatcherMatch> matches;
+    if (!dryRun) {
+        const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
+        if (PatcherUtil::s_shaderMatchCache.contains(slots)) {
+            auto cachedMatches = PatcherUtil::s_shaderMatchCache[slots];
+
+            // Check canApply map
+            for (auto& match : cachedMatches) {
+                if ((canApply.contains(match.shader) && canApply.at(match.shader))
+                    || (canApply.contains(match.shaderTransformTo) && canApply.at(match.shaderTransformTo))) {
+                    // Only include matches that canapply
+                    matches.push_back(match);
+                }
+            }
+
+            return matches;
+        }
+    }
 
     unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
     for (const auto& [shader, patcher] : patchers.shaderPatchers) {
@@ -118,6 +135,12 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                 }
             }
         }
+    }
+
+    // Populate cache
+    {
+        const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
+        PatcherUtil::s_shaderMatchCache[slots] = matches;
     }
 
     // Populate conflict mods if set

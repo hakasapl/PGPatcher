@@ -9,7 +9,6 @@
 #include <string>
 #include <unordered_set>
 
-#include "PGCache.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGen.hpp"
 #include "ParallaxGenD3D.hpp"
@@ -86,9 +85,6 @@ void mainRunner(PGToolsCLIArgs& args)
         // Get current time to compare later
         auto startTime = chrono::high_resolution_clock::now();
         long long timeTaken = 0;
-
-        // disable cache for PGtools
-        PGCache::enableCache(false);
 
         args.Patch.source = filesystem::absolute(args.Patch.source);
         args.Patch.output = filesystem::absolute(args.Patch.output);
