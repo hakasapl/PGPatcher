@@ -262,7 +262,7 @@ private:
      */
     static void getSlotMatch(std::map<size_t, std::tuple<nlohmann::json, std::wstring>>& truePBRData,
         const std::wstring& texName, const std::map<std::wstring, std::vector<size_t>>& lookup,
-        const std::wstring& slotLabel, const std::wstring& nifPath);
+        const std::wstring& nifPath);
 
     /**
      * @brief Get path contains match for diffuse

@@ -34,8 +34,6 @@ public:
     };
 
 private:
-    static inline std::unordered_set<std::filesystem::path> s_foldersToMap = { "meshes", "textures", "pbrnifpatcher" };
-
     std::unordered_map<std::wstring, std::shared_ptr<Mod>> m_modMap;
     std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
 

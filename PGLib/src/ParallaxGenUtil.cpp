@@ -208,7 +208,7 @@ auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json,
     if (readable) {
         outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);
     } else {
-        outputFile << json.dump(0, ' ', false, nlohmann::detail::error_handler_t::replace);
+        outputFile << json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
     }
 
     outputFile.close();

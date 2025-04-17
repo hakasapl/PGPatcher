@@ -3,6 +3,7 @@
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGDiag.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGenUtil.hpp"
 
 #include <bsa/tes4.hpp>
@@ -145,16 +146,16 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath, const bool& cac
         throw runtime_error("File not found in file map");
     }
 
-    auto lowerRelPath = getAsciiPathLower(relPath);
+    // auto lowerRelPath = getAsciiPathLower(relPath);
     if (!cacheFile) {
         const lock_guard<mutex> lock(m_fileCacheMutex);
 
-        if (m_fileCache.find(lowerRelPath) != m_fileCache.end()) {
+        if (m_fileCache.find(relPath) != m_fileCache.end()) {
             if (m_logging) {
                 spdlog::trace(L"Reading file from cache: {}", relPath.wstring());
             }
 
-            return m_fileCache[lowerRelPath];
+            return m_fileCache[relPath];
         }
     }
 
@@ -213,7 +214,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath, const bool& cac
     // cache file if flag is set
     if (cacheFile) {
         const lock_guard<mutex> lock(m_fileCacheMutex);
-        m_fileCache[lowerRelPath] = outFileBytes;
+        m_fileCache[relPath] = outFileBytes;
     }
 
     return outFileBytes;
@@ -346,36 +347,46 @@ void BethesdaDirectory::addLooseFilesToMap()
         spdlog::info("Adding loose files to file map.");
     }
 
-    for (auto it
-        = filesystem::recursive_directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied);
-        it != filesystem::recursive_directory_iterator(); ++it) {
-        const auto entry = *it;
+    // loop through each folder to map
+    for (const auto& folder : PGGlobals::s_foldersToMap) {
+        // check if folder exists
+        const auto curCheckFolder = m_dataDir / folder;
+        if (!filesystem::exists(curCheckFolder)) {
+            continue;
+        }
 
-        if (isHidden(entry.path())) {
-            if (entry.is_directory()) {
-                // If it's a directory, don't recurse into it
-                it.disable_recursion_pending();
+        for (auto it = filesystem::recursive_directory_iterator(
+                 curCheckFolder, filesystem::directory_options::skip_permission_denied);
+            it != filesystem::recursive_directory_iterator(); ++it) {
+            const auto entry = *it;
+
+            if (isHidden(entry.path())) {
+                if (entry.is_directory()) {
+                    // If it's a directory, don't recurse into it
+                    it.disable_recursion_pending();
+                }
+                continue;
             }
-            continue;
-        }
 
-        const filesystem::path& filePath = entry.path();
-        const filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
+            const filesystem::path& filePath = entry.path();
+            filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
+            relativePath = getAsciiPathLower(relativePath);
 
-        // check type of file, skip BSAs and ESPs
-        if (!isFileAllowed(filePath)) {
-            continue;
-        }
+            // check type of file, skip BSAs and ESPs
+            if (!isFileAllowed(filePath)) {
+                continue;
+            }
 
-        if (m_logging) {
-            spdlog::trace(L"Adding loose file to map: {}", relativePath.wstring());
-        }
+            if (m_logging) {
+                spdlog::trace(L"Adding loose file to map: {}", relativePath.wstring());
+            }
 
-        shared_ptr<ModManagerDirectory::Mod> curMod;
-        if (m_mmd != nullptr) {
-            curMod = m_mmd->getModByFile(relativePath);
+            shared_ptr<ModManagerDirectory::Mod> curMod;
+            if (m_mmd != nullptr) {
+                curMod = m_mmd->getModByFile(relativePath);
+            }
+            updateFileMap(relativePath, nullptr, curMod);
         }
-        updateFileMap(relativePath, nullptr, curMod);
     }
 }
 
@@ -426,9 +437,15 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 // get folder name within the BSA vfs
                 const filesystem::path folderName = asciitoUTF16(string(fileEntry.first.name()));
 
+                if (!PGGlobals::s_foldersToMap.contains(folderName.begin()->wstring())) {
+                    // skip if folder is not in the list of folders to map
+                    continue;
+                }
+
                 // get name of file
                 const wstring curEntry = asciitoUTF16(string(entry.first.name()));
-                const filesystem::path curPath = folderName / curEntry;
+                filesystem::path curPath = folderName / curEntry;
+                curPath = getAsciiPathLower(curPath);
 
                 // chekc if we should ignore this file
                 if (!isFileAllowed(curPath)) {
@@ -726,30 +743,29 @@ auto BethesdaDirectory::isPathAscii(const filesystem::path& path) -> bool
 
 auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> BethesdaDirectory::BethesdaFile
 {
+    // const filesystem::path lowerPath = getAsciiPathLower(filePath);
+
     const lock_guard<mutex> lock(m_fileMapMutex);
-
-    const filesystem::path lowerPath = getAsciiPathLower(filePath);
-
-    if (!m_fileMap.contains(lowerPath)) {
+    if (!m_fileMap.contains(filePath)) {
         return BethesdaFile { .path = filesystem::path(), .bsaFile = nullptr };
     }
 
-    return m_fileMap.at(lowerPath);
+    return m_fileMap.at(filePath);
 }
 
 void BethesdaDirectory::updateFileMap(const filesystem::path& filePath, shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
     std::shared_ptr<ModManagerDirectory::Mod> mod, const bool& generated)
 {
-    const lock_guard<mutex> lock(m_fileMapMutex);
+    // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
-    const filesystem::path lowerPath = getAsciiPathLower(filePath);
+    const lock_guard<mutex> lock(m_fileMapMutex);
 
     const BethesdaFile newBFile
         = { .path = filePath, .bsaFile = std::move(bsaFile), .mod = std::move(mod), .generated = generated };
 
-    m_fileMap[lowerPath] = newBFile;
+    m_fileMap[filePath] = newBFile;
 
-    PGDiag::insert(lowerPath.wstring(), newBFile.getDiagJSON());
+    PGDiag::insert(filePath.wstring(), newBFile.getDiagJSON());
 }
 
 auto BethesdaDirectory::isFileInBSA(const filesystem::path& file, const std::vector<std::wstring>& bsaFiles) -> bool

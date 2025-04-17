@@ -279,21 +279,27 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // INIT PGCache
     Logger::info("Initializing cache");
     const auto nifCacheFile = cacheDir / "nifCache.json";
-    nlohmann::json nifCache;
-    if (ParallaxGenUtil::getJSON(nifCacheFile, nifCache)) {
-        if (!PGCache::loadNIFCache(nifCache)) {
-            Logger::info("NIF Cache Version update detected. Cache is invalidated.");
+    {
+        nlohmann::json nifCache;
+        if (ParallaxGenUtil::getJSON(nifCacheFile, nifCache)) {
+            if (!PGCache::loadNIFCache(nifCache)) {
+                Logger::info("NIF Cache Version update detected. Cache is invalidated.");
+            }
         }
     }
+
     const auto texCacheFile = cacheDir / "texCache.json";
-    nlohmann::json texCache;
-    if (ParallaxGenUtil::getJSON(texCacheFile, texCache)) {
-        if (!PGCache::loadTexCache(texCache)) {
-            Logger::info("TEX Cache Version update detected. Cache is invalidated.");
+    {
+        nlohmann::json texCache;
+        if (ParallaxGenUtil::getJSON(texCacheFile, texCache)) {
+            if (!PGCache::loadTexCache(texCache)) {
+                Logger::info("TEX Cache Version update detected. Cache is invalidated.");
+            }
         }
     }
 
     // Populate mod info
+    Logger::info("Populating mod info");
     nlohmann::json modJSON;
     const auto modListFile = cfgDir / "mods.json";
     if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
@@ -437,8 +443,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     Logger::info("Saving cache files...");
     filesystem::create_directories(cacheDir);
     ParallaxGenUtil::saveJSON(txstFormIDCacheFile, ParallaxGenPlugin::getTXSTCache(), true);
-    ParallaxGenUtil::saveJSON(nifCacheFile, PGCache::saveNIFCache(), true);
-    ParallaxGenUtil::saveJSON(texCacheFile, PGCache::saveTexCache(), true);
+    ParallaxGenUtil::saveJSON(nifCacheFile, PGCache::saveNIFCache(), false);
+    ParallaxGenUtil::saveJSON(texCacheFile, PGCache::saveTexCache(), false);
 
     if (!outputEmpty) {
         // Deploy Assets

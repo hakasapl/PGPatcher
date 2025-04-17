@@ -471,6 +471,7 @@ auto NIFUtil::getTextureSlot(nifly::NifFile* nif, nifly::NiShape* nifShape, cons
 {
     string texture;
     nif->GetTextureSlot(nifShape, texture, static_cast<unsigned int>(slot));
+    boost::to_lower(texture);
     return texture;
 }
 
@@ -481,6 +482,7 @@ auto NIFUtil::getTextureSlots(nifly::NifFile* nif, nifly::NiShape* nifShape) -> 
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
         string texture;
         const uint32_t result = nif->GetTextureSlot(nifShape, texture, i);
+        boost::to_lower(texture);
 
         if (result == 0 || texture.empty()) {
             // no texture in Slot

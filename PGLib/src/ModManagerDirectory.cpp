@@ -13,6 +13,7 @@
 #include <spdlog/spdlog.h>
 
 #include "BethesdaDirectory.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGenUtil.hpp"
 
 using namespace std;
@@ -130,8 +131,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
 
         // Check if relPath is within s_foldersToMap
         // Get the first path component of relPath
-        if (!boost::iequals(relPath.extension().wstring(), ".bsa")
-            && !s_foldersToMap.contains(boost::to_lower_copy(relPath.begin()->wstring()))) {
+        if (!PGGlobals::s_foldersToMap.contains(boost::to_lower_copy(relPath.begin()->wstring()))) {
             // skip if not mapping from this folder
             continue;
         }
@@ -158,6 +158,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         // Update file map
         spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
 
+        m_modMap[modName] = modPtr;
         m_modFileMap[ParallaxGenUtil::toLowerASCII(relPath.wstring())] = modPtr;
     }
 }
@@ -253,7 +254,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
         m_modMap[mod] = modPtr;
 
         // loop through each folder to map
-        for (const auto& folder : s_foldersToMap) {
+        for (const auto& folder : PGGlobals::s_foldersToMap) {
             const auto curSearchDir = curModDir / folder;
             if (!filesystem::exists(curSearchDir)) {
                 // skip if folder doesn't exist

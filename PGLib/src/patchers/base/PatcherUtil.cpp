@@ -125,6 +125,10 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
         if (modSet.size() > 1) {
             // add mods to conflict set
             for (const auto& match : matches) {
+                if (match.mod == nullptr) {
+                    continue;
+                }
+
                 const lock_guard<mutex> lock(match.mod->mutex);
 
                 match.mod->shaders.insert(match.shader);

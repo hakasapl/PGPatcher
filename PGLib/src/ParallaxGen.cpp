@@ -369,7 +369,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
 
     if (!nifCache.contains("modified") || !nifCache["modified"].is_boolean()) {
         // no modified flag in cache, which means the cache is not complete
-        Logger::trace(L"Cache Invalid: No modified field in cache", nifPath.wstring());
+        Logger::trace(L"Cache Invalid: No modified field in cache");
         return true;
     }
 
@@ -408,7 +408,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
 
     if (globalPatchersLoaded != globalPatchersCache) {
         // globalpatchers do not match, so we need to process
-        Logger::trace(L"Cache Invalid: globalpatchers do not match", nifPath.wstring());
+        Logger::trace(L"Cache Invalid: globalpatchers do not match");
         return true;
     }
 
@@ -453,7 +453,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
 
         if (prePatchersLoaded != prePatchersCache) {
             // prepatchers do not match, so we need to process
-            Logger::trace(L"Cache Invalid: prepatchers do not match", nifPath.wstring());
+            Logger::trace(L"Cache Invalid: prepatchers do not match");
             return true;
         }
 
@@ -483,7 +483,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
 
         if (postPatchersLoaded != postPatchersCache) {
             // postpatchers do not match, so we need to process
-            Logger::trace(L"Cache Invalid: postpatchers do not match", nifPath.wstring());
+            Logger::trace(L"Cache Invalid: postpatchers do not match");
             return true;
         }
 
@@ -575,6 +575,26 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
 
         const auto cacheWinningMatch = PatcherUtil::ShaderPatcherMatch::fromJSON(shape["winningmatch"]);
         auto winningMatch = PatcherUtil::getWinningMatch(curMatches);
+
+        // Check winning match mtime
+        if (!shape.contains("winningmatchmtime") || !shape["winningmatchmtime"].is_number()) {
+            // no winning match mtime in cache, so we need to process
+            throw runtime_error(
+                "Cache Corrupt: No winningmatchmtime field in cache for NIF " + utf16toUTF8(nifPath.wstring()));
+        }
+
+        const auto cacheWinningMatchMTime = shape["winningmatchmtime"].get<size_t>();
+        size_t winningMatchMTime = 0;
+        if (!winningMatch.match.matchedPath.empty()) {
+            winningMatchMTime = PGGlobals::getPGD()->getFileMTime(winningMatch.match.matchedPath);
+        }
+
+        if (cacheWinningMatchMTime != winningMatchMTime) {
+            // winning match mtime does not match
+            Logger::trace(L"Cache Invalid: winning match mtime does not match");
+            return true;
+        }
+
         PatcherUtil::applyTransformIfNeeded(winningMatch, patcherObjects);
 
         if (winningMatch.shader == NIFUtil::ShapeShader::UNKNOWN) {
@@ -585,7 +605,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
 
         if (cacheWinningMatch != winningMatch) {
             // winning match does not match
-            Logger::trace(L"Cache Invalid: winning match does not match", nifPath.wstring());
+            Logger::trace(L"Cache Invalid: winning match does not match");
             return true;
         }
 
@@ -596,6 +616,11 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
         }
 
         ParallaxGenWarnings::meshWarn(winningMatch.match.matchedPath, nifPath.wstring());
+    }
+
+    if (dryRun) {
+        // all we need if we're only looking at conflictmods
+        return false;
     }
 
     // Duplicate meshes and plugin results
@@ -612,7 +637,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
             const auto curShadersApplied = results.second;
             for (const auto& [oldIndex3D, shaderApplied] : curShadersApplied) {
                 if (!shapeCache.contains(to_string(oldIndex3D))) {
-                    Logger::trace(L"Cache Invalid: oldIndex3D not in cache", nifPath.wstring());
+                    Logger::trace(L"Cache Invalid: oldIndex3D not in cache");
                     return true;
                 }
 
@@ -631,7 +656,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
 
                 const auto& appliedShaderCache = curShapeCache["appliedshader"];
                 if (!appliedShaderCache.contains(to_string(dupIdx))) {
-                    Logger::trace(L"Cache Invalid: dupIdx not in applied shader", nifPath.wstring());
+                    Logger::trace(L"Cache Invalid: dupIdx not in applied shader");
                     return true;
                 }
 
@@ -644,7 +669,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
                 const auto appliedShaderCacheShader = NIFUtil::getShaderFromStr(appliedShaderCacheStr);
                 if (appliedShaderCacheShader != shaderApplied) {
                     // applied shader does not match
-                    Logger::trace(L"Cache Invalid: applied shader does not match for duplicate", nifPath.wstring());
+                    Logger::trace(L"Cache Invalid: applied shader does not match for duplicate");
                     return true;
                 }
             }
@@ -673,7 +698,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
                 const auto dupIdxInt = atoi(dupIdx.c_str());
                 if (!resultsToApply.contains(dupIdxInt)) {
                     // dupIdx not in resultsToApply, so we need to process
-                    Logger::trace(L"Cache Invalid: dupIdx not in resultsToApply", nifPath.wstring());
+                    Logger::trace(L"Cache Invalid: dupIdx not in resultsToApply");
                     return true;
                 }
             }
@@ -686,7 +711,7 @@ auto ParallaxGen::shouldProcessNIF(const std::filesystem::path& nifPath, const b
     // cache says nif was modified and saved to output
     if (!filesystem::exists(outputFile) && nifCache["modified"].get<bool>()) {
         // Output file doesn't exist, so we need to process
-        Logger::trace(L"Cache Invalid: Output file doesn't exist", nifPath.wstring());
+        Logger::trace(L"Cache Invalid: Output file doesn't exist");
         return true;
     }
 
@@ -759,7 +784,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     nlohmann::json nifCache;
     bool validNifCache = true;
     if (!PGCache::isCacheEnabled() || shouldProcessNIF(nifPath, patchPlugin, dryRun, nifCache, createdNIFs)) {
-        Logger::debug(L"Cache for NIF {} is invalidated or nonexistent", nifPath.wstring());
+        Logger::debug(L"Cache for NIF {} is invalidated or nonexistent: {}", nifPath.wstring());
         createdNIFs.clear();
         validNifCache = false;
     }
@@ -1204,9 +1229,14 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     }
 
     PatcherUtil::ShaderPatcherMatch winningShaderMatch;
+    shapeCache["winningmatchmtime"] = 0;
     // Get winning match
     if (!matches.empty()) {
         winningShaderMatch = PatcherUtil::getWinningMatch(matches);
+        if (!winningShaderMatch.match.matchedPath.empty()) {
+            // we do this before transform because resulting file may not exist
+            shapeCache["winningmatchmtime"] = PGGlobals::getPGD()->getFileMTime(winningShaderMatch.match.matchedPath);
+        }
 
         PGDiag::insert("winningShaderMatch", winningShaderMatch.getJSON());
 
