@@ -173,6 +173,7 @@ auto PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape) -> 
     changed |= NIFUtil::setShaderType(nifShader, BSLSP_PARALLAX);
     // Set NIFShader flags
     changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
     changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
     changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
     // Set vertex colors for shape

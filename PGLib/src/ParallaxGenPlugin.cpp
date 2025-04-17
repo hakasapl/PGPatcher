@@ -498,7 +498,8 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dr
             s_txstUsedFormIDs.insert(newFormID);
 
             // Find EDID
-            const string newEDID = fmt::format("PGTXST{:06X}", newFormID);
+            const auto edidLabel = ParallaxGenUtil::utf16toUTF8(filesystem::path(baseSlots.at(0)).stem().wstring());
+            const string newEDID = fmt::format("PG_{}_{:06X}", edidLabel, newFormID);
 
             // create new TXST record with chosen form ID
             curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
