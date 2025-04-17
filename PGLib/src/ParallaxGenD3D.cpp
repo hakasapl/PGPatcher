@@ -1,6 +1,7 @@
 #include "ParallaxGenD3D.hpp"
 
 #include "NIFUtil.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenUtil.hpp"
 
@@ -45,15 +46,16 @@ using Microsoft::WRL::ComPtr;
 // reinterpret cast is needed often for type casting with DX11
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-ParallaxGenD3D::ParallaxGenD3D(ParallaxGenDirectory* pgd, filesystem::path shaderPath)
-    : m_pgd(pgd)
-    , m_shaderPath(std::move(shaderPath))
+ParallaxGenD3D::ParallaxGenD3D(filesystem::path shaderPath)
+    : m_shaderPath(std::move(shaderPath))
 {
 }
 
 auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExcludes) -> bool
 {
-    auto& envMasks = m_pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK);
+    auto* const pgd = PGGlobals::getPGD();
+
+    auto& envMasks = pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK);
 
     // loop through maps
     for (auto& envSlot : envMasks) {
@@ -69,7 +71,7 @@ auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExc
             bool hasGlosiness = false;
             bool hasEnvMask = false;
 
-            const bool bFileInVanillaBSA = m_pgd->isFileInBSA(envMask.path, bsaExcludes);
+            const bool bFileInVanillaBSA = pgd->isFileInBSA(envMask.path, bsaExcludes);
             if (!bFileInVanillaBSA) {
                 try {
                     checkIfCM(envMask.path, result, hasEnvMask, hasGlosiness, hasMetalness);
@@ -90,18 +92,18 @@ auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExc
         for (const auto& [cmMap, hasEnvMask, hasGlosiness, hasMetalness] : cmMaps) {
             envSlot.second.erase(cmMap);
             envSlot.second.insert({ cmMap.path, NIFUtil::TextureType::COMPLEXMATERIAL });
-            m_pgd->setTextureType(cmMap.path, NIFUtil::TextureType::COMPLEXMATERIAL);
+            pgd->setTextureType(cmMap.path, NIFUtil::TextureType::COMPLEXMATERIAL);
 
             if (hasEnvMask) {
-                m_pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_ENVMASK);
+                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_ENVMASK);
             }
 
             if (hasGlosiness) {
-                m_pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_GLOSSINESS);
+                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_GLOSSINESS);
             }
 
             if (hasMetalness) {
-                m_pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_METALNESS);
+                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_METALNESS);
             }
         }
     }
@@ -926,19 +928,22 @@ template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& 
 // Texture Helpers
 //
 
-auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, DirectX::ScratchImage& dds) const -> bool
+auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readability-convert-member-functions-to-static)
+    DirectX::ScratchImage& dds) const -> bool
 {
+    auto* const pgd = PGGlobals::getPGD();
+
     HRESULT hr {};
 
-    if (m_pgd->isLooseFile(ddsPath)) {
+    if (pgd->isLooseFile(ddsPath)) {
         spdlog::trace(L"Reading DDS loose file {}", ddsPath.wstring());
-        const filesystem::path fullPath = m_pgd->getLooseFileFullPath(ddsPath);
+        const filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
 
         // Load DDS file
         hr = DirectX::LoadFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
-    } else if (m_pgd->isBSAFile(ddsPath)) {
+    } else if (pgd->isBSAFile(ddsPath)) {
         spdlog::trace(L"Reading DDS BSA file {}", ddsPath.wstring());
-        vector<std::byte> ddsBytes = m_pgd->getFile(ddsPath);
+        vector<std::byte> ddsBytes = pgd->getFile(ddsPath);
 
         // Load DDS file
         hr = DirectX::LoadFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
@@ -957,6 +962,8 @@ auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, DirectX::ScratchIma
 
 auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::TexMetadata& ddsMeta) -> bool
 {
+    auto* const pgd = PGGlobals::getPGD();
+
     // Use lock_guard to make this method thread-safe
     const lock_guard<mutex> lock(m_ddsMetaDataMutex);
 
@@ -969,15 +976,15 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
 
     HRESULT hr {};
 
-    if (m_pgd->isLooseFile(ddsPath)) {
+    if (pgd->isLooseFile(ddsPath)) {
         spdlog::trace(L"Reading DDS loose file metadata {}", ddsPath.wstring());
-        const filesystem::path fullPath = m_pgd->getLooseFileFullPath(ddsPath);
+        const filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
 
         // Load DDS file
         hr = DirectX::GetMetadataFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, ddsMeta);
-    } else if (m_pgd->isBSAFile(ddsPath)) {
+    } else if (pgd->isBSAFile(ddsPath)) {
         spdlog::trace(L"Reading DDS BSA file metadata {}", ddsPath.wstring());
-        vector<std::byte> ddsBytes = m_pgd->getFile(ddsPath);
+        vector<std::byte> ddsBytes = pgd->getFile(ddsPath);
 
         // Load DDS file
         hr = DirectX::GetMetadataFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, ddsMeta);

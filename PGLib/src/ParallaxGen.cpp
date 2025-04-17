@@ -3,7 +3,6 @@
 #include <DirectXTex.h>
 #include <Geometry.hpp>
 #include <NifFile.hpp>
-#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -76,9 +75,10 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
     // Create runner
     ParallaxGenRunner meshRunner(multiThread);
 
-    for (const auto& mesh : meshes) {
-        meshRunner.addTask(
-            [&taskTracker, &mesh, &patchPlugin] { taskTracker.completeJob(patchNIF(mesh, patchPlugin, false)); });
+    for (auto& [mesh, nifCache] : meshes) {
+        meshRunner.addTask([&taskTracker, &mesh, &nifCache, &patchPlugin] {
+            taskTracker.completeJob(patchNIF(mesh, nifCache, patchPlugin, false));
+        });
     }
 
     // Blocks until all tasks are done
@@ -127,9 +127,10 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
     ParallaxGenRunner runner(multiThread);
 
     // Add tasks
-    for (const auto& mesh : meshes) {
-        runner.addTask(
-            [&taskTracker, &mesh, &patchPlugin] { taskTracker.completeJob(patchNIF(mesh, patchPlugin, true)); });
+    for (auto& [mesh, nifCache] : meshes) {
+        runner.addTask([&taskTracker, &mesh, &nifCache, &patchPlugin] {
+            taskTracker.completeJob(patchNIF(mesh, nifCache, patchPlugin, true));
+        });
     }
 
     // Blocks until all tasks are done
@@ -138,11 +139,11 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
 
 void ParallaxGen::deleteOutputDir(const bool& preOutput)
 {
-    static const unordered_set<filesystem::path> foldersToDelete = { "lightplacer", "pbrtexturesets", "strings" };
+    static const unordered_set<filesystem::path> foldersToDelete
+        = { "meshes", "textures", "pbrnifpatcher", "lightplacer", "pbrtexturesets", "strings" };
     static const unordered_set<filesystem::path> filesToDelete
         = { "parallaxgen.esp", "parallaxgen_diff.json", "parallaxgen_diag.json" };
     static const vector<pair<wstring, wstring>> filesToDeleteParseRules = { { L"pg_", L".esp" } };
-    static const unordered_set<filesystem::path> foldersToIgnore = { "meshes", "textures" };
     static const unordered_set<filesystem::path> filesToIgnore = { "meta.ini" };
     static const unordered_set<filesystem::path> filesToDeletePreOutput = { "pgpatcher_output.zip" };
 
@@ -175,8 +176,7 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput)
             continue;
         }
 
-        if (entry.is_directory()
-            && (foldersToDelete.contains(entryFilename) || foldersToIgnore.contains(entryFilename))) {
+        if (entry.is_directory() && (foldersToDelete.contains(entryFilename))) {
             continue;
         }
 
@@ -208,57 +208,6 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput)
             const auto file = outputDir / fileToDelete;
             if (filesystem::exists(file)) {
                 filesystem::remove(file);
-            }
-        }
-    }
-}
-
-void ParallaxGen::cleanStaleOutput()
-{
-    auto* const pgd = PGGlobals::getPGD();
-
-    // recurse through generated directory
-    static const unordered_set<filesystem::path> foldersToCheck = { "meshes", "textures" };
-
-    const auto outputDir = pgd->getGeneratedPath();
-
-    for (const auto& folder : foldersToCheck) {
-        const auto folderPath = outputDir / folder;
-        if (!filesystem::exists(folderPath)) {
-            continue;
-        }
-
-        // recurse through folder
-        for (const auto& entry : filesystem::recursive_directory_iterator(folderPath)) {
-            // find relative path to output directory
-            const auto relPath = filesystem::relative(entry.path(), outputDir);
-            if (entry.is_regular_file() && !pgd->isGenerated(relPath)) {
-                // delete stale output file
-                Logger::debug(L"Deleting stale output file: {}", entry.path().wstring());
-                filesystem::remove(entry.path());
-            }
-        }
-
-        // Delete any empty folders
-        std::vector<filesystem::path> directories;
-        for (const auto& entry : filesystem::recursive_directory_iterator(outputDir)) {
-            if (filesystem::is_directory(entry.path())) {
-                directories.push_back(entry.path());
-            }
-        }
-
-        std::ranges::sort(directories, [&](auto const& a, auto const& b) {
-            // Convert both paths to something relative to 'root'
-            const filesystem::path relA = filesystem::relative(a, outputDir);
-            const filesystem::path relB = filesystem::relative(b, outputDir);
-            // Compare the number of path components
-            return distance(a.begin(), a.end()) > distance(b.begin(), b.end());
-        });
-
-        // Now remove empty directories in descending depth order
-        for (auto const& dir : directories) {
-            if (filesystem::exists(dir) && filesystem::is_empty(dir)) {
-                filesystem::remove(dir);
             }
         }
     }
@@ -367,8 +316,8 @@ auto ParallaxGen::getDuplicateNIFPath(const std::filesystem::path& nifPath, cons
     return newNIFPath;
 }
 
-auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, const bool& dryRun)
-    -> ParallaxGenTask::PGResult
+auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
+    const bool& patchPlugin, const bool& dryRun) -> ParallaxGenTask::PGResult
 {
     auto* const pgd = PGGlobals::getPGD();
 
@@ -382,36 +331,32 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
     unordered_map<filesystem::path, NifFileResult> createdNIFs;
 
-    // We keep nifFileData in memory to calculate CRC32 later if required
-    vector<std::byte> nifFileData;
-    bool nifModified = false;
-    // Load NIF file
-    try {
+    NifFile* origNif = nullptr;
+    if (nifCache.loaded) {
+        // nif is preloaded, use it
+        origNif = &nifCache.nif;
+    } else {
+        // nifCache is not loaded, load it
+        vector<std::byte> nifFileData;
+        // Load NIF file
         nifFileData = pgd->getFile(nifPath);
-    } catch (const exception& e) {
-        Logger::error(L"Failed to load NIF (most likely corrupt) {}: {}", nifPath.wstring(), utf8toUTF16(e.what()));
-        return ParallaxGenTask::PGResult::FAILURE;
+        // Calculate CRC32 hash before
+        if (nifCache.origcrc32 == 0) {
+            boost::crc_32_type crcBeforeResult {};
+            crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
+            nifCache.origcrc32 = crcBeforeResult.checksum();
+        }
+
+        nifCache.nif = NIFUtil::loadNIFFromBytes(nifFileData);
+        origNif = &nifCache.nif;
     }
 
     // Process NIF
-    processNIF(nifPath, nifFileData, patchPlugin, dryRun, createdNIFs, nifModified);
-
-    if (dryRun) {
-        // we're done
-        return result;
-    }
+    bool nifModified = false;
+    processNIF(nifPath, origNif, patchPlugin, dryRun, createdNIFs, nifModified);
 
     for (auto& [createdNIFFile, nifParams] : createdNIFs) {
         const bool needsDiff = createdNIFFile == nifPath;
-
-        unsigned int crcBefore = 0;
-        if (needsDiff) {
-            // created NIF is the same filename as original so we need to write to diff file
-            // Calculate CRC32 hash before
-            boost::crc_32_type crcBeforeResult {};
-            crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
-            crcBefore = crcBeforeResult.checksum();
-        }
 
         const filesystem::path outputFile = pgd->getGeneratedPath() / createdNIFFile;
         if (nifModified) {
@@ -447,7 +392,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
             const auto diffJSONKey = utf16toUTF8(nifPath.wstring());
             {
                 const lock_guard<mutex> lock(s_diffJSONMutex);
-                s_diffJSON[diffJSONKey]["crc32original"] = crcBefore;
+                s_diffJSON[diffJSONKey]["crc32original"] = nifCache.origcrc32;
                 s_diffJSON[diffJSONKey]["crc32patched"] = crcAfter;
             }
         }
@@ -469,23 +414,35 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
         }
     }
 
+    if (!PGGlobals::getHighMemMode()) {
+        // delete nifCache if not in high mem mode
+        nifCache.nif.Clear();
+    }
+
     return result;
 }
 
-auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::vector<std::byte>& nifBytes,
-    const bool& patchPlugin, const bool& dryRun, std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs,
-    bool& nifModified, const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders) -> bool
+auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFile* origNif, const bool& patchPlugin,
+    const bool& dryRun, std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
+    const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders) -> bool
 {
+    if (origNif == nullptr) {
+        throw runtime_error("NIF file is null");
+    }
+
     auto* const pgd = PGGlobals::getPGD();
     PGDiag::insert("mod", pgd->getMod(nifPath)->name);
 
     // Load NIF file
-    NifFile nif;
-    try {
-        nif = NIFUtil::loadNIFFromBytes(nifBytes);
-    } catch (const exception& e) {
-        Logger::error(L"Failed to load NIF (most likely corrupt) {}: {}", nifPath.wstring(), utf8toUTF16(e.what()));
-        return false;
+    NifFile* nif = nullptr;
+    NifFile clonedNif;
+    if (dryRun) {
+        // if dryrun we won't be modifying anyway so no need to copy
+        nif = origNif;
+    } else {
+        // copy NIF to avoid modifying the original
+        clonedNif.CopyFrom(*origNif);
+        nif = &clonedNif;
     }
 
     createdNIFs[nifPath] = {};
@@ -493,10 +450,10 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
     nifModified = false;
 
     // Create patcher objects
-    const auto patcherObjects = createNIFPatcherObjects(nifPath, &nif);
+    const auto patcherObjects = createNIFPatcherObjects(nifPath, nif);
 
     // shapes and 3d indices
-    const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
+    const auto shapes = NIFUtil::getShapesWithBlockIDs(nif);
 
     // shadersAppliedMesh stores the shaders that were applied on the current mesh by shape for comparison later
     unordered_map<int, NIFUtil::ShapeShader> shadersAppliedMesh;
@@ -520,7 +477,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
         }
 
         // get shape name and blockid
-        const auto shapeBlockID = nif.GetBlockID(nifShape);
+        const auto shapeBlockID = nif->GetBlockID(nifShape);
         const auto shapeName = nifShape->name.get();
         const auto shapeIDStr = to_string(shapeBlockID) + " / " + shapeName;
         const string shapeBlockName = nifShape->GetBlockName();
@@ -547,7 +504,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
             }
 
             // get NIFShader from shape
-            NiShader* nifShader = nif.GetShader(nifShape);
+            NiShader* nifShader = nif->GetShader(nifShape);
             if (nifShader == nullptr) {
                 PGDiag::insert("rejectReason", "No NIFShader block");
                 continue;
@@ -626,7 +583,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
             if (dupIdx > 0) {
                 const auto newNIFPath = getDuplicateNIFPath(nifPath, dupIdx);
                 // create a duplicate nif file
-                if (processNIF(newNIFPath, nifBytes, patchPlugin, dryRun, createdNIFs, nifModified, &results.second)) {
+                if (processNIF(newNIFPath, origNif, patchPlugin, dryRun, createdNIFs, nifModified, &results.second)) {
                     createdNIFs[newNIFPath].txstResults = results.first;
                     createdNIFs[newNIFPath].shadersAppliedMesh = results.second;
                 }
@@ -658,15 +615,12 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
         return {};
     }
 
-    // Delete unreferenced blocks
-    nif.DeleteUnreferencedBlocks();
-
     // Sort blocks and set plugin indices
-    nif.PrettySortBlocks();
+    nif->PrettySortBlocks();
 
     // get newShapes
     if (patchPlugin && forceShaders == nullptr) {
-        const auto newShapes = NIFUtil::getShapesWithBlockIDs(&nif);
+        const auto newShapes = NIFUtil::getShapesWithBlockIDs(nif);
 
         for (const auto& [nifShape, oldIndex3D] : shapes) {
             if (!newShapes.contains(nifShape)) {
@@ -680,16 +634,24 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const std::ve
         }
     }
 
-    createdNIFs[nifPath].nifFile = nif;
+    createdNIFs[nifPath].nifFile = *nif;
 
     return true;
 }
 
-auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
+auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
     const bool& dryRun, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
     const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
     const NIFUtil::ShapeShader* forceShader) -> bool
 {
+    if (nif == nullptr) {
+        throw runtime_error("NIF is null");
+    }
+
+    if (nifShape == nullptr) {
+        throw runtime_error("NIFShape is null");
+    }
+
     bool changed = false;
 
     // Prep
@@ -699,7 +661,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
         throw runtime_error("Force shader is UNKNOWN");
     }
 
-    const auto slots = NIFUtil::getTextureSlots(&nif, nifShape);
+    const auto slots = NIFUtil::getTextureSlots(nif, nifShape);
 
     PGDiag::insert("origTextures", NIFUtil::textureSetToStr(slots));
 

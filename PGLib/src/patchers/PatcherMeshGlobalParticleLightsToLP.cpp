@@ -137,6 +137,9 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
         }
     }
 
+    // delete unreferenced blocks (there are probably a lot)
+    getNIF()->DeleteUnreferencedBlocks();
+
     return appliedPatch;
 }
 

@@ -207,7 +207,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGGlobals::setMMD(&mmd);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
     PGGlobals::setPGD(&pgd);
-    auto pgd3d = ParallaxGenD3D(&pgd, exePath / "shaders");
+    auto pgd3d = ParallaxGenD3D(exePath / "shaders");
     PGGlobals::setPGD3D(&pgd3d);
 
     Patcher::loadStatics(pgd, pgd3d);
@@ -307,8 +307,9 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     pgd.populateFileMap(params.Processing.bsa);
 
     // Map files
+    PGGlobals::setHighMemMode(params.Processing.highMem);
     pgd.mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
-        params.TextureRules.vanillaBSAList, params.Processing.multithread, params.Processing.highMem);
+        params.TextureRules.vanillaBSAList, params.Processing.multithread);
 
     // Classify textures (for CM etc.)
     Logger::info("Starting extended classification of textures");
@@ -396,17 +397,11 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     ParallaxGenWarnings::init();
     ParallaxGen::patch(params.Processing.multithread, params.Processing.pluginPatching);
 
-    // Release cached files, if any
-    pgd.clearCache();
-
     // Write plugin
     if (params.Processing.pluginPatching) {
         Logger::info("Saving Plugins...");
         ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
     }
-
-    // clean up any stale files
-    ParallaxGen::cleanStaleOutput();
 
     // Check for empty output
     bool outputEmpty = false;

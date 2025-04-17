@@ -135,28 +135,15 @@ auto BethesdaDirectory::getFileMap() const -> const map<filesystem::path, Bethes
     return m_fileMap;
 }
 
-auto BethesdaDirectory::getFile(const filesystem::path& relPath, const bool& cacheFile) -> vector<std::byte>
+auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::byte>
 {
     // find bsa/loose file to open
-    const BethesdaFile file = getFileFromMap(relPath);
+    const BethesdaFile& file = getFileFromMap(relPath);
     if (file.path.empty()) {
         if (m_logging) {
             spdlog::error(L"File not found in file map: {}", relPath.wstring());
         }
         throw runtime_error("File not found in file map");
-    }
-
-    // auto lowerRelPath = getAsciiPathLower(relPath);
-    if (!cacheFile) {
-        const lock_guard<mutex> lock(m_fileCacheMutex);
-
-        if (m_fileCache.find(relPath) != m_fileCache.end()) {
-            if (m_logging) {
-                spdlog::trace(L"Reading file from cache: {}", relPath.wstring());
-            }
-
-            return m_fileCache[relPath];
-        }
     }
 
     vector<std::byte> outFileBytes;
@@ -182,13 +169,13 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath, const bool& cac
         }
 
         // this is a bsa archive file
-        const bsa::tes4::version bsaVersion = bsaStruct->version;
-        const bsa::tes4::archive bsaObj = bsaStruct->archive;
+        const bsa::tes4::version& bsaVersion = bsaStruct->version;
+        const bsa::tes4::archive& bsaObj = bsaStruct->archive;
 
         string parentPath = utf16toASCII(relPath.parent_path().wstring());
         string filename = utf16toASCII(relPath.filename().wstring());
 
-        const auto file = bsaObj[parentPath][filename];
+        const auto& file = bsaObj[parentPath][filename];
         if (file) {
             binary_io::any_ostream aos { std::in_place_type<binary_io::memory_ostream> };
             // read file from output stream
@@ -211,12 +198,6 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath, const bool& cac
         return {};
     }
 
-    // cache file if flag is set
-    if (cacheFile) {
-        const lock_guard<mutex> lock(m_fileCacheMutex);
-        m_fileCache[relPath] = outFileBytes;
-    }
-
     return outFileBytes;
 }
 
@@ -233,12 +214,6 @@ auto BethesdaDirectory::getMod(const filesystem::path& relPath) -> shared_ptr<Mo
 void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath, std::shared_ptr<ModManagerDirectory::Mod> mod)
 {
     updateFileMap(relPath, nullptr, std::move(mod), true);
-}
-
-auto BethesdaDirectory::clearCache() -> void
-{
-    const lock_guard<mutex> lock(m_fileCacheMutex);
-    m_fileCache.clear();
 }
 
 auto BethesdaDirectory::isLooseFile(const filesystem::path& relPath) -> bool

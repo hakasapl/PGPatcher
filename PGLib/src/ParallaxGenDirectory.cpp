@@ -7,6 +7,7 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio.hpp>
+#include <boost/crc.hpp>
 #include <boost/thread.hpp>
 #include <filesystem>
 #include <mutex>
@@ -22,6 +23,7 @@
 #include "ModManagerDirectory.hpp"
 #include "NIFUtil.hpp"
 #include "PGDiag.hpp"
+#include "PGGlobals.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
 #include "ParallaxGenUtil.hpp"
@@ -91,7 +93,7 @@ auto ParallaxGenDirectory::findFiles() -> void
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
-    const bool& multithreading, const bool& cacheNIFs) -> void
+    const bool& multithreading) -> void
 {
     findFiles();
 
@@ -123,8 +125,7 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
             continue;
         }
 
-        runner.addTask(
-            [this, &taskTracker, &mesh, &cacheNIFs] { taskTracker.completeJob(mapTexturesFromNIF(mesh, cacheNIFs)); });
+        runner.addTask([this, &taskTracker, &mesh] { taskTracker.completeJob(mapTexturesFromNIF(mesh)); });
     }
 
     // Blocks until all tasks are done
@@ -207,29 +208,40 @@ auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const ve
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, const bool& cacheNIFs)
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -> ParallaxGenTask::PGResult
 {
     auto result = ParallaxGenTask::PGResult::SUCCESS;
 
     // Load NIF
-    vector<std::byte> nifBytes;
-    try {
-        nifBytes = getFile(nifPath, cacheNIFs);
-    } catch (const exception& e) {
-        spdlog::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
-        return ParallaxGenTask::PGResult::FAILURE;
+    NifCache nifCache;
+    {
+        vector<std::byte> nifBytes;
+        try {
+            nifBytes = getFile(nifPath);
+        } catch (const exception& e) {
+            spdlog::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
+            return ParallaxGenTask::PGResult::FAILURE;
+        }
+
+        boost::crc_32_type crcBeforeResult {};
+        crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
+        nifCache.origcrc32 = crcBeforeResult.checksum();
+
+        if (PGGlobals::getHighMemMode()) {
+            nifCache.loaded = true;
+        }
+
+        try {
+            // Attempt to load NIF file
+            nifCache.nif = NIFUtil::loadNIFFromBytes(nifBytes);
+        } catch (const exception& e) {
+            // Unable to read NIF, delete from Meshes set
+            spdlog::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
+            return ParallaxGenTask::PGResult::FAILURE;
+        }
     }
 
-    NifFile nif;
-    try {
-        // Attempt to load NIF file
-        nif = NIFUtil::loadNIFFromBytes(nifBytes);
-    } catch (const exception& e) {
-        // Unable to read NIF, delete from Meshes set
-        spdlog::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
-        return ParallaxGenTask::PGResult::FAILURE;
-    }
+    auto& nif = nifCache.nif;
 
     // Loop through each shape
     bool hasAtLeastOneTextureSet = false;
@@ -403,9 +415,14 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
         }
     }
 
+    if (!PGGlobals::getHighMemMode()) {
+        // clear NIF because we are not caching it
+        nifCache.nif.Clear();
+    }
+
     if (hasAtLeastOneTextureSet) {
         // Add mesh to set
-        addMesh(nifPath);
+        addMesh(nifPath, nifCache);
     }
 
     return result;
@@ -446,13 +463,13 @@ auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path, const 
     }
 }
 
-auto ParallaxGenDirectory::addMesh(const filesystem::path& path) -> void
+auto ParallaxGenDirectory::addMesh(const filesystem::path& path, const NifCache& nifCache) -> void
 {
     // Use mutex to make this thread safe
     const lock_guard<mutex> lock(m_meshesMutex);
 
     // Add mesh to set
-    m_meshes.insert(path);
+    m_meshes[path] = nifCache;
 }
 
 auto ParallaxGenDirectory::getTextureMap(const NIFUtil::TextureSlots& slot)
@@ -467,7 +484,7 @@ auto ParallaxGenDirectory::getTextureMapConst(const NIFUtil::TextureSlots& slot)
     return m_textureMaps.at(static_cast<size_t>(slot));
 }
 
-auto ParallaxGenDirectory::getMeshes() const -> const unordered_set<filesystem::path>& { return m_meshes; }
+auto ParallaxGenDirectory::getMeshes() const -> const unordered_map<filesystem::path, NifCache>& { return m_meshes; }
 
 auto ParallaxGenDirectory::getTextures() const -> const unordered_set<filesystem::path>& { return m_textures; }
 

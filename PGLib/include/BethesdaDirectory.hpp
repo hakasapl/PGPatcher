@@ -88,9 +88,6 @@ private:
     std::mutex m_fileMapMutex; /** < Mutex for the file map */
     std::vector<ModFile> m_modFiles; /** < Stores files in mod staging directory */
 
-    std::unordered_map<std::filesystem::path, std::vector<std::byte>> m_fileCache; /** < Stores a cache of file bytes */
-    std::mutex m_fileCacheMutex; /** < Mutex for the file cache map */
-
     bool m_logging; /** < Bool for whether logging is enabled or not */
     BethesdaGame* m_bg; /** < BethesdaGame which stores a BethesdaGame object
                         corresponding to this load order */
@@ -166,8 +163,7 @@ public:
      * @param relPath path to the file relative to the data directory
      * @return std::vector<std::byte> vector of bytes of the file
      */
-    [[nodiscard]] auto getFile(const std::filesystem::path& relPath, const bool& cacheFile = false)
-        -> std::vector<std::byte>;
+    [[nodiscard]] auto getFile(const std::filesystem::path& relPath) -> std::vector<std::byte>;
 
     /**
      * @brief Get the Mod that has the winning version of the file
@@ -184,11 +180,6 @@ public:
      * @param mod wstring mod label to assign
      */
     void addGeneratedFile(const std::filesystem::path& relPath, std::shared_ptr<ModManagerDirectory::Mod> mod);
-
-    /**
-     * @brief Clear the file cache
-     */
-    auto clearCache() -> void;
 
     /**
      * @brief Check if a file in the load order is a loose file

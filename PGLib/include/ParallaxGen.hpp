@@ -12,6 +12,7 @@
 #include <boost/functional/hash.hpp>
 
 #include "NIFUtil.hpp"
+#include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenTask.hpp"
 #include "patchers/base/PatcherUtil.hpp"
@@ -64,11 +65,6 @@ public:
     static void deleteOutputDir(const bool& preOutput = true);
 
     /**
-     * @brief Cleans up any stale output files that are no longer needed
-     */
-    static void cleanStaleOutput();
-
-    /**
      * @brief Check if the output directory is empty
      *
      * @return true if the output directory is empty
@@ -101,8 +97,8 @@ private:
      * @param dryRun whether to run in dry run mode (no changes made)
      * @return ParallaxGenTask::PGResult result of the patching process
      */
-    static auto patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, const bool& dryRun)
-        -> ParallaxGenTask::PGResult;
+    static auto patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
+        const bool& patchPlugin, const bool& dryRun) -> ParallaxGenTask::PGResult;
 
     // NIF Helpers
 
@@ -120,9 +116,8 @@ private:
      * @return true if the NIF file was processed successfully
      * @return false if the NIF file was not processed successfully
      */
-    static auto processNIF(const std::filesystem::path& nifPath, const std::vector<std::byte>& nifBytes,
-        const bool& patchPlugin, const bool& dryRun,
-        std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
+    static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* origNif, const bool& patchPlugin,
+        const bool& dryRun, std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
         const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr) -> bool;
 
     /**
@@ -140,7 +135,7 @@ private:
      * @return true if the NIF shape was processed successfully
      * @return false if the NIF shape was not processed successfully
      */
-    static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape* nifShape,
+    static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
         const bool& dryRun, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
         const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
         const NIFUtil::ShapeShader* forceShader = nullptr) -> bool;
