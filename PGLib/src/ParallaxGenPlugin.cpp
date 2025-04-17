@@ -163,16 +163,19 @@ auto ParallaxGenPlugin::libGetMatchingTXSTObjs(const wstring& nifName, const int
 
     vector<tuple<int, int, wstring, string, wstring, unsigned int, wstring, unsigned int>> outputArray(length);
     for (int i = 0; i < length; ++i) {
-        const auto* matchedNIFStr = static_cast<const wchar_t*>(matchedNIFArray.at(i));
+        auto matchedNIFStr = wstring(static_cast<const wchar_t*>(matchedNIFArray.at(i)));
+        boost::to_lower(matchedNIFStr);
         LocalFree(static_cast<HGLOBAL>(matchedNIFArray.at(i)));
 
         const auto* matchTypeStr = static_cast<const char*>(matchTypeArray.at(i));
         LocalFree(static_cast<HGLOBAL>(matchTypeArray.at(i)));
 
-        const auto* altTexModKeyStr = static_cast<const wchar_t*>(altTexModKeys.at(i));
+        auto altTexModKeyStr = wstring(static_cast<const wchar_t*>(altTexModKeys.at(i)));
+        boost::to_lower(altTexModKeyStr);
         LocalFree(static_cast<HGLOBAL>(altTexModKeys.at(i)));
 
-        const auto* txstModKeyStr = static_cast<const wchar_t*>(txstModKeys.at(i));
+        auto txstModKeyStr = wstring(static_cast<const wchar_t*>(txstModKeys.at(i)));
+        boost::to_lower(txstModKeyStr);
         LocalFree(static_cast<HGLOBAL>(txstModKeys.at(i)));
 
         outputArray[i] = { txstIdArray[i], altTexIdArray[i], matchedNIFStr, matchTypeStr, altTexModKeyStr,
@@ -198,7 +201,8 @@ auto ParallaxGenPlugin::libGetTXSTSlots(const int& txstIndex) -> array<wstring, 
     for (int i = 0; i < NUM_TEXTURE_SLOTS; ++i) {
         if (slotsArray.at(i) != nullptr) {
             // Convert to C-style string (Ansi)
-            const auto* slotStr = static_cast<const wchar_t*>(slotsArray.at(i));
+            auto slotStr = wstring(static_cast<const wchar_t*>(slotsArray.at(i)));
+            boost::to_lower(slotStr);
             outputArray.at(i) = slotStr;
 
             // Free the unmanaged memory allocated by Marshal.StringToHGlobalAnsi

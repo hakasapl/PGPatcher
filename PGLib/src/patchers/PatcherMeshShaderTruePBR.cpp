@@ -923,6 +923,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(
 
         if (truePBRData.contains(slotName)) {
             std::string newSlot = truePBRData[slotName].get<std::string>();
+            boost::to_lower(newSlot);
 
             // Prepend "textures\\" if it's not already there
             if (!newSlot.empty() && !boost::istarts_with(newSlot, "textures\\")) {

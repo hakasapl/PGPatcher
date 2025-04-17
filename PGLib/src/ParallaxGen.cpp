@@ -293,7 +293,7 @@ auto ParallaxGen::getMeshesFromPluginResults(const std::unordered_map<int, NIFUt
         }
 
         // Add to output
-        output[newNifIdx].first = resultsToApply;
+        output[newNifIdx].first.insert(output[newNifIdx].first.end(), resultsToApply.begin(), resultsToApply.end());
         output[newNifIdx].second = resultShaders;
 
         // Add to mesh tracker
