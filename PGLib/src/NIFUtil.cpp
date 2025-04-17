@@ -471,6 +471,7 @@ auto NIFUtil::getTextureSlot(nifly::NifFile* nif, nifly::NiShape* nifShape, cons
 {
     string texture;
     nif->GetTextureSlot(nifShape, texture, static_cast<unsigned int>(slot));
+    boost::to_lower(texture);
     return texture;
 }
 
@@ -481,6 +482,7 @@ auto NIFUtil::getTextureSlots(nifly::NifFile* nif, nifly::NiShape* nifShape) -> 
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
         string texture;
         const uint32_t result = nif->GetTextureSlot(nifShape, texture, i);
+        boost::to_lower(texture);
 
         if (result == 0 || texture.empty()) {
             // no texture in Slot
@@ -595,7 +597,8 @@ auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape, co
     return outPrefixes;
 }
 
-auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlots) -> array<wstring, NUM_TEXTURE_SLOTS>
+auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlots, const bool& findBaseSlots)
+    -> array<wstring, NUM_TEXTURE_SLOTS>
 {
     array<wstring, NUM_TEXTURE_SLOTS> outSlots;
 
@@ -604,7 +607,14 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
             continue;
         }
 
-        const auto texBase = getTexBase(oldSlots.at(i), static_cast<TextureSlots>(i));
+        wstring texBase;
+        if (findBaseSlots) {
+            // Get the base texture name without suffix
+            texBase = getTexBase(oldSlots.at(i), static_cast<TextureSlots>(i));
+        } else {
+            // Get the full texture name
+            texBase = getTexBase(oldSlots.at(i));
+        }
         outSlots.at(i) = texBase;
     }
 

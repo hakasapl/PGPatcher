@@ -82,8 +82,6 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             // check if j is a json object
             if (j.is_object()) {
                 if (!j.contains("default") || !j.contains("entries")) {
-                    Logger::error(L"TruePBR Config {} is an object without \"default\" and \"entries\", ignoring",
-                        config.wstring());
                     continue;
                 }
 
@@ -172,12 +170,7 @@ auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShap
     auto* const nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
-    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_RGB_TINT)) {
-        Logger::trace(L"Cannot Apply: Facegen RGB Tint");
-        return false;
-    }
-
-    return true;
+    return !NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_RGB_TINT);
 }
 
 auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
@@ -186,24 +179,17 @@ auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape, std::vector
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
-    Logger::trace(L"Starting checking");
-
     matches.clear();
 
     // Find Old Slots
     auto oldSlots = getTextureSet(nifShape);
 
-    if (shouldApply(oldSlots, matches)) {
-        Logger::trace(L"{} PBR configs matched", matches.size());
-    } else {
-        Logger::trace(L"No PBR Configs matched");
-    }
+    shouldApply(oldSlots, matches);
 
     if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01)) {
         // Check if RMAOS exists
         const auto& rmaosPath = oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)];
         if (!rmaosPath.empty() && getPGD()->isFile(rmaosPath)) {
-            Logger::trace(L"This shape already has PBR");
             PatcherMatch match;
             match.matchedPath = getNIFPath().wstring();
             matches.insert(matches.begin(), match);
@@ -217,14 +203,14 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     -> bool
 {
     // get search prefixes
-    auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots);
+    auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots, false);
 
     map<size_t, tuple<nlohmann::json, wstring>> truePBRData;
     // "match_normal" attribute: Binary search for normal map
-    getSlotMatch(truePBRData, searchPrefixes[1], getTruePBRNormalInverse(), L"match_normal", getNIFPath().wstring());
+    getSlotMatch(truePBRData, searchPrefixes[1], getTruePBRNormalInverse(), getNIFPath().wstring());
 
     // "match_diffuse" attribute: Binary search for diffuse map
-    getSlotMatch(truePBRData, searchPrefixes[0], getTruePBRDiffuseInverse(), L"match_diffuse", getNIFPath().wstring());
+    getSlotMatch(truePBRData, searchPrefixes[0], getTruePBRDiffuseInverse(), getNIFPath().wstring());
 
     // "path_contains" attribute: Linear search for path_contains
     getPathContainsMatch(truePBRData, searchPrefixes[0], getNIFPath().wstring());
@@ -261,7 +247,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
         bool deleteShape = false;
         for (const auto& [sequence, data] : jsonData) {
             if (get<0>(data).contains("delete") && get<0>(data)["delete"].get<bool>()) {
-                Logger::trace(L"PBR JSON Match: Result marked for deletion, skipping slot checks");
+                // marked for deletion, skip slot checks
                 deleteShape = true;
                 break;
             }
@@ -313,7 +299,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
         }
 
         if (getPGD()->getTextureType(rmaosPath) == NIFUtil::TextureType::RMAOS) {
-            Logger::trace(L"Found RMAOS without JSON: {}", rmaosPath);
+            // found RMAOS without json
             PatcherMatch match;
             match.matchedPath = rmaosPath;
             matches.insert(matches.begin(), match);
@@ -324,8 +310,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
 }
 
 void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t, tuple<nlohmann::json, wstring>>& truePBRData,
-    const wstring& texName, const map<wstring, vector<size_t>>& lookup, const wstring& slotLabel,
-    const wstring& nifPath)
+    const wstring& texName, const map<wstring, vector<size_t>>& lookup, const wstring& nifPath)
 {
     // binary search for map
     auto mapReverse = boost::to_lower_copy(texName);
@@ -346,7 +331,6 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t, tuple<nlohmann::json, ws
         // Check if match is current iterator, just continue here
     } else {
         // No match found
-        Logger::trace(L"No PBR JSON match found for \"{}\":\"{}\"", slotLabel, texName);
         return;
     }
 
@@ -375,11 +359,8 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t, tuple<nlohmann::json, ws
     }
 
     if (cfgs.empty()) {
-        Logger::trace(L"No PBR JSON match found for \"{}\":\"{}\"", slotLabel, texName);
         return;
     }
-
-    Logger::trace(L"Matched {} PBR JSONs for \"{}\":\"{}\"", cfgs.size(), slotLabel, texName);
 
     // Loop through all matches
     for (const auto& cfg : cfgs) {
@@ -395,7 +376,6 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(
     auto& cache = getPathLookupCache();
 
     // Check for path_contains only if no name match because it's a O(n) operation
-    size_t numMatches = 0;
     for (const auto& config : getPathLookupJSONs()) {
         // Check if in cache
         auto cacheKey = make_tuple(ParallaxGenUtil::utf8toUTF16(config.second["path_contains"].get<string>()), diffuse);
@@ -408,16 +388,8 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(
 
         pathMatch = cache[cacheKey];
         if (pathMatch) {
-            numMatches++;
             insertTruePBRData(truePBRData, diffuse, config.first, nifPath);
         }
-    }
-
-    const wstring slotLabel = L"path_contains";
-    if (numMatches > 0) {
-        Logger::trace(L"Matched {} PBR JSONs for \"{}\":\"{}\"", numMatches, slotLabel, diffuse);
-    } else {
-        Logger::trace(L"No PBR JSON match found for \"{}\":\"{}\"", slotLabel, diffuse);
     }
 }
 
@@ -429,7 +401,6 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
 
     // Check if we should skip this due to nif filter (this is expsenive, so we do it last)
     if (curCfg.contains("nif_filter") && !boost::icontains(nifPath, curCfg["nif_filter"].get<string>())) {
-        Logger::trace(L"Config {} PBR JSON Rejected: nif_filter {}", cfg, nifPath);
         return;
     }
 
@@ -453,8 +424,6 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
         }
     }
 
-    Logger::trace(L"Config {} PBR texture path created: {}", cfg, matchedField);
-
     // Check if named_field is a directory
     wstring matchedPath = boost::to_lower_copy(texPath + matchedField);
     const bool enableTruePBR = (!curCfg.contains("pbr") || curCfg["pbr"]) && !matchedPath.empty();
@@ -462,7 +431,6 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
         matchedPath = L"";
     }
 
-    Logger::trace(L"Config {} PBR JSON accepted", cfg);
     truePBRData.insert({ cfg, { curCfg, matchedPath } });
 }
 
@@ -989,11 +957,6 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape, NiShader*
 
     // Enable PBR flag
     changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
-
-    if (truePBRData.contains("subsurface_foliage") && truePBRData["subsurface_foliage"].get<bool>()
-        && truePBRData.contains("subsurface") && truePBRData["subsurface"].get<bool>()) {
-        Logger::error(L"Error: Subsurface and foliage NIFShader chosen at once, undefined behavior!");
-    }
 
     // "subsurface" attribute
     if (truePBRData.contains("subsurface")) {

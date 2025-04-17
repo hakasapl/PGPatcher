@@ -9,7 +9,6 @@
 #include <string>
 #include <unordered_set>
 
-#include "PGCache.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGen.hpp"
 #include "ParallaxGenD3D.hpp"
@@ -87,15 +86,12 @@ void mainRunner(PGToolsCLIArgs& args)
         auto startTime = chrono::high_resolution_clock::now();
         long long timeTaken = 0;
 
-        // disable cache for PGtools
-        PGCache::enableCache(false);
-
         args.Patch.source = filesystem::absolute(args.Patch.source);
         args.Patch.output = filesystem::absolute(args.Patch.output);
 
         auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output, nullptr);
         PGGlobals::setPGD(&pgd);
-        auto pgd3D = ParallaxGenD3D(&pgd, exePath / "shaders");
+        auto pgd3D = ParallaxGenD3D(exePath / "shaders");
         PGGlobals::setPGD3D(&pgd3D);
 
         Patcher::loadStatics(pgd, pgd3D);
@@ -132,7 +128,8 @@ void mainRunner(PGToolsCLIArgs& args)
         pgd.populateFileMap(false);
 
         // Map files
-        pgd.mapFiles({}, {}, {}, {}, args.multithreading, args.Patch.highMem);
+        PGGlobals::setHighMemMode(args.Patch.highMem);
+        pgd.mapFiles({}, {}, {}, {}, args.multithreading);
 
         // Split patchers into names and options
         unordered_map<string, unordered_map<string, string>> patcherDefs;
@@ -220,9 +217,6 @@ void mainRunner(PGToolsCLIArgs& args)
         if (patcherDefs.contains("particlelightstolp")) {
             PatcherMeshGlobalParticleLightsToLP::finalize();
         }
-
-        // Release cached files, if any
-        pgd.clearCache();
 
         // Check if dynamic cubemap file is needed
         if (args.Patch.patchers.contains("complexmaterial")) {

@@ -21,6 +21,13 @@
 class ModManagerDirectory;
 
 class ParallaxGenDirectory : public BethesdaDirectory {
+public:
+    struct NifCache {
+        nifly::NifFile nif;
+        unsigned int origcrc32;
+        bool loaded = false;
+    };
+
 private:
     static constexpr int MAPTEXTURE_PROGRESS_MODULO = 10;
 
@@ -44,7 +51,7 @@ private:
         NUM_TEXTURE_SLOTS>
         m_textureMaps;
     std::unordered_map<std::filesystem::path, TextureDetails> m_textureTypes;
-    std::unordered_set<std::filesystem::path> m_meshes;
+    std::unordered_map<std::filesystem::path, NifCache> m_meshes;
     std::unordered_set<std::filesystem::path> m_textures;
     std::vector<std::filesystem::path> m_pbrJSONs;
 
@@ -71,16 +78,12 @@ public:
     /// @param cacheNIFs Faster but higher memory consumption
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist, const std::vector<std::wstring>& nifAllowlist,
         const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
-        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true,
-        const bool& cacheNIFs = false) -> void;
+        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true) -> void;
 
 private:
     auto findFiles() -> void;
 
-    static auto shouldProcessNIF(const std::filesystem::path& nifPath, nlohmann::json& nifCache) -> bool;
-
-    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& cacheNIF = false)
-        -> ParallaxGenTask::PGResult;
+    auto mapTexturesFromNIF(const std::filesystem::path& nifPath) -> ParallaxGenTask::PGResult;
 
     auto updateUnconfirmedTexturesMap(
         const std::filesystem::path& path, const NIFUtil::TextureSlots& slot, const NIFUtil::TextureType& type) -> void;
@@ -88,7 +91,7 @@ private:
     auto addToTextureMaps(const std::filesystem::path& path, const NIFUtil::TextureSlots& slot,
         const NIFUtil::TextureType& type, const std::unordered_set<NIFUtil::TextureAttribute>& attributes) -> void;
 
-    auto addMesh(const std::filesystem::path& path) -> void;
+    auto addMesh(const std::filesystem::path& path, const NifCache& nifCache) -> void;
 
 public:
     static auto checkGlobMatchInVector(const std::wstring& check, const std::vector<std::wstring>& list) -> bool;
@@ -121,7 +124,7 @@ public:
     [[nodiscard]] auto getTextureMapConst(const NIFUtil::TextureSlots& slot) const
         -> const std::map<std::wstring, std::unordered_set<NIFUtil::PGTexture, NIFUtil::PGTextureHasher>>&;
 
-    [[nodiscard]] auto getMeshes() const -> const std::unordered_set<std::filesystem::path>&;
+    [[nodiscard]] auto getMeshes() const -> const std::unordered_map<std::filesystem::path, NifCache>&;
 
     [[nodiscard]] auto getTextures() const -> const std::unordered_set<std::filesystem::path>&;
 

@@ -2,8 +2,10 @@
 
 ## [0.8.12] - UNRELEASED
 
-- Added persistent caching for NIFs and DDSs for faster updating of existing outputs
 - Improved efficiency of mod folder mapping by only checking relevant folders
+- Improved efficiency of loose file mapping by only checking relevant folders
+- Improved efficiency of BSA file loading (about 2x speed difference)
+- High memory option will now preserve one step up the stack resulting in faster runtimes
 - Changed PBR matching behavior - now known suffixes will not be removed from match_diffuse and match_normal
 - Map textures from meshes option is removed, it is now always enabled
 - Fixed duplicate meshes with no shader type sometimes getting wrong textures due to common texture sets

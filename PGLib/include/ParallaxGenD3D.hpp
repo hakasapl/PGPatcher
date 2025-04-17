@@ -12,15 +12,11 @@
 #include <unordered_map>
 #include <vector>
 
-#include "ParallaxGenDirectory.hpp"
-
 class ParallaxGenD3D {
 private:
     static constexpr unsigned NUM_GPU_THREADS = 16;
     static constexpr unsigned GPU_BUFFER_SIZE_MULTIPLE = 16;
     static constexpr unsigned MAX_CHANNEL_VALUE = 255;
-
-    ParallaxGenDirectory* m_pgd;
 
     std::filesystem::path m_shaderPath;
 
@@ -69,7 +65,7 @@ public:
      * @param pgd Pointer to the ParallaxGenDirectory object
      * @param shaderPath Path to shader folder
      */
-    ParallaxGenD3D(ParallaxGenDirectory* pgd, std::filesystem::path shaderPath);
+    ParallaxGenD3D(std::filesystem::path shaderPath);
 
     /**
      * @brief Initialize GPU. This must be called before any other GPU functions

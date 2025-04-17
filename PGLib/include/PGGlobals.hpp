@@ -9,7 +9,11 @@ private:
     static ParallaxGenD3D* s_PGD3D;
     static ModManagerDirectory* s_MMD;
 
+    static bool s_highMemMode;
+
 public:
+    static inline std::unordered_set<std::filesystem::path> s_foldersToMap = { "meshes", "textures", "pbrnifpatcher" };
+
     static auto getPGD() -> ParallaxGenDirectory*;
     static void setPGD(ParallaxGenDirectory* pgd);
 
@@ -18,4 +22,7 @@ public:
 
     static auto getMMD() -> ModManagerDirectory*;
     static void setMMD(ModManagerDirectory* mmd);
+
+    static auto getHighMemMode() -> bool;
+    static void setHighMemMode(const bool& highMemMode);
 };
