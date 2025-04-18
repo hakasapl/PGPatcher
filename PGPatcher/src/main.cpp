@@ -351,9 +351,9 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     }
     if (params.ShaderTransforms.parallaxToCM) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
-        meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()].emplace(
-            PatcherMeshShaderTransformParallaxToCM::getToShader(),
-            PatcherMeshShaderTransformParallaxToCM::getFactory());
+        meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
+            = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
+                  PatcherMeshShaderTransformParallaxToCM::getFactory() };
 
         // initialize patcher hooks
         if (!PatcherTextureHookConvertToCM::initShader()) {

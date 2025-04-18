@@ -38,6 +38,7 @@
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+#include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 
 using namespace std;
@@ -77,7 +78,7 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     for (auto& [mesh, nifCache] : meshes) {
         meshRunner.addTask([&taskTracker, &mesh, &nifCache, &patchPlugin] {
-            taskTracker.completeJob(patchNIF(mesh, nifCache, patchPlugin, false));
+            taskTracker.completeJob(patchNIF(mesh, nifCache, patchPlugin));
         });
     }
 
@@ -129,7 +130,7 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
     // Add tasks
     for (auto& [mesh, nifCache] : meshes) {
         runner.addTask([&taskTracker, &mesh, &nifCache, &patchPlugin] {
-            taskTracker.completeJob(patchNIF(mesh, nifCache, patchPlugin, true));
+            taskTracker.completeJob(populateModInfoFromNIF(mesh, nifCache, patchPlugin));
         });
     }
 
@@ -316,9 +317,31 @@ auto ParallaxGen::getDuplicateNIFPath(const std::filesystem::path& nifPath, cons
     return newNIFPath;
 }
 
-auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
-    const bool& patchPlugin, const bool& dryRun) -> ParallaxGenTask::PGResult
+auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
+    const ParallaxGenDirectory::NifCache& nifCache, const bool& patchPlugin) -> ParallaxGenTask::PGResult
 {
+    const auto patcherObjects = createNIFPatcherObjects(nifPath, nullptr);
+
+    // loop through each texture set in cache
+    for (const auto& textureSet : nifCache.textureSets) {
+        // find matches
+        const auto matches = PatcherUtil::getMatches(textureSet.second, patcherObjects, true);
+
+        if (patchPlugin) {
+            ParallaxGenPlugin::processShape(nifPath.wstring(), patcherObjects, textureSet.first, true);
+        }
+    }
+
+    return ParallaxGenTask::PGResult::SUCCESS;
+}
+
+auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
+    const bool& patchPlugin) -> ParallaxGenTask::PGResult
+{
+    if (boost::icontains(nifPath.wstring(), "lilypadcluster01.nif")) {
+        spdlog::info("HERE");
+    }
+
     auto* const pgd = PGGlobals::getPGD();
 
     const PGDiag::Prefix nifPrefix("meshes", nlohmann::json::value_t::object);
@@ -353,7 +376,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDire
 
     // Process NIF
     bool nifModified = false;
-    processNIF(nifPath, origNif, patchPlugin, dryRun, createdNIFs, nifModified);
+    processNIF(nifPath, origNif, patchPlugin, createdNIFs, nifModified);
 
     for (auto& [createdNIFFile, nifParams] : createdNIFs) {
         const bool needsDiff = createdNIFFile == nifPath;
@@ -423,7 +446,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDire
 }
 
 auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFile* origNif, const bool& patchPlugin,
-    const bool& dryRun, std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
+    std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
     const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders) -> bool
 {
     if (origNif == nullptr) {
@@ -436,14 +459,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
     // Load NIF file
     NifFile* nif = nullptr;
     NifFile clonedNif;
-    if (dryRun) {
-        // if dryrun we won't be modifying anyway so no need to copy
-        nif = origNif;
-    } else {
-        // copy NIF to avoid modifying the original
-        clonedNif.CopyFrom(*origNif);
-        nif = &clonedNif;
-    }
+    clonedNif.CopyFrom(*origNif);
+    nif = &clonedNif;
 
     createdNIFs[nifPath] = {};
 
@@ -531,8 +548,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
                 canApplyMap[shader] = patcher->canApply(*nifShape);
             }
 
-            nifModified |= processNIFShape(nifPath, nif, nifShape, dryRun, canApplyMap, patcherObjects,
-                shadersAppliedMesh[oldIndex3D], ptrShaderForce);
+            nifModified |= processNIFShape(
+                nifPath, nif, nifShape, canApplyMap, patcherObjects, shadersAppliedMesh[oldIndex3D], ptrShaderForce);
         }
 
         // Update nifModified if shape was modified
@@ -542,7 +559,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
             {
                 const PGDiag::Prefix diagPluginPrefix("plugins", nlohmann::json::value_t::object);
                 ParallaxGenPlugin::processShape(
-                    nifPath.wstring(), dryRun, canApplyMap, patcherObjects, oldIndex3D, shapeIDStr, results);
+                    nifPath.wstring(), patcherObjects, oldIndex3D, false, &canApplyMap, shapeIDStr, &results);
             }
 
             // Loop through results
@@ -563,12 +580,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
         }
     }
 
-    if (dryRun) {
-        // no need to continue if just getting mod conflicts
-        nifModified = false;
-        return false;
-    }
-
     if (patchPlugin && forceShaders == nullptr) {
         // create ShapeIdxs vector
         vector<int> shapeIdxs;
@@ -583,7 +594,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
             if (dupIdx > 0) {
                 const auto newNIFPath = getDuplicateNIFPath(nifPath, dupIdx);
                 // create a duplicate nif file
-                if (processNIF(newNIFPath, origNif, patchPlugin, dryRun, createdNIFs, nifModified, &results.second)) {
+                if (processNIF(newNIFPath, origNif, patchPlugin, createdNIFs, nifModified, &results.second)) {
                     createdNIFs[newNIFPath].txstResults = results.first;
                     createdNIFs[newNIFPath].shadersAppliedMesh = results.second;
                 }
@@ -640,9 +651,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
 }
 
 auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
-    const bool& dryRun, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
-    const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
-    const NIFUtil::ShapeShader* forceShader) -> bool
+    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const PatcherUtil::PatcherMeshObjectSet& patchers,
+    NIFUtil::ShapeShader& shaderApplied, const NIFUtil::ShapeShader* forceShader) -> bool
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
@@ -661,7 +671,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
         throw runtime_error("Force shader is UNKNOWN");
     }
 
-    const auto slots = NIFUtil::getTextureSlots(nif, nifShape);
+    const auto slots = PatcherMeshShader::getTextureSet(nifPath, *nif, *nifShape);
 
     PGDiag::insert("origTextures", NIFUtil::textureSetToStr(slots));
 
@@ -681,9 +691,14 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     shaderApplied = NIFUtil::ShapeShader::NONE;
 
     // Allowed shaders from result of patchers
-    auto matches = PatcherUtil::getMatches(slots, patchers, canApply, dryRun);
-    if (dryRun) {
-        return true;
+    auto matches = PatcherUtil::getMatches(slots, patchers, false);
+    // remove any matches that cannot apply
+    for (auto it = matches.begin(); it != matches.end();) {
+        if (!canApply.contains(it->shader) && !canApply.contains(it->shaderTransformTo)) {
+            it = matches.erase(it);
+        } else {
+            ++it;
+        }
     }
 
     // if forceshader is set, remove any matches that cannot be applied
@@ -770,10 +785,8 @@ auto ParallaxGen::createNIFPatcherObjects(const std::filesystem::path& nifPath, 
         patcherObjects.shaderPatchers.emplace(shader, std::move(patcher));
     }
     for (const auto& [shader, factory] : s_meshPatchers.shaderTransformPatchers) {
-        for (const auto& [transformShader, transformFactory] : factory) {
-            auto transform = transformFactory(nifPath, nif);
-            patcherObjects.shaderTransformPatchers[shader].emplace(transformShader, std::move(transform));
-        }
+        auto transform = factory.second(nifPath, nif);
+        patcherObjects.shaderTransformPatchers[shader] = { factory.first, std::move(transform) };
     }
     for (const auto& factory : s_meshPatchers.postPatchers) {
         auto patcher = factory(nifPath, nif);

@@ -26,6 +26,7 @@ public:
         nifly::NifFile nif;
         unsigned int origcrc32;
         bool loaded = false;
+        std::vector<std::pair<int, NIFUtil::TextureSet>> textureSets;
     };
 
 private:

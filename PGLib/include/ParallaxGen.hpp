@@ -98,7 +98,10 @@ private:
      * @return ParallaxGenTask::PGResult result of the patching process
      */
     static auto patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
-        const bool& patchPlugin, const bool& dryRun) -> ParallaxGenTask::PGResult;
+        const bool& patchPlugin) -> ParallaxGenTask::PGResult;
+
+    static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
+        const ParallaxGenDirectory::NifCache& nifCache, const bool& patchPlugin) -> ParallaxGenTask::PGResult;
 
     // NIF Helpers
 
@@ -117,7 +120,7 @@ private:
      * @return false if the NIF file was not processed successfully
      */
     static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* origNif, const bool& patchPlugin,
-        const bool& dryRun, std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
+        std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
         const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr) -> bool;
 
     /**
@@ -136,7 +139,7 @@ private:
      * @return false if the NIF shape was not processed successfully
      */
     static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
-        const bool& dryRun, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
+        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
         const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
         const NIFUtil::ShapeShader* forceShader = nullptr) -> bool;
 
