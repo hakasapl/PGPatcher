@@ -97,8 +97,7 @@ private:
      * @param dryRun whether to run in dry run mode (no changes made)
      * @return ParallaxGenTask::PGResult result of the patching process
      */
-    static auto patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
-        const bool& patchPlugin) -> ParallaxGenTask::PGResult;
+    static auto patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin) -> ParallaxGenTask::PGResult;
 
     static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
         const ParallaxGenDirectory::NifCache& nifCache, const bool& patchPlugin) -> ParallaxGenTask::PGResult;

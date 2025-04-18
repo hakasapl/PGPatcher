@@ -33,8 +33,8 @@ using namespace std;
 auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
 {
     const static unordered_map<NIFUtil::ShapeShader, string> strFromShaderMap
-        = { { ShapeShader::NONE, "none" }, { ShapeShader::UNKNOWN, "unknown" }, { ShapeShader::TRUEPBR, "pbr" },
-              { ShapeShader::COMPLEXMATERIAL, "complex material" }, { ShapeShader::VANILLAPARALLAX, "parallax" } };
+        = { { ShapeShader::NONE, "None" }, { ShapeShader::UNKNOWN, "Unknown" }, { ShapeShader::TRUEPBR, "PBR" },
+              { ShapeShader::COMPLEXMATERIAL, "Complex Material" }, { ShapeShader::VANILLAPARALLAX, "Parallax" } };
 
     if (strFromShaderMap.find(shader) != strFromShaderMap.end()) {
         return strFromShaderMap.at(shader);
@@ -46,8 +46,8 @@ auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
 auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
 {
     const static unordered_map<string, ShapeShader> shaderFromStrMap
-        = { { "none", ShapeShader::NONE }, { "unknown", ShapeShader::UNKNOWN }, { "pbr", ShapeShader::TRUEPBR },
-              { "complex material", ShapeShader::COMPLEXMATERIAL }, { "parallax", ShapeShader::VANILLAPARALLAX } };
+        = { { "None", ShapeShader::NONE }, { "Unknown", ShapeShader::UNKNOWN }, { "PBR", ShapeShader::TRUEPBR },
+              { "Complex Material", ShapeShader::COMPLEXMATERIAL }, { "Parallax", ShapeShader::VANILLAPARALLAX } };
 
     const auto searchKey = boost::to_lower_copy(shader);
     if (shaderFromStrMap.find(searchKey) != shaderFromStrMap.end()) {

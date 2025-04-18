@@ -23,9 +23,6 @@ class ModManagerDirectory;
 class ParallaxGenDirectory : public BethesdaDirectory {
 public:
     struct NifCache {
-        nifly::NifFile nif;
-        unsigned int origcrc32;
-        bool loaded = false;
         std::vector<std::pair<int, NIFUtil::TextureSet>> textureSets;
     };
 

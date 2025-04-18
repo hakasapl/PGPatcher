@@ -11,7 +11,3 @@ void PGGlobals::setPGD3D(ParallaxGenD3D* pgd3d) { s_PGD3D = pgd3d; }
 ModManagerDirectory* PGGlobals::s_MMD = nullptr;
 auto PGGlobals::getMMD() -> ModManagerDirectory* { return s_MMD; }
 void PGGlobals::setMMD(ModManagerDirectory* mmd) { s_MMD = mmd; }
-
-bool PGGlobals::s_highMemMode = false;
-auto PGGlobals::getHighMemMode() -> bool { return s_highMemMode; }
-void PGGlobals::setHighMemMode(const bool& highMemMode) { s_highMemMode = highMemMode; }

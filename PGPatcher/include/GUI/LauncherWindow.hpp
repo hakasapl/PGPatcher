@@ -102,9 +102,6 @@ private:
     wxCheckBox* m_processingMultithreadingCheckbox;
     void onProcessingMultithreadingChange(wxCommandEvent& event);
 
-    wxCheckBox* m_processingHighMemCheckbox;
-    void onProcessingHighMemChange(wxCommandEvent& event);
-
     wxCheckBox* m_processingBSACheckbox;
     void onProcessingBSAChange(wxCommandEvent& event);
 
@@ -228,7 +225,6 @@ private:
     wxButton*
         m_saveConfigButton; /** Stores the SaveConfigButton as a member var in case it needs to be disabled/enabled */
     wxButton* m_loadConfigButton;
-    wxButton* m_clearCacheButton;
 
     /**
      * @brief Event handler that triggers when the user presses "Start Patching" - performs validation
@@ -257,13 +253,6 @@ private:
      * @param event wxWidgets event object
      */
     void onRestoreDefaultsButtonPressed(wxCommandEvent& event);
-
-    /**
-     * @brief Event handler that triggers when the user presses the "Clear Cache" button
-     *
-     * @param event wxWidgets event object
-     */
-    void onClearCacheButtonPressed(wxCommandEvent& event);
 
     /**
      * @brief Event handler that triggers when the user presses the X on the dialog window, which closes the application

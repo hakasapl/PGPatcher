@@ -77,9 +77,8 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
     ParallaxGenRunner meshRunner(multiThread);
 
     for (auto& [mesh, nifCache] : meshes) {
-        meshRunner.addTask([&taskTracker, &mesh, &nifCache, &patchPlugin] {
-            taskTracker.completeJob(patchNIF(mesh, nifCache, patchPlugin));
-        });
+        meshRunner.addTask(
+            [&taskTracker, &mesh, &patchPlugin] { taskTracker.completeJob(patchNIF(mesh, patchPlugin)); });
     }
 
     // Blocks until all tasks are done
@@ -335,8 +334,7 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
     return ParallaxGenTask::PGResult::SUCCESS;
 }
 
-auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
-    const bool& patchPlugin) -> ParallaxGenTask::PGResult
+auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin) -> ParallaxGenTask::PGResult
 {
     auto* const pgd = PGGlobals::getPGD();
 
@@ -350,29 +348,13 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDire
 
     unordered_map<filesystem::path, NifFileResult> createdNIFs;
 
-    NifFile* origNif = nullptr;
-    if (nifCache.loaded) {
-        // nif is preloaded, use it
-        origNif = &nifCache.nif;
-    } else {
-        // nifCache is not loaded, load it
-        vector<std::byte> nifFileData;
-        // Load NIF file
-        nifFileData = pgd->getFile(nifPath);
-        // Calculate CRC32 hash before
-        if (nifCache.origcrc32 == 0) {
-            boost::crc_32_type crcBeforeResult {};
-            crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
-            nifCache.origcrc32 = crcBeforeResult.checksum();
-        }
-
-        nifCache.nif = NIFUtil::loadNIFFromBytes(nifFileData);
-        origNif = &nifCache.nif;
-    }
+    // nifCache is not loaded, load it
+    const vector<std::byte> nifFileData = pgd->getFile(nifPath);
+    auto origNif = NIFUtil::loadNIFFromBytes(nifFileData);
 
     // Process NIF
     bool nifModified = false;
-    processNIF(nifPath, origNif, patchPlugin, createdNIFs, nifModified);
+    processNIF(nifPath, &origNif, patchPlugin, createdNIFs, nifModified);
 
     for (auto& [createdNIFFile, nifParams] : createdNIFs) {
         const bool needsDiff = createdNIFFile == nifPath;
@@ -400,6 +382,11 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDire
         }
 
         if (needsDiff) {
+            // Find CRC before
+            boost::crc_32_type crcBeforeResult {};
+            crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
+            const auto crcBefore = crcBeforeResult.checksum();
+
             // created NIF is the same filename as original so we need to write to diff file
             // Calculate CRC32 hash after
             const auto outputFileBytes = getFileBytes(outputFile);
@@ -411,7 +398,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDire
             const auto diffJSONKey = utf16toUTF8(nifPath.wstring());
             {
                 const lock_guard<mutex> lock(s_diffJSONMutex);
-                s_diffJSON[diffJSONKey]["crc32original"] = nifCache.origcrc32;
+                s_diffJSON[diffJSONKey]["crc32original"] = crcBefore;
                 s_diffJSON[diffJSONKey]["crc32patched"] = crcAfter;
             }
         }
@@ -431,11 +418,6 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDire
                 ParallaxGenPlugin::set3DIndices(nifPath.wstring(), oldIndex3D, newIndex3D, shapeName);
             }
         }
-    }
-
-    if (!PGGlobals::getHighMemMode()) {
-        // delete nifCache if not in high mem mode
-        nifCache.nif.Clear();
     }
 
     return result;
@@ -690,7 +672,11 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     auto matches = PatcherUtil::getMatches(slots, patchers, false);
     // remove any matches that cannot apply
     for (auto it = matches.begin(); it != matches.end();) {
-        if (!canApply.contains(it->shader) && !canApply.contains(it->shaderTransformTo)) {
+        const bool canApplyShader = canApply.contains(it->shader) && canApply.at(it->shader);
+        const bool canApplyShaderTransform
+            = canApply.contains(it->shaderTransformTo) && canApply.at(it->shaderTransformTo);
+
+        if (!canApplyShader && !canApplyShaderTransform) {
             it = matches.erase(it);
         } else {
             ++it;

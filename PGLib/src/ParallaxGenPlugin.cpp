@@ -408,7 +408,11 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherU
 
         // remove any matches that cannot apply
         for (auto it = matches.begin(); it != matches.end();) {
-            if (!canApply->contains(it->shader) && !canApply->contains(it->shaderTransformTo)) {
+            const bool canApplyShader = canApply->contains(it->shader) && canApply->at(it->shader);
+            const bool canApplyShaderTransform
+                = canApply->contains(it->shaderTransformTo) && canApply->at(it->shaderTransformTo);
+
+            if (!canApplyShader && !canApplyShaderTransform) {
                 it = matches.erase(it);
             } else {
                 ++it;

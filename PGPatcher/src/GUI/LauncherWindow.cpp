@@ -309,15 +309,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
 
     rightSizer->Add(m_saveConfigButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
-    // Clear cache button
-    m_clearCacheButton = new wxButton(this, wxID_ANY, "Clear Cache");
-    wxFont clearCacheButtonFont = m_clearCacheButton->GetFont();
-    clearCacheButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
-    m_clearCacheButton->SetFont(clearCacheButtonFont);
-    m_clearCacheButton->Bind(wxEVT_BUTTON, &LauncherWindow::onClearCacheButtonPressed, this);
-
-    rightSizer->Add(m_clearCacheButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
     // Add a horizontal line
     auto* separatorLine = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
     rightSizer->Add(separatorLine, 0, wxEXPAND | wxALL, BORDER_SIZE);
@@ -363,12 +354,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
     m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
     m_processingOptionsSizer->Add(m_processingMultithreadingCheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_processingHighMemCheckbox = new wxCheckBox(this, wxID_ANY, "High Memory Usage");
-    m_processingHighMemCheckbox->SetToolTip("Uses more memory to speed up processing. You need to have enough RAM to "
-                                            "be able to load ALL your NIFs at once.");
-    m_processingHighMemCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingHighMemChange, this);
-    m_processingOptionsSizer->Add(m_processingHighMemCheckbox, 0, wxALL, BORDER_SIZE);
 
     m_processingBSACheckbox = new wxCheckBox(this, wxID_ANY, "Read BSAs");
     m_processingBSACheckbox->SetToolTip("Read meshes/textures from BSAs in addition to loose files");
@@ -537,7 +522,6 @@ void LauncherWindow::loadConfig()
     m_processingPluginPatchingCheckbox->SetValue(initParams.Processing.pluginPatching);
     m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
-    m_processingHighMemCheckbox->SetValue(initParams.Processing.highMem);
     m_processingBSACheckbox->SetValue(initParams.Processing.bsa);
     m_enableDiagnosticsCheckbox->SetValue(initParams.Processing.diagnostics);
 
@@ -704,8 +688,6 @@ void LauncherWindow::onProcessingMultithreadingChange([[maybe_unused]] wxCommand
 {
     updateDisabledElements();
 }
-
-void LauncherWindow::onProcessingHighMemChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onEnableDiagnosticsChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
@@ -899,7 +881,6 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
     params.Processing.pluginPatching = m_processingPluginPatchingCheckbox->GetValue();
     params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
-    params.Processing.highMem = m_processingHighMemCheckbox->GetValue();
     params.Processing.bsa = m_processingBSACheckbox->GetValue();
     params.Processing.diagnostics = m_enableDiagnosticsCheckbox->GetValue();
 
@@ -1088,9 +1069,6 @@ void LauncherWindow::updateDisabledElements()
 
     // save button
     m_saveConfigButton->Enable(curParams != m_pgc.getParams());
-
-    // clear cache button
-    m_clearCacheButton->Enable(filesystem::exists(m_cacheDir) && !filesystem::is_empty(m_cacheDir));
 }
 
 void LauncherWindow::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)
@@ -1141,31 +1119,6 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
     m_pgc.setParams(ParallaxGenConfig::getDefaultParams());
 
     loadConfig();
-
-    updateDisabledElements();
-}
-
-void LauncherWindow::onClearCacheButtonPressed([[maybe_unused]] wxCommandEvent& event)
-{
-    // Show a confirmation dialog
-    const int response = wxMessageBox("Are you sure you want to clear PGPatcher cache? This should only be done if you "
-                                      "are experiencing issues with the output.",
-        "Confirm Clear Cache", wxYES_NO | wxICON_WARNING, this);
-
-    if (response != wxYES) {
-        return;
-    }
-
-    if (!filesystem::exists(m_cacheDir)) {
-        return;
-    }
-
-    // Delete every JSON file in cache dir
-    for (const auto& entry : filesystem::directory_iterator(m_cacheDir)) {
-        if (entry.path().extension() == ".json") {
-            filesystem::remove(entry.path());
-        }
-    }
 
     updateDisabledElements();
 }
