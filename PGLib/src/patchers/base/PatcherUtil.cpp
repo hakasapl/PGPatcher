@@ -47,7 +47,7 @@ auto PatcherUtil::applyTransformIfNeeded(ShaderPatcherMatch& match, const Patche
     // Transform if required
     if (match.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
         // Find transform object
-        auto* const transform = patchers.shaderTransformPatchers.at(match.shader).at(match.shaderTransformTo).get();
+        auto* const transform = patchers.shaderTransformPatchers.at(match.shader).second.get();
 
         // Transform Shader
         transform->transform(match.match, match.match);
@@ -62,8 +62,7 @@ auto PatcherUtil::applyTransformIfNeeded(ShaderPatcherMatch& match, const Patche
 }
 
 auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const bool& dryRun)
-    -> std::vector<PatcherUtil::ShaderPatcherMatch>
+    const bool& dryRun) -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
     if (PGGlobals::getPGD() == nullptr) {
         throw runtime_error("PGD is null");
@@ -73,18 +72,7 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     if (!dryRun) {
         const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
         if (PatcherUtil::s_shaderMatchCache.contains(slots)) {
-            auto cachedMatches = PatcherUtil::s_shaderMatchCache[slots];
-
-            // Check canApply map
-            for (auto& match : cachedMatches) {
-                if ((canApply.contains(match.shader) && canApply.at(match.shader))
-                    || (canApply.contains(match.shaderTransformTo) && canApply.at(match.shaderTransformTo))) {
-                    // Only include matches that canapply
-                    matches.push_back(match);
-                }
-            }
-
-            return matches;
+            return PatcherUtil::s_shaderMatchCache[slots];
         }
     }
 
@@ -114,25 +102,15 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
             // See if transform is possible
             if (patchers.shaderTransformPatchers.contains(shader)) {
-                const auto& availableTransforms = patchers.shaderTransformPatchers.at(shader);
+                const auto& [shaderTransformTo, transformPatcher] = patchers.shaderTransformPatchers.at(shader);
                 // loop from highest element of map to 0
-                for (const auto& availableTransform : ranges::reverse_view(availableTransforms)) {
-                    if (canApply.contains(availableTransform.first) && canApply.at(availableTransform.first)) {
-                        // Found a transform that can apply, set the transform in the match
-                        curMatch.shaderTransformTo = availableTransform.first;
-                        break;
-                    }
-                }
+                curMatch.shaderTransformTo = shaderTransformTo;
             }
 
-            // Add to matches if shader can apply (or if transform shader exists and can apply)
-            if ((canApply.contains(shader) && canApply.at(shader))
-                || curMatch.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
-                matches.push_back(curMatch);
-                if (curMatch.mod != nullptr) {
-                    // add mod to set
-                    modSet.insert(curMatch.mod);
-                }
+            matches.push_back(curMatch);
+            if (curMatch.mod != nullptr) {
+                // add mod to set
+                modSet.insert(curMatch.mod);
             }
         }
     }

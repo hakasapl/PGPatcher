@@ -268,10 +268,12 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
         // We have a texture set
         hasAtLeastOneTextureSet = true;
 
+        const auto textureSet = NIFUtil::getTextureSlots(&nif, shape);
+        nifCache.textureSets.emplace_back(oldindex3d, textureSet);
+
         // Loop through each texture slot
         for (uint32_t slot = 0; slot < NUM_TEXTURE_SLOTS; slot++) {
-            string texture;
-            nif.GetTextureSlot(shape, texture, slot);
+            string texture = utf16toUTF8(textureSet.at(slot));
 
             if (!containsOnlyAscii(texture)) {
                 spdlog::error(L"NIF {} has texture slot(s) with invalid non-ASCII chars (skipping)", nifPath.wstring());

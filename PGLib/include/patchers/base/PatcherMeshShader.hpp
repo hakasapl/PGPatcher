@@ -30,11 +30,12 @@ private:
     static std::unordered_map<std::tuple<std::filesystem::path, uint32_t>, PatchedTextureSet, PatchedTextureSetsHash>
         s_patchedTextureSets;
 
-protected:
-    auto getTextureSet(nifly::NiShape& nifShape) -> NIFUtil::TextureSet;
-    auto setTextureSet(nifly::NiShape& nifShape, const NIFUtil::TextureSet& textures) -> bool;
-
 public:
+    static auto getTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape)
+        -> NIFUtil::TextureSet;
+    static auto setTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape,
+        const NIFUtil::TextureSet& textures) -> bool;
+
     // type definitions
     using PatcherMeshShaderFactory
         = std::function<std::unique_ptr<PatcherMeshShader>(std::filesystem::path, nifly::NifFile*)>;

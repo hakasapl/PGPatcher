@@ -188,9 +188,9 @@ void mainRunner(PGToolsCLIArgs& args)
             PatcherMeshShaderTruePBR::loadOptions(patcherDefs["truepbr"]);
         }
         if (patcherDefs.contains("parallaxtocm")) {
-            meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()].emplace(
-                PatcherMeshShaderTransformParallaxToCM::getToShader(),
-                PatcherMeshShaderTransformParallaxToCM::getFactory());
+            meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
+                = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
+                      PatcherMeshShaderTransformParallaxToCM::getFactory() };
 
             PatcherTextureHookConvertToCM::initShader();
         }

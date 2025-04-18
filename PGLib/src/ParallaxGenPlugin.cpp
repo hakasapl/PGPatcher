@@ -163,16 +163,19 @@ auto ParallaxGenPlugin::libGetMatchingTXSTObjs(const wstring& nifName, const int
 
     vector<tuple<int, int, wstring, string, wstring, unsigned int, wstring, unsigned int>> outputArray(length);
     for (int i = 0; i < length; ++i) {
-        const auto* matchedNIFStr = static_cast<const wchar_t*>(matchedNIFArray.at(i));
+        auto matchedNIFStr = wstring(static_cast<const wchar_t*>(matchedNIFArray.at(i)));
+        boost::to_lower(matchedNIFStr);
         LocalFree(static_cast<HGLOBAL>(matchedNIFArray.at(i)));
 
         const auto* matchTypeStr = static_cast<const char*>(matchTypeArray.at(i));
         LocalFree(static_cast<HGLOBAL>(matchTypeArray.at(i)));
 
-        const auto* altTexModKeyStr = static_cast<const wchar_t*>(altTexModKeys.at(i));
+        auto altTexModKeyStr = wstring(static_cast<const wchar_t*>(altTexModKeys.at(i)));
+        boost::to_lower(altTexModKeyStr);
         LocalFree(static_cast<HGLOBAL>(altTexModKeys.at(i)));
 
-        const auto* txstModKeyStr = static_cast<const wchar_t*>(txstModKeys.at(i));
+        auto txstModKeyStr = wstring(static_cast<const wchar_t*>(txstModKeys.at(i)));
+        boost::to_lower(txstModKeyStr);
         LocalFree(static_cast<HGLOBAL>(txstModKeys.at(i)));
 
         outputArray[i] = { txstIdArray[i], altTexIdArray[i], matchedNIFStr, matchTypeStr, altTexModKeyStr,
@@ -198,7 +201,8 @@ auto ParallaxGenPlugin::libGetTXSTSlots(const int& txstIndex) -> array<wstring, 
     for (int i = 0; i < NUM_TEXTURE_SLOTS; ++i) {
         if (slotsArray.at(i) != nullptr) {
             // Convert to C-style string (Ansi)
-            const auto* slotStr = static_cast<const wchar_t*>(slotsArray.at(i));
+            auto slotStr = wstring(static_cast<const wchar_t*>(slotsArray.at(i)));
+            boost::to_lower(slotStr);
             outputArray.at(i) = slotStr;
 
             // Free the unmanaged memory allocated by Marshal.StringToHGlobalAnsi
@@ -339,13 +343,19 @@ auto ParallaxGenPlugin::getKeyFromFormID(const tuple<unsigned int, wstring, wstr
         + format("{:X}", get<0>(formID));
 }
 
-void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dryRun,
-    const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const PatcherUtil::PatcherMeshObjectSet& patchers,
-    const int& index3D, const std::string& shapeKey, std::vector<TXSTResult>& results)
+void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherUtil::PatcherMeshObjectSet& patchers,
+    const int& index3D, const bool& dryRun, const std::unordered_map<NIFUtil::ShapeShader, bool>* canApply,
+    const std::string& shapeKey, std::vector<TXSTResult>* results)
 {
+    if ((results == nullptr || canApply == nullptr || shapeKey.empty()) && !dryRun) {
+        throw runtime_error("Non dryrun parameters not present");
+    }
+
     const lock_guard<mutex> lock(s_processShapeMutex);
 
-    results.clear();
+    if (!dryRun) {
+        results->clear();
+    }
 
     // loop through matches
     const auto matches = libGetMatchingTXSTObjs(nifPath, index3D);
@@ -359,9 +369,11 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dr
             = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
         const auto txstJSONKey = ParallaxGenUtil::utf16toUTF8(txstModKey) + " / " + to_string(txstFormID);
 
-        const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
-        const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
-        PGDiag::insert("origIndex3D", index3D);
+        if (!dryRun) {
+            const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
+            const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
+            PGDiag::insert("origIndex3D", index3D);
+        }
 
         // Output information
         TXSTResult curResult;
@@ -389,9 +401,18 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dr
             }
         }
 
-        const auto matches = PatcherUtil::getMatches(baseSlots, patchers, canApply, dryRun);
+        auto matches = PatcherUtil::getMatches(baseSlots, patchers, dryRun);
         if (dryRun) {
             return;
+        }
+
+        // remove any matches that cannot apply
+        for (auto it = matches.begin(); it != matches.end();) {
+            if (!canApply->contains(it->shader) && !canApply->contains(it->shaderTransformTo)) {
+                it = matches.erase(it);
+            } else {
+                ++it;
+            }
         }
 
         // Get winning match
@@ -441,7 +462,7 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dr
             // No need to patch
             spdlog::trace(L"Plugin Patching | {} | {} | Not patching because nothing to change", nifPath, index3D);
             curResult.txstIndex = txstIndex;
-            results.push_back(curResult);
+            results->push_back(curResult);
             continue;
         }
 
@@ -455,7 +476,7 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dr
                 // Already modded
                 spdlog::trace(L"Plugin Patching | {} | {} | Already added, skipping", nifPath, index3D);
                 curResult.txstIndex = s_createdTXSTs[newSlots].first;
-                results.push_back(curResult);
+                results->push_back(curResult);
 
                 PGDiag::insert("newTXST", s_createdTXSTs[newSlots].second);
 
@@ -494,7 +515,8 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dr
             s_txstUsedFormIDs.insert(newFormID);
 
             // Find EDID
-            const string newEDID = fmt::format("PGTXST{:06X}", newFormID);
+            const auto edidLabel = ParallaxGenUtil::utf16toUTF8(filesystem::path(baseSlots.at(0)).stem().wstring());
+            const string newEDID = fmt::format("PG_{}_{:06X}", edidLabel, newFormID);
 
             // create new TXST record with chosen form ID
             curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
@@ -508,7 +530,7 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const bool& dr
         }
 
         // add to result
-        results.push_back(curResult);
+        results->push_back(curResult);
     }
 }
 

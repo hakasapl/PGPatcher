@@ -9,6 +9,8 @@
 - Changed PBR matching behavior - now known suffixes will not be removed from match_diffuse and match_normal
 - Map textures from meshes option is removed, it is now always enabled
 - Fixed duplicate meshes with no shader type sometimes getting wrong textures due to common texture sets
+- Texture patching is split into its own section now
+- PG EDIDs are more reable using the diffuse texture name
 
 ## [0.8.11] - 2025-04-05
 

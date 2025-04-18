@@ -30,7 +30,7 @@ public:
         std::vector<PatcherMeshPre::PatcherMeshPreObject> prePatchers;
         std::unordered_map<NIFUtil::ShapeShader, PatcherMeshShader::PatcherMeshShaderObject> shaderPatchers;
         std::unordered_map<NIFUtil::ShapeShader,
-            std::map<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformObject>>
+            std::pair<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformObject>>
             shaderTransformPatchers;
         std::vector<PatcherMeshPost::PatcherMeshPostObject> postPatchers;
     };
@@ -44,7 +44,7 @@ public:
         std::vector<PatcherMeshPre::PatcherMeshPreFactory> prePatchers;
         std::unordered_map<NIFUtil::ShapeShader, PatcherMeshShader::PatcherMeshShaderFactory> shaderPatchers;
         std::unordered_map<NIFUtil::ShapeShader,
-            std::map<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory>>
+            std::pair<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory>>
             shaderTransformPatchers;
         std::vector<PatcherMeshPost::PatcherMeshPostFactory> postPatchers;
     };
@@ -139,6 +139,5 @@ private:
 
 public:
     static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply, const bool& dryRun)
-        -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+        const bool& dryRun) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 };

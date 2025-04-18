@@ -1,6 +1,7 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 
 #include "NIFUtil.hpp"
+#include "NifFile.hpp"
 #include "ParallaxGenUtil.hpp"
 #include <BasicTypes.hpp>
 #include <Shaders.hpp>
@@ -24,13 +25,14 @@ PatcherMeshShader::PatcherMeshShader(filesystem::path nifPath, nifly::NifFile* n
 {
 }
 
-auto PatcherMeshShader::getTextureSet(nifly::NiShape& nifShape) -> array<wstring, NUM_TEXTURE_SLOTS>
+auto PatcherMeshShader::getTextureSet(const filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape)
+    -> array<wstring, NUM_TEXTURE_SLOTS>
 {
     const lock_guard<mutex> lock(s_patchedTextureSetsMutex);
 
-    auto* const nifShader = getNIF()->GetShader(&nifShape);
-    const auto texturesetBlockID = getNIF()->GetBlockID(getNIF()->GetHeader().GetBlock(nifShader->TextureSetRef()));
-    const auto nifShapeKey = make_tuple(getNIFPath(), texturesetBlockID);
+    auto* const nifShader = nif.GetShader(&nifShape);
+    const auto texturesetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
+    const auto nifShapeKey = make_tuple(nifPath, texturesetBlockID);
 
     // check if in patchedtexturesets
     if (s_patchedTextureSets.find(nifShapeKey) != s_patchedTextureSets.end()) {
@@ -38,17 +40,17 @@ auto PatcherMeshShader::getTextureSet(nifly::NiShape& nifShape) -> array<wstring
     }
 
     // get the texture slots
-    return NIFUtil::getTextureSlots(getNIF(), &nifShape);
+    return NIFUtil::getTextureSlots(&nif, &nifShape);
 }
 
-auto PatcherMeshShader::setTextureSet(nifly::NiShape& nifShape, const array<wstring, NUM_TEXTURE_SLOTS>& textures)
-    -> bool
+auto PatcherMeshShader::setTextureSet(const filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape,
+    const array<wstring, NUM_TEXTURE_SLOTS>& textures) -> bool
 {
     const lock_guard<mutex> lock(s_patchedTextureSetsMutex);
 
-    auto* const nifShader = getNIF()->GetShader(&nifShape);
-    const auto textureSetBlockID = getNIF()->GetBlockID(getNIF()->GetHeader().GetBlock(nifShader->TextureSetRef()));
-    const auto nifShapeKey = make_tuple(getNIFPath(), textureSetBlockID);
+    auto* const nifShader = nif.GetShader(&nifShape);
+    const auto textureSetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
+    const auto nifShapeKey = make_tuple(nifPath, textureSetBlockID);
 
     if (s_patchedTextureSets.find(nifShapeKey) != s_patchedTextureSets.end()) {
         // This texture set has been patched before
@@ -76,7 +78,7 @@ auto PatcherMeshShader::setTextureSet(nifly::NiShape& nifShape, const array<wstr
             }
 
             // Set shader reference
-            newBlockID = getNIF()->GetHeader().AddBlock(std::move(newTextureSet));
+            newBlockID = nif.GetHeader().AddBlock(std::move(newTextureSet));
         }
 
         auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
@@ -88,11 +90,11 @@ auto PatcherMeshShader::setTextureSet(nifly::NiShape& nifShape, const array<wstr
     }
 
     // set original for future use
-    const auto slots = NIFUtil::getTextureSlots(getNIF(), &nifShape);
+    const auto slots = NIFUtil::getTextureSlots(&nif, &nifShape);
     s_patchedTextureSets[nifShapeKey].original = slots;
 
     // set the texture slots for the shape like normal
-    const bool changed = NIFUtil::setTextureSlots(getNIF(), &nifShape, textures);
+    const bool changed = NIFUtil::setTextureSlots(&nif, &nifShape, textures);
 
     // update the patchedtexturesets
     s_patchedTextureSets[nifShapeKey].patchResults[textureSetBlockID] = textures;
