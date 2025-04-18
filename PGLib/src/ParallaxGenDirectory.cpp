@@ -23,7 +23,6 @@
 #include "ModManagerDirectory.hpp"
 #include "NIFUtil.hpp"
 #include "PGDiag.hpp"
-#include "PGGlobals.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
 #include "ParallaxGenUtil.hpp"
@@ -214,6 +213,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
 
     // Load NIF
     NifCache nifCache;
+    nifly::NifFile nif;
     {
         vector<std::byte> nifBytes;
         try {
@@ -223,25 +223,15 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
             return ParallaxGenTask::PGResult::FAILURE;
         }
 
-        boost::crc_32_type crcBeforeResult {};
-        crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
-        nifCache.origcrc32 = crcBeforeResult.checksum();
-
-        if (PGGlobals::getHighMemMode()) {
-            nifCache.loaded = true;
-        }
-
         try {
             // Attempt to load NIF file
-            nifCache.nif = NIFUtil::loadNIFFromBytes(nifBytes);
+            nif = NIFUtil::loadNIFFromBytes(nifBytes);
         } catch (const exception& e) {
             // Unable to read NIF, delete from Meshes set
             spdlog::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
             return ParallaxGenTask::PGResult::FAILURE;
         }
     }
-
-    auto& nif = nifCache.nif;
 
     // Loop through each shape
     bool hasAtLeastOneTextureSet = false;
@@ -415,11 +405,6 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
             // Update unconfirmed textures map
             updateUnconfirmedTexturesMap(texture, static_cast<NIFUtil::TextureSlots>(slot), textureType);
         }
-    }
-
-    if (!PGGlobals::getHighMemMode()) {
-        // clear NIF because we are not caching it
-        nifCache.nif.Clear();
     }
 
     if (hasAtLeastOneTextureSet) {

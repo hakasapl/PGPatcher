@@ -128,7 +128,6 @@ void mainRunner(PGToolsCLIArgs& args)
         pgd.populateFileMap(false);
 
         // Map files
-        PGGlobals::setHighMemMode(false);
         pgd.mapFiles({}, {}, {}, {}, args.multithreading);
 
         // Split patchers into names and options
