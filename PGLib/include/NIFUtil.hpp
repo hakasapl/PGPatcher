@@ -130,7 +130,7 @@ auto getDefaultTextureType(const TextureSlots& slot) -> TextureType;
 /// @brief load a Nif from memory
 /// @param[in] nifBytes memory containing the NIF
 /// @return the nif
-auto loadNIFFromBytes(const std::vector<std::byte>& nifBytes) -> nifly::NifFile;
+auto loadNIFFromBytes(const std::vector<std::byte>& nifBytes, const bool& runChecks = true) -> nifly::NifFile;
 
 /// @brief get a map containing the known texture suffixes
 /// @return the map containing the suffixes and the slot/type pairs

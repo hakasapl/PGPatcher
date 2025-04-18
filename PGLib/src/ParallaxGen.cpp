@@ -350,7 +350,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
     // nifCache is not loaded, load it
     const vector<std::byte> nifFileData = pgd->getFile(nifPath);
-    auto origNif = NIFUtil::loadNIFFromBytes(nifFileData);
+    auto origNif = NIFUtil::loadNIFFromBytes(nifFileData, false);
 
     // Process NIF
     bool nifModified = false;
