@@ -75,7 +75,7 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape) -> bool
 auto PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
 {
     // Check for CM matches
-    return shouldApply(getTextureSet(nifShape), matches);
+    return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
 auto PatcherMeshShaderComplexMaterial::shouldApply(
@@ -156,8 +156,8 @@ auto PatcherMeshShaderComplexMaterial::applyPatch(
     }
 
     // Apply slots
-    applyPatchSlots(getTextureSet(nifShape), match, newSlots);
-    changed |= setTextureSet(nifShape, newSlots);
+    applyPatchSlots(getTextureSet(getNIFPath(), *getNIF(), nifShape), match, newSlots);
+    changed |= setTextureSet(getNIFPath(), *getNIF(), nifShape, newSlots);
 
     return changed;
 }

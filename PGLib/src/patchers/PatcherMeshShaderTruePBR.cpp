@@ -182,7 +182,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape, std::vector
     matches.clear();
 
     // Find Old Slots
-    auto oldSlots = getTextureSet(nifShape);
+    auto oldSlots = getTextureSet(getNIFPath(), *getNIF(), nifShape);
 
     shouldApply(oldSlots, matches);
 
@@ -437,7 +437,7 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
 auto PatcherMeshShaderTruePBR::applyPatch(
     nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
 {
-    newSlots = getTextureSet(nifShape);
+    newSlots = getTextureSet(getNIFPath(), *getNIF(), nifShape);
 
     if (match.extraData == nullptr) {
         // already has PBR, just add PBR prefix to the slots if not already there
@@ -943,7 +943,7 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape, NiShader*
     bool changed = false;
 
     applyOnePatchSlots(newSlots, truePBRData, matchedPath);
-    changed |= setTextureSet(*nifShape, newSlots);
+    changed |= setTextureSet(getNIFPath(), *getNIF(), *nifShape, newSlots);
 
     // "emissive" attribute
     if (truePBRData.contains("emissive")) {

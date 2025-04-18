@@ -81,7 +81,7 @@ auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape) -> bool
 
 auto PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
 {
-    return shouldApply(getTextureSet(nifShape), matches);
+    return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
 auto PatcherMeshShaderVanillaParallax::shouldApply(
@@ -146,8 +146,8 @@ auto PatcherMeshShaderVanillaParallax::applyPatch(
     changed |= applyShader(nifShape);
 
     // Apply slots
-    applyPatchSlots(getTextureSet(nifShape), match, newSlots);
-    changed |= setTextureSet(nifShape, newSlots);
+    applyPatchSlots(getTextureSet(getNIFPath(), *getNIF(), nifShape), match, newSlots);
+    changed |= setTextureSet(getNIFPath(), *getNIF(), nifShape, newSlots);
 
     return changed;
 }
