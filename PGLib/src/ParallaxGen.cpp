@@ -350,65 +350,61 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
     // nifCache is not loaded, load it
     const vector<std::byte> nifFileData = pgd->getFile(nifPath);
-    auto origNif = NIFUtil::loadNIFFromBytes(nifFileData);
+    auto origNif = NIFUtil::loadNIFFromBytes(nifFileData, false);
 
     // Process NIF
     bool nifModified = false;
     processNIF(nifPath, &origNif, patchPlugin, createdNIFs, nifModified);
 
+    if (!nifModified) {
+        return result;
+    }
+
     for (auto& [createdNIFFile, nifParams] : createdNIFs) {
-        const bool needsDiff = createdNIFFile == nifPath;
-
         const filesystem::path outputFile = pgd->getGeneratedPath() / createdNIFFile;
-        if (nifModified) {
-            // create directories if required
-            filesystem::create_directories(outputFile.parent_path());
+        // create directories if required
+        filesystem::create_directories(outputFile.parent_path());
 
-            // delete old nif if exists
-            if (filesystem::exists(outputFile)) {
-                filesystem::remove(outputFile);
-            }
-
-            if (nifParams.nifFile.Save(outputFile, { .optimize = false, .sortBlocks = false }) != 0) {
-                Logger::error(L"Unable to save NIF file {}", createdNIFFile.wstring());
-                result = ParallaxGenTask::PGResult::FAILURE;
-                continue;
-            }
-
-            Logger::debug(L"Saving patched NIF to output");
-
-            // Clear NIF from memory (no longer needed)
-            nifParams.nifFile.Clear();
+        // delete old nif if exists
+        if (filesystem::exists(outputFile)) {
+            filesystem::remove(outputFile);
         }
 
-        if (needsDiff) {
-            // Find CRC before
-            boost::crc_32_type crcBeforeResult {};
-            crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
-            const auto crcBefore = crcBeforeResult.checksum();
-
-            // created NIF is the same filename as original so we need to write to diff file
-            // Calculate CRC32 hash after
-            const auto outputFileBytes = getFileBytes(outputFile);
-            boost::crc_32_type crcResultAfter {};
-            crcResultAfter.process_bytes(outputFileBytes.data(), outputFileBytes.size());
-            const auto crcAfter = crcResultAfter.checksum();
-
-            // Add to diff JSON
-            const auto diffJSONKey = utf16toUTF8(nifPath.wstring());
-            {
-                const lock_guard<mutex> lock(s_diffJSONMutex);
-                s_diffJSON[diffJSONKey]["crc32original"] = crcBefore;
-                s_diffJSON[diffJSONKey]["crc32patched"] = crcAfter;
-            }
+        if (nifParams.nifFile.Save(outputFile, { .optimize = false, .sortBlocks = false }) != 0) {
+            Logger::error(L"Unable to save NIF file {}", createdNIFFile.wstring());
+            result = ParallaxGenTask::PGResult::FAILURE;
+            continue;
         }
 
-        if (nifModified) {
-            // tell PGD that this is a generated file
-            pgd->addGeneratedFile(createdNIFFile, nullptr);
+        Logger::debug(L"Saving patched NIF to output");
+
+        // Clear NIF from memory (no longer needed)
+        nifParams.nifFile.Clear();
+
+        // Find CRC before
+        boost::crc_32_type crcBeforeResult {};
+        crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
+        const auto crcBefore = crcBeforeResult.checksum();
+
+        // created NIF is the same filename as original so we need to write to diff file
+        // Calculate CRC32 hash after
+        const auto outputFileBytes = getFileBytes(outputFile);
+        boost::crc_32_type crcResultAfter {};
+        crcResultAfter.process_bytes(outputFileBytes.data(), outputFileBytes.size());
+        const auto crcAfter = crcResultAfter.checksum();
+
+        // Add to diff JSON
+        const auto diffJSONKey = utf16toUTF8(nifPath.wstring());
+        {
+            const lock_guard<mutex> lock(s_diffJSONMutex);
+            s_diffJSON[diffJSONKey]["crc32original"] = crcBefore;
+            s_diffJSON[diffJSONKey]["crc32patched"] = crcAfter;
         }
 
-        // assign mesh in plugin
+        // tell PGD that this is a generated file
+        pgd->addGeneratedFile(createdNIFFile, nullptr);
+
+        // assign mesh in plugins
         {
             const PGDiag::Prefix diagPluginPrefix("plugins", nlohmann::json::value_t::object);
             ParallaxGenPlugin::assignMesh(createdNIFFile, nifPath, nifParams.txstResults);

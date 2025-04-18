@@ -266,7 +266,7 @@ extern "C" auto loadNifWithSEH(nifly::NifFile* pNif, std::istream* pStream) -> b
     }
 }
 
-auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes) -> nifly::NifFile
+auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes, const bool& runChecks) -> nifly::NifFile
 {
     // NIF file object
     NifFile nif;
@@ -289,6 +289,10 @@ auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes) -> nifly:
 
     if (!nif.IsValid() || !nif.GetHeader().IsValid()) {
         throw runtime_error("NIF did not load properly");
+    }
+
+    if (!runChecks) {
+        return nif;
     }
 
     // Check shapes

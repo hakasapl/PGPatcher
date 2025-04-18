@@ -126,6 +126,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     }
 
     // loop through files
+    unordered_set<wstring> foundMods;
     for (const auto& file : vortexDeployment["files"]) {
         auto relPath = filesystem::path(ParallaxGenUtil::utf8toUTF16(file["relPath"].get<string>()));
 
@@ -159,7 +160,17 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
 
         m_modMap[modName] = modPtr;
+        foundMods.insert(modName);
         m_modFileMap[ParallaxGenUtil::toLowerASCII(relPath.wstring())] = modPtr;
+    }
+
+    // delete any mods from file map that were not found
+    for (auto it = m_modMap.begin(); it != m_modMap.end();) {
+        if (!foundMods.contains(it->second->name)) {
+            it = m_modMap.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 
@@ -194,6 +205,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
     // loop through modlist.txt
     string modStr;
     int basePriority = 0;
+    unordered_set<wstring> foundMods;
     while (getline(modListFileF, modStr)) {
         wstring mod = ParallaxGenUtil::utf8toUTF16(modStr);
         if (mod.empty()) {
@@ -252,6 +264,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
         }
 
         m_modMap[mod] = modPtr;
+        foundMods.insert(mod);
 
         // loop through each folder to map
         for (const auto& folder : PGGlobals::s_foldersToMap) {
@@ -315,6 +328,15 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
 
                 m_modFileMap[relPathLower] = modPtr;
             }
+        }
+    }
+
+    // delete any mods from file map that were not found
+    for (auto it = m_modMap.begin(); it != m_modMap.end();) {
+        if (!foundMods.contains(it->second->name)) {
+            it = m_modMap.erase(it);
+        } else {
+            ++it;
         }
     }
 
