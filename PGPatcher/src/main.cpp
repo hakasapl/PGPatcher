@@ -386,11 +386,11 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         Logger::info("Mod conflicts found. Showing mod order dialog.");
         ParallaxGenUI::selectModOrder();
         startTime = chrono::high_resolution_clock::now();
-
-        // save changes to mod priority
-        const auto modJSONSave = mmd.getJSON();
-        ParallaxGenUtil::saveJSON(modListFile, modJSONSave, true);
     }
+
+    // save changes to mod priority
+    const auto modJSONSave = mmd.getJSON();
+    ParallaxGenUtil::saveJSON(modListFile, modJSONSave, true);
 
     // Patch meshes if set
     ParallaxGenWarnings::init();
