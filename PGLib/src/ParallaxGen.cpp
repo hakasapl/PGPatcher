@@ -338,10 +338,6 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
 auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, ParallaxGenDirectory::NifCache& nifCache,
     const bool& patchPlugin) -> ParallaxGenTask::PGResult
 {
-    if (boost::icontains(nifPath.wstring(), "lilypadcluster01.nif")) {
-        spdlog::info("HERE");
-    }
-
     auto* const pgd = PGGlobals::getPGD();
 
     const PGDiag::Prefix nifPrefix("meshes", nlohmann::json::value_t::object);
