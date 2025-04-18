@@ -307,7 +307,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     pgd.populateFileMap(params.Processing.bsa);
 
     // Map files
-    PGGlobals::setHighMemMode(params.Processing.highMem);
+    PGGlobals::setHighMemMode(false);
     pgd.mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
         params.TextureRules.vanillaBSAList, params.Processing.multithread);
 
