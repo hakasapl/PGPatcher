@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.12] - UNRELEASED
+## [0.8.12] - 2025-05-18
 
 - Improved efficiency of mod folder mapping by only checking relevant folders
 - Improved efficiency of loose file mapping by only checking relevant folders
