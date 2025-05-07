@@ -150,3 +150,36 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
     return matches;
 }
+
+auto PatcherUtil::createCanApplyMap(const PatcherMeshObjectSet& patchers, nifly::NiShape& shape,
+    const NIFUtil::ShapeShader* forceShader) -> std::unordered_map<NIFUtil::ShapeShader, bool>
+{
+    unordered_map<NIFUtil::ShapeShader, bool> canApplyMap;
+    for (const auto& [shader, patcher] : patchers.shaderPatchers) {
+        if (forceShader != nullptr && shader != *forceShader) {
+            // skip if force shader is set and does not match current shader
+            continue;
+        }
+
+        canApplyMap[shader] = patcher->canApply(shape);
+    }
+
+    return canApplyMap;
+}
+
+void PatcherUtil::filterMatches(
+    vector<ShaderPatcherMatch>& matches, const unordered_map<NIFUtil::ShapeShader, bool>& canApply)
+{
+    // remove any matches that cannot apply
+    for (auto it = matches.begin(); it != matches.end();) {
+        const bool canApplyShader = canApply.contains(it->shader) && canApply.at(it->shader);
+        const bool canApplyShaderTransform
+            = canApply.contains(it->shaderTransformTo) && canApply.at(it->shaderTransformTo);
+
+        if (!canApplyShader && !canApplyShaderTransform) {
+            it = matches.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}

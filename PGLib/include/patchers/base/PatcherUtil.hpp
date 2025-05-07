@@ -3,6 +3,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <unordered_map>
 
+#include "Geometry.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshGlobal.hpp"
@@ -130,6 +131,12 @@ public:
      * @return ShaderPatcherMatch Transformed match
      */
     static auto applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool;
+
+    static auto createCanApplyMap(const PatcherMeshObjectSet& patchers, nifly::NiShape& shape,
+        const NIFUtil::ShapeShader* forceShader) -> std::unordered_map<NIFUtil::ShapeShader, bool>;
+
+    static void filterMatches(
+        std::vector<ShaderPatcherMatch>& matches, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply);
 
 private:
     static inline std::mutex s_processShapeMutex;

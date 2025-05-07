@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.8.13] - UNRELEASED
+
+- Added workaround for MO2 case where base_directory is not defined but wildcards are used
+
 ## [0.8.12] - 2025-05-18
 
 - Improved efficiency of mod folder mapping by only checking relevant folders

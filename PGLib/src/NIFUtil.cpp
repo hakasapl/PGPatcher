@@ -651,3 +651,38 @@ auto NIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<
 
     return shapes;
 }
+
+auto NIFUtil::isPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) -> bool
+{
+    const string shapeBlockName = nifShape.GetBlockName();
+
+    // Check if shape should be patched or not
+    if (shapeBlockName != "NiTriShape" && shapeBlockName != "BSTriShape" && shapeBlockName != "BSLODTriShape"
+        && shapeBlockName != "BSMeshLODTriShape") {
+        return false;
+    }
+
+    // get NIFShader type
+    if (!nifShape.HasShaderProperty()) {
+        return false;
+    }
+
+    // get NIFShader from shape
+    NiShader* nifShader = nif.GetShader(&nifShape);
+    if (nifShader == nullptr) {
+        return false;
+    }
+
+    // check that NIFShader is a BSLightingShaderProperty
+    const string nifShaderName = nifShader->GetBlockName();
+    if (nifShaderName != "BSLightingShaderProperty") {
+        return false;
+    }
+
+    // check that NIFShader has a texture set
+    if (!nifShader->HasTextureSet()) {
+        return false;
+    }
+
+    return true;
+}

@@ -345,17 +345,13 @@ auto ParallaxGenPlugin::getKeyFromFormID(const tuple<unsigned int, wstring, wstr
 
 void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherUtil::PatcherMeshObjectSet& patchers,
     const int& index3D, const bool& dryRun, const std::unordered_map<NIFUtil::ShapeShader, bool>* canApply,
-    const std::string& shapeKey, std::vector<TXSTResult>* results)
+    const std::string& shapeKey, unordered_map<int, unordered_map<int, ParallaxGenPlugin::TXSTResult>>* results)
 {
     if ((results == nullptr || canApply == nullptr || shapeKey.empty()) && !dryRun) {
         throw runtime_error("Non dryrun parameters not present");
     }
 
     const lock_guard<mutex> lock(s_processShapeMutex);
-
-    if (!dryRun) {
-        results->clear();
-    }
 
     // loop through matches
     const auto matches = libGetMatchingTXSTObjs(nifPath, index3D);
@@ -466,7 +462,12 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherU
             // No need to patch
             spdlog::trace(L"Plugin Patching | {} | {} | Not patching because nothing to change", nifPath, index3D);
             curResult.txstIndex = txstIndex;
-            results->push_back(curResult);
+
+            // if (!results->contains(curResult.modelRecHandle)) {
+            //     results->insert({ curResult.modelRecHandle, {} });
+            // }
+
+            (*results)[curResult.modelRecHandle][index3D] = curResult;
             continue;
         }
 
@@ -480,7 +481,7 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherU
                 // Already modded
                 spdlog::trace(L"Plugin Patching | {} | {} | Already added, skipping", nifPath, index3D);
                 curResult.txstIndex = s_createdTXSTs[newSlots].first;
-                results->push_back(curResult);
+                (*results)[curResult.modelRecHandle][index3D] = curResult;
 
                 PGDiag::insert("newTXST", s_createdTXSTs[newSlots].second);
 
@@ -534,7 +535,7 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherU
         }
 
         // add to result
-        results->push_back(curResult);
+        (*results)[curResult.modelRecHandle][index3D] = curResult;
     }
 }
 
