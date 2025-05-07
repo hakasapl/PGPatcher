@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.13] - UNRELEASED
+## [0.9.0] - UNRELEASED
 
 - Added workaround for MO2 case where base_directory is not defined but wildcards are used
 
