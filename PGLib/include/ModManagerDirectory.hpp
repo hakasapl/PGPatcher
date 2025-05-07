@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "BethesdaGame.hpp"
 #include "NIFUtil.hpp"
 
 class ModManagerDirectory {
@@ -38,6 +39,7 @@ private:
     std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
 
     ModManagerType m_mmType;
+    BethesdaGame m_bg;
 
     static constexpr const char* MO2INI_PROFILESDIR_KEY = "profiles_directory=";
     static constexpr const char* MO2INI_MODDIR_KEY = "mod_directory=";
@@ -45,7 +47,7 @@ private:
     static constexpr const char* MO2INI_BASEDIR_WILDCARD = "%BASE_DIR%";
 
 public:
-    ModManagerDirectory(const ModManagerType& mmType);
+    ModManagerDirectory(const BethesdaGame& bg, const ModManagerType& mmType);
 
     [[nodiscard]] auto getModFileMap() const -> const std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>>&;
     [[nodiscard]] auto getModByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
@@ -57,8 +59,8 @@ public:
 
     static auto getMO2ProfilesFromInstanceDir(const std::filesystem::path& instanceDir) -> std::vector<std::wstring>;
 
-    void populateModFileMapMO2(const std::filesystem::path& instanceDir, const std::wstring& profile,
-        const std::filesystem::path& outputDir, const bool& useMO2Order);
+    void populateModFileMapMO2(
+        const std::filesystem::path& instanceDir, const std::wstring& profile, const std::filesystem::path& outputDir);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
     // Helpers
@@ -69,4 +71,6 @@ public:
 private:
     static auto getMO2FilePaths(const std::filesystem::path& instanceDir)
         -> std::pair<std::filesystem::path, std::filesystem::path>;
+
+    static auto getVortexPath() -> std::filesystem::path;
 };

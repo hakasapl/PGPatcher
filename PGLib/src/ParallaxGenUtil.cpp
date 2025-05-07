@@ -3,10 +3,14 @@
 #include <DirectXTex.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
 #include <fstream>
 #include <iostream>
+#include <tchar.h>
+#include <tlhelp32.h>
+#include <windows.h>
 #include <wingdi.h>
 #include <winnt.h>
 
@@ -225,6 +229,115 @@ auto checkIfStringInJSONArray(const nlohmann::json& json, const string& str) -> 
         }
     }
     return false;
+}
+
+auto isProcessRunning(const std::wstring& processName) -> bool
+{
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    PROCESSENTRY32W pe;
+    pe.dwSize = sizeof(PROCESSENTRY32W);
+
+    if (Process32FirstW(hSnapshot, &pe) != 0) {
+        if (_wcsicmp(pe.szExeFile, processName.c_str()) // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+            == 0) {
+            CloseHandle(hSnapshot);
+            return true;
+        }
+
+        while (Process32NextW(hSnapshot, &pe) != 0) {
+            if (_wcsicmp(
+                    pe.szExeFile, processName.c_str()) // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+                == 0) {
+                CloseHandle(hSnapshot);
+                return true;
+            }
+        }
+    }
+
+    CloseHandle(hSnapshot);
+    return false;
+}
+
+auto execCommand(const string& cmd) -> vector<string>
+{
+    static constexpr auto BUFFER_SIZE = 1024;
+    array<char, BUFFER_SIZE> buffer {};
+    vector<string> result;
+
+    const string runCmd = "cmd /C \"" + cmd + "\"";
+
+    const unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(runCmd.c_str(), "r"), _pclose);
+    if (!pipe) {
+        throw std::runtime_error("Failed to run command");
+    }
+
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result.emplace_back(buffer.data());
+        // Optionally trim newlines:
+        if (!result.back().empty() && result.back().back() == '\n') {
+            result.back().pop_back();
+            if (!result.back().empty() && result.back().back() == '\r') {
+                result.back().pop_back(); // Windows CRLF
+            }
+        }
+    }
+
+    return result;
+}
+
+void insertWithRuleOrThrow(
+    std::vector<std::string>& list, const std::string& modA, const std::string& modB, bool before)
+{
+    auto itA = std::ranges::find(list, modA);
+    auto itB = std::ranges::find(list, modB);
+
+    const bool hasA = itA != list.end();
+    const bool hasB = itB != list.end();
+
+    if (hasA && hasB) {
+        auto indexA = std::distance(list.begin(), itA);
+        auto indexB = std::distance(list.begin(), itB);
+
+        if (before && indexA > indexB) {
+            // move A before B
+            const string& mod = *itA;
+            list.erase(itA);
+            itB = std::ranges::find(list, modB); // re-locate B
+            list.insert(itB, mod);
+        } else if (!before && indexA < indexB) {
+            // move A after B
+            const string& mod = *itA;
+            list.erase(itA);
+            itB = std::ranges::find(list, modB); // re-locate B
+            list.insert(itB + 1, mod);
+        }
+        return;
+    }
+
+    // If only one is present
+    if (before) {
+        if (!hasA && hasB) {
+            list.insert(itB, modA);
+        } else if (hasA && !hasB) {
+            list.push_back(modB);
+        } else if (!hasA && !hasB) {
+            list.push_back(modA);
+            list.push_back(modB);
+        }
+    } else { // after
+        if (!hasA && hasB) {
+            list.insert(itB + 1, modA);
+        } else if (hasA && !hasB) {
+            list.push_back(modB);
+        } else if (!hasA && !hasB) {
+            list.push_back(modB);
+            list.push_back(modA);
+        }
+    }
 }
 
 } // namespace ParallaxGenUtil

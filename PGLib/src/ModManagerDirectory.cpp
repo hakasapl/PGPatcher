@@ -1,11 +1,16 @@
 #include "ModManagerDirectory.hpp"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/detail/adjacency_list.hpp>
+#include <boost/graph/topological_sort.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <fstream>
 
-#include <regex>
+#include <nlohmann/json_fwd.hpp>
+#include <unordered_map>
 #include <unordered_set>
 
 #include <nlohmann/json.hpp>
@@ -13,13 +18,15 @@
 #include <spdlog/spdlog.h>
 
 #include "BethesdaDirectory.hpp"
+#include "BethesdaGame.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenUtil.hpp"
 
 using namespace std;
 
-ModManagerDirectory::ModManagerDirectory(const ModManagerType& mmType)
+ModManagerDirectory::ModManagerDirectory(const BethesdaGame& bg, const ModManagerType& mmType)
     : m_mmType(mmType)
+    , m_bg(bg)
 {
 }
 
@@ -103,10 +110,159 @@ auto ModManagerDirectory::getJSON() -> nlohmann::json
     return json;
 }
 
+// Structs to help build the dependency graph for vortex
+struct VertexProperties {
+    std::string modName;
+};
+using Graph = boost::adjacency_list<boost::setS, boost::vecS, boost::directedS, VertexProperties>;
+using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
+
 void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deploymentDir)
 {
     // required file is vortex.deployment.json in the data folder
     spdlog::info("Populating mods from Vortex");
+
+    unordered_set<string> vortexModNames;
+    unordered_map<string, string> vortexAttrResults;
+    string lookupKey;
+
+    {
+        // get vortex mod attributes
+        if (ParallaxGenUtil::isProcessRunning(L"Vortex.exe")) {
+            spdlog::critical("Vortex is running, please close it before running PGPatcher");
+            exit(1);
+        }
+
+        lookupKey = "persistent.mods.";
+        if (m_bg.getGameType() == BethesdaGame::GameType::SKYRIM) {
+            lookupKey += "skyrim";
+        } else if (m_bg.getGameType() == BethesdaGame::GameType::SKYRIM_SE
+            || m_bg.getGameType() == BethesdaGame::GameType::SKYRIM_GOG) {
+            lookupKey += "skyrimse";
+        } else if (m_bg.getGameType() == BethesdaGame::GameType::SKYRIM_VR) {
+            lookupKey += "skyrimvr";
+        } else if (m_bg.getGameType() == BethesdaGame::GameType::ENDERAL) {
+            lookupKey += "enderal";
+        } else if (m_bg.getGameType() == BethesdaGame::GameType::ENDERAL_SE) {
+            lookupKey += "enderalse";
+        } else {
+            throw runtime_error("Game type not supported for vortex lookup");
+        }
+
+        const auto vortexExePath = ParallaxGenUtil::utf16toUTF8((getVortexPath() / "Vortex.exe").wstring());
+
+        const string cmd = R"(")" + vortexExePath + R"(" --get ")" + lookupKey + R"(")";
+        const auto cmdOut = ParallaxGenUtil::execCommand(cmd);
+
+        // first, build an unordered_set of vortex mod names
+        for (const auto& line : cmdOut) {
+            const auto equalsPos = line.find('=');
+            if (equalsPos == string::npos) {
+                // no equal in line, we can skip
+                continue;
+            }
+
+            // get string before equal
+            const auto param = line.substr(0, equalsPos - 1);
+            auto value = line.substr(equalsPos + 2);
+            // remove wrapped quotes if they exist
+            if (value.starts_with('"') && value.ends_with('"')) {
+                value = value.substr(1, value.size() - 2);
+            }
+
+            if (param.ends_with(".attributes.name")) {
+                // get value (after equal)
+                vortexModNames.insert(value);
+            }
+
+            // add to vortexAttrResults
+            vortexAttrResults[param] = value;
+        }
+    }
+
+    // loop through each mod name to find friendly names
+    unordered_map<string, wstring> vortexModNameMap;
+    unordered_map<string, int> vortexLooseOrder;
+
+    {
+        Graph vortexDepGraph;
+        std::unordered_map<std::string, Vertex> nameToVertex;
+        for (const auto& modName : vortexModNames) {
+            auto modNameLookup = lookupKey + ".";
+            modNameLookup.append(modName);
+
+            // check if rules exist
+            const string modRulesParam = modNameLookup + ".rules";
+            if (vortexAttrResults.contains(modRulesParam)) {
+                // convert value to json
+                const auto rules = nlohmann::json::parse(vortexAttrResults.at(modRulesParam));
+                if (rules.is_array()) {
+                    for (const auto& rule : rules) {
+                        if (!rule.contains("reference") || !rule["reference"].contains("id")) {
+                            continue;
+                        }
+
+                        if (rule["type"] != "before" && rule["type"] != "after") {
+                            continue;
+                        }
+
+                        // get mod ID of corresponding mod
+                        const auto otherModName = rule["reference"]["id"].get<string>();
+
+                        if (!nameToVertex.contains(modName)) {
+                            const Vertex v = boost::add_vertex(vortexDepGraph);
+                            vortexDepGraph[v].modName = modName;
+                            nameToVertex[modName] = v;
+                        }
+                        if (!nameToVertex.contains(otherModName)) {
+                            const Vertex v = boost::add_vertex(vortexDepGraph);
+                            vortexDepGraph[v].modName = otherModName;
+                            nameToVertex[otherModName] = v;
+                        }
+
+                        if (rule["type"] == "before") {
+                            boost::add_edge(nameToVertex[otherModName], nameToVertex[modName], vortexDepGraph);
+                        } else if (rule["type"] == "after") {
+                            boost::add_edge(nameToVertex[modName], nameToVertex[otherModName], vortexDepGraph);
+                        }
+                    }
+                }
+            }
+
+            // find mod friendly name (in order of preference)
+            const string modCustomNameParam = modNameLookup + ".attributes.customFileName";
+            if (vortexAttrResults.contains(modCustomNameParam)) {
+                vortexModNameMap[modName] = ParallaxGenUtil::utf8toUTF16(vortexAttrResults.at(modCustomNameParam));
+                continue;
+            }
+
+            const string modLogicalNameParam = modNameLookup + ".attributes.logicalFileName";
+            if (vortexAttrResults.contains(modLogicalNameParam)) {
+                vortexModNameMap[modName] = ParallaxGenUtil::utf8toUTF16(vortexAttrResults.at(modLogicalNameParam));
+                continue;
+            }
+
+            const string modNameParam = modNameLookup + ".attributes.name";
+            if (vortexAttrResults.contains(modNameParam)) {
+                vortexModNameMap[modName] = ParallaxGenUtil::utf8toUTF16(vortexAttrResults.at(modNameParam));
+                continue;
+            }
+        }
+
+        // Sort graph
+        vector<Vertex> topoOrder;
+        try {
+            topological_sort(vortexDepGraph, back_inserter(topoOrder));
+        } catch (...) {
+            spdlog::error(
+                "You have cyclical dependencies in your vortex mods, please fix them before running PGPatcher");
+            exit(1);
+        }
+
+        for (int i = 0; i < topoOrder.size(); ++i) {
+            vortexLooseOrder[vortexDepGraph[topoOrder[i]].modName] = i;
+        }
+    }
 
     const auto deploymentFile = deploymentDir / "vortex.deployment.json";
 
@@ -137,30 +293,33 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
             continue;
         }
 
-        auto modName = ParallaxGenUtil::utf8toUTF16(file["source"].get<string>());
-
-        // filter out modname suffix
-        const static wregex vortexSuffixRe(L"-[0-9]+-.*");
-        modName = regex_replace(modName, vortexSuffixRe, L"");
+        const auto modName = file["source"].get<string>();
+        const wstring& modFriendlyName = vortexModNameMap.at(modName);
 
         shared_ptr<Mod> modPtr = nullptr;
-        if (m_modMap.contains(modName)) {
+        if (m_modMap.contains(modFriendlyName)) {
             // skip if already in map
-            modPtr = m_modMap.at(modName);
+            modPtr = m_modMap.at(modFriendlyName);
         } else {
             modPtr = make_shared<Mod>();
-            modPtr->name = modName;
+            modPtr->name = modFriendlyName;
             modPtr->isNew = true;
             modPtr->priority = -1;
         }
 
-        modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
+        if (vortexLooseOrder.contains(modName)) {
+            // set mod manager order
+            modPtr->modManagerOrder = vortexLooseOrder.at(modName);
+        } else {
+            // set mod manager order to -1 if not found
+            modPtr->modManagerOrder = -1;
+        }
 
         // Update file map
-        spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
+        spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modFriendlyName);
 
-        m_modMap[modName] = modPtr;
-        foundMods.insert(modName);
+        m_modMap[modFriendlyName] = modPtr;
+        foundMods.insert(modFriendlyName);
         m_modFileMap[ParallaxGenUtil::toLowerASCII(relPath.wstring())] = modPtr;
     }
 
@@ -174,8 +333,8 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     }
 }
 
-void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instanceDir, const wstring& profile,
-    const filesystem::path& outputDir, const bool& useMO2Order)
+void ModManagerDirectory::populateModFileMapMO2(
+    const filesystem::path& instanceDir, const wstring& profile, const filesystem::path& outputDir)
 {
     // required file is modlist.txt in the profile folder
 
@@ -259,9 +418,6 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
         }
 
         modPtr->modManagerOrder = basePriority++;
-        if (useMO2Order) {
-            modPtr->priority = modPtr->modManagerOrder;
-        }
 
         m_modMap[mod] = modPtr;
         foundMods.insert(mod);
@@ -343,15 +499,6 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
     if (!foundOneMod) {
         spdlog::critical(L"MO2 modlist.txt was empty, no mods found");
         exit(1);
-    }
-
-    if (useMO2Order) {
-        // invert priorities
-        for (const auto& [modName, mod] : m_modMap) {
-            if (mod->priority != -1) {
-                mod->priority = basePriority - mod->priority - 1;
-            }
-        }
     }
 
     modListFileF.close();
@@ -460,4 +607,20 @@ auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceD
     }
 
     return { profileDir, modDir };
+}
+
+auto ModManagerDirectory::getVortexPath() -> std::filesystem::path
+{
+    const string vortexRegPath = R"(SOFTWARE\57979c68-f490-55b8-8fed-8b017a5af2fe)";
+
+    std::vector<char> data(REG_BUFFER_SIZE, '\0');
+    DWORD dataSize = REG_BUFFER_SIZE;
+
+    const LONG result = RegGetValueA(
+        HKEY_LOCAL_MACHINE, vortexRegPath.c_str(), "InstallLocation", RRF_RT_REG_SZ, nullptr, data.data(), &dataSize);
+    if (result == ERROR_SUCCESS) {
+        return { data.data() };
+    }
+
+    return {};
 }

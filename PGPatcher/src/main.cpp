@@ -203,7 +203,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // TODO control the lifetime of these in PGLib
     auto bg = BethesdaGame(params.Game.type, true, params.Game.dir);
 
-    auto mmd = ModManagerDirectory(params.ModManager.type);
+    auto mmd = ModManagerDirectory(bg, params.ModManager.type);
     PGGlobals::setMMD(&mmd);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
     PGGlobals::setPGD(&pgd);
@@ -286,8 +286,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty() && !params.ModManager.mo2Profile.empty()) {
         // MO2
-        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.ModManager.mo2Profile, params.Output.dir,
-            params.ModManager.mo2UseOrder);
+        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.ModManager.mo2Profile, params.Output.dir);
     } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
         // Vortex
         mmd.populateModFileMapVortex(bg.getGameDataPath());
