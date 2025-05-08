@@ -9,37 +9,33 @@
 
 using namespace std;
 
-// TODO these methods should probably move into shader and transform classes respectively
 auto PatcherUtil::getWinningMatch(const vector<ShaderPatcherMatch>& matches) -> ShaderPatcherMatch
 {
-    // Find winning mod
-    int maxPriority = -1;
-    auto winningShaderMatch = PatcherUtil::ShaderPatcherMatch();
-
-    for (const auto& match : matches) {
-        wstring modName;
-        int curPriority = -1;
-        if (match.mod != nullptr) {
-            modName = match.mod->name;
-            curPriority = match.mod->priority;
-        }
-
-        const Logger::Prefix prefixMod(modName);
-        Logger::trace("Checking mod");
-
-        if (curPriority < maxPriority) {
-            // skip mods with lower priority than current winner
-            Logger::trace(L"Rejecting: Mod has lower priority than current winner");
-            continue;
-        }
-
-        Logger::trace(L"Mod accepted");
-        maxPriority = curPriority;
-        winningShaderMatch = match;
+    if (matches.empty()) {
+        return {};
     }
 
-    Logger::trace(L"Winning mod: {}", winningShaderMatch.mod == nullptr ? L"" : winningShaderMatch.mod->name);
-    return winningShaderMatch;
+    unordered_map<shared_ptr<ModManagerDirectory::Mod>, ShaderPatcherMatch, ModManagerDirectory::Mod::ModHash>
+        modSetToMatch;
+    unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
+    for (const auto& match : matches) {
+        // In the case where there are multiple matches from one mod, this loop ensures matches later in the vector win
+        modSet.insert(match.mod);
+        modSetToMatch[match.mod] = match;
+    }
+
+    const auto winningMod = PGGlobals::getMMD()->getWinningMod(modSet);
+    if (winningMod == nullptr) {
+        // No winning mod, return last match (this usually happens if mod conflict resolution is disabled)
+        return matches.back();
+    }
+
+    if (!modSetToMatch.contains(winningMod)) {
+        // No match for winning mod, return last match (this usually happens if mod conflict resolution is disabled)
+        throw runtime_error("No match for winning mod");
+    }
+
+    return modSetToMatch[winningMod];
 }
 
 auto PatcherUtil::applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool
@@ -122,6 +118,7 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     // Populate conflict mods if set
+    static auto* mmd = PGGlobals::getMMD();
     if (dryRun) {
         if (modSet.size() > 1) {
             // add mods to conflict set
@@ -133,7 +130,10 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                 const lock_guard<mutex> lock(match.mod->mutex);
 
                 match.mod->shaders.insert(match.shader);
-                match.mod->conflicts.insert(modSet.begin(), modSet.end());
+                const auto finalSet = mmd->disqualifyModsFromSet(modSet);
+                if (finalSet.size() > 1) {
+                    mmd->addConflictModSet(finalSet);
+                }
             }
         }
 

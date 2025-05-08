@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -30,14 +30,6 @@ public:
         int modManagerOrder = -1;
         std::set<NIFUtil::ShapeShader> shaders;
     };
-
-private:
-    std::unordered_map<std::wstring, std::shared_ptr<Mod>> m_modMap;
-    std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
-
-    std::mutex m_modLooseFileConflictsMutex;
-    std::unordered_map<std::shared_ptr<Mod>, std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>, Mod::ModHash>
-        m_modLooseFileConflicts;
 
     struct ModSetHash {
         auto operator()(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet) const -> std::size_t
@@ -76,6 +68,14 @@ private:
         }
     };
 
+private:
+    std::unordered_map<std::wstring, std::shared_ptr<Mod>> m_modMap;
+    std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
+
+    std::mutex m_modLooseFileConflictsMutex;
+    std::unordered_map<std::shared_ptr<Mod>, std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>, Mod::ModHash>
+        m_modLooseFileConflicts;
+
     std::mutex m_modConflictResolutionMutex;
     std::unordered_map<std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>, std::shared_ptr<Mod>, ModSetHash,
         ModSetEqual>
@@ -107,6 +107,24 @@ public:
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
     auto doModsConflictInLooseFiles(const std::shared_ptr<Mod>& mod1, const std::shared_ptr<Mod>& mod2) -> bool;
+
+    auto disqualifyModsFromSet(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet)
+        -> std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>;
+
+    void addConflictModSet(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet,
+        const std::shared_ptr<Mod>& winningMod = nullptr);
+
+    auto getConflicts() -> std::unordered_map<std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>,
+        std::shared_ptr<Mod>, ModSetHash, ModSetEqual>;
+
+    void setConflicts(const std::unordered_map<std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>,
+        std::shared_ptr<Mod>, ModSetHash, ModSetEqual>& conflicts);
+
+    [[nodiscard]] auto getWinningMod(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet)
+        -> std::shared_ptr<Mod>;
+
+    [[nodiscard]] auto getModManagerType() const -> ModManagerType { return m_mmType; }
+    [[nodiscard]] auto getBethesdaGame() const -> BethesdaGame { return m_bg; }
 
     // Helpers
     [[nodiscard]] static auto getModManagerTypes() -> std::vector<ModManagerType>;

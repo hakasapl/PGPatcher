@@ -106,11 +106,6 @@ void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& ni
         return;
     }
 
-    const int priority = nifPathMod->priority;
-    if (priority < 0) {
-        return;
-    }
-
     auto key = make_pair(matchedPathMod->name, nifPathMod->name);
 
     // Issue debug log

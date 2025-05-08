@@ -278,7 +278,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Populate mod info
     Logger::info("Populating mod info");
     nlohmann::json modJSON;
-    const auto modListFile = cfgDir / "mods.json";
+    const auto modListFile = cfgDir / "modConflicts.json";
     if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
         mmd.loadJSON(modJSON);
     }
@@ -371,21 +371,16 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     const PatcherUtil::PatcherTextureSet texPatchers;
     ParallaxGen::loadPatchers(meshPatchers, texPatchers);
 
-    // Check if MO2 is used and MO2 use order is checked
-    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE
-        && (params.ModManager.type != ModManagerDirectory::ModManagerType::MODORGANIZER2
-            || !params.ModManager.mo2UseOrder)) {
-        // Find conflicts
-        ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
+    // Find conflicts
+    ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
 
-        // pause timer for UI
-        timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
+    // pause timer for UI
+    timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
 
-        // Select mod order
-        Logger::info("Mod conflicts found. Showing mod order dialog.");
-        ParallaxGenUI::selectModOrder();
-        startTime = chrono::high_resolution_clock::now();
-    }
+    // Select mod order
+    Logger::info("Mod conflicts found. Showing mod order dialog.");
+    ParallaxGenUI::selectModOrder();
+    startTime = chrono::high_resolution_clock::now();
 
     // save changes to mod priority
     const auto modJSONSave = mmd.getJSON();

@@ -92,7 +92,8 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
 
         // add to conflict resolution map
         const lock_guard<mutex> lock(m_modConflictResolutionMutex);
-        m_modConflictResolution[modSetSplit] = createOrGetNewModPtr(winningMod);
+        m_modConflictResolution[modSetSplit]
+            = createOrGetNewModPtr(ParallaxGenUtil::utf8toUTF16(winningMod.get<string>()));
     }
 }
 
@@ -530,6 +531,90 @@ auto ModManagerDirectory::doModsConflictInLooseFiles(const std::shared_ptr<Mod>&
     const lock_guard<mutex> lock(m_modLooseFileConflictsMutex);
     return (m_modLooseFileConflicts.contains(mod1) && m_modLooseFileConflicts[mod1].contains(mod2))
         || (m_modLooseFileConflicts.contains(mod2) && m_modLooseFileConflicts[mod2].contains(mod1));
+}
+
+auto ModManagerDirectory::disqualifyModsFromSet(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet)
+    -> std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>
+{
+    auto output = modSet;
+
+    // loop through each mod in set
+    for (const auto& mod : modSet) {
+        if (!m_modLooseFileConflicts.contains(mod)) {
+            continue;
+        }
+
+        const auto modOrder = mod->modManagerOrder;
+
+        // loop through each mod in conflict set and find their loose order
+        for (const auto& conflictMod : m_modLooseFileConflicts[mod]) {
+            if (!output.contains(conflictMod)) {
+                continue; // skip if not in set
+            }
+
+            const auto conflictOrder = conflictMod->modManagerOrder;
+            if (conflictOrder < 0) {
+                continue; // loose order not known
+            }
+
+            if (modOrder > conflictOrder) {
+                // current mod in the set has a higher priority than the conflict mod
+                // remove the conflict mod from the set
+                output.erase(conflictMod);
+            }
+        }
+    }
+
+    return output;
+}
+
+void ModManagerDirectory::addConflictModSet(
+    const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet, const std::shared_ptr<Mod>& winningMod)
+{
+    const lock_guard<mutex> lock(m_modConflictResolutionMutex);
+
+    if (m_modConflictResolution.contains(modSet) && winningMod == nullptr) {
+        // already exists and we're not updating, so do nothing
+        return;
+    }
+
+    if (winningMod == nullptr) {
+        // if winning mod is null, set it to the first mod in the set
+        // TODO this should set to the one with the best shader by default
+        auto it = modSet.begin();
+        if (it != modSet.end()) {
+            m_modConflictResolution[modSet] = *it;
+        }
+    } else {
+        m_modConflictResolution[modSet] = winningMod;
+    }
+}
+
+auto ModManagerDirectory::getWinningMod(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet)
+    -> shared_ptr<Mod>
+{
+    const lock_guard<mutex> lock(m_modConflictResolutionMutex);
+
+    if (m_modConflictResolution.contains(modSet)) {
+        return m_modConflictResolution.at(modSet);
+    }
+
+    return nullptr;
+}
+
+auto ModManagerDirectory::getConflicts()
+    -> unordered_map<unordered_set<shared_ptr<Mod>, Mod::ModHash>, shared_ptr<Mod>, ModSetHash, ModSetEqual>
+{
+    const lock_guard<mutex> lock(m_modConflictResolutionMutex);
+    return m_modConflictResolution;
+}
+
+void ModManagerDirectory::setConflicts(
+    const unordered_map<unordered_set<shared_ptr<Mod>, Mod::ModHash>, shared_ptr<Mod>, ModSetHash, ModSetEqual>&
+        conflicts)
+{
+    const lock_guard<mutex> lock(m_modConflictResolutionMutex);
+    m_modConflictResolution = conflicts;
 }
 
 auto ModManagerDirectory::getModManagerTypes() -> vector<ModManagerType>

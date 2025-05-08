@@ -12,14 +12,14 @@ set (HEADERS
     "include/ParallaxGenUI.hpp"
     "include/ParallaxGenHandlers.hpp"
     "include/GUI/LauncherWindow.hpp"
-    "include/GUI/ModSortDialog.hpp"
+    "include/GUI/ModConflictDialog.hpp"
 )
 
 set(SOURCES
     "src/ParallaxGenConfig.cpp"
     "src/ParallaxGenUI.cpp"
     "src/GUI/LauncherWindow.cpp"
-    "src/GUI/ModSortDialog.cpp"
+    "src/GUI/ModConflictDialog.cpp"
     "src/main.cpp"
 )
 
