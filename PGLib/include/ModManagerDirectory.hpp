@@ -106,8 +106,6 @@ public:
         const std::filesystem::path& instanceDir, const std::wstring& profile, const std::filesystem::path& outputDir);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
-    auto doModsConflictInLooseFiles(const std::shared_ptr<Mod>& mod1, const std::shared_ptr<Mod>& mod2) -> bool;
-
     auto disqualifyModsFromSet(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet)
         -> std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>;
 

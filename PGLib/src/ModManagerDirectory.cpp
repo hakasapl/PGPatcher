@@ -525,14 +525,6 @@ void ModManagerDirectory::populateModFileMapMO2(
     modListFileF.close();
 }
 
-auto ModManagerDirectory::doModsConflictInLooseFiles(const std::shared_ptr<Mod>& mod1, const std::shared_ptr<Mod>& mod2)
-    -> bool
-{
-    const lock_guard<mutex> lock(m_modLooseFileConflictsMutex);
-    return (m_modLooseFileConflicts.contains(mod1) && m_modLooseFileConflicts[mod1].contains(mod2))
-        || (m_modLooseFileConflicts.contains(mod2) && m_modLooseFileConflicts[mod2].contains(mod1));
-}
-
 auto ModManagerDirectory::disqualifyModsFromSet(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet)
     -> std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>
 {

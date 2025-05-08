@@ -32,4 +32,7 @@ public:
      * @brief Shows the mod selection dialog to the user (Hangs thread until user presses okay)
      */
     static void selectModOrder();
+
+private:
+    static auto getModShaderTypes() -> std::unordered_map<std::wstring, std::string>;
 };

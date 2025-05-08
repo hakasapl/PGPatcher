@@ -13,6 +13,7 @@
 
 #include "GUI/LauncherWindow.hpp"
 #include "GUI/ModConflictDialog.hpp"
+#include "NIFUtil.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
 
@@ -39,6 +40,26 @@ auto ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc, const std::filesystem::
     return {};
 }
 
+auto ParallaxGenUI::getModShaderTypes() -> unordered_map<wstring, string>
+{
+    auto* const mmd = PGGlobals::getMMD();
+    unordered_map<wstring, string> shaderTypes;
+    for (const auto& mod : mmd->getMods()) {
+        string curShaderStr;
+        for (const auto& shader : mod->shaders) {
+            if (!curShaderStr.empty()) {
+                curShaderStr += ",";
+            }
+
+            curShaderStr += NIFUtil::getStrFromShader(shader);
+        }
+
+        shaderTypes[mod->name] = curShaderStr;
+    }
+
+    return shaderTypes;
+}
+
 void ParallaxGenUI::selectModOrder()
 {
     auto* const mmd = PGGlobals::getMMD();
@@ -53,7 +74,7 @@ void ParallaxGenUI::selectModOrder()
         conflictsWstr[modSetWstr] = winningMod->name;
     }
 
-    ModConflictDialog dialog(conflictsWstr);
+    ModConflictDialog dialog(conflictsWstr, getModShaderTypes());
     dialog.ShowModal();
     const auto resolvedConflictsWstr = dialog.getResolvedConflicts();
 

@@ -371,16 +371,18 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     const PatcherUtil::PatcherTextureSet texPatchers;
     ParallaxGen::loadPatchers(meshPatchers, texPatchers);
 
-    // Find conflicts
-    ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
+    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
+        // Find conflicts
+        ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
 
-    // pause timer for UI
-    timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
+        // pause timer for UI
+        timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
 
-    // Select mod order
-    Logger::info("Mod conflicts found. Showing mod order dialog.");
-    ParallaxGenUI::selectModOrder();
-    startTime = chrono::high_resolution_clock::now();
+        // Select mod order
+        Logger::info("Mod conflicts found. Showing mod order dialog.");
+        ParallaxGenUI::selectModOrder();
+        startTime = chrono::high_resolution_clock::now();
+    }
 
     // save changes to mod priority
     const auto modJSONSave = mmd.getJSON();

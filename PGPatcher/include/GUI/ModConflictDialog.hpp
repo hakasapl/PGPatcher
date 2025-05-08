@@ -26,7 +26,7 @@ public:
     };
 
 private:
-    constexpr static int DEFAULT_BORDER = 10;
+    constexpr static int DEFAULT_BORDER = 4;
     constexpr static int DEFAULT_WIDTH = 300;
     constexpr static int DEFAULT_HEIGHT = 600;
     constexpr static int SCROLL_SIZE = 5;
@@ -35,7 +35,8 @@ private:
 
 public:
     ModConflictDialog(
-        const std::unordered_map<std::unordered_set<std::wstring>, std::wstring, WStringSetHash>& conflicts);
+        const std::unordered_map<std::unordered_set<std::wstring>, std::wstring, WStringSetHash>& conflicts,
+        const std::unordered_map<std::wstring, std::string>& shaderTypes);
 
     [[nodiscard]] auto getResolvedConflicts() const
         -> std::unordered_map<std::unordered_set<std::wstring>, std::wstring, WStringSetHash>;

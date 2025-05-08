@@ -74,11 +74,6 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
     unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
     for (const auto& [shader, patcher] : patchers.shaderPatchers) {
-        if (shader == NIFUtil::ShapeShader::NONE) {
-            // TEMPORARILY disable default patcher
-            continue;
-        }
-
         // note: name is defined in source code in UTF8-encoded files
         const Logger::Prefix prefixPatches(patcher->getPatcherName());
 

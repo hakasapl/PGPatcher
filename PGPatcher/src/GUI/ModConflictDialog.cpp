@@ -10,7 +10,8 @@ using namespace std;
 
 // class ModSortDialog
 ModConflictDialog::ModConflictDialog(
-    const std::unordered_map<std::unordered_set<std::wstring>, std::wstring, WStringSetHash>& conflicts)
+    const std::unordered_map<std::unordered_set<std::wstring>, std::wstring, WStringSetHash>& conflicts,
+    const std::unordered_map<std::wstring, std::string>& shaderTypes)
     : wxDialog(nullptr, wxID_ANY, "Resolve Mod Conflicts", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
           wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER)
 {
@@ -30,7 +31,10 @@ ModConflictDialog::ModConflictDialog(
             const long style = first ? wxRB_GROUP : 0;
             first = false;
 
-            auto* curRB = new wxRadioButton(scrollWin, wxID_ANY, mod, wxDefaultPosition, wxDefaultSize, style);
+            // add shader types to radio button
+            auto label = mod + L" (" + shaderTypes.at(mod) + L")";
+
+            auto* curRB = new wxRadioButton(scrollWin, wxID_ANY, label, wxDefaultPosition, wxDefaultSize, style);
             if (mod == winningMod) {
                 curRB->SetValue(true);
             } else {
@@ -53,6 +57,8 @@ ModConflictDialog::ModConflictDialog(
     // OK button
     auto* okButton = new wxButton(this, wxID_OK, "OK");
     topSizer->Add(okButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, DEFAULT_BORDER);
+
+    Bind(wxEVT_CLOSE_WINDOW, &ModConflictDialog::onClose, this);
 
     SetSizer(topSizer);
     Layout();
