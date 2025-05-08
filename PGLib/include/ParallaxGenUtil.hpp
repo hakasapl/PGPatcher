@@ -41,9 +41,6 @@ auto checkIfStringInJSONArray(const nlohmann::json& json, const std::string& str
 auto isProcessRunning(const std::wstring& processName) -> bool;
 auto execCommand(const std::string& cmd) -> std::vector<std::string>;
 
-void insertWithRuleOrThrow(
-    std::vector<std::string>& list, const std::string& modA, const std::string& modB, bool before);
-
 // Template Functions
 template <typename T> auto isInVector(const std::vector<T>& vec, const T& test) -> bool
 {

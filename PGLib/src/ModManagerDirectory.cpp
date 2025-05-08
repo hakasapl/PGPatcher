@@ -9,6 +9,8 @@
 #include <boost/algorithm/string/split.hpp>
 #include <fstream>
 
+#include <memory>
+#include <mutex>
 #include <nlohmann/json_fwd.hpp>
 #include <unordered_map>
 #include <unordered_set>
@@ -17,7 +19,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include "BethesdaDirectory.hpp"
 #include "BethesdaGame.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenUtil.hpp"
@@ -74,26 +75,24 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
         throw runtime_error("JSON is not an object");
     }
 
-    for (const auto& [modName, priority] : json.items()) {
-        if (modName.empty()) {
+    for (const auto& [modSet, winningMod] : json.items()) {
+        if (modSet.empty()) {
             continue;
         }
 
-        if (!priority.is_number_integer()) {
-            throw runtime_error("JSON mod priority is not an integer");
+        // merge modSet split by ',' into an unordered_set
+        unordered_set<wstring> modSetSplitStr;
+        boost::split(modSetSplitStr, modSet, boost::is_any_of(","), boost::token_compress_on);
+
+        unordered_set<shared_ptr<Mod>, Mod::ModHash> modSetSplit;
+        for (const auto& modName : modSetSplitStr) {
+            const auto& modPtr = createOrGetNewModPtr(modName);
+            modSetSplit.insert(modPtr);
         }
 
-        shared_ptr<Mod> modPtr = nullptr;
-        const auto modNameWStr = ParallaxGenUtil::utf8toUTF16(modName);
-        if (!m_modMap.contains(modNameWStr)) {
-            // create mod if it doesn't exist
-            modPtr = make_shared<Mod>();
-            modPtr->name = modNameWStr;
-            m_modMap[modNameWStr] = modPtr;
-        }
-
-        modPtr->isNew = false;
-        modPtr->priority = priority.get<int>();
+        // add to conflict resolution map
+        const lock_guard<mutex> lock(m_modConflictResolutionMutex);
+        m_modConflictResolution[modSetSplit] = createOrGetNewModPtr(winningMod);
     }
 }
 
@@ -101,10 +100,19 @@ auto ModManagerDirectory::getJSON() -> nlohmann::json
 {
     nlohmann::json json = nlohmann::json::object();
 
-    for (const auto& [modName, mod] : m_modMap) {
-        if (mod->priority != -1) {
-            json[ParallaxGenUtil::utf16toUTF8(modName)] = mod->priority;
+    const lock_guard<mutex> lock(m_modConflictResolutionMutex);
+    for (const auto& [modSet, winningMod] : m_modConflictResolution) {
+        // convert modSet to string
+        string modSetStr;
+        for (const auto& mod : modSet) {
+            if (!modSetStr.empty()) {
+                modSetStr += ",";
+            }
+            modSetStr += ParallaxGenUtil::utf16toUTF8(mod->name);
         }
+
+        // add to json
+        json[modSetStr] = ParallaxGenUtil::utf16toUTF8(winningMod->name);
     }
 
     return json;
@@ -182,11 +190,11 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
 
     // loop through each mod name to find friendly names
     unordered_map<string, wstring> vortexModNameMap;
-    unordered_map<string, int> vortexLooseOrder;
 
     {
         Graph vortexDepGraph;
         std::unordered_map<std::string, Vertex> nameToVertex;
+        unordered_map<string, unordered_set<string>> tempLooseFileConflictTracker;
         for (const auto& modName : vortexModNames) {
             auto modNameLookup = lookupKey + ".";
             modNameLookup.append(modName);
@@ -225,6 +233,8 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
                         } else if (rule["type"] == "after") {
                             boost::add_edge(nameToVertex[modName], nameToVertex[otherModName], vortexDepGraph);
                         }
+
+                        tempLooseFileConflictTracker[modName].insert(otherModName);
                     }
                 }
             }
@@ -260,7 +270,25 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         }
 
         for (int i = 0; i < topoOrder.size(); ++i) {
-            vortexLooseOrder[vortexDepGraph[topoOrder[i]].modName] = i;
+            const auto& curModFriendlyName = vortexModNameMap.at(vortexDepGraph[topoOrder[i]].modName);
+            auto curModPtr = createOrGetNewModPtr(curModFriendlyName);
+            curModPtr->modManagerOrder = i;
+        }
+
+        // fix naming of m_looseFileConflictTracker
+        for (auto& [curMod, conflictMods] : tempLooseFileConflictTracker) {
+            const auto& curModFriendlyName = vortexModNameMap.at(curMod);
+            const auto& curModPtr = createOrGetNewModPtr(curModFriendlyName);
+
+            const lock_guard<mutex> lock(m_modLooseFileConflictsMutex);
+
+            for (const auto& conflictMod : conflictMods) {
+                const auto& otherModFriendlyName = vortexModNameMap.at(conflictMod);
+                const auto& otherModPtr = createOrGetNewModPtr(otherModFriendlyName);
+
+                m_modLooseFileConflicts[curModPtr].insert(otherModPtr);
+                m_modLooseFileConflicts[otherModPtr].insert(curModPtr);
+            }
         }
     }
 
@@ -296,24 +324,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         const auto modName = file["source"].get<string>();
         const wstring& modFriendlyName = vortexModNameMap.at(modName);
 
-        shared_ptr<Mod> modPtr = nullptr;
-        if (m_modMap.contains(modFriendlyName)) {
-            // skip if already in map
-            modPtr = m_modMap.at(modFriendlyName);
-        } else {
-            modPtr = make_shared<Mod>();
-            modPtr->name = modFriendlyName;
-            modPtr->isNew = true;
-            modPtr->priority = -1;
-        }
-
-        if (vortexLooseOrder.contains(modName)) {
-            // set mod manager order
-            modPtr->modManagerOrder = vortexLooseOrder.at(modName);
-        } else {
-            // set mod manager order to -1 if not found
-            modPtr->modManagerOrder = -1;
-        }
+        auto modPtr = createOrGetNewModPtr(modFriendlyName);
 
         // Update file map
         spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modFriendlyName);
@@ -365,6 +376,8 @@ void ModManagerDirectory::populateModFileMapMO2(
     string modStr;
     int basePriority = 0;
     unordered_set<wstring> foundMods;
+    unordered_map<filesystem::path, unordered_set<wstring>> tempLooseFileConflictTracker;
+
     while (getline(modListFileF, modStr)) {
         wstring mod = ParallaxGenUtil::utf8toUTF16(modStr);
         if (mod.empty()) {
@@ -406,17 +419,7 @@ void ModManagerDirectory::populateModFileMapMO2(
 
         foundOneMod = true;
 
-        shared_ptr<Mod> modPtr = nullptr;
-        if (m_modMap.contains(mod)) {
-            // skip if already in map
-            modPtr = m_modMap.at(mod);
-        } else {
-            modPtr = make_shared<Mod>();
-            modPtr->name = mod;
-            modPtr->isNew = true;
-            modPtr->priority = -1;
-        }
-
+        auto modPtr = createOrGetNewModPtr(mod);
         modPtr->modManagerOrder = basePriority++;
 
         m_modMap[mod] = modPtr;
@@ -434,15 +437,15 @@ void ModManagerDirectory::populateModFileMapMO2(
                 for (auto it = filesystem::recursive_directory_iterator(
                          curSearchDir, filesystem::directory_options::skip_permission_denied);
                     it != filesystem::recursive_directory_iterator(); ++it) {
-                    const auto file = *it;
+                    const auto& file = *it;
 
-                    if (BethesdaDirectory::isHidden(file.path())) {
+                    /*if (BethesdaDirectory::isHidden(file.path())) {
                         if (file.is_directory()) {
                             // If it's a directory, don't recurse into it
                             it.disable_recursion_pending();
                         }
                         continue;
-                    }
+                    }*/
 
                     if (!filesystem::is_regular_file(file)) {
                         continue;
@@ -455,8 +458,25 @@ void ModManagerDirectory::populateModFileMapMO2(
 
                     auto relPath = filesystem::relative(file, curModDir);
                     const filesystem::path relPathLower = ParallaxGenUtil::toLowerASCII(relPath.wstring());
+
+                    // add to temp loose file tracker
+                    tempLooseFileConflictTracker[relPathLower].insert(mod);
+                    for (const auto& curMod : tempLooseFileConflictTracker[relPathLower]) {
+                        if (curMod == mod) {
+                            continue; // skip if same mod
+                        }
+
+                        const auto& curModPtr = createOrGetNewModPtr(curMod);
+
+                        // add to conflict tracker to indicate that this mod conflicts with these other mods
+                        const lock_guard<mutex> lock(m_modLooseFileConflictsMutex);
+                        m_modLooseFileConflicts[modPtr].insert(curModPtr);
+                        m_modLooseFileConflicts[curModPtr].insert(modPtr);
+                    }
+
                     // check if already in map
                     if (m_modFileMap.contains(relPathLower)) {
+                        // we skip here because this is a losing override in loose files
                         continue;
                     }
 
@@ -502,6 +522,14 @@ void ModManagerDirectory::populateModFileMapMO2(
     }
 
     modListFileF.close();
+}
+
+auto ModManagerDirectory::doModsConflictInLooseFiles(const std::shared_ptr<Mod>& mod1, const std::shared_ptr<Mod>& mod2)
+    -> bool
+{
+    const lock_guard<mutex> lock(m_modLooseFileConflictsMutex);
+    return (m_modLooseFileConflicts.contains(mod1) && m_modLooseFileConflicts[mod1].contains(mod2))
+        || (m_modLooseFileConflicts.contains(mod2) && m_modLooseFileConflicts[mod2].contains(mod1));
 }
 
 auto ModManagerDirectory::getModManagerTypes() -> vector<ModManagerType>
@@ -623,4 +651,17 @@ auto ModManagerDirectory::getVortexPath() -> std::filesystem::path
     }
 
     return {};
+}
+
+auto ModManagerDirectory::createOrGetNewModPtr(const wstring& modName) -> shared_ptr<Mod>
+{
+    if (m_modMap.contains(modName)) {
+        return m_modMap.at(modName);
+    }
+
+    auto modPtr = make_shared<Mod>();
+    modPtr->name = modName;
+    m_modMap[modName] = modPtr;
+
+    return modPtr;
 }

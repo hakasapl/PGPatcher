@@ -27,16 +27,59 @@ public:
 
         std::mutex mutex; // Mutex for the mod, anyone modifying the mod should lock this mutex
         std::wstring name;
-        bool isNew = false;
-        int modManagerOrder;
-        int priority = -1;
+        int modManagerOrder = -1;
         std::set<NIFUtil::ShapeShader> shaders;
-        std::unordered_set<std::shared_ptr<Mod>, ModHash> conflicts;
     };
 
 private:
     std::unordered_map<std::wstring, std::shared_ptr<Mod>> m_modMap;
     std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
+
+    std::mutex m_modLooseFileConflictsMutex;
+    std::unordered_map<std::shared_ptr<Mod>, std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>, Mod::ModHash>
+        m_modLooseFileConflicts;
+
+    struct ModSetHash {
+        auto operator()(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& modSet) const -> std::size_t
+        {
+            std::size_t seed = 0;
+            std::hash<std::wstring> hasher;
+            for (const auto& mod : modSet) {
+                // Combine hashes using boost-like hash_combine (xoring with rotation)
+                seed ^= hasher(mod->name) + 0x9e3779b9 + (seed << 6) // NOLINT(cppcoreguidelines-avoid-magic-numbers)
+                    + (seed >> 2);
+            }
+            return seed;
+        }
+    };
+
+    struct ModSetEqual {
+        auto operator()(const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& lhs,
+            const std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>& rhs) const -> bool
+        {
+            if (lhs.size() != rhs.size()) {
+                return false;
+            }
+
+            std::unordered_set<std::wstring> lhsNames;
+
+            for (const auto& mod : lhs) {
+                lhsNames.insert(mod->name);
+            }
+
+            std::unordered_set<std::wstring> rhsNames;
+            for (const auto& mod : rhs) {
+                rhsNames.insert(mod->name);
+            }
+
+            return lhsNames == rhsNames;
+        }
+    };
+
+    std::mutex m_modConflictResolutionMutex;
+    std::unordered_map<std::unordered_set<std::shared_ptr<Mod>, Mod::ModHash>, std::shared_ptr<Mod>, ModSetHash,
+        ModSetEqual>
+        m_modConflictResolution;
 
     ModManagerType m_mmType;
     BethesdaGame m_bg;
@@ -63,12 +106,16 @@ public:
         const std::filesystem::path& instanceDir, const std::wstring& profile, const std::filesystem::path& outputDir);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
+    auto doModsConflictInLooseFiles(const std::shared_ptr<Mod>& mod1, const std::shared_ptr<Mod>& mod2) -> bool;
+
     // Helpers
     [[nodiscard]] static auto getModManagerTypes() -> std::vector<ModManagerType>;
     [[nodiscard]] static auto getStrFromModManagerType(const ModManagerType& type) -> std::string;
     [[nodiscard]] static auto getModManagerTypeFromStr(const std::string& type) -> ModManagerType;
 
 private:
+    auto createOrGetNewModPtr(const std::wstring& modName) -> std::shared_ptr<Mod>;
+
     static auto getMO2FilePaths(const std::filesystem::path& instanceDir)
         -> std::pair<std::filesystem::path, std::filesystem::path>;
 
