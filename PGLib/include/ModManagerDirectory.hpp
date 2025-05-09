@@ -3,10 +3,11 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include "BethesdaGame.hpp"
 #include "NIFUtil.hpp"
@@ -26,12 +27,18 @@ public:
         };
 
         std::mutex mutex; // Mutex for the mod, anyone modifying the mod should lock this mutex
-        std::wstring name;
+        const std::wstring name;
         bool isNew = false;
-        int modManagerOrder;
+        int modManagerOrder = -1;
         int priority = -1;
         std::set<NIFUtil::ShapeShader> shaders;
         std::unordered_set<std::shared_ptr<Mod>, ModHash> conflicts;
+        std::unordered_set<std::shared_ptr<Mod>, ModHash> looseConflicts;
+
+        Mod(std::wstring modName)
+            : name(std::move(modName))
+        {
+        }
     };
 
 private:
@@ -63,12 +70,17 @@ public:
         const std::filesystem::path& instanceDir, const std::wstring& profile, const std::filesystem::path& outputDir);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
+    [[nodiscard]] auto getModManagerType() const -> ModManagerType { return m_mmType; }
+    [[nodiscard]] auto getBethesdaGame() const -> BethesdaGame { return m_bg; }
+
     // Helpers
     [[nodiscard]] static auto getModManagerTypes() -> std::vector<ModManagerType>;
     [[nodiscard]] static auto getStrFromModManagerType(const ModManagerType& type) -> std::string;
     [[nodiscard]] static auto getModManagerTypeFromStr(const std::string& type) -> ModManagerType;
 
 private:
+    auto createOrGetNewModPtr(const std::wstring& modName) -> std::shared_ptr<Mod>;
+
     static auto getMO2FilePaths(const std::filesystem::path& instanceDir)
         -> std::pair<std::filesystem::path, std::filesystem::path>;
 

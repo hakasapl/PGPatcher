@@ -2,6 +2,7 @@
 
 ## [0.9.0] - UNRELEASED
 
+- PG can now be aware of vortex loose file rules (requires vortex to be closed)
 - Added workaround for MO2 case where base_directory is not defined but wildcards are used
 
 ## [0.8.12] - 2025-05-18

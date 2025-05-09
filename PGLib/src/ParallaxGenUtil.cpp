@@ -275,7 +275,7 @@ auto execCommand(const string& cmd) -> vector<string>
         throw std::runtime_error("Failed to run command");
     }
 
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe.get()) != nullptr) {
         result.emplace_back(buffer.data());
         // Optionally trim newlines:
         if (!result.back().empty() && result.back().back() == '\n') {
