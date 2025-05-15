@@ -69,13 +69,6 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     vector<PatcherUtil::ShaderPatcherMatch> matches;
-    if (!dryRun) {
-        const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
-        if (PatcherUtil::s_shaderMatchCache.contains(slots)) {
-            return PatcherUtil::s_shaderMatchCache[slots];
-        }
-    }
-
     unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
     for (const auto& [shader, patcher] : patchers.shaderPatchers) {
         if (shader == NIFUtil::ShapeShader::NONE) {
@@ -115,12 +108,6 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
         }
     }
 
-    // Populate cache
-    {
-        const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
-        PatcherUtil::s_shaderMatchCache[slots] = matches;
-    }
-
     // Populate conflict mods if set
     if (dryRun) {
         if (modSet.size() > 1) {
@@ -149,4 +136,37 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     return matches;
+}
+
+auto PatcherUtil::createCanApplyMap(const PatcherMeshObjectSet& patchers, nifly::NiShape& shape,
+    const NIFUtil::ShapeShader* forceShader) -> std::unordered_map<NIFUtil::ShapeShader, bool>
+{
+    unordered_map<NIFUtil::ShapeShader, bool> canApplyMap;
+    for (const auto& [shader, patcher] : patchers.shaderPatchers) {
+        if (forceShader != nullptr && shader != *forceShader) {
+            // skip if force shader is set and does not match current shader
+            continue;
+        }
+
+        canApplyMap[shader] = patcher->canApply(shape);
+    }
+
+    return canApplyMap;
+}
+
+void PatcherUtil::filterMatches(
+    vector<ShaderPatcherMatch>& matches, const unordered_map<NIFUtil::ShapeShader, bool>& canApply)
+{
+    // remove any matches that cannot apply
+    for (auto it = matches.begin(); it != matches.end();) {
+        const bool canApplyShader = canApply.contains(it->shader) && canApply.at(it->shader);
+        const bool canApplyShaderTransform
+            = canApply.contains(it->shaderTransformTo) && canApply.at(it->shaderTransformTo);
+
+        if (!canApplyShader && !canApplyShaderTransform) {
+            it = matches.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }

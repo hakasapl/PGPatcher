@@ -439,6 +439,11 @@ auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceD
 
     mo2IniFileF.close();
 
+    if (baseDir.empty()) {
+        // if baseDir is empty, set it to the instance directory
+        baseDir = instanceDir;
+    }
+
     // replace any instance of %BASE_DIR% with the base directory
     boost::replace_all(profileDirField, MO2INI_BASEDIR_WILDCARD, baseDir.wstring());
     boost::replace_all(modDirField, MO2INI_BASEDIR_WILDCARD, baseDir.wstring());
@@ -447,19 +452,11 @@ auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceD
     filesystem::path modDir = modDirField;
 
     if (profileDir.empty()) {
-        if (baseDir.empty()) {
-            profileDir = instanceDir / "profiles";
-        } else {
-            profileDir = baseDir / "profiles";
-        }
+        profileDir = baseDir / "profiles";
     }
 
     if (modDir.empty()) {
-        if (baseDir.empty()) {
-            modDir = instanceDir / "mods";
-        } else {
-            modDir = baseDir / "mods";
-        }
+        modDir = baseDir / "mods";
     }
 
     return { profileDir, modDir };

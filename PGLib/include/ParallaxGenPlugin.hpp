@@ -135,7 +135,7 @@ public:
     static void processShape(const std::wstring& nifPath, const PatcherUtil::PatcherMeshObjectSet& patchers,
         const int& index3D, const bool& dryRun,
         const std::unordered_map<NIFUtil::ShapeShader, bool>* canApply = nullptr, const std::string& shapeKey = "",
-        std::vector<TXSTResult>* results = nullptr);
+        std::unordered_map<int, std::unordered_map<int, ParallaxGenPlugin::TXSTResult>>* results = nullptr);
 
     static void assignMesh(
         const std::wstring& nifPath, const std::wstring& baseNIFPath, const std::vector<TXSTResult>& result);

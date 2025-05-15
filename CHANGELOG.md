@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.13] - UNRELEASED
+
+- Added workaround for MO2 case where base_directory is not defined but wildcards are used
+- Fixed nif_filter cache issue with PBR
+- Fixed some NIFs being patched even if nothing was changed when TXST records existed
+
 ## [0.8.12] - 2025-05-18
 
 - Improved efficiency of mod folder mapping by only checking relevant folders

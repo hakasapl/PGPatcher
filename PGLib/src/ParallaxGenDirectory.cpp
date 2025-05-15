@@ -238,26 +238,20 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
     const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
     // clear shapes in cache
     for (const auto& [shape, oldindex3d] : shapes) {
-        if (!shape->HasShaderProperty()) {
-            // No shader, skip
+        if (shape == nullptr) {
+            // Skip if shape is null (invalid shapes)
             continue;
         }
 
-        // Get shader
-        auto* const shader = nif.GetShader(shape);
-        if (shader == nullptr) {
-            // No shader, skip
-            continue;
-        }
-
-        if (!shader->HasTextureSet()) {
-            // No texture set, skip
+        if (!NIFUtil::isPatchableShape(nif, *shape)) {
+            // Skip if not patchable shape
             continue;
         }
 
         // We have a texture set
         hasAtLeastOneTextureSet = true;
 
+        auto* const shader = nif.GetShader(shape);
         const auto textureSet = NIFUtil::getTextureSlots(&nif, shape);
         nifCache.textureSets.emplace_back(oldindex3d, textureSet);
 

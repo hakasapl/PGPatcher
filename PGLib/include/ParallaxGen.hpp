@@ -118,9 +118,10 @@ private:
      * @return true if the NIF file was processed successfully
      * @return false if the NIF file was not processed successfully
      */
-    static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* origNif, const bool& patchPlugin,
+    static auto processNIF(const std::filesystem::path& nifPath, const nifly::NifFile& origNif, const bool& patchPlugin,
         std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
-        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr) -> bool;
+        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr,
+        const std::unordered_map<int, NIFUtil::ShapeShader>* origShadersApplied = nullptr) -> bool;
 
     /**
      * @brief Process a single NIF shape
@@ -143,7 +144,7 @@ private:
         const NIFUtil::ShapeShader* forceShader = nullptr) -> bool;
 
     static auto getMeshesFromPluginResults(const std::unordered_map<int, NIFUtil::ShapeShader>& shadersAppliedMesh,
-        const std::vector<int>& shapeIdxs,
+        const std::unordered_map<nifly::NiShape*, int>& shapeIdxs,
         const std::unordered_map<int, std::unordered_map<int, ParallaxGenPlugin::TXSTResult>>& recordHandleTracker)
         -> std::unordered_map<int,
             std::pair<std::vector<ParallaxGenPlugin::TXSTResult>, std::unordered_map<int, NIFUtil::ShapeShader>>>;

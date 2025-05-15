@@ -608,9 +608,9 @@ public class PGMutagen
                 {
                     outputMod.MiscItems.Add(item);
                 }
-                else if (ModifiedRecord is MoveableStatic @static)
+                else if (ModifiedRecord is MoveableStatic rec_static)
                 {
-                    outputMod.MoveableStatics.Add(@static);
+                    outputMod.MoveableStatics.Add(rec_static);
                 }
                 else if (ModifiedRecord is Projectile projectile)
                 {

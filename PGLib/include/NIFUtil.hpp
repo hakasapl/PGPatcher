@@ -270,4 +270,6 @@ auto getSearchPrefixes(const std::array<std::wstring, NUM_TEXTURE_SLOTS>& oldSlo
 
 auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiShape*, int>;
 
+auto isPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) -> bool;
+
 } // namespace NIFUtil
