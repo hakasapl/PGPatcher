@@ -421,8 +421,13 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
 auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const nifly::NifFile& origNif,
     const bool& patchPlugin, std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
-    const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders) -> bool
+    const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders,
+    const std::unordered_map<int, NIFUtil::ShapeShader>* origShadersApplied) -> bool
 {
+    if (forceShaders != nullptr && origShadersApplied == nullptr) {
+        throw runtime_error("Force shaders are set but origShadersApplied is null");
+    }
+
     auto* const pgd = PGGlobals::getPGD();
     PGDiag::insert("mod", pgd->getMod(nifPath)->name);
 
@@ -470,6 +475,12 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const nifly::
                 // skip unknown force shaders (invalid shapes)
                 continue;
             }
+
+            if (forceShaders->at(oldIndex3D) == origShadersApplied->at(oldIndex3D)) {
+                // skip if the force shader is the same as the original shader
+                continue;
+            }
+
             ptrShaderForce = &forceShaders->at(oldIndex3D);
         }
 
@@ -514,7 +525,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const nifly::
 
             const auto newNIFPath = getDuplicateNIFPath(nifPath, dupIdx);
             // create a duplicate nif file
-            if (processNIF(newNIFPath, origNif, patchPlugin, createdNIFs, nifModified, &results.second)) {
+            if (processNIF(
+                    newNIFPath, origNif, patchPlugin, createdNIFs, nifModified, &results.second, &shadersAppliedMesh)) {
                 createdNIFs[newNIFPath].txstResults = results.first;
                 createdNIFs[newNIFPath].shadersAppliedMesh = results.second;
             }

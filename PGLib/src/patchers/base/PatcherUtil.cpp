@@ -69,13 +69,6 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     vector<PatcherUtil::ShaderPatcherMatch> matches;
-    if (!dryRun) {
-        const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
-        if (PatcherUtil::s_shaderMatchCache.contains(slots)) {
-            return PatcherUtil::s_shaderMatchCache[slots];
-        }
-    }
-
     unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
     for (const auto& [shader, patcher] : patchers.shaderPatchers) {
         if (shader == NIFUtil::ShapeShader::NONE) {
@@ -113,12 +106,6 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                 modSet.insert(curMatch.mod);
             }
         }
-    }
-
-    // Populate cache
-    {
-        const lock_guard<mutex> lock(PatcherUtil::s_processShapeMutex);
-        PatcherUtil::s_shaderMatchCache[slots] = matches;
     }
 
     // Populate conflict mods if set

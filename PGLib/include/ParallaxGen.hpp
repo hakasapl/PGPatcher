@@ -120,7 +120,8 @@ private:
      */
     static auto processNIF(const std::filesystem::path& nifPath, const nifly::NifFile& origNif, const bool& patchPlugin,
         std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
-        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr) -> bool;
+        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr,
+        const std::unordered_map<int, NIFUtil::ShapeShader>* origShadersApplied = nullptr) -> bool;
 
     /**
      * @brief Process a single NIF shape

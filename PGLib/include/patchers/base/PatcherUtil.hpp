@@ -138,13 +138,6 @@ public:
     static void filterMatches(
         std::vector<ShaderPatcherMatch>& matches, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply);
 
-private:
-    static inline std::mutex s_processShapeMutex;
-    static inline std::unordered_map<NIFUtil::TextureSet, std::vector<PatcherUtil::ShaderPatcherMatch>,
-        NIFUtil::TextureSetHash>
-        s_shaderMatchCache;
-
-public:
     static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
         const bool& dryRun) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 };
