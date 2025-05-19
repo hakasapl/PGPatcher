@@ -429,7 +429,10 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const nifly::
     }
 
     auto* const pgd = PGGlobals::getPGD();
-    PGDiag::insert("mod", pgd->getMod(nifPath)->name);
+    const auto modPtr = pgd->getMod(nifPath);
+    if (modPtr != nullptr) {
+        PGDiag::insert("mod", modPtr->name);
+    }
 
     // Create the current working nif file, which is copied from original NIF
     NifFile nif;
