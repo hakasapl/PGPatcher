@@ -18,6 +18,7 @@
 
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
+#include "patchers/PatcherMeshPreFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -168,6 +169,9 @@ void mainRunner(PGToolsCLIArgs& args)
         if (patcherDefs.contains("fixmeshlighting")) {
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
         }
+        if (patcherDefs.contains("fixeffectlightingcs")) {
+            meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixEffectLightingCS::getFactory());
+        }
         if (patcherDefs.contains("fixtextureslotcount")) {
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
         }
@@ -205,6 +209,8 @@ void mainRunner(PGToolsCLIArgs& args)
 
         PatcherUtil::PatcherTextureSet texPatchers;
         if (patcherDefs.contains("converttohdr")) {
+            PatcherTextureGlobalConvertToHDR::initShader();
+
             texPatchers.globalPatchers.emplace_back(PatcherTextureGlobalConvertToHDR::getFactory());
             PatcherTextureGlobalConvertToHDR::loadOptions(patcherDefs["converttohdr"]);
         }

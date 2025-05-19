@@ -7,6 +7,7 @@
 - Fixed nif_filter cache issue with PBR
 - Fixed some NIFs being patched even if nothing was changed when TXST records existed
 - Fixed CTD when diagnostics are enabled
+- Fixed converttohdr pgtools patcher not initializing shader
 
 ## [0.8.12] - 2025-05-18
 
