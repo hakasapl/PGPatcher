@@ -365,11 +365,9 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherU
             = ParallaxGenUtil::utf16toUTF8(altTexModKey) + " / " + to_string(altTexFormID) + " / " + matchType;
         const auto txstJSONKey = ParallaxGenUtil::utf16toUTF8(txstModKey) + " / " + to_string(txstFormID);
 
-        if (!dryRun) {
-            const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
-            const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
-            PGDiag::insert("origIndex3D", index3D);
-        }
+        const PGDiag::Prefix diagAltTexPrefix(altTexJSONKey, nlohmann::json::value_t::object);
+        const PGDiag::Prefix diagShapeKeyPrefix(shapeKey, nlohmann::json::value_t::object);
+        PGDiag::insert("origIndex3D", index3D);
 
         // Output information
         TXSTResult curResult;

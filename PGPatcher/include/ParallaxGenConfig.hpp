@@ -73,10 +73,12 @@ public:
         struct PrePatcher {
             bool disableMLP = false;
             bool fixMeshLighting = false;
+            bool fixEffectLightingCS = false;
 
             auto operator==(const PrePatcher& other) const -> bool
             {
-                return disableMLP == other.disableMLP && fixMeshLighting == other.fixMeshLighting;
+                return disableMLP == other.disableMLP && fixMeshLighting == other.fixMeshLighting
+                    && fixEffectLightingCS == other.fixEffectLightingCS;
             }
         } PrePatcher;
 

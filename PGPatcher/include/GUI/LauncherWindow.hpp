@@ -115,6 +115,9 @@ private:
     wxCheckBox* m_prePatcherFixMeshLightingCheckbox;
     void onPrePatcherFixMeshLightingChange(wxCommandEvent& event);
 
+    wxCheckBox* m_prePatcherFixEffectLightingCSCheckbox;
+    void onPrePatcherFixEffectLightingCSChange(wxCommandEvent& event);
+
     // Shader Patchers
     wxCheckBox* m_shaderPatcherParallaxCheckbox;
     void onShaderPatcherParallaxChange(wxCommandEvent& event);

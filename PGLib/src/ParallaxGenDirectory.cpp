@@ -234,7 +234,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
     }
 
     // Loop through each shape
-    bool hasAtLeastOneTextureSet = false;
+    bool hasAtLeastOnePatchableShape = false;
     const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
     // clear shapes in cache
     for (const auto& [shape, oldindex3d] : shapes) {
@@ -249,7 +249,12 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
         }
 
         // We have a texture set
-        hasAtLeastOneTextureSet = true;
+        hasAtLeastOnePatchableShape = true;
+
+        if (!NIFUtil::isShaderPatchableShape(nif, *shape)) {
+            // Skip if not shader patchable shape
+            continue;
+        }
 
         auto* const shader = nif.GetShader(shape);
         const auto textureSet = NIFUtil::getTextureSlots(&nif, shape);
@@ -401,7 +406,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
         }
     }
 
-    if (hasAtLeastOneTextureSet) {
+    if (hasAtLeastOnePatchableShape) {
         // Add mesh to set
         addMesh(nifPath, nifCache);
     }

@@ -669,11 +669,19 @@ auto NIFUtil::isPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) ->
 
     // get NIFShader from shape
     NiShader* nifShader = nif.GetShader(&nifShape);
-    if (nifShader == nullptr) {
+    return nifShader != nullptr;
+}
+
+auto NIFUtil::isShaderPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) -> bool
+{
+    const string shapeBlockName = nifShape.GetBlockName();
+
+    if (!isPatchableShape(nif, nifShape)) {
         return false;
     }
 
     // check that NIFShader is a BSLightingShaderProperty
+    NiShader* nifShader = nif.GetShader(&nifShape);
     const string nifShaderName = nifShader->GetBlockName();
     if (nifShaderName != "BSLightingShaderProperty") {
         return false;
