@@ -14,6 +14,7 @@
 #include "ParallaxGenUtil.hpp"
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
+#include "patchers/PatcherMeshPreFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -320,6 +321,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     if (params.PrePatcher.fixMeshLighting) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
+    }
+    if (params.PrePatcher.fixEffectLightingCS) {
+        Logger::debug("Adding Effect Lighting CS Fix pre-patcher");
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixEffectLightingCS::getFactory());
     }
     if (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR) {
         // fix slots only needed for shader patchers

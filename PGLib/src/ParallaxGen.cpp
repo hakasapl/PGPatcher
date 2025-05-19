@@ -616,54 +616,57 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
         }
     }
 
-    shaderApplied = NIFUtil::ShapeShader::NONE;
+    if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
+        // this shape is shader patchable so we can run shader patchers
+        shaderApplied = NIFUtil::ShapeShader::NONE;
 
-    // Allowed shaders from result of patchers
-    auto matches = PatcherUtil::getMatches(slots, patchers, false);
-    // remove any matches that cannot apply
-    PatcherUtil::filterMatches(matches, canApply);
+        // Allowed shaders from result of patchers
+        auto matches = PatcherUtil::getMatches(slots, patchers, false);
+        // remove any matches that cannot apply
+        PatcherUtil::filterMatches(matches, canApply);
 
-    if (forceShader != nullptr) {
-        changed = true;
-    }
-
-    if (matches.empty() && forceShader != nullptr) {
-        // Force shader means we can just apply the shader and return
-        // the only case this should be executing is if an alternate texture exists
-        shaderApplied = *forceShader;
-        // Find correct patcher
-        const auto& patcher = patchers.shaderPatchers.at(*forceShader);
-        patcher->applyShader(*nifShape);
-    }
-
-    PatcherUtil::ShaderPatcherMatch winningShaderMatch;
-    // Get winning match
-    if (!matches.empty()) {
-        winningShaderMatch = PatcherUtil::getWinningMatch(matches);
-
-        PGDiag::insert("winningShaderMatch", winningShaderMatch.getJSON());
-
-        // Apply transforms
-        if (PatcherUtil::applyTransformIfNeeded(winningShaderMatch, patchers)) {
-            PGDiag::insert("shaderTransformResult", winningShaderMatch.getJSON());
+        if (forceShader != nullptr) {
+            changed = true;
         }
 
-        shaderApplied = winningShaderMatch.shader;
-        if (shaderApplied != NIFUtil::ShapeShader::UNKNOWN) {
-            // loop through patchers
-            NIFUtil::TextureSet newSlots;
-            changed |= patchers.shaderPatchers.at(winningShaderMatch.shader)
-                           ->applyPatch(*nifShape, winningShaderMatch.match, newSlots);
+        if (matches.empty() && forceShader != nullptr) {
+            // Force shader means we can just apply the shader and return
+            // the only case this should be executing is if an alternate texture exists
+            shaderApplied = *forceShader;
+            // Find correct patcher
+            const auto& patcher = patchers.shaderPatchers.at(*forceShader);
+            patcher->applyShader(*nifShape);
+        }
 
-            PGDiag::insert("newTextures", NIFUtil::textureSetToStr(newSlots));
+        PatcherUtil::ShaderPatcherMatch winningShaderMatch;
+        // Get winning match
+        if (!matches.empty()) {
+            winningShaderMatch = PatcherUtil::getWinningMatch(matches);
 
-            // Post warnings if any
-            for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
-                ParallaxGenWarnings::mismatchWarn(
-                    winningShaderMatch.match.matchedPath, newSlots.at(static_cast<int>(curMatchedFrom)));
+            PGDiag::insert("winningShaderMatch", winningShaderMatch.getJSON());
+
+            // Apply transforms
+            if (PatcherUtil::applyTransformIfNeeded(winningShaderMatch, patchers)) {
+                PGDiag::insert("shaderTransformResult", winningShaderMatch.getJSON());
             }
 
-            ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
+            shaderApplied = winningShaderMatch.shader;
+            if (shaderApplied != NIFUtil::ShapeShader::UNKNOWN) {
+                // loop through patchers
+                NIFUtil::TextureSet newSlots;
+                changed |= patchers.shaderPatchers.at(winningShaderMatch.shader)
+                               ->applyPatch(*nifShape, winningShaderMatch.match, newSlots);
+
+                PGDiag::insert("newTextures", NIFUtil::textureSetToStr(newSlots));
+
+                // Post warnings if any
+                for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
+                    ParallaxGenWarnings::mismatchWarn(
+                        winningShaderMatch.match.matchedPath, newSlots.at(static_cast<int>(curMatchedFrom)));
+                }
+
+                ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
+            }
         }
     }
 

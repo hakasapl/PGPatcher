@@ -173,6 +173,9 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("fixmeshlighting")) {
             paramJ["prepatcher"]["fixmeshlighting"].get_to<bool>(m_params.PrePatcher.fixMeshLighting);
         }
+        if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("fixeffectlightingcs")) {
+            paramJ["prepatcher"]["fixeffectlightingcs"].get_to<bool>(m_params.PrePatcher.fixEffectLightingCS);
+        }
 
         // "shaderpatcher"
         if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("parallax")) {
@@ -426,6 +429,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "prepatcher"
     j["params"]["prepatcher"]["disablemlp"] = m_params.PrePatcher.disableMLP;
     j["params"]["prepatcher"]["fixmeshlighting"] = m_params.PrePatcher.fixMeshLighting;
+    j["params"]["prepatcher"]["fixeffectlightingcs"] = m_params.PrePatcher.fixEffectLightingCS;
 
     // "shaderpatcher"
     j["params"]["shaderpatcher"]["parallax"] = m_params.ShaderPatcher.parallax;

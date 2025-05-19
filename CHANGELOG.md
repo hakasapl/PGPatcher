@@ -2,6 +2,7 @@
 
 ## [0.8.13] - UNRELEASED
 
+- Added Particle Effect Light prepatcher for CS
 - Added workaround for MO2 case where base_directory is not defined but wildcards are used
 - Fixed nif_filter cache issue with PBR
 - Fixed some NIFs being patched even if nothing was changed when TXST records existed

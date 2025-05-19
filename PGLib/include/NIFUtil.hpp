@@ -272,4 +272,6 @@ auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::unordered_map<nifl
 
 auto isPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) -> bool;
 
+auto isShaderPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) -> bool;
+
 } // namespace NIFUtil
