@@ -495,7 +495,10 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const nifly::
         const Logger::Prefix prefixShape(shapeIDStr);
 
         // Can apply map
-        const auto canApplyMap = PatcherUtil::createCanApplyMap(patcherObjects, *nifShape, ptrShaderForce);
+        unordered_map<NIFUtil::ShapeShader, bool> canApplyMap;
+        if (NIFUtil::isShaderPatchableShape(nif, *nifShape)) {
+            canApplyMap = PatcherUtil::createCanApplyMap(patcherObjects, *nifShape, ptrShaderForce);
+        }
 
         {
             const PGDiag::Prefix diagShapesPrefix("shapes", nlohmann::json::value_t::object);
