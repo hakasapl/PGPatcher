@@ -1,12 +1,12 @@
 [center][b]PG is in BETA. It has been successfully used by many but is still in development. Please be patient and file detailed bug reports if you encounter any.[/b][/center]
-[center]The GitHub page for this open-source project can be found [url=https://github.com/hakasapl/ParallaxGen]here[/url].[/center]
+[center]The GitHub page for this open-source project can be found [url=https://github.com/hakasapl/ParallaxGen]here[/url]. If you have time to give a star on GitHub I would appreciate it![/center]
 
 [size=6][center][b][color=#6aa84f][url=https://github.com/hakasapl/ParallaxGen/wiki/Basic-Usage]Getting Started / Requirements[/url][/color][/b][/center][/size]
 [size=6][center][b][color=#6aa84f][url=https://github.com/hakasapl/ParallaxGen/wiki/Troubleshooting-Guide]Troubleshooting Guide[/url][/color][/b][/center][/size]
 [b][size=6][center][color=#6aa84f]Features[/color][/center][/size][/b]
 [size=4]Mesh Patching[/size]
 
-This is the primary goal of PG. Despite the name, PG can be used for more than just patching meshes for Parallax. Without any configuration, PG will patch any mesh in your load order (including meshes in your BSA archives) for [color=#bf9000][b]parallax, complex material, and/or truepbr[/b][/color]. What shapes being patched for which shader is dependent on the textures you have in your load order. Each of those patchers can be disabled using CLI arguments (see the CLI arguments section below).
+This is the primary goal of PG. Despite the name, PG can be used for more than just patching meshes for Parallax. Without any configuration, PG will patch any mesh in your load order (including meshes in your BSA archives) for [color=#bf9000][b]parallax, complex material, and/or truepbr[/b][/color]. What shapes being patched for which shader is dependent on the textures you have in your load order. Each of those patchers can be disabled from within the GUI.
 
 Before this, mod authors would need to ship pre-patched meshes with their texture mods. The problem with this is that the mesh can be overwritten, or you may want to use a different mesh with this texture, for example a fixed mesh from one of the many mesh fix mods. The goal of this feature is to completely remove this consideration. The winning mesh is the mesh you want, purely based on mesh things like UV fixes, split meshes, the model itself, etc. The winning texture is the one applied to the matching mesh after running PG.
 
