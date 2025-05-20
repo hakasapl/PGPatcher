@@ -23,6 +23,10 @@ auto PatcherMeshPreFixMeshLighting::applyPatch(nifly::NiShape& nifShape) -> bool
 
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
+    if (nifShaderBSLSP == nullptr) {
+        // not a BSLightingShaderProperty
+        return false;
+    }
 
     if (nifShaderBSLSP->softlighting > SOFTLIGHTING_MAX) {
         Logger::trace(L"Setting softlighting to 0.6 because it is too high");

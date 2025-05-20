@@ -40,11 +40,17 @@ auto PatcherMeshPreFixEffectLightingCS::applyPatch(nifly::NiShape& nifShape) -> 
         uint32_t& clampMode = effectShader->textureClampMode;
         static constexpr uint8_t LIGHTING_INFLUENCE_OFFSET = 8;
 
+        // get current value
         static constexpr uint8_t CLEAR_MASK = 0xFF;
-        clampMode &= ~(CLEAR_MASK << LIGHTING_INFLUENCE_OFFSET);
+        const uint8_t currentLightingInfluence = (clampMode >> LIGHTING_INFLUENCE_OFFSET) & CLEAR_MASK;
 
         static constexpr uint8_t LIGHTING_INFLUENCE_SETVAL = 255;
-        clampMode |= (LIGHTING_INFLUENCE_SETVAL << LIGHTING_INFLUENCE_OFFSET);
+        if (currentLightingInfluence != LIGHTING_INFLUENCE_SETVAL) {
+            changed = true;
+
+            clampMode &= ~(CLEAR_MASK << LIGHTING_INFLUENCE_OFFSET);
+            clampMode |= (LIGHTING_INFLUENCE_SETVAL << LIGHTING_INFLUENCE_OFFSET);
+        }
     }
 
     return changed;

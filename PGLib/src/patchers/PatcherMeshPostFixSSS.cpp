@@ -22,6 +22,10 @@ auto PatcherMeshPostFixSSS::applyPatch(nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
+    if (nifShaderBSLSP == nullptr) {
+        // not a BSLightingShaderProperty
+        return false;
+    }
 
     if (!NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)) {
         // we don't care if it doesn't have soft lighting

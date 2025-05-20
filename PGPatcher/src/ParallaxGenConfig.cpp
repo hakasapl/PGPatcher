@@ -57,8 +57,8 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
     outParams.Output.dir = s_exePath / "ParallaxGen_Output";
 
     // Mesh Rules
-    static const vector<wstring> defaultMeshBlocklist = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*",
-        L"*\\magic\\*", L"*\\markers\\*", L"*\\mps\\*", L"*\\sky\\*" };
+    static const vector<wstring> defaultMeshBlocklist
+        = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*\\markers\\*" };
     outParams.MeshRules.blockList = defaultMeshBlocklist;
 
     // Texture Rules
