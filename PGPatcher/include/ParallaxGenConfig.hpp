@@ -73,12 +73,10 @@ public:
         struct PrePatcher {
             bool disableMLP = false;
             bool fixMeshLighting = false;
-            bool fixEffectLightingCS = false;
 
             auto operator==(const PrePatcher& other) const -> bool
             {
-                return disableMLP == other.disableMLP && fixMeshLighting == other.fixMeshLighting
-                    && fixEffectLightingCS == other.fixEffectLightingCS;
+                return disableMLP == other.disableMLP && fixMeshLighting == other.fixMeshLighting;
             }
         } PrePatcher;
 
@@ -133,6 +131,16 @@ public:
             }
         } PostPatcher;
 
+        // Global Patchers
+        struct GlobalPatcher {
+            bool fixEffectLightingCS = false;
+
+            auto operator==(const GlobalPatcher& other) const -> bool
+            {
+                return fixEffectLightingCS == other.fixEffectLightingCS;
+            }
+        } GlobalPatcher;
+
         // Lists
         struct MeshRules {
             std::vector<std::wstring> allowList;
@@ -159,8 +167,8 @@ public:
             return Game == other.Game && ModManager == other.ModManager && Output == other.Output
                 && Processing == other.Processing && PrePatcher == other.PrePatcher
                 && ShaderPatcher == other.ShaderPatcher && ShaderTransforms == other.ShaderTransforms
-                && PostPatcher == other.PostPatcher && MeshRules == other.MeshRules
-                && TextureRules == other.TextureRules && advanced == other.advanced;
+                && PostPatcher == other.PostPatcher && GlobalPatcher == other.GlobalPatcher
+                && MeshRules == other.MeshRules && TextureRules == other.TextureRules && advanced == other.advanced;
         }
 
         auto operator!=(const PGParams& other) const -> bool { return !(*this == other); }

@@ -16,6 +16,7 @@
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenWarnings.hpp"
 
+#include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
@@ -196,6 +197,9 @@ void mainRunner(PGToolsCLIArgs& args)
         if (patcherDefs.contains("particlelightstolp")) {
             meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::getFactory());
         }
+        if (patcherDefs.contains("fixeffectlightingcs")) {
+            meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
+        }
 
         if (patcherDefs.contains("fixsss")) {
             meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
@@ -205,6 +209,8 @@ void mainRunner(PGToolsCLIArgs& args)
 
         PatcherUtil::PatcherTextureSet texPatchers;
         if (patcherDefs.contains("converttohdr")) {
+            PatcherTextureGlobalConvertToHDR::initShader();
+
             texPatchers.globalPatchers.emplace_back(PatcherTextureGlobalConvertToHDR::getFactory());
             PatcherTextureGlobalConvertToHDR::loadOptions(patcherDefs["converttohdr"]);
         }

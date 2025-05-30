@@ -57,8 +57,8 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
     outParams.Output.dir = s_exePath / "ParallaxGen_Output";
 
     // Mesh Rules
-    static const vector<wstring> defaultMeshBlocklist = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*",
-        L"*\\magic\\*", L"*\\markers\\*", L"*\\mps\\*", L"*\\sky\\*" };
+    static const vector<wstring> defaultMeshBlocklist
+        = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*\\markers\\*" };
     outParams.MeshRules.blockList = defaultMeshBlocklist;
 
     // Texture Rules
@@ -173,9 +173,6 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("fixmeshlighting")) {
             paramJ["prepatcher"]["fixmeshlighting"].get_to<bool>(m_params.PrePatcher.fixMeshLighting);
         }
-        if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("fixeffectlightingcs")) {
-            paramJ["prepatcher"]["fixeffectlightingcs"].get_to<bool>(m_params.PrePatcher.fixEffectLightingCS);
-        }
 
         // "shaderpatcher"
         if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("parallax")) {
@@ -214,6 +211,11 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("fixsss")) {
             paramJ["postpatcher"]["fixsss"].get_to<bool>(m_params.PostPatcher.fixSSS);
+        }
+
+        // "globalpatcher"
+        if (paramJ.contains("globalpatcher") && paramJ["globalpatcher"].contains("fixeffectlightingcs")) {
+            paramJ["globalpatcher"]["fixeffectlightingcs"].get_to<bool>(m_params.GlobalPatcher.fixEffectLightingCS);
         }
 
         // "meshrules"
@@ -429,7 +431,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "prepatcher"
     j["params"]["prepatcher"]["disablemlp"] = m_params.PrePatcher.disableMLP;
     j["params"]["prepatcher"]["fixmeshlighting"] = m_params.PrePatcher.fixMeshLighting;
-    j["params"]["prepatcher"]["fixeffectlightingcs"] = m_params.PrePatcher.fixEffectLightingCS;
 
     // "shaderpatcher"
     j["params"]["shaderpatcher"]["parallax"] = m_params.ShaderPatcher.parallax;
@@ -447,6 +448,9 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "postpatcher"
     j["params"]["postpatcher"]["optimizemeshes"] = m_params.PostPatcher.optimizeMeshes;
     j["params"]["postpatcher"]["fixsss"] = m_params.PostPatcher.fixSSS;
+
+    // "globalpatcher"
+    j["params"]["globalpatcher"]["fixeffectlightingcs"] = m_params.GlobalPatcher.fixEffectLightingCS;
 
     // "meshrules"
     j["params"]["meshrules"]["allowlist"] = utf16VectorToUTF8(m_params.MeshRules.allowList);

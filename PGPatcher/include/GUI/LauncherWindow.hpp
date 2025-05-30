@@ -115,9 +115,6 @@ private:
     wxCheckBox* m_prePatcherFixMeshLightingCheckbox;
     void onPrePatcherFixMeshLightingChange(wxCommandEvent& event);
 
-    wxCheckBox* m_prePatcherFixEffectLightingCSCheckbox;
-    void onPrePatcherFixEffectLightingCSChange(wxCommandEvent& event);
-
     // Shader Patchers
     wxCheckBox* m_shaderPatcherParallaxCheckbox;
     void onShaderPatcherParallaxChange(wxCommandEvent& event);
@@ -149,6 +146,10 @@ private:
 
     wxCheckBox* m_postPatcherFixSSSCheckbox;
     void onPostPatcherFixSSSChange(wxCommandEvent& event);
+
+    // Global Patchers
+    wxCheckBox* m_globalPatcherFixEffectLightingCSCheckbox;
+    void onGlobalPatcherFixEffectLightingCSChange(wxCommandEvent& event);
 
     // Mesh Rules
     wxListCtrl* m_meshRulesAllowList;

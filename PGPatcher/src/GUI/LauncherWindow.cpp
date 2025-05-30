@@ -192,14 +192,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     m_prePatcherFixMeshLightingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPrePatcherFixMeshLightingChange, this);
     prePatcherSizer->Add(m_prePatcherFixMeshLightingCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_prePatcherFixEffectLightingCSCheckbox
-        = new wxCheckBox(this, wxID_ANY, "Patch Particle Effect Lighting (CS Only)");
-    m_prePatcherFixEffectLightingCSCheckbox->SetToolTip("Fixes lighting on some effect shaders like waterfalls, same "
-                                                        "technique as CS particle patch (For CS users only!)");
-    m_prePatcherFixEffectLightingCSCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onPrePatcherFixEffectLightingCSChange, this);
-    prePatcherSizer->Add(m_prePatcherFixEffectLightingCSCheckbox, 0, wxALL, BORDER_SIZE);
-
     rightSizer->Add(prePatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
@@ -289,6 +281,18 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     postPatcherSizer->Add(m_postPatcherFixSSSCheckbox, 0, wxALL, BORDER_SIZE);
 
     rightSizer->Add(postPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
+    //
+    // Global Patchers
+    //
+    auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
+    m_globalPatcherFixEffectLightingCSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Effect Lighting (CS Only)");
+    m_globalPatcherFixEffectLightingCSCheckbox->SetToolTip("Fixes effect lighting in meshes (For CS users only!)");
+    m_globalPatcherFixEffectLightingCSCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onGlobalPatcherFixEffectLightingCSChange, this);
+    globalPatcherSizer->Add(m_globalPatcherFixEffectLightingCSCheckbox, 0, wxALL, BORDER_SIZE);
+
+    rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Restore defaults button
     auto* restoreDefaultsButton = new wxButton(this, wxID_ANY, "Restore Defaults");
@@ -536,7 +540,6 @@ void LauncherWindow::loadConfig()
     // Pre-Patchers
     m_prePatcherDisableMLPCheckbox->SetValue(initParams.PrePatcher.disableMLP);
     m_prePatcherFixMeshLightingCheckbox->SetValue(initParams.PrePatcher.fixMeshLighting);
-    m_prePatcherFixEffectLightingCSCheckbox->SetValue(initParams.PrePatcher.fixEffectLightingCS);
 
     // Shader Patchers
     m_shaderPatcherParallaxCheckbox->SetValue(initParams.ShaderPatcher.parallax);
@@ -564,6 +567,9 @@ void LauncherWindow::loadConfig()
     // Post-Patchers
     m_postPatcherOptimizeMeshesCheckbox->SetValue(initParams.PostPatcher.optimizeMeshes);
     m_postPatcherFixSSSCheckbox->SetValue(initParams.PostPatcher.fixSSS);
+
+    // Global Patchers
+    m_globalPatcherFixEffectLightingCSCheckbox->SetValue(initParams.GlobalPatcher.fixEffectLightingCS);
 
     // Mesh Rules
     m_meshRulesAllowList->DeleteAllItems();
@@ -709,7 +715,7 @@ void LauncherWindow::onPrePatcherFixMeshLightingChange([[maybe_unused]] wxComman
     updateDisabledElements();
 }
 
-void LauncherWindow::onPrePatcherFixEffectLightingCSChange([[maybe_unused]] wxCommandEvent& event)
+void LauncherWindow::onGlobalPatcherFixEffectLightingCSChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
@@ -901,7 +907,6 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
     // Pre-Patchers
     params.PrePatcher.disableMLP = m_prePatcherDisableMLPCheckbox->GetValue();
     params.PrePatcher.fixMeshLighting = m_prePatcherFixMeshLightingCheckbox->GetValue();
-    params.PrePatcher.fixEffectLightingCS = m_prePatcherFixEffectLightingCSCheckbox->GetValue();
 
     // Shader Patchers
     params.ShaderPatcher.parallax = m_shaderPatcherParallaxCheckbox->GetValue();
@@ -927,6 +932,9 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
     // Post-Patchers
     params.PostPatcher.optimizeMeshes = m_postPatcherOptimizeMeshesCheckbox->GetValue();
     params.PostPatcher.fixSSS = m_postPatcherFixSSSCheckbox->GetValue();
+
+    // Global Patchers
+    params.GlobalPatcher.fixEffectLightingCS = m_globalPatcherFixEffectLightingCSCheckbox->GetValue();
 
     // Mesh Rules
     params.MeshRules.allowList.clear();
