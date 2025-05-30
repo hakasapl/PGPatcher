@@ -13,8 +13,8 @@
 #include "ParallaxGenUI.hpp"
 #include "ParallaxGenUtil.hpp"
 #include "ParallaxGenWarnings.hpp"
+#include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
-#include "patchers/PatcherMeshPreFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -322,10 +322,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
     }
-    if (params.PrePatcher.fixEffectLightingCS) {
-        Logger::debug("Adding Effect Lighting CS Fix pre-patcher");
-        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixEffectLightingCS::getFactory());
-    }
     if (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR) {
         // fix slots only needed for shader patchers
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
@@ -364,7 +360,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             Logger::critical("Failed to initialize ConvertToCM shader");
         }
     }
-
     if (params.PostPatcher.fixSSS) {
         Logger::debug("Adding SSS fix post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
@@ -372,6 +367,11 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         if (!PatcherTextureHookFixSSS::initShader()) {
             Logger::critical("Failed to initialize FixSSS shader");
         }
+    }
+
+    if (params.GlobalPatcher.fixEffectLightingCS) {
+        Logger::debug("Adding Effect Lighting CS Fix pre-patcher");
+        meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
     }
 
     const PatcherUtil::PatcherTextureSet texPatchers;

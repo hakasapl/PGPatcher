@@ -16,9 +16,9 @@
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenWarnings.hpp"
 
+#include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
-#include "patchers/PatcherMeshPreFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -169,9 +169,6 @@ void mainRunner(PGToolsCLIArgs& args)
         if (patcherDefs.contains("fixmeshlighting")) {
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
         }
-        if (patcherDefs.contains("fixeffectlightingcs")) {
-            meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixEffectLightingCS::getFactory());
-        }
         if (patcherDefs.contains("fixtextureslotcount")) {
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
         }
@@ -199,6 +196,9 @@ void mainRunner(PGToolsCLIArgs& args)
         }
         if (patcherDefs.contains("particlelightstolp")) {
             meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::getFactory());
+        }
+        if (patcherDefs.contains("fixeffectlightingcs")) {
+            meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
         }
 
         if (patcherDefs.contains("fixsss")) {
