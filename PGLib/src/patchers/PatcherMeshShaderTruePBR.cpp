@@ -132,7 +132,8 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
     for (const auto& config : getTruePBRConfigs()) {
         // "match_normal" attribute
         if (config.second.contains("match_normal")) {
-            auto revNormal = ParallaxGenUtil::utf8toUTF16(config.second["match_normal"].get<string>());
+            auto revNormal
+                = ParallaxGenUtil::utf8toUTF16(boost::to_lower_copy(config.second["match_normal"].get<string>()));
             revNormal = NIFUtil::getTexBase(revNormal);
             std::ranges::reverse(revNormal);
 
@@ -142,7 +143,8 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
 
         // "match_diffuse" attribute
         if (config.second.contains("match_diffuse")) {
-            auto revDiffuse = ParallaxGenUtil::utf8toUTF16(config.second["match_diffuse"].get<string>());
+            auto revDiffuse
+                = ParallaxGenUtil::utf8toUTF16(boost::to_lower_copy(config.second["match_diffuse"].get<string>()));
             revDiffuse = NIFUtil::getTexBase(revDiffuse);
             std::ranges::reverse(revDiffuse);
 
