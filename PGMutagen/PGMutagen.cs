@@ -479,19 +479,25 @@ public class PGMutagen
                 OutMod.IsMaster = true;
             }
 
-            if (!OutMod.EnumerateMajorRecords().Any())
+            bool OutModNeeded = OutMod.EnumerateMajorRecords().Any();
+            bool HasModifiedRecords = ModifiedModeledRecords.Count > 0;
+
+            if (!OutModNeeded && !HasModifiedRecords)
             {
-                // No records in OutMod, exit.
+                // No records to write, return early
                 return;
             }
 
-            // Write OutMod
-            // We disable formid compactness check for VR specifically as we require Skyrim VR ESL support mod so we CAN use those extra formids
-            OutMod.BeginWrite
-                .ToPath(Path.Combine(outputPath, OutMod.ModKey.FileName))
-                .WithLoadOrder(Env.LoadOrder)
-                .NoFormIDCompactnessCheck()
-                .Write();
+            if (OutModNeeded)
+            {
+                // Write OutMod
+                // We disable formid compactness check for VR specifically as we require Skyrim VR ESL support mod so we CAN use those extra formids
+                OutMod.BeginWrite
+                    .ToPath(Path.Combine(outputPath, OutMod.ModKey.FileName))
+                    .WithLoadOrder(Env.LoadOrder)
+                    .NoFormIDCompactnessCheck()
+                    .Write();
+            }
 
             // Add all modified model records to the output mod
             foreach (var recId in ModifiedModeledRecords)
@@ -642,8 +648,14 @@ public class PGMutagen
                 }
             }
 
-            // Add OutMod to a new load order for saving other plugins
-            var newLo = Env.LoadOrder.ListedOrder.Select(x => x.ModKey).And(OutMod.ModKey);
+            // New load order
+            var newLo = Env.LoadOrder.ListedOrder.Select(x => x.ModKey);
+
+            if (OutModNeeded)
+            {
+                newLo = newLo.And(OutMod.ModKey);
+            }
+
             foreach (var mod in OutputSplitMods)
             {
                 // Add each _X.esp plugin to the new load order
@@ -663,12 +675,23 @@ public class PGMutagen
                 }
 
                 // Write the output plugin
-                mod.BeginWrite
-                    .ToPath(Path.Combine(outputPath, mod.ModKey.FileName))
-                    .WithLoadOrder(newLo)
-                    .WithDataFolder(Env.DataFolderPath)
-                    .WithExtraIncludedMasters(OutMod.ModKey)
-                    .Write();
+                if (OutModNeeded)
+                {
+                    mod.BeginWrite
+                        .ToPath(Path.Combine(outputPath, mod.ModKey.FileName))
+                        .WithLoadOrder(newLo)
+                        .WithDataFolder(Env.DataFolderPath)
+                        .WithExtraIncludedMasters(OutMod.ModKey)
+                        .Write();
+                }
+                else
+                {
+                    mod.BeginWrite
+                        .ToPath(Path.Combine(outputPath, mod.ModKey.FileName))
+                        .WithLoadOrder(newLo)
+                        .WithDataFolder(Env.DataFolderPath)
+                        .Write();
+                }
             }
         }
         catch (Exception ex)
