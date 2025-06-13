@@ -37,8 +37,9 @@ auto PatcherMeshGlobalFixEffectLightingCS::applyPatch() -> bool
             changed |= NIFUtil::setShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_UNIFORM_SCALE);
 
             // clear external emmitance flag
-            changed
-                |= NIFUtil::clearShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE);
+            // changed
+            //    |= NIFUtil::clearShaderFlag(effectShader,
+            //    nifly::SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE);
 
             // Set lighting influence, which is the second byte (uint8_t) in the uint32_t
             uint32_t& clampMode = effectShader->textureClampMode;

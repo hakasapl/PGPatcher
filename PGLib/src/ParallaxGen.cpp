@@ -602,10 +602,6 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
         throw runtime_error("Force shader is UNKNOWN");
     }
 
-    const auto slots = PatcherMeshShader::getTextureSet(nifPath, *nif, *nifShape);
-
-    PGDiag::insert("origTextures", NIFUtil::textureSetToStr(slots));
-
     // apply prepatchers
     {
         const PGDiag::Prefix diagPrePatcherPrefix("prePatchers", nlohmann::json::value_t::object);
@@ -620,6 +616,10 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     }
 
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
+        const auto slots = PatcherMeshShader::getTextureSet(nifPath, *nif, *nifShape);
+
+        PGDiag::insert("origTextures", NIFUtil::textureSetToStr(slots));
+
         // this shape is shader patchable so we can run shader patchers
         shaderApplied = NIFUtil::ShapeShader::NONE;
 
