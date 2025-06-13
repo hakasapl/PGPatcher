@@ -737,6 +737,7 @@ public class PGMutagen
         var newPluginIndex = OutputSplitMods.Count + 1;
         var newPluginName = "PG_" + newPluginIndex + ".esp";
         var newMod = new SkyrimMod(newPluginName, GameType);
+        newMod.UsingLocalization = true;
 
         // add the new modkey to the new plugin
         OutputMasterTracker.Add(curMasterList);

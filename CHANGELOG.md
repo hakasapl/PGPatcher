@@ -12,6 +12,7 @@
 - Fixed PBR match_normal not matching anything
 - Fixed some meshes being skipped due to not having patchable shapes
 - Fixed plugins not being created if no new texture sets were required
+- Enabled localization for output plugins
 
 ## [0.8.12] - 2025-05-18
 
