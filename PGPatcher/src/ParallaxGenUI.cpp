@@ -15,7 +15,7 @@
 #include "GUI/ModSortDialog.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 

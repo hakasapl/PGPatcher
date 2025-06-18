@@ -2,7 +2,7 @@
 
 #include <mutex>
 
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 

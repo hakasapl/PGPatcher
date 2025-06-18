@@ -1,10 +1,10 @@
 #include "patchers/base/PatcherUtil.hpp"
 
-#include "Logger.hpp"
 #include "ModManagerDirectory.hpp"
-#include "NIFUtil.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
+#include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
 #include <memory>
 
 using namespace std;

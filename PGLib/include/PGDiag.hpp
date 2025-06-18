@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <cstddef>
 #include <nlohmann/json.hpp>

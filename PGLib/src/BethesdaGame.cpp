@@ -1,5 +1,5 @@
 #include "BethesdaGame.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <spdlog/spdlog.h>
 

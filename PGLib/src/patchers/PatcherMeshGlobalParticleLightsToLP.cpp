@@ -1,5 +1,5 @@
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <Animation.hpp>
 #include <BasicTypes.hpp>
@@ -15,7 +15,7 @@
 
 #include <fstream>
 
-#include "Logger.hpp"
+#include "util/Logger.hpp"
 
 using namespace std;
 

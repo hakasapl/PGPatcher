@@ -1,9 +1,9 @@
 #include "ParallaxGenD3D.hpp"
 
-#include "NIFUtil.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <dxgiformat.h>
 #include <spdlog/spdlog.h>
@@ -36,7 +36,7 @@
 #include <cstring>
 #include <winnt.h>
 
-#include "Logger.hpp"
+#include "util/Logger.hpp"
 
 using namespace std;
 using namespace ParallaxGenUtil;

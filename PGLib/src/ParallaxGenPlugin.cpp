@@ -6,13 +6,13 @@
 #include <utility>
 #include <winbase.h>
 
-#include "Logger.hpp"
-#include "NIFUtil.hpp"
 #include "PGDiag.hpp"
 #include "PGMutagenNE.h"
-#include "ParallaxGenUtil.hpp"
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 

@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "NIFUtil.hpp"
+#include "util/NIFUtil.hpp"
 
 class ModManagerDirectory {
 

@@ -1,11 +1,10 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 
-#include "NIFUtil.hpp"
 #include "NifFile.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 #include <BasicTypes.hpp>
 #include <Shaders.hpp>
-#include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -80,7 +79,7 @@ auto PatcherMeshShader::setTextureSet(const filesystem::path& nifPath, nifly::Ni
 
         // Add a new texture set to the NIF
         if (newBlockID == 0) {
-            auto newTextureSet = make_unique<nifly::BSShaderTextureSet>();
+            auto newTextureSet = std::make_unique<nifly::BSShaderTextureSet>();
             newTextureSet->textures.resize(NUM_TEXTURE_SLOTS);
             for (uint32_t i = 0; i < textures.size(); i++) {
                 newTextureSet->textures[i] = ParallaxGenUtil::utf16toASCII(textures.at(i));

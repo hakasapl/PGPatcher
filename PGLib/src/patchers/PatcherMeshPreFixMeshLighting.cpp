@@ -1,7 +1,7 @@
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
-#include "NIFUtil.hpp"
+#include "util/NIFUtil.hpp"
 
-#include "Logger.hpp"
+#include "util/Logger.hpp"
 
 using namespace std;
 

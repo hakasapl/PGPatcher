@@ -27,20 +27,20 @@
 
 #include <d3d11.h>
 
-#include "Logger.hpp"
-#include "NIFUtil.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
-#include "ParallaxGenUtil.hpp"
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 using namespace ParallaxGenUtil;

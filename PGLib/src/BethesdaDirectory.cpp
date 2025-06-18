@@ -4,7 +4,7 @@
 #include "ModManagerDirectory.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <bsa/tes4.hpp>
 

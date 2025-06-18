@@ -11,11 +11,11 @@
 
 #include <boost/functional/hash.hpp>
 
-#include "NIFUtil.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenTask.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "util/NIFUtil.hpp"
 
 class ParallaxGen {
 private:

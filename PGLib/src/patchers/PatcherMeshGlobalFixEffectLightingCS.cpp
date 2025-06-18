@@ -1,5 +1,5 @@
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
-#include "NIFUtil.hpp"
+#include "util/NIFUtil.hpp"
 
 using namespace std;
 

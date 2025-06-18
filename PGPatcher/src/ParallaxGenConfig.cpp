@@ -1,10 +1,10 @@
 #include "ParallaxGenConfig.hpp"
 
 #include "BethesdaGame.hpp"
-#include "Logger.hpp"
 #include "ModManagerDirectory.hpp"
-#include "NIFUtil.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <algorithm>
 #include <boost/algorithm/string/join.hpp>

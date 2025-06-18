@@ -1,7 +1,7 @@
 #pragma once
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <nlohmann/json.hpp>
 

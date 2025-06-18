@@ -4,8 +4,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
-#include "Logger.hpp"
-#include "NIFUtil.hpp"
+#include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
 
 using namespace std;
 

@@ -22,11 +22,11 @@
 
 #include "BethesdaDirectory.hpp"
 #include "ModManagerDirectory.hpp"
-#include "NIFUtil.hpp"
 #include "PGDiag.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 using namespace ParallaxGenUtil;
