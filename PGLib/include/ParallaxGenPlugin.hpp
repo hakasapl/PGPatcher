@@ -103,7 +103,7 @@ private:
     static std::unordered_map<std::array<std::wstring, NUM_TEXTURE_SLOTS>, std::pair<int, std::string>, ArrayHash,
         ArrayEqual>
         s_createdTXSTs;
-    static std::mutex s_createdTXSTMutex;
+    static std::shared_mutex s_createdTXSTMutex;
 
     // Runner vars
     static std::unordered_map<std::wstring, int>* s_modPriority;

@@ -21,11 +21,11 @@ PGDiag::Prefix::Prefix(const wstring& prefix, const nlohmann::json::value_t& typ
 
 PGDiag::Prefix::Prefix(const string& prefix, const nlohmann::json::value_t& type)
 {
-    const lock_guard<mutex> lock(s_diagJSONMutex);
-
     if (!s_enabled) {
         return;
     }
+
+    const lock_guard<mutex> lock(s_diagJSONMutex);
 
     // create object if needed
     auto* ptrJSON = resolvePrefix();
@@ -38,11 +38,11 @@ PGDiag::Prefix::Prefix(const string& prefix, const nlohmann::json::value_t& type
 
 PGDiag::Prefix::~Prefix()
 {
-    const lock_guard<mutex> lock(s_diagJSONMutex);
-
     if (!s_enabled) {
         return;
     }
+
+    const lock_guard<mutex> lock(s_diagJSONMutex);
 
     if (!s_ptrPrefixStack.empty()) {
         // remove last element of s_ptrPrefixStack

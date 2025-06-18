@@ -964,14 +964,13 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
 {
     auto* const pgd = PGGlobals::getPGD();
 
-    // Use lock_guard to make this method thread-safe
-    const lock_guard<mutex> lock(m_ddsMetaDataMutex);
-
-    // Check if in cache
-    // TODO set cache to something on failure
-    if (m_ddsMetaDataCache.find(ddsPath) != m_ddsMetaDataCache.end()) {
-        ddsMeta = m_ddsMetaDataCache[ddsPath];
-        return true;
+    {
+        const shared_lock lock(m_ddsMetaDataMutex);
+        // TODO set cache to something on failure
+        if (m_ddsMetaDataCache.find(ddsPath) != m_ddsMetaDataCache.end()) {
+            ddsMeta = m_ddsMetaDataCache[ddsPath];
+            return true;
+        }
     }
 
     HRESULT hr {};
@@ -999,7 +998,10 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
     }
 
     // update cache
-    m_ddsMetaDataCache[ddsPath] = ddsMeta;
+    {
+        const unique_lock lock(m_ddsMetaDataMutex);
+        m_ddsMetaDataCache[ddsPath] = ddsMeta;
+    }
 
     return true;
 }

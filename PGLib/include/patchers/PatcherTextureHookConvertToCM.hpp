@@ -10,7 +10,7 @@ private:
 
     static constexpr const char* SHADER_NAME = "ParallaxToCM.hlsl";
 
-    static inline std::mutex s_texToProcessMutex;
+    static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:

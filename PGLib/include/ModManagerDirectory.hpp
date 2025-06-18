@@ -2,8 +2,8 @@
 
 #include <filesystem>
 #include <memory>
-#include <mutex>
 #include <nlohmann/json_fwd.hpp>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -24,7 +24,7 @@ public:
             }
         };
 
-        std::mutex mutex; // Mutex for the mod, anyone modifying the mod should lock this mutex
+        std::shared_mutex mutex; // Mutex for the mod, anyone modifying the mod should lock this mutex
         std::wstring name;
         bool isNew = false;
         int modManagerOrder;

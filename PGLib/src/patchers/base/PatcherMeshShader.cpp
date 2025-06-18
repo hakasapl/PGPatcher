@@ -17,7 +17,7 @@ using namespace std;
 unordered_map<tuple<filesystem::path, uint32_t>, PatcherMeshShader::PatchedTextureSet,
     PatcherMeshShader::PatchedTextureSetsHash>
     PatcherMeshShader::s_patchedTextureSets;
-mutex PatcherMeshShader::s_patchedTextureSetsMutex;
+shared_mutex PatcherMeshShader::s_patchedTextureSetsMutex;
 
 // Constructor
 PatcherMeshShader::PatcherMeshShader(filesystem::path nifPath, nifly::NifFile* nif, string patcherName)
@@ -28,13 +28,12 @@ PatcherMeshShader::PatcherMeshShader(filesystem::path nifPath, nifly::NifFile* n
 auto PatcherMeshShader::getTextureSet(const filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape)
     -> array<wstring, NUM_TEXTURE_SLOTS>
 {
-    const lock_guard<mutex> lock(s_patchedTextureSetsMutex);
-
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto texturesetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
     const auto nifShapeKey = make_tuple(nifPath, texturesetBlockID);
 
     // check if in patchedtexturesets
+    const shared_lock lock(s_patchedTextureSetsMutex);
     if (s_patchedTextureSets.find(nifShapeKey) != s_patchedTextureSets.end()) {
         return s_patchedTextureSets[nifShapeKey].original;
     }
@@ -46,13 +45,17 @@ auto PatcherMeshShader::getTextureSet(const filesystem::path& nifPath, nifly::Ni
 auto PatcherMeshShader::setTextureSet(const filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape,
     const array<wstring, NUM_TEXTURE_SLOTS>& textures) -> bool
 {
-    const lock_guard<mutex> lock(s_patchedTextureSetsMutex);
-
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto textureSetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
     const auto nifShapeKey = make_tuple(nifPath, textureSetBlockID);
 
-    if (s_patchedTextureSets.find(nifShapeKey) != s_patchedTextureSets.end()) {
+    bool patchedBefore = false;
+    {
+        const shared_lock lock(s_patchedTextureSetsMutex);
+        patchedBefore = s_patchedTextureSets.find(nifShapeKey) != s_patchedTextureSets.end();
+    }
+
+    if (patchedBefore) {
         // This texture set has been patched before
         uint32_t newBlockID = 0;
 
@@ -85,9 +88,14 @@ auto PatcherMeshShader::setTextureSet(const filesystem::path& nifPath, nifly::Ni
         const NiBlockRef<BSShaderTextureSet> newBlockRef(newBlockID);
         nifShaderBSLSP->textureSetRef = newBlockRef;
 
-        s_patchedTextureSets[nifShapeKey].patchResults[newBlockID] = textures;
+        {
+            const unique_lock lock(s_patchedTextureSetsMutex);
+            s_patchedTextureSets[nifShapeKey].patchResults[newBlockID] = textures;
+        }
         return true;
     }
+
+    const unique_lock lockWrite(s_patchedTextureSetsMutex);
 
     // set original for future use
     const auto slots = NIFUtil::getTextureSlots(&nif, &nifShape);

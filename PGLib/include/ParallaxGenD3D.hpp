@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -27,7 +28,7 @@ private:
     static inline const D3D_FEATURE_LEVEL s_featureLevel = D3D_FEATURE_LEVEL_11_0; // DX11
 
     std::unordered_map<std::filesystem::path, DirectX::TexMetadata> m_ddsMetaDataCache;
-    std::mutex m_ddsMetaDataMutex;
+    std::shared_mutex m_ddsMetaDataMutex;
 
     std::mutex m_gpuOperationMutex;
 

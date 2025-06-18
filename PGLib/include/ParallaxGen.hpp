@@ -4,8 +4,8 @@
 #include <NifFile.hpp>
 #include <filesystem>
 #include <miniz.h>
-#include <mutex>
 #include <nlohmann/json.hpp>
+#include <shared_mutex>
 #include <spdlog/spdlog.h>
 #include <string>
 
@@ -23,7 +23,7 @@ private:
     static PatcherUtil::PatcherTextureSet s_texPatchers;
     static PatcherUtil::PatcherMeshSet s_meshPatchers;
 
-    static std::mutex s_diffJSONMutex;
+    static std::shared_mutex s_diffJSONMutex;
     static nlohmann::json s_diffJSON;
 
 public:

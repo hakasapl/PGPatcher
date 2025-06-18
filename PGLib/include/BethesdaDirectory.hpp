@@ -14,7 +14,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -85,7 +85,7 @@ private:
     std::filesystem::path m_generatedDir; /**< Stores the path to the generated directory */
     std::map<std::filesystem::path, BethesdaFile> m_fileMap; /** < Stores the file map for every file found in the load
                                                               order. Key is a lowercase path, value is a BethesdaFile*/
-    std::mutex m_fileMapMutex; /** < Mutex for the file map */
+    std::shared_mutex m_fileMapMutex; /** < Mutex for the file map */
     std::vector<ModFile> m_modFiles; /** < Stores files in mod staging directory */
 
     bool m_logging; /** < Bool for whether logging is enabled or not */

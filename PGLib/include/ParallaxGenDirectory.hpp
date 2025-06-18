@@ -54,10 +54,10 @@ private:
     std::vector<std::filesystem::path> m_pbrJSONs;
 
     // Mutexes
-    std::mutex m_textureMapsMutex;
-    std::mutex m_textureTypesMutex;
-    std::mutex m_meshesMutex;
-    std::mutex m_texturesMutex;
+    std::shared_mutex m_textureMapsMutex;
+    std::shared_mutex m_textureTypesMutex;
+    std::shared_mutex m_meshesMutex;
+    std::shared_mutex m_texturesMutex;
 
 public:
     // constructor - calls the BethesdaDirectory constructor
