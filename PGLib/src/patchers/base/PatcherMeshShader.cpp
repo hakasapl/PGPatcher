@@ -60,16 +60,21 @@ auto PatcherMeshShader::setTextureSet(const filesystem::path& nifPath, nifly::Ni
         // This texture set has been patched before
         uint32_t newBlockID = 0;
 
-        // already been patched, check if it is the same
-        for (const auto& [possibleTexRecordID, possibleTextures] : s_patchedTextureSets[nifShapeKey].patchResults) {
-            if (possibleTextures == textures) {
-                newBlockID = possibleTexRecordID;
+        {
+            const shared_lock lockAgain(s_patchedTextureSetsMutex);
+            const auto& patchResults = s_patchedTextureSets.at(nifShapeKey).patchResults;
 
-                if (newBlockID == textureSetBlockID) {
-                    return false;
+            // already been patched, check if it is the same
+            for (const auto& [possibleTexRecordID, possibleTextures] : patchResults) {
+                if (possibleTextures == textures) {
+                    newBlockID = possibleTexRecordID;
+
+                    if (newBlockID == textureSetBlockID) {
+                        return false;
+                    }
+
+                    break;
                 }
-
-                break;
             }
         }
 

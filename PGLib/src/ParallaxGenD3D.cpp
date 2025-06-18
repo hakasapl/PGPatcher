@@ -968,7 +968,7 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
         const shared_lock lock(m_ddsMetaDataMutex);
         // TODO set cache to something on failure
         if (m_ddsMetaDataCache.find(ddsPath) != m_ddsMetaDataCache.end()) {
-            ddsMeta = m_ddsMetaDataCache[ddsPath];
+            ddsMeta = m_ddsMetaDataCache.at(ddsPath);
             return true;
         }
     }

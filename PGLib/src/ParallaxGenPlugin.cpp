@@ -476,10 +476,11 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherU
             // Already modded
             spdlog::trace(L"Plugin Patching | {} | {} | Already added, skipping", nifPath, index3D);
 
-            curResult.txstIndex = s_createdTXSTs[newSlots].first;
+            const auto it = s_createdTXSTs.find(newSlots);
+            curResult.txstIndex = it->second.first;
             (*results)[curResult.modelRecHandle][index3D] = curResult;
 
-            PGDiag::insert("newTXST", s_createdTXSTs[newSlots].second);
+            PGDiag::insert("newTXST", it->second.second);
         };
 
         {
