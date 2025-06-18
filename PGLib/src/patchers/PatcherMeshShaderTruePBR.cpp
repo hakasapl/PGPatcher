@@ -16,9 +16,9 @@
 #include <boost/gil/extension/toolbox/color_converters.hpp>
 #include <boost/gil/extension/toolbox/color_spaces/hsl.hpp>
 
-#include "Logger.hpp"
-#include "NIFUtil.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 

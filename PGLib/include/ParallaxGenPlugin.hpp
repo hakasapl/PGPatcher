@@ -12,9 +12,9 @@
 #include <boost/functional/hash.hpp>
 
 #include "BethesdaGame.hpp"
-#include "NIFUtil.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "util/NIFUtil.hpp"
 
 class ParallaxGenPlugin {
 private:

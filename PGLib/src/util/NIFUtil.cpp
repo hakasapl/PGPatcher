@@ -1,5 +1,5 @@
-#include "NIFUtil.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <Geometry.hpp>
 #include <NifFile.hpp>

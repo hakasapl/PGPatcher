@@ -1,8 +1,8 @@
-#include "Logger.hpp"
+#include "util/Logger.hpp"
 
 #include <spdlog/spdlog.h>
 
-#include "ParallaxGenUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 

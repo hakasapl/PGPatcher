@@ -3,7 +3,7 @@
 #include <Geometry.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include "NIFUtil.hpp"
+#include "util/NIFUtil.hpp"
 
 using namespace std;
 

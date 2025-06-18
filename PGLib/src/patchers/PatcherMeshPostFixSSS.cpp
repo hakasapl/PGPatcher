@@ -1,5 +1,5 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
-#include "NIFUtil.hpp"
+#include "util/NIFUtil.hpp"
 
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include <boost/algorithm/string/predicate.hpp>

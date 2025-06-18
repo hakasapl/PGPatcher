@@ -13,8 +13,8 @@
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
 
-#include "NIFUtil.hpp"
-#include "ParallaxGenUtil.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 /**
  * @class PatcherUtil

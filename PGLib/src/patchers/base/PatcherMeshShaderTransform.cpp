@@ -1,8 +1,8 @@
 #include <utility>
 
-#include "NIFUtil.hpp"
-#include "ParallaxGenUtil.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <spdlog/spdlog.h>
 

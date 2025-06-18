@@ -16,8 +16,8 @@
 
 #include "BethesdaDirectory.hpp"
 #include "ModManagerDirectory.hpp"
-#include "NIFUtil.hpp"
 #include "ParallaxGenTask.hpp"
+#include "util/NIFUtil.hpp"
 
 class ModManagerDirectory;
 

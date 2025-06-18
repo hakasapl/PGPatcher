@@ -1,5 +1,4 @@
 #include "BethesdaGame.hpp"
-#include "Logger.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
@@ -11,7 +10,6 @@
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenUI.hpp"
-#include "ParallaxGenUtil.hpp"
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
@@ -25,6 +23,8 @@
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "util/Logger.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>

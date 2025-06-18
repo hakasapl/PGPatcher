@@ -1,6 +1,6 @@
 #include "patchers/PatcherMeshShaderTransformParallaxToCM.hpp"
 
-#include "NIFUtil.hpp"
+#include "util/NIFUtil.hpp"
 
 #include <filesystem>
 #include <utility>
