@@ -34,8 +34,9 @@ auto PatcherMeshShader::getTextureSet(const filesystem::path& nifPath, nifly::Ni
 
     // check if in patchedtexturesets
     const shared_lock lock(s_patchedTextureSetsMutex);
-    if (s_patchedTextureSets.find(nifShapeKey) != s_patchedTextureSets.end()) {
-        return s_patchedTextureSets[nifShapeKey].original;
+    auto it = s_patchedTextureSets.find(nifShapeKey);
+    if (it != s_patchedTextureSets.end()) {
+        return it->second.original;
     }
 
     // get the texture slots

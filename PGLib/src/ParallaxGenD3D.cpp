@@ -1000,7 +1000,9 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
     // update cache
     {
         const unique_lock lock(m_ddsMetaDataMutex);
-        m_ddsMetaDataCache[ddsPath] = ddsMeta;
+        if (m_ddsMetaDataCache.find(ddsPath) == m_ddsMetaDataCache.end()) {
+            m_ddsMetaDataCache[ddsPath] = ddsMeta;
+        }
     }
 
     return true;

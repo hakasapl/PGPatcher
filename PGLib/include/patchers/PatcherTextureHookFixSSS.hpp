@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+#include <shared_mutex>
+
 #include "patchers/base/PatcherTextureHook.hpp"
 
 class PatcherTextureHookFixSSS : public PatcherTextureHook {

@@ -27,9 +27,11 @@ private:
             }
         }
 
-        const std::unique_lock lock(s_existingMessagesMutex);
-        s_existingMessages.insert(message);
-        return true;
+        {
+            const std::unique_lock lock(s_existingMessagesMutex);
+            const auto [_, inserted] = s_existingMessages.insert(message);
+            return inserted; // true only for the first thread
+        }
     }
 
     template <typename... Args> static auto shouldLogString(const std::wstring& fmt, Args&&... moreArgs) -> bool
