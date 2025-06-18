@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <mutex>
 #include <nlohmann/json_fwd.hpp>
+#include <shared_mutex>
 #include <shlwapi.h>
 #include <spdlog/spdlog.h>
 #include <string>
@@ -71,7 +72,7 @@ auto ParallaxGenDirectory::findFiles() -> void
 
             {
                 // add to textures set
-                const lock_guard<mutex> lock(m_texturesMutex);
+                const unique_lock lock(m_texturesMutex);
                 m_textures.insert(path);
             }
         } else if (boost::iequals(firstPath, "meshes") && boost::iequals(path.extension().wstring(), L".nif")) {
@@ -432,13 +433,14 @@ auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path, const 
     // Add to texture map
     const NIFUtil::PGTexture newPGTexture = { .path = path, .type = type };
     {
-        const lock_guard<mutex> lock(m_textureMapsMutex);
+        const unique_lock lock(m_textureMapsMutex);
         m_textureMaps.at(slotInt)[base].insert(newPGTexture);
     }
 
     {
-        const lock_guard<mutex> lock(m_textureTypesMutex);
         const TextureDetails details = { .type = type, .attributes = attributes };
+
+        const unique_lock lock(m_textureTypesMutex);
         m_textureTypes[path] = details;
     }
 }
@@ -446,7 +448,7 @@ auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path, const 
 auto ParallaxGenDirectory::addMesh(const filesystem::path& path, const NifCache& nifCache) -> void
 {
     // Use mutex to make this thread safe
-    const lock_guard<mutex> lock(m_meshesMutex);
+    const unique_lock lock(m_meshesMutex);
 
     // Add mesh to set
     m_meshes[path] = nifCache;
@@ -473,7 +475,7 @@ auto ParallaxGenDirectory::getPBRJSONs() const -> const vector<filesystem::path>
 auto ParallaxGenDirectory::addTextureAttribute(const filesystem::path& path, const NIFUtil::TextureAttribute& attribute)
     -> bool
 {
-    const lock_guard<mutex> lock(m_textureTypesMutex);
+    const unique_lock lock(m_textureTypesMutex);
 
     if (m_textureTypes.find(path) != m_textureTypes.end()) {
         return m_textureTypes.at(path).attributes.insert(attribute).second;
@@ -490,7 +492,7 @@ auto ParallaxGenDirectory::addTextureAttribute(const filesystem::path& path, con
 auto ParallaxGenDirectory::removeTextureAttribute(
     const filesystem::path& path, const NIFUtil::TextureAttribute& attribute) -> bool
 {
-    const lock_guard<mutex> lock(m_textureTypesMutex);
+    const unique_lock lock(m_textureTypesMutex);
 
     if (m_textureTypes.find(path) != m_textureTypes.end()) {
         return m_textureTypes.at(path).attributes.erase(attribute) > 0;
@@ -507,7 +509,7 @@ auto ParallaxGenDirectory::removeTextureAttribute(
 auto ParallaxGenDirectory::hasTextureAttribute(const filesystem::path& path, const NIFUtil::TextureAttribute& attribute)
     -> bool
 {
-    const lock_guard<mutex> lock(m_textureTypesMutex);
+    const shared_lock lock(m_textureTypesMutex);
 
     if (m_textureTypes.find(path) != m_textureTypes.end()) {
         return m_textureTypes.at(path).attributes.find(attribute) != m_textureTypes.at(path).attributes.end();
@@ -519,7 +521,7 @@ auto ParallaxGenDirectory::hasTextureAttribute(const filesystem::path& path, con
 auto ParallaxGenDirectory::getTextureAttributes(const filesystem::path& path)
     -> unordered_set<NIFUtil::TextureAttribute>
 {
-    const lock_guard<mutex> lock(m_textureTypesMutex);
+    const shared_lock lock(m_textureTypesMutex);
 
     if (m_textureTypes.find(path) != m_textureTypes.end()) {
         return m_textureTypes.at(path).attributes;
@@ -530,18 +532,17 @@ auto ParallaxGenDirectory::getTextureAttributes(const filesystem::path& path)
 
 void ParallaxGenDirectory::setTextureType(const filesystem::path& path, const NIFUtil::TextureType& type)
 {
-    const lock_guard<mutex> lock(m_textureTypesMutex);
-
     const PGDiag::Prefix fileMapPrefix("fileMap", nlohmann::json::value_t::object);
     const PGDiag::Prefix curTexPrefix(path.wstring(), nlohmann::json::value_t::object);
     PGDiag::insert("type", NIFUtil::getStrFromTexType(type));
 
+    const unique_lock lock(m_textureTypesMutex);
     m_textureTypes[path].type = type;
 }
 
 auto ParallaxGenDirectory::getTextureType(const filesystem::path& path) -> NIFUtil::TextureType
 {
-    const lock_guard<mutex> lock(m_textureTypesMutex);
+    const shared_lock lock(m_textureTypesMutex);
 
     if (m_textureTypes.find(path) != m_textureTypes.end()) {
         return m_textureTypes.at(path).type;

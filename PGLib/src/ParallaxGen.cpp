@@ -17,6 +17,7 @@
 #include <mutex>
 #include <nlohmann/json_fwd.hpp>
 #include <ranges>
+#include <shared_mutex>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <string>
@@ -49,7 +50,7 @@ using namespace nifly;
 PatcherUtil::PatcherMeshSet ParallaxGen::s_meshPatchers;
 PatcherUtil::PatcherTextureSet ParallaxGen::s_texPatchers;
 
-std::mutex ParallaxGen::s_diffJSONMutex;
+std::shared_mutex ParallaxGen::s_diffJSONMutex;
 nlohmann::json ParallaxGen::s_diffJSON;
 
 void ParallaxGen::loadPatchers(
@@ -236,7 +237,7 @@ auto ParallaxGen::isOutputEmpty() -> bool
 
 auto ParallaxGen::getDiffJSON() -> nlohmann::json
 {
-    const lock_guard<std::mutex> lock(s_diffJSONMutex);
+    const shared_lock lock(s_diffJSONMutex);
     return s_diffJSON;
 }
 
@@ -396,7 +397,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
         // Add to diff JSON
         const auto diffJSONKey = utf16toUTF8(nifPath.wstring());
         {
-            const lock_guard<mutex> lock(s_diffJSONMutex);
+            const unique_lock lock(s_diffJSONMutex);
             s_diffJSON[diffJSONKey]["crc32original"] = crcBefore;
             s_diffJSON[diffJSONKey]["crc32patched"] = crcAfter;
         }

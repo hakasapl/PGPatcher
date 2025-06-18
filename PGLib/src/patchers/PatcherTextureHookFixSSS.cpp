@@ -7,13 +7,13 @@ using namespace Microsoft::WRL;
 
 auto PatcherTextureHookFixSSS::addToProcessList(const filesystem::path& texPath) -> void
 {
-    const lock_guard<mutex> lock(s_texToProcessMutex);
+    const unique_lock lock(s_texToProcessMutex);
     s_texToProcess.insert(texPath);
 }
 
 auto PatcherTextureHookFixSSS::isInProcessList(const filesystem::path& texPath) -> bool
 {
-    const lock_guard<mutex> lock(s_texToProcessMutex);
+    const shared_lock lock(s_texToProcessMutex);
     return s_texToProcess.contains(texPath);
 }
 

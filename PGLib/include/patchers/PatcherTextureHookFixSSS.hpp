@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+#include <shared_mutex>
+
 #include "patchers/base/PatcherTextureHook.hpp"
 
 class PatcherTextureHookFixSSS : public PatcherTextureHook {
@@ -17,7 +19,7 @@ private:
 
     static constexpr const char* SHADER_NAME = "SSSFix.hlsl";
 
-    static inline std::mutex s_texToProcessMutex;
+    static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:

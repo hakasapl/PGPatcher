@@ -26,7 +26,7 @@ private:
         std::unordered_map<uint32_t, NIFUtil::TextureSet> patchResults;
     };
 
-    static std::mutex s_patchedTextureSetsMutex;
+    static std::shared_mutex s_patchedTextureSetsMutex;
     static std::unordered_map<std::tuple<std::filesystem::path, uint32_t>, PatchedTextureSet, PatchedTextureSetsHash>
         s_patchedTextureSets;
 

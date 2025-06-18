@@ -8,6 +8,7 @@
 
 #include <bsa/tes4.hpp>
 
+#include <shared_mutex>
 #include <spdlog/spdlog.h>
 
 #include <binary_io/any_stream.hpp>
@@ -117,7 +118,7 @@ void BethesdaDirectory::populateFileMap(bool includeBSAs)
 
     // clear map before populating
     {
-        const lock_guard<mutex> lock(m_fileMapMutex);
+        const unique_lock lock(m_fileMapMutex);
         m_fileMap.clear();
     }
 
@@ -649,7 +650,7 @@ auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> Beth
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
-    const lock_guard<mutex> lock(m_fileMapMutex);
+    const shared_lock lock(m_fileMapMutex);
     if (!m_fileMap.contains(filePath)) {
         return BethesdaFile { .path = filesystem::path(), .bsaFile = nullptr };
     }
@@ -662,7 +663,7 @@ void BethesdaDirectory::updateFileMap(const filesystem::path& filePath, shared_p
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
-    const lock_guard<mutex> lock(m_fileMapMutex);
+    const unique_lock lock(m_fileMapMutex);
 
     const BethesdaFile newBFile
         = { .path = filePath, .bsaFile = std::move(bsaFile), .mod = std::move(mod), .generated = generated };

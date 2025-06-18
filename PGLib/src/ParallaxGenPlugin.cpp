@@ -279,7 +279,7 @@ unordered_set<unsigned int> ParallaxGenPlugin::s_txstResrvedFormIDs;
 unordered_set<unsigned int> ParallaxGenPlugin::s_txstUsedFormIDs;
 unsigned int ParallaxGenPlugin::s_curTXSTFormID = 0;
 
-mutex ParallaxGenPlugin::s_createdTXSTMutex;
+shared_mutex ParallaxGenPlugin::s_createdTXSTMutex;
 unordered_map<array<wstring, NUM_TEXTURE_SLOTS>, pair<int, string>, ParallaxGenPlugin::ArrayHash,
     ParallaxGenPlugin::ArrayEqual>
     ParallaxGenPlugin::s_createdTXSTs;
@@ -471,66 +471,86 @@ void ParallaxGenPlugin::processShape(const std::wstring& nifPath, const PatcherU
 
         PGDiag::insert("newTextures", NIFUtil::textureSetToStr(newSlots));
 
+        // lambda for already modded code
+        auto alreadyModded = [&]() {
+            // Already modded
+            spdlog::trace(L"Plugin Patching | {} | {} | Already added, skipping", nifPath, index3D);
+
+            const auto it = s_createdTXSTs.find(newSlots);
+            curResult.txstIndex = it->second.first;
+            (*results)[curResult.modelRecHandle][index3D] = curResult;
+
+            PGDiag::insert("newTXST", it->second.second);
+        };
+
         {
-            const lock_guard<mutex> lock(s_createdTXSTMutex);
+            // fast path
+            const shared_lock lockRead(s_createdTXSTMutex);
 
             // Check if we need to make a new TXST record
             if (s_createdTXSTs.contains(newSlots)) {
-                // Already modded
-                spdlog::trace(L"Plugin Patching | {} | {} | Already added, skipping", nifPath, index3D);
-                curResult.txstIndex = s_createdTXSTs[newSlots].first;
-                (*results)[curResult.modelRecHandle][index3D] = curResult;
-
-                PGDiag::insert("newTXST", s_createdTXSTs[newSlots].second);
-
+                alreadyModded();
                 continue;
             }
-
-            // Create a new TXST record
-            spdlog::trace(L"Plugin Patching | {} | {} | Creating a new TXST record and patching", nifPath, index3D);
-
-            // Find formID to use
-            unsigned int newFormID = 0;
-            if (s_txstFormIDs.contains(txstFormIDCacheKey)
-                && !s_txstUsedFormIDs.contains(s_txstFormIDs[txstFormIDCacheKey])) {
-                // use old formid for new record
-                newFormID = s_txstFormIDs[txstFormIDCacheKey];
-            } else {
-                // find next available formid
-                while (s_txstResrvedFormIDs.contains(++s_curTXSTFormID)) { }
-                newFormID = s_curTXSTFormID;
-            }
-
-            static constexpr unsigned int MAX_FORMID = 0xFFFFFF;
-            if (newFormID > MAX_FORMID) {
-                throw runtime_error("Form ID overflow");
-            }
-
-            if (newFormID == 0) {
-                throw runtime_error("Failed to find a new form ID for TXST record");
-            }
-
-            if (s_txstUsedFormIDs.contains(newFormID)) {
-                throw runtime_error("Form ID already in use");
-            }
-
-            // Insert used FORMID
-            s_txstUsedFormIDs.insert(newFormID);
-
-            // Find EDID
-            const auto edidLabel = ParallaxGenUtil::utf16toUTF8(filesystem::path(baseSlots.at(0)).stem().wstring());
-            const string newEDID = fmt::format("PG_{}_{:06X}", edidLabel, newFormID);
-
-            // create new TXST record with chosen form ID
-            curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
-            s_newTXSTFormIDs[txstFormIDCacheKey] = newFormID;
-
-            patchers.shaderPatchers.at(winningShaderMatch.shader)
-                ->processNewTXSTRecord(winningShaderMatch.match, newEDID);
-            s_createdTXSTs[newSlots] = { curResult.txstIndex, newEDID };
-
-            PGDiag::insert("newTXST", newEDID);
         }
+
+        {
+            // slow path
+            const unique_lock lockWrite(s_createdTXSTMutex);
+
+            // Check if we need to make a new TXST record
+            if (s_createdTXSTs.contains(newSlots)) {
+                alreadyModded();
+                continue;
+            }
+        }
+
+        // Create a new TXST record
+        spdlog::trace(L"Plugin Patching | {} | {} | Creating a new TXST record and patching", nifPath, index3D);
+
+        // Find formID to use
+        unsigned int newFormID = 0;
+        if (s_txstFormIDs.contains(txstFormIDCacheKey)
+            && !s_txstUsedFormIDs.contains(s_txstFormIDs[txstFormIDCacheKey])) {
+            // use old formid for new record
+            newFormID = s_txstFormIDs[txstFormIDCacheKey];
+        } else {
+            // find next available formid
+            while (s_txstResrvedFormIDs.contains(++s_curTXSTFormID)) { }
+            newFormID = s_curTXSTFormID;
+        }
+
+        static constexpr unsigned int MAX_FORMID = 0xFFFFFF;
+        if (newFormID > MAX_FORMID) {
+            throw runtime_error("Form ID overflow");
+        }
+
+        if (newFormID == 0) {
+            throw runtime_error("Failed to find a new form ID for TXST record");
+        }
+
+        if (s_txstUsedFormIDs.contains(newFormID)) {
+            throw runtime_error("Form ID already in use");
+        }
+
+        // Insert used FORMID
+        s_txstUsedFormIDs.insert(newFormID);
+
+        // Find EDID
+        const auto edidLabel = ParallaxGenUtil::utf16toUTF8(filesystem::path(baseSlots.at(0)).stem().wstring());
+        const string newEDID = fmt::format("PG_{}_{:06X}", edidLabel, newFormID);
+
+        // create new TXST record with chosen form ID
+        curResult.txstIndex = libCreateNewTXSTPatch(altTexIndex, newSlots, newEDID, newFormID);
+        s_newTXSTFormIDs[txstFormIDCacheKey] = newFormID;
+
+        patchers.shaderPatchers.at(winningShaderMatch.shader)->processNewTXSTRecord(winningShaderMatch.match, newEDID);
+        {
+            const unique_lock lockWrite(s_createdTXSTMutex);
+            s_createdTXSTs[newSlots] = { curResult.txstIndex, newEDID };
+        }
+
+        PGDiag::insert("newTXST", newEDID);
 
         // add to result
         (*results)[curResult.modelRecHandle][index3D] = curResult;

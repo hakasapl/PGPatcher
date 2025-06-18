@@ -50,7 +50,7 @@ void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring
     }
 
     {
-        const lock_guard<mutex> lock2(s_mismatchWarnTrackerMutex);
+        const lock_guard<mutex> lock(s_mismatchWarnTrackerMutex);
         s_mismatchWarnTracker[matchedPathMod->name].insert(baseTexMod->name);
     }
 }

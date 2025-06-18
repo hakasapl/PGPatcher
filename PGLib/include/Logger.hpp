@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mutex>
+#include <shared_mutex>
 #include <spdlog/spdlog.h>
 
 #include <fmt/format.h>
@@ -11,35 +11,40 @@
 class Logger {
 private:
     inline static std::unordered_set<std::wstring> s_existingMessages;
-    inline static std::mutex s_existingMessagesMutex;
+    inline static std::shared_mutex s_existingMessagesMutex;
 
     thread_local static std::vector<std::wstring> s_prefixStack;
     static auto buildPrefixWString() -> std::wstring;
     static auto buildPrefixString() -> std::string;
 
+    static auto processMessage(const std::wstring& message) -> bool
+    {
+        {
+            const std::shared_lock lock(s_existingMessagesMutex);
+            if (s_existingMessages.find(message) != s_existingMessages.end()) {
+                // don't log anything if already logged
+                return false;
+            }
+        }
+
+        {
+            const std::unique_lock lock(s_existingMessagesMutex);
+            const auto [_, inserted] = s_existingMessages.insert(message);
+            return inserted; // true only for the first thread
+        }
+    }
+
     template <typename... Args> static auto shouldLogString(const std::wstring& fmt, Args&&... moreArgs) -> bool
     {
-        const std::lock_guard<std::mutex> lock(s_existingMessagesMutex);
         const auto resultLog = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        if (s_existingMessages.find(resultLog) != s_existingMessages.end()) {
-            // don't log anything if already logged
-            return false;
-        }
-        s_existingMessages.insert(resultLog);
-        return true;
+        return processMessage(resultLog);
     }
 
     template <typename... Args> static auto shouldLogString(const std::string& fmt, Args&&... moreArgs) -> bool
     {
-        const std::lock_guard<std::mutex> lock(s_existingMessagesMutex);
         const std::string resolvedNarrow = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
         const std::wstring resolvedWide(resolvedNarrow.begin(), resolvedNarrow.end());
-        if (s_existingMessages.find(resolvedWide) != s_existingMessages.end()) {
-            // don't log anything if already logged
-            return false;
-        }
-        s_existingMessages.insert(resolvedWide);
-        return true;
+        return processMessage(resolvedWide);
     }
 
 public:
