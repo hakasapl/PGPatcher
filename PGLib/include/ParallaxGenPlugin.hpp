@@ -17,6 +17,33 @@
 #include "patchers/base/PatcherUtil.hpp"
 
 class ParallaxGenPlugin {
+public:
+    enum class PluginLang : uint8_t {
+        ENGLISH,
+        GERMAN,
+        ITALIAN,
+        SPANISH,
+        SPANISH_MEXICO,
+        FRENCH,
+        POLISH,
+        PORTUGUESE_BRAZIL,
+        CHINESE,
+        RUSSIAN,
+        JAPANESE,
+        CZECH,
+        HUNGARIAN,
+        DANISH,
+        FINNISH,
+        GREEK,
+        NORWEGIAN,
+        SWEDISH,
+        TURKISH,
+        ARABIC,
+        KOREAN,
+        THAI,
+        CHINESE_SIMPLIFIED
+    };
+
 private:
     static constexpr int LOG_POLL_INTERVAL = 1000;
 
@@ -24,7 +51,7 @@ private:
     static void libLogMessageIfExists();
     static void libThrowExceptionIfExists();
     static void libInitialize(const int& gameType, const std::wstring& exePath, const std::wstring& dataPath,
-        const std::vector<std::wstring>& loadOrder = {});
+        const std::vector<std::wstring>& loadOrder = {}, const PluginLang& lang = PluginLang::ENGLISH);
     static void libPopulateObjs();
     static void libFinalize(const std::filesystem::path& outputPath, const bool& esmify);
 
@@ -109,10 +136,15 @@ private:
     static std::unordered_map<std::wstring, int>* s_modPriority;
 
 public:
+    static auto getPluginLangFromString(const std::string& lang) -> PluginLang;
+    static auto getStringFromPluginLang(const PluginLang& lang) -> std::string;
+    static auto getAvaiablePluginLangStrs() -> std::vector<std::string>;
+
     static void loadStatics(ParallaxGenDirectory* pgd);
     static void loadModPriorityMap(std::unordered_map<std::wstring, int>* modPriority);
 
-    static void initialize(const BethesdaGame& game, const std::filesystem::path& exePath);
+    static void initialize(
+        const BethesdaGame& game, const std::filesystem::path& exePath, const PluginLang& lang = PluginLang::ENGLISH);
 
     static void populateObjs();
 

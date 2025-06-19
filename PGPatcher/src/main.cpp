@@ -267,7 +267,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
         ParallaxGenPlugin::loadStatics(&pgd);
-        ParallaxGenPlugin::initialize(bg, exePath);
+        ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
         ParallaxGenPlugin::populateObjs();
 
         nlohmann::json txstFormIDCache;

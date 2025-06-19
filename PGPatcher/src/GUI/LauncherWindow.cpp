@@ -1,14 +1,15 @@
 #include "GUI/LauncherWindow.hpp"
 
 #include "ModManagerDirectory.hpp"
-#include "NIFUtil.hpp"
 #include "ParallaxGenHandlers.hpp"
+#include "ParallaxGenPlugin.hpp"
 
 #include <boost/algorithm/string/join.hpp>
 
 #include <filesystem>
 #include <wx/arrstr.h>
 #include <wx/listbase.h>
+#include <wx/msw/combobox.h>
 #include <wx/statline.h>
 
 using namespace std;
@@ -360,6 +361,28 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
     m_processingPluginPatchingOptions->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
 
+    // Create horizontal sizer for label + combo
+    auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    // Add label
+    auto* langLabel = new wxStaticText(this, wxID_ANY, "Plugin Language");
+    langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
+
+    wxArrayString pluginLangs;
+    for (const auto& lang : ParallaxGenPlugin::getAvaiablePluginLangStrs()) {
+        pluginLangs.Add(lang);
+    }
+    m_processingPluginPatchingOptionsLangCombo
+        = new wxComboBox(this, wxID_ANY, "Language", wxDefaultPosition, wxDefaultSize, pluginLangs, wxCB_READONLY);
+    m_processingPluginPatchingOptionsLangCombo->Bind(
+        wxEVT_COMBOBOX, &LauncherWindow::onProcessingPluginPatchingOptionsLangChange, this);
+    m_processingPluginPatchingOptionsLangCombo->SetToolTip(
+        "Language of embedded strings in output plugin. If a translation for this language is not available for a "
+        "record, the default will be used which is usually English.");
+    langSizer->Add(m_processingPluginPatchingOptionsLangCombo, 1, wxEXPAND | wxLEFT, BORDER_SIZE);
+
+    m_processingPluginPatchingOptions->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
     m_processingOptionsSizer->Add(m_processingPluginPatchingOptions, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
@@ -533,6 +556,8 @@ void LauncherWindow::loadConfig()
     // Processing
     m_processingPluginPatchingCheckbox->SetValue(initParams.Processing.pluginPatching);
     m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
+    m_processingPluginPatchingOptionsLangCombo->SetStringSelection(
+        ParallaxGenPlugin::getStringFromPluginLang(initParams.Processing.pluginLang));
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
     m_processingBSACheckbox->SetValue(initParams.Processing.bsa);
     m_enableDiagnosticsCheckbox->SetValue(initParams.Processing.diagnostics);
@@ -695,6 +720,11 @@ void LauncherWindow::onProcessingPluginPatchingChange([[maybe_unused]] wxCommand
 }
 
 void LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
+void LauncherWindow::onProcessingPluginPatchingOptionsLangChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
@@ -900,6 +930,8 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
     // Processing
     params.Processing.pluginPatching = m_processingPluginPatchingCheckbox->GetValue();
     params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
+    params.Processing.pluginLang = ParallaxGenPlugin::getPluginLangFromString(
+        m_processingPluginPatchingOptionsLangCombo->GetStringSelection().ToStdString());
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
     params.Processing.bsa = m_processingBSACheckbox->GetValue();
     params.Processing.diagnostics = m_enableDiagnosticsCheckbox->GetValue();

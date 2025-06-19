@@ -96,8 +96,8 @@ void ParallaxGenPlugin::libThrowExceptionIfExists()
     throw runtime_error("PGMutagen.dll: " + ParallaxGenUtil::utf16toASCII(messageOut));
 }
 
-void ParallaxGenPlugin::libInitialize(
-    const int& gameType, const std::wstring& exePath, const wstring& dataPath, const vector<wstring>& loadOrder)
+void ParallaxGenPlugin::libInitialize(const int& gameType, const std::wstring& exePath, const wstring& dataPath,
+    const vector<wstring>& loadOrder, const PluginLang& lang)
 {
     const lock_guard<mutex> lock(s_libMutex);
 
@@ -113,7 +113,7 @@ void ParallaxGenPlugin::libInitialize(
     // Add the null terminator to the end
     loadOrderArr.push_back(nullptr);
 
-    Initialize(gameType, exePath.c_str(), dataPath.c_str(), loadOrderArr.data());
+    Initialize(gameType, exePath.c_str(), dataPath.c_str(), loadOrderArr.data(), static_cast<unsigned int>(lang));
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 }
@@ -272,6 +272,54 @@ void ParallaxGenPlugin::libSetModelRecNIF(const int& modelRecHandle, const wstri
     libThrowExceptionIfExists();
 }
 
+auto ParallaxGenPlugin::getPluginLangFromString(const std::string& lang) -> PluginLang
+{
+    static const unordered_map<string, PluginLang> langMap = { { "English", PluginLang::ENGLISH },
+        { "German", PluginLang::GERMAN }, { "Italian", PluginLang::ITALIAN }, { "Spanish", PluginLang::SPANISH },
+        { "Spanish Mexico", PluginLang::SPANISH_MEXICO }, { "French", PluginLang::FRENCH },
+        { "Polish", PluginLang::POLISH }, { "Portuguese Brazil", PluginLang::PORTUGUESE_BRAZIL },
+        { "Chinese", PluginLang::CHINESE_SIMPLIFIED }, { "Russian", PluginLang::RUSSIAN },
+        { "Japanese", PluginLang::JAPANESE }, { "Czech", PluginLang::CZECH }, { "Hungarian", PluginLang::HUNGARIAN },
+        { "Danish", PluginLang::DANISH }, { "Finnish", PluginLang::FINNISH }, { "Greek", PluginLang::GREEK },
+        { "Norwegian", PluginLang::NORWEGIAN }, { "Swedish", PluginLang::SWEDISH }, { "Turkish", PluginLang::TURKISH },
+        { "Arabic", PluginLang::ARABIC }, { "Korian", PluginLang::KOREAN }, { "Thai", PluginLang::THAI } };
+
+    if (langMap.contains(lang)) {
+        return langMap.at(lang);
+    }
+
+    return PluginLang::ENGLISH; // Default to English if not found
+}
+
+auto ParallaxGenPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::string
+{
+    static const unordered_map<PluginLang, string> langStringMap = { { PluginLang::ENGLISH, "English" },
+        { PluginLang::GERMAN, "German" }, { PluginLang::ITALIAN, "Italian" }, { PluginLang::SPANISH, "Spanish" },
+        { PluginLang::SPANISH_MEXICO, "Spanish Mexico" }, { PluginLang::FRENCH, "French" },
+        { PluginLang::POLISH, "Polish" }, { PluginLang::PORTUGUESE_BRAZIL, "Portuguese Brazil" },
+        { PluginLang::CHINESE_SIMPLIFIED, "Chinese" }, { PluginLang::RUSSIAN, "Russian" },
+        { PluginLang::JAPANESE, "Japanese" }, { PluginLang::CZECH, "Czech" }, { PluginLang::HUNGARIAN, "Hungarian" },
+        { PluginLang::DANISH, "Danish" }, { PluginLang::FINNISH, "Finnish" }, { PluginLang::GREEK, "Greek" },
+        { PluginLang::NORWEGIAN, "Norwegian" }, { PluginLang::SWEDISH, "Swedish" }, { PluginLang::TURKISH, "Turkish" },
+        { PluginLang::ARABIC, "Arabic" }, { PluginLang::KOREAN, "Korean" }, { PluginLang::THAI, "Thai" } };
+
+    if (langStringMap.contains(lang)) {
+        return langStringMap.at(lang);
+    }
+
+    return langStringMap.at(PluginLang::ENGLISH); // Default to English if not found
+}
+
+auto ParallaxGenPlugin::getAvaiablePluginLangStrs() -> vector<string>
+{
+    // alphabetical vector
+    static const vector<string> langStrs = { "Arabic", "Chinese", "Czech", "Danish", "English", "Finnish", "French",
+        "German", "Greek", "Hungarian", "Italian", "Japanese", "Korean", "Norwegian", "Polish", "Portuguese Brazil",
+        "Russian", "Spanish", "Spanish Mexico", "Swedish", "Thai", "Turkish" };
+
+    return langStrs;
+}
+
 // Statics
 unordered_map<string, unsigned int> ParallaxGenPlugin::s_txstFormIDs;
 unordered_map<string, unsigned int> ParallaxGenPlugin::s_newTXSTFormIDs;
@@ -297,7 +345,7 @@ void ParallaxGenPlugin::loadModPriorityMap(std::unordered_map<std::wstring, int>
     ParallaxGenPlugin::s_modPriority = modPriority;
 }
 
-void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::path& exePath)
+void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::path& exePath, const PluginLang& lang)
 {
     set_failure_callback(dnneFailure);
 
@@ -307,8 +355,8 @@ void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::p
               { BethesdaGame::GameType::SKYRIM_VR, 3 }, { BethesdaGame::GameType::ENDERAL, 5 },
               { BethesdaGame::GameType::ENDERAL_SE, 6 }, { BethesdaGame::GameType::SKYRIM_GOG, 7 } };
 
-    libInitialize(
-        mutagenGameTypeMap.at(game.getGameType()), exePath, game.getGameDataPath().wstring(), game.getActivePlugins());
+    libInitialize(mutagenGameTypeMap.at(game.getGameType()), exePath, game.getGameDataPath().wstring(),
+        game.getActivePlugins(), lang);
 }
 
 void ParallaxGenPlugin::loadTXSTCache(const nlohmann::json& txstCache)

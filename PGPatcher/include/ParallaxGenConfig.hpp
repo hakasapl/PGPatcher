@@ -7,7 +7,7 @@
 
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
-#include "NIFUtil.hpp"
+#include "ParallaxGenPlugin.hpp"
 
 /**
  * @class ParallaxGenConfig
@@ -60,12 +60,14 @@ public:
             bool bsa = true;
             bool pluginPatching = true;
             bool pluginESMify = false;
+            ParallaxGenPlugin::PluginLang pluginLang = ParallaxGenPlugin::PluginLang::ENGLISH;
             bool diagnostics = false;
 
             auto operator==(const Processing& other) const -> bool
             {
                 return multithread == other.multithread && highMem == other.highMem && bsa == other.bsa
-                    && pluginPatching == other.pluginPatching && diagnostics == other.diagnostics;
+                    && pluginPatching == other.pluginPatching && pluginESMify == other.pluginESMify
+                    && pluginLang == other.pluginLang && diagnostics == other.diagnostics;
             }
         } Processing;
 
