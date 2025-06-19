@@ -2,7 +2,7 @@
 
 ## [0.8.13] - UNRELEASED
 
-- Added Particle Effect Light prepatcher for CS
+- Added Particle Effect Light prepatcher for CS (similar to CS particle patch)
 - Added workaround for MO2 case where base_directory is not defined but wildcards are used
 - Fixed nif_filter cache issue with PBR
 - Fixed some NIFs being patched even if nothing was changed when TXST records existed
@@ -12,7 +12,9 @@
 - Fixed PBR match_normal not matching anything
 - Fixed some meshes being skipped due to not having patchable shapes
 - Fixed plugins not being created if no new texture sets were required
-- Enabled localization for output plugins
+- Added output plugin localization option
+- Slightly improved multithreading performance
+- Launcher window will no longer be always on top
 
 ## [0.8.12] - 2025-05-18
 
