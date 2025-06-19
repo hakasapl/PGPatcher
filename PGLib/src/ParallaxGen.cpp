@@ -141,7 +141,7 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
 void ParallaxGen::deleteOutputDir(const bool& preOutput)
 {
     static const unordered_set<filesystem::path> foldersToDelete
-        = { "meshes", "textures", "pbrnifpatcher", "lightplacer", "pbrtexturesets", "strings" };
+        = { "meshes", "textures", "pbrnifpatcher", "lightplacer", "pbrtexturesets" };
     static const unordered_set<filesystem::path> filesToDelete
         = { "parallaxgen.esp", "parallaxgen_diff.json", "parallaxgen_diag.json" };
     static const vector<pair<wstring, wstring>> filesToDeleteParseRules = { { L"pg_", L".esp" } };

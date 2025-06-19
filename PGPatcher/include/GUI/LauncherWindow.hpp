@@ -98,6 +98,8 @@ private:
     wxStaticBoxSizer* m_processingPluginPatchingOptions;
     wxCheckBox* m_processingPluginPatchingOptionsESMifyCheckbox;
     void onProcessingPluginPatchingOptionsESMifyChange(wxCommandEvent& event);
+    wxComboBox* m_processingPluginPatchingOptionsLangCombo;
+    void onProcessingPluginPatchingOptionsLangChange(wxCommandEvent& event);
 
     wxCheckBox* m_processingMultithreadingCheckbox;
     void onProcessingMultithreadingChange(wxCommandEvent& event);

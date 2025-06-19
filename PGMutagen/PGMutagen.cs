@@ -16,6 +16,10 @@ using Noggog;
 // Harmony
 using HarmonyLib;
 using Mutagen.Bethesda.Plugins.Exceptions;
+using Mutagen.Bethesda.Strings;
+using Mutagen.Bethesda.Plugins.Binary.Streams;
+using Mutagen.Bethesda.Strings.DI;
+using Mutagen.Bethesda.Plugins.Aspects;
 
 public static class ExceptionHandler
 {
@@ -89,6 +93,7 @@ public class PGMutagen
     private static Dictionary<Tuple<string, int>, List<Tuple<int, int, string, uint>>>? TXSTRefs;
     private static HashSet<int> ModifiedModeledRecords = [];
     private static SkyrimRelease GameType;
+    private static Language PluginLanguage = Language.English;
 
     private static uint maxFormID = 0;
 
@@ -174,12 +179,21 @@ public class PGMutagen
                 .Concat(Env.LoadOrder.PriorityOrder.Weapon().WinningOverrides());
     }
 
+    private class Utf8EncodingWrapper : IMutagenEncodingProvider
+    {
+        public IMutagenEncoding GetEncoding(GameRelease release, Language language)
+        {
+            return MutagenEncoding._utf8;
+        }
+    }
+
     [UnmanagedCallersOnly(EntryPoint = "Initialize", CallConvs = [typeof(CallConvCdecl)])]
     public static unsafe void Initialize(
       [DNNE.C99Type("const int")] int gameType,
       [DNNE.C99Type("const wchar_t*")] IntPtr exePath,
       [DNNE.C99Type("const wchar_t*")] IntPtr dataPathPtr,
-      [DNNE.C99Type("const wchar_t**")] IntPtr* loadOrder)
+      [DNNE.C99Type("const wchar_t**")] IntPtr* loadOrder,
+      [DNNE.C99Type("const unsigned int")] uint pluginLang)
     {
         try
         {
@@ -194,6 +208,7 @@ public class PGMutagen
             string dataPath = Marshal.PtrToStringUni(dataPathPtr) ?? string.Empty;
             MessageHandler.Log("[Initialize] Data Path: " + dataPath, 0);
 
+            PluginLanguage = (Language)pluginLang;
             GameType = (SkyrimRelease)gameType;
             OutMod = new SkyrimMod(ModKey.FromFileName("ParallaxGen.esp"), GameType);
 
@@ -506,8 +521,20 @@ public class PGMutagen
 
                 var outputMod = getModToAdd(ModifiedRecord);
 
+                if (ModifiedRecord is ITranslatedNamed namedRec)
+                {
+                    if (namedRec.Name != null && namedRec.Name.TryLookup(PluginLanguage, out var localizedName))
+                    {
+                        namedRec.Name = localizedName;
+                    }
+                }
+
                 if (ModifiedRecord is Mutagen.Bethesda.Skyrim.Activator activator)
                 {
+                    if (activator.ActivateTextOverride != null && activator.ActivateTextOverride.TryLookup(PluginLanguage, out var localizedActivateText))
+                    {
+                        activator.ActivateTextOverride = localizedActivateText;
+                    }
                     outputMod.Activators.Add(activator);
                 }
                 else if (ModifiedRecord is Ammunition ammunition)
@@ -560,6 +587,10 @@ public class PGMutagen
                 }
                 else if (ModifiedRecord is Flora flora)
                 {
+                    if (flora.ActivateTextOverride != null && flora.ActivateTextOverride.TryLookup(PluginLanguage, out var localizedName))
+                    {
+                        flora.ActivateTextOverride = localizedName;
+                    }
                     outputMod.Florae.Add(flora);
                 }
                 else if (ModifiedRecord is Furniture furniture)
@@ -682,6 +713,7 @@ public class PGMutagen
                         .WithLoadOrder(newLo)
                         .WithDataFolder(Env.DataFolderPath)
                         .WithExtraIncludedMasters(OutMod.ModKey)
+                        .WithEmbeddedEncodings(new EncodingBundle(NonTranslated: MutagenEncoding._1252, NonLocalized: MutagenEncoding._utf8))
                         .Write();
                 }
                 else
@@ -690,6 +722,7 @@ public class PGMutagen
                         .ToPath(Path.Combine(outputPath, mod.ModKey.FileName))
                         .WithLoadOrder(newLo)
                         .WithDataFolder(Env.DataFolderPath)
+                        .WithEmbeddedEncodings(new EncodingBundle(NonTranslated: MutagenEncoding._1252, NonLocalized: MutagenEncoding._utf8))
                         .Write();
                 }
             }
@@ -737,7 +770,6 @@ public class PGMutagen
         var newPluginIndex = OutputSplitMods.Count + 1;
         var newPluginName = "PG_" + newPluginIndex + ".esp";
         var newMod = new SkyrimMod(newPluginName, GameType);
-        newMod.UsingLocalization = true;
 
         // add the new modkey to the new plugin
         OutputMasterTracker.Add(curMasterList);
