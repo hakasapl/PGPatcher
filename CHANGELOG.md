@@ -15,6 +15,7 @@
 - Added output plugin localization option
 - Slightly improved multithreading performance
 - Launcher window will no longer be always on top
+- Fixed edge case where certain corrupt NIFs cause hangs and memory leaks
 
 ## [0.8.12] - 2025-05-18
 
