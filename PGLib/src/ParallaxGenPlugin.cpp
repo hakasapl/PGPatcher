@@ -278,11 +278,12 @@ auto ParallaxGenPlugin::getPluginLangFromString(const std::string& lang) -> Plug
         { "German", PluginLang::GERMAN }, { "Italian", PluginLang::ITALIAN }, { "Spanish", PluginLang::SPANISH },
         { "Spanish Mexico", PluginLang::SPANISH_MEXICO }, { "French", PluginLang::FRENCH },
         { "Polish", PluginLang::POLISH }, { "Portuguese Brazil", PluginLang::PORTUGUESE_BRAZIL },
-        { "Chinese", PluginLang::CHINESE_SIMPLIFIED }, { "Russian", PluginLang::RUSSIAN },
-        { "Japanese", PluginLang::JAPANESE }, { "Czech", PluginLang::CZECH }, { "Hungarian", PluginLang::HUNGARIAN },
-        { "Danish", PluginLang::DANISH }, { "Finnish", PluginLang::FINNISH }, { "Greek", PluginLang::GREEK },
-        { "Norwegian", PluginLang::NORWEGIAN }, { "Swedish", PluginLang::SWEDISH }, { "Turkish", PluginLang::TURKISH },
-        { "Arabic", PluginLang::ARABIC }, { "Korean", PluginLang::KOREAN }, { "Thai", PluginLang::THAI } };
+        { "Chinese", PluginLang::CHINESE }, { "Russian", PluginLang::RUSSIAN }, { "Japanese", PluginLang::JAPANESE },
+        { "Czech", PluginLang::CZECH }, { "Hungarian", PluginLang::HUNGARIAN }, { "Danish", PluginLang::DANISH },
+        { "Finnish", PluginLang::FINNISH }, { "Greek", PluginLang::GREEK }, { "Norwegian", PluginLang::NORWEGIAN },
+        { "Swedish", PluginLang::SWEDISH }, { "Turkish", PluginLang::TURKISH }, { "Arabic", PluginLang::ARABIC },
+        { "Korean", PluginLang::KOREAN }, { "Thai", PluginLang::THAI },
+        { "Chinese Simplified", PluginLang::CHINESE_SIMPLIFIED } };
 
     if (langMap.contains(lang)) {
         return langMap.at(lang);
@@ -297,11 +298,12 @@ auto ParallaxGenPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::
         { PluginLang::GERMAN, "German" }, { PluginLang::ITALIAN, "Italian" }, { PluginLang::SPANISH, "Spanish" },
         { PluginLang::SPANISH_MEXICO, "Spanish Mexico" }, { PluginLang::FRENCH, "French" },
         { PluginLang::POLISH, "Polish" }, { PluginLang::PORTUGUESE_BRAZIL, "Portuguese Brazil" },
-        { PluginLang::CHINESE_SIMPLIFIED, "Chinese" }, { PluginLang::RUSSIAN, "Russian" },
-        { PluginLang::JAPANESE, "Japanese" }, { PluginLang::CZECH, "Czech" }, { PluginLang::HUNGARIAN, "Hungarian" },
-        { PluginLang::DANISH, "Danish" }, { PluginLang::FINNISH, "Finnish" }, { PluginLang::GREEK, "Greek" },
-        { PluginLang::NORWEGIAN, "Norwegian" }, { PluginLang::SWEDISH, "Swedish" }, { PluginLang::TURKISH, "Turkish" },
-        { PluginLang::ARABIC, "Arabic" }, { PluginLang::KOREAN, "Korean" }, { PluginLang::THAI, "Thai" } };
+        { PluginLang::CHINESE, "Chinese" }, { PluginLang::RUSSIAN, "Russian" }, { PluginLang::JAPANESE, "Japanese" },
+        { PluginLang::CZECH, "Czech" }, { PluginLang::HUNGARIAN, "Hungarian" }, { PluginLang::DANISH, "Danish" },
+        { PluginLang::FINNISH, "Finnish" }, { PluginLang::GREEK, "Greek" }, { PluginLang::NORWEGIAN, "Norwegian" },
+        { PluginLang::SWEDISH, "Swedish" }, { PluginLang::TURKISH, "Turkish" }, { PluginLang::ARABIC, "Arabic" },
+        { PluginLang::KOREAN, "Korean" }, { PluginLang::THAI, "Thai" },
+        { PluginLang::CHINESE_SIMPLIFIED, "Chinese Simplified" } };
 
     if (langStringMap.contains(lang)) {
         return langStringMap.at(lang);
@@ -313,9 +315,9 @@ auto ParallaxGenPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::
 auto ParallaxGenPlugin::getAvailablePluginLangStrs() -> vector<string>
 {
     // alphabetical vector
-    static const vector<string> langStrs = { "Arabic", "Chinese", "Czech", "Danish", "English", "Finnish", "French",
-        "German", "Greek", "Hungarian", "Italian", "Japanese", "Korean", "Norwegian", "Polish", "Portuguese Brazil",
-        "Russian", "Spanish", "Spanish Mexico", "Swedish", "Thai", "Turkish" };
+    static const vector<string> langStrs = { "Arabic", "Chinese", "Chinese Simplified", "Czech", "Danish", "English",
+        "Finnish", "French", "German", "Greek", "Hungarian", "Italian", "Japanese", "Korean", "Norwegian", "Polish",
+        "Portuguese Brazil", "Russian", "Spanish", "Spanish Mexico", "Swedish", "Thai", "Turkish" };
 
     return langStrs;
 }
