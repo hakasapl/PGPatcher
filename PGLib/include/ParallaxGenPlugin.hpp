@@ -138,7 +138,7 @@ private:
 public:
     static auto getPluginLangFromString(const std::string& lang) -> PluginLang;
     static auto getStringFromPluginLang(const PluginLang& lang) -> std::string;
-    static auto getAvaiablePluginLangStrs() -> std::vector<std::string>;
+    static auto getAvailablePluginLangStrs() -> std::vector<std::string>;
 
     static void loadStatics(ParallaxGenDirectory* pgd);
     static void loadModPriorityMap(std::unordered_map<std::wstring, int>* modPriority);

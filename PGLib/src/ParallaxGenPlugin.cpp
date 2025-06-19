@@ -282,7 +282,7 @@ auto ParallaxGenPlugin::getPluginLangFromString(const std::string& lang) -> Plug
         { "Japanese", PluginLang::JAPANESE }, { "Czech", PluginLang::CZECH }, { "Hungarian", PluginLang::HUNGARIAN },
         { "Danish", PluginLang::DANISH }, { "Finnish", PluginLang::FINNISH }, { "Greek", PluginLang::GREEK },
         { "Norwegian", PluginLang::NORWEGIAN }, { "Swedish", PluginLang::SWEDISH }, { "Turkish", PluginLang::TURKISH },
-        { "Arabic", PluginLang::ARABIC }, { "Korian", PluginLang::KOREAN }, { "Thai", PluginLang::THAI } };
+        { "Arabic", PluginLang::ARABIC }, { "Korean", PluginLang::KOREAN }, { "Thai", PluginLang::THAI } };
 
     if (langMap.contains(lang)) {
         return langMap.at(lang);
@@ -310,7 +310,7 @@ auto ParallaxGenPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::
     return langStringMap.at(PluginLang::ENGLISH); // Default to English if not found
 }
 
-auto ParallaxGenPlugin::getAvaiablePluginLangStrs() -> vector<string>
+auto ParallaxGenPlugin::getAvailablePluginLangStrs() -> vector<string>
 {
     // alphabetical vector
     static const vector<string> langStrs = { "Arabic", "Chinese", "Czech", "Danish", "English", "Finnish", "French",

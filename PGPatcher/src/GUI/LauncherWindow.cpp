@@ -369,7 +369,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
 
     wxArrayString pluginLangs;
-    for (const auto& lang : ParallaxGenPlugin::getAvaiablePluginLangStrs()) {
+    for (const auto& lang : ParallaxGenPlugin::getAvailablePluginLangStrs()) {
         pluginLangs.Add(lang);
     }
     m_processingPluginPatchingOptionsLangCombo
