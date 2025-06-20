@@ -6,7 +6,6 @@
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
-#include <algorithm>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -125,9 +124,6 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir")) {
             paramJ["modmanager"]["mo2instancedir"].get_to<filesystem::path>(m_params.ModManager.mo2InstanceDir);
-        }
-        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2profile")) {
-            m_params.ModManager.mo2Profile = utf8toUTF16(paramJ["modmanager"]["mo2profile"].get<string>());
         }
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useorder")) {
             paramJ["modmanager"]["mo2useorder"].get_to<bool>(m_params.ModManager.mo2UseOrder);
@@ -312,14 +308,8 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
             errors.emplace_back("MO2 Instance Location does not exist");
         }
 
-        if (params.ModManager.mo2Profile.empty()) {
-            errors.emplace_back("MO2 Profile is required");
-        }
-
-        // Check if the MO2 profile exists
-        const auto profiles = ModManagerDirectory::getMO2ProfilesFromInstanceDir(params.ModManager.mo2InstanceDir);
-        if (std::ranges::find(profiles, params.ModManager.mo2Profile) == profiles.end()) {
-            errors.emplace_back("MO2 Profile does not exist");
+        if (!ModManagerDirectory::isValidMO2InstanceDir(params.ModManager.mo2InstanceDir)) {
+            errors.emplace_back("MO2 Instance Location is not valid");
         }
     }
 
@@ -414,7 +404,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "modmanager"
     j["params"]["modmanager"]["type"] = m_params.ModManager.type;
     j["params"]["modmanager"]["mo2instancedir"] = utf16toUTF8(m_params.ModManager.mo2InstanceDir.wstring());
-    j["params"]["modmanager"]["mo2profile"] = utf16toUTF8(m_params.ModManager.mo2Profile);
     j["params"]["modmanager"]["mo2useorder"] = m_params.ModManager.mo2UseOrder;
 
     // "output"

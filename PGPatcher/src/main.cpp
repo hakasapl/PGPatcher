@@ -285,10 +285,9 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     }
 
     if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
-        && !params.ModManager.mo2InstanceDir.empty() && !params.ModManager.mo2Profile.empty()) {
+        && !params.ModManager.mo2InstanceDir.empty()) {
         // MO2
-        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.ModManager.mo2Profile, params.Output.dir,
-            params.ModManager.mo2UseOrder);
+        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir, params.ModManager.mo2UseOrder);
     } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
         // Vortex
         mmd.populateModFileMapVortex(bg.getGameDataPath());

@@ -10,6 +10,8 @@
 
 #include "util/NIFUtil.hpp"
 
+#include "BethesdaGame.hpp"
+
 class ModManagerDirectory {
 
 public:
@@ -42,7 +44,14 @@ private:
     static constexpr const char* MO2INI_PROFILESDIR_KEY = "profiles_directory=";
     static constexpr const char* MO2INI_MODDIR_KEY = "mod_directory=";
     static constexpr const char* MO2INI_BASEDIR_KEY = "base_directory=";
+    static constexpr const char* MO2INI_GAMEDIR_KEY = "gamePath=";
+    static constexpr const char* MO2INI_PROFILE_KEY = "selected_profile=";
+    static constexpr const char* MO2INI_GAMENAME_KEY = "gameName=";
+    static constexpr const char* MO2INI_GAMEEDITION_KEY = "game_edition=";
     static constexpr const char* MO2INI_BASEDIR_WILDCARD = "%BASE_DIR%";
+
+    static constexpr const char* MO2INI_BYTEARRAYPREFIX = "@ByteArray(";
+    static constexpr const char* MO2INI_BYTEARRAYSUFFIX = ")";
 
 public:
     ModManagerDirectory(const ModManagerType& mmType);
@@ -55,10 +64,13 @@ public:
     void loadJSON(const nlohmann::json& json);
     auto getJSON() -> nlohmann::json;
 
-    static auto getMO2ProfilesFromInstanceDir(const std::filesystem::path& instanceDir) -> std::vector<std::wstring>;
+    static auto isValidMO2InstanceDir(const std::filesystem::path& instanceDir) -> bool;
+    static auto getGamePathFromInstanceDir(const std::filesystem::path& instanceDir) -> std::filesystem::path;
+    static auto getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType;
+    static auto getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring;
 
-    void populateModFileMapMO2(const std::filesystem::path& instanceDir, const std::wstring& profile,
-        const std::filesystem::path& outputDir, const bool& useMO2Order);
+    void populateModFileMapMO2(
+        const std::filesystem::path& instanceDir, const std::filesystem::path& outputDir, const bool& useMO2Order);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
     // Helpers
@@ -67,6 +79,9 @@ public:
     [[nodiscard]] static auto getModManagerTypeFromStr(const std::string& type) -> ModManagerType;
 
 private:
+    static auto getMO2INIField(const std::filesystem::path& instanceDir, const std::string& fieldName,
+        const bool& isByteArray = false) -> std::wstring;
+
     static auto getMO2FilePaths(const std::filesystem::path& instanceDir)
         -> std::pair<std::filesystem::path, std::filesystem::path>;
 };

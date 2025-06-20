@@ -16,6 +16,7 @@
 - Slightly improved multithreading performance
 - Launcher window will no longer be always on top
 - Fixed edge case where certain corrupt NIFs cause hangs and memory leaks
+- Game location, type, and selected profile will be set automatically when MO2 is configured now
 
 ## [0.8.12] - 2025-05-18
 

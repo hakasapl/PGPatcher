@@ -18,7 +18,7 @@ constexpr unsigned REG_BUFFER_SIZE = 1024;
 class BethesdaGame {
 public:
     // GameType enum
-    enum class GameType : uint8_t { SKYRIM_SE, SKYRIM_GOG, SKYRIM_VR, SKYRIM, ENDERAL, ENDERAL_SE };
+    enum class GameType : uint8_t { SKYRIM_SE, SKYRIM_GOG, SKYRIM_VR, SKYRIM, ENDERAL, ENDERAL_SE, UNKNOWN };
 
     // StoreType enum (for now only Steam is used)
     enum class StoreType : uint8_t { STEAM, WINDOWS_STORE, EPIC_GAMES_STORE, GOG };
