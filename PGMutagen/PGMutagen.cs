@@ -218,12 +218,19 @@ public class PGMutagen
                 loadOrderList.Add(Marshal.PtrToStringUni(loadOrder[i]) ?? string.Empty);
             }
 
+            var stringReadParams = new StringsReadParameters()
+            {
+                TargetLanguage = PluginLanguage,
+                EncodingProvider = new Utf8EncodingWrapper()
+            };
+
             try
             {
                 Env = GameEnvironment.Typical.Builder<ISkyrimMod, ISkyrimModGetter>((GameRelease)GameType)
                     .WithTargetDataFolder(dataPath)
                     .WithLoadOrder(loadOrderList.ToArray())
                     .WithOutputMod(OutMod)
+                    .WithStringParameters(stringReadParams)
                     .Build();
             }
             catch (Exception ex)
