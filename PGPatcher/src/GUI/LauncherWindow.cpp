@@ -55,12 +55,12 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     m_gameLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_gameLocationTextbox->SetToolTip("Path to the game folder (NOT the data folder)");
     m_gameLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onGameLocationChange, this);
-    auto* gameLocationBrowseButton = new wxButton(this, wxID_ANY, "Browse");
-    gameLocationBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseGameLocation, this);
+    m_gameLocationBrowseButton = new wxButton(this, wxID_ANY, "Browse");
+    m_gameLocationBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseGameLocation, this);
 
     auto* gameLocationSizer = new wxBoxSizer(wxHORIZONTAL);
     gameLocationSizer->Add(m_gameLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
-    gameLocationSizer->Add(gameLocationBrowseButton, 0, wxALL, BORDER_SIZE);
+    gameLocationSizer->Add(m_gameLocationBrowseButton, 0, wxALL, BORDER_SIZE);
 
     gameSizer->Add(gameLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
     gameSizer->Add(gameLocationSizer, 0, wxEXPAND);
@@ -115,12 +115,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     mo2InstanceLocationSizer->Add(m_mo2InstanceLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
     mo2InstanceLocationSizer->Add(mo2InstanceBrowseButton, 0, wxALL, BORDER_SIZE);
 
-    // Dropdown for MO2 profile selection
-    auto* mo2ProfileLabel = new wxStaticText(this, wxID_ANY, "Profile");
-    m_mo2ProfileChoice = new wxChoice(this, wxID_ANY);
-    m_mo2ProfileChoice->SetToolTip("MO2 profile to read from");
-    m_mo2ProfileChoice->Bind(wxEVT_CHOICE, &LauncherWindow::onMO2ProfileChange, this);
-
     // Checkbox to use MO2 order
     m_mo2UseOrderCheckbox = new wxCheckBox(this, wxID_ANY, "Use MO2 Loose File Order");
     m_mo2UseOrderCheckbox->SetToolTip("Use the order set in MO2's left pane instead of manually defining an order");
@@ -129,8 +123,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     // Add the label and dropdown to MO2 options sizer
     m_mo2OptionsSizer->Add(mo2InstanceLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
     m_mo2OptionsSizer->Add(mo2InstanceLocationSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 0);
-    m_mo2OptionsSizer->Add(mo2ProfileLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
-    m_mo2OptionsSizer->Add(m_mo2ProfileChoice, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, BORDER_SIZE);
     m_mo2OptionsSizer->Add(m_mo2UseOrderCheckbox, 0, wxLEFT | wxRIGHT | wxBOTTOM, BORDER_SIZE);
 
     // Add MO2 options to leftSizer but hide it initially
@@ -540,10 +532,6 @@ void LauncherWindow::loadConfig()
     wxCommandEvent changeEvent(wxEVT_TEXT, m_mo2InstanceLocationTextbox->GetId());
     onMO2InstanceLocationChange(changeEvent); // Call the handler directly
 
-    // Select the profile if it exists in the dropdown
-    if (m_mo2ProfileChoice->FindString(initParams.ModManager.mo2Profile) != wxNOT_FOUND) {
-        m_mo2ProfileChoice->SetStringSelection(initParams.ModManager.mo2Profile);
-    }
     m_mo2UseOrderCheckbox->SetValue(initParams.ModManager.mo2UseOrder);
 
     // Output
@@ -656,15 +644,12 @@ void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
     const bool isMO2Selected
         = (event.GetEventObject() == m_modManagerRadios[ModManagerDirectory::ModManagerType::MODORGANIZER2]);
     m_mo2OptionsSizer->Show(isMO2Selected);
+
+    updateMO2Items();
+
     Layout(); // Refresh layout to apply visibility changes
     Fit();
 
-    updateDisabledElements();
-}
-
-void LauncherWindow::onMO2ProfileChange([[maybe_unused]] wxCommandEvent& event)
-{
-    // Update the MO2 profile
     updateDisabledElements();
 }
 
@@ -917,7 +902,6 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
         }
     }
     params.ModManager.mo2InstanceDir = m_mo2InstanceLocationTextbox->GetValue().ToStdWstring();
-    params.ModManager.mo2Profile = m_mo2ProfileChoice->GetStringSelection().ToStdWstring();
     params.ModManager.mo2UseOrder = m_mo2UseOrderCheckbox->GetValue();
 
     // Output
@@ -1026,17 +1010,23 @@ void LauncherWindow::onBrowseMO2InstanceLocation([[maybe_unused]] wxCommandEvent
     onMO2InstanceLocationChange(changeEvent); // Call the handler directly
 }
 
-void LauncherWindow::onMO2InstanceLocationChange([[maybe_unused]] wxCommandEvent& event)
+void LauncherWindow::updateMO2Items()
 {
-    // Clear existing items
-    m_mo2ProfileChoice->Clear();
+    // check if MO2 is selected
+    if (!m_modManagerRadios[ModManagerDirectory::ModManagerType::MODORGANIZER2]->GetValue()) {
+        // If MO2 is not selected, clear the instance location textbox and return
+        m_gameLocationTextbox->Enable(true);
+        m_gameLocationBrowseButton->Enable(true);
+        for (const auto& gameType : BethesdaGame::getGameTypes()) {
+            m_gameTypeRadios[gameType]->Enable(true);
+        }
+        return;
+    }
 
-    // Get profiles
-    const auto profiles
-        = ModManagerDirectory::getMO2ProfilesFromInstanceDir(m_mo2InstanceLocationTextbox->GetValue().ToStdWstring());
+    const auto instanceDir = m_mo2InstanceLocationTextbox->GetValue().ToStdWstring();
 
-    // check if the "profiles" folder exists
-    if (profiles.empty()) {
+    // Check if modorganizer.ini exists
+    if (!ModManagerDirectory::isValidMO2InstanceDir(instanceDir)) {
         // set instance directory text to red
         m_mo2InstanceLocationTextbox->SetForegroundColour(*wxRED);
         return;
@@ -1045,16 +1035,37 @@ void LauncherWindow::onMO2InstanceLocationChange([[maybe_unused]] wxCommandEvent
     // set instance directory text to black
     m_mo2InstanceLocationTextbox->SetForegroundColour(*wxBLACK);
 
-    // Find all directories within "profiles"
-    for (const auto& profile : profiles) {
-        m_mo2ProfileChoice->Append(profile);
+    // Get game path
+    const auto gamePathMO2 = ModManagerDirectory::getGamePathFromInstanceDir(instanceDir);
+    if (!gamePathMO2.empty()) {
+        // found the game path, set it to the game location textbox
+        m_gameLocationTextbox->SetValue(gamePathMO2.wstring());
+        // disable the game location textbox
+        m_gameLocationTextbox->Enable(false);
+        m_gameLocationBrowseButton->Enable(false);
+    } else {
+        // not found, enable the game location textbox
+        m_gameLocationTextbox->Enable(true);
+        m_gameLocationBrowseButton->Enable(true);
     }
 
-    // Optionally, select the first item
-    if (m_mo2ProfileChoice->GetCount() > 0) {
-        m_mo2ProfileChoice->SetSelection(0);
+    // Get game type
+    const auto gameTypeMO2 = ModManagerDirectory::getGameTypeFromInstanceDir(instanceDir);
+    if (gameTypeMO2 != BethesdaGame::GameType::UNKNOWN) {
+        m_gameTypeRadios[gameTypeMO2]->SetValue(true);
+        // disable all radio buttons
+        for (const auto& gameType : BethesdaGame::getGameTypes()) {
+            m_gameTypeRadios[gameType]->Enable(false);
+        }
+    } else {
+        // enable all radio buttons
+        for (const auto& gameType : BethesdaGame::getGameTypes()) {
+            m_gameTypeRadios[gameType]->Enable(true);
+        }
     }
 }
+
+void LauncherWindow::onMO2InstanceLocationChange([[maybe_unused]] wxCommandEvent& event) { updateMO2Items(); }
 
 void LauncherWindow::onBrowseOutputLocation([[maybe_unused]] wxCommandEvent& event)
 {

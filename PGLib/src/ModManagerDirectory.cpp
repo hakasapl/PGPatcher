@@ -3,6 +3,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <fstream>
 
 #include <regex>
@@ -13,6 +14,7 @@
 #include <spdlog/spdlog.h>
 
 #include "BethesdaDirectory.hpp"
+#include "BethesdaGame.hpp"
 #include "PGGlobals.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
@@ -174,8 +176,8 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     }
 }
 
-void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instanceDir, const wstring& profile,
-    const filesystem::path& outputDir, const bool& useMO2Order)
+void ModManagerDirectory::populateModFileMapMO2(
+    const filesystem::path& instanceDir, const filesystem::path& outputDir, const bool& useMO2Order)
 {
     // required file is modlist.txt in the profile folder
 
@@ -193,7 +195,8 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
     const auto modDir = mo2Paths.second;
 
     // Find location of modlist.txt
-    const auto modListFile = profileDir / profile / "modlist.txt";
+    const auto curProfile = getSelectedProfileFromInstanceDir(instanceDir);
+    const auto modListFile = profileDir / curProfile / "modlist.txt";
     if (!filesystem::exists(modListFile)) {
         throw runtime_error(
             "Mod Organizer 2 modlist.txt file does not exist: " + ParallaxGenUtil::utf16toUTF8(modListFile.wstring()));
@@ -386,28 +389,100 @@ auto ModManagerDirectory::getModManagerTypeFromStr(const string& type) -> ModMan
     return modManagerStrToTypeMap.at("None");
 }
 
-auto ModManagerDirectory::getMO2ProfilesFromInstanceDir(const filesystem::path& instanceDir) -> vector<wstring>
+auto ModManagerDirectory::isValidMO2InstanceDir(const filesystem::path& instanceDir) -> bool
 {
-    const auto profileDir = getMO2FilePaths(instanceDir).first;
-    if (profileDir.empty()) {
+    // Check if the instance directory contains the required files
+    const filesystem::path modOrganizerIni = instanceDir / "modorganizer.ini";
+
+    return filesystem::exists(modOrganizerIni);
+}
+
+auto ModManagerDirectory::getMO2INIField(
+    const std::filesystem::path& instanceDir, const std::string& fieldName, const bool& isByteArray) -> std::wstring
+{
+    // Find MO2 paths from ModOrganizer.ini
+    const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
+    if (!filesystem::exists(mo2IniFile)) {
         return {};
     }
 
-    // check if the "profiles" folder exists
-    if (!filesystem::exists(profileDir)) {
-        // set instance directory text to red
-        return {};
-    }
+    ifstream mo2IniFileF(mo2IniFile);
+    string mo2IniLine;
+    while (getline(mo2IniFileF, mo2IniLine)) {
+        const wstring mo2IniLineWstr = ParallaxGenUtil::utf8toUTF16(mo2IniLine);
 
-    // Find all directories within "profiles"
-    vector<wstring> profiles;
-    for (const auto& entry : filesystem::directory_iterator(profileDir)) {
-        if (entry.is_directory()) {
-            profiles.push_back(entry.path().filename().wstring());
+        if (mo2IniLine.starts_with(fieldName)) {
+            auto fieldValue = mo2IniLineWstr.substr(strlen(fieldName.c_str()));
+            mo2IniFileF.close();
+
+            wstring parsedVal;
+
+            // remove @ByteArray( and ) from the string if isByteArray is true
+            if (isByteArray && boost::starts_with(fieldValue, MO2INI_BYTEARRAYPREFIX)
+                && boost::ends_with(fieldValue, MO2INI_BYTEARRAYSUFFIX)) {
+                parsedVal = fieldValue.substr(strlen(MO2INI_BYTEARRAYPREFIX),
+                    fieldValue.size() - strlen(MO2INI_BYTEARRAYPREFIX) - strlen(MO2INI_BYTEARRAYSUFFIX));
+            } else {
+                parsedVal = fieldValue;
+            }
+
+            // replace backslashes with single ones
+            boost::replace_all(parsedVal, L"\\\\", L"\\");
+
+            return parsedVal;
         }
     }
 
-    return profiles;
+    mo2IniFileF.close();
+
+    return {}; // default to empty if not found
+}
+
+auto ModManagerDirectory::getGamePathFromInstanceDir(const filesystem::path& instanceDir) -> filesystem::path
+{
+    return getMO2INIField(instanceDir, MO2INI_GAMEDIR_KEY, true);
+}
+
+auto ModManagerDirectory::getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring
+{
+    return getMO2INIField(instanceDir, MO2INI_PROFILE_KEY, true);
+}
+
+auto ModManagerDirectory::getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType
+{
+    // get game name
+    const auto gameName = getMO2INIField(instanceDir, MO2INI_GAMENAME_KEY, false);
+
+    // get game edition
+    const auto gameEdition = getMO2INIField(instanceDir, MO2INI_GAMEEDITION_KEY, false);
+
+    if (gameName == L"Skyrim Special Edition") {
+        if (gameEdition == L"Steam") {
+            return BethesdaGame::GameType::SKYRIM_SE;
+        }
+
+        if (gameEdition == L"GOG") {
+            return BethesdaGame::GameType::SKYRIM_GOG;
+        }
+    }
+
+    if (gameName == L"Skyrim") {
+        return BethesdaGame::GameType::SKYRIM;
+    }
+
+    if (gameName == L"Enderal Special Edition") {
+        return BethesdaGame::GameType::ENDERAL_SE;
+    }
+
+    if (gameName == L"Enderal") {
+        return BethesdaGame::GameType::ENDERAL;
+    }
+
+    if (gameName == L"Skyrim VR") {
+        return BethesdaGame::GameType::SKYRIM_VR;
+    }
+
+    return BethesdaGame::GameType::UNKNOWN; // default to unknown if not found
 }
 
 auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceDir)

@@ -64,6 +64,7 @@ private:
     // Game
     wxTextCtrl* m_gameLocationTextbox;
     void onGameLocationChange(wxCommandEvent& event);
+    wxButton* m_gameLocationBrowseButton;
 
     std::unordered_map<BethesdaGame::GameType, wxRadioButton*> m_gameTypeRadios;
     void onGameTypeChange(wxCommandEvent& event);
@@ -74,9 +75,6 @@ private:
 
     wxTextCtrl* m_mo2InstanceLocationTextbox;
     void onMO2InstanceLocationChange(wxCommandEvent& event);
-
-    wxChoice* m_mo2ProfileChoice;
-    void onMO2ProfileChange(wxCommandEvent& event);
 
     wxCheckBox* m_mo2UseOrderCheckbox;
     void onMO2UseOrderChange(wxCommandEvent& event);
@@ -204,6 +202,8 @@ private:
      * @brief Updates disabled elements based on the current state of the UI
      */
     void updateDisabledElements();
+
+    void updateMO2Items();
 
     wxBoxSizer* m_advancedOptionsSizer; /** Container that stores advanced options */
     void updateAdvanced();
