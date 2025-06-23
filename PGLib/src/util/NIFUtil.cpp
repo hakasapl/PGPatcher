@@ -692,19 +692,25 @@ auto NIFUtil::isShaderPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifSha
         return false;
     }
 
-    // Check if PG_IGNORE is set
-    auto extraDataRefs = nifShader->extraDataRefs;
-    for (const auto& extraDataRef : extraDataRefs) {
-        auto* const curBlock = dynamic_cast<NiBooleanExtraData*>(nif.GetHeader().GetBlock(extraDataRef));
-        if (curBlock == nullptr) {
-            continue;
-        }
-
-        if (curBlock->name == "PG_IGNORE" && curBlock->booleanData) {
-            // This shape is marked to be ignored by ParallaxGen
-            return false;
-        }
+    vector<NiExtraData*> extraDataRefs;
+    for (const auto& extraDataRef : nifShader->extraDataRefs) {
+        auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
+        extraDataRefs.push_back(curBlock);
+    }
+    for (const auto& extraDataRef : nifShape.extraDataRefs) {
+        auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
+        extraDataRefs.push_back(curBlock);
     }
 
-    return true;
+    // Check if PG_IGNORE is set
+    const bool hasIgnoreFlag = !std::ranges::all_of(extraDataRefs, [](const auto& extraDataRef) {
+        auto* const curBlock = dynamic_cast<NiBooleanExtraData*>(extraDataRef);
+        if (curBlock == nullptr) {
+            return true; // continue checking others
+        }
+
+        return !(curBlock->name == "PG_IGNORE" && curBlock->booleanData);
+    });
+
+    return !hasIgnoreFlag; // return true if PG_IGNORE is not set
 }
