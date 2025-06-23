@@ -692,25 +692,17 @@ auto NIFUtil::isShaderPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifSha
         return false;
     }
 
-    vector<NiExtraData*> extraDataRefs;
-    for (const auto& extraDataRef : nifShader->extraDataRefs) {
-        auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
-        extraDataRefs.push_back(curBlock);
-    }
-    for (const auto& extraDataRef : nifShape.extraDataRefs) {
-        auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
-        extraDataRefs.push_back(curBlock);
-    }
-
-    // Check if PG_IGNORE is set
-    const bool hasIgnoreFlag = !std::ranges::all_of(extraDataRefs, [](const auto& extraDataRef) {
-        auto* const curBlock = dynamic_cast<NiBooleanExtraData*>(extraDataRef);
-        if (curBlock == nullptr) {
-            return true; // continue checking others
+    // Check if PG_IGNORE is set on shader or shape
+    auto checkIgnoreFlag = [&nif](auto& extraDataRefs) -> bool {
+        for (const auto& extraDataRef : extraDataRefs) {
+            auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
+            auto* const booleanBlock = dynamic_cast<NiBooleanExtraData*>(curBlock);
+            if (booleanBlock != nullptr && booleanBlock->name == "PG_IGNORE" && booleanBlock->booleanData) {
+                return true; // PG_IGNORE found and set to true
+            }
         }
+        return false;
+    };
 
-        return !(curBlock->name == "PG_IGNORE" && curBlock->booleanData);
-    });
-
-    return !hasIgnoreFlag; // return true if PG_IGNORE is not set
+    return !checkIgnoreFlag(nifShader->extraDataRefs) && !checkIgnoreFlag(nifShape.extraDataRefs);
 }
