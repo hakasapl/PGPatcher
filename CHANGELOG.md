@@ -17,6 +17,7 @@
 - Launcher window will no longer be always on top
 - Fixed edge case where certain corrupt NIFs cause hangs and memory leaks
 - Game location, type, and selected profile will be set automatically when MO2 is configured now
+- Added extra data option for MAs to tell PG to ignore patching a shape (see wiki)
 
 ## [0.8.12] - 2025-05-18
 

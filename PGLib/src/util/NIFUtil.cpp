@@ -692,5 +692,17 @@ auto NIFUtil::isShaderPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifSha
         return false;
     }
 
-    return true;
+    // Check if PG_IGNORE is set on shader or shape
+    auto checkIgnoreFlag = [&nif](auto& extraDataRefs) -> bool {
+        for (const auto& extraDataRef : extraDataRefs) {
+            auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
+            auto* const booleanBlock = dynamic_cast<NiBooleanExtraData*>(curBlock);
+            if (booleanBlock != nullptr && booleanBlock->name == "PG_IGNORE" && booleanBlock->booleanData) {
+                return true; // PG_IGNORE found and set to true
+            }
+        }
+        return false;
+    };
+
+    return !checkIgnoreFlag(nifShader->extraDataRefs) && !checkIgnoreFlag(nifShape.extraDataRefs);
 }
