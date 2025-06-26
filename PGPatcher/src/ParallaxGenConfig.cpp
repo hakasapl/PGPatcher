@@ -311,6 +311,14 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
         if (!ModManagerDirectory::isValidMO2InstanceDir(params.ModManager.mo2InstanceDir)) {
             errors.emplace_back("MO2 Instance Location is not valid");
         }
+
+        if (ModManagerDirectory::getGameTypeFromInstanceDir(params.ModManager.mo2InstanceDir) != params.Game.type) {
+            errors.emplace_back("MO2 game type does not match selected game type. Is this the correct MO2 instance?");
+        }
+
+        if (ModManagerDirectory::getGamePathFromInstanceDir(params.ModManager.mo2InstanceDir) != params.Game.dir) {
+            errors.emplace_back("MO2 game path does not match selected game path. Is this the correct MO2 instance?");
+        }
     }
 
     // Output
