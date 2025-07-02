@@ -660,7 +660,7 @@ auto NIFUtil::isPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) ->
 
     // Check if shape should be patched or not
     if (shapeBlockName != "NiTriShape" && shapeBlockName != "BSTriShape" && shapeBlockName != "BSLODTriShape"
-        && shapeBlockName != "BSMeshLODTriShape") {
+        && shapeBlockName != "BSMeshLODTriShape" && shapeBlockName != "BSDynamicTriShape") {
         return false;
     }
 
