@@ -13,6 +13,7 @@
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
+#include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -366,6 +367,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         if (!PatcherTextureHookFixSSS::initShader()) {
             Logger::critical("Failed to initialize FixSSS shader");
         }
+    }
+    if (params.PostPatcher.hairFlowMap) {
+        Logger::debug("Adding Hair Flow Map post-patcher");
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
     }
 
     if (params.GlobalPatcher.fixEffectLightingCS) {

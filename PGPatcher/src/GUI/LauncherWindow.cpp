@@ -273,6 +273,11 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     m_postPatcherFixSSSCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherFixSSSChange, this);
     postPatcherSizer->Add(m_postPatcherFixSSSCheckbox, 0, wxALL, BORDER_SIZE);
 
+    m_postPatcherHairFlowMapCheckbox = new wxCheckBox(this, wxID_ANY, "Add Hair Flow Map (CS Only)");
+    m_postPatcherHairFlowMapCheckbox->SetToolTip("Adds a hair flow map to shapes with a matching normal");
+    m_postPatcherHairFlowMapCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherHairFlowMapChange, this);
+    postPatcherSizer->Add(m_postPatcherHairFlowMapCheckbox, 0, wxALL, BORDER_SIZE);
+
     rightSizer->Add(postPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
@@ -581,6 +586,7 @@ void LauncherWindow::loadConfig()
     // Post-Patchers
     m_postPatcherOptimizeMeshesCheckbox->SetValue(initParams.PostPatcher.optimizeMeshes);
     m_postPatcherFixSSSCheckbox->SetValue(initParams.PostPatcher.fixSSS);
+    m_postPatcherHairFlowMapCheckbox->SetValue(initParams.PostPatcher.hairFlowMap);
 
     // Global Patchers
     m_globalPatcherFixEffectLightingCSCheckbox->SetValue(initParams.GlobalPatcher.fixEffectLightingCS);
@@ -797,6 +803,11 @@ void LauncherWindow::onPostPatcherOptimizeMeshesChange([[maybe_unused]] wxComman
 
 void LauncherWindow::onPostPatcherFixSSSChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
+void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
 void LauncherWindow::onMeshRulesAllowListChange(wxListEvent& event)
 {
     onListEdit(event);
@@ -949,6 +960,7 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
     // Post-Patchers
     params.PostPatcher.optimizeMeshes = m_postPatcherOptimizeMeshesCheckbox->GetValue();
     params.PostPatcher.fixSSS = m_postPatcherFixSSSCheckbox->GetValue();
+    params.PostPatcher.hairFlowMap = m_postPatcherHairFlowMapCheckbox->GetValue();
 
     // Global Patchers
     params.GlobalPatcher.fixEffectLightingCS = m_globalPatcherFixEffectLightingCSCheckbox->GetValue();

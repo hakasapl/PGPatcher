@@ -19,6 +19,7 @@
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
+#include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -205,6 +206,9 @@ void mainRunner(PGToolsCLIArgs& args)
             meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
 
             PatcherTextureHookFixSSS::initShader();
+        }
+        if (patcherDefs.contains("hairflowmap")) {
+            meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
         }
 
         PatcherUtil::PatcherTextureSet texPatchers;

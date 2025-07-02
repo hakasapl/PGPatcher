@@ -147,6 +147,9 @@ private:
     wxCheckBox* m_postPatcherFixSSSCheckbox;
     void onPostPatcherFixSSSChange(wxCommandEvent& event);
 
+    wxCheckBox* m_postPatcherHairFlowMapCheckbox;
+    void onPostPatcherHairFlowMapChange(wxCommandEvent& event);
+
     // Global Patchers
     wxCheckBox* m_globalPatcherFixEffectLightingCSCheckbox;
     void onGlobalPatcherFixEffectLightingCSChange(wxCommandEvent& event);
