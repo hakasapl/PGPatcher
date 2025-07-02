@@ -294,15 +294,15 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         mmd.populateModFileMapVortex(bg.getGameDataPath());
     }
 
-    // delete existing output
-    ParallaxGen::deleteOutputDir();
-
     // Check if ParallaxGen output already exists in data directory
     const filesystem::path pgStateFilePath = bg.getGameDataPath() / "ParallaxGen_Diff.json";
     if (filesystem::exists(pgStateFilePath)) {
         Logger::critical("ParallaxGen meshes exist in your data directory, please delete before "
                          "re-running.");
     }
+
+    // delete existing output
+    ParallaxGen::deleteOutputDir();
 
     // Init file map
     pgd.populateFileMap(params.Processing.bsa);
