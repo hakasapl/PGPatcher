@@ -10,8 +10,6 @@
 #include <filesystem>
 #include <iostream>
 
-#include <spdlog/spdlog.h>
-
 using namespace std;
 
 class ParallaxGenHandlers {
