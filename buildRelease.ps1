@@ -49,7 +49,9 @@ $zipFile = Join-Path -Path $distDir -ChildPath "PGPatcher.zip"
 
 # Create a temporary directory to collect the files
 $tempDir = Join-Path -Path $env:TEMP -ChildPath "PGPatcherZipTemp_$(Get-Random)"
+$fileDir = Join-Path -Path $tempDir -ChildPath "PGPatcher"
 New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+New-Item -Path $fileDir -ItemType Directory -Force | Out-Null
 
 try {
     # Copy DLLs, EXEs, JSONs and folders from build/bin
@@ -92,7 +94,7 @@ try {
 
         # Copy file if the conditions are met
         if ($copyFile) {
-            $destPath = Join-Path -Path $tempDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
+            $destPath = Join-Path -Path $fileDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
             $destDir = Split-Path -Path $destPath -Parent
 
             # Create destination directory if it doesn't exist
