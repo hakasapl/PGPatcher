@@ -80,6 +80,7 @@ enum class TextureType : uint8_t {
     FUZZPBR,
     COATNORMALROUGHNESS,
     BACKLIGHT,
+    HAIR_FLOWMAP,
     SPECULAR,
     SUBSURFACEPBR,
     UNKNOWN

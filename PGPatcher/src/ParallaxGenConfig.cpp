@@ -212,6 +212,9 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("fixsss")) {
             paramJ["postpatcher"]["fixsss"].get_to<bool>(m_params.PostPatcher.fixSSS);
         }
+        if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("hairflowmap")) {
+            paramJ["postpatcher"]["hairflowmap"].get_to<bool>(m_params.PostPatcher.hairFlowMap);
+        }
 
         // "globalpatcher"
         if (paramJ.contains("globalpatcher") && paramJ["globalpatcher"].contains("fixeffectlightingcs")) {
@@ -443,6 +446,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "postpatcher"
     j["params"]["postpatcher"]["optimizemeshes"] = m_params.PostPatcher.optimizeMeshes;
     j["params"]["postpatcher"]["fixsss"] = m_params.PostPatcher.fixSSS;
+    j["params"]["postpatcher"]["hairflowmap"] = m_params.PostPatcher.hairFlowMap;
 
     // "globalpatcher"
     j["params"]["globalpatcher"]["fixeffectlightingcs"] = m_params.GlobalPatcher.fixEffectLightingCS;

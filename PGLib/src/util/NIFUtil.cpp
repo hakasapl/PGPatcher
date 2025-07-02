@@ -134,6 +134,7 @@ auto NIFUtil::getTexSuffixMap() -> map<wstring, tuple<NIFUtil::TextureSlots, NIF
     static const map<wstring, tuple<NIFUtil::TextureSlots, NIFUtil::TextureType>> textureSuffixMap
         = { { L"_bl", { NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::BACKLIGHT } },
               { L"_b", { NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::BACKLIGHT } },
+              { L"_flow", { NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::HAIR_FLOWMAP } },
               { L"_cnr", { NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::COATNORMALROUGHNESS } },
               { L"_s", { NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::SUBSURFACETINT } },
               { L"_i", { NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::INNERLAYER } },
@@ -156,17 +157,17 @@ auto NIFUtil::getTexSuffixMap() -> map<wstring, tuple<NIFUtil::TextureSlots, NIF
 
 auto NIFUtil::getStrFromTexType(const TextureType& type) -> string
 {
-    static unordered_map<TextureType, string> strFromTexMap
-        = { { TextureType::DIFFUSE, "diffuse" }, { TextureType::NORMAL, "normal" },
-              { TextureType::MODELSPACENORMAL, "model space normal" }, { TextureType::EMISSIVE, "emissive" },
-              { TextureType::SKINTINT, "skin tint" }, { TextureType::SUBSURFACECOLOR, "subsurface color" },
-              { TextureType::HEIGHT, "height" }, { TextureType::HEIGHTPBR, "height pbr" },
-              { TextureType::CUBEMAP, "cubemap" }, { TextureType::ENVIRONMENTMASK, "environment mask" },
-              { TextureType::COMPLEXMATERIAL, "complex material" }, { TextureType::RMAOS, "rmaos" },
-              { TextureType::SUBSURFACETINT, "subsurface tint" }, { TextureType::INNERLAYER, "inner layer" },
-              { TextureType::FUZZPBR, "fuzz pbr" }, { TextureType::COATNORMALROUGHNESS, "coat normal roughness" },
-              { TextureType::BACKLIGHT, "backlight" }, { TextureType::SPECULAR, "specular" },
-              { TextureType::SUBSURFACEPBR, "subsurface pbr" }, { TextureType::UNKNOWN, "unknown" } };
+    static unordered_map<TextureType, string> strFromTexMap = { { TextureType::DIFFUSE, "diffuse" },
+        { TextureType::NORMAL, "normal" }, { TextureType::MODELSPACENORMAL, "model space normal" },
+        { TextureType::EMISSIVE, "emissive" }, { TextureType::SKINTINT, "skin tint" },
+        { TextureType::SUBSURFACECOLOR, "subsurface color" }, { TextureType::HEIGHT, "height" },
+        { TextureType::HEIGHTPBR, "height pbr" }, { TextureType::CUBEMAP, "cubemap" },
+        { TextureType::ENVIRONMENTMASK, "environment mask" }, { TextureType::COMPLEXMATERIAL, "complex material" },
+        { TextureType::RMAOS, "rmaos" }, { TextureType::SUBSURFACETINT, "subsurface tint" },
+        { TextureType::INNERLAYER, "inner layer" }, { TextureType::FUZZPBR, "fuzz pbr" },
+        { TextureType::COATNORMALROUGHNESS, "coat normal roughness" }, { TextureType::BACKLIGHT, "backlight" },
+        { TextureType::SPECULAR, "specular" }, { TextureType::HAIR_FLOWMAP, "hair flowmap" },
+        { TextureType::SUBSURFACEPBR, "subsurface pbr" }, { TextureType::UNKNOWN, "unknown" } };
 
     if (strFromTexMap.find(type) != strFromTexMap.end()) {
         return strFromTexMap[type];
@@ -177,17 +178,17 @@ auto NIFUtil::getStrFromTexType(const TextureType& type) -> string
 
 auto NIFUtil::getTexTypeFromStr(const string& type) -> TextureType
 {
-    static unordered_map<string, TextureType> texFromStrMap
-        = { { "diffuse", TextureType::DIFFUSE }, { "normal", TextureType::NORMAL },
-              { "model space normal", TextureType::MODELSPACENORMAL }, { "emissive", TextureType::EMISSIVE },
-              { "skin tint", TextureType::SKINTINT }, { "subsurface color", TextureType::SUBSURFACECOLOR },
-              { "height", TextureType::HEIGHT }, { "height pbr", TextureType::HEIGHTPBR },
-              { "cubemap", TextureType::CUBEMAP }, { "environment mask", TextureType::ENVIRONMENTMASK },
-              { "complex material", TextureType::COMPLEXMATERIAL }, { "rmaos", TextureType::RMAOS },
-              { "subsurface tint", TextureType::SUBSURFACETINT }, { "inner layer", TextureType::INNERLAYER },
-              { "fuzz pbr", TextureType::FUZZPBR }, { "coat normal roughness", TextureType::COATNORMALROUGHNESS },
-              { "backlight", TextureType::BACKLIGHT }, { "specular", TextureType::SPECULAR },
-              { "subsurface pbr", TextureType::SUBSURFACEPBR }, { "unknown", TextureType::UNKNOWN } };
+    static unordered_map<string, TextureType> texFromStrMap = { { "diffuse", TextureType::DIFFUSE },
+        { "normal", TextureType::NORMAL }, { "model space normal", TextureType::MODELSPACENORMAL },
+        { "emissive", TextureType::EMISSIVE }, { "skin tint", TextureType::SKINTINT },
+        { "subsurface color", TextureType::SUBSURFACECOLOR }, { "height", TextureType::HEIGHT },
+        { "height pbr", TextureType::HEIGHTPBR }, { "cubemap", TextureType::CUBEMAP },
+        { "environment mask", TextureType::ENVIRONMENTMASK }, { "complex material", TextureType::COMPLEXMATERIAL },
+        { "rmaos", TextureType::RMAOS }, { "subsurface tint", TextureType::SUBSURFACETINT },
+        { "inner layer", TextureType::INNERLAYER }, { "fuzz pbr", TextureType::FUZZPBR },
+        { "coat normal roughness", TextureType::COATNORMALROUGHNESS }, { "backlight", TextureType::BACKLIGHT },
+        { "specular", TextureType::SPECULAR }, { "hair flowmap", TextureType::HAIR_FLOWMAP },
+        { "subsurface pbr", TextureType::SUBSURFACEPBR }, { "unknown", TextureType::UNKNOWN } };
 
     const auto searchKey = boost::to_lower_copy(type);
     if (texFromStrMap.find(type) != texFromStrMap.end()) {
@@ -210,6 +211,7 @@ auto NIFUtil::getSlotFromTexType(const TextureType& type) -> TextureSlots
               { TextureType::INNERLAYER, TextureSlots::MULTILAYER }, { TextureType::FUZZPBR, TextureSlots::MULTILAYER },
               { TextureType::COATNORMALROUGHNESS, TextureSlots::MULTILAYER },
               { TextureType::BACKLIGHT, TextureSlots::BACKLIGHT }, { TextureType::SPECULAR, TextureSlots::BACKLIGHT },
+              { TextureType::HAIR_FLOWMAP, TextureSlots::BACKLIGHT },
               { TextureType::SUBSURFACEPBR, TextureSlots::BACKLIGHT },
               { TextureType::UNKNOWN, TextureSlots::UNKNOWN } };
 

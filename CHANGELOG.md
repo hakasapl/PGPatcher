@@ -4,6 +4,7 @@
 
 - Added Particle Effect Light prepatcher for CS (similar to CS particle patch)
 - Added workaround for MO2 case where base_directory is not defined but wildcards are used
+- Added hair flow map patcher for upcoming CS hair feature
 - Fixed nif_filter cache issue with PBR
 - Fixed some NIFs being patched even if nothing was changed when TXST records existed
 - Fixed CTD when diagnostics are enabled

@@ -389,6 +389,12 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
                     break;
                 }
 
+                if (shaderType == BSLSP_HAIRTINT && NIFUtil::hasShaderFlag(shaderBSSP, SLSF2_BACK_LIGHTING)) {
+                    // Hair tint map
+                    textureType = NIFUtil::TextureType::HAIR_FLOWMAP;
+                    break;
+                }
+
                 continue;
             default:
                 textureType = NIFUtil::TextureType::UNKNOWN;
