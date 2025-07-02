@@ -287,6 +287,11 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty()) {
+        // Make sure running is USVFS
+        if (!ParallaxGenHandlers::isUnderUSVFS()) {
+            Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
+        }
+
         // MO2
         mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir, params.ModManager.mo2UseOrder);
     } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
