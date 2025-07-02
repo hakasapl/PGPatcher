@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <tlhelp32.h>
+
 #include <DbgHelp.h>
 
 #include <array>
@@ -94,5 +96,29 @@ public:
         }
 
         return {};
+    }
+
+    static auto isUnderUSVFS() -> bool
+    {
+        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+        if (hSnapshot == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+
+        MODULEENTRY32W me32;
+        me32.dwSize = sizeof(MODULEENTRY32W);
+
+        if (Module32FirstW(hSnapshot, &me32) != 0) {
+            do {
+                const wstring moduleName(me32.szModule);
+                if (moduleName == L"usvfs_x64.dll") {
+                    CloseHandle(hSnapshot);
+                    return true;
+                }
+            } while (Module32NextW(hSnapshot, &me32) != 0);
+        }
+
+        CloseHandle(hSnapshot);
+        return false;
     }
 };

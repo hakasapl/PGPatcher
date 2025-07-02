@@ -20,6 +20,7 @@
 - Game location, type, and selected profile will be set automatically when MO2 is configured now
 - Added extra data option for MAs to tell PG to ignore patching a shape (see wiki)
 - Fixed output exist check happening after existing output deleting
+- If MO2 is selected and not launched from MO2 a critical error will not be shown
 
 ## [0.8.12] - 2025-05-18
 
