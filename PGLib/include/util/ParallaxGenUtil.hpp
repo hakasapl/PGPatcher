@@ -38,6 +38,8 @@ auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json,
 
 auto checkIfStringInJSONArray(const nlohmann::json& json, const std::string& str) -> bool;
 
+auto getPluginPathFromDataPath(const std::filesystem::path& dataPath) -> std::filesystem::path;
+
 // Template Functions
 template <typename T> auto isInVector(const std::vector<T>& vec, const T& test) -> bool
 {

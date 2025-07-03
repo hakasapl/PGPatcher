@@ -53,6 +53,7 @@ private:
     std::unordered_map<std::filesystem::path, NifCache> m_meshes;
     std::unordered_set<std::filesystem::path> m_textures;
     std::vector<std::filesystem::path> m_pbrJSONs;
+    std::vector<std::filesystem::path> m_lightPlacerJSONs;
 
     // Mutexes
     std::shared_mutex m_textureMapsMutex;
@@ -128,6 +129,8 @@ public:
     [[nodiscard]] auto getTextures() const -> const std::unordered_set<std::filesystem::path>&;
 
     [[nodiscard]] auto getPBRJSONs() const -> const std::vector<std::filesystem::path>&;
+
+    [[nodiscard]] auto getLightPlacerJSONs() const -> const std::vector<std::filesystem::path>&;
 
     auto addTextureAttribute(const std::filesystem::path& path, const NIFUtil::TextureAttribute& attribute) -> bool;
 

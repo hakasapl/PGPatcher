@@ -34,6 +34,7 @@
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
 #include "ParallaxGenWarnings.hpp"
+#include "handlers/HandlerLightPlacerTracker.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
@@ -63,6 +64,9 @@ void ParallaxGen::loadPatchers(
 void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 {
     auto* const pgd = PGGlobals::getPGD();
+
+    // Init Handlers
+    HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
 
     //
     // MESH PATCHING
@@ -108,6 +112,9 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Print any resulting warning
     ParallaxGenWarnings::printWarnings();
+
+    // Finalize handlers
+    HandlerLightPlacerTracker::finalize();
 }
 
 void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlugin)
@@ -404,6 +411,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
         // tell PGD that this is a generated file
         pgd->addGeneratedFile(createdNIFFile, nullptr);
+        HandlerLightPlacerTracker::handleNIFCreated(nifPath, createdNIFFile);
 
         // assign mesh in plugins
         {

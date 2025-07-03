@@ -227,4 +227,23 @@ auto checkIfStringInJSONArray(const nlohmann::json& json, const string& str) -> 
     return false;
 }
 
+auto getPluginPathFromDataPath(const filesystem::path& dataPath) -> filesystem::path
+{
+    static const string meshesPrefix = "meshes\\";
+    static const string texturesPrefix = "textures\\";
+
+    // Remove "meshes" from from the first part of both paths
+    auto dataPathWStr = dataPath.wstring();
+    if (boost::istarts_with(dataPathWStr, meshesPrefix)) {
+        dataPathWStr.erase(0, meshesPrefix.size()); // Remove "meshes\\"
+    } else if (boost::istarts_with(dataPathWStr, texturesPrefix)) {
+        dataPathWStr.erase(0, texturesPrefix.size()); // Remove "textures\\"
+    } else {
+        // If it doesn't start with meshes or textures, return the original path
+        return dataPath;
+    }
+
+    // Convert to filesystem::path
+    return dataPathWStr;
+}
 } // namespace ParallaxGenUtil

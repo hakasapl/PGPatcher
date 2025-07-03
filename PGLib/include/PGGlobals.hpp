@@ -10,7 +10,8 @@ private:
     static ModManagerDirectory* s_MMD;
 
 public:
-    static inline std::unordered_set<std::filesystem::path> s_foldersToMap = { "meshes", "textures", "pbrnifpatcher" };
+    static inline std::unordered_set<std::filesystem::path> s_foldersToMap
+        = { "meshes", "textures", "pbrnifpatcher", "lightplacer" };
 
     static auto getPGD() -> ParallaxGenDirectory*;
     static void setPGD(ParallaxGenDirectory* pgd);
