@@ -1,0 +1,35 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Version'
+        required: true
+      prerelease:
+        description: 'Prerelease?'
+        required: false
+        default: 'false'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+
+    - name: List downloaded files (debug)
+      run: ls -R artifacts/
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.inputs.tag_name }}
+        name: ${{ github.event.inputs.tag_name }}
+        prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+        files: artifacts/**/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
