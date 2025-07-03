@@ -962,6 +962,9 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape, NiShader*
     // Enable PBR flag
     changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
 
+    // Disable any unused flags that might cause issues
+    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_EYE_ENVIRONMENT_MAPPING);
+
     // "subsurface" attribute
     if (truePBRData.contains("subsurface")) {
         changed
