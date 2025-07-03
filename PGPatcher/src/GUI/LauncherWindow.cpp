@@ -20,8 +20,8 @@ using namespace std;
 
 // class LauncherWindow
 LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cacheDir)
-    : wxDialog(nullptr, wxID_ANY, "PG Patcher Options", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
-          wxDEFAULT_DIALOG_STYLE)
+    : wxDialog(nullptr, wxID_ANY, "PGPatcher " + string(PG_VERSION) + " Launcher", wxDefaultPosition,
+          wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE)
     , m_cacheDir(std::move(cacheDir))
     , m_pgc(pgc)
     , m_textureMapTypeCombo(nullptr)

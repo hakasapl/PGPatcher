@@ -24,6 +24,7 @@
 - Light placer JSONs will now be patched if PG created a duplicate NIF
 - BSDynamicTriShapes will now be patched
 - Fix EYE_ENVIRONMENT_MAPPING flag not being removed when patching for PBR
+- Added version to launcher title window
 
 ## [0.8.12] - 2025-05-18
 
