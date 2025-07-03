@@ -284,8 +284,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     // Global Patchers
     //
     auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
-    m_globalPatcherFixEffectLightingCSCheckbox
-        = new wxCheckBox(this, wxID_ANY, "Fix Effect Lighting (CS Only) (Experimental)");
+    m_globalPatcherFixEffectLightingCSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Effect Lighting (CS Only)");
     m_globalPatcherFixEffectLightingCSCheckbox->SetToolTip("Fixes effect lighting in meshes (For CS users only!)");
     m_globalPatcherFixEffectLightingCSCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onGlobalPatcherFixEffectLightingCSChange, this);

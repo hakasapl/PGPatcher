@@ -31,6 +31,11 @@ auto PatcherMeshGlobalFixEffectLightingCS::applyPatch() -> bool
             continue;
         }
 
+        if (NIFUtil::hasShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_UNIFORM_SCALE)) {
+            // Already has the uniform scale flag set, skip (assumed to be already patched)
+            continue;
+        }
+
         // Check if the shader has the effect lighting flag set
         if (NIFUtil::hasShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_EFFECT_LIGHTING)) {
             // Set uniform scale flag
