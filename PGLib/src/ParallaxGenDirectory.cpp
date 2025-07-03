@@ -85,6 +85,10 @@ auto ParallaxGenDirectory::findFiles() -> void
                 // Found PBR JSON config
                 spdlog::trace(L"Finding Files | Found PBR JSON | {}", path.wstring());
                 m_pbrJSONs.push_back(path);
+            } else if (boost::iequals(firstPath, L"lightplacer")) {
+                // Found Light Placer JSON config
+                spdlog::trace(L"Finding Files | Found Light Placer JSON | {}", path.wstring());
+                m_lightPlacerJSONs.push_back(path);
             }
         }
     }
@@ -477,6 +481,8 @@ auto ParallaxGenDirectory::getMeshes() const -> const unordered_map<filesystem::
 auto ParallaxGenDirectory::getTextures() const -> const unordered_set<filesystem::path>& { return m_textures; }
 
 auto ParallaxGenDirectory::getPBRJSONs() const -> const vector<filesystem::path>& { return m_pbrJSONs; }
+
+auto ParallaxGenDirectory::getLightPlacerJSONs() const -> const vector<filesystem::path>& { return m_lightPlacerJSONs; }
 
 auto ParallaxGenDirectory::addTextureAttribute(const filesystem::path& path, const NIFUtil::TextureAttribute& attribute)
     -> bool

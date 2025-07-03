@@ -227,4 +227,33 @@ auto checkIfStringInJSONArray(const nlohmann::json& json, const string& str) -> 
     return false;
 }
 
+auto getPluginPathFromDataPath(const filesystem::path& dataPath) -> filesystem::path
+{
+    static const std::filesystem::path meshesPrefix = "meshes";
+    static const std::filesystem::path texturesPrefix = "textures";
+
+    auto relativePath = dataPath;
+
+    // Check if the first component is "meshes" or "textures"
+    if (!dataPath.empty()) {
+        auto iter = dataPath.begin();
+        if (*iter == meshesPrefix) {
+            // Erase the first component
+            relativePath = std::filesystem::path {};
+            for (++iter; iter != dataPath.end(); ++iter) {
+                relativePath /= *iter;
+            }
+        } else if (*iter == texturesPrefix) {
+            relativePath = std::filesystem::path {};
+            for (++iter; iter != dataPath.end(); ++iter) {
+                relativePath /= *iter;
+            }
+        } else {
+            return dataPath;
+        }
+    }
+
+    return relativePath;
+}
+
 } // namespace ParallaxGenUtil

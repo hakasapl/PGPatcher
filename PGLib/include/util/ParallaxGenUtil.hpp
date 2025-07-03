@@ -38,6 +38,15 @@ auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json,
 
 auto checkIfStringInJSONArray(const nlohmann::json& json, const std::string& str) -> bool;
 
+/**
+ * @brief Get the Plugin Path From Data Path object (removes textures or meshes from beginning of path)
+ *
+ * @param dataPath The data path to process
+ * @return std::filesystem::path The plugin path derived from the data path, or the original path if it does not start
+ * with "meshes" or "textures"
+ */
+auto getPluginPathFromDataPath(const std::filesystem::path& dataPath) -> std::filesystem::path;
+
 // Template Functions
 template <typename T> auto isInVector(const std::vector<T>& vec, const T& test) -> bool
 {
