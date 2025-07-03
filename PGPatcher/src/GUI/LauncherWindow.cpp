@@ -116,7 +116,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     mo2InstanceLocationSizer->Add(mo2InstanceBrowseButton, 0, wxALL, BORDER_SIZE);
 
     // Checkbox to use MO2 order
-    m_mo2UseOrderCheckbox = new wxCheckBox(this, wxID_ANY, "Use MO2 Loose File Order");
+    m_mo2UseOrderCheckbox = new wxCheckBox(this, wxID_ANY, "Use MO2 Loose File Order (Not Recommended)");
     m_mo2UseOrderCheckbox->SetToolTip("Use the order set in MO2's left pane instead of manually defining an order");
     m_mo2UseOrderCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onMO2UseOrderChange, this);
 
