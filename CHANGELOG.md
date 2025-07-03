@@ -22,6 +22,7 @@
 - Fixed output exist check happening after existing output deleting
 - If MO2 is selected and not launched from MO2 a critical error will not be shown
 - Light placer JSONs will now be patched if PG created a duplicate NIF
+- BSDynamicTriShapes will now be patched
 
 ## [0.8.12] - 2025-05-18
 
