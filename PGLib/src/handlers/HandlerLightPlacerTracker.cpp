@@ -32,7 +32,7 @@ void HandlerLightPlacerTracker::init(const vector<filesystem::path>& lpJSONs)
         auto* const lpJsonPtr = s_lightPlacerJSONs.back().get();
 
         // loop through json to create nif map
-        for (const auto& block : s_lightPlacerJSONs.back()->jsonData.items()) {
+        for (const auto& block : lpJsonPtr->jsonData.items()) {
             if (!block.value().is_object() || !block.value().contains("models")) {
                 continue; // skip if not a valid light placer block
             }

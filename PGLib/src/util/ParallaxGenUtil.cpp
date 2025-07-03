@@ -229,21 +229,31 @@ auto checkIfStringInJSONArray(const nlohmann::json& json, const string& str) -> 
 
 auto getPluginPathFromDataPath(const filesystem::path& dataPath) -> filesystem::path
 {
-    static const string meshesPrefix = "meshes\\";
-    static const string texturesPrefix = "textures\\";
+    static const std::filesystem::path meshesPrefix = "meshes";
+    static const std::filesystem::path texturesPrefix = "textures";
 
-    // Remove "meshes" from from the first part of both paths
-    auto dataPathWStr = dataPath.wstring();
-    if (boost::istarts_with(dataPathWStr, meshesPrefix)) {
-        dataPathWStr.erase(0, meshesPrefix.size()); // Remove "meshes\\"
-    } else if (boost::istarts_with(dataPathWStr, texturesPrefix)) {
-        dataPathWStr.erase(0, texturesPrefix.size()); // Remove "textures\\"
-    } else {
-        // If it doesn't start with meshes or textures, return the original path
-        return dataPath;
+    auto relativePath = dataPath;
+
+    // Check if the first component is "meshes" or "textures"
+    if (!dataPath.empty()) {
+        auto iter = dataPath.begin();
+        if (*iter == meshesPrefix) {
+            // Erase the first component
+            relativePath = std::filesystem::path {};
+            for (++iter; iter != dataPath.end(); ++iter) {
+                relativePath /= *iter;
+            }
+        } else if (*iter == texturesPrefix) {
+            relativePath = std::filesystem::path {};
+            for (++iter; iter != dataPath.end(); ++iter) {
+                relativePath /= *iter;
+            }
+        } else {
+            return dataPath;
+        }
     }
 
-    // Convert to filesystem::path
-    return dataPathWStr;
+    return relativePath;
 }
+
 } // namespace ParallaxGenUtil

@@ -25,6 +25,11 @@ private:
         s_lightPlacerJSONMap;
 
 public:
+    /**
+     * @brief Initializes the light placer tracker with the provided JSON files. NOT THREAD SAFE
+     *
+     * @param lpJSONs A vector of paths to the light placer JSON files to be tracked.
+     */
     static void init(const std::vector<std::filesystem::path>& lpJSONs);
 
     /**
@@ -35,5 +40,9 @@ public:
      * @param createdNIFPath created NIF path (which may be the same)
      */
     static void handleNIFCreated(const std::filesystem::path& baseNIFPath, const std::filesystem::path& createdNIFPath);
+
+    /**
+     * @brief Finalizes the light placer tracker, releasing any resources and cleaning up. NOT THREAD SAFE
+     */
     static void finalize();
 };
