@@ -23,6 +23,7 @@
 - If MO2 is selected and not launched from MO2 a critical error will not be shown
 - Light placer JSONs will now be patched if PG created a duplicate NIF
 - BSDynamicTriShapes will now be patched
+- Fix EYE_ENVIRONMENT_MAPPING flag not being removed when patching for PBR
 
 ## [0.8.12] - 2025-05-18
 
