@@ -1,30 +1,30 @@
 # Changelog
 
-## [0.8.13] - UNRELEASED
+## [0.8.13] - 2025-07-04
 
 - Added Particle Effect Light prepatcher for CS (similar to CS particle patch)
 - Added workaround for MO2 case where base_directory is not defined but wildcards are used
 - Added hair flow map patcher for upcoming CS hair feature
+- Added output plugin localization option
+- Default blocklist no longer has sky, mps, and magic
+- Slightly improved multithreading performance
+- Launcher window will no longer be always on top
+- Game location, type, and selected profile will be set automatically when MO2 is configured now
+- If MO2 is selected and not launched from MO2 a critical error will not be shown
+- Added extra data option for MAs to tell PG to ignore patching a shape (see wiki)
+- Light placer JSONs will now be patched if PG created a duplicate NIF
+- BSDynamicTriShapes will now be patched (primarily for hair)
+- Added version to launcher title window
 - Fixed nif_filter cache issue with PBR
 - Fixed some NIFs being patched even if nothing was changed when TXST records existed
 - Fixed CTD when diagnostics are enabled
 - Fixed converttohdr pgtools patcher not initializing shader
-- Default blocklist no longer has sky, mps, and magic
 - Fixed PBR match_normal not matching anything
 - Fixed some meshes being skipped due to not having patchable shapes
 - Fixed plugins not being created if no new texture sets were required
-- Added output plugin localization option
-- Slightly improved multithreading performance
-- Launcher window will no longer be always on top
 - Fixed edge case where certain corrupt NIFs cause hangs and memory leaks
-- Game location, type, and selected profile will be set automatically when MO2 is configured now
-- Added extra data option for MAs to tell PG to ignore patching a shape (see wiki)
 - Fixed output exist check happening after existing output deleting
-- If MO2 is selected and not launched from MO2 a critical error will not be shown
-- Light placer JSONs will now be patched if PG created a duplicate NIF
-- BSDynamicTriShapes will now be patched
-- Fix EYE_ENVIRONMENT_MAPPING flag not being removed when patching for PBR
-- Added version to launcher title window
+- Fixed EYE_ENVIRONMENT_MAPPING flag not being removed when patching for PBR
 
 ## [0.8.12] - 2025-05-18
 
