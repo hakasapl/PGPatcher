@@ -1,0 +1,41 @@
+{
+    "version": 1, // Version of the swap json format, this will be iterated on any breaking change
+    "inherit": "path/to/other/swap.json", // Inherit from other swap json. All fields will be merged, with this file taking precedence.
+    "material": "path/to/material_to_apply.json", // Material to apply for this swap
+    "matching": { // Controls how this swap should be matched
+        "slots": [ // Each slot definition can match any of the 8 slots for a path. The path should be the full path starting at the data folder
+            {
+                "slot": 0,
+                "value": "textures/path/to/diffuse/to/match.dds"
+            },
+            {
+                "slot": 1,
+                "value": "textures/path/to/normal/to/match.dds"
+            }
+        ],
+        "filters": [ // Define filters to fine tune the matching
+            {
+                "filter": "nifpath", // Filter by substrings on the nif path
+                "type": "allow", // Can be allow or deny filter
+                "value": "*/armor/*" // Windows explorer style wildcards supported here. No wildcards means you must have a full path relative to the data folder
+            },
+            {
+                "filter": "shapename", // Filter by the shape name
+                "type": "deny",
+                "value": "" // Full name of shape, wildcards are not supported
+            }
+        ]
+    },
+    "mesh_transforms": { // Theses are mesh modiciations that can be applied at the time of the swap. DO NOT USE THESE UNLESS REQUIRED BECAUSE YOU DO NOT KNOW WHAT INITIAL STATE THE USER'S MESH WILL BE IN. Fields here are not applied or set default unless specified
+        "vertex_colors": true, // Enable/disable vertex colors
+        "vertex_color_bright_mult": "1.0", // Multiplier for vertex colors brightness (V part of HSV)
+        "vertex_color_sat_mult": "1.0", // Multiplier for vertex colors saturation (S part of HSV)
+        "uv_scale": [ // Set UV scale on mesh
+            0.0,
+            0.0,
+            0.0
+        ],
+        "delete_shape": false, // Delete the shape from the mesh (material is not required to be set for this case)
+        "zbuffer_write": false // Enable/disable zbuffer write flag for the shader property
+    }
+}

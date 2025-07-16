@@ -1,0 +1,67 @@
+{
+    "version": 1, // Version of the pbr material json format, this will be iterated on any breaking change
+    "inherit": "path/to/other/material.json", // Inherit from other material json. All fields will be merged, with this file taking precedence.
+    "material": "PBR", // Material type, this is an example for PBR Material
+    "textures": {
+        "diffuse": "textures/path/to/diffuse.dds", // Required
+        "normal": "textures/path/to/normal_n.dds", // Required
+        "glow": "textures/path/to/glowmap_g.dds", // Optional
+        "parallax": "textures/path/to/parallax_p.dds", // Optional
+        "rmaos": "textures/path/to/rmaos_rmaos.dds", // Required
+        "coatnormal": "textures/path/to/coatnormal_cnr.dds", // Optional, mutually exclusive with "fuzz"
+        "fuzz": "textures/path/to/fuzz_f.dds", // Optional, mutually exclusive with "coatnormal"
+        "subsurface": "textures/path/to/subsurface_s.dds" // Optional
+    },
+    "properties": {
+        "emissive": {
+            "enabled": false,
+            "color": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "multiplier": 1.0
+        },
+        "specular": {
+            "enabled": false,
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "strength": 1.0
+        },
+        "displacement_scale": 1.0, // Requires parallax texture to be set
+        "subsurface": { // Requires "subsurface" texture to be set
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "opacity": 1.0
+        },
+        "multilayer": {
+            "coat_strength": 0.0,
+            "coat_roughness": 0.0,
+            "coat_specular_level": 0.0,
+            "coat_parallax": false
+        },
+        "fuzz": {
+            "enabled": false, // This is true if fuzz texture is defined, but is available to be manually set for fuzz without texture
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "weight": 1.0
+        },
+        "glint": {
+            "enabled": false, // Enables PBR glient shader
+            "screen_space_scale": 0.0,
+            "log_microfacet_density": 0.0,
+            "microfacet_roughness": 0.0,
+            "density_randomization": 0.0
+        },
+        "hair": false // Enables PBR hair shader
+    }
+}

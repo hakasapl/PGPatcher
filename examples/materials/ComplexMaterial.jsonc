@@ -1,0 +1,34 @@
+{
+    "version": 1, // Version of the complex material json format, this will be iterated on any breaking change
+    "inherit": "path/to/other/material.json", // Inherit from other material json. All fields will be merged, with this file taking precedence.
+    "material": "ComplexMaterial", // Material type, this is an example for Complex Material
+    "textures": {
+        "diffuse": "textures/path/to/diffuse.dds", // Required
+        "normal": "textures/path/to/normal_n.dds", // Required
+        "cubemap": "textures/path/to/cubemap_e.dds", // Required only if dynamic_cubemap is false
+        "envmask": "textures/path/to/env_mask_m.dds" // Required
+    },
+    "properties": {
+        "emissive": {
+            "enabled": false,
+            "color": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "multiplier": 1.0
+        },
+        "specular": {
+            "enabled": false,
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "strength": 1.0
+        },
+        "dynamic_cubemap": true, // If false cubemap texture is required
+        "glossiness": 80.0,
+        "environment_map_scale": 1.0
+    }
+}
