@@ -8,13 +8,14 @@
         "glow": "textures/path/to/glowmap_g.dds", // Optional
         "parallax": "textures/path/to/parallax_p.dds", // Optional
         "rmaos": "textures/path/to/rmaos_rmaos.dds", // Required
+        "coatdiffuse": "textures/path/to/coatdiffuse_s.dds", // Optional, mutually exclusive with "subsurface"
         "coatnormal": "textures/path/to/coatnormal_cnr.dds", // Optional, mutually exclusive with "fuzz"
         "fuzz": "textures/path/to/fuzz_f.dds", // Optional, mutually exclusive with "coatnormal"
-        "subsurface": "textures/path/to/subsurface_s.dds" // Optional
+        "subsurface": "textures/path/to/subsurface_s.dds" // Optional, mutually exclusive with "coatdiffuse"
     },
     "properties": {
         "emissive": {
-            "enabled": false,
+            "external_emittance": false,
             "color": [
                 0.0,
                 0.0,
@@ -22,15 +23,7 @@
             ],
             "multiplier": 1.0
         },
-        "specular": {
-            "enabled": false,
-            "color": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "strength": 1.0
-        },
+        "specular_strength": 1.0,
         "displacement_scale": 1.0, // Requires parallax texture to be set
         "subsurface": { // Requires "subsurface" texture to be set
             "color": [
@@ -44,10 +37,10 @@
             "coat_strength": 0.0,
             "coat_roughness": 0.0,
             "coat_specular_level": 0.0,
-            "coat_parallax": false
+            "coat_parallax": false // If true, use the parallax texture defined for inner layer instead of surface
         },
         "fuzz": {
-            "enabled": false, // This is true if fuzz texture is defined, but is available to be manually set for fuzz without texture
+            "enabled": false, // This is forced true if fuzz texture is defined, but is available to be manually set for fuzz without texture
             "color": [
                 1.0,
                 1.0,
@@ -56,7 +49,7 @@
             "weight": 1.0
         },
         "glint": {
-            "enabled": false, // Enables PBR glient shader
+            "enabled": false, // Enables PBR glint shader
             "screen_space_scale": 0.0,
             "log_microfacet_density": 0.0,
             "microfacet_roughness": 0.0,
