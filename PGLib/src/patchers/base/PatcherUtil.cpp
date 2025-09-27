@@ -71,11 +71,6 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     vector<PatcherUtil::ShaderPatcherMatch> matches;
     unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
     for (const auto& [shader, patcher] : patchers.shaderPatchers) {
-        if (shader == NIFUtil::ShapeShader::NONE) {
-            // TEMPORARILY disable default patcher
-            continue;
-        }
-
         // note: name is defined in source code in UTF8-encoded files
         const Logger::Prefix prefixPatches(patcher->getPatcherName());
 
@@ -89,6 +84,13 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
         for (const auto& match : curMatches) {
             PatcherUtil::ShaderPatcherMatch curMatch;
             curMatch.mod = PGGlobals::getPGD()->getMod(match.matchedPath);
+
+            if (!dryRun && !curMatch.mod->isEnabled) {
+                // do not add match if mod it matched from is disabled
+                Logger::trace(L"Rejecting: Mod is not enabled");
+                continue;
+            }
+
             curMatch.shader = shader;
             curMatch.match = match;
             curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;

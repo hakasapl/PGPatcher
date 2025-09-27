@@ -13,6 +13,7 @@ set (HEADERS
     "include/ParallaxGenHandlers.hpp"
     "include/GUI/LauncherWindow.hpp"
     "include/GUI/ModSortDialog.hpp"
+    "include/GUI/components/CheckedColorDragListCtrl.hpp"
 )
 
 set(SOURCES
@@ -21,6 +22,7 @@ set(SOURCES
     "src/GUI/LauncherWindow.cpp"
     "src/GUI/ModSortDialog.cpp"
     "src/main.cpp"
+    "src/GUI/components/CheckedColorDragListCtrl.cpp"
 )
 
 include_directories("include")

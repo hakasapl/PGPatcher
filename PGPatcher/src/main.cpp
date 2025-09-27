@@ -393,6 +393,9 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         // Find conflicts
         ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
 
+        // Assign new mod priorities for new mods
+        mmd.assignNewModPriorities();
+
         // pause timer for UI
         timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
 

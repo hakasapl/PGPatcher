@@ -1,5 +1,6 @@
 #include "ModManagerDirectory.hpp"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
@@ -54,6 +55,26 @@ auto ModManagerDirectory::getMods() const -> vector<shared_ptr<Mod>>
     return mods;
 }
 
+auto ModManagerDirectory::getModsByPriority() const -> vector<shared_ptr<Mod>>
+{
+    vector<shared_ptr<Mod>> mods = getMods();
+
+    // Sort mods by priority (higher priority first), then by modManagerOrder (lower order first), then by name
+    std::ranges::sort(mods, [](const shared_ptr<Mod>& a, const shared_ptr<Mod>& b) -> bool {
+        // first by priority
+        if (a->priority != b->priority) {
+            return a->priority > b->priority; // Higher priority first
+        }
+        // then by mod manager order (MO2 only)
+        if (a->modManagerOrder != b->modManagerOrder) {
+            return a->modManagerOrder > b->modManagerOrder; // Lower modManagerOrder first
+        }
+        return a->name < b->name; // Alphabetical order as last resort
+    });
+
+    return mods;
+}
+
 auto ModManagerDirectory::getMod(const wstring& modName) const -> shared_ptr<Mod>
 {
     if (m_modMap.contains(modName)) {
@@ -69,14 +90,24 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
         throw runtime_error("JSON is not an object");
     }
 
-    for (const auto& [modName, priority] : json.items()) {
+    for (const auto& [modName, properties] : json.items()) {
         if (modName.empty()) {
             continue;
         }
 
-        if (!priority.is_number_integer()) {
+        if (!properties.is_object()) {
+            throw runtime_error("JSON mod properties is not an object");
+        }
+
+        if (!properties.contains("priority") || properties["priority"].is_number_integer()) {
             throw runtime_error("JSON mod priority is not an integer");
         }
+        const auto priority = properties["priority"].get<int>();
+
+        if (!properties.contains("enabled") || !properties["enabled"].is_boolean()) {
+            throw runtime_error("JSON mod enabled is not a boolean");
+        }
+        const auto isEnabled = properties["enabled"].get<bool>();
 
         shared_ptr<Mod> modPtr = nullptr;
         const auto modNameWStr = ParallaxGenUtil::utf8toUTF16(modName);
@@ -88,7 +119,8 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
         }
 
         modPtr->isNew = false;
-        modPtr->priority = priority.get<int>();
+        modPtr->priority = priority;
+        modPtr->isEnabled = isEnabled;
     }
 }
 
@@ -98,7 +130,10 @@ auto ModManagerDirectory::getJSON() -> nlohmann::json
 
     for (const auto& [modName, mod] : m_modMap) {
         if (mod->priority != -1) {
-            json[ParallaxGenUtil::utf16toUTF8(modName)] = mod->priority;
+            const auto utf8ModName = ParallaxGenUtil::utf16toUTF8(modName);
+            json[utf8ModName] = nlohmann::json::object();
+            json[utf8ModName]["priority"] = mod->priority;
+            json[utf8ModName]["enabled"] = mod->isEnabled;
         }
     }
 
@@ -387,6 +422,47 @@ auto ModManagerDirectory::getModManagerTypeFromStr(const string& type) -> ModMan
     }
 
     return modManagerStrToTypeMap.at("None");
+}
+
+void ModManagerDirectory::assignNewModPriorities() const
+{
+    // Get all mods
+    auto mods = getMods();
+
+    // newMods stores all mods which need a new priority, they will be sorted next step
+    vector<shared_ptr<Mod>> newMods;
+    for (const auto& mod : mods) {
+        if (!mod->isNew || !mod->isEnabled) {
+            continue;
+        }
+
+        newMods.push_back(mod);
+    }
+
+    // Sort newMods by shader (higher enum index first), then by name
+    std::ranges::sort(newMods, [](const shared_ptr<Mod>& a, const shared_ptr<Mod>& b) -> bool {
+        if (a->modManagerOrder != b->modManagerOrder) {
+            return a->modManagerOrder > b->modManagerOrder; // Lower modManagerOrder first
+        }
+        if (a->shaders != b->shaders) {
+            const auto maxA
+                = a->shaders.empty() ? 0 : static_cast<int>(*std::max_element(a->shaders.begin(), a->shaders.end()));
+            const auto maxB
+                = b->shaders.empty() ? 0 : static_cast<int>(*std::max_element(b->shaders.begin(), b->shaders.end()));
+            return maxA > maxB; // Higher enum index first
+        }
+        return a->name < b->name; // Alphabetical order as last resort
+    });
+
+    // find maximum priority value
+    size_t maxPriority = 0;
+    for (const auto& mod : mods) {
+        maxPriority = std::max<size_t>(mod->priority, maxPriority);
+    }
+
+    for (auto& mod : newMods) {
+        mod->priority = static_cast<int>(++maxPriority);
+    }
 }
 
 auto ModManagerDirectory::isValidMO2InstanceDir(const filesystem::path& instanceDir) -> bool
