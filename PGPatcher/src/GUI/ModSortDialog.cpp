@@ -30,11 +30,17 @@ ModSortDialog::ModSortDialog()
     const auto mods = PGGlobals::getMMD()->getModsByPriority();
     bool foundCutoff = false;
     for (size_t i = 0; i < mods.size(); ++i) {
+        const auto shaders = mods[i]->shaders;
+        if (shaders.empty()) {
+            // no shaders
+            continue;
+        }
+
         const long index = m_listCtrl->InsertItem(static_cast<long>(i), mods[i]->name);
 
         // Shader Column
         string shaderStr;
-        for (const auto& shader : mods[i]->shaders) {
+        for (const auto& shader : shaders) {
             if (!shaderStr.empty()) {
                 shaderStr += ", ";
             }
@@ -50,8 +56,8 @@ ModSortDialog::ModSortDialog()
 
         // Set highlight if new
         if (mods[i]->isNew) {
-            m_listCtrl->SetItemBackgroundColour(index, *wxGREEN); // Highlight color
-            m_originalBackgroundColors[mods[i]->name] = *wxGREEN; // Store the original color using the mod name
+            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
+            m_originalBackgroundColors[mods[i]->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
         } else {
             m_originalBackgroundColors[mods[i]->name] = *wxWHITE; // Store the original color using the mod name
         }
@@ -163,10 +169,29 @@ void ModSortDialog::highlightConflictingItems(const std::wstring& selectedMod)
         conflictSetStr.insert(conflict->name);
     }
 
+    // Find index of selected item
+    long selectedIndex = -1;
+    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+        if (m_listCtrl->GetItemText(i).ToStdWstring() == selectedMod) {
+            selectedIndex = i;
+            break;
+        }
+    }
+
+    if (selectedIndex == -1) {
+        return; // Selected item not found
+    }
+
+    // Apply highlights
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        if (itemText == selectedMod || conflictSetStr.contains(itemText)) {
-            m_listCtrl->SetItemBackgroundColour(i, *wxYELLOW); // Highlight color
+
+        if (itemText != selectedMod) {
+            if (i < selectedIndex) {
+                m_listCtrl->SetItemBackgroundColour(i, s_LOSING_MOD_COLOR); // Red-ish for conflicts above
+            } else {
+                m_listCtrl->SetItemBackgroundColour(i, s_WINNING_MOD_COLOR); // Yellow-ish for conflicts below
+            }
         }
     }
 }
@@ -184,7 +209,7 @@ void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
     // Calculate remaining width for first column
     int col0Width = totalWidth - col1Width - col2Width - 2; // optional small padding for borders
 
-    col0Width = std::max(col0Width, 50); // minimum width to avoid clipping
+    col0Width = std::max(col0Width, MIN_COL_WIDTH); // minimum width to avoid clipping
 
     m_listCtrl->SetColumnWidth(0, col0Width);
 

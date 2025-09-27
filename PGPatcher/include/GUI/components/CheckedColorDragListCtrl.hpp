@@ -41,13 +41,10 @@ private:
     int m_targetLineIndex = -1; /** Stores the index of the element where an element is being dropped */
     std::vector<long> m_draggedIndices; /** Stores the indices being dragged in the case of multi selection */
     wxOverlay m_overlay; /** Overlay used to paint guide lines for dragging */
-    wxTimer m_scrollTimer; /** Timer that is responsible for autoscroll */
 
     int m_listCtrlHeaderHeight = 0; /** Stores list ctrl header height for use in autoscroll */
 
     int m_cutoffLine;
-
-    constexpr static int TIMER_INTERVAL = 250;
 
 public:
     CheckedColorDragListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pt = wxDefaultPosition,

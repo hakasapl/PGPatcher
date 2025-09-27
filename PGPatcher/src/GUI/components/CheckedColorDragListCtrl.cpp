@@ -15,12 +15,9 @@ wxDEFINE_EVENT(wxEVT_LIST_ITEM_DRAGGED, ItemDraggedEvent);
 CheckedColorDragListCtrl::CheckedColorDragListCtrl(
     wxWindow* parent, wxWindowID id, const wxPoint& pt, const wxSize& sz, long style)
     : wxListCtrl(parent, id, pt, sz, style)
-    , m_scrollTimer(this)
     , m_listCtrlHeaderHeight(getHeaderHeight())
     , m_cutoffLine(-1)
 {
-    Bind(wxEVT_TIMER, &CheckedColorDragListCtrl::onTimer, this, m_scrollTimer.GetId());
-
     Bind(wxEVT_LEFT_DOWN, &CheckedColorDragListCtrl::onMouseLeftDown, this);
     Bind(wxEVT_MOTION, &CheckedColorDragListCtrl::onMouseMotion, this);
     Bind(wxEVT_LEFT_UP, &CheckedColorDragListCtrl::onMouseLeftUp, this);
@@ -339,22 +336,12 @@ void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
         m_targetLineIndex = -1;
     }
 
-    // Stop the timer when the drag operation ends
-    if (m_scrollTimer.IsRunning()) {
-        m_scrollTimer.Stop();
-    }
-
     event.Skip();
 }
 
 void CheckedColorDragListCtrl::onMouseMotion(wxMouseEvent& event)
 {
     if (!m_draggedIndices.empty() && event.LeftIsDown()) {
-        // Start the timer to handle scrolling
-        if (!m_scrollTimer.IsRunning()) {
-            m_scrollTimer.Start(TIMER_INTERVAL); // Start the timer with a 50ms interval
-        }
-
         int flags = 0;
         auto dropTargetIndex = HitTest(event.GetPosition(), flags);
 
@@ -414,27 +401,6 @@ void CheckedColorDragListCtrl::drawDropIndicator(int targetIndex)
     if (lineY != -1) {
         dc.SetPen(wxPen(*wxBLACK, 2)); // Draw the line with a width of 2 pixels
         dc.DrawLine(itemRect.GetLeft(), lineY, itemRect.GetRight(), lineY);
-    }
-}
-
-void CheckedColorDragListCtrl::onTimer([[maybe_unused]] wxTimerEvent& event)
-{
-    // Get the current mouse position relative to the m_listCtrl
-    const wxPoint mousePos = ScreenToClient(wxGetMousePosition());
-    const wxRect listCtrlRect = GetRect();
-
-    // Check if the mouse is within the m_listCtrl bounds
-    if (listCtrlRect.Contains(mousePos)) {
-        const int scrollMargin = 20; // Margin to trigger scrolling
-        const int mouseY = mousePos.y;
-
-        if (mouseY < listCtrlRect.GetTop() + scrollMargin + m_listCtrlHeaderHeight) {
-            // Scroll up if the mouse is near the top edge
-            ScrollLines(-1);
-        } else if (mouseY > listCtrlRect.GetBottom() - scrollMargin) {
-            // Scroll down if the mouse is near the bottom edge
-            ScrollLines(1);
-        }
     }
 }
 
