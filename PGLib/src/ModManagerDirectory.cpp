@@ -99,7 +99,7 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
             throw runtime_error("JSON mod properties is not an object");
         }
 
-        if (!properties.contains("priority") || properties["priority"].is_number_integer()) {
+        if (!properties.contains("priority") || !properties["priority"].is_number_integer()) {
             throw runtime_error("JSON mod priority is not an integer");
         }
         const auto priority = properties["priority"].get<int>();
@@ -129,12 +129,10 @@ auto ModManagerDirectory::getJSON() -> nlohmann::json
     nlohmann::json json = nlohmann::json::object();
 
     for (const auto& [modName, mod] : m_modMap) {
-        if (mod->priority != -1) {
-            const auto utf8ModName = ParallaxGenUtil::utf16toUTF8(modName);
-            json[utf8ModName] = nlohmann::json::object();
-            json[utf8ModName]["priority"] = mod->priority;
-            json[utf8ModName]["enabled"] = mod->isEnabled;
-        }
+        const auto utf8ModName = ParallaxGenUtil::utf16toUTF8(modName);
+        json[utf8ModName] = nlohmann::json::object();
+        json[utf8ModName]["priority"] = mod->priority;
+        json[utf8ModName]["enabled"] = mod->isEnabled;
     }
 
     return json;

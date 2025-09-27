@@ -94,9 +94,22 @@ ModSortDialog::ModSortDialog()
 
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
 
+    // Create button sizer for horizontal layout
+    auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    // Add apply button
+    auto* applyButton = new wxButton(this, wxID_APPLY, "Apply");
+    buttonSizer->Add(applyButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, DEFAULT_BORDER);
+    applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
+
     // Add OK button
     auto* okButton = new wxButton(this, wxID_OK, "OK");
-    mainSizer->Add(okButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, DEFAULT_BORDER);
+    buttonSizer->Add(okButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, DEFAULT_BORDER);
+    okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
+
+    // Add to main sizer
+    mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, 0);
+
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
     SetSizer(mainSizer);
@@ -185,6 +198,9 @@ void ModSortDialog::highlightConflictingItems(const std::wstring& selectedMod)
     // Apply highlights
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
+        if (!conflictSetStr.contains(itemText)) {
+            continue; // Skip non-conflicting items
+        }
 
         if (itemText != selectedMod) {
             if (i < selectedIndex) {
@@ -234,21 +250,34 @@ auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
     return maxWidth + DEFAULT_PADDING; // Add some padding
 }
 
-auto ModSortDialog::getSortedItems() const -> std::vector<std::wstring>
-{
-    std::vector<std::wstring> sortedItems;
-    sortedItems.reserve(m_listCtrl->GetItemCount());
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        sortedItems.push_back(m_listCtrl->GetItemText(i).ToStdWstring());
-    }
-
-    return sortedItems;
-}
-
 void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event)
 {
     ParallaxGenHandlers::nonBlockingExit();
     wxTheApp->Exit();
+}
+
+void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
+{
+    updateMods();
+    EndModal(wxID_OK);
+}
+
+void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods(); }
+
+void ModSortDialog::updateMods()
+{
+    // loop through each element in the list ctrl and update the mod manager directory
+    auto* mmd = PGGlobals::getMMD();
+    const long itemCount = m_listCtrl->GetItemCount();
+    for (long i = 0; i < itemCount; ++i) {
+        const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
+        auto mod = mmd->getMod(modName);
+        mod->isEnabled = m_listCtrl->isChecked(i);
+
+        if (mod != nullptr && mod->isEnabled) {
+            mod->priority = static_cast<int>(itemCount - i);
+        }
+    }
 }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

@@ -12,7 +12,6 @@
 #include <wx/wx.h>
 
 #include <string>
-#include <vector>
 
 #include "GUI/components/CheckedColorDragListCtrl.hpp"
 
@@ -46,13 +45,6 @@ public:
      */
     ModSortDialog();
 
-    /**
-     * @brief Get the list of sorted mods (meant to be called after the user presses okay)
-     *
-     * @return std::vector<std::wstring> list of sorted mods
-     */
-    [[nodiscard]] auto getSortedItems() const -> std::vector<std::wstring>;
-
 private:
     /**
      * @brief Event handler that triggers when an item is selected in the list (highlighting)
@@ -75,6 +67,11 @@ private:
      */
     void onShowDisabledModsToggled(wxCommandEvent& event);
 
+    /**
+     * @brief Event handler that triggers when the list control is resized
+     *
+     * @param event wxWidgets event object
+     */
     void onListCtrlResize(wxSizeEvent& event);
 
     /**
@@ -83,6 +80,20 @@ private:
      * @param event wxWidgets event object
      */
     void onClose(wxCloseEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the OK button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onOkay(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the Apply button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onApply(wxCommandEvent& event);
 
     /**
      * @brief Calculates the width of a column in the list
@@ -104,8 +115,5 @@ private:
      */
     void clearAllHighlights();
 
-    /**
-     * @brief Reverses the order of the list
-     */
-    void reverseListOrder();
+    void updateMods();
 };
