@@ -1,6 +1,8 @@
 #include "GUI/components/CheckedColorDragListCtrl.hpp"
 #include <wx/gdicmn.h>
 
+#include <algorithm>
+
 using namespace std;
 
 // Disable owning memory checks because wxWidgets will take care of deleting the objects
@@ -22,6 +24,7 @@ CheckedColorDragListCtrl::CheckedColorDragListCtrl(
     Bind(wxEVT_LEFT_DOWN, &CheckedColorDragListCtrl::onMouseLeftDown, this);
     Bind(wxEVT_MOTION, &CheckedColorDragListCtrl::onMouseMotion, this);
     Bind(wxEVT_LEFT_UP, &CheckedColorDragListCtrl::onMouseLeftUp, this);
+    Bind(wxEVT_CONTEXT_MENU, &CheckedColorDragListCtrl::onContextMenu, this);
 
     // Create a native-size checkbox image list
     const wxSize chkSize = wxRendererNative::Get().GetCheckBoxSize(this);
@@ -111,7 +114,160 @@ void CheckedColorDragListCtrl::moveItem(long fromIndex, long toIndex)
     wxPostEvent(this, evt);
 }
 
+void CheckedColorDragListCtrl::moveItems(const std::vector<long>& fromIndices, long toIndex)
+{
+    if (fromIndices.empty() || toIndex < 0 || toIndex > GetItemCount()) {
+        return;
+    }
+
+    const bool movingDown = fromIndices.front() < toIndex;
+
+    std::vector<long> sortedIndices = fromIndices;
+    if (movingDown) {
+        std::ranges::sort(sortedIndices, std::greater<>()); // bottom > top
+    } else {
+        std::ranges::sort(sortedIndices); // top > bottom
+    }
+
+    for (long i = 0; i < sortedIndices.size(); i++) {
+        const long oldIndex = sortedIndices[i];
+        long newIndex = toIndex;
+
+        if (movingDown) {
+            newIndex -= i; // shift down each subsequent item
+        } else {
+            newIndex += i; // shift up each subsequent item
+        }
+
+        moveItem(oldIndex, newIndex);
+    }
+}
+
+void CheckedColorDragListCtrl::processCheckItem(long item, bool checked)
+{
+    // when checked, move item to just above cutoff line
+    if (m_cutoffLine >= 0) {
+        if (checked && item >= m_cutoffLine) {
+            const long targetIndex = m_cutoffLine;
+            m_cutoffLine++;
+            moveItem(item, targetIndex);
+        } else if (!checked && item < m_cutoffLine) {
+            moveItem(item, m_cutoffLine);
+            m_cutoffLine--;
+        }
+    }
+}
+
+void CheckedColorDragListCtrl::processCheckItems(const std::vector<long>& items, bool checked)
+{
+    if (items.empty() || m_cutoffLine < 0) {
+        return;
+    }
+
+    std::vector<long> sortedItems = items;
+
+    if (checked) {
+        // Move checked items up: top > bottom
+        std::ranges::sort(sortedItems);
+    } else {
+        // Move unchecked items down: bottom > top
+        std::ranges::sort(sortedItems, std::greater<>());
+    }
+
+    for (const long item : sortedItems) {
+        processCheckItem(item, checked);
+    }
+}
+
 // EVENT HANDLERS
+
+void CheckedColorDragListCtrl::onContextMenu(wxContextMenuEvent& event)
+{
+    int flags = 0;
+    wxPoint point = event.GetPosition();
+    point = ScreenToClient(point);
+
+    const long clickedItem = HitTest(point, flags);
+    if (clickedItem == wxNOT_FOUND) {
+        return;
+    }
+
+    wxMenu menu;
+
+    // Menu IDs
+    constexpr int ID_MOVE_TOP = 1001;
+    constexpr int ID_MOVE_BOTTOM = 1002;
+    constexpr int ID_ENABLE = 1003;
+    constexpr int ID_DISABLE = 1004;
+
+    menu.Append(ID_MOVE_TOP, "Move to Top");
+    menu.Append(ID_MOVE_BOTTOM, "Move to Bottom");
+    menu.AppendSeparator();
+    menu.Append(ID_ENABLE, "Enable");
+    menu.Append(ID_DISABLE, "Disable");
+
+    // Gather all selected items
+    std::vector<long> selectedItems;
+    long sel = -1;
+    while ((sel = GetNextItem(sel, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
+        selectedItems.push_back(sel);
+    }
+
+    // If nothing is selected, select the clicked item
+    if (selectedItems.empty()) {
+        selectedItems.push_back(clickedItem);
+        SetItemState(clickedItem, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+    }
+
+    // Disable move options if any selected item is below the cutoff line
+    const bool anyBelowCutoff
+        = std::ranges::any_of(selectedItems, [this](long idx) { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
+    menu.Enable(ID_MOVE_TOP, !anyBelowCutoff);
+    menu.Enable(ID_MOVE_BOTTOM, !anyBelowCutoff);
+
+    // Bind menu actions
+    menu.Bind(
+        wxEVT_MENU,
+        [this, selectedItems](wxCommandEvent&) {
+            // Move all items to top
+            moveItems(selectedItems, 0);
+        },
+        ID_MOVE_TOP);
+
+    menu.Bind(
+        wxEVT_MENU,
+        [this, selectedItems](wxCommandEvent&) -> void {
+            // Move all items to bottom (just above cutoff line)
+            const long insertPos = m_cutoffLine >= 0 ? m_cutoffLine : GetItemCount();
+            moveItems(selectedItems, insertPos);
+        },
+        ID_MOVE_BOTTOM);
+
+    menu.Bind(
+        wxEVT_MENU,
+        [this, selectedItems](wxCommandEvent&) {
+            // Enable (check) all selected items
+            // check all selected items
+            for (const long item : selectedItems) {
+                check(item, true);
+            }
+            processCheckItems(selectedItems, true);
+        },
+        ID_ENABLE);
+
+    menu.Bind(
+        wxEVT_MENU,
+        [this, selectedItems](wxCommandEvent&) {
+            // Disable (uncheck) all selected items
+            for (const long item : selectedItems) {
+                check(item, false);
+            }
+            processCheckItems(selectedItems, false);
+        },
+        ID_DISABLE);
+
+    PopupMenu(&menu);
+}
 
 void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
 {
@@ -123,18 +279,7 @@ void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
         if ((flags & wxLIST_HITTEST_ONITEMICON) != 0) {
             check(item, !isChecked(item));
 
-            // when checked, move item to just above cutoff line
-            const bool checked = isChecked(item);
-            if (m_cutoffLine >= 0) {
-                if (checked && item >= m_cutoffLine) {
-                    const long targetIndex = m_cutoffLine;
-                    m_cutoffLine++;
-                    moveItem(item, targetIndex);
-                } else if (!checked && item < m_cutoffLine) {
-                    m_cutoffLine--;
-                    moveItem(item, m_cutoffLine);
-                }
-            }
+            processCheckItem(item, isChecked(item));
 
             event.Skip();
             return;
@@ -153,16 +298,16 @@ void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
 
             if (!ctrl && !shift) {
                 if (!alreadySelected) {
-                    // Clicked a new item → clear all and select just this one
+                    // Clicked a new item > clear all and select just this one
                     long sel = -1;
                     while ((sel = GetNextItem(sel, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
                         SetItemState(sel, 0, wxLIST_STATE_SELECTED);
                     }
                     SetItemState(item, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
                 }
-                // else: clicked inside existing selection → keep it as-is
+                // else: clicked inside existing selection > keep it as-is
             } else {
-                // Ctrl/Shift modifiers → let default wxWidgets selection logic work
+                // Ctrl/Shift modifiers > let default wxWidgets selection logic work
                 event.Skip();
             }
 
@@ -187,26 +332,7 @@ void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
 
         m_overlay.Reset(); // Clear the m_overlay when the drag operation is complete
 
-        // Sort indices to maintain the order during removal
-        std::ranges::sort(m_draggedIndices);
-
-        // Determine target insertion point
-        const long insertPos = m_targetLineIndex;
-
-        // Move each item individually using moveItem
-        long numRemovedAboveInsertPos = 0;
-        long numRemovedBelowInsertPos = 0;
-        for (const long oldIndex : m_draggedIndices) {
-            // Move the item and update the insertion position for the next item
-            moveItem(oldIndex - numRemovedAboveInsertPos, insertPos + numRemovedBelowInsertPos);
-            if (oldIndex < insertPos) {
-                numRemovedAboveInsertPos++;
-            }
-
-            if (oldIndex > insertPos) {
-                numRemovedBelowInsertPos++;
-            }
-        }
+        moveItems(m_draggedIndices, m_targetLineIndex);
 
         // Reset drag state
         m_draggedIndices.clear();

@@ -59,6 +59,7 @@ public:
 
     void setCutoffLine(int index);
     void moveItem(long fromIndex, long toIndex);
+    void moveItems(const std::vector<long>& fromIndices, long toIndex);
 
 private:
     /**
@@ -89,6 +90,8 @@ private:
      */
     void onTimer(wxTimerEvent& event);
 
+    void onContextMenu(wxContextMenuEvent& event);
+
     /**
      * @brief Draws a drop indicator during drag and drop
      *
@@ -102,4 +105,7 @@ private:
      * @return int Header height
      */
     auto getHeaderHeight() -> int;
+
+    void processCheckItem(long item, bool checked);
+    void processCheckItems(const std::vector<long>& items, bool checked);
 };
