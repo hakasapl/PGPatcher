@@ -32,6 +32,7 @@ ModSortDialog::ModSortDialog()
     m_listCtrl->Bind(wxEVT_LIST_ITEM_DRAGGED, &ModSortDialog::resetIndices, this);
 
     const auto mods = PGGlobals::getMMD()->getModsByPriority();
+    bool foundCutoff = false;
     for (size_t i = 0; i < mods.size(); ++i) {
         const long index = m_listCtrl->InsertItem(static_cast<long>(i), mods[i]->name);
 
@@ -46,7 +47,12 @@ ModSortDialog::ModSortDialog()
         m_listCtrl->SetItem(index, 1, shaderStr);
 
         // Priority Column
-        m_listCtrl->SetItem(index, 2, to_string(mods[i]->priority));
+        if (mods[i]->priority > 0) {
+            m_listCtrl->SetItem(index, 2, to_string(mods[i]->priority));
+        } else if (!foundCutoff) {
+            m_listCtrl->setCutoffLine(static_cast<int>(i));
+            foundCutoff = true;
+        }
 
         // Set highlight if new
         if (mods[i]->isNew) {

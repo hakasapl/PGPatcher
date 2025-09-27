@@ -460,6 +460,8 @@ void ModManagerDirectory::assignNewModPriorities() const
         maxPriority = std::max<size_t>(mod->priority, maxPriority);
     }
 
+    maxPriority++;
+
     for (auto& mod : newMods) {
         mod->priority = static_cast<int>(++maxPriority);
     }

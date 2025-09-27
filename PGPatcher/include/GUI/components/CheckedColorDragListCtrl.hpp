@@ -45,6 +45,8 @@ private:
 
     int m_listCtrlHeaderHeight = 0; /** Stores list ctrl header height for use in autoscroll */
 
+    int m_cutoffLine;
+
     constexpr static int TIMER_INTERVAL = 250;
 
 public:
@@ -54,6 +56,9 @@ public:
     [[nodiscard]] auto isChecked(long item) const -> bool;
 
     void check(long item, bool checked);
+
+    void setCutoffLine(int index);
+    void moveItem(long fromIndex, long toIndex);
 
 private:
     /**

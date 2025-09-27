@@ -1,4 +1,5 @@
 #include "GUI/components/CheckedColorDragListCtrl.hpp"
+#include <wx/gdicmn.h>
 
 using namespace std;
 
@@ -14,6 +15,7 @@ CheckedColorDragListCtrl::CheckedColorDragListCtrl(
     : wxListCtrl(parent, id, pt, sz, style)
     , m_scrollTimer(this)
     , m_listCtrlHeaderHeight(getHeaderHeight())
+    , m_cutoffLine(-1)
 {
     Bind(wxEVT_TIMER, &CheckedColorDragListCtrl::onTimer, this, m_scrollTimer.GetId());
 
@@ -61,7 +63,53 @@ auto CheckedColorDragListCtrl::isChecked(long item) const -> bool
     return false;
 }
 
-void CheckedColorDragListCtrl::check(long item, bool checked) { SetItemImage(item, checked ? 1 : 0); }
+void CheckedColorDragListCtrl::check(long item, bool checked)
+{
+    SetItemImage(item, checked ? 1 : 0);
+    SetItemTextColour(item, checked ? *wxBLACK : *wxLIGHT_GREY);
+}
+
+void CheckedColorDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
+
+void CheckedColorDragListCtrl::moveItem(long fromIndex, long toIndex)
+{
+    if (fromIndex == toIndex || fromIndex < 0 || fromIndex >= GetItemCount()) {
+        return;
+    }
+
+    // Capture item data
+    const wxString col0 = GetItemText(fromIndex, 0);
+    wxString col1;
+    if (GetColumnCount() > 1) {
+        col1 = GetItemText(fromIndex, 1);
+    } else {
+        col1 = wxString {};
+    }
+    const wxColour bgColor = GetItemBackgroundColour(fromIndex);
+    const bool checked = isChecked(fromIndex);
+
+    // Remove the item
+    DeleteItem(fromIndex);
+
+    // Adjust toIndex if the deletion was above the target
+    if (fromIndex < toIndex) {
+        toIndex--;
+    }
+
+    // Insert item at new position
+    const long newIndex = InsertItem(toIndex, col0);
+    if (GetColumnCount() > 1) {
+        SetItem(newIndex, 1, col1);
+    }
+
+    // Restore properties
+    SetItemBackgroundColour(newIndex, bgColor);
+    check(newIndex, checked);
+
+    // Fire a custom event
+    const ItemDraggedEvent evt(GetId(), fromIndex, newIndex);
+    wxPostEvent(this, evt);
+}
 
 // EVENT HANDLERS
 
@@ -74,12 +122,19 @@ void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
         // Clicked on the checkbox part
         if ((flags & wxLIST_HITTEST_ONITEMICON) != 0) {
             check(item, !isChecked(item));
-        }
-        // Clicked elsewhere on the row — handle selection/dragging
-        else if (event.LeftDown()) {
+        } else if (event.LeftDown()) {
+            // Ignore items below cutoff
+            if (m_cutoffLine >= 0 && item >= m_cutoffLine) {
+                event.Skip();
+                return;
+            }
+
+            // Clicked elsewhere on the row — handle selection/dragging
             // Select item if not already selected
-            if ((GetItemState(item, wxLIST_STATE_SELECTED) & wxLIST_STATE_SELECTED) == 0) {
-                SetItemState(item, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+            if (!(event.ControlDown() || event.ShiftDown())) {
+                if ((GetItemState(item, wxLIST_STATE_SELECTED) & wxLIST_STATE_SELECTED) == 0) {
+                    SetItemState(item, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+                }
             }
 
             // Capture all selected indices for dragging
@@ -97,53 +152,38 @@ void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
 void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
 {
     if (!m_draggedIndices.empty() && m_targetLineIndex != -1) {
+        if (m_cutoffLine >= 0 && m_targetLineIndex > m_cutoffLine) {
+            m_targetLineIndex = m_cutoffLine;
+        }
+
         m_overlay.Reset(); // Clear the m_overlay when the drag operation is complete
 
         // Sort indices to maintain the order during removal
         std::ranges::sort(m_draggedIndices);
 
-        // Capture item data for all selected items
-        std::vector<std::pair<wxString, wxString>> itemData;
-        std::vector<wxColour> backgroundColors;
-        std::vector<bool> checkStates;
+        // Determine target insertion point
+        const long insertPos = m_targetLineIndex;
 
-        for (auto index : m_draggedIndices) {
-            itemData.emplace_back(GetItemText(index, 0), GetItemText(index, 1));
-            backgroundColors.push_back(GetItemBackgroundColour(index));
-            checkStates.push_back(isChecked(index));
-        }
-
-        // Remove items from their original positions
-        for (int i = static_cast<int>(m_draggedIndices.size()) - 1; i >= 0; --i) {
-            DeleteItem(m_draggedIndices[i]);
-            // Adjust m_targetLineIndex if items were removed from above it
-            if (m_draggedIndices[i] < m_targetLineIndex) {
-                m_targetLineIndex--;
+        // Move each item individually using moveItem
+        long numRemovedAboveInsertPos = 0;
+        long numRemovedBelowInsertPos = 0;
+        for (const long oldIndex : m_draggedIndices) {
+            // Move the item and update the insertion position for the next item
+            moveItem(oldIndex - numRemovedAboveInsertPos, insertPos + numRemovedBelowInsertPos);
+            if (oldIndex < insertPos) {
+                numRemovedAboveInsertPos++;
             }
+
+            if (oldIndex > insertPos) {
+                numRemovedBelowInsertPos++;
+            }
+
+            // insertPos++; // Increment insert position so items are inserted in order
         }
 
-        // Insert items at the new position
-        long insertPos = m_targetLineIndex;
-        for (size_t i = 0; i < itemData.size(); ++i) {
-            const long newIndex = InsertItem(insertPos, itemData[i].first);
-            SetItem(newIndex, 1, itemData[i].second);
-            SetItemBackgroundColour(newIndex, backgroundColors[i]);
-            check(newIndex, checkStates[i]);
-            insertPos++;
-        }
-
-        // Reset indices to prepare for the next drag
+        // Reset drag state
         m_draggedIndices.clear();
         m_targetLineIndex = -1;
-
-        // Fire a custom event for each moved item
-        for (size_t i = 0; i < itemData.size(); ++i) {
-            const long oldIndex = static_cast<long>(m_draggedIndices[i]);
-            const long newIndex = insertPos - static_cast<long>(itemData.size()) + static_cast<long>(i);
-
-            const ItemDraggedEvent evt(GetId(), oldIndex, newIndex);
-            wxPostEvent(this, evt);
-        }
     }
 
     // Stop the timer when the drag operation ends
@@ -176,6 +216,11 @@ void CheckedColorDragListCtrl::onMouseMotion(wxMouseEvent& event)
 
             if (targetingTopHalf) {
                 dropTargetIndex++;
+            }
+
+            // Clamp drop target above cutoff
+            if (m_cutoffLine >= 0 && dropTargetIndex > m_cutoffLine) {
+                dropTargetIndex = m_cutoffLine;
             }
 
             // Draw the line only if the target index has changed
