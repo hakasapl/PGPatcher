@@ -122,19 +122,48 @@ void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
         // Clicked on the checkbox part
         if ((flags & wxLIST_HITTEST_ONITEMICON) != 0) {
             check(item, !isChecked(item));
-        } else if (event.LeftDown()) {
+
+            // when checked, move item to just above cutoff line
+            const bool checked = isChecked(item);
+            if (m_cutoffLine >= 0) {
+                if (checked && item >= m_cutoffLine) {
+                    const long targetIndex = m_cutoffLine;
+                    m_cutoffLine++;
+                    moveItem(item, targetIndex);
+                } else if (!checked && item < m_cutoffLine) {
+                    m_cutoffLine--;
+                    moveItem(item, m_cutoffLine);
+                }
+            }
+
+            event.Skip();
+            return;
+        }
+
+        if (event.LeftDown()) {
             // Ignore items below cutoff
             if (m_cutoffLine >= 0 && item >= m_cutoffLine) {
                 event.Skip();
                 return;
             }
 
-            // Clicked elsewhere on the row — handle selection/dragging
-            // Select item if not already selected
-            if (!(event.ControlDown() || event.ShiftDown())) {
-                if ((GetItemState(item, wxLIST_STATE_SELECTED) & wxLIST_STATE_SELECTED) == 0) {
+            const bool ctrl = event.ControlDown();
+            const bool shift = event.ShiftDown();
+            const bool alreadySelected = (GetItemState(item, wxLIST_STATE_SELECTED) & wxLIST_STATE_SELECTED) != 0;
+
+            if (!ctrl && !shift) {
+                if (!alreadySelected) {
+                    // Clicked a new item → clear all and select just this one
+                    long sel = -1;
+                    while ((sel = GetNextItem(sel, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
+                        SetItemState(sel, 0, wxLIST_STATE_SELECTED);
+                    }
                     SetItemState(item, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
                 }
+                // else: clicked inside existing selection → keep it as-is
+            } else {
+                // Ctrl/Shift modifiers → let default wxWidgets selection logic work
+                event.Skip();
             }
 
             // Capture all selected indices for dragging
@@ -177,8 +206,6 @@ void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
             if (oldIndex > insertPos) {
                 numRemovedBelowInsertPos++;
             }
-
-            // insertPos++; // Increment insert position so items are inserted in order
         }
 
         // Reset drag state
