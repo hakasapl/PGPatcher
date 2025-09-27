@@ -29,8 +29,6 @@ private:
     std::unordered_map<std::wstring, wxColour>
         m_originalBackgroundColors; /** Stores the original highlight of elements to be able to restore it later */
 
-    bool m_sortAscending; /** Stores whether the list is in asc or desc order */
-
     constexpr static int DEFAULT_WIDTH = 300;
     constexpr static int DEFAULT_HEIGHT = 600;
     constexpr static int MIN_HEIGHT = 400;
@@ -66,25 +64,13 @@ private:
     void onItemDeselected(wxListEvent& event);
 
     /**
-     * @brief Event handler that triggers when a column is clicked (changing from asc to desc order)
-     *
-     * @param event wxWidgets event object
-     */
-    void onColumnClick(wxListEvent& event);
-
-    /**
-     * @brief Event handler that triggers when an item is dragged (to reset indices)
-     *
-     * @param event wxWidgets event object
-     */
-    void resetIndices(ItemDraggedEvent& event);
-
-    /**
      * @brief Event handler that triggers when the show disabled mods checkbox is toggled
      *
      * @param event wxWidgets event object
      */
     void onShowDisabledModsToggled(wxCommandEvent& event);
+
+    void onListCtrlResize(wxSizeEvent& event);
 
     /**
      * @brief Resets indices for the list after drag or sort

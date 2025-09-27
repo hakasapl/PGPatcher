@@ -16,7 +16,6 @@ using namespace std;
 ModSortDialog::ModSortDialog()
     : wxDialog(nullptr, wxID_ANY, "Set Mod Priority", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
           wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER)
-    , m_sortAscending(true)
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
     // Create the m_listCtrl
@@ -24,12 +23,9 @@ ModSortDialog::ModSortDialog()
         this, wxID_ANY, wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxLC_REPORT);
     m_listCtrl->InsertColumn(0, "Mod");
     m_listCtrl->InsertColumn(1, "Shader");
-    m_listCtrl->InsertColumn(2, "Priority");
 
     m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
     m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
-    m_listCtrl->Bind(wxEVT_LIST_COL_CLICK, &ModSortDialog::onColumnClick, this);
-    m_listCtrl->Bind(wxEVT_LIST_ITEM_DRAGGED, &ModSortDialog::resetIndices, this);
 
     const auto mods = PGGlobals::getMMD()->getModsByPriority();
     bool foundCutoff = false;
@@ -46,10 +42,8 @@ ModSortDialog::ModSortDialog()
         }
         m_listCtrl->SetItem(index, 1, shaderStr);
 
-        // Priority Column
-        if (mods[i]->priority > 0) {
-            m_listCtrl->SetItem(index, 2, to_string(mods[i]->priority));
-        } else if (!foundCutoff) {
+        // Priority to find cutoff
+        if (mods[i]->priority < 0 && !foundCutoff) {
             m_listCtrl->setCutoffLine(static_cast<int>(i));
             foundCutoff = true;
         }
@@ -66,21 +60,18 @@ ModSortDialog::ModSortDialog()
         m_listCtrl->check(index, mods[i]->isEnabled);
     }
 
+    m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
+
     // Calculate minimum width for each column
     const int col1Width = calculateColumnWidth(0);
-    m_listCtrl->SetColumnWidth(0, col1Width);
     const int col2Width = calculateColumnWidth(1);
-    m_listCtrl->SetColumnWidth(1, col2Width);
-    const int col3Width = calculateColumnWidth(2);
-    m_listCtrl->SetColumnWidth(2, col3Width);
-
+    m_listCtrl->SetColumnWidth(1, col1Width);
     const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
-    const int totalWidth = col1Width + col2Width + col3Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
+    const int totalWidth = col1Width + col2Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
 
     // Add wrapped message at the top
-    static const std::wstring message
-        = L"Please sort your mods to determine what mod PG uses to patch meshes where conflicts occur. Mods with "
-          L"higher priority number win over lower priority mods.";
+    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where "
+                                        L"conflicts occur. Mods on top of the list win over mods below them.";
     // Create the wxStaticText and set wrapping
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     messageText->Wrap(totalWidth - (DEFAULT_PADDING * 2)); // Adjust wrapping width
@@ -91,13 +82,8 @@ ModSortDialog::ModSortDialog()
     // Add the static text to the main sizer
     mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
 
-    // Add checkbox to show/hide disabled mods
-    auto* disableModCheckbox = new wxCheckBox(this, wxID_ANY, "Show Disabled Mods");
-    disableModCheckbox->Bind(wxEVT_CHECKBOX, &ModSortDialog::onShowDisabledModsToggled, this);
-    mainSizer->Add(disableModCheckbox, 0, wxALL, DEFAULT_BORDER);
-
     // Adjust dialog width to match the total width of columns and padding
-    SetSizeHints(totalWidth, DEFAULT_HEIGHT, totalWidth, wxDefaultCoord); // Adjust minimum width and height
+    SetSizeHints(totalWidth, wxDefaultCoord, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
     SetSize(totalWidth, DEFAULT_HEIGHT); // Set dialog size
 
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
@@ -187,85 +173,25 @@ void ModSortDialog::highlightConflictingItems(const std::wstring& selectedMod)
 
 void ModSortDialog::onShowDisabledModsToggled(wxCommandEvent& event) { }
 
+void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
+{
+    const int totalWidth = m_listCtrl->GetClientSize().GetWidth();
+
+    // Get the widths of the fixed columns
+    const int col1Width = m_listCtrl->GetColumnWidth(1);
+    const int col2Width = m_listCtrl->GetColumnWidth(2);
+
+    // Calculate remaining width for first column
+    int col0Width = totalWidth - col1Width - col2Width - 2; // optional small padding for borders
+
+    col0Width = std::max(col0Width, 50); // minimum width to avoid clipping
+
+    m_listCtrl->SetColumnWidth(0, col0Width);
+
+    event.Skip(); // allow default processing
+}
+
 // HELPERS
-
-void ModSortDialog::resetIndices([[maybe_unused]] ItemDraggedEvent& event)
-{
-    // loop through each item in list and set col 3
-    size_t priority = 0;
-
-    long minI = 0;
-    long maxI = m_listCtrl->GetItemCount() - 1;
-    long step = 1;
-    if (!m_sortAscending) {
-        minI = maxI;
-        maxI = 0;
-        step = -1;
-    }
-
-    for (long i = minI; i != maxI; i += step) {
-        if (!m_listCtrl->isChecked(i)) {
-            continue; // Skip disabled items
-        }
-
-        m_listCtrl->SetItem(i, 2, std::to_string(++priority));
-    }
-}
-
-void ModSortDialog::onColumnClick(wxListEvent& event)
-{
-    const int column = event.GetColumn();
-
-    // Toggle sort order if the same column is clicked, otherwise reset to ascending
-    if (column == 2) {
-        // Only sort priority col
-        m_sortAscending = !m_sortAscending;
-
-        // Reverse the order of every item
-        reverseListOrder();
-    }
-
-    event.Skip();
-}
-
-void ModSortDialog::reverseListOrder()
-{
-    // Store all items in a vector
-    std::vector<std::vector<wxString>> items;
-    std::vector<wxColour> backgroundColors;
-
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        std::vector<wxString> row;
-        row.reserve(m_listCtrl->GetColumnCount());
-        for (int col = 0; col < m_listCtrl->GetColumnCount(); ++col) {
-            row.push_back(m_listCtrl->GetItemText(i, col));
-        }
-        items.push_back(row);
-
-        // Store original background color using the mod name
-        const std::wstring itemText = row[0].ToStdWstring();
-        auto it = m_originalBackgroundColors.find(itemText);
-        if (it != m_originalBackgroundColors.end()) {
-            backgroundColors.push_back(it->second);
-        } else {
-            backgroundColors.push_back(*wxWHITE); // Default color if not found
-        }
-    }
-
-    // Clear the m_listCtrl
-    m_listCtrl->DeleteAllItems();
-
-    // Insert items back in reverse order and set background colors
-    for (size_t i = 0; i < items.size(); ++i) {
-        const long newIndex = m_listCtrl->InsertItem(m_listCtrl->GetItemCount(), items[items.size() - 1 - i][0]);
-        for (int col = 1; col < m_listCtrl->GetColumnCount(); ++col) {
-            m_listCtrl->SetItem(newIndex, col, items[items.size() - 1 - i][col]);
-        }
-
-        // Set background color for the new item
-        m_listCtrl->SetItemBackgroundColour(newIndex, backgroundColors[items.size() - 1 - i]);
-    }
-}
 
 auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
 {
@@ -289,11 +215,6 @@ auto ModSortDialog::getSortedItems() const -> std::vector<std::wstring>
     sortedItems.reserve(m_listCtrl->GetItemCount());
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         sortedItems.push_back(m_listCtrl->GetItemText(i).ToStdWstring());
-    }
-
-    if (!m_sortAscending) {
-        // reverse items if descending
-        std::ranges::reverse(sortedItems);
     }
 
     return sortedItems;
