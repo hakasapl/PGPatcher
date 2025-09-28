@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <wx/arrstr.h>
 
 #include "GUI/ModSortDialog.hpp"
 #include "GUI/components/CheckedColorDragListCtrl.hpp"
@@ -31,50 +32,57 @@ ModSortDialog::ModSortDialog()
     m_listCtrl->Bind(pgEVT_CCDLC_ITEM_DRAGGED, &ModSortDialog::onItemDragged, this);
     m_listCtrl->Bind(pgEVT_CCDLC_ITEM_CHECKED, &ModSortDialog::onItemChecked, this);
 
-    const auto mods = PGGlobals::getMMD()->getModsByPriority();
-    bool foundCutoff = false;
-    long listIdx = 0;
-    for (size_t i = 0; i < mods.size(); ++i) {
-        const auto shaders = mods[i]->shaders;
-        if (shaders.empty()) {
-            // no shaders, so no need to include in list
-            continue;
-        }
-
-        const long index = m_listCtrl->InsertItem(static_cast<long>(i), mods[i]->name);
-
-        // Shader Column
-        string shaderStr;
-        for (const auto& shader : shaders) {
-            if (!shaderStr.empty()) {
-                shaderStr += ", ";
-            }
-            shaderStr += NIFUtil::getStrFromShader(shader);
-        }
-        m_listCtrl->SetItem(index, 1, shaderStr);
-
-        // Priority to find cutoff
-        if (mods[i]->priority < 0 && !foundCutoff) {
-            m_listCtrl->setCutoffLine(static_cast<int>(listIdx));
-            foundCutoff = true;
-        }
-
-        // Set highlight if new
-        if (mods[i]->isNew) {
-            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
-            m_originalBackgroundColors[mods[i]->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
-        } else {
-            m_originalBackgroundColors[mods[i]->name] = *wxWHITE; // Store the original color using the mod name
-        }
-
-        // Check if enabled
-        m_listCtrl->check(index, mods[i]->isEnabled);
-
-        // iterate listIdx
-        listIdx++;
-    }
-
     m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
+
+    // Add wrapped message at the top
+    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where "
+                                        L"conflicts occur. Mods on top of the list win over mods below them.";
+    // Create the wxStaticText and set wrapping
+    auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+
+    // Add the static text to the main sizer
+    mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
+
+    // Add "Restore to Default Order" button
+    auto* restoreButton = new wxButton(this, wxID_ANY, "Restore PGPatcher Defaults");
+    restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
+    restoreButton->SetToolTip("For MO2 default order is your loose file order. For vortex default order is by shader, "
+                              "then by name alphabetically.");
+    mainSizer->Add(restoreButton, 0, wxALIGN_CENTER | wxALL, DEFAULT_BORDER);
+
+    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
+
+    // Create button sizer for horizontal layout
+    auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    // Add discard changes button
+    auto* discardButton = new wxButton(this, wxID_ANY, "Discard Changes");
+    buttonSizer->Add(discardButton, 0, wxALL, DEFAULT_BORDER);
+    discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
+
+    // Add stretchable space
+    buttonSizer->AddStretchSpacer(1);
+
+    // Add apply button
+    m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
+    buttonSizer->Add(m_applyButton, 0, wxALL, DEFAULT_BORDER);
+    m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
+
+    // Disable apply button by default
+    m_applyButton->Enable(false);
+
+    // Add OK button
+    auto* okButton = new wxButton(this, wxID_OK, "Okay");
+    buttonSizer->Add(okButton, 0, wxALL, DEFAULT_BORDER);
+    okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
+
+    // Add to main sizer
+    mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 0);
+
+    Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
+
+    // Fill contents
+    fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
 
     // Calculate minimum width for each column
     const int col1Width = calculateColumnWidth(0);
@@ -83,45 +91,14 @@ ModSortDialog::ModSortDialog()
     const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
     const int totalWidth = col1Width + col2Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
 
-    // Add wrapped message at the top
-    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where "
-                                        L"conflicts occur. Mods on top of the list win over mods below them.";
-    // Create the wxStaticText and set wrapping
-    auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     messageText->Wrap(totalWidth - (DEFAULT_PADDING * 2)); // Adjust wrapping width
 
     // Let wxWidgets automatically calculate the best height based on wrapped text
     messageText->SetMinSize(wxSize(totalWidth - (DEFAULT_PADDING * 2), messageText->GetBestSize().y));
 
-    // Add the static text to the main sizer
-    mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
-
     // Adjust dialog width to match the total width of columns and padding
     SetSizeHints(totalWidth, wxDefaultCoord, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
     SetSize(totalWidth, DEFAULT_HEIGHT); // Set dialog size
-
-    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
-
-    // Create button sizer for horizontal layout
-    auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-
-    // Add apply button
-    m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
-    buttonSizer->Add(m_applyButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, DEFAULT_BORDER);
-    m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
-
-    // Disable apply button by default
-    m_applyButton->Enable(false);
-
-    // Add OK button
-    auto* okButton = new wxButton(this, wxID_OK, "Okay");
-    buttonSizer->Add(okButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, DEFAULT_BORDER);
-    okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
-
-    // Add to main sizer
-    mainSizer->Add(buttonSizer, 0, wxALIGN_CENTER | wxALL, 0);
-
-    Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
     SetSizer(mainSizer);
 }
@@ -285,6 +262,28 @@ void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
 
 void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods(); }
 
+void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
+{
+    // confirm with modal
+    const int response
+        = wxMessageBox("Are you sure you want to restore default mod order and enable any manually disabled mods?",
+            "Confirm Restore Default Order", wxYES_NO | wxICON_QUESTION, this);
+
+    if (response == wxYES) {
+        fillListCtrl(PGGlobals::getMMD()->getModsByDefaultOrder(), true);
+    }
+}
+
+void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
+{
+    const int response = wxMessageBox(
+        "Are you sure you want to discard all changes?", "Confirm Discard Changes", wxYES_NO | wxICON_QUESTION, this);
+
+    if (response == wxYES) {
+        fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
+    }
+}
+
 void ModSortDialog::updateMods()
 {
     // loop through each element in the list ctrl and update the mod manager directory
@@ -326,6 +325,98 @@ void ModSortDialog::updateApplyButtonState()
     }
 
     m_applyButton->Enable(btnState);
+}
+
+void ModSortDialog::fillListCtrl(
+    const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, const bool& autoEnable)
+{
+    m_listCtrl->DeleteAllItems();
+
+    long listIdx = 0;
+
+    std::vector<std::shared_ptr<ModManagerDirectory::Mod>> disabledMods;
+
+    for (const auto& mod : modList) {
+        const auto shaders = mod->shaders;
+        if (shaders.empty()) {
+            // no shaders, so no need to include in list
+            continue;
+        }
+
+        if (!mod->isEnabled) {
+            bool modEnabled = false;
+
+            // see if we need to autoenable (max variant is greater than 1 which is NONE shader)
+            if (autoEnable) {
+                const auto maxVariant = shaders.empty() ? 0 : static_cast<int>(*std::ranges::max_element(shaders));
+                if (maxVariant > 1) {
+                    modEnabled = true;
+                }
+            }
+
+            if (!modEnabled) {
+                disabledMods.push_back(mod);
+                continue;
+            }
+        }
+
+        // Anything past this point the mod is assumed to be enabled
+
+        const long index = m_listCtrl->InsertItem(listIdx, mod->name);
+
+        // Shader Column
+        m_listCtrl->SetItem(index, 1, constructShaderString(shaders));
+
+        // Set highlight if new
+        if (mod->isNew) {
+            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
+            m_originalBackgroundColors[mod->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
+        } else {
+            m_originalBackgroundColors[mod->name] = *wxWHITE; // Store the original color using the mod name
+        }
+
+        // Enable checkbox
+        m_listCtrl->check(index, true);
+
+        // iterate listIdx
+        listIdx++;
+    }
+
+    // loop through inactive mods
+    for (const auto& mod : disabledMods) {
+        const long index = m_listCtrl->InsertItem(listIdx, mod->name);
+
+        // Shader Column
+        m_listCtrl->SetItem(index, 1, constructShaderString(mod->shaders));
+
+        // Set highlight if new
+        if (mod->isNew) {
+            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
+            m_originalBackgroundColors[mod->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
+        } else {
+            m_originalBackgroundColors[mod->name] = *wxWHITE; // Store the original color using the mod name
+        }
+
+        // Disable checkbox
+        m_listCtrl->check(index, false);
+
+        // iterate listIdx
+        listIdx++;
+    }
+
+    updateApplyButtonState();
+}
+
+auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> std::string
+{
+    std::string shaderStr;
+    for (const auto& shader : shaders) {
+        if (!shaderStr.empty()) {
+            shaderStr += ", ";
+        }
+        shaderStr += NIFUtil::getStrFromShader(shader);
+    }
+    return shaderStr;
 }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

@@ -69,6 +69,31 @@ auto ModManagerDirectory::getModsByPriority() const -> vector<shared_ptr<Mod>>
         if (a->modManagerOrder != b->modManagerOrder) {
             return a->modManagerOrder > b->modManagerOrder; // Lower modManagerOrder first
         }
+        // then by shader
+        if (a->shaders != b->shaders) {
+            return compareShaderSets(a->shaders, b->shaders);
+        }
+        return a->name < b->name; // Alphabetical order as last resort
+    });
+
+    return mods;
+}
+
+auto ModManagerDirectory::getModsByDefaultOrder() const -> vector<shared_ptr<Mod>>
+{
+    vector<shared_ptr<Mod>> mods = getMods();
+
+    // Sort mods by modManagerOrder (lower order first), then by name
+    std::ranges::sort(mods, [](const shared_ptr<Mod>& a, const shared_ptr<Mod>& b) -> bool {
+        // first by mod manager order (MO2 only)
+        if (a->modManagerOrder != b->modManagerOrder) {
+            return a->modManagerOrder < b->modManagerOrder; // Lower modManagerOrder first
+        }
+        // second by shader
+        if (a->shaders != b->shaders) {
+            return compareShaderSets(a->shaders, b->shaders);
+        }
+        // last by name
         return a->name < b->name; // Alphabetical order as last resort
     });
 
@@ -443,11 +468,7 @@ void ModManagerDirectory::assignNewModPriorities() const
             return a->modManagerOrder > b->modManagerOrder; // Lower modManagerOrder first
         }
         if (a->shaders != b->shaders) {
-            const auto maxA
-                = a->shaders.empty() ? 0 : static_cast<int>(*std::max_element(a->shaders.begin(), a->shaders.end()));
-            const auto maxB
-                = b->shaders.empty() ? 0 : static_cast<int>(*std::max_element(b->shaders.begin(), b->shaders.end()));
-            return maxA > maxB; // Higher enum index first
+            return compareShaderSets(a->shaders, b->shaders);
         }
         return a->name < b->name; // Alphabetical order as last resort
     });
@@ -611,4 +632,14 @@ auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceD
     }
 
     return { profileDir, modDir };
+}
+
+auto ModManagerDirectory::compareShaderSets(
+    const std::set<NIFUtil::ShapeShader>& a, const std::set<NIFUtil::ShapeShader>& b) -> bool
+{
+    // Get maximum variant in each set
+    const auto maxA = a.empty() ? 0 : static_cast<int>(*std::ranges::max_element(a));
+    const auto maxB = b.empty() ? 0 : static_cast<int>(*std::ranges::max_element(b));
+
+    return maxA > maxB; // Higher enum index first
 }

@@ -14,6 +14,7 @@
 #include <string>
 
 #include "GUI/components/CheckedColorDragListCtrl.hpp"
+#include "ModManagerDirectory.hpp"
 
 /**
  * @brief wxDialog that allows the user to sort the mods in the order they want
@@ -94,6 +95,10 @@ private:
      */
     void onApply(wxCommandEvent& event);
 
+    void onRestoreDefault(wxCommandEvent& event);
+
+    void onDiscardChanges(wxCommandEvent& event);
+
     /**
      * @brief Calculates the width of a column in the list
      *
@@ -117,4 +122,9 @@ private:
     void updateMods();
 
     void updateApplyButtonState();
+
+    void fillListCtrl(
+        const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, const bool& autoEnable = false);
+
+    static auto constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> std::string;
 };

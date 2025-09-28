@@ -61,6 +61,7 @@ public:
     [[nodiscard]] auto getModByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
     [[nodiscard]] auto getMods() const -> std::vector<std::shared_ptr<Mod>>;
     [[nodiscard]] auto getModsByPriority() const -> std::vector<std::shared_ptr<Mod>>;
+    [[nodiscard]] auto getModsByDefaultOrder() const -> std::vector<std::shared_ptr<Mod>>;
     [[nodiscard]] auto getMod(const std::wstring& modName) const -> std::shared_ptr<Mod>;
 
     void loadJSON(const nlohmann::json& json);
@@ -82,6 +83,9 @@ public:
     void assignNewModPriorities() const;
 
 private:
+    [[nodiscard]] static auto compareShaderSets(
+        const std::set<NIFUtil::ShapeShader>& a, const std::set<NIFUtil::ShapeShader>& b) -> bool;
+
     static auto getMO2INIField(const std::filesystem::path& instanceDir, const std::string& fieldName,
         const bool& isByteArray = false) -> std::wstring;
 
