@@ -33,10 +33,11 @@ ModSortDialog::ModSortDialog()
 
     const auto mods = PGGlobals::getMMD()->getModsByPriority();
     bool foundCutoff = false;
+    long listIdx = 0;
     for (size_t i = 0; i < mods.size(); ++i) {
         const auto shaders = mods[i]->shaders;
         if (shaders.empty()) {
-            // no shaders
+            // no shaders, so no need to include in list
             continue;
         }
 
@@ -54,7 +55,7 @@ ModSortDialog::ModSortDialog()
 
         // Priority to find cutoff
         if (mods[i]->priority < 0 && !foundCutoff) {
-            m_listCtrl->setCutoffLine(static_cast<int>(i));
+            m_listCtrl->setCutoffLine(static_cast<int>(listIdx));
             foundCutoff = true;
         }
 
@@ -68,6 +69,9 @@ ModSortDialog::ModSortDialog()
 
         // Check if enabled
         m_listCtrl->check(index, mods[i]->isEnabled);
+
+        // iterate listIdx
+        listIdx++;
     }
 
     m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
