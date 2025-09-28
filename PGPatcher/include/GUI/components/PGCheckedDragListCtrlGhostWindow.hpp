@@ -12,7 +12,7 @@
 #include <wx/sizer.h>
 #include <wx/wx.h>
 
-class DragGhostWindow : public wxFrame {
+class PGCheckedDragListCtrlGhostWindow : public wxFrame {
 private:
     std::vector<wxString> m_lines;
 
@@ -20,7 +20,7 @@ private:
     static constexpr int PADDING = 8;
 
 public:
-    DragGhostWindow(wxWindow* parent, const std::vector<wxString>& lines);
+    PGCheckedDragListCtrlGhostWindow(wxWindow* parent, const std::vector<wxString>& lines);
 
     void OnPaint([[maybe_unused]] wxPaintEvent& event);
 

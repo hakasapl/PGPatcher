@@ -13,8 +13,10 @@ set (HEADERS
     "include/ParallaxGenHandlers.hpp"
     "include/GUI/LauncherWindow.hpp"
     "include/GUI/ModSortDialog.hpp"
-    "include/GUI/components/CheckedColorDragListCtrl.hpp"
-    "include/GUI/components/DragGhostWindow.hpp"
+    "include/GUI/components/PGCheckedDragListCtrl.hpp"
+    "include/GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
+    "include/GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
+    "include/GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 )
 
 set(SOURCES
@@ -22,8 +24,10 @@ set(SOURCES
     "src/ParallaxGenUI.cpp"
     "src/GUI/LauncherWindow.cpp"
     "src/GUI/ModSortDialog.cpp"
-    "src/GUI/components/CheckedColorDragListCtrl.cpp"
-    "src/GUI/components/DragGhostWindow.cpp"
+    "src/GUI/components/PGCheckedDragListCtrl.cpp"
+    "src/GUI/components/PGCheckedDragListCtrlGhostWindow.cpp"
+    "src/GUI/components/PGCheckedDragListCtrlEvtItemDragged.cpp"
+    "src/GUI/components/PGCheckedDragListCtrlEvtItemChecked.cpp"
     "src/main.cpp"
 )
 

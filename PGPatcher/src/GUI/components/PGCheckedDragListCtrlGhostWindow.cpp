@@ -1,6 +1,6 @@
-#include "GUI/components/DragGhostWindow.hpp"
+#include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
 
-DragGhostWindow::DragGhostWindow(wxWindow* parent, const std::vector<wxString>& lines)
+PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* parent, const std::vector<wxString>& lines)
     : wxFrame(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize,
           wxFRAME_SHAPED | wxBORDER_NONE | wxSTAY_ON_TOP)
     , m_lines(lines)
@@ -22,10 +22,10 @@ DragGhostWindow::DragGhostWindow(wxWindow* parent, const std::vector<wxString>& 
     SetSize(width, height);
 
     Show();
-    Bind(wxEVT_PAINT, &DragGhostWindow::OnPaint, this);
+    Bind(wxEVT_PAINT, &PGCheckedDragListCtrlGhostWindow::OnPaint, this);
 }
 
-void DragGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& event)
+void PGCheckedDragListCtrlGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& event)
 {
     wxPaintDC dc(this);
     dc.SetPen(*wxTRANSPARENT_PEN); // Disables black border
@@ -40,4 +40,4 @@ void DragGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& event)
     }
 }
 
-void DragGhostWindow::updatePosition(const wxPoint& pos) { Move(pos); }
+void PGCheckedDragListCtrlGhostWindow::updatePosition(const wxPoint& pos) { Move(pos); }

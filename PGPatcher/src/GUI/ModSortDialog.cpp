@@ -2,7 +2,7 @@
 #include <wx/arrstr.h>
 
 #include "GUI/ModSortDialog.hpp"
-#include "GUI/components/CheckedColorDragListCtrl.hpp"
+#include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenHandlers.hpp"
@@ -19,9 +19,11 @@ ModSortDialog::ModSortDialog()
     : wxDialog(nullptr, wxID_ANY, "Set Mod Priority", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
           wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER)
 {
+    // Main sizer for the window
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
+
     // Create the m_listCtrl
-    m_listCtrl = new CheckedColorDragListCtrl(
+    m_listCtrl = new PGCheckedDragListCtrl(
         this, wxID_ANY, wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxLC_REPORT);
     m_listCtrl->InsertColumn(0, "Mod");
     m_listCtrl->InsertColumn(1, "Shader");
@@ -29,29 +31,29 @@ ModSortDialog::ModSortDialog()
     m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
     m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
 
-    m_listCtrl->Bind(pgEVT_CCDLC_ITEM_DRAGGED, &ModSortDialog::onItemDragged, this);
-    m_listCtrl->Bind(pgEVT_CCDLC_ITEM_CHECKED, &ModSortDialog::onItemChecked, this);
+    m_listCtrl->Bind(pgEVT_CDLC_ITEM_DRAGGED, &ModSortDialog::onItemDragged, this);
+    m_listCtrl->Bind(pgEVT_CDLC_ITEM_CHECKED, &ModSortDialog::onItemChecked, this);
 
     m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
 
-    // Add wrapped message at the top
-    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where.";
-    // Create the wxStaticText and set wrapping
-    auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
-    // Add the static text to the main sizer
+    // Add message at the top
+    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where.";
+    auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
+
+    // FONT for rects
+    wxFont rectFont = messageText->GetFont(); // start with current font
+    static constexpr int RECT_LABEL_FONT_SIZE = 20;
+    rectFont.SetPointSize(RECT_LABEL_FONT_SIZE); // increase by 4 points
+    rectFont.SetWeight(wxFONTWEIGHT_BOLD);
 
     // TOP RECTANGLE
     auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     topPanel->SetBackgroundColour(*wxGREEN);
     auto* topLabel
         = new wxStaticText(topPanel, wxID_ANY, "Winning Mods", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
-
-    // FONT for rects
-    wxFont rectFont = topLabel->GetFont(); // start with current font
-    rectFont.SetPointSize(RECT_LABEL_FONT_SIZE); // increase by 4 points
-    rectFont.SetWeight(wxFONTWEIGHT_BOLD);
     topLabel->SetFont(rectFont);
 
     // Use a box sizer to center the text in the panel
@@ -84,16 +86,18 @@ ModSortDialog::ModSortDialog()
     // Create button sizer for horizontal layout
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
+    static constexpr int BOTTOM_BUTTON_SPACING = 8;
+
     // Add "Restore to Default Order" button
     auto* restoreButton = new wxButton(this, wxID_ANY, "Restore PGPatcher Defaults");
-    buttonSizer->Add(restoreButton, 0, wxALL, DEFAULT_BORDER);
+    buttonSizer->Add(restoreButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
     restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
     restoreButton->SetToolTip("For MO2 default order is your loose file order. For vortex default order is by shader, "
                               "then by name alphabetically.");
 
     // Add discard changes button
     auto* discardButton = new wxButton(this, wxID_ANY, "Discard Changes");
-    buttonSizer->Add(discardButton, 0, wxALL, DEFAULT_BORDER);
+    buttonSizer->Add(discardButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
     discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
 
     // Add stretchable space
@@ -101,7 +105,7 @@ ModSortDialog::ModSortDialog()
 
     // Add apply button
     m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
-    buttonSizer->Add(m_applyButton, 0, wxALL, DEFAULT_BORDER);
+    buttonSizer->Add(m_applyButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
     m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
 
     // Disable apply button by default
@@ -109,13 +113,11 @@ ModSortDialog::ModSortDialog()
 
     // Add OK button
     auto* okButton = new wxButton(this, wxID_OK, "Okay");
-    buttonSizer->Add(okButton, 0, wxALL, DEFAULT_BORDER);
+    buttonSizer->Add(okButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
     okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
 
     // Add to main sizer
     mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 0);
-
-    Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
     // Fill contents
     fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
@@ -150,17 +152,90 @@ void ModSortDialog::onItemDeselected(wxListEvent& event)
     event.Skip();
 }
 
-void ModSortDialog::clearAllHighlights()
+void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
 {
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        auto it = m_originalBackgroundColors.find(itemText);
-        if (it != m_originalBackgroundColors.end()) {
-            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
-        } else {
-            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white
-        }
+    updateApplyButtonState();
+    event.Skip();
+}
+
+void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
+{
+    updateApplyButtonState();
+    event.Skip();
+}
+
+void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
+{
+    static constexpr int MIN_COL_WIDTH = 50;
+
+    const int totalWidth = m_listCtrl->GetClientSize().GetWidth();
+
+    // Get the widths of the fixed columns
+    const int col1Width = m_listCtrl->GetColumnWidth(1);
+    const int col2Width = m_listCtrl->GetColumnWidth(2);
+
+    // Calculate remaining width for first column
+    int col0Width = totalWidth - col1Width - col2Width - 2; // optional small padding for borders
+
+    col0Width = std::max(col0Width, MIN_COL_WIDTH); // minimum width to avoid clipping
+
+    m_listCtrl->SetColumnWidth(0, col0Width);
+
+    event.Skip(); // allow default processing
+}
+
+void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event)
+{
+    ParallaxGenHandlers::nonBlockingExit();
+    wxTheApp->Exit();
+}
+
+void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
+{
+    updateMods();
+    EndModal(wxID_OK);
+}
+
+void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods(); }
+
+void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
+{
+    // confirm with modal
+    const int response
+        = wxMessageBox("Are you sure you want to restore default mod order and enable any manually disabled mods?",
+            "Confirm Restore Default Order", wxYES_NO | wxICON_QUESTION, this);
+
+    if (response == wxYES) {
+        fillListCtrl(PGGlobals::getMMD()->getModsByDefaultOrder(), true);
     }
+}
+
+void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
+{
+    const int response = wxMessageBox(
+        "Are you sure you want to discard all changes?", "Confirm Discard Changes", wxYES_NO | wxICON_QUESTION, this);
+
+    if (response == wxYES) {
+        fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
+    }
+}
+
+// HELPERS
+
+auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
+{
+    int maxWidth = 0;
+    wxClientDC dc(m_listCtrl);
+    dc.SetFont(m_listCtrl->GetFont());
+
+    for (int i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+        const wxString itemText = m_listCtrl->GetItemText(i, colIndex);
+        int width = 0;
+        int height = 0;
+        dc.GetTextExtent(itemText, &width, &height);
+        maxWidth = std::max(width, maxWidth);
+    }
+    return maxWidth + DEFAULT_PADDING; // Add some padding
 }
 
 void ModSortDialog::highlightConflictingItems()
@@ -177,7 +252,6 @@ void ModSortDialog::highlightConflictingItems()
     }
 
     // Find all selected items
-    // Gather all selected mods
     std::vector<std::wstring> selectedMods;
     long selIdx = -1;
     long cutoffIdx = -1;
@@ -222,87 +296,16 @@ void ModSortDialog::highlightConflictingItems()
     }
 }
 
-void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
+void ModSortDialog::clearAllHighlights()
 {
-    const int totalWidth = m_listCtrl->GetClientSize().GetWidth();
-
-    // Get the widths of the fixed columns
-    const int col1Width = m_listCtrl->GetColumnWidth(1);
-    const int col2Width = m_listCtrl->GetColumnWidth(2);
-
-    // Calculate remaining width for first column
-    int col0Width = totalWidth - col1Width - col2Width - 2; // optional small padding for borders
-
-    col0Width = std::max(col0Width, MIN_COL_WIDTH); // minimum width to avoid clipping
-
-    m_listCtrl->SetColumnWidth(0, col0Width);
-
-    event.Skip(); // allow default processing
-}
-
-void ModSortDialog::onItemDragged(ItemDraggedEvent& event)
-{
-    updateApplyButtonState();
-    event.Skip();
-}
-
-void ModSortDialog::onItemChecked(ItemCheckedEvent& event)
-{
-    updateApplyButtonState();
-    event.Skip();
-}
-
-// HELPERS
-
-auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
-{
-    int maxWidth = 0;
-    wxClientDC dc(m_listCtrl);
-    dc.SetFont(m_listCtrl->GetFont());
-
-    for (int i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const wxString itemText = m_listCtrl->GetItemText(i, colIndex);
-        int width = 0;
-        int height = 0;
-        dc.GetTextExtent(itemText, &width, &height);
-        maxWidth = std::max(width, maxWidth);
-    }
-    return maxWidth + DEFAULT_PADDING; // Add some padding
-}
-
-void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event)
-{
-    ParallaxGenHandlers::nonBlockingExit();
-    wxTheApp->Exit();
-}
-
-void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
-{
-    updateMods();
-    EndModal(wxID_OK);
-}
-
-void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods(); }
-
-void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
-{
-    // confirm with modal
-    const int response
-        = wxMessageBox("Are you sure you want to restore default mod order and enable any manually disabled mods?",
-            "Confirm Restore Default Order", wxYES_NO | wxICON_QUESTION, this);
-
-    if (response == wxYES) {
-        fillListCtrl(PGGlobals::getMMD()->getModsByDefaultOrder(), true);
-    }
-}
-
-void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
-{
-    const int response = wxMessageBox(
-        "Are you sure you want to discard all changes?", "Confirm Discard Changes", wxYES_NO | wxICON_QUESTION, this);
-
-    if (response == wxYES) {
-        fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
+    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
+        auto it = m_originalBackgroundColors.find(itemText);
+        if (it != m_originalBackgroundColors.end()) {
+            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
+        } else {
+            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white
+        }
     }
 }
 
@@ -322,31 +325,6 @@ void ModSortDialog::updateMods()
     }
 
     updateApplyButtonState();
-}
-
-void ModSortDialog::updateApplyButtonState()
-{
-    bool btnState = false;
-
-    // loop through each element in the list ctrl and update the mod manager directory
-    auto* mmd = PGGlobals::getMMD();
-    const long itemCount = m_listCtrl->GetItemCount();
-    for (long i = 0; i < itemCount; ++i) {
-        const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
-        auto mod = mmd->getMod(modName);
-
-        if (mod->isEnabled != m_listCtrl->isChecked(i)) {
-            btnState = true;
-            break;
-        }
-
-        if (mod->isEnabled && mod->priority != static_cast<int>(itemCount - i)) {
-            btnState = true;
-            break;
-        }
-    }
-
-    m_applyButton->Enable(btnState);
 }
 
 void ModSortDialog::fillListCtrl(
@@ -430,6 +408,31 @@ void ModSortDialog::fillListCtrl(
     }
 
     updateApplyButtonState();
+}
+
+void ModSortDialog::updateApplyButtonState()
+{
+    bool btnState = false;
+
+    // loop through each element in the list ctrl and update the mod manager directory
+    auto* mmd = PGGlobals::getMMD();
+    const long itemCount = m_listCtrl->GetItemCount();
+    for (long i = 0; i < itemCount; ++i) {
+        const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
+        auto mod = mmd->getMod(modName);
+
+        if (mod->isEnabled != m_listCtrl->isChecked(i)) {
+            btnState = true;
+            break;
+        }
+
+        if (mod->isEnabled && mod->priority != static_cast<int>(itemCount - i)) {
+            btnState = true;
+            break;
+        }
+    }
+
+    m_applyButton->Enable(btnState);
 }
 
 auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> std::string

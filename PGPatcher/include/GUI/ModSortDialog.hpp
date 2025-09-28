@@ -13,7 +13,9 @@
 
 #include <string>
 
-#include "GUI/components/CheckedColorDragListCtrl.hpp"
+#include "GUI/components/PGCheckedDragListCtrl.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
 #include "ModManagerDirectory.hpp"
 
 /**
@@ -21,24 +23,19 @@
  */
 class ModSortDialog : public wxDialog {
 private:
-    CheckedColorDragListCtrl* m_listCtrl; /** Main list object that stores all the mods */
+    PGCheckedDragListCtrl* m_listCtrl; /** Main list object that stores all the mods */
 
     wxButton* m_applyButton; /** Apply button to save changes without closing the dialog */
 
-    //
-    // Item Highlighting
-    //
     std::unordered_map<std::wstring, wxColour>
         m_originalBackgroundColors; /** Stores the original highlight of elements to be able to restore it later */
 
-    constexpr static int DEFAULT_WIDTH = 300;
-    constexpr static int DEFAULT_HEIGHT = 600;
-    constexpr static int MIN_HEIGHT = 400;
+    constexpr static int DEFAULT_WIDTH = 600;
+    constexpr static int DEFAULT_HEIGHT = 400;
     constexpr static int MIN_WIDTH = 600;
+    constexpr static int MIN_HEIGHT = 400;
     constexpr static int DEFAULT_PADDING = 20;
     constexpr static int DEFAULT_BORDER = 10;
-    constexpr static int MIN_COL_WIDTH = 50;
-    constexpr static int RECT_LABEL_FONT_SIZE = 20;
 
     static inline const wxColour s_NEW_MOD_COLOR { 243, 230, 255 };
     static inline const wxColour s_LOSING_MOD_COLOR { 255, 102, 102 };
@@ -51,6 +48,8 @@ public:
     ModSortDialog();
 
 private:
+    // Event Handlers
+
     /**
      * @brief Event handler that triggers when an item is selected in the list (highlighting)
      *
@@ -65,9 +64,19 @@ private:
      */
     void onItemDeselected(wxListEvent& event);
 
-    void onItemDragged(ItemDraggedEvent& event);
+    /**
+     * @brief Event handler that triggers when an item is dragged in the list
+     *
+     * @param event wxWidgets event object
+     */
+    void onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event);
 
-    void onItemChecked(ItemCheckedEvent& event);
+    /**
+     * @brief Event handler that triggers when an item is checked/unchecked in the list
+     *
+     * @param event wxWidgets event object
+     */
+    void onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event);
 
     /**
      * @brief Event handler that triggers when the list control is resized
@@ -97,9 +106,21 @@ private:
      */
     void onApply(wxCommandEvent& event);
 
+    /**
+     * @brief Event handler that triggers when the Restore Default button is pressed
+     *
+     * @param event wxWidgets event object
+     */
     void onRestoreDefault(wxCommandEvent& event);
 
+    /**
+     * @brief Event handler that triggers when the Discard Changes button is pressed
+     *
+     * @param event wxWidgets event object
+     */
     void onDiscardChanges(wxCommandEvent& event);
+
+    // Helpers
 
     /**
      * @brief Calculates the width of a column in the list
@@ -119,12 +140,30 @@ private:
      */
     void clearAllHighlights();
 
+    /**
+     * @brief Updates the mods in the ModManagerDirectory based on the current state of the list control
+     */
     void updateMods();
 
-    void updateApplyButtonState();
-
+    /**
+     * @brief Fills the list control with the given mod list
+     *
+     * @param modList List of mods to fill the list control with
+     * @param autoEnable If true, will autoenable any disabled mods that have shaders other than NONE
+     */
     void fillListCtrl(
         const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, const bool& autoEnable = false);
 
+    /**
+     * @brief Enables or disables the apply button based on whether there are unsaved changes
+     */
+    void updateApplyButtonState();
+
+    /**
+     * @brief Constructs a comma-separated string of shader names from a set of ShapeShader enums
+     *
+     * @param shaders Set of ShapeShader enums
+     * @return std::string Comma-separated string of shader names
+     */
     static auto constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> std::string;
 };
