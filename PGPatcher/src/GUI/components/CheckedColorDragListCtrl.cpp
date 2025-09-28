@@ -233,7 +233,7 @@ void CheckedColorDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     // Bind menu actions
     menu.Bind(
         wxEVT_MENU,
-        [this, selectedItems](wxCommandEvent&) {
+        [this, selectedItems](wxCommandEvent&) -> void {
             // Move all items to top
             moveItems(selectedItems, 0);
         },
@@ -250,7 +250,7 @@ void CheckedColorDragListCtrl::onContextMenu(wxContextMenuEvent& event)
 
     menu.Bind(
         wxEVT_MENU,
-        [this, selectedItems](wxCommandEvent&) {
+        [this, selectedItems](wxCommandEvent&) -> void {
             // Enable (check) all selected items
             // check all selected items
             for (const long item : selectedItems) {
@@ -262,7 +262,7 @@ void CheckedColorDragListCtrl::onContextMenu(wxContextMenuEvent& event)
 
     menu.Bind(
         wxEVT_MENU,
-        [this, selectedItems](wxCommandEvent&) {
+        [this, selectedItems](wxCommandEvent&) -> void {
             // Disable (uncheck) all selected items
             for (const long item : selectedItems) {
                 check(item, false);

@@ -34,6 +34,7 @@ private:
     constexpr static int DEFAULT_WIDTH = 300;
     constexpr static int DEFAULT_HEIGHT = 600;
     constexpr static int MIN_HEIGHT = 400;
+    constexpr static int MIN_WIDTH = 600;
     constexpr static int DEFAULT_PADDING = 20;
     constexpr static int DEFAULT_BORDER = 10;
     constexpr static int MIN_COL_WIDTH = 50;

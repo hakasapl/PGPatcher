@@ -234,8 +234,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     }
 }
 
-void ModManagerDirectory::populateModFileMapMO2(
-    const filesystem::path& instanceDir, const filesystem::path& outputDir, const bool& useMO2Order)
+void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instanceDir, const filesystem::path& outputDir)
 {
     // required file is modlist.txt in the profile folder
 
@@ -320,9 +319,6 @@ void ModManagerDirectory::populateModFileMapMO2(
         }
 
         modPtr->modManagerOrder = basePriority++;
-        if (useMO2Order) {
-            modPtr->priority = modPtr->modManagerOrder;
-        }
 
         m_modMap[mod] = modPtr;
         foundMods.insert(mod);
@@ -404,15 +400,6 @@ void ModManagerDirectory::populateModFileMapMO2(
     if (!foundOneMod) {
         spdlog::critical(L"MO2 modlist.txt was empty, no mods found");
         exit(1);
-    }
-
-    if (useMO2Order) {
-        // invert priorities
-        for (const auto& [modName, mod] : m_modMap) {
-            if (mod->priority != -1) {
-                mod->priority = basePriority - mod->priority - 1;
-            }
-        }
     }
 
     modListFileF.close();

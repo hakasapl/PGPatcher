@@ -293,7 +293,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         }
 
         // MO2
-        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir, params.ModManager.mo2UseOrder);
+        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
     } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
         // Vortex
         mmd.populateModFileMapVortex(bg.getGameDataPath());
@@ -387,9 +387,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     ParallaxGen::loadPatchers(meshPatchers, texPatchers);
 
     // Check if MO2 is used and MO2 use order is checked
-    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE
-        && (params.ModManager.type != ModManagerDirectory::ModManagerType::MODORGANIZER2
-            || !params.ModManager.mo2UseOrder)) {
+    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
         // Find conflicts
         ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
 

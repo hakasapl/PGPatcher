@@ -76,9 +76,6 @@ private:
     wxTextCtrl* m_mo2InstanceLocationTextbox;
     void onMO2InstanceLocationChange(wxCommandEvent& event);
 
-    wxCheckBox* m_mo2UseOrderCheckbox;
-    void onMO2UseOrderChange(wxCommandEvent& event);
-
     // Output
     wxTextCtrl* m_outputLocationTextbox;
     void onOutputLocationChange(wxCommandEvent& event);

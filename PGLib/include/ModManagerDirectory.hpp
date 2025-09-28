@@ -72,8 +72,7 @@ public:
     static auto getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType;
     static auto getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring;
 
-    void populateModFileMapMO2(
-        const std::filesystem::path& instanceDir, const std::filesystem::path& outputDir, const bool& useMO2Order);
+    void populateModFileMapMO2(const std::filesystem::path& instanceDir, const std::filesystem::path& outputDir);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
     // Helpers

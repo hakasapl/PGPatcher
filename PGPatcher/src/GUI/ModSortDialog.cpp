@@ -35,20 +35,12 @@ ModSortDialog::ModSortDialog()
     m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
 
     // Add wrapped message at the top
-    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where "
-                                        L"conflicts occur. Mods on top of the list win over mods below them.";
+    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where.";
     // Create the wxStaticText and set wrapping
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
 
     // Add the static text to the main sizer
     mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
-
-    // Add "Restore to Default Order" button
-    auto* restoreButton = new wxButton(this, wxID_ANY, "Restore PGPatcher Defaults");
-    restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
-    restoreButton->SetToolTip("For MO2 default order is your loose file order. For vortex default order is by shader, "
-                              "then by name alphabetically.");
-    mainSizer->Add(restoreButton, 0, wxALIGN_CENTER | wxALL, DEFAULT_BORDER);
 
     // TOP RECTANGLE
     auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
@@ -92,6 +84,13 @@ ModSortDialog::ModSortDialog()
     // Create button sizer for horizontal layout
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
+    // Add "Restore to Default Order" button
+    auto* restoreButton = new wxButton(this, wxID_ANY, "Restore PGPatcher Defaults");
+    buttonSizer->Add(restoreButton, 0, wxALL, DEFAULT_BORDER);
+    restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
+    restoreButton->SetToolTip("For MO2 default order is your loose file order. For vortex default order is by shader, "
+                              "then by name alphabetically.");
+
     // Add discard changes button
     auto* discardButton = new wxButton(this, wxID_ANY, "Discard Changes");
     buttonSizer->Add(discardButton, 0, wxALL, DEFAULT_BORDER);
@@ -128,13 +127,8 @@ ModSortDialog::ModSortDialog()
     const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
     const int totalWidth = col1Width + col2Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
 
-    messageText->Wrap(totalWidth - (DEFAULT_PADDING * 2)); // Adjust wrapping width
-
-    // Let wxWidgets automatically calculate the best height based on wrapped text
-    messageText->SetMinSize(wxSize(totalWidth - (DEFAULT_PADDING * 2), messageText->GetBestSize().y));
-
     // Adjust dialog width to match the total width of columns and padding
-    SetSizeHints(totalWidth, wxDefaultCoord, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
+    SetSizeHints(MIN_WIDTH, MIN_HEIGHT, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
     SetSize(totalWidth, DEFAULT_HEIGHT); // Set dialog size
 
     SetSizer(mainSizer);

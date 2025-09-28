@@ -115,15 +115,9 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     mo2InstanceLocationSizer->Add(m_mo2InstanceLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
     mo2InstanceLocationSizer->Add(mo2InstanceBrowseButton, 0, wxALL, BORDER_SIZE);
 
-    // Checkbox to use MO2 order
-    m_mo2UseOrderCheckbox = new wxCheckBox(this, wxID_ANY, "Use MO2 Loose File Order (Not Recommended)");
-    m_mo2UseOrderCheckbox->SetToolTip("Use the order set in MO2's left pane instead of manually defining an order");
-    m_mo2UseOrderCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onMO2UseOrderChange, this);
-
     // Add the label and dropdown to MO2 options sizer
     m_mo2OptionsSizer->Add(mo2InstanceLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
     m_mo2OptionsSizer->Add(mo2InstanceLocationSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 0);
-    m_mo2OptionsSizer->Add(m_mo2UseOrderCheckbox, 0, wxLEFT | wxRIGHT | wxBOTTOM, BORDER_SIZE);
 
     // Add MO2 options to leftSizer but hide it initially
     modManagerSizer->Add(m_mo2OptionsSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
@@ -537,8 +531,6 @@ void LauncherWindow::loadConfig()
     wxCommandEvent changeEvent(wxEVT_TEXT, m_mo2InstanceLocationTextbox->GetId());
     onMO2InstanceLocationChange(changeEvent); // Call the handler directly
 
-    m_mo2UseOrderCheckbox->SetValue(initParams.ModManager.mo2UseOrder);
-
     // Output
     m_outputLocationTextbox->SetValue(initParams.Output.dir.wstring());
     m_outputZipCheckbox->SetValue(initParams.Output.zip);
@@ -656,12 +648,6 @@ void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
     Layout(); // Refresh layout to apply visibility changes
     Fit();
 
-    updateDisabledElements();
-}
-
-void LauncherWindow::onMO2UseOrderChange([[maybe_unused]] wxCommandEvent& event)
-{
-    // Update the MO2 use order
     updateDisabledElements();
 }
 
@@ -913,7 +899,6 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
         }
     }
     params.ModManager.mo2InstanceDir = m_mo2InstanceLocationTextbox->GetValue().ToStdWstring();
-    params.ModManager.mo2UseOrder = m_mo2UseOrderCheckbox->GetValue();
 
     // Output
     params.Output.dir = m_outputLocationTextbox->GetValue().ToStdWstring();

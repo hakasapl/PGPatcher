@@ -125,9 +125,6 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir")) {
             paramJ["modmanager"]["mo2instancedir"].get_to<filesystem::path>(m_params.ModManager.mo2InstanceDir);
         }
-        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useorder")) {
-            paramJ["modmanager"]["mo2useorder"].get_to<bool>(m_params.ModManager.mo2UseOrder);
-        }
 
         // "output"
         if (paramJ.contains("output") && paramJ["output"].contains("dir")) {
@@ -407,7 +404,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "modmanager"
     j["params"]["modmanager"]["type"] = m_params.ModManager.type;
     j["params"]["modmanager"]["mo2instancedir"] = utf16toUTF8(m_params.ModManager.mo2InstanceDir.wstring());
-    j["params"]["modmanager"]["mo2useorder"] = m_params.ModManager.mo2UseOrder;
 
     // "output"
     j["params"]["output"]["dir"] = utf16toUTF8(m_params.Output.dir.wstring());

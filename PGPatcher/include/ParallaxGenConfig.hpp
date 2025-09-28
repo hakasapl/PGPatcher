@@ -32,11 +32,10 @@ public:
         struct ModManager {
             ModManagerDirectory::ModManagerType type = ModManagerDirectory::ModManagerType::NONE;
             std::filesystem::path mo2InstanceDir;
-            bool mo2UseOrder = false;
 
             auto operator==(const ModManager& other) const -> bool
             {
-                return type == other.type && mo2InstanceDir == other.mo2InstanceDir && mo2UseOrder == other.mo2UseOrder;
+                return type == other.type && mo2InstanceDir == other.mo2InstanceDir;
             }
         } ModManager;
 
