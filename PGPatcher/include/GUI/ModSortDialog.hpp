@@ -111,10 +111,8 @@ private:
 
     /**
      * @brief Highlights the conflicting items for a selected mod
-     *
-     * @param selectedMod Mod that is selected
      */
-    void highlightConflictingItems(const std::wstring& selectedMod);
+    void highlightConflictingItems();
 
     /**
      * @brief Clear all yellow highlights from the list

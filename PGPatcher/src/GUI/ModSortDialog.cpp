@@ -138,30 +138,14 @@ ModSortDialog::ModSortDialog()
 
 void ModSortDialog::onItemSelected(wxListEvent& event)
 {
-    const long index = event.GetIndex();
-    const std::wstring selectedMod = m_listCtrl->GetItemText(index).ToStdWstring();
+    highlightConflictingItems(); // Highlight conflicts for the selected mod
 
-    if (index == -1) {
-        clearAllHighlights(); // Clear all highlights when no item is selected
-    } else {
-        highlightConflictingItems(selectedMod); // Highlight conflicts for the selected mod
-    }
+    event.Skip();
 }
 
 void ModSortDialog::onItemDeselected(wxListEvent& event)
 {
-    // Check if no items are selected
-    long selectedItem = -1;
-    bool isAnyItemSelected = false;
-    while (
-        (selectedItem = m_listCtrl->GetNextItem(selectedItem, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
-        isAnyItemSelected = true;
-        break;
-    }
-
-    if (!isAnyItemSelected) {
-        clearAllHighlights(); // Clear highlights if no items are selected
-    }
+    highlightConflictingItems();
 
     event.Skip();
 }
@@ -179,7 +163,7 @@ void ModSortDialog::clearAllHighlights()
     }
 }
 
-void ModSortDialog::highlightConflictingItems(const std::wstring& selectedMod)
+void ModSortDialog::highlightConflictingItems()
 {
     // Clear previous highlights and restore original colors
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
@@ -192,40 +176,47 @@ void ModSortDialog::highlightConflictingItems(const std::wstring& selectedMod)
         }
     }
 
-    // Highlight selected item and its conflicts
-    auto* mmd = PGGlobals::getMMD();
-    auto conflictSet = mmd->getMod(selectedMod)->conflicts;
-    // convert conflictSet to unordered set of strings
-    unordered_set<std::wstring> conflictSetStr;
-    for (const auto& conflict : conflictSet) {
-        conflictSetStr.insert(conflict->name);
-    }
+    // Find all selected items
+    // Gather all selected mods
+    std::vector<std::wstring> selectedMods;
+    long selIdx = -1;
+    long cutoffIdx = -1;
+    while ((selIdx = m_listCtrl->GetNextItem(selIdx, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
+        selectedMods.push_back(m_listCtrl->GetItemText(selIdx).ToStdWstring());
 
-    // Find index of selected item
-    long selectedIndex = -1;
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        if (m_listCtrl->GetItemText(i).ToStdWstring() == selectedMod) {
-            selectedIndex = i;
-            break;
+        if (cutoffIdx == -1) {
+            cutoffIdx = selIdx;
         }
     }
 
-    if (selectedIndex == -1) {
-        return; // Selected item not found
+    if (selectedMods.empty()) {
+        clearAllHighlights();
+        return;
     }
 
-    // Apply highlights
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        if (!conflictSetStr.contains(itemText)) {
-            continue; // Skip non-conflicting items
+    for (const auto& selectedMod : selectedMods) {
+        // Highlight selected item and its conflicts
+        auto* mmd = PGGlobals::getMMD();
+        auto conflictSet = mmd->getMod(selectedMod)->conflicts;
+        // convert conflictSet to unordered set of strings
+        unordered_set<std::wstring> conflictSetStr;
+        for (const auto& conflict : conflictSet) {
+            conflictSetStr.insert(conflict->name);
         }
 
-        if (itemText != selectedMod) {
-            if (i < selectedIndex) {
-                m_listCtrl->SetItemBackgroundColour(i, s_LOSING_MOD_COLOR); // Red-ish for conflicts above
-            } else {
-                m_listCtrl->SetItemBackgroundColour(i, s_WINNING_MOD_COLOR); // Yellow-ish for conflicts below
+        // Apply highlights
+        for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+            const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
+            if (!conflictSetStr.contains(itemText)) {
+                continue; // Skip non-conflicting items
+            }
+
+            if (std::ranges::find(selectedMods, itemText) == selectedMods.end()) {
+                if (i < cutoffIdx) {
+                    m_listCtrl->SetItemBackgroundColour(i, s_LOSING_MOD_COLOR); // Red-ish for conflicts above
+                } else {
+                    m_listCtrl->SetItemBackgroundColour(i, s_WINNING_MOD_COLOR); // Yellow-ish for conflicts below
+                }
             }
         }
     }
