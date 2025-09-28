@@ -50,7 +50,44 @@ ModSortDialog::ModSortDialog()
                               "then by name alphabetically.");
     mainSizer->Add(restoreButton, 0, wxALIGN_CENTER | wxALL, DEFAULT_BORDER);
 
-    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
+    // TOP RECTANGLE
+    auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+    topPanel->SetBackgroundColour(*wxGREEN);
+    auto* topLabel
+        = new wxStaticText(topPanel, wxID_ANY, "Winning Mods", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+
+    // FONT for rects
+    wxFont rectFont = topLabel->GetFont(); // start with current font
+    rectFont.SetPointSize(RECT_LABEL_FONT_SIZE); // increase by 4 points
+    rectFont.SetWeight(wxFONTWEIGHT_BOLD);
+    topLabel->SetFont(rectFont);
+
+    // Use a box sizer to center the text in the panel
+    auto* topSizer = new wxBoxSizer(wxHORIZONTAL);
+    topSizer->Add(topLabel, 1, wxALIGN_CENTER | wxALL, 2);
+    topPanel->SetSizer(topSizer);
+
+    // Add top rectangle to main sizer
+    mainSizer->Add(topPanel, 0, wxEXPAND | wxBOTTOM, 0); // No bottom border so it touches the list
+
+    // Add List control
+    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, 0);
+
+    // BOTTOM RECTANGLE
+    auto* bottomPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+    bottomPanel->SetBackgroundColour(*wxRED);
+    auto* bottomLabel
+        = new wxStaticText(bottomPanel, wxID_ANY, "Losing Mods", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+
+    bottomLabel->SetFont(rectFont);
+
+    // Center the text in the panel
+    auto* bottomSizer = new wxBoxSizer(wxHORIZONTAL);
+    bottomSizer->Add(bottomLabel, 1, wxALIGN_CENTER | wxALL, 2);
+    bottomPanel->SetSizer(bottomSizer);
+
+    // Add bottom rectangle to main sizer
+    mainSizer->Add(bottomPanel, 0, wxEXPAND | wxTOP, 0); // No top border so it touches the list
 
     // Create button sizer for horizontal layout
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);

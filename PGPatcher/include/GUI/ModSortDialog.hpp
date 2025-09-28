@@ -37,6 +37,7 @@ private:
     constexpr static int DEFAULT_PADDING = 20;
     constexpr static int DEFAULT_BORDER = 10;
     constexpr static int MIN_COL_WIDTH = 50;
+    constexpr static int RECT_LABEL_FONT_SIZE = 20;
 
     static inline const wxColour s_NEW_MOD_COLOR { 243, 230, 255 };
     static inline const wxColour s_LOSING_MOD_COLOR { 255, 102, 102 };
