@@ -76,7 +76,7 @@ void PGCheckedDragListCtrl::check(long item, bool checked)
     // Fire a custom event
     PGCheckedDragListCtrlEvtItemChecked evt(GetId(), item, checked);
     evt.SetEventObject(this);
-    wxPostEvent(GetParent(), evt);
+    wxPostEvent(this, evt);
 }
 
 void PGCheckedDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
@@ -213,6 +213,17 @@ void PGCheckedDragListCtrl::onMouseMotion(wxMouseEvent& event)
 
 void PGCheckedDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
 {
+    // Stop the timer when the drag operation ends
+    if (m_autoscrollTimer.IsRunning()) {
+        m_autoscrollTimer.Stop();
+    }
+
+    // Clear the ghost window
+    if (m_ghost != nullptr) {
+        m_ghost->Destroy();
+        m_ghost = nullptr;
+    }
+
     if (m_draggedRows.empty() || m_targetLineIndex == -1) {
         event.Skip();
         return;
@@ -239,22 +250,11 @@ void PGCheckedDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
     // Fire custom event for the *last dragged item* (or the first, your choice)
     PGCheckedDragListCtrlEvtItemDragged dragEvt(GetId(), draggedIndices.front(), m_targetLineIndex);
     dragEvt.SetEventObject(this);
-    wxPostEvent(GetParent(), dragEvt);
+    wxPostEvent(this, dragEvt);
 
     // Reset drag state
     m_draggedRows.clear();
     m_targetLineIndex = -1;
-
-    // Stop the timer when the drag operation ends
-    if (m_autoscrollTimer.IsRunning()) {
-        m_autoscrollTimer.Stop();
-    }
-
-    // Clear the ghost window
-    if (m_ghost != nullptr) {
-        m_ghost->Destroy();
-        m_ghost = nullptr;
-    }
 
     event.Skip();
 }
@@ -438,10 +438,6 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
     // Restore properties
     SetItemBackgroundColour(newIndex, bgColor);
     check(newIndex, checked);
-
-    // Fire a custom event
-    const PGCheckedDragListCtrlEvtItemDragged evt(GetId(), fromIndex, newIndex);
-    wxPostEvent(this, evt);
 
     return newIndex;
 }
