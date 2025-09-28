@@ -123,11 +123,11 @@ ModSortDialog::ModSortDialog()
     fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
 
     // Calculate minimum width for each column
-    const int col1Width = calculateColumnWidth(0);
-    const int col2Width = calculateColumnWidth(1);
+    const int col0Width = calculateColumnWidth(0);
+    const int col1Width = calculateColumnWidth(1);
     m_listCtrl->SetColumnWidth(1, col1Width);
     const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
-    const int totalWidth = col1Width + col2Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
+    const int totalWidth = col0Width + col1Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
 
     // Adjust dialog width to match the total width of columns and padding
     SetSizeHints(MIN_WIDTH, MIN_HEIGHT, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
@@ -172,10 +172,9 @@ void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
 
     // Get the widths of the fixed columns
     const int col1Width = m_listCtrl->GetColumnWidth(1);
-    const int col2Width = m_listCtrl->GetColumnWidth(2);
 
     // Calculate remaining width for first column
-    int col0Width = totalWidth - col1Width - col2Width - 2; // optional small padding for borders
+    int col0Width = totalWidth - col1Width - 2; // optional small padding for borders
 
     col0Width = std::max(col0Width, MIN_COL_WIDTH); // minimum width to avoid clipping
 
@@ -317,9 +316,13 @@ void ModSortDialog::updateMods()
     for (long i = 0; i < itemCount; ++i) {
         const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
         auto mod = mmd->getMod(modName);
+        if (mod == nullptr) {
+            continue;
+        }
+
         mod->isEnabled = m_listCtrl->isChecked(i);
 
-        if (mod != nullptr && mod->isEnabled) {
+        if (mod->isEnabled) {
             mod->priority = static_cast<int>(itemCount - i);
         }
     }
@@ -327,8 +330,7 @@ void ModSortDialog::updateMods()
     updateApplyButtonState();
 }
 
-void ModSortDialog::fillListCtrl(
-    const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, const bool& autoEnable)
+void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable)
 {
     m_listCtrl->DeleteAllItems();
 
@@ -420,6 +422,10 @@ void ModSortDialog::updateApplyButtonState()
     for (long i = 0; i < itemCount; ++i) {
         const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
         auto mod = mmd->getMod(modName);
+        if (mod == nullptr) {
+            btnState = true;
+            break;
+        }
 
         if (mod->isEnabled != m_listCtrl->isChecked(i)) {
             btnState = true;
@@ -435,9 +441,9 @@ void ModSortDialog::updateApplyButtonState()
     m_applyButton->Enable(btnState);
 }
 
-auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> std::string
+auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString
 {
-    std::string shaderStr;
+    wxString shaderStr;
     for (const auto& shader : shaders) {
         if (!shaderStr.empty()) {
             shaderStr += ", ";

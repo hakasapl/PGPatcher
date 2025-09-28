@@ -11,7 +11,6 @@
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/thread.hpp>
-#include <boost/thread/lock_types.hpp>
 #include <filesystem>
 #include <memory>
 #include <miniz.h>
@@ -341,11 +340,6 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
                 continue;
             }
 
-            if (!match.mod->isNew || match.mod->isEnabled) {
-                // we only care to auto enable NEW mods in the list
-                continue;
-            }
-
             if (match.shader == NIFUtil::ShapeShader::NONE) {
                 // this is a default match, so we don't auto enable
                 continue;
@@ -353,7 +347,10 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
 
             // enable mod
             const unique_lock<shared_mutex> uniqueLock(match.mod->mutex);
-            match.mod->isEnabled = true;
+            if (match.mod->isNew && !match.mod->isEnabled) {
+                // we only care to auto enable NEW mods in the list
+                match.mod->isEnabled = true;
+            }
         }
 
         if (patchPlugin) {

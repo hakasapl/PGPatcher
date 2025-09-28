@@ -1,16 +1,8 @@
 #pragma once
 
-#include <wx/arrstr.h>
-#include <wx/dnd.h>
-#include <wx/dragimag.h>
-#include <wx/gdicmn.h>
-#include <wx/listbox.h>
+#include <vector>
 #include <wx/listctrl.h>
-#include <wx/msw/textctrl.h>
-#include <wx/overlay.h>
-#include <wx/renderer.h>
-#include <wx/sizer.h>
-#include <wx/wx.h>
+#include <wx/timer.h>
 
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
 
@@ -33,7 +25,7 @@ private:
     std::vector<Row> m_draggedRows; /** Stores rows currently being dragged */
     PGCheckedDragListCtrlGhostWindow* m_ghost; /** Ghost frame for render while dragging */
 
-    int m_cutoffLine; /** Cutoff line, below which dragging is disabled */
+    int m_cutoffLine = -1; /** Cutoff line, below which dragging is disabled */
 
 public:
     /**
@@ -47,6 +39,11 @@ public:
      */
     PGCheckedDragListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pt = wxDefaultPosition,
         const wxSize& sz = wxDefaultSize, long style = wxLC_REPORT);
+
+    /**
+     * @brief Destroy the PGCheckedDragListCtrl object
+     */
+    ~PGCheckedDragListCtrl() override;
 
     /**
      * @brief Check if an item is checked

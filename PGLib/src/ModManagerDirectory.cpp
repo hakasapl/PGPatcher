@@ -67,7 +67,7 @@ auto ModManagerDirectory::getModsByPriority() const -> vector<shared_ptr<Mod>>
         }
         // then by mod manager order (MO2 only)
         if (a->modManagerOrder != b->modManagerOrder) {
-            return a->modManagerOrder > b->modManagerOrder; // Lower modManagerOrder first
+            return a->modManagerOrder < b->modManagerOrder; // Lower modManagerOrder first
         }
         // then by shader
         if (a->shaders != b->shaders) {
@@ -461,15 +461,15 @@ void ModManagerDirectory::assignNewModPriorities() const
     });
 
     // find maximum priority value
-    size_t maxPriority = 0;
+    int maxPriority = 0;
     for (const auto& mod : mods) {
-        maxPriority = std::max<size_t>(mod->priority, maxPriority);
+        maxPriority = std::max(mod->priority, maxPriority);
     }
 
     maxPriority++;
 
     for (auto& mod : newMods) {
-        mod->priority = static_cast<int>(++maxPriority);
+        mod->priority = ++maxPriority;
     }
 }
 

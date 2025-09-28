@@ -1,16 +1,6 @@
 #pragma once
 
-#include <wx/arrstr.h>
-#include <wx/dnd.h>
-#include <wx/dragimag.h>
-#include <wx/gdicmn.h>
-#include <wx/listbox.h>
-#include <wx/listctrl.h>
-#include <wx/msw/textctrl.h>
-#include <wx/overlay.h>
-#include <wx/renderer.h>
-#include <wx/sizer.h>
-#include <wx/wx.h>
+#include <wx/event.h>
 
 class PGCheckedDragListCtrlEvtItemDragged;
 wxDECLARE_EVENT(pgEVT_CDLC_ITEM_DRAGGED, PGCheckedDragListCtrlEvtItemDragged); // NOLINT(readability-identifier-naming)

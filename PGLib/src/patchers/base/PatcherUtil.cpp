@@ -85,10 +85,13 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             PatcherUtil::ShaderPatcherMatch curMatch;
             curMatch.mod = PGGlobals::getPGD()->getMod(match.matchedPath);
 
-            if (!dryRun && curMatch.mod != nullptr && !curMatch.mod->isEnabled) {
-                // do not add match if mod it matched from is disabled
-                Logger::trace(L"Rejecting: Mod is not enabled");
-                continue;
+            if (!dryRun && curMatch.mod != nullptr) {
+                const std::shared_lock lk(curMatch.mod->mutex);
+                if (!curMatch.mod->isEnabled) {
+                    // do not add match if mod it matched from is disabled
+                    Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
+                    continue;
+                }
             }
 
             curMatch.shader = shader;
@@ -105,12 +108,10 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             if (shader != NIFUtil::ShapeShader::NONE) {
                 // a non-default match is available. If this match is the same mod as any default matches, remove the
                 // defaults
-                matches.erase(remove_if(matches.begin(), matches.end(),
-                                  [&curMatch](const ShaderPatcherMatch& match) -> bool {
-                                      return match.shader == NIFUtil::ShapeShader::NONE && match.mod != nullptr
-                                          && curMatch.mod != nullptr && match.mod == curMatch.mod;
-                                  }),
-                    matches.end());
+                std::erase_if(matches, [&curMatch](const ShaderPatcherMatch& m) -> bool {
+                    return m.shader == NIFUtil::ShapeShader::NONE && m.mod != nullptr && curMatch.mod != nullptr
+                        && m.mod == curMatch.mod;
+                });
             }
 
             matches.push_back(curMatch);

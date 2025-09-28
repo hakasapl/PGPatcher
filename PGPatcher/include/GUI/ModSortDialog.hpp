@@ -31,7 +31,7 @@ private:
         m_originalBackgroundColors; /** Stores the original highlight of elements to be able to restore it later */
 
     constexpr static int DEFAULT_WIDTH = 600;
-    constexpr static int DEFAULT_HEIGHT = 400;
+    constexpr static int DEFAULT_HEIGHT = 600;
     constexpr static int MIN_WIDTH = 600;
     constexpr static int MIN_HEIGHT = 400;
     constexpr static int DEFAULT_PADDING = 20;
@@ -86,7 +86,7 @@ private:
     void onListCtrlResize(wxSizeEvent& event);
 
     /**
-     * @brief Resets indices for the list after drag or sort
+     * @brief Close event handler
      *
      * @param event wxWidgets event object
      */
@@ -151,8 +151,7 @@ private:
      * @param modList List of mods to fill the list control with
      * @param autoEnable If true, will autoenable any disabled mods that have shaders other than NONE
      */
-    void fillListCtrl(
-        const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, const bool& autoEnable = false);
+    void fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable = false);
 
     /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes
@@ -165,5 +164,5 @@ private:
      * @param shaders Set of ShapeShader enums
      * @return std::string Comma-separated string of shader names
      */
-    static auto constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> std::string;
+    static auto constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString;
 };

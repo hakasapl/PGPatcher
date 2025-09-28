@@ -1,3 +1,8 @@
+#include <algorithm>
+
+#include <wx/dcbuffer.h>
+#include <wx/gdicmn.h>
+
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
 
 PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* parent, const std::vector<wxString>& lines)
@@ -21,14 +26,16 @@ PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* par
     }
     SetSize(width, height);
 
-    Show();
     Bind(wxEVT_PAINT, &PGCheckedDragListCtrlGhostWindow::OnPaint, this);
+
+    Show();
 }
 
 void PGCheckedDragListCtrlGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& event)
 {
     wxPaintDC dc(this);
     dc.SetPen(*wxTRANSPARENT_PEN); // Disables black border
+    dc.SetBrush(*wxWHITE_BRUSH);
 
     const wxSize sz = GetClientSize();
     dc.DrawRectangle(0, 0, sz.x, sz.y);

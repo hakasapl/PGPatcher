@@ -1,8 +1,9 @@
-#include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include <wx/gdicmn.h>
+#include <wx/renderer.h>
 
 #include <algorithm>
 
+#include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
@@ -18,7 +19,6 @@ PGCheckedDragListCtrl::PGCheckedDragListCtrl(
     : wxListCtrl(parent, id, pt, sz, style)
     , m_autoscrollTimer(this)
     , m_ghost(nullptr)
-    , m_cutoffLine(-1)
 {
     // Bind Event Handlers
     Bind(wxEVT_TIMER, &PGCheckedDragListCtrl::onAutoscrollTimer, this, m_autoscrollTimer.GetId());
@@ -31,7 +31,7 @@ PGCheckedDragListCtrl::PGCheckedDragListCtrl(
     // Setup checkboxes
     const wxSize chkSize = wxRendererNative::Get().GetCheckBoxSize(this);
     m_imagelist = new wxImageList(chkSize.GetWidth(), chkSize.GetHeight(), true);
-    SetImageList(m_imagelist, wxIMAGE_LIST_SMALL);
+    AssignImageList(m_imagelist, wxIMAGE_LIST_SMALL);
 
     wxBitmap unchecked(chkSize);
     wxBitmap checked(chkSize);
@@ -54,6 +54,18 @@ PGCheckedDragListCtrl::PGCheckedDragListCtrl(
 
     m_imagelist->Add(unchecked);
     m_imagelist->Add(checked);
+}
+
+PGCheckedDragListCtrl::~PGCheckedDragListCtrl()
+{
+    if (m_autoscrollTimer.IsRunning()) {
+        m_autoscrollTimer.Stop();
+    }
+
+    if (m_ghost != nullptr) {
+        m_ghost->Destroy();
+        m_ghost = nullptr;
+    }
 }
 
 auto PGCheckedDragListCtrl::isChecked(long item) const -> bool
@@ -187,9 +199,8 @@ void PGCheckedDragListCtrl::onMouseMotion(wxMouseEvent& event)
         // Check if the mouse is in the top or bottom half of the item
         const int midPointY = itemRect.GetTop() + (itemRect.GetHeight() / 2);
         const auto curPosition = event.GetPosition().y;
-        const bool targetingTopHalf = curPosition > midPointY;
-
-        if (targetingTopHalf) {
+        const bool targetingBottomHalf = curPosition > midPointY;
+        if (targetingBottomHalf) {
             dropTargetIndex++;
         }
 
@@ -410,13 +421,12 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
         return fromIndex;
     }
 
-    // Capture item data
-    const wxString col0 = GetItemText(fromIndex, 0);
-    wxString col1;
-    if (GetColumnCount() > 1) {
-        col1 = GetItemText(fromIndex, 1);
-    } else {
-        col1 = wxString {};
+    // Capture item data (all columns)
+    const int colCount = GetColumnCount();
+    std::vector<wxString> cols;
+    cols.reserve(std::max(1, colCount));
+    for (int c = 0; c < colCount; ++c) {
+        cols.push_back(GetItemText(fromIndex, c));
     }
     const wxColour bgColor = GetItemBackgroundColour(fromIndex);
     const bool checked = isChecked(fromIndex);
@@ -430,9 +440,9 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
     }
 
     // Insert item at new position
-    const long newIndex = InsertItem(toIndex, col0);
-    if (GetColumnCount() > 1) {
-        SetItem(newIndex, 1, col1);
+    const long newIndex = InsertItem(toIndex, cols.empty() ? wxString {} : cols[0]);
+    for (int c = 1; c < colCount; ++c) {
+        SetItem(newIndex, c, cols[c]);
     }
 
     // Restore properties
