@@ -3,6 +3,7 @@
 #include <wx/arrstr.h>
 #include <wx/dnd.h>
 #include <wx/dragimag.h>
+#include <wx/gdicmn.h>
 #include <wx/listbox.h>
 #include <wx/listctrl.h>
 #include <wx/msw/textctrl.h>
@@ -10,6 +11,8 @@
 #include <wx/renderer.h>
 #include <wx/sizer.h>
 #include <wx/wx.h>
+
+#include "GUI/components/DragGhostWindow.hpp"
 
 // Custom events
 class ItemDraggedEvent;
@@ -62,18 +65,28 @@ public:
 
 class CheckedColorDragListCtrl : public wxListCtrl {
 private:
+    struct Row {
+        long index;
+        wxString text;
+    };
+
     wxImageList* m_imagelist;
+
+    wxTimer m_scrollTimer; /** Timer that is responsible for autoscroll */
+
+    constexpr static int TIMER_INTERVAL = 250;
 
     //
     // Dragging
     //
     int m_targetLineIndex = -1; /** Stores the index of the element where an element is being dropped */
-    std::vector<long> m_draggedIndices; /** Stores the indices being dragged in the case of multi selection */
-    wxOverlay m_overlay; /** Overlay used to paint guide lines for dragging */
 
-    int m_listCtrlHeaderHeight = 0; /** Stores list ctrl header height for use in autoscroll */
+    std::vector<Row> m_draggedRows;
+    DragGhostWindow* m_ghost;
 
     int m_cutoffLine;
+
+    static constexpr int AUTOSCROLL_MARGIN = 30;
 
 public:
     CheckedColorDragListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pt = wxDefaultPosition,
@@ -117,20 +130,6 @@ private:
     void onTimer(wxTimerEvent& event);
 
     void onContextMenu(wxContextMenuEvent& event);
-
-    /**
-     * @brief Draws a drop indicator during drag and drop
-     *
-     * @param targetIndex Index of the target drop item
-     */
-    void drawDropIndicator(int targetIndex);
-
-    /**
-     * @brief Get the Header Height for positioning
-     *
-     * @return int Header height
-     */
-    auto getHeaderHeight() -> int;
 
     void processCheckItem(long item, bool checked);
     void processCheckItems(const std::vector<long>& items, bool checked);

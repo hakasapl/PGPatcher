@@ -18,9 +18,12 @@ auto ItemCheckedEvent::Clone() const -> wxEvent* { return new ItemCheckedEvent(*
 CheckedColorDragListCtrl::CheckedColorDragListCtrl(
     wxWindow* parent, wxWindowID id, const wxPoint& pt, const wxSize& sz, long style)
     : wxListCtrl(parent, id, pt, sz, style)
-    , m_listCtrlHeaderHeight(getHeaderHeight())
+    , m_scrollTimer(this)
+    , m_ghost(nullptr)
     , m_cutoffLine(-1)
 {
+    Bind(wxEVT_TIMER, &CheckedColorDragListCtrl::onTimer, this, m_scrollTimer.GetId());
+
     Bind(wxEVT_LEFT_DOWN, &CheckedColorDragListCtrl::onMouseLeftDown, this);
     Bind(wxEVT_MOTION, &CheckedColorDragListCtrl::onMouseMotion, this);
     Bind(wxEVT_LEFT_UP, &CheckedColorDragListCtrl::onMouseLeftUp, this);
@@ -317,11 +320,28 @@ void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
             }
 
             // Capture all selected indices for dragging
-            m_draggedIndices.clear();
+            m_draggedRows.clear();
             long selectedItem = -1;
             while ((selectedItem = GetNextItem(selectedItem, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
-                m_draggedIndices.push_back(selectedItem);
+                m_draggedRows.push_back({ .index = selectedItem, .text = GetItemText(selectedItem, 0) });
             }
+
+            // Create ghost at cursor position
+            // Reset to nullptr just in case
+            m_ghost = nullptr;
+            // loop through each dragged row and create a single string
+            vector<wxString> combinedText;
+            combinedText.reserve(m_draggedRows.size());
+            for (const auto& row : m_draggedRows) {
+                combinedText.push_back(row.text);
+            }
+
+            m_ghost = new DragGhostWindow(nullptr, combinedText);
+            const wxPoint pos = ClientToScreen(event.GetPosition() + wxPoint(4, 4));
+            m_ghost->Move(pos);
+
+            // We initially hide the ghost until we start moving
+            m_ghost->Hide();
         }
     }
 
@@ -330,23 +350,38 @@ void CheckedColorDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
 
 void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
 {
-    if (!m_draggedIndices.empty() && m_targetLineIndex != -1) {
+    if (!m_draggedRows.empty() && m_targetLineIndex != -1) {
         if (m_cutoffLine >= 0 && m_targetLineIndex > m_cutoffLine) {
             m_targetLineIndex = m_cutoffLine;
         }
 
-        m_overlay.Reset(); // Clear the m_overlay when the drag operation is complete
+        // m_overlay.Reset(); // Clear the m_overlay when the drag operation is complete
+        vector<long> draggedIndices;
+        draggedIndices.reserve(m_draggedRows.size());
+        for (const auto& row : m_draggedRows) {
+            draggedIndices.push_back(row.index);
+        }
 
-        moveItems(m_draggedIndices, m_targetLineIndex);
+        moveItems(draggedIndices, m_targetLineIndex);
 
         // Fire custom event for the *last dragged item* (or the first, your choice)
-        ItemDraggedEvent dragEvt(GetId(), m_draggedIndices.front(), m_targetLineIndex);
+        ItemDraggedEvent dragEvt(GetId(), draggedIndices.front(), m_targetLineIndex);
         dragEvt.SetEventObject(this);
         wxPostEvent(GetParent(), dragEvt);
 
         // Reset drag state
-        m_draggedIndices.clear();
+        m_draggedRows.clear();
         m_targetLineIndex = -1;
+    }
+
+    // Stop the timer when the drag operation ends
+    if (m_scrollTimer.IsRunning()) {
+        m_scrollTimer.Stop();
+    }
+
+    if (m_ghost != nullptr) {
+        m_ghost->Destroy();
+        m_ghost = nullptr;
     }
 
     event.Skip();
@@ -354,7 +389,19 @@ void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
 
 void CheckedColorDragListCtrl::onMouseMotion(wxMouseEvent& event)
 {
-    if (!m_draggedIndices.empty() && event.LeftIsDown()) {
+    if (!m_draggedRows.empty() && event.LeftIsDown()) {
+        // Start the timer to handle scrolling
+        if (!m_scrollTimer.IsRunning()) {
+            m_scrollTimer.Start(TIMER_INTERVAL); // Start the timer with a 50ms interval
+        }
+
+        // Move ghost window
+        if (m_ghost != nullptr) {
+            const wxPoint pos = ClientToScreen(event.GetPosition() + wxPoint(4, 4));
+            m_ghost->updatePosition(pos);
+            m_ghost->Show();
+        }
+
         int flags = 0;
         auto dropTargetIndex = HitTest(event.GetPosition(), flags);
 
@@ -377,56 +424,42 @@ void CheckedColorDragListCtrl::onMouseMotion(wxMouseEvent& event)
             }
 
             // Draw the line only if the target index has changed
-            drawDropIndicator(dropTargetIndex);
+            // drawDropIndicator(dropTargetIndex);
             m_targetLineIndex = dropTargetIndex;
         } else {
             // Clear m_overlay if not hovering over a valid item
-            m_overlay.Reset();
+            // m_overlay.Reset();
             m_targetLineIndex = -1;
         }
+    }
+
+    if (m_ghost != nullptr) {
+        const wxPoint pos = ClientToScreen(event.GetPosition() + wxPoint(4, 4));
+        m_ghost->updatePosition(pos);
     }
 
     event.Skip();
 }
 
-void CheckedColorDragListCtrl::drawDropIndicator(int targetIndex)
+void CheckedColorDragListCtrl::onTimer([[maybe_unused]] wxTimerEvent& event)
 {
-    wxClientDC dc(this);
-    wxDCOverlay dcOverlay(m_overlay, &dc);
-    dcOverlay.Clear(); // Clear the existing m_overlay to avoid double lines
+    // Get the current mouse position relative to the m_listCtrl
+    const wxPoint mousePos = ScreenToClient(wxGetMousePosition());
+    const wxRect listCtrlRect = GetClientRect();
 
-    wxRect itemRect;
-    int lineY = -1;
+    // Check if the mouse is within the m_listCtrl bounds
+    if (listCtrlRect.Contains(mousePos)) {
+        const int scrollMargin = 20; // Margin to trigger scrolling
+        const int mouseY = mousePos.y;
 
-    // Validate TargetIndex before calling GetItemRect()
-    if (targetIndex >= 0 && targetIndex < GetItemCount()) {
-        if (GetItemRect(targetIndex, itemRect)) {
-            lineY = itemRect.GetTop();
-        }
-    } else if (targetIndex >= GetItemCount()) {
-        // Handle drawing at the end of the list (after the last item)
-        if (GetItemRect(GetItemCount() - 1, itemRect)) {
-            lineY = itemRect.GetBottom();
-        }
-    }
-
-    // Ensure LineY is set correctly before drawing
-    if (lineY != -1) {
-        dc.SetPen(wxPen(*wxBLACK, 2)); // Draw the line with a width of 2 pixels
-        dc.DrawLine(itemRect.GetLeft(), lineY, itemRect.GetRight(), lineY);
-    }
-}
-
-auto CheckedColorDragListCtrl::getHeaderHeight() -> int
-{
-    if (GetItemCount() > 0) {
-        wxRect firstItemRect;
-        if (GetItemRect(0, firstItemRect)) {
-            // The top of the first item minus the top of the client area gives the header height
-            return firstItemRect.GetTop() - GetClientRect().GetTop();
+        if (mouseY < listCtrlRect.GetTop() + scrollMargin + AUTOSCROLL_MARGIN) {
+            // Scroll up if the mouse is near the top edge
+            ScrollLines(-1);
+        } else if (mouseY > listCtrlRect.GetBottom() - scrollMargin) {
+            // Scroll down if the mouse is near the bottom edge
+            ScrollLines(1);
         }
     }
-    return 0; // Fallback if the list is empty
 }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

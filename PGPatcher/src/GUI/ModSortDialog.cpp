@@ -413,6 +413,9 @@ void ModSortDialog::fillListCtrl(
         listIdx++;
     }
 
+    // Set cutoff line
+    m_listCtrl->setCutoffLine(listIdx);
+
     // loop through inactive mods
     for (const auto& mod : disabledMods) {
         const long index = m_listCtrl->InsertItem(listIdx, mod->name);
