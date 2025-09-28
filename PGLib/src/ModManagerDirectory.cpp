@@ -466,8 +466,6 @@ void ModManagerDirectory::assignNewModPriorities() const
         maxPriority = std::max(mod->priority, maxPriority);
     }
 
-    maxPriority++;
-
     for (auto& mod : newMods) {
         mod->priority = ++maxPriority;
     }

@@ -2,6 +2,7 @@
 #include <wx/renderer.h>
 
 #include <algorithm>
+#include <unordered_map>
 
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
@@ -212,11 +213,6 @@ void PGCheckedDragListCtrl::onMouseMotion(wxMouseEvent& event)
         m_targetLineIndex = dropTargetIndex;
     } else {
         m_targetLineIndex = -1;
-    }
-
-    if (m_ghost != nullptr) {
-        const wxPoint pos = ClientToScreen(event.GetPosition() + wxPoint(4, 4));
-        m_ghost->updatePosition(pos);
     }
 
     event.Skip();

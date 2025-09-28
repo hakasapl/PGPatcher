@@ -12,6 +12,7 @@
 #include <wx/wx.h>
 
 #include <string>
+#include <unordered_map>
 
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
@@ -162,7 +163,7 @@ private:
      * @brief Constructs a comma-separated string of shader names from a set of ShapeShader enums
      *
      * @param shaders Set of ShapeShader enums
-     * @return std::string Comma-separated string of shader names
+     * @return wxString Comma-separated string of shader names
      */
     static auto constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString;
 };

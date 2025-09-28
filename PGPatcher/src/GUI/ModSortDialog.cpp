@@ -267,10 +267,16 @@ void ModSortDialog::highlightConflictingItems()
         return;
     }
 
+    auto* mmd = PGGlobals::getMMD();
     for (const auto& selectedMod : selectedMods) {
         // Highlight selected item and its conflicts
-        auto* mmd = PGGlobals::getMMD();
-        auto conflictSet = mmd->getMod(selectedMod)->conflicts;
+        auto mod = mmd->getMod(selectedMod);
+        if (mod == nullptr) {
+            continue;
+        }
+
+        auto conflictSet = mod->conflicts;
+
         // convert conflictSet to unordered set of strings
         unordered_set<std::wstring> conflictSetStr;
         for (const auto& conflict : conflictSet) {
