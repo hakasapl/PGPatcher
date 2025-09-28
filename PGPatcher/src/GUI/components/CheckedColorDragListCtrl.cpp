@@ -82,10 +82,10 @@ void CheckedColorDragListCtrl::check(long item, bool checked)
 
 void CheckedColorDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
 
-void CheckedColorDragListCtrl::moveItem(long fromIndex, long toIndex)
+auto CheckedColorDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
 {
     if (fromIndex == toIndex || fromIndex < 0 || fromIndex >= GetItemCount()) {
-        return;
+        return fromIndex;
     }
 
     // Capture item data
@@ -120,12 +120,14 @@ void CheckedColorDragListCtrl::moveItem(long fromIndex, long toIndex)
     // Fire a custom event
     const ItemDraggedEvent evt(GetId(), fromIndex, newIndex);
     wxPostEvent(this, evt);
+
+    return newIndex;
 }
 
-void CheckedColorDragListCtrl::moveItems(const std::vector<long>& fromIndices, long toIndex)
+auto CheckedColorDragListCtrl::moveItems(const std::vector<long>& fromIndices, long toIndex) -> vector<long>
 {
     if (fromIndices.empty() || toIndex < 0 || toIndex > GetItemCount()) {
-        return;
+        return fromIndices;
     }
 
     const bool movingDown = fromIndices.front() < toIndex;
@@ -137,6 +139,9 @@ void CheckedColorDragListCtrl::moveItems(const std::vector<long>& fromIndices, l
         std::ranges::sort(sortedIndices); // top > bottom
     }
 
+    // Map original index -> new index
+    std::unordered_map<long, long> indexMap;
+
     for (long i = 0; i < sortedIndices.size(); i++) {
         const long oldIndex = sortedIndices[i];
         long newIndex = toIndex;
@@ -147,8 +152,18 @@ void CheckedColorDragListCtrl::moveItems(const std::vector<long>& fromIndices, l
             newIndex += i; // shift up each subsequent item
         }
 
-        moveItem(oldIndex, newIndex);
+        long finalIndex = moveItem(oldIndex, newIndex);
+        indexMap[oldIndex] = finalIndex;
     }
+
+    // Return new indices in the **same order as fromIndices**
+    std::vector<long> newIndices;
+    newIndices.reserve(fromIndices.size());
+    for (long oldIdx : fromIndices) {
+        newIndices.push_back(indexMap[oldIdx]);
+    }
+
+    return newIndices;
 }
 
 void CheckedColorDragListCtrl::processCheckItem(long item, bool checked)
@@ -362,7 +377,12 @@ void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
             draggedIndices.push_back(row.index);
         }
 
-        moveItems(draggedIndices, m_targetLineIndex);
+        const auto newIdx = moveItems(draggedIndices, m_targetLineIndex);
+
+        // Re-select the moved items
+        for (const long idx : newIdx) {
+            SetItemState(idx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+        }
 
         // Fire custom event for the *last dragged item* (or the first, your choice)
         ItemDraggedEvent dragEvt(GetId(), draggedIndices.front(), m_targetLineIndex);

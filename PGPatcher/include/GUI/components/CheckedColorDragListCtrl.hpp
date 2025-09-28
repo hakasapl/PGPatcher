@@ -97,8 +97,8 @@ public:
     void check(long item, bool checked);
 
     void setCutoffLine(int index);
-    void moveItem(long fromIndex, long toIndex);
-    void moveItems(const std::vector<long>& fromIndices, long toIndex);
+    auto moveItem(long fromIndex, long toIndex) -> long;
+    auto moveItems(const std::vector<long>& fromIndices, long toIndex) -> std::vector<long>;
 
 private:
     /**
