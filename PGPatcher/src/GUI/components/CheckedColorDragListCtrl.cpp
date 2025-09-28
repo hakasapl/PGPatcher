@@ -9,8 +9,11 @@ using namespace std;
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
+wxDEFINE_EVENT(pgEVT_CCDLC_ITEM_DRAGGED, ItemDraggedEvent);
 auto ItemDraggedEvent::Clone() const -> wxEvent* { return new ItemDraggedEvent(*this); }
-wxDEFINE_EVENT(wxEVT_LIST_ITEM_DRAGGED, ItemDraggedEvent);
+
+wxDEFINE_EVENT(pgEVT_CCDLC_ITEM_CHECKED, ItemCheckedEvent);
+auto ItemCheckedEvent::Clone() const -> wxEvent* { return new ItemCheckedEvent(*this); }
 
 CheckedColorDragListCtrl::CheckedColorDragListCtrl(
     wxWindow* parent, wxWindowID id, const wxPoint& pt, const wxSize& sz, long style)
@@ -67,6 +70,11 @@ void CheckedColorDragListCtrl::check(long item, bool checked)
 {
     SetItemImage(item, checked ? 1 : 0);
     SetItemTextColour(item, checked ? *wxBLACK : *wxLIGHT_GREY);
+
+    // Fire a custom event
+    ItemCheckedEvent evt(GetId(), item, checked);
+    evt.SetEventObject(this);
+    wxPostEvent(GetParent(), evt);
 }
 
 void CheckedColorDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
@@ -330,6 +338,11 @@ void CheckedColorDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
         m_overlay.Reset(); // Clear the m_overlay when the drag operation is complete
 
         moveItems(m_draggedIndices, m_targetLineIndex);
+
+        // Fire custom event for the *last dragged item* (or the first, your choice)
+        ItemDraggedEvent dragEvt(GetId(), m_draggedIndices.front(), m_targetLineIndex);
+        dragEvt.SetEventObject(this);
+        wxPostEvent(GetParent(), dragEvt);
 
         // Reset drag state
         m_draggedIndices.clear();

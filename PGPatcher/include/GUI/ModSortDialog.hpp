@@ -22,6 +22,8 @@ class ModSortDialog : public wxDialog {
 private:
     CheckedColorDragListCtrl* m_listCtrl; /** Main list object that stores all the mods */
 
+    wxButton* m_applyButton; /** Apply button to save changes without closing the dialog */
+
     //
     // Item Highlighting
     //
@@ -60,12 +62,9 @@ private:
      */
     void onItemDeselected(wxListEvent& event);
 
-    /**
-     * @brief Event handler that triggers when the show disabled mods checkbox is toggled
-     *
-     * @param event wxWidgets event object
-     */
-    void onShowDisabledModsToggled(wxCommandEvent& event);
+    void onItemDragged(ItemDraggedEvent& event);
+
+    void onItemChecked(ItemCheckedEvent& event);
 
     /**
      * @brief Event handler that triggers when the list control is resized
@@ -116,4 +115,6 @@ private:
     void clearAllHighlights();
 
     void updateMods();
+
+    void updateApplyButtonState();
 };

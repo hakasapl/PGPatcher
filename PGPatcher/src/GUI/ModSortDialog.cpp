@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "GUI/ModSortDialog.hpp"
+#include "GUI/components/CheckedColorDragListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenHandlers.hpp"
@@ -26,6 +27,9 @@ ModSortDialog::ModSortDialog()
 
     m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
     m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
+
+    m_listCtrl->Bind(pgEVT_CCDLC_ITEM_DRAGGED, &ModSortDialog::onItemDragged, this);
+    m_listCtrl->Bind(pgEVT_CCDLC_ITEM_CHECKED, &ModSortDialog::onItemChecked, this);
 
     const auto mods = PGGlobals::getMMD()->getModsByPriority();
     bool foundCutoff = false;
@@ -98,17 +102,20 @@ ModSortDialog::ModSortDialog()
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
     // Add apply button
-    auto* applyButton = new wxButton(this, wxID_APPLY, "Apply");
-    buttonSizer->Add(applyButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, DEFAULT_BORDER);
-    applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
+    m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
+    buttonSizer->Add(m_applyButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, DEFAULT_BORDER);
+    m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
+
+    // Disable apply button by default
+    m_applyButton->Enable(false);
 
     // Add OK button
-    auto* okButton = new wxButton(this, wxID_OK, "OK");
+    auto* okButton = new wxButton(this, wxID_OK, "Okay");
     buttonSizer->Add(okButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, DEFAULT_BORDER);
     okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
 
     // Add to main sizer
-    mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, 0);
+    mainSizer->Add(buttonSizer, 0, wxALIGN_CENTER | wxALL, 0);
 
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
@@ -212,8 +219,6 @@ void ModSortDialog::highlightConflictingItems(const std::wstring& selectedMod)
     }
 }
 
-void ModSortDialog::onShowDisabledModsToggled(wxCommandEvent& event) { }
-
 void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
 {
     const int totalWidth = m_listCtrl->GetClientSize().GetWidth();
@@ -230,6 +235,18 @@ void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
     m_listCtrl->SetColumnWidth(0, col0Width);
 
     event.Skip(); // allow default processing
+}
+
+void ModSortDialog::onItemDragged(ItemDraggedEvent& event)
+{
+    updateApplyButtonState();
+    event.Skip();
+}
+
+void ModSortDialog::onItemChecked(ItemCheckedEvent& event)
+{
+    updateApplyButtonState();
+    event.Skip();
 }
 
 // HELPERS
@@ -278,6 +295,33 @@ void ModSortDialog::updateMods()
             mod->priority = static_cast<int>(itemCount - i);
         }
     }
+
+    updateApplyButtonState();
+}
+
+void ModSortDialog::updateApplyButtonState()
+{
+    bool btnState = false;
+
+    // loop through each element in the list ctrl and update the mod manager directory
+    auto* mmd = PGGlobals::getMMD();
+    const long itemCount = m_listCtrl->GetItemCount();
+    for (long i = 0; i < itemCount; ++i) {
+        const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
+        auto mod = mmd->getMod(modName);
+
+        if (mod->isEnabled != m_listCtrl->isChecked(i)) {
+            btnState = true;
+            break;
+        }
+
+        if (mod->isEnabled && mod->priority != static_cast<int>(itemCount - i)) {
+            btnState = true;
+            break;
+        }
+    }
+
+    m_applyButton->Enable(btnState);
 }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

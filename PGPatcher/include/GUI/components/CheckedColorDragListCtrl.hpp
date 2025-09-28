@@ -11,8 +11,12 @@
 #include <wx/sizer.h>
 #include <wx/wx.h>
 
+// Custom events
 class ItemDraggedEvent;
-wxDECLARE_EVENT(wxEVT_LIST_ITEM_DRAGGED, ItemDraggedEvent); // NOLINT(readability-identifier-naming)
+wxDECLARE_EVENT(pgEVT_CCDLC_ITEM_DRAGGED, ItemDraggedEvent); // NOLINT(readability-identifier-naming)
+
+class ItemCheckedEvent;
+wxDECLARE_EVENT(pgEVT_CCDLC_ITEM_CHECKED, ItemCheckedEvent); // NOLINT(readability-identifier-naming)
 
 class ItemDraggedEvent : public wxCommandEvent {
 private:
@@ -21,11 +25,36 @@ private:
 
 public:
     ItemDraggedEvent(long id = wxID_ANY, long item = -1, long pos = -1)
-        : wxCommandEvent(wxEVT_LIST_ITEM_DRAGGED, id)
+        : wxCommandEvent(pgEVT_CCDLC_ITEM_DRAGGED, id)
         , m_itemIndex(item)
         , m_newPosition(pos)
     {
     }
+
+    // Getters
+    [[nodiscard]] auto getItemIndex() const -> long { return m_itemIndex; }
+    [[nodiscard]] auto getNewPosition() const -> long { return m_newPosition; }
+
+    // Required for sending with wxPostEvent
+    [[nodiscard]] auto Clone() const -> wxEvent* override;
+};
+
+class ItemCheckedEvent : public wxCommandEvent {
+private:
+    long m_itemIndex;
+    bool m_checked;
+
+public:
+    ItemCheckedEvent(long id = wxID_ANY, long item = -1, bool checked = false)
+        : wxCommandEvent(pgEVT_CCDLC_ITEM_CHECKED, id)
+        , m_itemIndex(item)
+        , m_checked(checked)
+    {
+    }
+
+    // Getters
+    [[nodiscard]] auto getItemIndex() const -> long { return m_itemIndex; }
+    [[nodiscard]] auto isChecked() const -> bool { return m_checked; }
 
     // Required for sending with wxPostEvent
     [[nodiscard]] auto Clone() const -> wxEvent* override;
