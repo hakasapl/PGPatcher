@@ -29,10 +29,8 @@ public:
 
     /**
      * @brief Get the Params object (meant to be called after the user presses okay)
-     *
-     * @return ParallaxGenConfig::PGParams Gets the current parameters set by the user on the dialog
      */
-    [[nodiscard]] auto getParams() -> ParallaxGenConfig::PGParams;
+    void getParams(ParallaxGenConfig::PGParams& params);
 
 private:
     constexpr static int DEFAULT_WIDTH = 600;

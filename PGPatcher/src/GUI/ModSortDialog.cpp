@@ -5,6 +5,7 @@
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "PGPatcherGlobals.hpp"
 #include "ParallaxGenHandlers.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -19,6 +20,11 @@ ModSortDialog::ModSortDialog()
     : wxDialog(nullptr, wxID_ANY, "Set Mod Priority", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
           wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER)
 {
+    auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr) {
+        throw runtime_error("ParallaxGenConfig is null");
+    }
+
     // Main sizer for the window
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
@@ -42,6 +48,18 @@ ModSortDialog::ModSortDialog()
     static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where.";
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
+
+    // Add "Use MO2 Loose File Order" checkbox
+    if (pgc->getParams().ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+        // Only show checkbox for MO2 users
+        m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, "Lock to MO2 Loose File Order", wxDefaultPosition);
+        m_checkBoxMO2->SetToolTip("Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts "
+                                  "are not the same as loose file conflicts.");
+        m_checkBoxMO2->Bind(wxEVT_CHECKBOX, &ModSortDialog::onUseMO2LooseFileOrderChange, this);
+
+        // Add to main sizer
+        mainSizer->Add(m_checkBoxMO2, 0, wxALL, DEFAULT_BORDER);
+    }
 
     // FONT for rects
     wxFont rectFont = messageText->GetFont(); // start with current font
@@ -122,6 +140,10 @@ ModSortDialog::ModSortDialog()
     // Fill contents
     fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
 
+    // Set checkbox state based on current config
+    m_checkBoxMO2->SetValue(pgc->getParams().ModManager.mo2UseLooseFileOrder);
+    setMO2LooseFileOrderCheckboxState();
+
     // Calculate minimum width for each column
     const int col0Width = calculateColumnWidth(0);
     const int col1Width = calculateColumnWidth(1);
@@ -160,6 +182,12 @@ void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
 
 void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
 {
+    // Check if lock mo2 order is on
+    if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
+        // reset indices to MO2 state for enabled items
+        setMO2LooseFileOrderCheckboxState();
+    }
+
     updateApplyButtonState();
     event.Skip();
 }
@@ -215,11 +243,51 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
         "Are you sure you want to discard all changes?", "Confirm Discard Changes", wxYES_NO | wxICON_QUESTION, this);
 
     if (response == wxYES) {
-        fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
+        // restore checkbox state
+        auto* pgc = PGPatcherGlobals::getPGC();
+        if (pgc == nullptr) {
+            throw runtime_error("ParallaxGenConfig is null");
+        }
+
+        const auto currentParams = pgc->getParams();
+        if (m_checkBoxMO2 != nullptr) {
+            m_checkBoxMO2->SetValue(currentParams.ModManager.mo2UseLooseFileOrder);
+        }
+
+        if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
+            // If MO2 loose file order is checked, reset to that
+            fillListCtrl(PGGlobals::getMMD()->getModsByDefaultOrder(), false);
+        } else {
+            // Otherwise reset to current priority order
+            fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
+        }
     }
 }
 
+void ModSortDialog::onUseMO2LooseFileOrderChange(wxCommandEvent& event)
+{
+    setMO2LooseFileOrderCheckboxState();
+    updateApplyButtonState();
+
+    event.Skip();
+}
+
 // HELPERS
+
+void ModSortDialog::setMO2LooseFileOrderCheckboxState()
+{
+    if (m_checkBoxMO2 == nullptr) {
+        return;
+    }
+
+    const bool isChecked = m_checkBoxMO2->IsChecked();
+    if (isChecked) {
+        const auto modListByLooseOrder = PGGlobals::getMMD()->getModsByDefaultOrder();
+        fillListCtrl(modListByLooseOrder, false, true);
+    }
+
+    m_listCtrl->setDraggingEnabled(!isChecked);
+}
 
 auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
 {
@@ -333,16 +401,40 @@ void ModSortDialog::updateMods()
         }
     }
 
+    // save configs
+    auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr) {
+        throw runtime_error("ParallaxGenConfig is null");
+    }
+
+    pgc->saveModConfig();
+
+    auto currentParams = pgc->getParams();
+    currentParams.ModManager.mo2UseLooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
+    pgc->setParams(currentParams);
+    pgc->saveUserConfig();
+
     updateApplyButtonState();
 }
 
-void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable)
+void ModSortDialog::fillListCtrl(
+    const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable, bool preserveChecks)
 {
+    // get unordered set of currently checked mods if preserveChecks is true from existing list ctrl
+    std::unordered_set<std::wstring> currentlyCheckedMods;
+    if (preserveChecks) {
+        for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+            if (m_listCtrl->isChecked(i)) {
+                currentlyCheckedMods.insert(m_listCtrl->GetItemText(i).ToStdWstring());
+            }
+        }
+    }
+
     m_listCtrl->DeleteAllItems();
 
-    long listIdx = 0;
-
     std::vector<std::shared_ptr<ModManagerDirectory::Mod>> disabledMods;
+
+    long listIdx = 0;
 
     for (const auto& mod : modList) {
         const auto shaders = mod->shaders;
@@ -351,21 +443,32 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<ModManagerDir
             continue;
         }
 
-        if (!mod->isEnabled) {
-            bool modEnabled = false;
-
+        bool modEnabled = mod->isEnabled;
+        if (mod->isEnabled) {
+            // mod is enabled, check if it is currently checked
+            if (preserveChecks && !currentlyCheckedMods.contains(mod->name)) {
+                // mod was previously unchecked, so disable it
+                modEnabled = false;
+            }
+        } else {
             // see if we need to autoenable (max variant is greater than 1 which is NONE shader)
             if (autoEnable) {
-                const auto maxVariant = shaders.empty() ? 0 : static_cast<int>(*std::ranges::max_element(shaders));
-                if (maxVariant > 1) {
+                const bool hasNonNone = std::ranges::any_of(
+                    shaders, [](NIFUtil::ShapeShader s) -> bool { return s != NIFUtil::ShapeShader::NONE; });
+                if (hasNonNone) {
                     modEnabled = true;
                 }
             }
 
-            if (!modEnabled) {
-                disabledMods.push_back(mod);
-                continue;
+            // see if we need to preserve checks and if this mod was previously checked
+            if (preserveChecks && currentlyCheckedMods.contains(mod->name)) {
+                modEnabled = true;
             }
+        }
+
+        if (!modEnabled) {
+            disabledMods.push_back(mod);
+            continue;
         }
 
         // Anything past this point the mod is assumed to be enabled
@@ -442,6 +545,18 @@ void ModSortDialog::updateApplyButtonState()
             btnState = true;
             break;
         }
+    }
+
+    // Check any pgc settings
+    auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr) {
+        throw runtime_error("ParallaxGenConfig is null");
+    }
+
+    const auto currentParams = pgc->getParams();
+    const bool mo2LooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
+    if (currentParams.ModManager.mo2UseLooseFileOrder != mo2LooseFileOrder) {
+        btnState = true;
     }
 
     m_applyButton->Enable(btnState);

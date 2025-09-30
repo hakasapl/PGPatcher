@@ -2,6 +2,7 @@
 #include "ModManagerDirectory.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
+#include "PGPatcherGlobals.hpp"
 #include "ParallaxGen.hpp"
 #include "ParallaxGenConfig.hpp"
 #include "ParallaxGenD3D.hpp"
@@ -167,6 +168,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     auto pgc = ParallaxGenConfig();
     pgc.loadConfig();
 
+    PGPatcherGlobals::setPGC(&pgc);
+
     // Initialize UI
     ParallaxGenUI::init();
 
@@ -175,7 +178,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Show launcher UI
     if (!args.autostart) {
         Logger::info("Showing launcher UI");
-        params = ParallaxGenUI::showLauncher(pgc, cacheDir);
+        ParallaxGenUI::showLauncher(pgc, cacheDir, params);
     }
 
     // Validate config
@@ -402,10 +405,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         ParallaxGenUI::selectModOrder();
         startTime = chrono::high_resolution_clock::now();
     }
-
-    // save changes to mod priority
-    const auto modJSONSave = mmd.getJSON();
-    ParallaxGenUtil::saveJSON(modListFile, modJSONSave, true);
 
     // Patch meshes if set
     ParallaxGenWarnings::init();

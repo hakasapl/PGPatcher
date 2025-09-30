@@ -42,6 +42,17 @@ auto ParallaxGenConfig::getUserConfigFile() -> filesystem::path
     return userConfigFile;
 }
 
+auto ParallaxGenConfig::getModConfigFile() -> filesystem::path
+{
+    if (s_exePath.empty()) {
+        throw runtime_error("ExePath not set");
+    }
+
+    // Get mod config file
+    static const filesystem::path modConfigFile = s_exePath / "cfg" / "mods.json";
+    return modConfigFile;
+}
+
 auto ParallaxGenConfig::getDefaultParams() -> PGParams
 {
     PGParams outParams;
@@ -124,6 +135,9 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir")) {
             paramJ["modmanager"]["mo2instancedir"].get_to<filesystem::path>(m_params.ModManager.mo2InstanceDir);
+        }
+        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useloosefileorder")) {
+            paramJ["modmanager"]["mo2useloosefileorder"].get_to<bool>(m_params.ModManager.mo2UseLooseFileOrder);
         }
 
         // "output"
@@ -404,6 +418,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "modmanager"
     j["params"]["modmanager"]["type"] = m_params.ModManager.type;
     j["params"]["modmanager"]["mo2instancedir"] = utf16toUTF8(m_params.ModManager.mo2InstanceDir.wstring());
+    j["params"]["modmanager"]["mo2useloosefileorder"] = m_params.ModManager.mo2UseLooseFileOrder;
 
     // "output"
     j["params"]["output"]["dir"] = utf16toUTF8(m_params.Output.dir.wstring());
@@ -475,5 +490,30 @@ void ParallaxGenConfig::saveUserConfig()
         outFile.close();
     } catch (const exception& e) {
         spdlog::error("Failed to save user config: {}", e.what());
+    }
+}
+
+void ParallaxGenConfig::saveModConfig() const
+{
+    if (m_params.ModManager.type != ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+        // only save mod config for MO2
+        return;
+    }
+
+    // Mods
+    auto* mmd = PGGlobals::getMMD();
+    if (mmd == nullptr) {
+        return;
+    }
+
+    const auto j = mmd->getJSON();
+
+    // write to file
+    try {
+        ofstream outFile(getModConfigFile());
+        outFile << j.dump(2) << "\n";
+        outFile.close();
+    } catch (const exception& e) {
+        spdlog::error("Failed to save mod config: {}", e.what());
     }
 }

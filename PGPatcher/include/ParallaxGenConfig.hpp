@@ -32,6 +32,7 @@ public:
         struct ModManager {
             ModManagerDirectory::ModManagerType type = ModManagerDirectory::ModManagerType::NONE;
             std::filesystem::path mo2InstanceDir;
+            bool mo2UseLooseFileOrder = false;
 
             auto operator==(const ModManager& other) const -> bool
             {
@@ -198,6 +199,13 @@ public:
     [[nodiscard]] static auto getUserConfigFile() -> std::filesystem::path;
 
     /**
+     * @brief Get the Mod Config File object
+     *
+     * @return std::filesystem::path Path to mod config file
+     */
+    [[nodiscard]] static auto getModConfigFile() -> std::filesystem::path;
+
+    /**
      * @brief Loads the config files in the `cfg` folder
      */
     void loadConfig();
@@ -244,6 +252,11 @@ public:
      * @brief Saves user config to the user json file
      */
     void saveUserConfig();
+
+    /**
+     * @brief Saves the current mod configuration to mods.json
+     */
+    void saveModConfig() const;
 
 private:
     /**

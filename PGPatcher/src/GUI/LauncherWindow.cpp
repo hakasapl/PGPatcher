@@ -1,6 +1,7 @@
 #include "GUI/LauncherWindow.hpp"
 
 #include "ModManagerDirectory.hpp"
+#include "ParallaxGenConfig.hpp"
 #include "ParallaxGenHandlers.hpp"
 #include "ParallaxGenPlugin.hpp"
 
@@ -878,10 +879,8 @@ void LauncherWindow::onTextureRulesVanillaBSAListChange(wxListEvent& event)
     this->CallAfter([this]() { updateDisabledElements(); });
 }
 
-auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
+void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params)
 {
-    ParallaxGenConfig::PGParams params;
-
     // Game
     for (const auto& gameType : BethesdaGame::getGameTypes()) {
         if (m_gameTypeRadios[gameType]->GetValue()) {
@@ -983,8 +982,6 @@ auto LauncherWindow::getParams() -> ParallaxGenConfig::PGParams
             params.TextureRules.vanillaBSAList.push_back(itemText.ToStdWstring());
         }
     }
-
-    return params;
 }
 
 void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event)
@@ -1114,7 +1111,8 @@ void LauncherWindow::onListItemActivated(wxListEvent& event)
 
 void LauncherWindow::updateDisabledElements()
 {
-    const auto curParams = getParams();
+    ParallaxGenConfig::PGParams curParams = m_pgc.getParams();
+    getParams(curParams);
 
     // Upgrade parallax to CM rules
     if (curParams.ShaderTransforms.parallaxToCM) {
@@ -1189,7 +1187,8 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
 auto LauncherWindow::saveConfig() -> bool
 {
     vector<string> errors;
-    const auto params = getParams();
+    ParallaxGenConfig::PGParams params = m_pgc.getParams();
+    getParams(params);
 
     // Validate the parameters
     if (!ParallaxGenConfig::validateParams(params, errors)) {

@@ -85,14 +85,11 @@ void PGCheckedDragListCtrl::check(long item, bool checked)
 {
     SetItemImage(item, checked ? 1 : 0);
     SetItemTextColour(item, checked ? *wxBLACK : *wxLIGHT_GREY);
-
-    // Fire a custom event
-    PGCheckedDragListCtrlEvtItemChecked evt(GetId(), item, checked);
-    evt.SetEventObject(this);
-    wxPostEvent(this, evt);
 }
 
 void PGCheckedDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
+
+void PGCheckedDragListCtrl::setDraggingEnabled(bool enabled) { m_draggingEnabled = enabled; }
 
 // EVENT HANDLERS
 
@@ -117,7 +114,7 @@ void PGCheckedDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
     }
 
     // Clicked on the item part
-    if (event.LeftDown()) {
+    if (m_draggingEnabled && event.LeftDown()) {
         // Ignore items below cutoff
         if (m_cutoffLine >= 0 && item >= m_cutoffLine) {
             event.Skip();
@@ -324,10 +321,10 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     }
 
     // Disable move options if any selected item is below the cutoff line
-    const bool anyBelowCutoff
-        = std::ranges::any_of(selectedItems, [this](long idx) { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
-    menu.Enable(ID_MOVE_TOP, !anyBelowCutoff);
-    menu.Enable(ID_MOVE_BOTTOM, !anyBelowCutoff);
+    const bool anyBelowCutoff = std::ranges::any_of(
+        selectedItems, [this](long idx) -> bool { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
+    menu.Enable(ID_MOVE_TOP, !anyBelowCutoff && m_draggingEnabled);
+    menu.Enable(ID_MOVE_BOTTOM, !anyBelowCutoff && m_draggingEnabled);
 
     // Bind menu actions
     menu.Bind(
@@ -388,6 +385,11 @@ void PGCheckedDragListCtrl::processCheckItem(long item, bool checked)
             m_cutoffLine--;
         }
     }
+
+    // Fire a custom event
+    PGCheckedDragListCtrlEvtItemChecked evt(GetId(), item, checked);
+    evt.SetEventObject(this);
+    wxPostEvent(this, evt);
 }
 
 void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items, bool checked)

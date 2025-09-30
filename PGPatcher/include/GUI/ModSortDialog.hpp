@@ -27,6 +27,7 @@ private:
     PGCheckedDragListCtrl* m_listCtrl; /** Main list object that stores all the mods */
 
     wxButton* m_applyButton; /** Apply button to save changes without closing the dialog */
+    wxCheckBox* m_checkBoxMO2; /** Checkbox to use MO2 loose file order */
 
     std::unordered_map<std::wstring, wxColour>
         m_originalBackgroundColors; /** Stores the original highlight of elements to be able to restore it later */
@@ -121,7 +122,19 @@ private:
      */
     void onDiscardChanges(wxCommandEvent& event);
 
+    /**
+     * @brief Event handler that triggers when the "Use MO2 Loose File Order" checkbox is changed
+     *
+     * @param event wxWidgets event object
+     */
+    void onUseMO2LooseFileOrderChange(wxCommandEvent& event);
+
     // Helpers
+
+    /**
+     * @brief Sets the state of the "Use MO2 Loose File Order" checkbox based on whether MO2 is being used
+     */
+    void setMO2LooseFileOrderCheckboxState();
 
     /**
      * @brief Calculates the width of a column in the list
@@ -152,7 +165,8 @@ private:
      * @param modList List of mods to fill the list control with
      * @param autoEnable If true, will autoenable any disabled mods that have shaders other than NONE
      */
-    void fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable = false);
+    void fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable = false,
+        bool preserveChecks = false);
 
     /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes

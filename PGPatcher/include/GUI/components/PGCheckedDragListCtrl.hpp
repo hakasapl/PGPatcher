@@ -10,6 +10,8 @@ class PGCheckedDragListCtrl : public wxListCtrl {
 private:
     wxImageList* m_imagelist; /** Image list for checkboxes */
 
+    bool m_draggingEnabled = true; /** True if user can drag, false otherwise */
+
     wxTimer m_autoscrollTimer; /** Timer that is responsible for autoscroll */
     static constexpr int AUTOSCROLL_TIMER_INTERVAL = 250; /** Scroll every this amount in ms when autoscrolling */
 
@@ -68,6 +70,13 @@ public:
      * @param index index of the cutoff line (-1 to disable cutoff)
      */
     void setCutoffLine(int index);
+
+    /**
+     * @brief Set the Dragging Enabled object
+     *
+     * @param enabled true to enable dragging, false to disable
+     */
+    void setDraggingEnabled(bool enabled);
 
 private:
     // Event Handlers

@@ -29,19 +29,16 @@ void ParallaxGenUI::init()
     }
 }
 
-auto ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc, const std::filesystem::path& cacheDir)
-    -> ParallaxGenConfig::PGParams
+void ParallaxGenUI::showLauncher(
+    ParallaxGenConfig& pgc, const std::filesystem::path& cacheDir, ParallaxGenConfig::PGParams& params)
 {
     auto* launcher = new LauncherWindow(pgc, cacheDir); // NOLINT(cppcoreguidelines-owning-memory)
-    if (launcher->ShowModal() == wxID_OK) {
-        return launcher->getParams();
-    }
-
-    return {};
+    launcher->ShowModal();
+    launcher->getParams(params);
 }
 
 void ParallaxGenUI::selectModOrder()
 {
     ModSortDialog dialog;
-    if (dialog.ShowModal() == wxID_OK) { }
+    dialog.ShowModal();
 }

@@ -11,6 +11,7 @@ set (HEADERS
     "include/ParallaxGenConfig.hpp"
     "include/ParallaxGenUI.hpp"
     "include/ParallaxGenHandlers.hpp"
+    "include/PGPatcherGlobals.hpp"
     "include/GUI/LauncherWindow.hpp"
     "include/GUI/ModSortDialog.hpp"
     "include/GUI/components/PGCheckedDragListCtrl.hpp"
@@ -22,6 +23,7 @@ set (HEADERS
 set(SOURCES
     "src/ParallaxGenConfig.cpp"
     "src/ParallaxGenUI.cpp"
+    "src/PGPatcherGlobals.cpp"
     "src/GUI/LauncherWindow.cpp"
     "src/GUI/ModSortDialog.cpp"
     "src/GUI/components/PGCheckedDragListCtrl.cpp"
