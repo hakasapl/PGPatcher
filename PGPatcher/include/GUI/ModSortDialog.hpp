@@ -27,6 +27,8 @@ private:
     PGCheckedDragListCtrl* m_listCtrl; /** Main list object that stores all the mods */
 
     wxButton* m_applyButton; /** Apply button to save changes without closing the dialog */
+    wxButton* m_discardButton; /** Discard changes button to revert to last saved state */
+    wxButton* m_restoreButton; /** Restore default order button */
     wxCheckBox* m_checkBoxMO2; /** Checkbox to use MO2 loose file order */
 
     std::unordered_map<std::wstring, wxColour>

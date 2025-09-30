@@ -107,19 +107,22 @@ ModSortDialog::ModSortDialog()
     static constexpr int BOTTOM_BUTTON_SPACING = 8;
 
     // Add "Restore to Default Order" button
-    auto* restoreButton = new wxButton(this, wxID_ANY, "Restore PGPatcher Defaults");
-    buttonSizer->Add(restoreButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
-    restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
-    restoreButton->SetToolTip("For MO2 default order is your loose file order. For vortex default order is by shader, "
-                              "then by name alphabetically.");
-
-    // Add discard changes button
-    auto* discardButton = new wxButton(this, wxID_ANY, "Discard Changes");
-    buttonSizer->Add(discardButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
-    discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
+    m_restoreButton = new wxButton(this, wxID_ANY, "Restore Default Order");
+    buttonSizer->Add(m_restoreButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    m_restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
+    m_restoreButton->SetToolTip(
+        "For MO2 default order is your loose file order. For vortex default order is by shader, "
+        "then by name alphabetically.");
 
     // Add stretchable space
     buttonSizer->AddStretchSpacer(1);
+
+    // Add discard changes button
+    m_discardButton = new wxButton(this, wxID_ANY, "Discard Changes");
+    buttonSizer->Add(m_discardButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    m_discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
+
+    m_discardButton->Enable(false);
 
     // Add apply button
     m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
@@ -284,6 +287,12 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
     if (isChecked) {
         const auto modListByLooseOrder = PGGlobals::getMMD()->getModsByDefaultOrder();
         fillListCtrl(modListByLooseOrder, false, true);
+
+        // disable restore order button
+        m_restoreButton->Enable(false);
+    } else {
+        // enable restore order button
+        m_restoreButton->Enable(true);
     }
 
     m_listCtrl->setDraggingEnabled(!isChecked);
@@ -560,6 +569,7 @@ void ModSortDialog::updateApplyButtonState()
     }
 
     m_applyButton->Enable(btnState);
+    m_discardButton->Enable(btnState);
 }
 
 auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString
