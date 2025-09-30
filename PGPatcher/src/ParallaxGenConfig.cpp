@@ -476,7 +476,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     return j;
 }
 
-void ParallaxGenConfig::saveUserConfig()
+auto ParallaxGenConfig::saveUserConfig() -> bool
 {
     const auto j = getUserConfigJSON();
 
@@ -490,20 +490,18 @@ void ParallaxGenConfig::saveUserConfig()
         outFile.close();
     } catch (const exception& e) {
         spdlog::error("Failed to save user config: {}", e.what());
+        return false;
     }
+
+    return true;
 }
 
-void ParallaxGenConfig::saveModConfig() const
+auto ParallaxGenConfig::saveModConfig() -> bool
 {
-    if (m_params.ModManager.type != ModManagerDirectory::ModManagerType::MODORGANIZER2) {
-        // only save mod config for MO2
-        return;
-    }
-
     // Mods
     auto* mmd = PGGlobals::getMMD();
     if (mmd == nullptr) {
-        return;
+        throw runtime_error("Mod Manager Directory not set");
     }
 
     const auto j = mmd->getJSON();
@@ -515,5 +513,8 @@ void ParallaxGenConfig::saveModConfig() const
         outFile.close();
     } catch (const exception& e) {
         spdlog::error("Failed to save mod config: {}", e.what());
+        return false;
     }
+
+    return true;
 }

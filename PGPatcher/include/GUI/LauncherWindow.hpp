@@ -29,8 +29,10 @@ public:
 
     /**
      * @brief Get the Params object (meant to be called after the user presses okay)
+     *
+     * @param params Reference to PGParams object to fill
      */
-    void getParams(ParallaxGenConfig::PGParams& params);
+    void getParams(ParallaxGenConfig::PGParams& params) const;
 
 private:
     constexpr static int DEFAULT_WIDTH = 600;

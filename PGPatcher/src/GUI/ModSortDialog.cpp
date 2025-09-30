@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <unordered_set>
 #include <wx/arrstr.h>
 
 #include "GUI/ModSortDialog.hpp"
@@ -144,7 +145,9 @@ ModSortDialog::ModSortDialog()
     fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
 
     // Set checkbox state based on current config
-    m_checkBoxMO2->SetValue(pgc->getParams().ModManager.mo2UseLooseFileOrder);
+    if (m_checkBoxMO2 != nullptr) {
+        m_checkBoxMO2->SetValue(pgc->getParams().ModManager.mo2UseLooseFileOrder);
+    }
     setMO2LooseFileOrderCheckboxState();
 
     // Calculate minimum width for each column
@@ -416,12 +419,18 @@ void ModSortDialog::updateMods()
         throw runtime_error("ParallaxGenConfig is null");
     }
 
-    pgc->saveModConfig();
+    if (!ParallaxGenConfig::saveModConfig()) {
+        // critical dialog
+        wxMessageBox("Failed to save mod configuration to mods.json", "Error", wxOK | wxICON_ERROR, this);
+    }
 
     auto currentParams = pgc->getParams();
     currentParams.ModManager.mo2UseLooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
     pgc->setParams(currentParams);
-    pgc->saveUserConfig();
+    if (!pgc->saveUserConfig()) {
+        // critical dialog
+        wxMessageBox("Failed to save user configuration to user.json", "Error", wxOK | wxICON_ERROR, this);
+    }
 
     updateApplyButtonState();
 }

@@ -879,11 +879,11 @@ void LauncherWindow::onTextureRulesVanillaBSAListChange(wxListEvent& event)
     this->CallAfter([this]() { updateDisabledElements(); });
 }
 
-void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params)
+void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
 {
     // Game
     for (const auto& gameType : BethesdaGame::getGameTypes()) {
-        if (m_gameTypeRadios[gameType]->GetValue()) {
+        if (m_gameTypeRadios.at(gameType)->GetValue()) {
             params.Game.type = gameType;
             break;
         }
@@ -892,7 +892,7 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params)
 
     // Mod Manager
     for (const auto& mmType : ModManagerDirectory::getModManagerTypes()) {
-        if (m_modManagerRadios[mmType]->GetValue()) {
+        if (m_modManagerRadios.at(mmType)->GetValue()) {
             params.ModManager.type = mmType;
             break;
         }

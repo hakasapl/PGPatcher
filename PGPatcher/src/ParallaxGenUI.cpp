@@ -33,8 +33,9 @@ void ParallaxGenUI::showLauncher(
     ParallaxGenConfig& pgc, const std::filesystem::path& cacheDir, ParallaxGenConfig::PGParams& params)
 {
     auto* launcher = new LauncherWindow(pgc, cacheDir); // NOLINT(cppcoreguidelines-owning-memory)
-    launcher->ShowModal();
-    launcher->getParams(params);
+    if (launcher->ShowModal() == wxID_OK) {
+        launcher->getParams(params);
+    }
 }
 
 void ParallaxGenUI::selectModOrder()

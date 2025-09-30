@@ -250,13 +250,17 @@ public:
 
     /**
      * @brief Saves user config to the user json file
+     *
+     * @return true if save was successful
      */
-    void saveUserConfig();
+    auto saveUserConfig() -> bool;
 
     /**
      * @brief Saves the current mod configuration to mods.json
+     *
+     * @return true if save was successful
      */
-    void saveModConfig() const;
+    static auto saveModConfig() -> bool;
 
 private:
     /**
