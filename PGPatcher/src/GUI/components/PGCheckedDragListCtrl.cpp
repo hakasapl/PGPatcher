@@ -473,14 +473,14 @@ auto PGCheckedDragListCtrl::moveItems(const std::vector<long>& fromIndices, long
     // Map original index -> new index
     std::unordered_map<long, long> indexMap;
 
-    for (long i = 0; i < sortedIndices.size(); i++) {
+    for (size_t i = 0; i < sortedIndices.size(); i++) {
         const long oldIndex = sortedIndices[i];
         long newIndex = toIndex;
 
         if (movingDown) {
-            newIndex -= i; // shift down each subsequent item
+            newIndex -= static_cast<long>(i); // shift down each subsequent item
         } else {
-            newIndex += i; // shift up each subsequent item
+            newIndex += static_cast<long>(i); // shift up each subsequent item
         }
 
         const long finalIndex = moveItem(oldIndex, newIndex);

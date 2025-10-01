@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ParallaxGenConfig.hpp"
-#include <sys/stat.h>
 
 class PGPatcherGlobals {
 private:
