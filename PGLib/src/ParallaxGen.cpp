@@ -483,10 +483,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const nifly::
     // The idea is to sort results by model record because we want to check each model record later
     unordered_map<int, unordered_map<int, ParallaxGenPlugin::TXSTResult>> recordHandleTracker;
 
-    if (boost::icontains(nifPath.string(), "mountaintrim02.nif")) {
-        spdlog::info("HERE");
-    }
-
     for (const auto& [nifShape, oldIndex3D] : shapes) {
         if (nifShape == nullptr) {
             // Skip if shape is null (invalid shapes)
