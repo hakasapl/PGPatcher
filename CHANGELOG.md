@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0] - UNRELEASED
+
+- Redesigned mod priority window
+- Vanilla/default mods can now be prioritized over extended material mods
+- Mods can now be disabled such that assets from them are not used for patching your load order
+- "Use MO2 Loose File Order" option is now in the mod sort dialog
+
 ## [0.8.13] - 2025-07-04
 
 - Added Particle Effect Light prepatcher for CS (similar to CS particle patch)

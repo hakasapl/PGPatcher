@@ -7,67 +7,54 @@
 #include <wx/listctrl.h>
 #include <wx/msw/textctrl.h>
 #include <wx/overlay.h>
+#include <wx/renderer.h>
 #include <wx/sizer.h>
 #include <wx/wx.h>
 
+#include <set>
 #include <string>
-#include <unordered_set>
-#include <vector>
+#include <unordered_map>
+
+#include "GUI/components/PGCheckedDragListCtrl.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
+#include "ModManagerDirectory.hpp"
 
 /**
  * @brief wxDialog that allows the user to sort the mods in the order they want
  */
 class ModSortDialog : public wxDialog {
 private:
-    wxListCtrl* m_listCtrl; /** Main list object that stores all the mods */
-    wxTimer m_scrollTimer; /** Timer that is responsible for autoscroll */
-    int m_listCtrlHeaderHeight = 0; /** Stores list ctrl header height for use in autoscroll */
+    PGCheckedDragListCtrl* m_listCtrl = nullptr; /** Main list object that stores all the mods */
 
-    //
-    // Item Highlighting
-    //
-    std::unordered_map<std::wstring, std::unordered_set<std::wstring>>
-        m_conflictsMap; /** Stores the conflicts for each mod for highlighting */
+    wxButton* m_applyButton = nullptr; /** Apply button to save changes without closing the dialog */
+    wxButton* m_discardButton = nullptr; /** Discard changes button to revert to last saved state */
+    wxButton* m_restoreButton = nullptr; /** Restore default order button */
+    wxCheckBox* m_checkBoxMO2 = nullptr; /** Checkbox to use MO2 loose file order */
+
     std::unordered_map<std::wstring, wxColour>
         m_originalBackgroundColors; /** Stores the original highlight of elements to be able to restore it later */
 
-    //
-    // Dragging
-    //
-    int m_targetLineIndex = -1; /** Stores the index of the element where an element is being dropped */
-    std::vector<long> m_draggedIndices; /** Stores the indices being dragged in the case of multi selection */
-    wxOverlay m_overlay; /** Overlay used to paint guide lines for dragging */
-
-    bool m_sortAscending; /** Stores whether the list is in asc or desc order */
-
-    constexpr static int DEFAULT_WIDTH = 300;
+    constexpr static int DEFAULT_WIDTH = 600;
     constexpr static int DEFAULT_HEIGHT = 600;
+    constexpr static int MIN_WIDTH = 600;
     constexpr static int MIN_HEIGHT = 400;
     constexpr static int DEFAULT_PADDING = 20;
     constexpr static int DEFAULT_BORDER = 10;
-    constexpr static int TIMER_INTERVAL = 250;
+
+    static inline const wxColour s_NEW_MOD_COLOR { 243, 230, 255 };
+    static inline const wxColour s_LOSING_MOD_COLOR { 255, 102, 102 };
+    static inline const wxColour s_WINNING_MOD_COLOR { 204, 255, 102 };
 
 public:
     /**
      * @brief Construct a new Mod Sort Dialog object
-     *
-     * @param mods vector of mod strings
-     * @param shaders vector of shader strings
-     * @param isNew vector of bools indicating whether each mod is new or not (for highlighting)
-     * @param conflicts map that stores mod conflicts for highlighting
      */
-    ModSortDialog(const std::vector<std::wstring>& mods, const std::vector<std::wstring>& shaders,
-        const std::vector<bool>& isNew,
-        const std::unordered_map<std::wstring, std::unordered_set<std::wstring>>& conflicts);
-
-    /**
-     * @brief Get the list of sorted mods (meant to be called after the user presses okay)
-     *
-     * @return std::vector<std::wstring> list of sorted mods
-     */
-    [[nodiscard]] auto getSortedItems() const -> std::vector<std::wstring>;
+    ModSortDialog();
 
 private:
+    // Event Handlers
+
     /**
      * @brief Event handler that triggers when an item is selected in the list (highlighting)
      *
@@ -83,53 +70,74 @@ private:
     void onItemDeselected(wxListEvent& event);
 
     /**
-     * @brief Event handler that triggers when the left mouse button is pressed down (dragging)
+     * @brief Event handler that triggers when an item is dragged in the list
      *
      * @param event wxWidgets event object
      */
-    void onMouseLeftDown(wxMouseEvent& event);
+    void onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event);
 
     /**
-     * @brief Event handler that triggers when the mouse is moved (dragging)
+     * @brief Event handler that triggers when an item is checked/unchecked in the list
      *
      * @param event wxWidgets event object
      */
-    void onMouseMotion(wxMouseEvent& event);
+    void onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event);
 
     /**
-     * @brief Event handler that triggers when the left mouse button is released (dragging)
+     * @brief Event handler that triggers when the list control is resized
      *
      * @param event wxWidgets event object
      */
-    void onMouseLeftUp(wxMouseEvent& event);
+    void onListCtrlResize(wxSizeEvent& event);
 
     /**
-     * @brief Event handler that triggers when a column is clicked (changing from asc to desc order)
-     *
-     * @param event wxWidgets event object
-     */
-    void onColumnClick(wxListEvent& event);
-
-    /**
-     * @brief Event handler that triggers from timer for autoscrolling while dragging
-     *
-     * @param event wxWidgets event object
-     */
-    void onTimer(wxTimerEvent& event);
-
-    /**
-     * @brief Resets indices for the list after drag or sort
+     * @brief Close event handler
      *
      * @param event wxWidgets event object
      */
     void onClose(wxCloseEvent& event);
 
     /**
-     * @brief Get the Header Height for positioning
+     * @brief Event handler that triggers when the OK button is pressed
      *
-     * @return int Header height
+     * @param event wxWidgets event object
      */
-    auto getHeaderHeight() -> int;
+    void onOkay(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the Apply button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onApply(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the Restore Default button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onRestoreDefault(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the Discard Changes button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onDiscardChanges(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the "Use MO2 Loose File Order" checkbox is changed
+     *
+     * @param event wxWidgets event object
+     */
+    void onUseMO2LooseFileOrderChange(wxCommandEvent& event);
+
+    // Helpers
+
+    /**
+     * @brief Sets the state of the "Use MO2 Loose File Order" checkbox based on whether MO2 is being used
+     */
+    void setMO2LooseFileOrderCheckboxState();
 
     /**
      * @brief Calculates the width of a column in the list
@@ -141,10 +149,8 @@ private:
 
     /**
      * @brief Highlights the conflicting items for a selected mod
-     *
-     * @param selectedMod Mod that is selected
      */
-    void highlightConflictingItems(const std::wstring& selectedMod);
+    void highlightConflictingItems();
 
     /**
      * @brief Clear all yellow highlights from the list
@@ -152,19 +158,29 @@ private:
     void clearAllHighlights();
 
     /**
-     * @brief Draws a drop indicator during drag and drop
+     * @brief Updates the mods in the ModManagerDirectory based on the current state of the list control
+     */
+    void updateMods();
+
+    /**
+     * @brief Fills the list control with the given mod list
      *
-     * @param targetIndex Index of the target drop item
+     * @param modList List of mods to fill the list control with
+     * @param autoEnable If true, will autoenable any disabled mods that have shaders other than NONE
      */
-    void drawDropIndicator(int targetIndex);
+    void fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable = false,
+        bool preserveChecks = false);
 
     /**
-     * @brief Resets indices for the list after drag or sort
+     * @brief Enables or disables the apply button based on whether there are unsaved changes
      */
-    void resetIndices();
+    void updateApplyButtonState();
 
     /**
-     * @brief Reverses the order of the list
+     * @brief Constructs a comma-separated string of shader names from a set of ShapeShader enums
+     *
+     * @param shaders Set of ShapeShader enums
+     * @return wxString Comma-separated string of shader names
      */
-    void reverseListOrder();
+    static auto constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString;
 };

@@ -29,6 +29,7 @@ public:
         std::shared_mutex mutex; // Mutex for the mod, anyone modifying the mod should lock this mutex
         std::wstring name;
         bool isNew = false;
+        bool isEnabled = false;
         int modManagerOrder;
         int priority = -1;
         std::set<NIFUtil::ShapeShader> shaders;
@@ -59,6 +60,8 @@ public:
     [[nodiscard]] auto getModFileMap() const -> const std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>>&;
     [[nodiscard]] auto getModByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
     [[nodiscard]] auto getMods() const -> std::vector<std::shared_ptr<Mod>>;
+    [[nodiscard]] auto getModsByPriority() const -> std::vector<std::shared_ptr<Mod>>;
+    [[nodiscard]] auto getModsByDefaultOrder() const -> std::vector<std::shared_ptr<Mod>>;
     [[nodiscard]] auto getMod(const std::wstring& modName) const -> std::shared_ptr<Mod>;
 
     void loadJSON(const nlohmann::json& json);
@@ -69,16 +72,19 @@ public:
     static auto getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType;
     static auto getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring;
 
-    void populateModFileMapMO2(
-        const std::filesystem::path& instanceDir, const std::filesystem::path& outputDir, const bool& useMO2Order);
+    void populateModFileMapMO2(const std::filesystem::path& instanceDir, const std::filesystem::path& outputDir);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
     // Helpers
     [[nodiscard]] static auto getModManagerTypes() -> std::vector<ModManagerType>;
     [[nodiscard]] static auto getStrFromModManagerType(const ModManagerType& type) -> std::string;
     [[nodiscard]] static auto getModManagerTypeFromStr(const std::string& type) -> ModManagerType;
+    void assignNewModPriorities() const;
 
 private:
+    [[nodiscard]] static auto compareMods(
+        const std::shared_ptr<Mod>& a, const std::shared_ptr<Mod>& b, bool checkPriority = true) -> bool;
+
     static auto getMO2INIField(const std::filesystem::path& instanceDir, const std::string& fieldName,
         const bool& isByteArray = false) -> std::wstring;
 

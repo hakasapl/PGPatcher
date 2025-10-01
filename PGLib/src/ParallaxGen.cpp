@@ -334,6 +334,25 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
         // find matches
         const auto matches = PatcherUtil::getMatches(textureSet.second, patcherObjects, true);
 
+        // loop through matches
+        for (const auto& match : matches) {
+            if (match.mod == nullptr) {
+                continue;
+            }
+
+            if (match.shader == NIFUtil::ShapeShader::NONE) {
+                // this is a default match, so we don't auto enable
+                continue;
+            }
+
+            // enable mod
+            const unique_lock<shared_mutex> uniqueLock(match.mod->mutex);
+            if (match.mod->isNew && !match.mod->isEnabled) {
+                // we only care to auto enable NEW mods in the list
+                match.mod->isEnabled = true;
+            }
+        }
+
         if (patchPlugin) {
             ParallaxGenPlugin::processShape(nifPath.wstring(), patcherObjects, textureSet.first, true);
         }

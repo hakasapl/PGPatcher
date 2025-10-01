@@ -1,7 +1,14 @@
 #include <algorithm>
+#include <unordered_set>
+#include <wx/arrstr.h>
 
 #include "GUI/ModSortDialog.hpp"
+#include "GUI/components/PGCheckedDragListCtrl.hpp"
+#include "ModManagerDirectory.hpp"
+#include "PGGlobals.hpp"
+#include "PGPatcherGlobals.hpp"
 #include "ParallaxGenHandlers.hpp"
+#include "util/NIFUtil.hpp"
 
 using namespace std;
 
@@ -10,397 +17,305 @@ using namespace std;
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 // class ModSortDialog
-ModSortDialog::ModSortDialog(const std::vector<std::wstring>& mods, const std::vector<std::wstring>& shaders,
-    const std::vector<bool>& isNew, const std::unordered_map<std::wstring, std::unordered_set<std::wstring>>& conflicts)
+ModSortDialog::ModSortDialog()
     : wxDialog(nullptr, wxID_ANY, "Set Mod Priority", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
           wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER)
-    , m_scrollTimer(this)
-    , m_conflictsMap(conflicts)
-    , m_sortAscending(true)
 {
-    Bind(wxEVT_TIMER, &ModSortDialog::onTimer, this, m_scrollTimer.GetId());
-
-    auto* mainSizer = new wxBoxSizer(wxVERTICAL);
-    // Create the m_listCtrl
-    m_listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxLC_REPORT);
-    m_listCtrl->InsertColumn(0, "Mod");
-    m_listCtrl->InsertColumn(1, "Shader");
-    m_listCtrl->InsertColumn(2, "Priority");
-
-    m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
-    m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
-    m_listCtrl->Bind(wxEVT_LIST_COL_CLICK, &ModSortDialog::onColumnClick, this);
-
-    m_listCtrl->Bind(wxEVT_LEFT_DOWN, &ModSortDialog::onMouseLeftDown, this);
-    m_listCtrl->Bind(wxEVT_MOTION, &ModSortDialog::onMouseMotion, this);
-    m_listCtrl->Bind(wxEVT_LEFT_UP, &ModSortDialog::onMouseLeftUp, this);
-
-    // Add items to m_listCtrl and highlight specific ones
-    for (size_t i = 0; i < mods.size(); ++i) {
-        const long index = m_listCtrl->InsertItem(static_cast<long>(i), mods[i]);
-        m_listCtrl->SetItem(index, 1, shaders[i]);
-        m_listCtrl->SetItem(index, 2, std::to_string(i));
-        if (isNew[i]) {
-            m_listCtrl->SetItemBackgroundColour(index, *wxGREEN); // Highlight color
-            m_originalBackgroundColors[mods[i]] = *wxGREEN; // Store the original color using the mod name
-        } else {
-            m_originalBackgroundColors[mods[i]] = *wxWHITE; // Store the original color using the mod name
-        }
+    auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr) {
+        throw runtime_error("ParallaxGenConfig is null");
     }
 
-    // Calculate minimum width for each column
-    const int col1Width = calculateColumnWidth(0);
-    m_listCtrl->SetColumnWidth(0, col1Width);
-    const int col2Width = calculateColumnWidth(1);
-    m_listCtrl->SetColumnWidth(1, col2Width);
-    const int col3Width = calculateColumnWidth(2);
-    m_listCtrl->SetColumnWidth(2, col3Width);
+    // Main sizer for the window
+    auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
-    const int totalWidth = col1Width + col2Width + col3Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
+    // Create the m_listCtrl
+    m_listCtrl = new PGCheckedDragListCtrl(
+        this, wxID_ANY, wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxLC_REPORT);
+    m_listCtrl->InsertColumn(0, "Mod");
+    m_listCtrl->InsertColumn(1, "Shader");
 
-    // Add wrapped message at the top
-    static const std::wstring message
-        = L"The following mods have been detected as potential conflicts. Please set the "
-          L"priority order for these mods. Mods that are highlighted in green are new mods "
-          L"that do not exist in the saved order and may need to be sorted. Mods "
-          L"highlighted in yellow conflict with the currently selected mod. Higher "
-          L"priority mods win over lower priority mods, where priority refers to the 3rd "
-          L"column. (For example priority 10 would win over priority 1)";
-    // Create the wxStaticText and set wrapping
-    auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    messageText->Wrap(totalWidth - (DEFAULT_PADDING * 2)); // Adjust wrapping width
+    // Listctrl events
+    m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
+    m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
 
-    // Let wxWidgets automatically calculate the best height based on wrapped text
-    messageText->SetMinSize(wxSize(totalWidth - (DEFAULT_PADDING * 2), messageText->GetBestSize().y));
+    m_listCtrl->Bind(pgEVT_CDLC_ITEM_DRAGGED, &ModSortDialog::onItemDragged, this);
+    m_listCtrl->Bind(pgEVT_CDLC_ITEM_CHECKED, &ModSortDialog::onItemChecked, this);
 
-    // Add the static text to the main sizer
-    mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
+    m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
 
-    // Adjust dialog width to match the total width of columns and padding
-    SetSizeHints(totalWidth, DEFAULT_HEIGHT, totalWidth, wxDefaultCoord); // Adjust minimum width and height
-    SetSize(totalWidth, DEFAULT_HEIGHT); // Set dialog size
-
-    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
-
-    // Add OK button
-    auto* okButton = new wxButton(this, wxID_OK, "OK");
-    mainSizer->Add(okButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, DEFAULT_BORDER);
+    // Global events
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
-    SetSizer(mainSizer);
+    // Add message at the top
+    const wxString message = "Please sort your mods to determine what mod PG uses to patch meshes where.";
+    auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
 
-    m_listCtrlHeaderHeight = getHeaderHeight();
+    // Add "Use MO2 Loose File Order" checkbox
+    if (pgc->getParams().ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+        // Only show checkbox for MO2 users
+        m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, "Lock to MO2 Loose File Order", wxDefaultPosition);
+        m_checkBoxMO2->SetToolTip("Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts "
+                                  "are not the same as loose file conflicts.");
+        m_checkBoxMO2->Bind(wxEVT_CHECKBOX, &ModSortDialog::onUseMO2LooseFileOrderChange, this);
+
+        // Add to main sizer
+        mainSizer->Add(m_checkBoxMO2, 0, wxALL, DEFAULT_BORDER);
+    }
+
+    // FONT for rects
+    wxFont rectFont = GetFont(); // start with current font
+    static constexpr int RECT_LABEL_FONT_SIZE = 20;
+    rectFont.SetPointSize(RECT_LABEL_FONT_SIZE); // increase by 4 points
+    rectFont.SetWeight(wxFONTWEIGHT_BOLD);
+
+    // TOP RECTANGLE
+    auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+    topPanel->SetBackgroundColour(*wxGREEN);
+    auto* topLabel
+        = new wxStaticText(topPanel, wxID_ANY, "Winning Mods", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+    topLabel->SetFont(rectFont);
+
+    // Use a box sizer to center the text in the panel
+    auto* topSizer = new wxBoxSizer(wxHORIZONTAL);
+    topSizer->Add(topLabel, 1, wxALIGN_CENTER | wxALL, 2);
+    topPanel->SetSizer(topSizer);
+
+    // Add top rectangle to main sizer
+    mainSizer->Add(topPanel, 0, wxEXPAND | wxBOTTOM, 0); // No bottom border so it touches the list
+
+    // Add List control
+    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, 0);
+
+    // BOTTOM RECTANGLE
+    auto* bottomPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+    bottomPanel->SetBackgroundColour(*wxRED);
+    auto* bottomLabel
+        = new wxStaticText(bottomPanel, wxID_ANY, "Losing Mods", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+
+    bottomLabel->SetFont(rectFont);
+
+    // Center the text in the panel
+    auto* bottomSizer = new wxBoxSizer(wxHORIZONTAL);
+    bottomSizer->Add(bottomLabel, 1, wxALIGN_CENTER | wxALL, 2);
+    bottomPanel->SetSizer(bottomSizer);
+
+    // Add bottom rectangle to main sizer
+    mainSizer->Add(bottomPanel, 0, wxEXPAND | wxTOP, 0); // No top border so it touches the list
+
+    // Create button sizer for horizontal layout
+    auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    static constexpr int BOTTOM_BUTTON_SPACING = 8;
+
+    // Add "Restore to Default Order" button
+    m_restoreButton = new wxButton(this, wxID_ANY, "Restore Default Order");
+    buttonSizer->Add(m_restoreButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    m_restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
+    m_restoreButton->SetToolTip(
+        "For MO2 default order is your loose file order. For vortex default order is by shader, "
+        "then by name alphabetically.");
+
+    // Add stretchable space
+    buttonSizer->AddStretchSpacer(1);
+
+    // Add discard changes button
+    m_discardButton = new wxButton(this, wxID_ANY, "Discard Changes");
+    buttonSizer->Add(m_discardButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    m_discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
+
+    m_discardButton->Enable(false);
+
+    // Add apply button
+    m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
+    buttonSizer->Add(m_applyButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
+
+    // Disable apply button by default
+    m_applyButton->Enable(false);
+
+    // Add OK button
+    auto* okButton = new wxButton(this, wxID_OK, "Okay");
+    buttonSizer->Add(okButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
+
+    // Add to main sizer
+    mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 0);
+
+    // Fill contents
+    auto* mmd = PGGlobals::getMMD();
+    if (mmd == nullptr) {
+        throw runtime_error("Mod Manager Directory is null");
+    }
+    fillListCtrl(mmd->getModsByPriority(), false);
+
+    // Set checkbox state based on current config
+    if (m_checkBoxMO2 != nullptr) {
+        m_checkBoxMO2->SetValue(pgc->getParams().ModManager.mo2UseLooseFileOrder);
+    }
+    setMO2LooseFileOrderCheckboxState();
+
+    // Calculate minimum width for each column
+    const int col1Width = calculateColumnWidth(1);
+    m_listCtrl->SetColumnWidth(1, col1Width);
+    const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
+    const int totalWidth
+        = calculateColumnWidth(0) + col1Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
+
+    // Adjust dialog width to match the total width of columns and padding
+    SetSizeHints(MIN_WIDTH, MIN_HEIGHT, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
+    SetSize(totalWidth, DEFAULT_HEIGHT); // Set dialog size
+
+    SetSizer(mainSizer);
 }
 
 // EVENT HANDLERS
 
 void ModSortDialog::onItemSelected(wxListEvent& event)
 {
-    const long index = event.GetIndex();
-    const std::wstring selectedMod = m_listCtrl->GetItemText(index).ToStdWstring();
-
-    if (index == -1) {
-        clearAllHighlights(); // Clear all highlights when no item is selected
-    } else {
-        highlightConflictingItems(selectedMod); // Highlight conflicts for the selected mod
-    }
+    highlightConflictingItems(); // Highlight conflicts for the selected mod
+    event.Skip();
 }
 
 void ModSortDialog::onItemDeselected(wxListEvent& event)
 {
-    // Check if no items are selected
-    long selectedItem = -1;
-    bool isAnyItemSelected = false;
-    while (
-        (selectedItem = m_listCtrl->GetNextItem(selectedItem, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
-        isAnyItemSelected = true;
-        break;
-    }
-
-    if (!isAnyItemSelected) {
-        clearAllHighlights(); // Clear highlights if no items are selected
-    }
-
+    highlightConflictingItems();
     event.Skip();
 }
 
-void ModSortDialog::clearAllHighlights()
+void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
 {
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        auto it = m_originalBackgroundColors.find(itemText);
-        if (it != m_originalBackgroundColors.end()) {
-            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
+    updateApplyButtonState();
+    event.Skip();
+}
+
+void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
+{
+    // Check if lock mo2 order is on
+    if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
+        // reset indices to MO2 state for enabled items
+        setMO2LooseFileOrderCheckboxState();
+    }
+
+    updateApplyButtonState();
+    event.Skip();
+}
+
+void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
+{
+    static constexpr int MIN_COL_WIDTH = 50;
+
+    const int totalWidth = m_listCtrl->GetClientSize().GetWidth();
+
+    // Get the widths of the fixed columns
+    const int col1Width = m_listCtrl->GetColumnWidth(1);
+
+    // Calculate remaining width for first column
+    int col0Width = totalWidth - col1Width - 2; // optional small padding for borders
+
+    col0Width = std::max(col0Width, MIN_COL_WIDTH); // minimum width to avoid clipping
+
+    m_listCtrl->SetColumnWidth(0, col0Width);
+
+    event.Skip(); // allow default processing
+}
+
+void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event)
+{
+    ParallaxGenHandlers::nonBlockingExit();
+    wxTheApp->Exit();
+}
+
+void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
+{
+    updateMods();
+    EndModal(wxID_OK);
+}
+
+void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods(); }
+
+void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
+{
+    // confirm with modal
+    const int response
+        = wxMessageBox("Are you sure you want to restore default mod order and enable any manually disabled mods?",
+            "Confirm Restore Default Order", wxYES_NO | wxICON_QUESTION, this);
+
+    if (response == wxYES) {
+        auto* mmd = PGGlobals::getMMD();
+        if (mmd == nullptr) {
+            throw runtime_error("Mod Manager Directory is null");
+        }
+        fillListCtrl(mmd->getModsByDefaultOrder(), true);
+    }
+}
+
+void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
+{
+    const int response = wxMessageBox(
+        "Are you sure you want to discard all changes?", "Confirm Discard Changes", wxYES_NO | wxICON_QUESTION, this);
+
+    if (response == wxYES) {
+        // restore checkbox state
+        auto* pgc = PGPatcherGlobals::getPGC();
+        if (pgc == nullptr) {
+            throw runtime_error("ParallaxGenConfig is null");
+        }
+
+        const auto currentParams = pgc->getParams();
+        if (m_checkBoxMO2 != nullptr) {
+            m_checkBoxMO2->SetValue(currentParams.ModManager.mo2UseLooseFileOrder);
+        }
+
+        auto* mmd = PGGlobals::getMMD();
+        if (mmd == nullptr) {
+            throw runtime_error("Mod Manager Directory is null");
+        }
+
+        if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
+            // If MO2 loose file order is checked, reset to that
+            fillListCtrl(mmd->getModsByDefaultOrder(), false);
         } else {
-            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white
+            // Otherwise reset to current priority order
+            fillListCtrl(mmd->getModsByPriority(), false);
         }
     }
 }
 
-void ModSortDialog::highlightConflictingItems(const std::wstring& selectedMod)
+void ModSortDialog::onUseMO2LooseFileOrderChange(wxCommandEvent& event)
 {
-    // Clear previous highlights and restore original colors
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        auto it = m_originalBackgroundColors.find(itemText);
-        if (it != m_originalBackgroundColors.end()) {
-            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
-        } else {
-            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white if not found
-        }
-    }
-
-    // Highlight selected item and its conflicts
-    auto conflictSet = m_conflictsMap.find(selectedMod);
-    if (conflictSet != m_conflictsMap.end()) {
-        for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-            const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-            if (itemText == selectedMod || conflictSet->second.contains(itemText)) {
-                m_listCtrl->SetItemBackgroundColour(i, *wxYELLOW); // Highlight color
-            }
-        }
-    }
-}
-
-void ModSortDialog::onMouseLeftDown(wxMouseEvent& event)
-{
-    int flags = 0;
-    const long itemIndex = m_listCtrl->HitTest(event.GetPosition(), flags);
-
-    if (itemIndex != wxNOT_FOUND) {
-        // Select the item if it's not already selected
-        if ((m_listCtrl->GetItemState(itemIndex, wxLIST_STATE_SELECTED) & wxLIST_STATE_SELECTED) == 0) {
-            m_listCtrl->SetItemState(itemIndex, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
-        }
-
-        // Capture the indices of all selected items for dragging
-        m_draggedIndices.clear();
-        long selectedItem = -1;
-        while ((selectedItem = m_listCtrl->GetNextItem(selectedItem, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED))
-            != wxNOT_FOUND) {
-            m_draggedIndices.push_back(selectedItem);
-        }
-    }
-    event.Skip();
-}
-
-void ModSortDialog::onMouseLeftUp(wxMouseEvent& event)
-{
-    if (!m_draggedIndices.empty() && m_targetLineIndex != -1) {
-        m_overlay.Reset(); // Clear the m_overlay when the drag operation is complete
-
-        // Sort indices to maintain the order during removal
-        std::ranges::sort(m_draggedIndices);
-
-        // Capture item data for all selected items
-        std::vector<std::pair<wxString, wxString>> itemData;
-        std::vector<wxColour> backgroundColors;
-
-        for (auto index : m_draggedIndices) {
-            itemData.emplace_back(m_listCtrl->GetItemText(index, 0), m_listCtrl->GetItemText(index, 1));
-            backgroundColors.push_back(m_listCtrl->GetItemBackgroundColour(index));
-        }
-
-        // Remove items from their original positions
-        for (int i = static_cast<int>(m_draggedIndices.size()) - 1; i >= 0; --i) {
-            m_listCtrl->DeleteItem(m_draggedIndices[i]);
-            // Adjust m_targetLineIndex if items were removed from above it
-            if (m_draggedIndices[i] < m_targetLineIndex) {
-                m_targetLineIndex--;
-            }
-        }
-
-        // Insert items at the new position
-        long insertPos = m_targetLineIndex;
-        for (size_t i = 0; i < itemData.size(); ++i) {
-            const long newIndex = m_listCtrl->InsertItem(insertPos, itemData[i].first);
-            m_listCtrl->SetItem(newIndex, 1, itemData[i].second);
-            m_listCtrl->SetItemBackgroundColour(newIndex, backgroundColors[i]);
-            insertPos++;
-        }
-
-        // reset priority values
-        resetIndices();
-
-        // Reset indices to prepare for the next drag
-        m_draggedIndices.clear();
-        m_targetLineIndex = -1;
-    }
-
-    // Stop the timer when the drag operation ends
-    if (m_scrollTimer.IsRunning()) {
-        m_scrollTimer.Stop();
-    }
+    setMO2LooseFileOrderCheckboxState();
+    updateApplyButtonState();
 
     event.Skip();
-}
-
-void ModSortDialog::onMouseMotion(wxMouseEvent& event)
-{
-    if (!m_draggedIndices.empty() && event.LeftIsDown()) {
-        // Start the timer to handle scrolling
-        if (!m_scrollTimer.IsRunning()) {
-            m_scrollTimer.Start(TIMER_INTERVAL); // Start the timer with a 50ms interval
-        }
-
-        int flags = 0;
-        auto dropTargetIndex = m_listCtrl->HitTest(event.GetPosition(), flags);
-
-        if (dropTargetIndex != wxNOT_FOUND) {
-            wxRect itemRect;
-            m_listCtrl->GetItemRect(dropTargetIndex, itemRect);
-
-            // Check if the mouse is in the top or bottom half of the item
-            const int midPointY = itemRect.GetTop() + (itemRect.GetHeight() / 2);
-            const auto curPosition = event.GetPosition().y;
-            const bool targetingTopHalf = curPosition > midPointY;
-
-            if (targetingTopHalf) {
-                dropTargetIndex++;
-            }
-
-            // Draw the line only if the target index has changed
-            drawDropIndicator(dropTargetIndex);
-            m_targetLineIndex = dropTargetIndex;
-        } else {
-            // Clear m_overlay if not hovering over a valid item
-            m_overlay.Reset();
-            m_targetLineIndex = -1;
-        }
-    }
-
-    event.Skip();
-}
-
-void ModSortDialog::onTimer([[maybe_unused]] wxTimerEvent& event)
-{
-    // Get the current mouse position relative to the m_listCtrl
-    const wxPoint mousePos = ScreenToClient(wxGetMousePosition());
-    const wxRect listCtrlRect = m_listCtrl->GetRect();
-
-    // Check if the mouse is within the m_listCtrl bounds
-    if (listCtrlRect.Contains(mousePos)) {
-        const int scrollMargin = 20; // Margin to trigger scrolling
-        const int mouseY = mousePos.y;
-
-        if (mouseY < listCtrlRect.GetTop() + scrollMargin + m_listCtrlHeaderHeight) {
-            // Scroll up if the mouse is near the top edge
-            m_listCtrl->ScrollLines(-1);
-        } else if (mouseY > listCtrlRect.GetBottom() - scrollMargin) {
-            // Scroll down if the mouse is near the bottom edge
-            m_listCtrl->ScrollLines(1);
-        }
-    }
 }
 
 // HELPERS
 
-auto ModSortDialog::getHeaderHeight() -> int
+void ModSortDialog::setMO2LooseFileOrderCheckboxState()
 {
-    if (m_listCtrl->GetItemCount() > 0) {
-        wxRect firstItemRect;
-        if (m_listCtrl->GetItemRect(0, firstItemRect)) {
-            // The top of the first item minus the top of the client area gives the header height
-            return firstItemRect.GetTop() - m_listCtrl->GetClientRect().GetTop();
-        }
-    }
-    return 0; // Fallback if the list is empty
-}
-
-void ModSortDialog::drawDropIndicator(int targetIndex)
-{
-    wxClientDC dc(m_listCtrl);
-    wxDCOverlay dcOverlay(m_overlay, &dc);
-    dcOverlay.Clear(); // Clear the existing m_overlay to avoid double lines
-
-    wxRect itemRect;
-    int lineY = -1;
-
-    // Validate TargetIndex before calling GetItemRect()
-    if (targetIndex >= 0 && targetIndex < m_listCtrl->GetItemCount()) {
-        if (m_listCtrl->GetItemRect(targetIndex, itemRect)) {
-            lineY = itemRect.GetTop();
-        }
-    } else if (targetIndex >= m_listCtrl->GetItemCount()) {
-        // Handle drawing at the end of the list (after the last item)
-        if (m_listCtrl->GetItemRect(m_listCtrl->GetItemCount() - 1, itemRect)) {
-            lineY = itemRect.GetBottom();
-        }
+    if (m_checkBoxMO2 == nullptr) {
+        return;
     }
 
-    // Ensure LineY is set correctly before drawing
-    if (lineY != -1) {
-        dc.SetPen(wxPen(*wxBLACK, 2)); // Draw the line with a width of 2 pixels
-        dc.DrawLine(itemRect.GetLeft(), lineY, itemRect.GetRight(), lineY);
-    }
-}
-
-void ModSortDialog::resetIndices()
-{
-    // loop through each item in list and set col 3
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        if (m_sortAscending) {
-            m_listCtrl->SetItem(i, 2, std::to_string(i));
-        } else {
-            m_listCtrl->SetItem(i, 2, std::to_string(m_listCtrl->GetItemCount() - i - 1));
+    const bool isChecked = m_checkBoxMO2->IsChecked();
+    if (isChecked) {
+        auto* mmd = PGGlobals::getMMD();
+        if (mmd == nullptr) {
+            throw runtime_error("Mod Manager Directory is null");
         }
-    }
-}
+        const auto modListByLooseOrder = mmd->getModsByDefaultOrder();
+        fillListCtrl(modListByLooseOrder, false, true);
 
-void ModSortDialog::onColumnClick(wxListEvent& event)
-{
-    const int column = event.GetColumn();
-
-    // Toggle sort order if the same column is clicked, otherwise reset to ascending
-    if (column == 2) {
-        // Only sort priority col
-        m_sortAscending = !m_sortAscending;
-
-        // Reverse the order of every item
-        reverseListOrder();
+        // disable restore order button
+        m_restoreButton->Enable(false);
+    } else {
+        // enable restore order button
+        m_restoreButton->Enable(true);
     }
 
-    event.Skip();
-}
-
-void ModSortDialog::reverseListOrder()
-{
-    // Store all items in a vector
-    std::vector<std::vector<wxString>> items;
-    std::vector<wxColour> backgroundColors;
-
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        std::vector<wxString> row;
-        row.reserve(m_listCtrl->GetColumnCount());
-        for (int col = 0; col < m_listCtrl->GetColumnCount(); ++col) {
-            row.push_back(m_listCtrl->GetItemText(i, col));
-        }
-        items.push_back(row);
-
-        // Store original background color using the mod name
-        const std::wstring itemText = row[0].ToStdWstring();
-        auto it = m_originalBackgroundColors.find(itemText);
-        if (it != m_originalBackgroundColors.end()) {
-            backgroundColors.push_back(it->second);
-        } else {
-            backgroundColors.push_back(*wxWHITE); // Default color if not found
-        }
-    }
-
-    // Clear the m_listCtrl
-    m_listCtrl->DeleteAllItems();
-
-    // Insert items back in reverse order and set background colors
-    for (size_t i = 0; i < items.size(); ++i) {
-        const long newIndex = m_listCtrl->InsertItem(m_listCtrl->GetItemCount(), items[items.size() - 1 - i][0]);
-        for (int col = 1; col < m_listCtrl->GetColumnCount(); ++col) {
-            m_listCtrl->SetItem(newIndex, col, items[items.size() - 1 - i][col]);
-        }
-
-        // Set background color for the new item
-        m_listCtrl->SetItemBackgroundColour(newIndex, backgroundColors[items.size() - 1 - i]);
-    }
+    m_listCtrl->setDraggingEnabled(!isChecked);
 }
 
 auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
@@ -419,26 +334,279 @@ auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
     return maxWidth + DEFAULT_PADDING; // Add some padding
 }
 
-auto ModSortDialog::getSortedItems() const -> std::vector<std::wstring>
+void ModSortDialog::highlightConflictingItems()
 {
-    std::vector<std::wstring> sortedItems;
-    sortedItems.reserve(m_listCtrl->GetItemCount());
+    // Clear previous highlights and restore original colors
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        sortedItems.push_back(m_listCtrl->GetItemText(i).ToStdWstring());
+        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
+        auto it = m_originalBackgroundColors.find(itemText);
+        if (it != m_originalBackgroundColors.end()) {
+            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
+        } else {
+            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white if not found
+        }
     }
 
-    if (!m_sortAscending) {
-        // reverse items if descending
-        std::ranges::reverse(sortedItems);
+    // Find all selected items
+    std::vector<std::wstring> selectedMods;
+    long selIdx = -1;
+    long selectionIdx = -1;
+    while ((selIdx = m_listCtrl->GetNextItem(selIdx, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
+        selectedMods.push_back(m_listCtrl->GetItemText(selIdx).ToStdWstring());
+
+        if (selectionIdx == -1) {
+            selectionIdx = selIdx;
+        }
     }
 
-    return sortedItems;
+    if (selectedMods.empty()) {
+        clearAllHighlights();
+        return;
+    }
+
+    auto* mmd = PGGlobals::getMMD();
+    for (const auto& selectedMod : selectedMods) {
+        // Highlight selected item and its conflicts
+        auto mod = mmd->getMod(selectedMod);
+        if (mod == nullptr) {
+            continue;
+        }
+
+        auto conflictSet = mod->conflicts;
+
+        // convert conflictSet to unordered set of strings
+        unordered_set<std::wstring> conflictSetStr;
+        for (const auto& conflict : conflictSet) {
+            conflictSetStr.insert(conflict->name);
+        }
+
+        // Apply highlights
+        for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+            const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
+            if (!conflictSetStr.contains(itemText)) {
+                continue; // Skip non-conflicting items
+            }
+
+            if (std::ranges::find(selectedMods, itemText) == selectedMods.end()) {
+                if (i < selectionIdx) {
+                    m_listCtrl->SetItemBackgroundColour(i, s_LOSING_MOD_COLOR); // Red-ish for conflicts above
+                } else {
+                    m_listCtrl->SetItemBackgroundColour(i, s_WINNING_MOD_COLOR); // Yellow-ish for conflicts below
+                }
+            }
+        }
+    }
 }
 
-void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event)
+void ModSortDialog::clearAllHighlights()
 {
-    ParallaxGenHandlers::nonBlockingExit();
-    wxTheApp->Exit();
+    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
+        auto it = m_originalBackgroundColors.find(itemText);
+        if (it != m_originalBackgroundColors.end()) {
+            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
+        } else {
+            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white
+        }
+    }
+}
+
+void ModSortDialog::updateMods()
+{
+    // loop through each element in the list ctrl and update the mod manager directory
+    auto* mmd = PGGlobals::getMMD();
+    const long itemCount = m_listCtrl->GetItemCount();
+    for (long i = 0; i < itemCount; ++i) {
+        const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
+        auto mod = mmd->getMod(modName);
+        if (mod == nullptr) {
+            continue;
+        }
+
+        mod->isEnabled = m_listCtrl->isChecked(i);
+
+        if (mod->isEnabled) {
+            mod->priority = static_cast<int>(itemCount - i);
+        }
+    }
+
+    // save configs
+    auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr) {
+        throw runtime_error("ParallaxGenConfig is null");
+    }
+
+    if (!ParallaxGenConfig::saveModConfig()) {
+        // critical dialog
+        wxMessageBox("Failed to save mod configuration to mods.json", "Error", wxOK | wxICON_ERROR, this);
+    }
+
+    auto currentParams = pgc->getParams();
+    currentParams.ModManager.mo2UseLooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
+    pgc->setParams(currentParams);
+    if (!pgc->saveUserConfig()) {
+        // critical dialog
+        wxMessageBox("Failed to save user configuration to user.json", "Error", wxOK | wxICON_ERROR, this);
+    }
+
+    updateApplyButtonState();
+}
+
+void ModSortDialog::fillListCtrl(
+    const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable, bool preserveChecks)
+{
+    // get unordered set of currently checked mods if preserveChecks is true from existing list ctrl
+    std::unordered_set<std::wstring> currentlyCheckedMods;
+    if (preserveChecks) {
+        for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+            if (m_listCtrl->isChecked(i)) {
+                currentlyCheckedMods.insert(m_listCtrl->GetItemText(i).ToStdWstring());
+            }
+        }
+    }
+
+    m_listCtrl->DeleteAllItems();
+
+    std::vector<std::shared_ptr<ModManagerDirectory::Mod>> disabledMods;
+
+    long listIdx = 0;
+
+    for (const auto& mod : modList) {
+        const auto shaders = mod->shaders;
+        if (shaders.empty()) {
+            // no shaders, so no need to include in list
+            continue;
+        }
+
+        bool modEnabled = mod->isEnabled;
+        if (mod->isEnabled) {
+            // mod is enabled, check if it is currently checked
+            if (preserveChecks && !currentlyCheckedMods.contains(mod->name)) {
+                // mod was previously unchecked, so disable it
+                modEnabled = false;
+            }
+        } else {
+            // see if we need to autoenable (max variant is greater than 1 which is NONE shader)
+            if (autoEnable) {
+                const bool hasNonNone = std::ranges::any_of(
+                    shaders, [](NIFUtil::ShapeShader s) -> bool { return s != NIFUtil::ShapeShader::NONE; });
+                if (hasNonNone) {
+                    modEnabled = true;
+                }
+            }
+
+            // see if we need to preserve checks and if this mod was previously checked
+            if (preserveChecks && currentlyCheckedMods.contains(mod->name)) {
+                modEnabled = true;
+            }
+        }
+
+        if (!modEnabled) {
+            disabledMods.push_back(mod);
+            continue;
+        }
+
+        // Anything past this point the mod is assumed to be enabled
+
+        const long index = m_listCtrl->InsertItem(listIdx, mod->name);
+
+        // Shader Column
+        m_listCtrl->SetItem(index, 1, constructShaderString(shaders));
+
+        // Set highlight if new
+        if (mod->isNew) {
+            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
+            m_originalBackgroundColors[mod->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
+        } else {
+            m_originalBackgroundColors[mod->name] = *wxWHITE; // Store the original color using the mod name
+        }
+
+        // Enable checkbox
+        m_listCtrl->check(index, true);
+
+        // iterate listIdx
+        listIdx++;
+    }
+
+    // Set cutoff line
+    m_listCtrl->setCutoffLine(listIdx);
+
+    // loop through inactive mods
+    for (const auto& mod : disabledMods) {
+        const long index = m_listCtrl->InsertItem(listIdx, mod->name);
+
+        // Shader Column
+        m_listCtrl->SetItem(index, 1, constructShaderString(mod->shaders));
+
+        // Set highlight if new
+        if (mod->isNew) {
+            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
+            m_originalBackgroundColors[mod->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
+        } else {
+            m_originalBackgroundColors[mod->name] = *wxWHITE; // Store the original color using the mod name
+        }
+
+        // Disable checkbox
+        m_listCtrl->check(index, false);
+
+        // iterate listIdx
+        listIdx++;
+    }
+
+    updateApplyButtonState();
+}
+
+void ModSortDialog::updateApplyButtonState()
+{
+    bool btnState = false;
+
+    // loop through each element in the list ctrl and update the mod manager directory
+    auto* mmd = PGGlobals::getMMD();
+    const long itemCount = m_listCtrl->GetItemCount();
+    for (long i = 0; i < itemCount; ++i) {
+        const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
+        auto mod = mmd->getMod(modName);
+        if (mod == nullptr) {
+            btnState = true;
+            break;
+        }
+
+        if (mod->isEnabled != m_listCtrl->isChecked(i)) {
+            btnState = true;
+            break;
+        }
+
+        if (mod->isEnabled && mod->priority != static_cast<int>(itemCount - i)) {
+            btnState = true;
+            break;
+        }
+    }
+
+    // Check any pgc settings
+    auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr) {
+        throw runtime_error("ParallaxGenConfig is null");
+    }
+
+    const auto currentParams = pgc->getParams();
+    if (m_checkBoxMO2 != nullptr && currentParams.ModManager.mo2UseLooseFileOrder != m_checkBoxMO2->IsChecked()) {
+        btnState = true;
+    }
+
+    m_applyButton->Enable(btnState);
+    m_discardButton->Enable(btnState);
+}
+
+auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString
+{
+    wxString shaderStr;
+    for (const auto& shader : shaders) {
+        if (!shaderStr.empty()) {
+            shaderStr += ", ";
+        }
+        shaderStr += NIFUtil::getStrFromShader(shader);
+    }
+    return shaderStr;
 }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

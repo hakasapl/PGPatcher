@@ -42,6 +42,17 @@ auto ParallaxGenConfig::getUserConfigFile() -> filesystem::path
     return userConfigFile;
 }
 
+auto ParallaxGenConfig::getModConfigFile() -> filesystem::path
+{
+    if (s_exePath.empty()) {
+        throw runtime_error("ExePath not set");
+    }
+
+    // Get mod config file
+    static const filesystem::path modConfigFile = s_exePath / "cfg" / "mods.json";
+    return modConfigFile;
+}
+
 auto ParallaxGenConfig::getDefaultParams() -> PGParams
 {
     PGParams outParams;
@@ -125,8 +136,8 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir")) {
             paramJ["modmanager"]["mo2instancedir"].get_to<filesystem::path>(m_params.ModManager.mo2InstanceDir);
         }
-        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useorder")) {
-            paramJ["modmanager"]["mo2useorder"].get_to<bool>(m_params.ModManager.mo2UseOrder);
+        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useloosefileorder")) {
+            paramJ["modmanager"]["mo2useloosefileorder"].get_to<bool>(m_params.ModManager.mo2UseLooseFileOrder);
         }
 
         // "output"
@@ -407,7 +418,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "modmanager"
     j["params"]["modmanager"]["type"] = m_params.ModManager.type;
     j["params"]["modmanager"]["mo2instancedir"] = utf16toUTF8(m_params.ModManager.mo2InstanceDir.wstring());
-    j["params"]["modmanager"]["mo2useorder"] = m_params.ModManager.mo2UseOrder;
+    j["params"]["modmanager"]["mo2useloosefileorder"] = m_params.ModManager.mo2UseLooseFileOrder;
 
     // "output"
     j["params"]["output"]["dir"] = utf16toUTF8(m_params.Output.dir.wstring());
@@ -465,7 +476,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     return j;
 }
 
-void ParallaxGenConfig::saveUserConfig()
+auto ParallaxGenConfig::saveUserConfig() -> bool
 {
     const auto j = getUserConfigJSON();
 
@@ -474,10 +485,34 @@ void ParallaxGenConfig::saveUserConfig()
 
     // write to file
     try {
-        ofstream outFile(getUserConfigFile());
-        outFile << j.dump(2) << "\n";
-        outFile.close();
+        filesystem::create_directories(getUserConfigFile().parent_path());
+        ParallaxGenUtil::saveJSON(getUserConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save user config: {}", e.what());
+        return false;
     }
+
+    return true;
+}
+
+auto ParallaxGenConfig::saveModConfig() -> bool
+{
+    // Mods
+    auto* mmd = PGGlobals::getMMD();
+    if (mmd == nullptr) {
+        throw runtime_error("Mod Manager Directory not set");
+    }
+
+    const auto j = mmd->getJSON();
+
+    // write to file
+    try {
+        filesystem::create_directories(getModConfigFile().parent_path());
+        ParallaxGenUtil::saveJSON(getModConfigFile(), j, true);
+    } catch (const exception& e) {
+        spdlog::error("Failed to save mod config: {}", e.what());
+        return false;
+    }
+
+    return true;
 }

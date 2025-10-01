@@ -33,7 +33,7 @@ using namespace std;
 auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
 {
     const static unordered_map<NIFUtil::ShapeShader, string> strFromShaderMap
-        = { { ShapeShader::NONE, "None" }, { ShapeShader::UNKNOWN, "Unknown" }, { ShapeShader::TRUEPBR, "PBR" },
+        = { { ShapeShader::NONE, "Default" }, { ShapeShader::UNKNOWN, "Unknown" }, { ShapeShader::TRUEPBR, "PBR" },
               { ShapeShader::COMPLEXMATERIAL, "Complex Material" }, { ShapeShader::VANILLAPARALLAX, "Parallax" } };
 
     if (strFromShaderMap.find(shader) != strFromShaderMap.end()) {
@@ -46,7 +46,7 @@ auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
 auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
 {
     const static unordered_map<string, ShapeShader> shaderFromStrMap
-        = { { "None", ShapeShader::NONE }, { "Unknown", ShapeShader::UNKNOWN }, { "PBR", ShapeShader::TRUEPBR },
+        = { { "Default", ShapeShader::NONE }, { "Unknown", ShapeShader::UNKNOWN }, { "PBR", ShapeShader::TRUEPBR },
               { "Complex Material", ShapeShader::COMPLEXMATERIAL }, { "Parallax", ShapeShader::VANILLAPARALLAX } };
 
     const auto searchKey = boost::to_lower_copy(shader);
