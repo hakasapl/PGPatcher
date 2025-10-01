@@ -123,19 +123,17 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     // Populate conflict mods if set
-    if (dryRun) {
-        if (modSet.size() > 1) {
-            // add mods to conflict set
-            for (const auto& match : matches) {
-                if (match.mod == nullptr) {
-                    continue;
-                }
-
-                const unique_lock lock(match.mod->mutex);
-
-                match.mod->shaders.insert(match.shader);
-                match.mod->conflicts.insert(modSet.begin(), modSet.end());
+    if (dryRun && !modSet.empty()) {
+        // add mods to conflict set
+        for (const auto& match : matches) {
+            if (match.mod == nullptr) {
+                continue;
             }
+
+            const unique_lock lock(match.mod->mutex);
+
+            match.mod->shaders.insert(match.shader);
+            match.mod->conflicts.insert(modSet.begin(), modSet.end());
         }
 
         return matches;

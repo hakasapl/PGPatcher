@@ -7,6 +7,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <fstream>
 
+#include <ranges>
 #include <regex>
 #include <unordered_set>
 
@@ -60,21 +61,8 @@ auto ModManagerDirectory::getModsByPriority() const -> vector<shared_ptr<Mod>>
     vector<shared_ptr<Mod>> mods = getMods();
 
     // Sort mods by priority (higher priority first), then by modManagerOrder (lower order first), then by name
-    std::ranges::sort(mods, [](const shared_ptr<Mod>& a, const shared_ptr<Mod>& b) -> bool {
-        // first by priority
-        if (a->priority != b->priority) {
-            return a->priority > b->priority; // Higher priority first
-        }
-        // then by mod manager order (MO2 only)
-        if (a->modManagerOrder != b->modManagerOrder) {
-            return a->modManagerOrder < b->modManagerOrder; // Lower modManagerOrder first
-        }
-        // then by shader
-        if (a->shaders != b->shaders) {
-            return compareShaderSets(a->shaders, b->shaders);
-        }
-        return a->name < b->name; // Alphabetical order as last resort
-    });
+    std::ranges::stable_sort(
+        mods, [](const auto& a, const auto& b) -> auto { return ModManagerDirectory::compareMods(a, b, true); });
 
     return mods;
 }
@@ -84,18 +72,8 @@ auto ModManagerDirectory::getModsByDefaultOrder() const -> vector<shared_ptr<Mod
     vector<shared_ptr<Mod>> mods = getMods();
 
     // Sort mods by modManagerOrder (lower order first), then by name
-    std::ranges::sort(mods, [](const shared_ptr<Mod>& a, const shared_ptr<Mod>& b) -> bool {
-        // first by mod manager order (MO2 only)
-        if (a->modManagerOrder != b->modManagerOrder) {
-            return a->modManagerOrder < b->modManagerOrder; // Lower modManagerOrder first
-        }
-        // second by shader
-        if (a->shaders != b->shaders) {
-            return compareShaderSets(a->shaders, b->shaders);
-        }
-        // last by name
-        return a->name < b->name; // Alphabetical order as last resort
-    });
+    std::ranges::stable_sort(
+        mods, [](const auto& a, const auto& b) -> auto { return ModManagerDirectory::compareMods(a, b, false); });
 
     return mods;
 }
@@ -450,15 +428,8 @@ void ModManagerDirectory::assignNewModPriorities() const
     }
 
     // Sort newMods by shader (higher enum index first), then by name
-    std::ranges::sort(newMods, [](const shared_ptr<Mod>& a, const shared_ptr<Mod>& b) -> bool {
-        if (a->modManagerOrder != b->modManagerOrder) {
-            return a->modManagerOrder > b->modManagerOrder; // Lower modManagerOrder first
-        }
-        if (a->shaders != b->shaders) {
-            return compareShaderSets(a->shaders, b->shaders);
-        }
-        return a->name < b->name; // Alphabetical order as last resort
-    });
+    std::ranges::stable_sort(
+        newMods, [](const auto& a, const auto& b) -> auto { return ModManagerDirectory::compareMods(a, b, false); });
 
     // find maximum priority value
     int maxPriority = 0;
@@ -466,8 +437,8 @@ void ModManagerDirectory::assignNewModPriorities() const
         maxPriority = std::max(mod->priority, maxPriority);
     }
 
-    for (auto& mod : newMods) {
-        mod->priority = ++maxPriority;
+    for (auto& newMod : std::ranges::reverse_view(newMods)) {
+        newMod->priority = ++maxPriority;
     }
 }
 
@@ -619,12 +590,22 @@ auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceD
     return { profileDir, modDir };
 }
 
-auto ModManagerDirectory::compareShaderSets(
-    const std::set<NIFUtil::ShapeShader>& a, const std::set<NIFUtil::ShapeShader>& b) -> bool
+auto ModManagerDirectory::compareMods(const std::shared_ptr<Mod>& a, const std::shared_ptr<Mod>& b, bool checkPriority)
+    -> bool
 {
-    // Get maximum variant in each set
-    const auto maxA = a.empty() ? 0 : static_cast<int>(*std::ranges::max_element(a));
-    const auto maxB = b.empty() ? 0 : static_cast<int>(*std::ranges::max_element(b));
-
-    return maxA > maxB; // Higher enum index first
+    // first by priority
+    if (checkPriority && a->priority != b->priority) {
+        return a->priority > b->priority; // Higher priority first
+    }
+    // then by mod manager order (MO2 only)
+    if (a->modManagerOrder != b->modManagerOrder) {
+        return a->modManagerOrder < b->modManagerOrder; // Lower modManagerOrder first
+    }
+    // then by shader
+    const auto maxElemA = *std::ranges::max_element(a->shaders);
+    const auto maxElemB = *std::ranges::max_element(b->shaders);
+    if (maxElemA != maxElemB) {
+        return maxElemA > maxElemB; // Higher shader enum index first
+    }
+    return a->name < b->name; // Alphabetical order as last resort
 }

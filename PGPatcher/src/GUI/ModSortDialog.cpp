@@ -589,8 +589,7 @@ void ModSortDialog::updateApplyButtonState()
     }
 
     const auto currentParams = pgc->getParams();
-    const bool mo2LooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
-    if (currentParams.ModManager.mo2UseLooseFileOrder != mo2LooseFileOrder) {
+    if (m_checkBoxMO2 != nullptr && currentParams.ModManager.mo2UseLooseFileOrder != m_checkBoxMO2->IsChecked()) {
         btnState = true;
     }
 

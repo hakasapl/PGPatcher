@@ -82,8 +82,8 @@ public:
     void assignNewModPriorities() const;
 
 private:
-    [[nodiscard]] static auto compareShaderSets(
-        const std::set<NIFUtil::ShapeShader>& a, const std::set<NIFUtil::ShapeShader>& b) -> bool;
+    [[nodiscard]] static auto compareMods(
+        const std::shared_ptr<Mod>& a, const std::shared_ptr<Mod>& b, bool checkPriority = true) -> bool;
 
     static auto getMO2INIField(const std::filesystem::path& instanceDir, const std::string& fieldName,
         const bool& isByteArray = false) -> std::wstring;
