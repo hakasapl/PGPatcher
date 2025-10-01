@@ -274,9 +274,7 @@ auto ParallaxGen::getMeshesFromPluginResults(const std::unordered_map<int, NIFUt
                 // plugin has a result
                 shaderApplied = results.at(oldIndex3D).shader;
                 resultsToApply.push_back(results.at(oldIndex3D));
-            }
-
-            if (shaderApplied == NIFUtil::ShapeShader::UNKNOWN) {
+            } else {
                 // Set shader in nif shape
                 shaderApplied = shadersAppliedMesh.at(oldIndex3D);
             }
@@ -504,11 +502,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, const nifly::
         if (forceShaders != nullptr && forceShaders->contains(oldIndex3D)) {
             if (forceShaders->at(oldIndex3D) == NIFUtil::ShapeShader::UNKNOWN) {
                 // skip unknown force shaders (invalid shapes)
-                continue;
-            }
-
-            if (forceShaders->at(oldIndex3D) == origShadersApplied->at(oldIndex3D)) {
-                // skip if the force shader is the same as the original shader
                 continue;
             }
 
