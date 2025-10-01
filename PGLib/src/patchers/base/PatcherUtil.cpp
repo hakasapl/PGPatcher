@@ -133,7 +133,11 @@ auto PatcherUtil::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             const unique_lock lock(match.mod->mutex);
 
             match.mod->shaders.insert(match.shader);
-            match.mod->conflicts.insert(modSet.begin(), modSet.end());
+            for (const auto& conflictMod : modSet) {
+                if (conflictMod != match.mod) {
+                    match.mod->conflicts.insert(conflictMod);
+                }
+            }
         }
 
         return matches;

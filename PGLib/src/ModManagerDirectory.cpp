@@ -602,10 +602,16 @@ auto ModManagerDirectory::compareMods(const std::shared_ptr<Mod>& a, const std::
         return a->modManagerOrder < b->modManagerOrder; // Lower modManagerOrder first
     }
     // then by shader
-    const auto maxElemA = *std::ranges::max_element(a->shaders);
-    const auto maxElemB = *std::ranges::max_element(b->shaders);
-    if (maxElemA != maxElemB) {
-        return maxElemA > maxElemB; // Higher shader enum index first
+    const auto maxElemAIt = std::ranges::max_element(a->shaders);
+    const auto maxElemBIt = std::ranges::max_element(b->shaders);
+    if (maxElemAIt != a->shaders.end() && maxElemBIt != b->shaders.end()) {
+        if (*maxElemAIt != *maxElemBIt) {
+            return *maxElemAIt > *maxElemBIt;
+        }
+    } else if (maxElemAIt != a->shaders.end()) {
+        return true;
+    } else if (maxElemBIt != b->shaders.end()) {
+        return false;
     }
     return a->name < b->name; // Alphabetical order as last resort
 }
