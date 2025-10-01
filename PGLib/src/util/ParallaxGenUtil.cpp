@@ -199,13 +199,13 @@ auto getJSON(const std::filesystem::path& filePath, nlohmann::json& json) -> boo
 
 auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json, const bool& readable) -> bool
 {
-    ofstream outputFile(filePath, ios::binary);
+    ofstream outputFile;
+    outputFile.exceptions(std::ios::failbit | std::ios::badbit);
+    outputFile.open(filePath, ios::binary);
     if (!outputFile.is_open()) {
         // Unable to open file
         return false;
     }
-
-    outputFile.exceptions(std::ios::failbit | std::ios::badbit);
 
     if (readable) {
         outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);

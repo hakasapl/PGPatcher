@@ -48,7 +48,7 @@ ModSortDialog::ModSortDialog()
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
     // Add message at the top
-    static const std::wstring message = L"Please sort your mods to determine what mod PG uses to patch meshes where.";
+    const wxString message = "Please sort your mods to determine what mod PG uses to patch meshes where.";
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
 
