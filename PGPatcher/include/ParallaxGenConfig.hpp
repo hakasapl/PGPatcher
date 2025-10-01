@@ -36,7 +36,8 @@ public:
 
             auto operator==(const ModManager& other) const -> bool
             {
-                return type == other.type && mo2InstanceDir == other.mo2InstanceDir;
+                return type == other.type && mo2InstanceDir == other.mo2InstanceDir
+                    && mo2UseLooseFileOrder == other.mo2UseLooseFileOrder;
             }
         } ModManager;
 

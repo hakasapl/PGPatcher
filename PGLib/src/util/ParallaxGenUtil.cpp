@@ -205,6 +205,8 @@ auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json,
         return false;
     }
 
+    outputFile.exceptions(std::ios::failbit | std::ios::badbit);
+
     if (readable) {
         outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);
     } else {

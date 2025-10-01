@@ -69,6 +69,12 @@ PGCheckedDragListCtrl::~PGCheckedDragListCtrl()
     }
 }
 
+void PGCheckedDragListCtrl::check(long item, bool checked)
+{
+    SetItemImage(item, checked ? 1 : 0);
+    SetItemTextColour(item, checked ? *wxBLACK : *wxLIGHT_GREY);
+}
+
 auto PGCheckedDragListCtrl::isChecked(long item) const -> bool
 {
     wxListItem info;
@@ -81,15 +87,13 @@ auto PGCheckedDragListCtrl::isChecked(long item) const -> bool
     return false;
 }
 
-void PGCheckedDragListCtrl::check(long item, bool checked)
-{
-    SetItemImage(item, checked ? 1 : 0);
-    SetItemTextColour(item, checked ? *wxBLACK : *wxLIGHT_GREY);
-}
-
 void PGCheckedDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
 
+auto PGCheckedDragListCtrl::getCutoffLine() const -> int { return m_cutoffLine; }
+
 void PGCheckedDragListCtrl::setDraggingEnabled(bool enabled) { m_draggingEnabled = enabled; }
+
+auto PGCheckedDragListCtrl::isDraggingEnabled() const -> bool { return m_draggingEnabled; }
 
 // EVENT HANDLERS
 

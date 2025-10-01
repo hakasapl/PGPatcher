@@ -142,7 +142,11 @@ ModSortDialog::ModSortDialog()
     mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 0);
 
     // Fill contents
-    fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
+    auto* mmd = PGGlobals::getMMD();
+    if (mmd == nullptr) {
+        throw runtime_error("Mod Manager Directory is null");
+    }
+    fillListCtrl(mmd->getModsByPriority(), false);
 
     // Set checkbox state based on current config
     if (m_checkBoxMO2 != nullptr) {
@@ -151,11 +155,11 @@ ModSortDialog::ModSortDialog()
     setMO2LooseFileOrderCheckboxState();
 
     // Calculate minimum width for each column
-    const int col0Width = calculateColumnWidth(0);
     const int col1Width = calculateColumnWidth(1);
     m_listCtrl->SetColumnWidth(1, col1Width);
     const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
-    const int totalWidth = col0Width + col1Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
+    const int totalWidth
+        = calculateColumnWidth(0) + col1Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
 
     // Adjust dialog width to match the total width of columns and padding
     SetSizeHints(MIN_WIDTH, MIN_HEIGHT, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
@@ -239,7 +243,11 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
             "Confirm Restore Default Order", wxYES_NO | wxICON_QUESTION, this);
 
     if (response == wxYES) {
-        fillListCtrl(PGGlobals::getMMD()->getModsByDefaultOrder(), true);
+        auto* mmd = PGGlobals::getMMD();
+        if (mmd == nullptr) {
+            throw runtime_error("Mod Manager Directory is null");
+        }
+        fillListCtrl(mmd->getModsByDefaultOrder(), true);
     }
 }
 
@@ -260,12 +268,17 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
             m_checkBoxMO2->SetValue(currentParams.ModManager.mo2UseLooseFileOrder);
         }
 
+        auto* mmd = PGGlobals::getMMD();
+        if (mmd == nullptr) {
+            throw runtime_error("Mod Manager Directory is null");
+        }
+
         if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
             // If MO2 loose file order is checked, reset to that
-            fillListCtrl(PGGlobals::getMMD()->getModsByDefaultOrder(), false);
+            fillListCtrl(mmd->getModsByDefaultOrder(), false);
         } else {
             // Otherwise reset to current priority order
-            fillListCtrl(PGGlobals::getMMD()->getModsByPriority(), false);
+            fillListCtrl(mmd->getModsByPriority(), false);
         }
     }
 }
@@ -288,7 +301,11 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
 
     const bool isChecked = m_checkBoxMO2->IsChecked();
     if (isChecked) {
-        const auto modListByLooseOrder = PGGlobals::getMMD()->getModsByDefaultOrder();
+        auto* mmd = PGGlobals::getMMD();
+        if (mmd == nullptr) {
+            throw runtime_error("Mod Manager Directory is null");
+        }
+        const auto modListByLooseOrder = mmd->getModsByDefaultOrder();
         fillListCtrl(modListByLooseOrder, false, true);
 
         // disable restore order button
@@ -333,12 +350,12 @@ void ModSortDialog::highlightConflictingItems()
     // Find all selected items
     std::vector<std::wstring> selectedMods;
     long selIdx = -1;
-    long cutoffIdx = -1;
+    long selectionIdx = -1;
     while ((selIdx = m_listCtrl->GetNextItem(selIdx, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
         selectedMods.push_back(m_listCtrl->GetItemText(selIdx).ToStdWstring());
 
-        if (cutoffIdx == -1) {
-            cutoffIdx = selIdx;
+        if (selectionIdx == -1) {
+            selectionIdx = selIdx;
         }
     }
 
@@ -371,7 +388,7 @@ void ModSortDialog::highlightConflictingItems()
             }
 
             if (std::ranges::find(selectedMods, itemText) == selectedMods.end()) {
-                if (i < cutoffIdx) {
+                if (i < selectionIdx) {
                     m_listCtrl->SetItemBackgroundColour(i, s_LOSING_MOD_COLOR); // Red-ish for conflicts above
                 } else {
                     m_listCtrl->SetItemBackgroundColour(i, s_WINNING_MOD_COLOR); // Yellow-ish for conflicts below

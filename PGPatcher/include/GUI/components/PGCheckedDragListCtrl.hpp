@@ -47,14 +47,11 @@ public:
      */
     ~PGCheckedDragListCtrl() override;
 
-    /**
-     * @brief Check if an item is checked
-     *
-     * @param item item index
-     * @return true if checked
-     * @return false if not checked
-     */
-    [[nodiscard]] auto isChecked(long item) const -> bool;
+    // Disable copy and move constructors and assignment operators
+    PGCheckedDragListCtrl(const PGCheckedDragListCtrl&) = delete;
+    auto operator=(const PGCheckedDragListCtrl&) -> PGCheckedDragListCtrl& = delete;
+    PGCheckedDragListCtrl(PGCheckedDragListCtrl&&) = delete;
+    auto operator=(PGCheckedDragListCtrl&&) -> PGCheckedDragListCtrl& = delete;
 
     /**
      * @brief Check or uncheck an item
@@ -65,6 +62,15 @@ public:
     void check(long item, bool checked);
 
     /**
+     * @brief Check if an item is checked
+     *
+     * @param item item index
+     * @return true if checked
+     * @return false if not checked
+     */
+    [[nodiscard]] auto isChecked(long item) const -> bool;
+
+    /**
      * @brief Set the Cutoff Line object
      *
      * @param index index of the cutoff line (-1 to disable cutoff)
@@ -72,11 +78,26 @@ public:
     void setCutoffLine(int index);
 
     /**
+     * @brief Get the Cutoff Line object
+     *
+     * @return int index of the cutoff line (-1 if disabled)
+     */
+    [[nodiscard]] auto getCutoffLine() const -> int;
+
+    /**
      * @brief Set the Dragging Enabled object
      *
      * @param enabled true to enable dragging, false to disable
      */
     void setDraggingEnabled(bool enabled);
+
+    /**
+     * @brief Get the Dragging Enabled object
+     *
+     * @return true if dragging is enabled
+     * @return false if dragging is disabled
+     */
+    [[nodiscard]] auto isDraggingEnabled() const -> bool;
 
 private:
     // Event Handlers

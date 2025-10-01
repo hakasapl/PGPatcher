@@ -485,9 +485,8 @@ auto ParallaxGenConfig::saveUserConfig() -> bool
 
     // write to file
     try {
-        ofstream outFile(getUserConfigFile());
-        outFile << j.dump(2) << "\n";
-        outFile.close();
+        filesystem::create_directories(getUserConfigFile().parent_path());
+        ParallaxGenUtil::saveJSON(getUserConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save user config: {}", e.what());
         return false;
@@ -508,9 +507,8 @@ auto ParallaxGenConfig::saveModConfig() -> bool
 
     // write to file
     try {
-        ofstream outFile(getModConfigFile());
-        outFile << j.dump(2) << "\n";
-        outFile.close();
+        filesystem::create_directories(getModConfigFile().parent_path());
+        ParallaxGenUtil::saveJSON(getModConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save mod config: {}", e.what());
         return false;

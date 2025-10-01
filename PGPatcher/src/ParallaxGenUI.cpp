@@ -1,6 +1,5 @@
 #include "ParallaxGenUI.hpp"
 
-#include <algorithm>
 #include <boost/algorithm/string/join.hpp>
 #include <wx/app.h>
 #include <wx/arrstr.h>
@@ -13,9 +12,7 @@
 
 #include "GUI/LauncherWindow.hpp"
 #include "GUI/ModSortDialog.hpp"
-#include "PGGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
-#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 
