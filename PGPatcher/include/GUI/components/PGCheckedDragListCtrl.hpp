@@ -103,21 +103,21 @@ private:
     // Event Handlers
 
     /**
-     * @brief Event handler that triggers when the left mouse button is pressed down (dragging)
+     * @brief Event handler that triggers when the left mouse button is pressed down (dragging or checking)
      *
      * @param event wxWidgets event object
      */
     void onMouseLeftDown(wxMouseEvent& event);
 
     /**
-     * @brief Event handler that triggers when the mouse is moved (dragging)
+     * @brief Event handler that triggers when the mouse is moved (dragging or checking)
      *
      * @param event wxWidgets event object
      */
     void onMouseMotion(wxMouseEvent& event);
 
     /**
-     * @brief Event handler that triggers when the left mouse button is released (dragging)
+     * @brief Event handler that triggers when the left mouse button is released (dragging or checking)
      *
      * @param event wxWidgets event object
      */
@@ -173,7 +173,15 @@ private:
      */
     auto moveItems(const std::vector<long>& fromIndices, long toIndex) -> std::vector<long>;
 
+    /**
+     * @brief Get currently selected items in the list
+     *
+     * @return std::vector<long> vector of selected item indices
+     */
     [[nodiscard]] auto getSelectedItems() const -> std::vector<long>;
 
+    /**
+     * @brief Clear all selections in the list
+     */
     void clearAllSelections();
 };

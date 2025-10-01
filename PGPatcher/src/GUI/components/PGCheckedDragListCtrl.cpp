@@ -59,6 +59,7 @@ PGCheckedDragListCtrl::PGCheckedDragListCtrl(
 
 PGCheckedDragListCtrl::~PGCheckedDragListCtrl()
 {
+    // We must verify the timer is stopped and the ghost is killed on destruction
     if (m_autoscrollTimer.IsRunning()) {
         m_autoscrollTimer.Stop();
     }
@@ -71,7 +72,9 @@ PGCheckedDragListCtrl::~PGCheckedDragListCtrl()
 
 void PGCheckedDragListCtrl::check(long item, bool checked)
 {
+    // This is what actually adds the checkmark
     SetItemImage(item, checked ? 1 : 0);
+    // Grays out the text if unchecked
     SetItemTextColour(item, checked ? *wxBLACK : *wxLIGHT_GREY);
 }
 
@@ -143,9 +146,7 @@ void PGCheckedDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
         auto selectedItems = getSelectedItems();
 
         // Deselect any items below cutoff line
-        selectedItems.erase(std::remove_if(selectedItems.begin(), selectedItems.end(),
-                                [this](long idx) { return m_cutoffLine >= 0 && idx >= m_cutoffLine; }),
-            selectedItems.end());
+        std::erase_if(selectedItems, [this](long idx) -> bool { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
 
         for (const long selectedItem : selectedItems) {
             m_draggedRows.push_back({ .index = selectedItem, .text = GetItemText(selectedItem, 0) });

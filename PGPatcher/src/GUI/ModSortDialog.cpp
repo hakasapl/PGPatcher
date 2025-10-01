@@ -35,6 +35,7 @@ ModSortDialog::ModSortDialog()
     m_listCtrl->InsertColumn(0, "Mod");
     m_listCtrl->InsertColumn(1, "Shader");
 
+    // Listctrl events
     m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
     m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
 
@@ -43,6 +44,7 @@ ModSortDialog::ModSortDialog()
 
     m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
 
+    // Global events
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
     // Add message at the top
@@ -63,7 +65,7 @@ ModSortDialog::ModSortDialog()
     }
 
     // FONT for rects
-    wxFont rectFont = messageText->GetFont(); // start with current font
+    wxFont rectFont = GetFont(); // start with current font
     static constexpr int RECT_LABEL_FONT_SIZE = 20;
     rectFont.SetPointSize(RECT_LABEL_FONT_SIZE); // increase by 4 points
     rectFont.SetWeight(wxFONTWEIGHT_BOLD);
@@ -173,14 +175,12 @@ ModSortDialog::ModSortDialog()
 void ModSortDialog::onItemSelected(wxListEvent& event)
 {
     highlightConflictingItems(); // Highlight conflicts for the selected mod
-
     event.Skip();
 }
 
 void ModSortDialog::onItemDeselected(wxListEvent& event)
 {
     highlightConflictingItems();
-
     event.Skip();
 }
 
