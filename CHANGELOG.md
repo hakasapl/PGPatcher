@@ -6,6 +6,8 @@
 - Vanilla/default mods can now be prioritized over extended material mods
 - Mods can now be disabled such that assets from them are not used for patching your load order
 - "Use MO2 Loose File Order" option is now in the mod sort dialog
+- Download archive can now be installed as a mod with auto detection for game path based on install location
+- Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
 - Removed optimize meshes post-patcher
 - Fixed duplicate mesh shapes not being patched for certain edge cases
 - Fixed null texture sets not being factored when reordering NIF blocks

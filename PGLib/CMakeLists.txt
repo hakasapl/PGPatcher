@@ -51,11 +51,11 @@ target_include_directories(PGLib PUBLIC include)
 
 # Asset moving
 add_custom_command(TARGET PGLib POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:PGLib>/shaders
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:PGLib>/shaders
+    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:PGLib>/cshaders
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:PGLib>/cshaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders
-        $<TARGET_FILE_DIR:PGLib>/shaders
+        ${CMAKE_CURRENT_SOURCE_DIR}/cshaders
+        $<TARGET_FILE_DIR:PGLib>/cshaders
 )
 
 # include and link mutagen wrapper output

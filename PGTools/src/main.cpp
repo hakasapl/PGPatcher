@@ -93,7 +93,7 @@ void mainRunner(PGToolsCLIArgs& args)
 
         auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output, nullptr);
         PGGlobals::setPGD(&pgd);
-        auto pgd3D = ParallaxGenD3D(exePath / "shaders");
+        auto pgd3D = ParallaxGenD3D(exePath / "cshaders");
         PGGlobals::setPGD3D(&pgd3D);
 
         Patcher::loadStatics(pgd, pgd3D);

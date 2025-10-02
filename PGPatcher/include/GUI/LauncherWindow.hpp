@@ -268,4 +268,9 @@ private:
      * @brief Saves current values to the config
      */
     auto saveConfig() -> bool;
+
+    /**
+     * @brief Set the Game Path Based On Exe location
+     */
+    void setGamePathBasedOnExe();
 };
