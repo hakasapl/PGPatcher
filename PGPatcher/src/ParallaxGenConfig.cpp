@@ -217,9 +217,6 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
 
         // "postpatcher"
-        if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("optimizemeshes")) {
-            paramJ["postpatcher"]["optimizemeshes"].get_to<bool>(m_params.PostPatcher.optimizeMeshes);
-        }
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("fixsss")) {
             paramJ["postpatcher"]["fixsss"].get_to<bool>(m_params.PostPatcher.fixSSS);
         }
@@ -455,7 +452,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["shadertransforms"]["parallaxtocm"] = m_params.ShaderTransforms.parallaxToCM;
 
     // "postpatcher"
-    j["params"]["postpatcher"]["optimizemeshes"] = m_params.PostPatcher.optimizeMeshes;
     j["params"]["postpatcher"]["fixsss"] = m_params.PostPatcher.fixSSS;
     j["params"]["postpatcher"]["hairflowmap"] = m_params.PostPatcher.hairFlowMap;
 
