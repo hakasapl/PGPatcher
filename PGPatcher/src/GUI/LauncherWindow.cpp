@@ -258,11 +258,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cac
     //
     auto* postPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Post-Patchers");
 
-    m_postPatcherOptimizeMeshesCheckbox = new wxCheckBox(this, wxID_ANY, "Optimize Meshes (Experimental)");
-    m_postPatcherOptimizeMeshesCheckbox->SetToolTip("Experimental - sometimes results in invisible meshes");
-    m_postPatcherOptimizeMeshesCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherOptimizeMeshesChange, this);
-    postPatcherSizer->Add(m_postPatcherOptimizeMeshesCheckbox, 0, wxALL, BORDER_SIZE);
-
     m_postPatcherFixSSSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Vanilla Subsurface Scattering (Experimental)");
     m_postPatcherFixSSSCheckbox->SetToolTip("Fixes subsurface scattering in meshes");
     m_postPatcherFixSSSCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherFixSSSChange, this);
@@ -576,7 +571,6 @@ void LauncherWindow::loadConfig()
     m_shaderTransformParallaxToCMCheckbox->SetValue(initParams.ShaderTransforms.parallaxToCM);
 
     // Post-Patchers
-    m_postPatcherOptimizeMeshesCheckbox->SetValue(initParams.PostPatcher.optimizeMeshes);
     m_postPatcherFixSSSCheckbox->SetValue(initParams.PostPatcher.fixSSS);
     m_postPatcherHairFlowMapCheckbox->SetValue(initParams.PostPatcher.hairFlowMap);
 
@@ -782,11 +776,6 @@ void LauncherWindow::onShaderTransformParallaxToCMChange([[maybe_unused]] wxComm
     updateDisabledElements();
 }
 
-void LauncherWindow::onPostPatcherOptimizeMeshesChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateDisabledElements();
-}
-
 void LauncherWindow::onPostPatcherFixSSSChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEvent& event)
@@ -941,7 +930,6 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     params.ShaderTransforms.parallaxToCM = m_shaderTransformParallaxToCMCheckbox->GetValue();
 
     // Post-Patchers
-    params.PostPatcher.optimizeMeshes = m_postPatcherOptimizeMeshesCheckbox->GetValue();
     params.PostPatcher.fixSSS = m_postPatcherFixSSSCheckbox->GetValue();
     params.PostPatcher.hairFlowMap = m_postPatcherHairFlowMapCheckbox->GetValue();
 

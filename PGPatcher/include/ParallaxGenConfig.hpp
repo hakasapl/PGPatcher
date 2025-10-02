@@ -123,14 +123,12 @@ public:
 
         // Post-Patchers
         struct PostPatcher {
-            bool optimizeMeshes = false;
             bool fixSSS = false;
             bool hairFlowMap = false;
 
             auto operator==(const PostPatcher& other) const -> bool
             {
-                return optimizeMeshes == other.optimizeMeshes && fixSSS == other.fixSSS
-                    && hairFlowMap == other.hairFlowMap;
+                return fixSSS == other.fixSSS && hairFlowMap == other.hairFlowMap;
             }
         } PostPatcher;
 

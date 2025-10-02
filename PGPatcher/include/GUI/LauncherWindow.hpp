@@ -138,9 +138,6 @@ private:
     void onShaderTransformParallaxToCMChange(wxCommandEvent& event);
 
     // Post-Patchers
-    wxCheckBox* m_postPatcherOptimizeMeshesCheckbox;
-    void onPostPatcherOptimizeMeshesChange(wxCommandEvent& event);
-
     wxCheckBox* m_postPatcherFixSSSCheckbox;
     void onPostPatcherFixSSSChange(wxCommandEvent& event);
 
