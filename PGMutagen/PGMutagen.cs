@@ -366,6 +366,12 @@ public class PGMutagen
             // 1. Add all TXST records in the load order to TXSTObjs
             //
             TXSTObjs = [];
+
+            // Create and add a null TXST to spot 0 so we can process them
+            FormKey nullTXSTFormKey = new("Skyrim.esm", 0x28);
+            var nullTXST = new TextureSet(nullTXSTFormKey, GameType);
+            TXSTObjs.Add(nullTXST);
+
             foreach (var textureSet in Env.LoadOrder.PriorityOrder.TextureSet().WinningOverrides())
             {
                 TXSTObjs.Add(textureSet);
