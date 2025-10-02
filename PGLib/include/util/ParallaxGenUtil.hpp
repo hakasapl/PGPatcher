@@ -34,6 +34,7 @@ auto toLowerASCII(const std::wstring& str) -> std::wstring;
 auto getFileBytes(const std::filesystem::path& filePath) -> std::vector<std::byte>;
 
 auto getJSON(const std::filesystem::path& filePath, nlohmann::json& json) -> bool;
+auto getJSONFromBytes(const std::vector<std::byte>& bytes, nlohmann::json& json) -> bool;
 auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json, const bool& readable) -> bool;
 
 auto checkIfStringInJSONArray(const nlohmann::json& json, const std::string& str) -> bool;

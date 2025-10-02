@@ -3,9 +3,11 @@
 #include <Shaders.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <nlohmann/json_fwd.hpp>
 
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 
@@ -115,6 +117,13 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
             PatcherMatch curMatch;
             curMatch.matchedPath = match.path;
             curMatch.matchedFrom.insert(matchedFromSlot);
+
+            // get extra metadata and add to match extra data
+            const auto meta = getMaterialMeta(match.path);
+            if (!meta.is_null()) {
+                curMatch.extraData = make_shared<decltype(nlohmann::json())>(meta);
+            }
+
             if (match.path == oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)]) {
                 lastMatch = curMatch; // Save the match that equals OldSlots[Slot]
             } else {
@@ -137,12 +146,12 @@ auto PatcherMeshShaderComplexMaterial::applyPatch(
 
     // Apply shader
     changed |= applyShader(nifShape);
+    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Check if specular should be white
     if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_METALNESS)) {
         Logger::trace(L"Setting specular to white because CM has metalness");
-        auto* nifShader = getNIF()->GetShader(&nifShape);
-        auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
         changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, 1.0F);
         changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, 1.0F);
         changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, 1.0F);
@@ -150,9 +159,47 @@ auto PatcherMeshShaderComplexMaterial::applyPatch(
 
     if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_GLOSSINESS)) {
         Logger::trace(L"Setting specular flag because CM has glossiness");
-        auto* nifShader = getNIF()->GetShader(&nifShape);
-        auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
         changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+    }
+
+    // Apply any extra meta overrides
+    if (match.extraData != nullptr) {
+        auto meta = *static_pointer_cast<decltype(nlohmann::json())>(match.extraData);
+
+        // "specular_enabled" attribute
+        if (meta.contains("specular_enabled") && meta["specular_enabled"].is_boolean()) {
+            if (meta["specular_enabled"].get<bool>()) {
+                changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+            } else {
+                changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+            }
+        }
+
+        // "specular_color" attribute
+        if (meta.contains("specular_color") && meta["specular_color"].is_array()
+            && meta["specular_color"].size() == 3) {
+            const auto specColor = meta["specular_color"];
+            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, specColor[0].get<float>());
+            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, specColor[1].get<float>());
+            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, specColor[2].get<float>());
+        }
+
+        // "specular_strength" attribute
+        if (meta.contains("specular_strength") && meta["specular_strength"].is_number_float()) {
+            changed
+                |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, meta["specular_strength"].get<float>());
+        }
+
+        // "glosiness" attribute
+        if (meta.contains("glossiness") && meta["glossiness"].is_number_float()) {
+            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->glossiness, meta["glossiness"].get<float>());
+        }
+
+        // "environment_map_scale" attribute
+        if (meta.contains("environment_map_scale") && meta["environment_map_scale"].is_number_float()) {
+            changed |= NIFUtil::setShaderFloat(
+                nifShaderBSLSP->environmentMapScale, meta["environment_map_scale"].get<float>());
+        }
     }
 
     // Apply slots
@@ -172,9 +219,19 @@ auto PatcherMeshShaderComplexMaterial::applyPatchSlots(
     newSlots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = L"";
     newSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)] = matchedPath;
 
-    const bool enableDynCubemaps
+    // Apply any extra meta overrides
+    bool enableDynCubemaps
         = !(ParallaxGenDirectory::checkGlobMatchInVector(getNIFPath().wstring(), s_dynCubemapBlocklist)
             || ParallaxGenDirectory::checkGlobMatchInVector(matchedPath, s_dynCubemapBlocklist));
+
+    if (match.extraData != nullptr) {
+        auto meta = *static_pointer_cast<decltype(nlohmann::json())>(match.extraData);
+
+        // "dynamic_cubemap" attribute
+        if (meta.contains("dynamic_cubemap") && meta["dynamic_cubemap"].is_boolean()) {
+            enableDynCubemaps = meta["dynamic_cubemap"].get<bool>();
+        }
+    }
 
     static const auto dynCubemapPathSlashFix = boost::replace_all_copy(s_DYNCUBEMAPPATH.wstring(), L"/", L"\\");
     if (enableDynCubemaps) {
@@ -214,4 +271,25 @@ auto PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape) -> bool
     changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
 
     return changed;
+}
+
+auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& envMaskPath) -> nlohmann::json
+{
+    // find file path of meta, which is the envMaskPath extension replaced with .json
+    auto metaPath = envMaskPath;
+    metaPath.replace_extension(".json");
+
+    if (!getPGD()->isFile(metaPath)) {
+        return {};
+    }
+
+    // metadata file exists
+    nlohmann::json meta;
+    const auto jsonBytes = getPGD()->getFile(metaPath);
+    if (!ParallaxGenUtil::getJSONFromBytes(jsonBytes, meta)) {
+        Logger::error(L"Failed to parse CM metadata JSON: {}", metaPath.wstring());
+        return {};
+    }
+
+    return meta;
 }

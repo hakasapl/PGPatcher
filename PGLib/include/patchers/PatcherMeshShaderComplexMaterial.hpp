@@ -7,6 +7,7 @@
 #include <winnt.h>
 
 #include "NIFUtil.hpp"
+#include "Object3d.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
 /**
@@ -109,4 +110,7 @@ public:
      * @param nifModified Whether the NIF was modified
      */
     auto applyShader(nifly::NiShape& nifShape) -> bool override;
+
+private:
+    static auto getMaterialMeta(const std::filesystem::path& envMaskPath) -> nlohmann::json;
 };
