@@ -154,6 +154,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     Logger::warn("ParallaxGen is currently in BETA. Please file detailed bug reports on nexus or github.");
 
     // Define paths
+    PGPatcherGlobals::setEXEPath(exePath);
     const filesystem::path cfgDir = exePath / "cfg";
     const filesystem::path cacheDir = exePath / "cache";
 
@@ -212,7 +213,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGGlobals::setMMD(&mmd);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
     PGGlobals::setPGD(&pgd);
-    auto pgd3d = ParallaxGenD3D(exePath / "shaders");
+    auto pgd3d = ParallaxGenD3D(exePath / "cshaders");
     PGGlobals::setPGD3D(&pgd3d);
 
     Patcher::loadStatics(pgd, pgd3d);

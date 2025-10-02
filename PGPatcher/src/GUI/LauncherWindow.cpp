@@ -1,6 +1,8 @@
 #include "GUI/LauncherWindow.hpp"
 
+#include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
+#include "PGPatcherGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
 #include "ParallaxGenHandlers.hpp"
 #include "ParallaxGenPlugin.hpp"
@@ -488,6 +490,7 @@ void LauncherWindow::onInitDialog(wxInitDialogEvent& event)
 
     // Trigger the updateDeps event to update the dependencies
     updateDisabledElements();
+    setGamePathBasedOnExe();
 
     // Call the base class's event handler if needed
     event.Skip();
@@ -620,10 +623,11 @@ void LauncherWindow::onGameTypeChange([[maybe_unused]] wxCommandEvent& event)
         if (m_gameTypeRadios[gameType]->GetValue()) {
             if (initParams.Game.type == gameType) {
                 m_gameLocationTextbox->SetValue(initParams.Game.dir.wstring());
-                return;
+            } else {
+                m_gameLocationTextbox->SetValue(BethesdaGame::findGamePathFromSteam(gameType).wstring());
             }
 
-            m_gameLocationTextbox->SetValue(BethesdaGame::findGamePathFromSteam(gameType).wstring());
+            setGamePathBasedOnExe();
             return;
         }
     }
@@ -644,6 +648,7 @@ void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
     Fit();
 
     updateDisabledElements();
+    setGamePathBasedOnExe();
 }
 
 void LauncherWindow::onOutputLocationChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
@@ -1194,6 +1199,37 @@ void LauncherWindow::onClose([[maybe_unused]] wxCloseEvent& event)
 {
     ParallaxGenHandlers::nonBlockingExit();
     wxTheApp->Exit();
+}
+
+void LauncherWindow::setGamePathBasedOnExe()
+{
+    const auto exePath = PGPatcherGlobals::getEXEPath();
+    if (exePath.empty()) {
+        return;
+    }
+
+    auto curParams = m_pgc.getParams();
+    getParams(curParams);
+    const auto curGameType = curParams.Game.type;
+
+    const auto curModManagerType = curParams.ModManager.type;
+    if (curModManagerType == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+        // don't change the game path if MO2 is selected since that's enforced by MO2 instead
+        return;
+    }
+
+    const auto gamePath = exePath.parent_path().parent_path();
+    if (BethesdaGame::isGamePathValid(gamePath, curGameType)) {
+        m_gameLocationTextbox->SetValue(gamePath.wstring());
+
+        // disable textbox and browse button
+        m_gameLocationTextbox->Enable(false);
+        m_gameLocationBrowseButton->Enable(false);
+    } else {
+        // enable textbox and browse button
+        m_gameLocationTextbox->Enable(true);
+        m_gameLocationBrowseButton->Enable(true);
+    }
 }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
