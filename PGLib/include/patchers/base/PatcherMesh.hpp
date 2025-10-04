@@ -12,6 +12,23 @@
  */
 class PatcherMesh : public Patcher {
 private:
+    struct PatchedTextureSet {
+        NIFUtil::TextureSet original;
+        std::unordered_map<uint32_t, NIFUtil::TextureSet> patchResults;
+    };
+
+    static std::shared_mutex s_patchedTextureSetsMutex;
+    static std::unordered_map<std::filesystem::path, std::unordered_map<uint32_t, PatchedTextureSet>>
+        s_patchedTextureSets;
+
+public:
+    static auto getTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape)
+        -> NIFUtil::TextureSet;
+    static auto setTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape,
+        const NIFUtil::TextureSet& textures) -> bool;
+    static void clearTextureSets(const std::filesystem::path& nifPath);
+
+private:
     // Instance vars
     std::filesystem::path m_nifPath; /** Stores the path to the NIF file currently being patched */
     nifly::NifFile* m_nif; /** Stores the NIF object itself */

@@ -404,6 +404,9 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
         globalPatcher->applyPatch();
     }
 
+    // Clear texture sets cache for this NIF
+    PatcherMeshShader::clearTextureSets(nifPath);
+
     return true;
 }
 
@@ -431,7 +434,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         NIFUtil::TextureSet slots;
         if (alternateTexture == nullptr) {
-            slots = PatcherMeshShader::getTextureSet(nifPath, *nif, *nifShape);
+            slots = PatcherMesh::getTextureSet(nifPath, *nif, *nifShape);
         } else {
             slots = *alternateTexture;
         }
