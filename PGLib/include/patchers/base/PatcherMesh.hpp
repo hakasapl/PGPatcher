@@ -12,13 +12,6 @@
  */
 class PatcherMesh : public Patcher {
 private:
-    struct PatchedTextureSetsHash {
-        auto operator()(const std::tuple<std::filesystem::path, uint32_t>& key) const -> std::size_t
-        {
-            return std::hash<std::filesystem::path>()(std::get<0>(key)) ^ std::hash<uint32_t>()(std::get<1>(key));
-        }
-    };
-
     struct PatchedTextureSet {
         NIFUtil::TextureSet original;
         std::unordered_map<uint32_t, NIFUtil::TextureSet> patchResults;
