@@ -120,17 +120,17 @@ auto MeshTracker::commitDupMesh(
             // No need to continue
             return false;
         }
+    }
 
-        if (!m_baseMeshExists && compareMesh(m_stagedMesh, m_origNifFile)) {
-            // Mesh was not modified from the base mesh, do nothing
-            // We only do nothing IF a base mesh doesn't exist, because otherwise it will use the base mesh incorrectly
-            // IF a base mesh does exist, then a new mesh that is a duplicate of the original will be created regardless
-            // Clear staged mesh
-            m_stagedMeshPtr = nullptr;
-            m_stagedMesh.Clear();
+    if (!m_baseMeshExists && compareMesh(m_stagedMesh, m_origNifFile)) {
+        // Mesh was not modified from the base mesh, do nothing
+        // We only do nothing IF a base mesh doesn't exist, because otherwise it will use the base mesh incorrectly
+        // IF a base mesh does exist, then a new mesh that is a duplicate of the original will be created regardless
+        // Clear staged mesh
+        m_stagedMeshPtr = nullptr;
+        m_stagedMesh.Clear();
 
-            return false;
-        }
+        return false;
     }
 
     // Add new mesh

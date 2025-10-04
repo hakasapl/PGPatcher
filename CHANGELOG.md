@@ -16,6 +16,7 @@
 - Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
 - Fixed duplicate mesh shapes not being patched for certain edge cases
 - Fixed null texture sets not being factored when reordering NIF blocks
+- Fixed "fix effect lighting" patcher patching facegen
 
 ## [0.8.13] - 2025-07-04
 
