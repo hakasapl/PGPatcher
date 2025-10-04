@@ -7,6 +7,7 @@
 #include "PGGlobals.hpp"
 #include "util/CRC32OStream.hpp"
 #include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
 
 using namespace std;
 
@@ -249,23 +250,8 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
     // TODO this currently only processes blocks attached to shapes, which isn't always the case, but should be fine for
     // now
 
-    vector<NiShape*> shapesA;
-    const auto shapeMapA = NIFUtil::getShapesWithBlockIDs(&meshA);
-    shapesA.reserve(shapeMapA.size());
-    for (const auto& shape : shapeMapA) {
-        shapesA.push_back(shape.first);
-    }
-    std::ranges::sort(shapesA,
-        [&shapeMapA](nifly::NiShape* a, nifly::NiShape* b) -> bool { return shapeMapA.at(a) < shapeMapA.at(b); });
-
-    vector<NiShape*> shapesB;
-    const auto shapeMapB = NIFUtil::getShapesWithBlockIDs(&meshB);
-    shapesB.reserve(shapeMapB.size());
-    for (const auto& shape : shapeMapB) {
-        shapesB.push_back(shape.first);
-    }
-    std::ranges::sort(shapesB,
-        [&shapeMapB](nifly::NiShape* a, nifly::NiShape* b) -> bool { return shapeMapB.at(a) < shapeMapB.at(b); });
+    vector<NiShape*> shapesA = NIFUtil::getShapes(&meshA);
+    vector<NiShape*> shapesB = NIFUtil::getShapes(&meshB);
 
     if (shapesA.size() != shapesB.size()) {
         // Different number of shapes

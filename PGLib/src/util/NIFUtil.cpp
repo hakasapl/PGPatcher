@@ -627,6 +627,25 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
     return outSlots;
 }
 
+auto NIFUtil::getShapes(const nifly::NifFile* nif) -> vector<nifly::NiShape*>
+{
+    if (nif == nullptr) {
+        throw runtime_error("NIF is null");
+    }
+
+    vector<NiObject*> tree;
+    nif->GetTree(tree);
+    vector<NiShape*> shapes;
+    for (auto& obj : tree) {
+        auto* const curShape = dynamic_cast<NiShape*>(obj);
+        if (curShape != nullptr) {
+            shapes.push_back(curShape);
+        }
+    }
+
+    return shapes;
+}
+
 auto NIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<nifly::NiShape*, int>
 {
     if (nif == nullptr) {
