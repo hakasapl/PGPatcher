@@ -3,6 +3,7 @@
 #include <Geometry.hpp>
 #include <NifFile.hpp>
 
+#include <cstdint>
 #include <vector>
 
 #include "patchers/base/PatcherMesh.hpp"
@@ -12,29 +13,7 @@
  * @brief Base class for shader patchers
  */
 class PatcherMeshShader : public PatcherMesh {
-private:
-    struct PatchedTextureSetsHash {
-        auto operator()(const std::tuple<std::filesystem::path, uint32_t>& key) const -> std::size_t
-        {
-            return std::hash<std::filesystem::path>()(std::get<0>(key)) ^ std::hash<uint32_t>()(std::get<1>(key));
-        }
-    };
-
-    struct PatchedTextureSet {
-        NIFUtil::TextureSet original;
-        std::unordered_map<uint32_t, NIFUtil::TextureSet> patchResults;
-    };
-
-    static std::shared_mutex s_patchedTextureSetsMutex;
-    static std::unordered_map<std::tuple<std::filesystem::path, uint32_t>, PatchedTextureSet, PatchedTextureSetsHash>
-        s_patchedTextureSets;
-
 public:
-    static auto getTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape)
-        -> NIFUtil::TextureSet;
-    static auto setTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape,
-        const NIFUtil::TextureSet& textures) -> bool;
-
     // type definitions
     using PatcherMeshShaderFactory
         = std::function<std::unique_ptr<PatcherMeshShader>(std::filesystem::path, nifly::NifFile*)>;
