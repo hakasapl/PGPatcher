@@ -29,7 +29,8 @@ auto PatcherMeshPreFixMeshLighting::applyPatch(nifly::NiShape& nifShape) -> bool
         return false;
     }
 
-    if (nifShaderBSLSP->GetShaderType() == BSLSP_FACE) {
+    const auto shaderType = nifShaderBSLSP->GetShaderType();
+    if (shaderType == BSLSP_FACE || shaderType == BSLSP_HAIRTINT || shaderType == BSLSP_EYE) {
         // skip facegen
         return false;
     }
