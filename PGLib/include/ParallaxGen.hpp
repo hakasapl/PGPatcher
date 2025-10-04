@@ -24,6 +24,30 @@ private:
     static std::shared_mutex s_diffJSONMutex;
     static nlohmann::json s_diffJSON;
 
+    struct MatchCacheKey {
+        NIFUtil::TextureSet slots;
+        bool singlepassMATO = false;
+
+        auto operator==(const MatchCacheKey& other) const -> bool
+        {
+            return slots == other.slots && singlepassMATO == other.singlepassMATO;
+        }
+    };
+
+    struct MatchCacheKeyHasher {
+        auto operator()(const MatchCacheKey& key) const -> size_t
+        {
+            size_t seed = 0;
+            boost::hash_combine(seed, boost::hash_range(key.slots.begin(), key.slots.end()));
+            boost::hash_combine(seed, key.singlepassMATO);
+            return seed;
+        }
+    };
+
+    static std::shared_mutex s_matchCacheMutex;
+    static std::unordered_map<MatchCacheKey, std::vector<PatcherUtil::ShaderPatcherMatch>, MatchCacheKeyHasher>
+        s_matchCache;
+
 public:
     /**
      * @brief Allows patchers to be registered and used in the patching process.
