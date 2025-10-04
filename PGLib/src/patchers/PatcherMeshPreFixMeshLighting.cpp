@@ -1,4 +1,5 @@
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
+#include "Shaders.hpp"
 #include "util/NIFUtil.hpp"
 
 #include "util/Logger.hpp"
@@ -25,6 +26,12 @@ auto PatcherMeshPreFixMeshLighting::applyPatch(nifly::NiShape& nifShape) -> bool
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr) {
         // not a BSLightingShaderProperty
+        return false;
+    }
+
+    const auto shaderType = nifShaderBSLSP->GetShaderType();
+    if (shaderType == BSLSP_FACE || shaderType == BSLSP_HAIRTINT || shaderType == BSLSP_EYE) {
+        // skip facegen
         return false;
     }
 
