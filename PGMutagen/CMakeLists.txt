@@ -66,13 +66,18 @@ else()
     set(MSBUILD_CONFIGURATION "Release")
 endif()
 
-add_custom_target(PGMutagenNE ALL
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen/PGMutagenNE.lib
     COMMAND msbuild PGMutagen.csproj
         -p:Configuration=${MSBUILD_CONFIGURATION}
         -p:Platform=x64
         -p:OutputPath=${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Building PGMutagenNE.lib"
+)
+
+add_custom_target(PGMutagenNE ALL
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen/PGMutagenNE.lib
 )
 
 add_dependencies(PGMutagenWrapper PGMutagenNE)
