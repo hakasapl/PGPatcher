@@ -471,7 +471,7 @@ auto MeshTracker::getMeshPath(const std::filesystem::path& nifPath, const size_t
     // Different from mesh which means duplicate is needed
     filesystem::path newNIFPath;
     auto it = nifPath.begin();
-    newNIFPath /= *it++ / "pgdups" / to_wstring(index);
+    newNIFPath /= *it++ / "_pgpatcher_dups" / to_wstring(index);
     while (it != nifPath.end()) {
         newNIFPath /= *it++;
     }
