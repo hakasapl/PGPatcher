@@ -270,7 +270,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
         ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
-        ParallaxGenPlugin::populateObjs(params.Output.dir / "ParallaxGen.esp");
+        ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
     }
 
     // Populate mod info

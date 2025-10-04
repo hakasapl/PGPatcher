@@ -154,7 +154,7 @@ public class PGMutagen
 
             PluginLanguage = (Language)pluginLang;
             GameType = (SkyrimRelease)gameType;
-            OutMod = new SkyrimMod(ModKey.FromFileName("ParallaxGen.esp"), GameType);
+            OutMod = new SkyrimMod(ModKey.FromFileName("PGPatcher.esp"), GameType);
 
             List<ModKey> loadOrderList = [];
             for (int i = 0; loadOrder[i] != IntPtr.Zero; i++)
@@ -325,12 +325,7 @@ public class PGMutagen
             {
                 OutMod.IsSmallMaster = true;
             }
-
-            // Flag as ESM if user wants
-            if (esmify == 1)
-            {
-                OutMod.IsMaster = true;
-            }
+            OutMod.IsMaster = true;
 
             bool OutModNeeded = OutMod.EnumerateMajorRecords().Any();
             bool HasModifiedRecords = ModifiedRecords.Count > 0;

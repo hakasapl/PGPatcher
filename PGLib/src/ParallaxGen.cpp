@@ -155,7 +155,7 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput)
     static const unordered_set<filesystem::path> foldersToDelete
         = { "meshes", "textures", "pbrnifpatcher", "lightplacer", "pbrtexturesets" };
     static const unordered_set<filesystem::path> filesToDelete
-        = { "parallaxgen.esp", "parallaxgen_diff.json", "parallaxgen_diag.json" };
+        = { "pgpatcher.esp", "parallaxgen_diff.json", "parallaxgen_diag.json" };
     static const vector<pair<wstring, wstring>> filesToDeleteParseRules = { { L"pg_", L".esp" } };
     static const unordered_set<filesystem::path> filesToIgnore = { "meta.ini" };
     static const unordered_set<filesystem::path> filesToDeletePreOutput = { "pgpatcher_output.zip" };
