@@ -108,6 +108,7 @@ public class PGMutagen
     private static HashSet<IModelGetter> ProcessedModelUses = [];
     private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
+    private static SortedSet<uint> allocatedFormIDs = [];
 
 
     private static SkyrimRelease GameType;
@@ -216,6 +217,7 @@ public class PGMutagen
 
                     // Add to output mod
                     OutMod.TextureSets.Add(newTXSTObj);
+                    allocatedFormIDs.Add(txst.FormKey.ID);
 
                     // Add to dictionary (mark as unused)
                     var textures = GetTextureSet(newTXSTObj);
@@ -896,7 +898,7 @@ public class PGMutagen
                     else
                     {
                         // Create a new texture set record
-                        var newFormKey = OutMod.GetNextFormKey();
+                        var newFormKey = new FormKey(OutMod.ModKey, GetLowestAvailableFormID());
                         // find filename of diffuse texture (just .dds file no path), also remove extension
                         var diffuseTex = bufTextures[0].IsNullOrEmpty() ? "" : Path.GetFileNameWithoutExtension(bufTextures[0]);
                         var formIDHex = newFormKey.ID.ToString("X6");
@@ -925,6 +927,7 @@ public class PGMutagen
 
                         // Add to output mod
                         OutMod.TextureSets.Add(newTXSTObj);
+                        allocatedFormIDs.Add(newFormKey.ID);
 
                         // Add to dictionary
                         NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(newTXSTObj, true);
@@ -1248,6 +1251,19 @@ public class PGMutagen
             return prefix + str;
         }
         return str;
+    }
+
+    private static uint GetLowestAvailableFormID()
+    {
+        for (uint id = 1; id <= 0xFFFFFF; id++)
+        {
+            if (!allocatedFormIDs.Contains(id))
+            {
+                return id;
+            }
+        }
+
+        throw new Exception("No available FormIDs left in plugin");
     }
 }
 

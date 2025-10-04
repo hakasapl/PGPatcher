@@ -54,6 +54,11 @@ PatcherUtil::PatcherTextureSet ParallaxGen::s_texPatchers;
 std::shared_mutex ParallaxGen::s_diffJSONMutex;
 nlohmann::json ParallaxGen::s_diffJSON;
 
+std::shared_mutex ParallaxGen::s_matchCacheMutex;
+std::unordered_map<ParallaxGen::MatchCacheKey, std::vector<PatcherUtil::ShaderPatcherMatch>,
+    ParallaxGen::MatchCacheKeyHasher>
+    ParallaxGen::s_matchCache;
+
 void ParallaxGen::loadPatchers(
     const PatcherUtil::PatcherMeshSet& meshPatchers, const PatcherUtil::PatcherTextureSet& texPatchers)
 {
@@ -480,112 +485,136 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     }
 
     vector<PatcherUtil::ShaderPatcherMatch> matches;
-    unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
 
-    if (patcherObjects != nullptr && patchers.shaderPatchers.size() != patcherObjects->shaderPatchers.size()) {
-        throw runtime_error("Patcher objects size mismatch");
-    }
-
-    if ((patcherObjects != nullptr && shape == nullptr) || (patcherObjects == nullptr && shape != nullptr)) {
-        throw runtime_error("If shape or patcherObjects is set, both must be set");
-    }
-
-    for (const auto& [shader, patcher] : patchers.shaderPatchers) {
-        // note: name is defined in source code in UTF8-encoded files
-        const Logger::Prefix prefixPatches(patcher->getPatcherName());
-
-        // Check if shader should be applied
-        vector<PatcherMeshShader::PatcherMatch> curMatches;
-        if (!patcher->shouldApply(slots, curMatches)) {
-            Logger::trace(L"Rejecting: Shader not applicable");
-            continue;
-        }
-
-        for (const auto& match : curMatches) {
-            PatcherUtil::ShaderPatcherMatch curMatch;
-            curMatch.mod = PGGlobals::getPGD()->getMod(match.matchedPath);
-
-            if (!dryRun && curMatch.mod != nullptr) {
-                const std::shared_lock lk(curMatch.mod->mutex);
-                if (!curMatch.mod->isEnabled) {
-                    // do not add match if mod it matched from is disabled
-                    Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
-                    continue;
-                }
-            }
-
-            curMatch.shader = shader;
-            curMatch.match = match;
-            curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
-
-            // See if transform is possible
-            if (patchers.shaderTransformPatchers.contains(shader)) {
-                const auto& [shaderTransformTo, transformPatcher] = patchers.shaderTransformPatchers.at(shader);
-                // loop from highest element of map to 0
-                curMatch.shaderTransformTo = shaderTransformTo;
-            }
-
-            if (shader != NIFUtil::ShapeShader::NONE) {
-                // a non-default match is available. If this match is the same mod as any default matches, remove the
-                // defaults
-                std::erase_if(matches, [&curMatch](const PatcherUtil::ShaderPatcherMatch& m) -> bool {
-                    return m.shader == NIFUtil::ShapeShader::NONE && m.mod != nullptr && curMatch.mod != nullptr
-                        && m.mod == curMatch.mod;
-                });
-            }
-
-            // Verify shape can apply
-            if (patcherObjects != nullptr) {
-                if (!patcherObjects->shaderPatchers.at(shader)->canApply(*shape, singlepassMATO)) {
-                    // base shaders can't do it, lets check transforms
-                    if (curMatch.shaderTransformTo == NIFUtil::ShapeShader::UNKNOWN) {
-                        Logger::trace(L"Rejecting: Shape cannot apply shader");
-                        continue;
-                    }
-
-                    if (!patcherObjects->shaderPatchers.at(curMatch.shaderTransformTo)
-                            ->canApply(*shape, singlepassMATO)) {
-                        Logger::trace(L"Rejecting: Shape cannot apply shader");
-                        continue;
-                    }
-                }
-            }
-
-            matches.push_back(curMatch);
-            if (curMatch.mod != nullptr) {
-                // add mod to set
-                modSet.insert(curMatch.mod);
-            }
+    bool foundCache = false;
+    {
+        const shared_lock lock(s_matchCacheMutex);
+        if (s_matchCache.contains({ slots, singlepassMATO })) {
+            foundCache = true;
+            matches = s_matchCache.at({ slots, singlepassMATO });
         }
     }
 
-    // Populate conflict mods if set
-    if (dryRun && !modSet.empty()) {
-        // add mods to conflict set
-        for (const auto& match : matches) {
-            if (match.mod == nullptr) {
+    if (!foundCache) {
+        unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
+        if (patcherObjects != nullptr && patchers.shaderPatchers.size() != patcherObjects->shaderPatchers.size()) {
+            throw runtime_error("Patcher objects size mismatch");
+        }
+
+        if ((patcherObjects != nullptr && shape == nullptr) || (patcherObjects == nullptr && shape != nullptr)) {
+            throw runtime_error("If shape or patcherObjects is set, both must be set");
+        }
+
+        for (const auto& [shader, patcher] : patchers.shaderPatchers) {
+            // note: name is defined in source code in UTF8-encoded files
+            const Logger::Prefix prefixPatches(patcher->getPatcherName());
+
+            // Check if shader should be applied
+            vector<PatcherMeshShader::PatcherMatch> curMatches;
+            if (!patcher->shouldApply(slots, curMatches)) {
+                Logger::trace(L"Rejecting: Shader not applicable");
                 continue;
             }
 
-            const unique_lock lock(match.mod->mutex);
+            for (const auto& match : curMatches) {
+                PatcherUtil::ShaderPatcherMatch curMatch;
+                curMatch.mod = PGGlobals::getPGD()->getMod(match.matchedPath);
 
-            match.mod->shaders.insert(match.shader);
-            for (const auto& conflictMod : modSet) {
-                if (conflictMod != match.mod) {
-                    match.mod->conflicts.insert(conflictMod);
+                if (!dryRun && curMatch.mod != nullptr) {
+                    const std::shared_lock lk(curMatch.mod->mutex);
+                    if (!curMatch.mod->isEnabled) {
+                        // do not add match if mod it matched from is disabled
+                        Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
+                        continue;
+                    }
+                }
+
+                curMatch.shader = shader;
+                curMatch.match = match;
+                curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
+
+                // See if transform is possible
+                if (patchers.shaderTransformPatchers.contains(shader)) {
+                    const auto& [shaderTransformTo, transformPatcher] = patchers.shaderTransformPatchers.at(shader);
+                    // loop from highest element of map to 0
+                    curMatch.shaderTransformTo = shaderTransformTo;
+                }
+
+                if (shader != NIFUtil::ShapeShader::NONE) {
+                    // a non-default match is available. If this match is the same mod as any default matches, remove
+                    // the defaults
+                    std::erase_if(matches, [&curMatch](const PatcherUtil::ShaderPatcherMatch& m) -> bool {
+                        return m.shader == NIFUtil::ShapeShader::NONE && m.mod != nullptr && curMatch.mod != nullptr
+                            && m.mod == curMatch.mod;
+                    });
+                }
+
+                matches.push_back(curMatch);
+                if (curMatch.mod != nullptr) {
+                    // add mod to set
+                    modSet.insert(curMatch.mod);
                 }
             }
         }
 
-        return matches;
+        // Populate conflict mods if set
+        if (dryRun && !modSet.empty()) {
+            // add mods to conflict set
+            for (const auto& match : matches) {
+                if (match.mod == nullptr) {
+                    continue;
+                }
+
+                const unique_lock lock(match.mod->mutex);
+
+                match.mod->shaders.insert(match.shader);
+                for (const auto& conflictMod : modSet) {
+                    if (conflictMod != match.mod) {
+                        match.mod->conflicts.insert(conflictMod);
+                    }
+                }
+            }
+
+            return matches;
+        }
+
+        // Populate diag JSON if set with each match
+        {
+            const PGDiag::Prefix diagShaderPatcherPrefix("shaderPatcherMatches", nlohmann::json::value_t::array);
+            for (const auto& match : matches) {
+                PGDiag::pushBack(match.getJSON());
+            }
+        }
     }
 
-    // Populate diag JSON if set with each match
-    {
-        const PGDiag::Prefix diagShaderPatcherPrefix("shaderPatcherMatches", nlohmann::json::value_t::array);
-        for (const auto& match : matches) {
-            PGDiag::pushBack(match.getJSON());
+    // Loop through matches and delete any that cannot apply
+    // Verify shape can apply
+    if (patcherObjects != nullptr) {
+        for (auto it = matches.begin(); it != matches.end();) {
+            const auto& curMatch = *it;
+
+            if (!patcherObjects->shaderPatchers.at(curMatch.shader)->canApply(*shape, singlepassMATO)) {
+                // base shaders can't do it, lets check transforms
+                if (curMatch.shaderTransformTo == NIFUtil::ShapeShader::UNKNOWN) {
+                    Logger::trace(L"Rejecting: Shape cannot apply shader");
+                    it = matches.erase(it);
+                    continue;
+                }
+
+                if (!patcherObjects->shaderPatchers.at(curMatch.shaderTransformTo)->canApply(*shape, singlepassMATO)) {
+                    Logger::trace(L"Rejecting: Shape cannot apply shader");
+                    it = matches.erase(it);
+                    continue;
+                }
+            }
+            ++it;
         }
+    }
+
+    // Cache matches
+    {
+        const unique_lock lock(s_matchCacheMutex);
+        s_matchCache[{ slots, singlepassMATO }] = matches;
     }
 
     return matches;
