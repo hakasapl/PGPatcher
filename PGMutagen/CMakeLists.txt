@@ -68,6 +68,7 @@ endif()
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen/PGMutagenNE.lib
+    COMMAND dotnet restore PGMutagen.csproj
     COMMAND msbuild PGMutagen.csproj
         -p:Configuration=${MSBUILD_CONFIGURATION}
         -p:Platform=x64
