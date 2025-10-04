@@ -38,7 +38,7 @@ auto PatcherMeshPostHairFlowMap::applyPatch(nifly::NiShape& nifShape) -> bool
     }
 
     // Search prefixes
-    const auto textures = getTextureSet(getNIFPath(), *getNIF(), nifShape);
+    auto textures = getTextureSet(getNIFPath(), *getNIF(), nifShape);
     const auto& normalMap = textures.at(static_cast<int>(NIFUtil::TextureSlots::NORMAL));
     if (normalMap.empty() || !getPGD()->isFile(normalMap)) {
         // no normal map, nothing to do
@@ -57,7 +57,8 @@ auto PatcherMeshPostHairFlowMap::applyPatch(nifly::NiShape& nifShape) -> bool
     // use first match, there shouldn't be more than 1 for this case anyway
     const auto& foundMatch = foundMatches[0];
     // Set the flow map texture slot
-    bool changed = NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::BACKLIGHT, foundMatch.path);
+    textures[static_cast<int>(NIFUtil::TextureSlots::BACKLIGHT)] = foundMatch.path;
+    bool changed = setTextureSet(getNIFPath(), *getNIF(), nifShape, textures);
     // Set the back lighting flag
     changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
 
