@@ -21,6 +21,8 @@ using Mutagen.Bethesda.Plugins.Binary.Streams;
 using Mutagen.Bethesda.Strings.DI;
 using Mutagen.Bethesda.Plugins.Aspects;
 
+using Google.FlatBuffers;
+
 public static class ExceptionHandler
 {
     private static string? LastExceptionMessage;
@@ -85,6 +87,11 @@ public class PGMutagen
     // "Class vars" actually static because p/invoke doesn't support instance methods
     private static SkyrimMod? OutMod;
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
+    private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
+    private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
+    private static Dictionary<string[], ITextureSet> NewTextureSets = [];
+
+
     private static List<ITextureSetGetter> TXSTObjs = [];
     private static List<Tuple<IAlternateTextureGetter, int, int, string, string, uint>> AltTexRefs = [];
     private static List<IMajorRecordGetter> ModelOriginals = [];
@@ -352,6 +359,36 @@ public class PGMutagen
         return ModelRecs;
     }
 
+    private static IModel? GetModelElemBySubModel(IMajorRecord Rec, string SubModel)
+    {
+        var ModelRecs = GetModelElems(Rec);
+
+        foreach (var modelRec in ModelRecs)
+        {
+            if (modelRec.Item2 == SubModel)
+            {
+                return modelRec.Item1;
+            }
+        }
+
+        return null;
+    }
+
+    private static IModelGetter? GetModelElemBySubModel(IMajorRecordGetter Rec, string SubModel)
+    {
+        var ModelRecs = GetModelElems(Rec);
+
+        foreach (var modelRec in ModelRecs)
+        {
+            if (modelRec.Item2 == SubModel)
+            {
+                return modelRec.Item1;
+            }
+        }
+
+        return null;
+    }
+
     [UnmanagedCallersOnly(EntryPoint = "PopulateObjs", CallConvs = [typeof(CallConvCdecl)])]
     public static void PopulateObjs()
     {
@@ -399,6 +436,19 @@ public class PGMutagen
                 bool CopiedRecord = false;
                 foreach (var modelRec in ModelRecs)
                 {
+                    // add to model uses
+                    if (!modelRec.Item1.File.IsNullOrEmpty())
+                    {
+                        string meshName = modelRec.Item1.File.ToString().ToLower();
+
+                        if (!ModelUses.ContainsKey(meshName))
+                        {
+                            ModelUses[meshName] = [];
+                        }
+
+                        ModelUses[meshName].Add(new Tuple<FormKey, string>(txstRefObj.FormKey, modelRec.Item2));
+                    }
+
                     if (modelRec.Item1.AlternateTextures is null)
                     {
                         // no alternate textures in this MODL record, we can skip
@@ -789,6 +839,372 @@ public class PGMutagen
         OutputSplitMods.Add(newMod);
 
         return OutputSplitMods[newPluginIndex - 1];
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "GetModelUses", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void GetModelUses(
+      [DNNE.C99Type("const wchar_t*")] IntPtr modelPathPtr,
+      [DNNE.C99Type("unsigned int*")] uint* length,
+      [DNNE.C99Type("uint8_t**")] byte** bufferPtr)
+    {
+        try
+        {
+            if (Env is null)
+            {
+                throw new Exception("Initialize must be called before GetModelUses");
+            }
+
+            if (length is null)
+            {
+                throw new Exception("length pointer is null");
+            }
+
+            var builder = new FlatBufferBuilder(1024);
+
+            // Get the lowercase nifname (with meshes\ prefix) from C++
+            string nifName = Marshal.PtrToStringUni(modelPathPtr)?.ToLower() ?? string.Empty;
+
+            // find all uses
+            if (!ModelUses.TryGetValue(nifName, out List<Tuple<FormKey, string>>? modelRecUsesList))
+            {
+                // No uses for this model
+                *length = 0;
+                return;
+            }
+
+            var modelUseOffsets = new List<Offset<PGMutagenBuffers.ModelUse>>();
+
+            // loop through each use
+            for (int i = 0; i < modelRecUsesList.Count; i++)
+            {
+                var formKey = modelRecUsesList[i].Item1;
+                var subModel = modelRecUsesList[i].Item2;
+
+                // find winning model record
+                if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var modelRec))
+                {
+                    throw new Exception("Failed to resolve model record for formkey: " + formKey);
+                }
+
+                // find submodel
+                var matchedModel = GetModelElemBySubModel(modelRec, subModel) ?? throw new Exception("Failed to find submodel: " + subModel + " in record: " + GetRecordDesc(modelRec));
+
+                // find alternate textures
+                if (matchedModel.AlternateTextures is null)
+                {
+                    continue;
+                }
+
+                var altTexOffsets = new List<Offset<PGMutagenBuffers.AlternateTexture>>();
+
+                for (int j = 0; j < matchedModel.AlternateTextures.Count; j++)
+                {
+                    var altTexIdx = matchedModel.AlternateTextures[j].Index;
+                    var newTXST = matchedModel.AlternateTextures[j].NewTexture;
+
+                    var textureSetOffsets = new List<Offset<PGMutagenBuffers.TextureSet>>();
+
+                    // find newTXST record
+                    var textures = new string[8];
+                    if (Env.LinkCache.TryResolve<ITextureSetGetter>(newTXST.FormKey, out var newTXSTRec))
+                    {
+                        // The 8 strings in textureset are:
+                        // newTXSTRec.Texture1 - Texture8
+                        textures =
+                        [
+                            newTXSTRec.Diffuse?.ToString().ToLower() ?? string.Empty,
+                            newTXSTRec.NormalOrGloss?.ToString().ToLower() ?? string.Empty,
+                            newTXSTRec.GlowOrDetailMap?.ToString().ToLower() ?? string.Empty,
+                            newTXSTRec.Height?.ToString().ToLower() ?? string.Empty,
+                            newTXSTRec.Environment?.ToString().ToLower() ?? string.Empty,
+                            newTXSTRec.EnvironmentMaskOrSubsurfaceTint?.ToString().ToLower() ?? string.Empty,
+                            newTXSTRec.Multilayer?.ToString().ToLower() ?? string.Empty,
+                            newTXSTRec.BacklightMaskOrSpecular?.ToString().ToLower() ?? string.Empty
+                        ];
+                        for (int k = 0; k < 8; k++)
+                        {
+                            if (textures[k].IsNullOrEmpty())
+                            {
+                                continue;
+                            }
+
+                            textures[k] = AddPrefixIfNotExists("textures\\", textures[k]);
+                        }
+                    }
+                    else
+                    {
+                        // the 8 strings in the textureset should exist but all be empty
+                        textures = [.. Enumerable.Repeat(string.Empty, 8)];
+                    }
+
+                    // Build the TextureSet
+                    var textureSetVec = PGMutagenBuffers.TextureSet.CreateTexturesVector(
+                        builder,
+                        [.. textures.Select(s => builder.CreateString(s))]
+                    );
+
+                    PGMutagenBuffers.TextureSet.StartTextureSet(builder);
+                    PGMutagenBuffers.TextureSet.AddTextures(builder, textureSetVec);
+                    var textureSetOffset = PGMutagenBuffers.TextureSet.EndTextureSet(builder);
+
+                    // Build the AlternateTexture (slots now holds a single TextureSet, not a vector)
+                    PGMutagenBuffers.AlternateTexture.StartAlternateTexture(builder);
+                    PGMutagenBuffers.AlternateTexture.AddSlotId(builder, altTexIdx);
+                    // add slot_id_new if you have a value for it
+                    PGMutagenBuffers.AlternateTexture.AddSlots(builder, textureSetOffset);
+                    var altTexOffset = PGMutagenBuffers.AlternateTexture.EndAlternateTexture(builder);
+
+                    altTexOffsets.Add(altTexOffset);
+                }
+
+                // check if this is IStaticGetter for materials
+                bool is_singlePass = false;
+                if (modelRec is IStaticGetter staticRec && Env.LinkCache.TryResolve<IMaterialObjectGetter>(staticRec.Material.FormKey, out var materialRec))
+                {
+                    is_singlePass = (materialRec.Flags & MaterialObject.Flag.SinglePass) != 0;
+                }
+
+                var altTexVector = PGMutagenBuffers.ModelUse.CreateAlternateTexturesVector(builder, [.. altTexOffsets]);
+                var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
+                var subModelOffset = builder.CreateString(subModel);
+                var modelNameOffset = builder.CreateString(nifName);
+
+                PGMutagenBuffers.ModelUse.StartModelUse(builder);
+                PGMutagenBuffers.ModelUse.AddModName(builder, modNameOffset);
+                PGMutagenBuffers.ModelUse.AddFormId(builder, formKey.ID);
+                PGMutagenBuffers.ModelUse.AddSubModel(builder, subModelOffset);
+                PGMutagenBuffers.ModelUse.AddMeshFile(builder, modelNameOffset);
+                PGMutagenBuffers.ModelUse.AddSinglepassMato(builder, is_singlePass);
+                PGMutagenBuffers.ModelUse.AddAlternateTextures(builder, altTexVector);
+                var modelUseOffset = PGMutagenBuffers.ModelUse.EndModelUse(builder);
+
+                modelUseOffsets.Add(modelUseOffset);
+            }
+
+            var usesVector = PGMutagenBuffers.ModelUses.CreateUsesVector(builder, [.. modelUseOffsets]);
+            PGMutagenBuffers.ModelUses.StartModelUses(builder);
+            PGMutagenBuffers.ModelUses.AddUses(builder, usesVector);
+            var rootOffset = PGMutagenBuffers.ModelUses.EndModelUses(builder); // returns Offset<ModelUses>
+                                                                               //MessageHandler.Log("Serialized model uses count: " + rootOffset.Value, 4);
+            builder.Finish(rootOffset.Value);
+
+            var byteArray = builder.SizedByteArray(); // fully serialized FlatBuffer
+            *length = (uint)byteArray.Length;
+
+            // Allocate memory for C++ side
+            *bufferPtr = (byte*)Marshal.AllocHGlobal(byteArray.Length);
+            Marshal.Copy(byteArray, 0, (IntPtr)(*bufferPtr), byteArray.Length);
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "SetModelUses", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void SetModelUses(
+      [DNNE.C99Type("const unsigned int")] uint length,
+      [DNNE.C99Type("uint8_t**")] byte** bufferPtr)
+    {
+        if (Env is null)
+        {
+            throw new Exception("Initialize must be called before SetModelUses");
+        }
+
+        if (OutMod is null)
+        {
+            throw new Exception("OutMod is null in SetModelUses");
+        }
+
+        if (length == 0 || bufferPtr == null || *bufferPtr == null)
+        {
+            return;
+        }
+
+        // Convert bufferPtr to span
+        Span<byte> bufferSpan = new(*bufferPtr, (int)length);
+
+        // Load onto buffer
+        var buffer = new ByteBuffer(bufferSpan.ToArray());
+        var modelUses = PGMutagenBuffers.ModelUses.GetRootAsModelUses(buffer);
+
+        // Loop through each model use
+        for (int i = 0; i < modelUses.UsesLength; i++)
+        {
+            var modelUseContainer = modelUses.Uses(i);
+            if (!modelUseContainer.HasValue)
+            {
+                continue;
+            }
+
+            var modelUse = modelUseContainer.Value;
+            var searchFormKey = new FormKey(modelUse.ModName, modelUse.FormId);
+
+            // Find winning record for this formkey
+            if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(searchFormKey, out var existingRecord))
+            {
+                // Record doesn't exist, skip
+                throw new Exception("Failed to resolve model record for formkey: " + searchFormKey);
+            }
+
+            // check if we already modified this record
+            IMajorRecord modRecord;
+            if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
+            {
+                modRecord = value;
+            }
+            else
+            {
+                modRecord = existingRecord.DeepCopy();
+            }
+
+            // Find model record to modify
+            var matchExistingElem = GetModelElemBySubModel(existingRecord, modelUse.SubModel);
+            var matchModElem = GetModelElemBySubModel(modRecord, modelUse.SubModel);
+            if (matchExistingElem is null || matchModElem is null)
+            {
+                throw new Exception("Failed to find submodel: " + modelUse.SubModel + " in record: " + GetRecordDesc(existingRecord));
+            }
+
+            // Actual changes starting
+            bool changed = false;
+
+            // Mesh path
+            if (matchExistingElem.File != modelUse.MeshFile)
+            {
+                // Change mesh path
+                matchModElem.File = modelUse.MeshFile;
+                changed = true;
+            }
+
+            if (matchExistingElem.AlternateTextures is null || matchModElem.AlternateTextures is null)
+            {
+                // Not allowed to modify alternate textures that do not exist
+                continue;
+            }
+
+            // Create dictionary of old alternate texture idx to buffer entry
+            Dictionary<int, PGMutagenBuffers.AlternateTexture> altTexDict = [];
+            for (int j = 0; j < modelUse.AlternateTexturesLength; j++)
+            {
+                var curAltTex = modelUse.AlternateTextures(j);
+                if (!curAltTex.HasValue)
+                {
+                    continue;
+                }
+
+                altTexDict[curAltTex.Value.SlotId] = curAltTex.Value;
+            }
+            // Loop through existing alternate textures
+            for (int j = 0; j < matchExistingElem.AlternateTextures.Count; j++)
+            {
+                var curAltTex = matchExistingElem.AlternateTextures[j];
+                if (!altTexDict.ContainsKey(curAltTex.Index))
+                {
+                    continue;
+                }
+
+                // Found matching alternate texture, update it if required
+                var bufAltTex = altTexDict[curAltTex.Index];
+
+                // Index
+                var newAltTex = bufAltTex.SlotIdNew;
+                if (curAltTex.Index != newAltTex)
+                {
+                    // Change index
+                    matchModElem.AlternateTextures[j].Index = newAltTex;
+                    changed = true;
+                }
+
+                // Find new texture set
+                if (bufAltTex.Slots is null || !bufAltTex.Slots.HasValue || bufAltTex.Slots.Value.TexturesLength != 8)
+                {
+                    // No texture set, skip
+                    continue;
+                }
+
+                // get texture set array from buffer
+                string[] bufTextures = [
+                    bufAltTex.Slots.Value.Textures(0) ?? string.Empty,
+                    bufAltTex.Slots.Value.Textures(1) ?? string.Empty,
+                    bufAltTex.Slots.Value.Textures(2) ?? string.Empty,
+                    bufAltTex.Slots.Value.Textures(3) ?? string.Empty,
+                    bufAltTex.Slots.Value.Textures(4) ?? string.Empty,
+                    bufAltTex.Slots.Value.Textures(5) ?? string.Empty,
+                    bufAltTex.Slots.Value.Textures(6) ?? string.Empty,
+                    bufAltTex.Slots.Value.Textures(7) ?? string.Empty
+                ];
+
+                string[] existingTextures;
+                // find existing texture set record
+                if (Env.LinkCache.TryResolve<ITextureSetGetter>(curAltTex.NewTexture.FormKey, out var existingTXSTRec))
+                {
+                    existingTextures = GetTextureSet(existingTXSTRec);
+                }
+                else
+                {
+                    existingTextures = [.. Enumerable.Repeat(string.Empty, 8)];
+                }
+
+                // check if textures are different
+                if (existingTextures.SequenceEqual(bufTextures))
+                {
+                    continue;
+                }
+
+                // Textures are different, we need to find or create a new texture set record
+                changed = true;
+                if (NewTextureSets.TryGetValue(bufTextures, out ITextureSet? alreadyExistingTXST))
+                {
+                    // already exists, just use that
+                    matchModElem.AlternateTextures[j].NewTexture.FormKey = alreadyExistingTXST.FormKey;
+                }
+                else
+                {
+                    // Create a new texture set record
+                    var newFormKey = new FormKey(OutMod.ModKey, (uint)NewTextureSets.Count + 1);
+                    var newTXSTObj = new TextureSet(newFormKey, Env.GameRelease.ToSkyrimRelease())
+                    {
+                        Diffuse = bufTextures[0].IsNullOrEmpty() ? null : bufTextures[0],
+                        NormalOrGloss = bufTextures[1].IsNullOrEmpty() ? null : bufTextures[1],
+                        GlowOrDetailMap = bufTextures[2].IsNullOrEmpty() ? null : bufTextures[2],
+                        Height = bufTextures[3].IsNullOrEmpty() ? null : bufTextures[3],
+                        Environment = bufTextures[4].IsNullOrEmpty() ? null : bufTextures[4],
+                        EnvironmentMaskOrSubsurfaceTint = bufTextures[5].IsNullOrEmpty() ? null : bufTextures[5],
+                        Multilayer = bufTextures[6].IsNullOrEmpty() ? null : bufTextures[6],
+                        BacklightMaskOrSpecular = bufTextures[7].IsNullOrEmpty() ? null : bufTextures[7]
+                    };
+
+                    // Add to dictionary
+                    NewTextureSets[bufTextures] = newTXSTObj;
+
+                    // Update formkey
+                    matchModElem.AlternateTextures[j].NewTexture.FormKey = newFormKey;
+                }
+            }
+
+
+            // add to modified records only if something has changed
+            if (changed)
+            {
+                ModifiedRecords[searchFormKey] = modRecord;
+            }
+        }
+    }
+
+    private static string[] GetTextureSet(ITextureSetGetter textureSet)
+    {
+        return
+        [
+            textureSet.Diffuse?.ToString().ToLower() ?? string.Empty,
+            textureSet.NormalOrGloss?.ToString().ToLower() ?? string.Empty,
+            textureSet.GlowOrDetailMap?.ToString().ToLower() ?? string.Empty,
+            textureSet.Height?.ToString().ToLower() ?? string.Empty,
+            textureSet.Environment?.ToString().ToLower() ?? string.Empty,
+            textureSet.EnvironmentMaskOrSubsurfaceTint?.ToString().ToLower() ?? string.Empty,
+            textureSet.Multilayer?.ToString().ToLower() ?? string.Empty,
+            textureSet.BacklightMaskOrSpecular?.ToString().ToLower() ?? string.Empty
+        ];
     }
 
     [UnmanagedCallersOnly(EntryPoint = "GetMatchingTXSTObjs", CallConvs = [typeof(CallConvCdecl)])]
