@@ -7,8 +7,13 @@
 - Mods can now be disabled such that assets from them are not used for patching your load order
 - "Use MO2 Loose File Order" option is now in the mod sort dialog
 - Download archive can now be installed as a mod with auto detection for game path based on install location
-- Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
+- Added metadata spec for complex material
+- Patchers are now aware of material type on statics. For example, parallax will not be patched with single pass material
+- Improved mesh permutation system significantly for accuracy and coverage of entire property tree, not just material type
+- Improved TXST formid cache
 - Removed optimize meshes post-patcher
+- PBR new TXSTs will no longer create TXST jsons (the properties are now set in each NIF)
+- Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
 - Fixed duplicate mesh shapes not being patched for certain edge cases
 - Fixed null texture sets not being factored when reordering NIF blocks
 
