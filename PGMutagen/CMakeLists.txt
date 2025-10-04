@@ -78,7 +78,7 @@ add_custom_target(PGMutagenNE ALL
 add_dependencies(PGMutagenWrapper PGMutagenNE)
 
 # --- Post-build: copy DLLs to runtime output ---
-file(GLOB PG_MUTAGEN_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen/*.dll")
+file(GLOB PG_MUTAGEN_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen/*")
 foreach(file_path IN LISTS PG_MUTAGEN_DLLS)
     add_custom_command(TARGET PGMutagenWrapper POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

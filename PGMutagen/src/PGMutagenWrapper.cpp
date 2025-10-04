@@ -86,8 +86,6 @@ void PGMutagenWrapper::libInitialize(const int& gameType, const std::wstring& ex
 {
     set_failure_callback(dnneFailure);
 
-    const lock_guard<mutex> lock(s_libMutex);
-
     // Use vector to manage the memory for LoadOrderArr
     vector<const wchar_t*> loadOrderArr;
     if (!loadOrder.empty()) {
@@ -100,9 +98,13 @@ void PGMutagenWrapper::libInitialize(const int& gameType, const std::wstring& ex
     // Add the null terminator to the end
     loadOrderArr.push_back(nullptr);
 
-    Initialize(gameType, exePath.c_str(), dataPath.c_str(), loadOrderArr.data(), lang);
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
+    {
+        const lock_guard<mutex> lock(s_libMutex);
+
+        Initialize(gameType, exePath.c_str(), dataPath.c_str(), loadOrderArr.data(), lang);
+        libLogMessageIfExists();
+        libThrowExceptionIfExists();
+    }
 }
 
 void PGMutagenWrapper::libPopulateObjs()
@@ -128,9 +130,12 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
     uint8_t* buffer = nullptr;
     uint32_t length = 0;
 
-    GetModelUses(modelPath.c_str(), &length, &buffer);
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
+    {
+        const lock_guard<mutex> lock(s_libMutex);
+        GetModelUses(modelPath.c_str(), &length, &buffer);
+        libLogMessageIfExists();
+        libThrowExceptionIfExists();
+    }
 
     if ((buffer == nullptr) || length == 0) {
         return {};
@@ -227,9 +232,12 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
     uint8_t const* buf = builder.GetBufferPointer();
     unsigned int const size = builder.GetSize();
 
-    SetModelUses(size, buf);
-    libLogMessageIfExists();
-    libThrowExceptionIfExists();
+    {
+        const lock_guard<mutex> lock(s_libMutex);
+        SetModelUses(size, buf);
+        libLogMessageIfExists();
+        libThrowExceptionIfExists();
+    }
 }
 
 auto PGMutagenWrapper::utf8toUTF16(const string& str) -> wstring

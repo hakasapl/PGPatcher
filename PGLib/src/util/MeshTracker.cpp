@@ -1,6 +1,7 @@
 #include "util/MeshTracker.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
+#include <algorithm>
 #include <fstream>
 
 #include "PGGlobals.hpp"
@@ -249,14 +250,22 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
     // now
 
     vector<NiShape*> shapesA;
-    for (const auto& shape : NIFUtil::getShapesWithBlockIDs(&meshA)) {
+    const auto shapeMapA = NIFUtil::getShapesWithBlockIDs(&meshA);
+    shapesA.reserve(shapeMapA.size());
+    for (const auto& shape : shapeMapA) {
         shapesA.push_back(shape.first);
     }
+    std::ranges::sort(shapesA,
+        [&shapeMapA](nifly::NiShape* a, nifly::NiShape* b) -> bool { return shapeMapA.at(a) < shapeMapA.at(b); });
 
     vector<NiShape*> shapesB;
-    for (const auto& shape : NIFUtil::getShapesWithBlockIDs(&meshB)) {
+    const auto shapeMapB = NIFUtil::getShapesWithBlockIDs(&meshB);
+    shapesB.reserve(shapeMapB.size());
+    for (const auto& shape : shapeMapB) {
         shapesB.push_back(shape.first);
     }
+    std::ranges::sort(shapesB,
+        [&shapeMapB](nifly::NiShape* a, nifly::NiShape* b) -> bool { return shapeMapB.at(a) < shapeMapB.at(b); });
 
     if (shapesA.size() != shapesB.size()) {
         // Different number of shapes
@@ -476,7 +485,7 @@ auto MeshTracker::getMeshPath(const std::filesystem::path& nifPath, const size_t
     // Different from mesh which means duplicate is needed
     filesystem::path newNIFPath;
     auto it = nifPath.begin();
-    newNIFPath /= *it++ / (L"pg" + to_wstring(index));
+    newNIFPath /= *it++ / "pgdups" / to_wstring(index);
     while (it != nifPath.end()) {
         newNIFPath /= *it++;
     }

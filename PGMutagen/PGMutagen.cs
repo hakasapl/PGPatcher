@@ -22,6 +22,7 @@ using Mutagen.Bethesda.Strings.DI;
 using Mutagen.Bethesda.Plugins.Aspects;
 
 using Google.FlatBuffers;
+using System.Collections;
 
 public static class ExceptionHandler
 {
@@ -82,6 +83,19 @@ public static class MessageHandler
     }
 }
 
+class StructuralArrayComparer : IEqualityComparer<string[]>
+{
+    public bool Equals(string[]? x, string[]? y)
+    {
+        return StructuralComparisons.StructuralEqualityComparer.Equals(x, y);
+    }
+
+    public int GetHashCode(string[] obj)
+    {
+        return StructuralComparisons.StructuralEqualityComparer.GetHashCode(obj);
+    }
+}
+
 public class PGMutagen
 {
     //
@@ -92,7 +106,7 @@ public class PGMutagen
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
     private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
     private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
-    private static Dictionary<string[], ITextureSet> NewTextureSets = [];
+    private static Dictionary<string[], ITextureSet> NewTextureSets = new(new StructuralArrayComparer());
 
 
     private static SkyrimRelease GameType;
@@ -704,10 +718,11 @@ public class PGMutagen
                 bool changed = false;
 
                 // Mesh path
-                if (matchExistingElem.File != modelUse.MeshFile)
+                var newMeshFile = RemovePrefixIfExists("meshes\\", modelUse.MeshFile);
+                if (!string.Equals(matchExistingElem.File, newMeshFile, StringComparison.OrdinalIgnoreCase))
                 {
                     // Change mesh path
-                    matchModElem.File = modelUse.MeshFile;
+                    matchModElem.File = newMeshFile;
                     changed = true;
                 }
 
@@ -781,7 +796,7 @@ public class PGMutagen
                     }
 
                     // check if textures are different
-                    if (existingTextures.SequenceEqual(bufTextures))
+                    if (existingTextures.SequenceEqual(bufTextures, StringComparer.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -797,16 +812,30 @@ public class PGMutagen
                     {
                         // Create a new texture set record
                         var newFormKey = new FormKey(OutMod.ModKey, (uint)NewTextureSets.Count + 1);
+                        // find filename of diffuse texture (just .dds file no path), also remove extension
+                        var diffuseTex = bufTextures[0].IsNullOrEmpty() ? "" : Path.GetFileNameWithoutExtension(bufTextures[0]);
+                        var formIDHex = newFormKey.ID.ToString("X6");
+                        var newEDID = "PG_";
+                        if (!diffuseTex.IsNullOrEmpty())
+                        {
+                            newEDID += diffuseTex + "_" + formIDHex;
+                        }
+                        else
+                        {
+                            newEDID += formIDHex;
+                        }
+
                         var newTXSTObj = new TextureSet(newFormKey, Env.GameRelease.ToSkyrimRelease())
                         {
-                            Diffuse = bufTextures[0].IsNullOrEmpty() ? null : bufTextures[0],
-                            NormalOrGloss = bufTextures[1].IsNullOrEmpty() ? null : bufTextures[1],
-                            GlowOrDetailMap = bufTextures[2].IsNullOrEmpty() ? null : bufTextures[2],
-                            Height = bufTextures[3].IsNullOrEmpty() ? null : bufTextures[3],
-                            Environment = bufTextures[4].IsNullOrEmpty() ? null : bufTextures[4],
-                            EnvironmentMaskOrSubsurfaceTint = bufTextures[5].IsNullOrEmpty() ? null : bufTextures[5],
-                            Multilayer = bufTextures[6].IsNullOrEmpty() ? null : bufTextures[6],
-                            BacklightMaskOrSpecular = bufTextures[7].IsNullOrEmpty() ? null : bufTextures[7]
+                            Diffuse = bufTextures[0].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[0]),
+                            NormalOrGloss = bufTextures[1].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[1]),
+                            GlowOrDetailMap = bufTextures[2].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[2]),
+                            Height = bufTextures[3].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[3]),
+                            Environment = bufTextures[4].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[4]),
+                            EnvironmentMaskOrSubsurfaceTint = bufTextures[5].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[5]),
+                            Multilayer = bufTextures[6].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[6]),
+                            BacklightMaskOrSpecular = bufTextures[7].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[7]),
+                            EditorID = newEDID
                         };
 
                         // Add to output mod
