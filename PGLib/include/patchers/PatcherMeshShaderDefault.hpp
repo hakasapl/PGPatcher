@@ -41,7 +41,7 @@ public:
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
-    auto canApply(nifly::NiShape& nifShape) -> bool override;
+    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool override;
 
     /**
      * @brief Check if a shape can be patched by this patcher (with slots)

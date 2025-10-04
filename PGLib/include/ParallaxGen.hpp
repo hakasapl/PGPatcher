@@ -104,7 +104,7 @@ private:
      * @return true if the NIF file was processed successfully
      * @return false if the NIF file was not processed successfully
      */
-    static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif,
+    static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
         std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures) -> bool;
 
     /**
@@ -123,10 +123,11 @@ private:
      * @return false if the NIF shape was not processed successfully
      */
     static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
-        const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
+        const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO,
+        NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
 
     static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-        const bool& dryRun, const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
+        const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
         nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 
     /**

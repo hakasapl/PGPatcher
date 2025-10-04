@@ -65,7 +65,7 @@ public:
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
-    virtual auto canApply(nifly::NiShape& nifShape) -> bool = 0;
+    virtual auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool = 0;
 
     /// @brief  Methods that determine whether the patcher should apply to a shape
     /// @param[in] nifShape shape to check

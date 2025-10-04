@@ -120,7 +120,7 @@ public:
      * @return true Can accomodate
      * @return false Cannot accomodate
      */
-    auto canApply(nifly::NiShape& nifShape) -> bool override;
+    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool override;
 
     /**
      * @brief Check if shape can accomodate truepbr (with slots)

@@ -57,7 +57,7 @@ public:
      * @return true Shape can accomodate CM
      * @return false Shape cannot accomodate CM
      */
-    auto canApply(nifly::NiShape& nifShape) -> bool override;
+    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool override;
 
     /**
      * @brief Check if shape can accomodate CM shader based on texture slots only

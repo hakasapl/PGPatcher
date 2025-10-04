@@ -36,8 +36,13 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::p
     }
 }
 
-auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape) -> bool
+auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepassMATO) -> bool
 {
+    if (singlepassMATO) {
+        Logger::trace(L"Cannot Apply: Singlepass MATO enabled");
+        return false;
+    }
+
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 

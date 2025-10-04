@@ -256,7 +256,7 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
     // loop through each texture set in cache
     for (const auto& textureSet : nifCache.textureSets) {
         // find matches
-        auto matches = getMatches(textureSet.second, patcherObjects, true);
+        auto matches = getMatches(textureSet.second, patcherObjects, true, false);
 
         // find all uses of this nif
         if (patchPlugin) {
@@ -270,7 +270,7 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
                 // loop through each alternate texture set
                 for (const auto& [altTexIndex, altTexSet] : use.second.alternateTextures) {
                     // find matches
-                    const auto curMatches = getMatches(altTexSet, patcherObjects, true);
+                    const auto curMatches = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO);
                     matches.insert(matches.end(), curMatches.begin(), curMatches.end());
                 }
             }
@@ -307,7 +307,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // Patch base NIF
     auto* baseNIF = meshTracker.stageMesh();
     unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures; // empty alternate textures for base mesh
-    if (!processNIF(nifPath, baseNIF, alternateTextures)) {
+    if (!processNIF(nifPath, baseNIF, false, alternateTextures)) {
         return ParallaxGenTask::PGResult::FAILURE;
     }
     meshTracker.commitBaseMesh();
@@ -332,7 +332,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
         // alternate textures do exist so we need to do some processing
         // stage a new mesh
         auto* stagedNIF = meshTracker.stageMesh();
-        if (!processNIF(nifPath, stagedNIF, use.second.alternateTextures)) {
+        if (!processNIF(nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures)) {
             return ParallaxGenTask::PGResult::FAILURE;
         }
         meshTracker.commitDupMesh(use.first, use.second.alternateTextures);
@@ -354,7 +354,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     return ParallaxGenTask::PGResult::SUCCESS;
 }
 
-auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif,
+auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
     std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures) -> bool
 {
     auto* const pgd = PGGlobals::getPGD();
@@ -388,7 +388,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
         if (alternateTextures.contains(oldIndex3D)) {
             ptrAltTex = &alternateTextures.at(oldIndex3D);
         }
-        if (!processNIFShape(nifPath, nif, nifShape, patcherObjects, ptrAltTex)) {
+        if (!processNIFShape(nifPath, nif, nifShape, patcherObjects, singlepassMATO, ptrAltTex)) {
             return false;
         }
     }
@@ -403,7 +403,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
 }
 
 auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
-    const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::TextureSet* alternateTexture) -> bool
+    const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO, NIFUtil::TextureSet* alternateTexture)
+    -> bool
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
@@ -431,7 +432,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
         }
 
         // Allowed shaders from result of patchers
-        auto matches = getMatches(slots, patchers, false, &patchers, nifShape);
+        auto matches = getMatches(slots, patchers, false, singlepassMATO, &patchers, nifShape);
 
         PatcherUtil::ShaderPatcherMatch winningShaderMatch;
         // Get winning match
@@ -471,8 +472,8 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 }
 
 auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-    const bool& dryRun, const PatcherUtil::PatcherMeshObjectSet* patcherObjects, nifly::NiShape* shape)
-    -> std::vector<PatcherUtil::ShaderPatcherMatch>
+    const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects,
+    nifly::NiShape* shape) -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
     if (PGGlobals::getPGD() == nullptr) {
         throw runtime_error("PGD is null");
@@ -535,8 +536,9 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
             // Verify shape can apply
             if (patcherObjects != nullptr) {
-                if (!patcherObjects->shaderPatchers.at(shader)->canApply(*shape)
-                    && !patcherObjects->shaderPatchers.contains(curMatch.shaderTransformTo)) {
+                if (!patcherObjects->shaderPatchers.at(shader)->canApply(*shape, singlepassMATO)
+                    && !patcherObjects->shaderPatchers.at(curMatch.shaderTransformTo)
+                        ->canApply(*shape, singlepassMATO)) {
                     Logger::trace(L"Rejecting: Shape cannot apply shader");
                     continue;
                 }

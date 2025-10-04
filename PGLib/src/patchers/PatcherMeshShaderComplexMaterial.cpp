@@ -39,7 +39,7 @@ PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::p
 {
 }
 
-auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape) -> bool
+auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unused]] bool singlepassMATO) -> bool
 {
     // Prep
     Logger::trace(L"Starting checking");

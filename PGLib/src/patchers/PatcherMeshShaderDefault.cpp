@@ -21,7 +21,11 @@ PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath, nif
 {
 }
 
-auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape) -> bool { return true; }
+auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape, [[maybe_unused]] bool singlepassMATO)
+    -> bool
+{
+    return true;
+}
 
 auto PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
 {

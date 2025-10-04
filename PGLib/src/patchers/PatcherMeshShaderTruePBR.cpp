@@ -165,7 +165,8 @@ auto PatcherMeshShaderTruePBR::getFactory() -> PatcherMeshShader::PatcherMeshSha
 
 auto PatcherMeshShaderTruePBR::getShaderType() -> NIFUtil::ShapeShader { return NIFUtil::ShapeShader::TRUEPBR; }
 
-auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape) -> bool
+auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape, [[maybe_unused]] bool singlepassMATO)
+    -> bool
 {
     auto* const nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
