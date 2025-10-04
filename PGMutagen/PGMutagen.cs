@@ -109,6 +109,7 @@ public class PGMutagen
     private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
     private static SortedSet<uint> allocatedFormIDs = [];
+    private static uint lastUsedFormID = 1;
 
 
     private static SkyrimRelease GameType;
@@ -217,7 +218,8 @@ public class PGMutagen
 
                     // Add to output mod
                     OutMod.TextureSets.Add(newTXSTObj);
-                    allocatedFormIDs.Add(txst.FormKey.ID);
+                    allocatedFormIDs.Add(newTXSTObj.FormKey.ID);
+                    lastUsedFormID = newTXSTObj.FormKey.ID;
 
                     // Add to dictionary (mark as unused)
                     var textures = GetTextureSet(newTXSTObj);
@@ -928,6 +930,7 @@ public class PGMutagen
                         // Add to output mod
                         OutMod.TextureSets.Add(newTXSTObj);
                         allocatedFormIDs.Add(newFormKey.ID);
+                        lastUsedFormID = newFormKey.ID;
 
                         // Add to dictionary
                         NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(newTXSTObj, true);
@@ -1255,7 +1258,7 @@ public class PGMutagen
 
     private static uint GetLowestAvailableFormID()
     {
-        for (uint id = 1; id <= 0xFFFFFF; id++)
+        for (uint id = lastUsedFormID + 1; id <= 0xFFFFFF; id++)
         {
             if (!allocatedFormIDs.Contains(id))
             {

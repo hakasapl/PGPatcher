@@ -488,10 +488,12 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
     bool foundCache = false;
     {
+        const MatchCacheKey key { .slots = slots, .singlepassMATO = singlepassMATO };
+
         const shared_lock lock(s_matchCacheMutex);
-        if (s_matchCache.contains({ slots, singlepassMATO })) {
+        if (s_matchCache.contains(key)) {
             foundCache = true;
-            matches = s_matchCache.at({ slots, singlepassMATO });
+            matches = s_matchCache.at(key);
         }
     }
 
@@ -543,6 +545,8 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                 if (shader != NIFUtil::ShapeShader::NONE) {
                     // a non-default match is available. If this match is the same mod as any default matches, remove
                     // the defaults
+                    // TODO if canapply purges stuff later, default may be unnecessarily deleted but I'm not sure it
+                    // TODO matters
                     std::erase_if(matches, [&curMatch](const PatcherUtil::ShaderPatcherMatch& m) -> bool {
                         return m.shader == NIFUtil::ShapeShader::NONE && m.mod != nullptr && curMatch.mod != nullptr
                             && m.mod == curMatch.mod;
@@ -587,6 +591,12 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
         }
     }
 
+    // Cache matches
+    {
+        const unique_lock lock(s_matchCacheMutex);
+        s_matchCache[{ slots, singlepassMATO }] = matches;
+    }
+
     // Loop through matches and delete any that cannot apply
     // Verify shape can apply
     if (patcherObjects != nullptr) {
@@ -609,12 +619,6 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             }
             ++it;
         }
-    }
-
-    // Cache matches
-    {
-        const unique_lock lock(s_matchCacheMutex);
-        s_matchCache[{ slots, singlepassMATO }] = matches;
     }
 
     return matches;
