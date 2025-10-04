@@ -105,6 +105,7 @@ public class PGMutagen
     private static SkyrimMod? OutMod;
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
     private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
+    private static HashSet<IModelGetter> ProcessedModelUses = [];
     private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
     private static Dictionary<string[], ITextureSet> NewTextureSets = new(new StructuralArrayComparer());
 
@@ -197,10 +198,10 @@ public class PGMutagen
                 throw new Exception("Initialize must be called before PopulateObjs");
             }
 
-            foreach (var txstRefObj in EnumerateModelRecordsSafe())
+            foreach (var modelMajorRec in EnumerateModelRecordsSafe())
             {
                 // Will store models to check later
-                var ModelRecs = GetModelElems(txstRefObj);
+                var ModelRecs = GetModelElems(modelMajorRec);
 
                 if (ModelRecs.Count == 0)
                 {
@@ -223,7 +224,34 @@ public class PGMutagen
                         ModelUses[meshName] = [];
                     }
 
-                    ModelUses[meshName].Add(new Tuple<FormKey, string>(txstRefObj.FormKey, modelRec.Item2));
+                    var curTuple = new Tuple<FormKey, string>(modelMajorRec.FormKey, modelRec.Item2);
+                    ModelUses[meshName].Add(curTuple);
+
+                    // Check if we need to also add the weight counterpart
+                    if (modelMajorRec is IArmorAddonGetter || modelMajorRec is IArmorGetter)
+                    {
+                        string weightMeshName = string.Empty;
+                        if (meshName.EndsWith("_0.nif"))
+                        {
+                            // replace _0.nif with _1.nif
+                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
+                        }
+                        else if (meshName.EndsWith("_1.nif"))
+                        {
+                            // replace _1.nif with _0.nif
+                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
+                        }
+
+                        if (!weightMeshName.IsNullOrEmpty())
+                        {
+                            if (!ModelUses.ContainsKey(weightMeshName))
+                            {
+                                ModelUses[weightMeshName] = [];
+                            }
+
+                            ModelUses[weightMeshName].Add(curTuple);
+                        }
+                    }
                 }
             }
         }
@@ -699,6 +727,7 @@ public class PGMutagen
                 IMajorRecord modRecord;
                 if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
                 {
+                    // record already modified
                     modRecord = value;
                 }
                 else
@@ -713,6 +742,14 @@ public class PGMutagen
                 {
                     throw new Exception("Failed to find submodel: " + modelUse.SubModel + " in record: " + GetRecordDesc(existingRecord));
                 }
+
+                if (ProcessedModelUses.Contains(matchExistingElem))
+                {
+                    // already processed this model use, skip
+                    continue;
+                }
+
+                ProcessedModelUses.Add(matchExistingElem);
 
                 // Actual changes starting
                 bool changed = false;
@@ -775,13 +812,13 @@ public class PGMutagen
                     // get texture set array from buffer
                     string[] bufTextures = [
                         bufAltTex.Slots.Value.Textures(0) ?? string.Empty,
-                    bufAltTex.Slots.Value.Textures(1) ?? string.Empty,
-                    bufAltTex.Slots.Value.Textures(2) ?? string.Empty,
-                    bufAltTex.Slots.Value.Textures(3) ?? string.Empty,
-                    bufAltTex.Slots.Value.Textures(4) ?? string.Empty,
-                    bufAltTex.Slots.Value.Textures(5) ?? string.Empty,
-                    bufAltTex.Slots.Value.Textures(6) ?? string.Empty,
-                    bufAltTex.Slots.Value.Textures(7) ?? string.Empty
+                        bufAltTex.Slots.Value.Textures(1) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(2) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(3) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(4) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(5) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(6) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(7) ?? string.Empty
                     ];
 
                     string[] existingTextures;
