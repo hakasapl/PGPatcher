@@ -92,8 +92,6 @@ public:
         const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
         = 0;
 
-    virtual void processNewTXSTRecord(const PatcherMatch& match, const std::string& edid = {}) = 0;
-
     /// @brief apply the shader to the shape
     /// @param[in] nifShape shape to apply the shader to
     virtual auto applyShader(nifly::NiShape& nifShape) -> bool = 0;

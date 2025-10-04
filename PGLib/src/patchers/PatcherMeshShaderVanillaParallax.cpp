@@ -189,5 +189,3 @@ auto PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape) -> 
 
     return changed;
 }
-
-void PatcherMeshShaderVanillaParallax::processNewTXSTRecord(const PatcherMatch& match, const std::string& edid) { }

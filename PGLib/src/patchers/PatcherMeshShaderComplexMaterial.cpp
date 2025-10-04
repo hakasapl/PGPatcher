@@ -241,8 +241,6 @@ auto PatcherMeshShaderComplexMaterial::applyPatchSlots(
     return newSlots != oldSlots;
 }
 
-void PatcherMeshShaderComplexMaterial::processNewTXSTRecord(const PatcherMatch& match, const std::string& edid) { }
-
 auto PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape) -> bool
 {
     bool changed = false;

@@ -85,8 +85,6 @@ public:
     auto applyPatchSlots(const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
         -> bool override;
 
-    void processNewTXSTRecord(const PatcherMatch& match, const std::string& edid = {}) override;
-
     /**
      * @brief Apply default shader to a shape (does nothing)
      *
