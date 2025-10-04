@@ -1,0 +1,30 @@
+namespace PGMutagenBuffers;
+
+// A single texture set
+table TextureSet {
+  textures:[string];
+}
+
+// A single alternate texture within the model usage
+table AlternateTexture {
+  slot_id:int;
+  slot_id_new:int;
+  slots:TextureSet;
+}
+
+// A single model usage
+table ModelUse {
+  mod_name:string;
+  form_id:uint;
+  sub_model:string;
+  mesh_file:string;
+  singlepass_mato:bool;  // This is readonly
+  alternate_textures:[AlternateTexture];
+}
+
+// Container for multiple ModelUse entries
+table ModelUses {
+  uses:[ModelUse];
+}
+
+root_type ModelUses;

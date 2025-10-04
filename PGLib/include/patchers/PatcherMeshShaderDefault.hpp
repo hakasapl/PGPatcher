@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <string>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
 /**
@@ -42,7 +41,7 @@ public:
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
-    auto canApply(nifly::NiShape& nifShape) -> bool override;
+    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool override;
 
     /**
      * @brief Check if a shape can be patched by this patcher (with slots)
@@ -73,8 +72,8 @@ public:
      * @param[out] shapeDeleted Whether the shape was deleted (always false)
      * @return NIFUtil::TextureSet New slots of shape
      */
-    auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool override;
 
     /**
      * @brief Apply a match to slots for parallax
@@ -85,8 +84,6 @@ public:
      */
     auto applyPatchSlots(const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
         -> bool override;
-
-    void processNewTXSTRecord(const PatcherMatch& match, const std::string& edid = {}) override;
 
     /**
      * @brief Apply default shader to a shape (does nothing)

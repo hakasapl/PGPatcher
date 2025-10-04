@@ -43,10 +43,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_subdirectory(external/nifly)
 
 # Submodules
-set(PGMUTAGEN_DIR ${CMAKE_SOURCE_DIR}/PGMutagen)
-set(PGMUTAGEN_OUTPUT_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 add_subdirectory(PGMutagen)
-
 add_subdirectory(PGPatcher)
 add_subdirectory(PGLib)
 add_subdirectory(PGTools)

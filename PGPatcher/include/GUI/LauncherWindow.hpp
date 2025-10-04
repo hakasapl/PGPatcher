@@ -25,7 +25,7 @@ public:
      *
      * @param pgc PGC object for UI to use
      */
-    LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cacheDir);
+    LauncherWindow(ParallaxGenConfig& pgc);
 
     /**
      * @brief Get the Params object (meant to be called after the user presses okay)
@@ -39,8 +39,6 @@ private:
     constexpr static int DEFAULT_HEIGHT = 800;
     constexpr static int BORDER_SIZE = 5;
     constexpr static int BUTTON_FONT_SIZE = 12;
-
-    std::filesystem::path m_cacheDir; /** Path to the cache directory */
 
     ParallaxGenConfig& m_pgc; /** Reference to the ParallaxGenConfig object */
 

@@ -12,6 +12,7 @@
       "name": "boost-crc",
       "version>=": "1.85.0#1"
     },
+    "boost-gil",
     {
       "name": "boost-iostreams",
       "version>=": "1.85.0#1"
@@ -70,6 +71,9 @@
       "name": "wxwidgets",
       "version>=": "3.2.5#3"
     },
-    "boost-gil"
+    {
+      "name": "flatbuffers",
+      "version>=": "25.2.10"
+    }
   ]
 }

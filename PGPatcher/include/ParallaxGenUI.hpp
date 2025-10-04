@@ -25,8 +25,7 @@ public:
      * @param OldParams Params to show in the UI
      * @return ParallaxGenConfig::PGParams Params set by the user
      */
-    static void showLauncher(
-        ParallaxGenConfig& pgc, const std::filesystem::path& cacheDir, ParallaxGenConfig::PGParams& params);
+    static void showLauncher(ParallaxGenConfig& pgc, ParallaxGenConfig::PGParams& params);
 
     /**
      * @brief Shows the mod selection dialog to the user (Hangs thread until user presses okay)

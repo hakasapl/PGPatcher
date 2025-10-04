@@ -45,7 +45,7 @@ target_link_libraries(PGLib PUBLIC
     nlohmann_json::nlohmann_json
     nlohmann_json_schema_validator::validator
     cpptrace::cpptrace
-    ${PGMUTAGEN_OUTPUT_DIR}/PGMutagenNE.lib
+    PGMutagenWrapper
 )
 target_include_directories(PGLib PUBLIC include)
 
@@ -59,5 +59,4 @@ add_custom_command(TARGET PGLib POST_BUILD
 )
 
 # include and link mutagen wrapper output
-add_dependencies(PGLib PGMutagen)
-include_directories(${PGMUTAGEN_OUTPUT_DIR})
+add_dependencies(PGLib PGMutagenWrapper)

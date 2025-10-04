@@ -6,7 +6,6 @@
 #include <string>
 #include <winnt.h>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
 /**
@@ -17,6 +16,9 @@ class PatcherMeshShaderComplexMaterial : public PatcherMeshShader {
 private:
     static std::vector<std::wstring> s_dynCubemapBlocklist; /** Stores the dynamic cubemap blocklist set */
     static bool s_disableMLP; /** If true MLP should be replaced with CM */
+
+    static std::shared_mutex s_metaCacheMutex; /** Mutex for material meta cache */
+    static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
 
 public:
     static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures/cubemaps/dynamic1pxcubemap_black.dds";
@@ -58,7 +60,7 @@ public:
      * @return true Shape can accomodate CM
      * @return false Shape cannot accomodate CM
      */
-    auto canApply(nifly::NiShape& nifShape) -> bool override;
+    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool override;
 
     /**
      * @brief Check if shape can accomodate CM shader based on texture slots only
@@ -87,8 +89,8 @@ public:
      * @param[in] match Match to apply
      * @return NIFUtil::TextureSet New slots after patching
      */
-    auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool override;
 
     /**
      * @brief Apply the CM shader to the slots
@@ -100,8 +102,6 @@ public:
     auto applyPatchSlots(const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
         -> bool override;
 
-    void processNewTXSTRecord(const PatcherMatch& match, const std::string& edid = {}) override;
-
     /**
      * @brief Apply CM shader to a shape
      *
@@ -109,4 +109,7 @@ public:
      * @param nifModified Whether the NIF was modified
      */
     auto applyShader(nifly::NiShape& nifShape) -> bool override;
+
+private:
+    static auto getMaterialMeta(const std::filesystem::path& envMaskPath) -> nlohmann::json;
 };

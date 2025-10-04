@@ -2,6 +2,7 @@
 
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
+#include "PGGlobals.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
@@ -16,7 +17,6 @@
 
 #include <exception>
 #include <filesystem>
-#include <fstream>
 #include <string>
 
 using namespace std;

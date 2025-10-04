@@ -36,8 +36,13 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::p
     }
 }
 
-auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape) -> bool
+auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepassMATO) -> bool
 {
+    if (singlepassMATO) {
+        Logger::trace(L"Cannot Apply: Singlepass MATO enabled");
+        return false;
+    }
+
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
@@ -137,8 +142,8 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(
     return !matches.empty();
 }
 
-auto PatcherMeshShaderVanillaParallax::applyPatch(
-    nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+auto PatcherMeshShaderVanillaParallax::applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape,
+    const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
 {
     bool changed = false;
 
@@ -146,7 +151,7 @@ auto PatcherMeshShaderVanillaParallax::applyPatch(
     changed |= applyShader(nifShape);
 
     // Apply slots
-    applyPatchSlots(getTextureSet(getNIFPath(), *getNIF(), nifShape), match, newSlots);
+    applyPatchSlots(oldSlots, match, newSlots);
     changed |= setTextureSet(getNIFPath(), *getNIF(), nifShape, newSlots);
 
     return changed;
@@ -189,5 +194,3 @@ auto PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape) -> 
 
     return changed;
 }
-
-void PatcherMeshShaderVanillaParallax::processNewTXSTRecord(const PatcherMatch& match, const std::string& edid) { }

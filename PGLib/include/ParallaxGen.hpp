@@ -7,12 +7,10 @@
 #include <nlohmann/json.hpp>
 #include <shared_mutex>
 #include <spdlog/spdlog.h>
-#include <string>
 
 #include <boost/functional/hash.hpp>
 
 #include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenTask.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/NIFUtil.hpp"
@@ -75,18 +73,6 @@ public:
     static auto getDiffJSON() -> nlohmann::json;
 
 private:
-    // Task Structs
-    struct NifFileResult {
-        nifly::NifFile nifFile;
-        std::vector<ParallaxGenPlugin::TXSTResult> txstResults;
-        std::unordered_map<int, NIFUtil::ShapeShader> shadersAppliedMesh;
-        std::vector<std::tuple<int, int, std::string>> idxCorrections;
-    };
-
-    struct DDSFileResult {
-        DirectX::ScratchImage ddsImage;
-    };
-
     // NIF Runners
 
     /**
@@ -118,10 +104,8 @@ private:
      * @return true if the NIF file was processed successfully
      * @return false if the NIF file was not processed successfully
      */
-    static auto processNIF(const std::filesystem::path& nifPath, const nifly::NifFile& origNif, const bool& patchPlugin,
-        std::unordered_map<std::filesystem::path, NifFileResult>& createdNIFs, bool& nifModified,
-        const std::unordered_map<int, NIFUtil::ShapeShader>* forceShaders = nullptr,
-        const std::unordered_map<int, NIFUtil::ShapeShader>* origShadersApplied = nullptr) -> bool;
+    static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
+        std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures) -> bool;
 
     /**
      * @brief Process a single NIF shape
@@ -139,20 +123,36 @@ private:
      * @return false if the NIF shape was not processed successfully
      */
     static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
-        const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply,
-        const PatcherUtil::PatcherMeshObjectSet& patchers, NIFUtil::ShapeShader& shaderApplied,
-        const NIFUtil::ShapeShader* forceShader = nullptr) -> bool;
+        const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO,
+        NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
 
-    static auto getMeshesFromPluginResults(const std::unordered_map<int, NIFUtil::ShapeShader>& shadersAppliedMesh,
-        const std::unordered_map<nifly::NiShape*, int>& shapeIdxs,
-        const std::unordered_map<int, std::unordered_map<int, ParallaxGenPlugin::TXSTResult>>& recordHandleTracker)
-        -> std::unordered_map<int,
-            std::pair<std::vector<ParallaxGenPlugin::TXSTResult>, std::unordered_map<int, NIFUtil::ShapeShader>>>;
+    static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
+        const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
+        nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+
+    /**
+     * @brief Get the Winning Match object (checks mod priority)
+     *
+     * @param Matches Matches to check
+     * @param NIFPath NIF path to check
+     * @param ModPriority Mod priority map
+     * @return ShaderPatcherMatch Winning match
+     */
+    static auto getWinningMatch(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches)
+        -> PatcherUtil::ShaderPatcherMatch;
+
+    /**
+     * @brief Helper method to run a transform if needed on a match
+     *
+     * @param Match Match to run transform
+     * @param Patchers Patcher set to use
+     * @return ShaderPatcherMatch Transformed match
+     */
+    static auto applyTransformIfNeeded(
+        PatcherUtil::ShaderPatcherMatch& match, const PatcherUtil::PatcherMeshObjectSet& patchers) -> bool;
 
     static auto createNIFPatcherObjects(const std::filesystem::path& nifPath, nifly::NifFile* nif)
         -> PatcherUtil::PatcherMeshObjectSet;
-
-    static auto getDuplicateNIFPath(const std::filesystem::path& nifPath, const int& index) -> std::filesystem::path;
 
     // DDS Runners
     static auto patchDDS(const std::filesystem::path& ddsPath) -> ParallaxGenTask::PGResult;

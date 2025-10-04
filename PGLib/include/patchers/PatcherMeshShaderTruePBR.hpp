@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
 constexpr unsigned TEXTURE_STR_LENGTH = 9;
@@ -121,7 +120,7 @@ public:
      * @return true Can accomodate
      * @return false Cannot accomodate
      */
-    auto canApply(nifly::NiShape& nifShape) -> bool override;
+    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool override;
 
     /**
      * @brief Check if shape can accomodate truepbr (with slots)
@@ -150,8 +149,8 @@ public:
      * @param match Match to apply
      * @return NIFUtil::TextureSet New slots of shape
      */
-    auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool override;
 
     /**
      * @brief Apply a match to slots
@@ -169,8 +168,6 @@ public:
      * @param nifShape Shape to apply shader to
      */
     auto applyShader(nifly::NiShape& nifShape) -> bool override;
-
-    void processNewTXSTRecord(const PatcherMatch& match, const std::string& edid = {}) override;
 
     /**
      * @brief Load PBR options string
@@ -192,8 +189,6 @@ private:
      */
     auto applyOnePatch(nifly::NiShape* nifShape, nlohmann::json& truePBRData, const std::wstring& matchedPath,
         NIFUtil::TextureSet& newSlots) -> bool;
-
-    static void applyOnePatchSwapJSON(const nlohmann::json& truePBRData, nlohmann::json& output);
 
     /**
      * @brief Applies a single JSON config to slots

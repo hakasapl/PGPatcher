@@ -21,6 +21,9 @@ using Mutagen.Bethesda.Plugins.Binary.Streams;
 using Mutagen.Bethesda.Strings.DI;
 using Mutagen.Bethesda.Plugins.Aspects;
 
+using Google.FlatBuffers;
+using System.Collections;
+
 public static class ExceptionHandler
 {
     private static string? LastExceptionMessage;
@@ -80,104 +83,39 @@ public static class MessageHandler
     }
 }
 
+class StructuralArrayComparer : IEqualityComparer<string[]>
+{
+    public bool Equals(string[]? x, string[]? y)
+    {
+        return StructuralComparisons.StructuralEqualityComparer.Equals(x, y);
+    }
+
+    public int GetHashCode(string[] obj)
+    {
+        return StructuralComparisons.StructuralEqualityComparer.GetHashCode(obj);
+    }
+}
+
 public class PGMutagen
 {
-    // "Class vars" actually static because p/invoke doesn't support instance methods
+    //
+    // Class Members
+    //
+
     private static SkyrimMod? OutMod;
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
-    private static List<ITextureSetGetter> TXSTObjs = [];
-    private static List<Tuple<IAlternateTextureGetter, int, int, string, string, uint>> AltTexRefs = [];
-    private static List<IMajorRecordGetter> ModelOriginals = [];
-    private static List<IMajorRecord> ModelCopies = [];
-    private static List<IMajorRecord> ModelCopiesEditable = [];
-    private static Dictionary<Tuple<string, int>, List<Tuple<int, int, string, uint>>>? TXSTRefs;
-    private static HashSet<int> ModifiedModeledRecords = [];
+    private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
+    private static HashSet<IModelGetter> ProcessedModelUses = [];
+    private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
+    private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
+
+
     private static SkyrimRelease GameType;
     private static Language PluginLanguage = Language.English;
-
-    private static uint maxFormID = 0;
 
     // tracks masters in each split plugin
     private static List<HashSet<ModKey>> OutputMasterTracker = [];
     private static List<SkyrimMod> OutputSplitMods = [];
-
-    private static IEnumerable<IMajorRecordGetter> EnumerateModelRecordsSafe()
-    {
-        using (var enumerator = EnumerateModelRecords().GetEnumerator())
-        {
-            bool next = true;
-
-            while (next)
-            {
-                try
-                {
-                    next = enumerator.MoveNext();
-                }
-                catch (RecordException ex)
-                {
-                    var innerEx = ex.InnerException;
-                    if (innerEx is null)
-                    {
-                        MessageHandler.Log("Unknown error with mod " + ex.ModKey, 3);
-                    }
-                    else
-                    {
-                        MessageHandler.Log(innerEx.ToString(), 3);
-                    }
-
-                    continue;
-                }
-
-                if (next)
-                    yield return enumerator.Current;
-            }
-        }
-    }
-
-    private static IEnumerable<IMajorRecordGetter> EnumerateModelRecords()
-    {
-        if (Env is null)
-        {
-            return [];
-        }
-
-        return Env.LoadOrder.PriorityOrder.Activator().WinningOverrides()
-                .Concat<IMajorRecordGetter>(Env.LoadOrder.PriorityOrder.AddonNode().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Ammunition().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.AnimatedObject().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Armor().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.ArmorAddon().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.ArtObject().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.BodyPartData().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Book().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.CameraShot().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Climate().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Container().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Door().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Explosion().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Flora().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Furniture().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Grass().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Hazard().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.HeadPart().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.IdleMarker().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Impact().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Ingestible().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Ingredient().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Key().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.LeveledNpc().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Light().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.MaterialObject().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.MiscItem().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.MoveableStatic().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Projectile().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Scroll().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.SoulGem().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Static().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.TalkingActivator().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Tree().WinningOverrides())
-                .Concat(Env.LoadOrder.PriorityOrder.Weapon().WinningOverrides());
-    }
 
     private class Utf8EncodingWrapper : IMutagenEncodingProvider
     {
@@ -186,6 +124,10 @@ public class PGMutagen
             return MutagenEncoding._utf8;
         }
     }
+
+    //
+    // Public API
+    //
 
     [UnmanagedCallersOnly(EntryPoint = "Initialize", CallConvs = [typeof(CallConvCdecl)])]
     public static unsafe void Initialize(
@@ -244,116 +186,8 @@ public class PGMutagen
         }
     }
 
-    private static List<Tuple<IModelGetter, string>> GetModelElems(IMajorRecordGetter Rec)
-    {
-        // Will store models to check later
-        List<Tuple<IModelGetter, string>> ModelRecs = [];
-
-        // Figure out special cases for nested models
-        if (Rec is IArmorGetter armorObj && armorObj.WorldModel is not null)
-        {
-            if (armorObj.WorldModel.Male is not null && armorObj.WorldModel.Male.Model is not null)
-            {
-                ModelRecs.Add(new Tuple<IModelGetter, string>(armorObj.WorldModel.Male.Model, "MALE"));
-            }
-
-            if (armorObj.WorldModel.Female is not null && armorObj.WorldModel.Female.Model is not null)
-            {
-                ModelRecs.Add(new Tuple<IModelGetter, string>(armorObj.WorldModel.Female.Model, "FEMALE"));
-            }
-        }
-        else if (Rec is IArmorAddonGetter armorAddonObj)
-        {
-            if (armorAddonObj.WorldModel is not null)
-            {
-                if (armorAddonObj.WorldModel.Male is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.WorldModel.Male, "MALE"));
-                }
-
-                if (armorAddonObj.WorldModel.Female is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.WorldModel.Female, "FEMALE"));
-                }
-            }
-
-            if (armorAddonObj.FirstPersonModel is not null)
-            {
-                if (armorAddonObj.FirstPersonModel.Male is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.FirstPersonModel.Male, "1STMALE"));
-                }
-
-                if (armorAddonObj.FirstPersonModel.Female is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.FirstPersonModel.Female, "1STFEMALE"));
-                }
-            }
-        }
-        else if (Rec is IModeledGetter modeledObj && modeledObj.Model is not null)
-        {
-            ModelRecs.Add(new Tuple<IModelGetter, string>(modeledObj.Model, "MODL"));
-        }
-
-        return ModelRecs;
-    }
-
-    private static List<Tuple<IModel, string>> GetModelElems(IMajorRecord Rec)
-    {
-        // Will store models to check later
-        List<Tuple<IModel, string>> ModelRecs = [];
-
-        // Figure out special cases for nested models
-        if (Rec is IArmor armorObj && armorObj.WorldModel is not null)
-        {
-            if (armorObj.WorldModel.Male is not null && armorObj.WorldModel.Male.Model is not null)
-            {
-                ModelRecs.Add(new Tuple<IModel, string>(armorObj.WorldModel.Male.Model, "MALE"));
-            }
-
-            if (armorObj.WorldModel.Female is not null && armorObj.WorldModel.Female.Model is not null)
-            {
-                ModelRecs.Add(new Tuple<IModel, string>(armorObj.WorldModel.Female.Model, "FEMALE"));
-            }
-        }
-        else if (Rec is IArmorAddon armorAddonObj)
-        {
-            if (armorAddonObj.WorldModel is not null)
-            {
-                if (armorAddonObj.WorldModel.Male is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.WorldModel.Male, "MALE"));
-                }
-
-                if (armorAddonObj.WorldModel.Female is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.WorldModel.Female, "FEMALE"));
-                }
-            }
-
-            if (armorAddonObj.FirstPersonModel is not null)
-            {
-                if (armorAddonObj.FirstPersonModel.Male is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.FirstPersonModel.Male, "1STMALE"));
-                }
-
-                if (armorAddonObj.FirstPersonModel.Female is not null)
-                {
-                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.FirstPersonModel.Female, "1STFEMALE"));
-                }
-            }
-        }
-        else if (Rec is IModeled modeledObj && modeledObj.Model is not null)
-        {
-            ModelRecs.Add(new Tuple<IModel, string>(modeledObj.Model, "MODL"));
-        }
-
-        return ModelRecs;
-    }
-
     [UnmanagedCallersOnly(EntryPoint = "PopulateObjs", CallConvs = [typeof(CallConvCdecl)])]
-    public static void PopulateObjs()
+    public static void PopulateObjs([DNNE.C99Type("const wchar_t*")] IntPtr oldPGPluginPath)
     {
         try
         {
@@ -362,33 +196,37 @@ public class PGMutagen
                 throw new Exception("Initialize must be called before PopulateObjs");
             }
 
-            //
-            // 1. Add all TXST records in the load order to TXSTObjs
-            //
-            TXSTObjs = [];
-
-            // Create and add a null TXST to spot 0 so we can process them
-            FormKey nullTXSTFormKey = new("Skyrim.esm", 0x28);
-            var nullTXST = new TextureSet(nullTXSTFormKey, GameType);
-            TXSTObjs.Add(nullTXST);
-
-            foreach (var textureSet in Env.LoadOrder.PriorityOrder.TextureSet().WinningOverrides())
+            if (OutMod is null)
             {
-                TXSTObjs.Add(textureSet);
+                throw new Exception("OutMod is null in PopulateObjs");
             }
 
-            //
-            // 2. Add all MODL records in the load order to ModelOriginals
-            //
-            TXSTRefs = [];
-            // model rec counter is simply a unique identifier for each model record to differentiate them. It is not used as a handle.
-            int ModelRecCounter = 0;
-            // DCIdx is the current index in ModelCopes, ModelCopiesEditable, and ModelOriginals
-            var DCIdx = -1;
-            foreach (var txstRefObj in EnumerateModelRecordsSafe())
+            // Get path to old PG plugin
+            string oldModPath = Marshal.PtrToStringUni(oldPGPluginPath) ?? string.Empty;
+            if (!oldModPath.IsNullOrEmpty() && File.Exists(oldModPath))
+            {
+                MessageHandler.Log("Loading old output plugin for cache " + oldModPath, 2);
+                // Add all old PG records to output mod
+                using var oldMod = SkyrimMod.Create(GameType).FromPath(oldModPath).Construct();
+                // loop through all texture sets in old mod
+                foreach (var txst in oldMod.TextureSets)
+                {
+                    var newFormKey = new FormKey(OutMod.ModKey, txst.FormKey.ID);
+                    var newTXSTObj = txst.Duplicate(newFormKey);
+
+                    // Add to output mod
+                    OutMod.TextureSets.Add(newTXSTObj);
+
+                    // Add to dictionary (mark as unused)
+                    var textures = GetTextureSet(newTXSTObj);
+                    NewTextureSets[textures] = new Tuple<ITextureSet, bool>(newTXSTObj, false);
+                }
+            }
+
+            foreach (var modelMajorRec in EnumerateModelRecordsSafe())
             {
                 // Will store models to check later
-                var ModelRecs = GetModelElems(txstRefObj);
+                var ModelRecs = GetModelElems(modelMajorRec);
 
                 if (ModelRecs.Count == 0)
                 {
@@ -396,83 +234,49 @@ public class PGMutagen
                     continue;
                 }
 
-                bool CopiedRecord = false;
                 foreach (var modelRec in ModelRecs)
                 {
-                    if (modelRec.Item1.AlternateTextures is null)
+                    // add to model uses
+                    if (modelRec.Item1.File.IsNullOrEmpty())
                     {
-                        // no alternate textures in this MODL record, we can skip
                         continue;
                     }
 
-                    if (!CopiedRecord)
+                    string meshName = modelRec.Item1.File.ToString().ToLower();
+
+                    if (!ModelUses.ContainsKey(meshName))
                     {
-                        // Deep copy major record (it has not been copied yet)
-                        try
-                        {
-                            // Run deep copies
-                            var DeepCopy = txstRefObj.DeepCopy();
-                            var DeepCopyEditable = txstRefObj.DeepCopy();
-
-                            // Store original parent record
-                            ModelOriginals.Add(txstRefObj);
-
-                            // Save model copies
-                            ModelCopies.Add(DeepCopy);
-                            ModelCopiesEditable.Add(DeepCopyEditable);
-                            DCIdx = ModelCopies.Count - 1;
-                            CopiedRecord = true;
-                        }
-                        catch (Exception)
-                        {
-                            MessageHandler.Log("Failed to copy record: " + GetRecordDesc(txstRefObj), 3);
-                            break;
-                        }
+                        ModelUses[meshName] = [];
                     }
 
-                    // find lowercase nifname
-                    string nifName = modelRec.Item1.File;
-                    nifName = RemovePrefixIfExists("\\", nifName);
-                    nifName = nifName.ToLower();
-                    nifName = AddPrefixIfNotExists("meshes\\", nifName);
+                    var curTuple = new Tuple<FormKey, string>(modelMajorRec.FormKey, modelRec.Item2);
+                    ModelUses[meshName].Add(curTuple);
 
-                    // loop through each alternate texture
-                    foreach (var alternateTexture in modelRec.Item1.AlternateTextures)
+                    // Check if we need to also add the weight counterpart
+                    if (modelMajorRec is IArmorAddonGetter || modelMajorRec is IArmorGetter)
                     {
-                        // Add to global
-                        var AltTexEntry = new Tuple<IAlternateTextureGetter, int, int, string, string, uint>(alternateTexture, DCIdx, ModelRecCounter, modelRec.Item2, txstRefObj.FormKey.ModKey.ToString(), txstRefObj.FormKey.ID);
-                        AltTexRefs.Add(AltTexEntry);
-                        var AltTexId = AltTexRefs.Count - 1;
-
-                        // index3D is the alternate texture index 3d in the recorc
-                        int index3D = alternateTexture.Index;
-                        // texture set record used for alternate texture
-                        var newTXST = alternateTexture.NewTexture;
-
-                        // create lookup key
-                        var key = new Tuple<string, int>(nifName, index3D);
-
-                        // find the index of the TXST record in the TXSTObjs list (this is a handle)
-                        int newTXSTIndex = TXSTObjs.FindIndex(x => x.FormKey == newTXST.FormKey);
-                        if (newTXSTIndex < 0)
+                        string weightMeshName = string.Empty;
+                        if (meshName.EndsWith("_0.nif"))
                         {
-                            // TXST record doesn't exist, skip
-                            continue;
+                            // replace _0.nif with _1.nif
+                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
+                        }
+                        else if (meshName.EndsWith("_1.nif"))
+                        {
+                            // replace _1.nif with _0.nif
+                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
                         }
 
-                        // Add txstrefs key to list if it doesn't exist
-                        var newTXSTObj = TXSTObjs[newTXSTIndex];
-                        if (!TXSTRefs.ContainsKey(key))
+                        if (!weightMeshName.IsNullOrEmpty())
                         {
-                            TXSTRefs[key] = [];
-                        }
+                            if (!ModelUses.ContainsKey(weightMeshName))
+                            {
+                                ModelUses[weightMeshName] = [];
+                            }
 
-                        // Add txst reference with TXST handle and alternate texture handle
-                        TXSTRefs[key].Add(new Tuple<int, int, string, uint>(newTXSTIndex, AltTexId, newTXSTObj.FormKey.ModKey.ToString(), newTXSTObj.FormKey.ID));
+                            ModelUses[weightMeshName].Add(curTuple);
+                        }
                     }
-
-                    // increment modelreccounter
-                    ModelRecCounter++;
                 }
             }
         }
@@ -492,6 +296,23 @@ public class PGMutagen
                 throw new Exception("Initialize must be called before Finalize");
             }
 
+            // Remove unused texture sets from NewTextureSets
+            foreach (var texSetEntry in NewTextureSets)
+            {
+                if (!texSetEntry.Value.Item2)
+                {
+                    // not used, remove from OutMod
+                    OutMod.TextureSets.Remove(texSetEntry.Value.Item1);
+                }
+            }
+
+            // calculate maximum form ID
+            uint maxFormID = 0;
+            foreach (var txst in OutMod.TextureSets)
+            {
+                maxFormID = Math.Max(maxFormID, txst.FormKey.ID);
+            }
+
             // Get output path from C++
             string outputPath = Marshal.PtrToStringUni(outputPathPtr) ?? string.Empty;
 
@@ -508,7 +329,7 @@ public class PGMutagen
             }
 
             bool OutModNeeded = OutMod.EnumerateMajorRecords().Any();
-            bool HasModifiedRecords = ModifiedModeledRecords.Count > 0;
+            bool HasModifiedRecords = ModifiedRecords.Count > 0;
 
             if (!OutModNeeded && !HasModifiedRecords)
             {
@@ -528,11 +349,11 @@ public class PGMutagen
             }
 
             // Add all modified model records to the output mod
-            foreach (var recId in ModifiedModeledRecords)
+            foreach (var rec in ModifiedRecords)
             {
-                var ModifiedRecord = ModelCopiesEditable[recId];
+                var ModifiedRecord = rec.Value;
 
-                var outputMod = getModToAdd(ModifiedRecord);
+                var outputMod = GetModToAdd(ModifiedRecord);
 
                 if (ModifiedRecord is ITranslatedNamed namedRec)
                 {
@@ -746,7 +567,391 @@ public class PGMutagen
         }
     }
 
-    private static SkyrimMod getModToAdd(IMajorRecord majorRecord)
+    [UnmanagedCallersOnly(EntryPoint = "GetModelUses", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void GetModelUses(
+      [DNNE.C99Type("const wchar_t*")] IntPtr modelPathPtr,
+      [DNNE.C99Type("unsigned int*")] uint* length,
+      [DNNE.C99Type("uint8_t**")] byte** bufferPtr)
+    {
+        try
+        {
+            if (Env is null)
+            {
+                throw new Exception("Initialize must be called before GetModelUses");
+            }
+
+            if (length is null)
+            {
+                throw new Exception("length pointer is null");
+            }
+
+            var builder = new FlatBufferBuilder(1024);
+
+            // Get the lowercase nifname (with meshes\ prefix) from C++
+            string nifName = Marshal.PtrToStringUni(modelPathPtr)?.ToLower() ?? string.Empty;
+
+            // find all uses
+            if (!ModelUses.TryGetValue(nifName, out List<Tuple<FormKey, string>>? modelRecUsesList))
+            {
+                // No uses for this model
+                *length = 0;
+                return;
+            }
+
+            var modelUseOffsets = new List<Offset<PGMutagenBuffers.ModelUse>>();
+
+            // loop through each use
+            for (int i = 0; i < modelRecUsesList.Count; i++)
+            {
+                var formKey = modelRecUsesList[i].Item1;
+                var subModel = modelRecUsesList[i].Item2;
+
+                // find winning model record
+                if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var modelRec))
+                {
+                    throw new Exception("Failed to resolve model record for formkey: " + formKey);
+                }
+
+                // find submodel
+                var matchedModel = GetModelElemBySubModel(modelRec, subModel) ?? throw new Exception("Failed to find submodel: " + subModel + " in record: " + GetRecordDesc(modelRec));
+
+                // find alternate textures
+                if (matchedModel.AlternateTextures is null)
+                {
+                    continue;
+                }
+
+                var altTexOffsets = new List<Offset<PGMutagenBuffers.AlternateTexture>>();
+
+                for (int j = 0; j < matchedModel.AlternateTextures.Count; j++)
+                {
+                    var altTexIdx = matchedModel.AlternateTextures[j].Index;
+                    var newTXST = matchedModel.AlternateTextures[j].NewTexture;
+
+                    var textureSetOffsets = new List<Offset<PGMutagenBuffers.TextureSet>>();
+
+                    // find newTXST record
+                    var textures = new string[8];
+                    if (Env.LinkCache.TryResolve<ITextureSetGetter>(newTXST.FormKey, out var newTXSTRec))
+                    {
+                        // The 8 strings in textureset are:
+                        // newTXSTRec.Texture1 - Texture8
+                        textures = GetTextureSet(newTXSTRec);
+                        for (int k = 0; k < 8; k++)
+                        {
+                            if (textures[k].IsNullOrEmpty())
+                            {
+                                continue;
+                            }
+
+                            textures[k] = AddPrefixIfNotExists("textures\\", textures[k]);
+                        }
+                    }
+                    else
+                    {
+                        // the 8 strings in the textureset should exist but all be empty
+                        textures = [.. Enumerable.Repeat(string.Empty, 8)];
+                    }
+
+                    // Build the TextureSet
+                    var textureSetVec = PGMutagenBuffers.TextureSet.CreateTexturesVector(
+                        builder,
+                        [.. textures.Select(s => builder.CreateString(s))]
+                    );
+
+                    PGMutagenBuffers.TextureSet.StartTextureSet(builder);
+                    PGMutagenBuffers.TextureSet.AddTextures(builder, textureSetVec);
+                    var textureSetOffset = PGMutagenBuffers.TextureSet.EndTextureSet(builder);
+
+                    // Build the AlternateTexture (slots now holds a single TextureSet, not a vector)
+                    PGMutagenBuffers.AlternateTexture.StartAlternateTexture(builder);
+                    PGMutagenBuffers.AlternateTexture.AddSlotId(builder, altTexIdx);
+                    // add slot_id_new if you have a value for it
+                    PGMutagenBuffers.AlternateTexture.AddSlots(builder, textureSetOffset);
+                    var altTexOffset = PGMutagenBuffers.AlternateTexture.EndAlternateTexture(builder);
+
+                    altTexOffsets.Add(altTexOffset);
+                }
+
+                // check if this is IStaticGetter for materials
+                bool is_singlePass = false;
+                if (modelRec is IStaticGetter staticRec && Env.LinkCache.TryResolve<IMaterialObjectGetter>(staticRec.Material.FormKey, out var materialRec))
+                {
+                    is_singlePass = (materialRec.Flags & MaterialObject.Flag.SinglePass) != 0;
+                }
+
+                var altTexVector = PGMutagenBuffers.ModelUse.CreateAlternateTexturesVector(builder, [.. altTexOffsets]);
+                var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
+                var subModelOffset = builder.CreateString(subModel);
+                var modelNameOffset = builder.CreateString(nifName);
+
+                PGMutagenBuffers.ModelUse.StartModelUse(builder);
+                PGMutagenBuffers.ModelUse.AddModName(builder, modNameOffset);
+                PGMutagenBuffers.ModelUse.AddFormId(builder, formKey.ID);
+                PGMutagenBuffers.ModelUse.AddSubModel(builder, subModelOffset);
+                PGMutagenBuffers.ModelUse.AddMeshFile(builder, modelNameOffset);
+                PGMutagenBuffers.ModelUse.AddSinglepassMato(builder, is_singlePass);
+                PGMutagenBuffers.ModelUse.AddAlternateTextures(builder, altTexVector);
+                var modelUseOffset = PGMutagenBuffers.ModelUse.EndModelUse(builder);
+
+                modelUseOffsets.Add(modelUseOffset);
+            }
+
+            var usesVector = PGMutagenBuffers.ModelUses.CreateUsesVector(builder, [.. modelUseOffsets]);
+            PGMutagenBuffers.ModelUses.StartModelUses(builder);
+            PGMutagenBuffers.ModelUses.AddUses(builder, usesVector);
+            var rootOffset = PGMutagenBuffers.ModelUses.EndModelUses(builder); // returns Offset<ModelUses>
+                                                                               //MessageHandler.Log("Serialized model uses count: " + rootOffset.Value, 4);
+            builder.Finish(rootOffset.Value);
+
+            var byteArray = builder.SizedByteArray(); // fully serialized FlatBuffer
+            *length = (uint)byteArray.Length;
+
+            // Allocate memory for C++ side
+            *bufferPtr = (byte*)Marshal.AllocHGlobal(byteArray.Length);
+            Marshal.Copy(byteArray, 0, (IntPtr)(*bufferPtr), byteArray.Length);
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "SetModelUses", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void SetModelUses(
+      [DNNE.C99Type("const unsigned int")] uint length,
+      [DNNE.C99Type("const uint8_t*")] byte* bufferPtr)
+    {
+        try
+        {
+            if (Env is null)
+            {
+                throw new Exception("Initialize must be called before SetModelUses");
+            }
+
+            if (OutMod is null)
+            {
+                throw new Exception("OutMod is null in SetModelUses");
+            }
+
+            if (length == 0 || bufferPtr == null)
+            {
+                return;
+            }
+
+            // Convert bufferPtr to span
+            Span<byte> bufferSpan = new(bufferPtr, (int)length);
+
+            // Load onto buffer
+            var buffer = new ByteBuffer(bufferSpan.ToArray());
+            var modelUses = PGMutagenBuffers.ModelUses.GetRootAsModelUses(buffer);
+
+            // Loop through each model use
+            for (int i = 0; i < modelUses.UsesLength; i++)
+            {
+                var modelUseContainer = modelUses.Uses(i);
+                if (!modelUseContainer.HasValue)
+                {
+                    continue;
+                }
+
+                var modelUse = modelUseContainer.Value;
+                var searchFormKey = new FormKey(modelUse.ModName, modelUse.FormId);
+
+                // Find winning record for this formkey
+                if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(searchFormKey, out var existingRecord))
+                {
+                    // Record doesn't exist, skip
+                    throw new Exception("Failed to resolve model record for formkey: " + searchFormKey);
+                }
+
+                // check if we already modified this record
+                IMajorRecord modRecord;
+                if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
+                {
+                    // record already modified
+                    modRecord = value;
+                }
+                else
+                {
+                    modRecord = existingRecord.DeepCopy();
+                }
+
+                // Find model record to modify
+                var matchExistingElem = GetModelElemBySubModel(existingRecord, modelUse.SubModel);
+                var matchModElem = GetModelElemBySubModel(modRecord, modelUse.SubModel);
+                if (matchExistingElem is null || matchModElem is null)
+                {
+                    throw new Exception("Failed to find submodel: " + modelUse.SubModel + " in record: " + GetRecordDesc(existingRecord));
+                }
+
+                if (ProcessedModelUses.Contains(matchExistingElem))
+                {
+                    // already processed this model use, skip
+                    continue;
+                }
+
+                ProcessedModelUses.Add(matchExistingElem);
+
+                // Actual changes starting
+                bool changed = false;
+
+                // Mesh path
+                var newMeshFile = RemovePrefixIfExists("meshes\\", modelUse.MeshFile);
+                if (!string.Equals(matchExistingElem.File, newMeshFile, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Change mesh path
+                    matchModElem.File = newMeshFile;
+                    changed = true;
+                }
+
+                if (matchExistingElem.AlternateTextures is null || matchModElem.AlternateTextures is null)
+                {
+                    // Not allowed to modify alternate textures that do not exist
+                    continue;
+                }
+
+                // Create dictionary of old alternate texture idx to buffer entry
+                Dictionary<int, PGMutagenBuffers.AlternateTexture> altTexDict = [];
+                for (int j = 0; j < modelUse.AlternateTexturesLength; j++)
+                {
+                    var curAltTex = modelUse.AlternateTextures(j);
+                    if (!curAltTex.HasValue)
+                    {
+                        continue;
+                    }
+
+                    altTexDict[curAltTex.Value.SlotId] = curAltTex.Value;
+                }
+                // Loop through existing alternate textures
+                for (int j = 0; j < matchExistingElem.AlternateTextures.Count; j++)
+                {
+                    var curAltTex = matchExistingElem.AlternateTextures[j];
+                    if (!altTexDict.ContainsKey(curAltTex.Index))
+                    {
+                        continue;
+                    }
+
+                    // Found matching alternate texture, update it if required
+                    var bufAltTex = altTexDict[curAltTex.Index];
+
+                    // Index
+                    var newAltTex = bufAltTex.SlotIdNew;
+                    if (curAltTex.Index != newAltTex)
+                    {
+                        // Change index
+                        matchModElem.AlternateTextures[j].Index = newAltTex;
+                        changed = true;
+                    }
+
+                    // Find new texture set
+                    if (bufAltTex.Slots is null || !bufAltTex.Slots.HasValue || bufAltTex.Slots.Value.TexturesLength != 8)
+                    {
+                        // No texture set, skip
+                        continue;
+                    }
+
+                    // get texture set array from buffer
+                    string[] bufTextures = [
+                        bufAltTex.Slots.Value.Textures(0) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(1) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(2) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(3) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(4) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(5) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(6) ?? string.Empty,
+                        bufAltTex.Slots.Value.Textures(7) ?? string.Empty
+                    ];
+
+                    string[] existingTextures;
+                    // find existing texture set record
+                    if (Env.LinkCache.TryResolve<ITextureSetGetter>(curAltTex.NewTexture.FormKey, out var existingTXSTRec))
+                    {
+                        existingTextures = GetTextureSet(existingTXSTRec);
+                    }
+                    else
+                    {
+                        existingTextures = [.. Enumerable.Repeat(string.Empty, 8)];
+                    }
+
+                    // check if textures are different
+                    if (existingTextures.SequenceEqual(bufTextures, StringComparer.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    // Textures are different, we need to find or create a new texture set record
+                    changed = true;
+                    if (NewTextureSets.TryGetValue(bufTextures, out Tuple<ITextureSet, bool>? existingTXSTTuple))
+                    {
+                        // already exists, just use that
+                        matchModElem.AlternateTextures[j].NewTexture.FormKey = existingTXSTTuple.Item1.FormKey;
+
+                        // Update usage flag
+                        if (!existingTXSTTuple.Item2)
+                        {
+                            NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(existingTXSTTuple.Item1, true);
+                        }
+                    }
+                    else
+                    {
+                        // Create a new texture set record
+                        var newFormKey = OutMod.GetNextFormKey();
+                        // find filename of diffuse texture (just .dds file no path), also remove extension
+                        var diffuseTex = bufTextures[0].IsNullOrEmpty() ? "" : Path.GetFileNameWithoutExtension(bufTextures[0]);
+                        var formIDHex = newFormKey.ID.ToString("X6");
+                        var newEDID = "PG_";
+                        if (!diffuseTex.IsNullOrEmpty())
+                        {
+                            newEDID += diffuseTex + "_" + formIDHex;
+                        }
+                        else
+                        {
+                            newEDID += formIDHex;
+                        }
+
+                        var newTXSTObj = new TextureSet(newFormKey, Env.GameRelease.ToSkyrimRelease())
+                        {
+                            Diffuse = bufTextures[0].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[0]),
+                            NormalOrGloss = bufTextures[1].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[1]),
+                            GlowOrDetailMap = bufTextures[2].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[2]),
+                            Height = bufTextures[3].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[3]),
+                            Environment = bufTextures[4].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[4]),
+                            EnvironmentMaskOrSubsurfaceTint = bufTextures[5].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[5]),
+                            Multilayer = bufTextures[6].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[6]),
+                            BacklightMaskOrSpecular = bufTextures[7].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[7]),
+                            EditorID = newEDID
+                        };
+
+                        // Add to output mod
+                        OutMod.TextureSets.Add(newTXSTObj);
+
+                        // Add to dictionary
+                        NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(newTXSTObj, true);
+
+                        // Update formkey
+                        matchModElem.AlternateTextures[j].NewTexture.FormKey = newFormKey;
+                    }
+                }
+
+                // add to modified records only if something has changed
+                if (changed)
+                {
+                    ModifiedRecords[searchFormKey] = modRecord;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
+    //
+    // Helpers
+    //
+
+    private static SkyrimMod GetModToAdd(IMajorRecord majorRecord)
     {
         if (Env is null)
         {
@@ -791,544 +996,235 @@ public class PGMutagen
         return OutputSplitMods[newPluginIndex - 1];
     }
 
-    [UnmanagedCallersOnly(EntryPoint = "GetMatchingTXSTObjs", CallConvs = [typeof(CallConvCdecl)])]
-    public static unsafe void GetMatchingTXSTObjs(
-      [DNNE.C99Type("const wchar_t*")] IntPtr nifNamePtr,
-      [DNNE.C99Type("const int")] int index3D,
-      [DNNE.C99Type("int*")] int* TXSTHandles,
-      [DNNE.C99Type("int*")] int* AltTexHandles,
-      [DNNE.C99Type("wchar_t**")] IntPtr* MatchedNIF,
-      [DNNE.C99Type("char**")] IntPtr* MatchedType,
-      [DNNE.C99Type("wchar_t**")] IntPtr* AltTexModKey,
-      [DNNE.C99Type("unsigned int*")] uint* AltTexFormID,
-      [DNNE.C99Type("wchar_t**")] IntPtr* TXSTModKey,
-      [DNNE.C99Type("unsigned int*")] uint* TXSTFormID,
-      [DNNE.C99Type("int*")] int* length)
+    private static List<Tuple<IModelGetter, string>> GetModelElems(IMajorRecordGetter Rec)
     {
-        try
+        // Will store models to check later
+        List<Tuple<IModelGetter, string>> ModelRecs = [];
+
+        // Figure out special cases for nested models
+        if (Rec is IArmorGetter armorObj && armorObj.WorldModel is not null)
         {
-            if (TXSTRefs is null)
+            if (armorObj.WorldModel.Male is not null && armorObj.WorldModel.Male.Model is not null)
             {
-                throw new Exception("PopulateObjs must be called before GetMatchingTXSTObjs");
+                ModelRecs.Add(new Tuple<IModelGetter, string>(armorObj.WorldModel.Male.Model, "MALE"));
             }
 
-            // This function has 2 modes. When length is not null, the caller wants the length of the output arrays.
-            if (length is not null)
+            if (armorObj.WorldModel.Female is not null && armorObj.WorldModel.Female.Model is not null)
             {
-                *length = 0;
+                ModelRecs.Add(new Tuple<IModelGetter, string>(armorObj.WorldModel.Female.Model, "FEMALE"));
             }
-
-            // Get the lowercase nifname (with meshes\ prefix) from C++
-            string nifName = Marshal.PtrToStringUni(nifNamePtr) ?? string.Empty;
-            nifName = nifName.ToLower();
-
-            // Create lookup key
-            var key = new Tuple<string, int>(nifName, index3D);
-
-            // Create txstList, which is an output list of matching TXST objects
-            List<Tuple<int, int, string, string, string, uint, string>> txstList = [];
-            List<Tuple<uint>> txstList2 = [];
-            if (TXSTRefs.TryGetValue(key, out List<Tuple<int, int, string, uint>>? value))
+        }
+        else if (Rec is IArmorAddonGetter armorAddonObj)
+        {
+            if (armorAddonObj.WorldModel is not null)
             {
-                foreach (var txst in value)
+                if (armorAddonObj.WorldModel.Male is not null)
                 {
-                    txstList.Add(new Tuple<int, int, string, string, string, uint, string>(txst.Item1, txst.Item2, nifName, AltTexRefs[txst.Item2].Item4, AltTexRefs[txst.Item2].Item5, AltTexRefs[txst.Item2].Item6, txst.Item3));
-                    txstList2.Add(new Tuple<uint>(txst.Item4));
+                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.WorldModel.Male, "MALE"));
+                }
+
+                if (armorAddonObj.WorldModel.Female is not null)
+                {
+                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.WorldModel.Female, "FEMALE"));
                 }
             }
 
-            // find alternate nif Name if able
-            // The _0 and _1 are implicit for some armors so we need to check both
-            string altNifName = "";
-            if (nifName.EndsWith("_1.nif"))
+            if (armorAddonObj.FirstPersonModel is not null)
             {
-                // replace _1.nif with _0.nif
-                altNifName = nifName.Substring(0, nifName.Length - 6) + "_0.nif";
-            }
-
-            if (nifName.EndsWith("_0.nif"))
-            {
-                // replace _0.nif with _1.nif
-                altNifName = nifName.Substring(0, nifName.Length - 6) + "_1.nif";
-            }
-
-            // Alternate key to lookup
-            var altKey = new Tuple<string, int>(altNifName, index3D);
-            if (TXSTRefs.TryGetValue(altKey, out List<Tuple<int, int, string, uint>>? valueAlt))
-            {
-                foreach (var txst in valueAlt)
+                if (armorAddonObj.FirstPersonModel.Male is not null)
                 {
-                    var altTexRef = AltTexRefs[txst.Item2];
-                    if (altTexRef.Item4 == "MODL")
+                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.FirstPersonModel.Male, "1STMALE"));
+                }
+
+                if (armorAddonObj.FirstPersonModel.Female is not null)
+                {
+                    ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.FirstPersonModel.Female, "1STFEMALE"));
+                }
+            }
+        }
+        else if (Rec is IModeledGetter modeledObj && modeledObj.Model is not null)
+        {
+            ModelRecs.Add(new Tuple<IModelGetter, string>(modeledObj.Model, "MODL"));
+        }
+
+        return ModelRecs;
+    }
+
+    private static List<Tuple<IModel, string>> GetModelElems(IMajorRecord Rec)
+    {
+        // Will store models to check later
+        List<Tuple<IModel, string>> ModelRecs = [];
+
+        // Figure out special cases for nested models
+        if (Rec is IArmor armorObj && armorObj.WorldModel is not null)
+        {
+            if (armorObj.WorldModel.Male is not null && armorObj.WorldModel.Male.Model is not null)
+            {
+                ModelRecs.Add(new Tuple<IModel, string>(armorObj.WorldModel.Male.Model, "MALE"));
+            }
+
+            if (armorObj.WorldModel.Female is not null && armorObj.WorldModel.Female.Model is not null)
+            {
+                ModelRecs.Add(new Tuple<IModel, string>(armorObj.WorldModel.Female.Model, "FEMALE"));
+            }
+        }
+        else if (Rec is IArmorAddon armorAddonObj)
+        {
+            if (armorAddonObj.WorldModel is not null)
+            {
+                if (armorAddonObj.WorldModel.Male is not null)
+                {
+                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.WorldModel.Male, "MALE"));
+                }
+
+                if (armorAddonObj.WorldModel.Female is not null)
+                {
+                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.WorldModel.Female, "FEMALE"));
+                }
+            }
+
+            if (armorAddonObj.FirstPersonModel is not null)
+            {
+                if (armorAddonObj.FirstPersonModel.Male is not null)
+                {
+                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.FirstPersonModel.Male, "1STMALE"));
+                }
+
+                if (armorAddonObj.FirstPersonModel.Female is not null)
+                {
+                    ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.FirstPersonModel.Female, "1STFEMALE"));
+                }
+            }
+        }
+        else if (Rec is IModeled modeledObj && modeledObj.Model is not null)
+        {
+            ModelRecs.Add(new Tuple<IModel, string>(modeledObj.Model, "MODL"));
+        }
+
+        return ModelRecs;
+    }
+
+    private static IModel? GetModelElemBySubModel(IMajorRecord Rec, string SubModel)
+    {
+        var ModelRecs = GetModelElems(Rec);
+
+        foreach (var modelRec in ModelRecs)
+        {
+            if (modelRec.Item2 == SubModel)
+            {
+                return modelRec.Item1;
+            }
+        }
+
+        return null;
+    }
+
+    private static IModelGetter? GetModelElemBySubModel(IMajorRecordGetter Rec, string SubModel)
+    {
+        var ModelRecs = GetModelElems(Rec);
+
+        foreach (var modelRec in ModelRecs)
+        {
+            if (modelRec.Item2 == SubModel)
+            {
+                return modelRec.Item1;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<IMajorRecordGetter> EnumerateModelRecords()
+    {
+        if (Env is null)
+        {
+            return [];
+        }
+
+        return Env.LoadOrder.PriorityOrder.Activator().WinningOverrides()
+                .Concat<IMajorRecordGetter>(Env.LoadOrder.PriorityOrder.AddonNode().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Ammunition().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.AnimatedObject().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Armor().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.ArmorAddon().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.ArtObject().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.BodyPartData().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Book().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.CameraShot().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Climate().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Container().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Door().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Explosion().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Flora().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Furniture().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Grass().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Hazard().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.HeadPart().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.IdleMarker().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Impact().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Ingestible().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Ingredient().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Key().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.LeveledNpc().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Light().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.MaterialObject().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.MiscItem().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.MoveableStatic().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Projectile().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Scroll().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.SoulGem().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Static().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.TalkingActivator().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Tree().WinningOverrides())
+                .Concat(Env.LoadOrder.PriorityOrder.Weapon().WinningOverrides());
+    }
+
+    private static IEnumerable<IMajorRecordGetter> EnumerateModelRecordsSafe()
+    {
+        using (var enumerator = EnumerateModelRecords().GetEnumerator())
+        {
+            bool next = true;
+
+            while (next)
+            {
+                try
+                {
+                    next = enumerator.MoveNext();
+                }
+                catch (RecordException ex)
+                {
+                    var innerEx = ex.InnerException;
+                    if (innerEx is null)
                     {
-                        // Skip if not _1 _0 type of MODL (ensure we only match stuff that actually needs to be matched)
-                        continue;
+                        MessageHandler.Log("Unknown error with mod " + ex.ModKey, 3);
+                    }
+                    else
+                    {
+                        MessageHandler.Log(innerEx.ToString(), 3);
                     }
 
-                    txstList.Add(new Tuple<int, int, string, string, string, uint, string>(txst.Item1, txst.Item2, altNifName, altTexRef.Item4, altTexRef.Item5, altTexRef.Item6, txst.Item3));
-                    txstList2.Add(new Tuple<uint>(txst.Item4));
+                    continue;
                 }
-            }
 
-            if (length is not null)
-            {
-                // Set length to the count of matching TXST objects
-                *length = txstList.Count;
+                if (next)
+                    yield return enumerator.Current;
             }
-
-            if (TXSTHandles is null || AltTexHandles is null || MatchedNIF is null || MatchedType is null || AltTexModKey is null || TXSTModKey is null)
-            {
-                // If any of the output pointers are null, return immediately
-                return;
-            }
-
-            // Manually copy the elements from the list to the pointer
-            for (int i = 0; i < txstList.Count; i++)
-            {
-                // Assign the output values for C++ to read
-                TXSTHandles[i] = txstList[i].Item1;
-                AltTexHandles[i] = txstList[i].Item2;
-                MatchedNIF[i] = txstList[i].Item3.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalUni(txstList[i].Item3);
-                MatchedType[i] = txstList[i].Item4.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalAnsi(txstList[i].Item4);
-                AltTexModKey[i] = txstList[i].Item5.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalUni(txstList[i].Item5);
-                AltTexFormID[i] = txstList[i].Item6;
-                TXSTModKey[i] = txstList[i].Item7.IsNullOrEmpty() ? IntPtr.Zero : Marshal.StringToHGlobalUni(txstList[i].Item7);
-                TXSTFormID[i] = txstList2[i].Item1;
-            }
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
         }
     }
 
-    [UnmanagedCallersOnly(EntryPoint = "GetTXSTSlots", CallConvs = [typeof(CallConvCdecl)])]
-    public static unsafe void GetTXSTSlots(
-      [DNNE.C99Type("const int")] int txstIndex,
-      [DNNE.C99Type("wchar_t**")] IntPtr* slotsArray)
+    private static string[] GetTextureSet(ITextureSetGetter textureSet)
     {
-        try
-        {
-            if (TXSTObjs == null || txstIndex < 0 || txstIndex >= TXSTObjs.Count)
-            {
-                throw new Exception("Invalid TXST index or not populated");
-            }
-
-            // Pull the TXST object from the list
-            var txstObj = TXSTObjs[txstIndex];
-
-            // Populate the slotsArray with string pointers
-            try
-            {
-                if (!txstObj.Diffuse.IsNullOrEmpty())
-                {
-                    var Diffuse = AddPrefixIfNotExists("textures\\", txstObj.Diffuse).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Diffuse: " + Diffuse, 0);
-                    slotsArray[0] = Marshal.StringToHGlobalUni(Diffuse);
-                }
-                if (!txstObj.NormalOrGloss.IsNullOrEmpty())
-                {
-                    var NormalOrGloss = AddPrefixIfNotExists("textures\\", txstObj.NormalOrGloss).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] NormalOrGloss: " + NormalOrGloss, 0);
-                    slotsArray[1] = Marshal.StringToHGlobalUni(NormalOrGloss);
-                }
-                if (!txstObj.GlowOrDetailMap.IsNullOrEmpty())
-                {
-                    var GlowOrDetailMap = AddPrefixIfNotExists("textures\\", txstObj.GlowOrDetailMap).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] GlowOrDetailMap: " + GlowOrDetailMap, 0);
-                    slotsArray[2] = Marshal.StringToHGlobalUni(GlowOrDetailMap);
-                }
-                if (!txstObj.Height.IsNullOrEmpty())
-                {
-                    var Height = AddPrefixIfNotExists("textures\\", txstObj.Height).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Height: " + Height, 0);
-                    slotsArray[3] = Marshal.StringToHGlobalUni(Height);
-                }
-                if (!txstObj.Environment.IsNullOrEmpty())
-                {
-                    var Environment = AddPrefixIfNotExists("textures\\", txstObj.Environment).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Environment: " + Environment, 0);
-                    slotsArray[4] = Marshal.StringToHGlobalUni(Environment);
-                }
-                if (!txstObj.EnvironmentMaskOrSubsurfaceTint.IsNullOrEmpty())
-                {
-                    var EnvironmentMaskOrSubsurfaceTint = AddPrefixIfNotExists("textures\\", txstObj.EnvironmentMaskOrSubsurfaceTint).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] EnvironmentMaskOrSubsurfaceTint: " + EnvironmentMaskOrSubsurfaceTint, 0);
-                    slotsArray[5] = Marshal.StringToHGlobalUni(EnvironmentMaskOrSubsurfaceTint);
-                }
-                if (!txstObj.Multilayer.IsNullOrEmpty())
-                {
-                    var Multilayer = AddPrefixIfNotExists("textures\\", txstObj.Multilayer).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] Multilayer: " + Multilayer, 0);
-                    slotsArray[6] = Marshal.StringToHGlobalUni(Multilayer);
-                }
-                if (!txstObj.BacklightMaskOrSpecular.IsNullOrEmpty())
-                {
-                    var BacklightMaskOrSpecular = AddPrefixIfNotExists("textures\\", txstObj.BacklightMaskOrSpecular).ToLower();
-                    MessageHandler.Log("[GetTXSTSlots] [TXST Index: " + txstIndex + "] BacklightMaskOrSpecular: " + BacklightMaskOrSpecular, 0);
-                    slotsArray[7] = Marshal.StringToHGlobalUni(BacklightMaskOrSpecular);
-                }
-                slotsArray[8] = IntPtr.Zero;
-            }
-            catch (Exception)
-            {
-                MessageHandler.Log("Failed to get TXST slots for record " + GetRecordDesc(txstObj), 3);
-                for (int i = 0; i < 9; i++)
-                {
-                    slotsArray[i] = IntPtr.Zero;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "CreateNewTXSTPatch", CallConvs = [typeof(CallConvCdecl)])]
-    public static unsafe void CreateNewTXSTPatch([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const wchar_t**")] IntPtr* slots, [DNNE.C99Type("const char*")] IntPtr NewEDID, [DNNE.C99Type("const unsigned int")] uint NewFormID, [DNNE.C99Type("int*")] int* ResultTXSTId)
-    {
-        try
-        {
-            if (OutMod is null || Env is null)
-            {
-                throw new Exception("Initialize must be called before CreateNewTXSTPatch");
-            }
-
-            // Get EDID from C++
-            string NewEDIDStr = Marshal.PtrToStringAnsi(NewEDID) ?? string.Empty;
-
-            // Create a new TXST record at a specific formID
-            var newFormKey = new FormKey(OutMod.ModKey, NewFormID);
-            var newTXSTObj = new TextureSet(newFormKey, Env.GameRelease.ToSkyrimRelease());
-
-            newTXSTObj.EditorID = NewEDIDStr;
-
-            // Define slot actions for assigning texture set slots
-            string? NewDiffuse = Marshal.PtrToStringUni(slots[0]);
-            if (!NewDiffuse.IsNullOrEmpty())
-            {
-                var Diffuse = RemovePrefixIfExists("textures\\", NewDiffuse);
-                newTXSTObj.Diffuse = Diffuse;
-            }
-            string? NewNormalOrGloss = Marshal.PtrToStringUni(slots[1]);
-            if (!NewNormalOrGloss.IsNullOrEmpty())
-            {
-                var NormalOrGloss = RemovePrefixIfExists("textures\\", NewNormalOrGloss);
-                newTXSTObj.NormalOrGloss = NormalOrGloss;
-            }
-            string? NewGlowOrDetailMap = Marshal.PtrToStringUni(slots[2]);
-            if (!NewGlowOrDetailMap.IsNullOrEmpty())
-            {
-                var GlowOrDetailMap = RemovePrefixIfExists("textures\\", NewGlowOrDetailMap);
-                newTXSTObj.GlowOrDetailMap = GlowOrDetailMap;
-            }
-            string? NewHeight = Marshal.PtrToStringUni(slots[3]);
-            if (!NewHeight.IsNullOrEmpty())
-            {
-                var Height = RemovePrefixIfExists("textures\\", NewHeight);
-                newTXSTObj.Height = Height;
-            }
-            string? NewEnvironment = Marshal.PtrToStringUni(slots[4]);
-            if (!NewEnvironment.IsNullOrEmpty())
-            {
-                var Environment = RemovePrefixIfExists("textures\\", NewEnvironment);
-                newTXSTObj.Environment = Environment;
-            }
-            string? NewEnvironmentMaskOrSubsurfaceTint = Marshal.PtrToStringUni(slots[5]);
-            if (!NewEnvironmentMaskOrSubsurfaceTint.IsNullOrEmpty())
-            {
-                var EnvironmentMaskOrSubsurfaceTint = RemovePrefixIfExists("textures\\", NewEnvironmentMaskOrSubsurfaceTint);
-                newTXSTObj.EnvironmentMaskOrSubsurfaceTint = EnvironmentMaskOrSubsurfaceTint;
-            }
-            string? NewMultilayer = Marshal.PtrToStringUni(slots[6]);
-            if (!NewMultilayer.IsNullOrEmpty())
-            {
-                var Multilayer = RemovePrefixIfExists("textures\\", NewMultilayer);
-                newTXSTObj.Multilayer = Multilayer;
-            }
-            string? NewBacklightMaskOrSpecular = Marshal.PtrToStringUni(slots[7]);
-            if (!NewBacklightMaskOrSpecular.IsNullOrEmpty())
-            {
-                var BacklightMaskOrSpecular = RemovePrefixIfExists("textures\\", NewBacklightMaskOrSpecular);
-                newTXSTObj.BacklightMaskOrSpecular = BacklightMaskOrSpecular;
-            }
-
-            OutMod.TextureSets.Add(newTXSTObj);
-            TXSTObjs.Add(newTXSTObj);
-            *ResultTXSTId = TXSTObjs.Count - 1;
-
-            // set maxFormID if needed
-            if (NewFormID > maxFormID)
-            {
-                maxFormID = NewFormID;
-            }
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "SetModelAltTex", CallConvs = [typeof(CallConvCdecl)])]
-    public static void SetModelAltTex([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const int")] int TXSTHandle)
-    {
-        try
-        {
-            var AltTexObj = GetAltTexFromHandle(AltTexHandle);
-            if (AltTexObj.Item1 is null)
-            {
-                throw new Exception("Alt Texture handle not found");
-            }
-
-            if (AltTexObj.Item1.NewTexture.FormKey == TXSTObjs[TXSTHandle].FormKey)
-            {
-                // The formkey is already the same so we do nothing
-                return;
-            }
-
-            AltTexObj.Item1.NewTexture.SetTo(TXSTObjs[TXSTHandle]);
-            ModifiedModeledRecords.Add(AltTexObj.Item3);
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "Set3DIndex", CallConvs = [typeof(CallConvCdecl)])]
-    public static void Set3DIndex([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const int")] int NewIndex)
-    {
-        try
-        {
-            var AltTexObj = GetAltTexFromHandle(AltTexHandle);
-            if (AltTexObj.Item1 is null)
-            {
-                throw new Exception("Alt Texture handle not found");
-            }
-
-            AltTexObj.Item1.Index = NewIndex;
-            ModifiedModeledRecords.Add(AltTexObj.Item3);
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "SetModelRecNIF", CallConvs = [typeof(CallConvCdecl)])]
-    public static void SetModelRecNIF([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("const wchar_t*")] IntPtr NIFPathPtr)
-    {
-        try
-        {
-            var AltTexObj = GetAltTexFromHandle(AltTexHandle);
-            var ModelRec = AltTexObj.Item2;
-
-            if (ModelRec is null)
-            {
-                throw new Exception("Model Record does not have a model");
-            }
-
-            var NIFPath = Marshal.PtrToStringUni(NIFPathPtr);
-            if (NIFPath is null)
-            {
-                throw new Exception("NIF Path is null");
-            }
-
-            // remove "meshes" from beginning of NIFPath if exists
-            NIFPath = RemovePrefixIfExists("meshes\\", NIFPath);
-
-            // Check if NIFPath is different from ModelRec ignore case
-            if (NIFPath.Equals(ModelRec.File, StringComparison.OrdinalIgnoreCase))
-            {
-                MessageHandler.Log("[SetModelRecNIF] [Alt Tex Index: " + AltTexHandle + "] [NIF Path: " + NIFPath + "] NIF Path is the same as the current one", 0);
-                return;
-            }
-
-            ModelRec.File = NIFPath;
-            ModifiedModeledRecords.Add(AltTexObj.Item3);
-            MessageHandler.Log("[SetModelRecNIF] [Alt Tex Index: " + AltTexHandle + "] [NIF Path: " + NIFPath + "]", 0);
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "GetTXSTFormID", CallConvs = [typeof(CallConvCdecl)])]
-    public static unsafe void GetTXSTFormID([DNNE.C99Type("const int")] int TXSTHandle, [DNNE.C99Type("unsigned int*")] uint* FormID, [DNNE.C99Type("wchar_t**")] IntPtr* PluginName, [DNNE.C99Type("wchar_t**")] IntPtr* WinningPluginName)
-    {
-        try
-        {
-            if (Env is null)
-            {
-                throw new Exception("Initialize must be called before GetTXSTFormID");
-            }
-
-            var txstObj = TXSTObjs[TXSTHandle];
-            var PluginNameStr = txstObj.FormKey.ModKey.FileName;
-
-            try
-            {
-                if (txstObj.ToLink().TryResolveSimpleContext(Env.LinkCache, out var context))
-                {
-                    *WinningPluginName = Marshal.StringToHGlobalUni(context.ModKey.FileName);
-                }
-                else
-                {
-                    *WinningPluginName = Marshal.StringToHGlobalUni(PluginNameStr);
-                }
-            }
-            catch (Exception)
-            {
-                *WinningPluginName = Marshal.StringToHGlobalUni("UNKNOWN");
-            }
-
-            *PluginName = Marshal.StringToHGlobalUni(PluginNameStr);
-            var FormIDStr = txstObj.FormKey.ID;
-            *FormID = FormIDStr;
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "GetModelRecFormID", CallConvs = [typeof(CallConvCdecl)])]
-    public unsafe static void GetModelRecFormID([DNNE.C99Type("const int")] int ModelRecHandle, [DNNE.C99Type("unsigned int*")] uint* FormID, [DNNE.C99Type("wchar_t**")] IntPtr* PluginName, [DNNE.C99Type("wchar_t**")] IntPtr* WinningPluginName)
-    {
-        try
-        {
-            if (Env is null)
-            {
-                throw new Exception("Initialize must be called before GetModelRecFormID");
-            }
-
-            var modelRecObj = ModelOriginals[ModelRecHandle];
-            var PluginNameStr = modelRecObj.FormKey.ModKey.FileName;
-
-            try
-            {
-                if (modelRecObj.ToLink().TryResolveSimpleContext(Env.LinkCache, out var context))
-                {
-                    *WinningPluginName = Marshal.StringToHGlobalUni(context.ModKey.FileName);
-                }
-                else
-                {
-                    *WinningPluginName = Marshal.StringToHGlobalUni(PluginNameStr);
-                }
-            }
-            catch (Exception)
-            {
-                *WinningPluginName = Marshal.StringToHGlobalUni("UNKNOWN");
-            }
-
-            *PluginName = Marshal.StringToHGlobalUni(PluginNameStr);
-            var FormIDStr = modelRecObj.FormKey.ID;
-            *FormID = FormIDStr;
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "GetAltTexFormID", CallConvs = [typeof(CallConvCdecl)])]
-    public unsafe static void GetAltTexFormID([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("unsigned int*")] uint* FormID, [DNNE.C99Type("wchar_t**")] IntPtr* PluginName, [DNNE.C99Type("wchar_t**")] IntPtr* WinningPluginName)
-    {
-        try
-        {
-            if (Env is null)
-            {
-                throw new Exception("Initialize must be called before GetAltTexFormID");
-            }
-
-            var altTexObj = GetAltTexFromHandle(AltTexHandle);
-            var modelRecObj = ModelOriginals[altTexObj.Item3];
-            var PluginNameStr = modelRecObj.FormKey.ModKey.FileName;
-
-            try
-            {
-                if (modelRecObj.ToLink().TryResolveSimpleContext(Env.LinkCache, out var context))
-                {
-                    *WinningPluginName = Marshal.StringToHGlobalUni(context.ModKey.FileName);
-                }
-                else
-                {
-                    *WinningPluginName = Marshal.StringToHGlobalUni(PluginNameStr);
-                }
-            }
-            catch (Exception)
-            {
-                *WinningPluginName = Marshal.StringToHGlobalUni("UNKNOWN");
-            }
-
-            *PluginName = Marshal.StringToHGlobalUni(PluginNameStr);
-            var FormIDStr = modelRecObj.FormKey.ID;
-            *FormID = FormIDStr;
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    [UnmanagedCallersOnly(EntryPoint = "GetModelRecHandleFromAltTexHandle", CallConvs = [typeof(CallConvCdecl)])]
-    public static unsafe void GetModelRecHandleFromAltTexHandle([DNNE.C99Type("const int")] int AltTexHandle, [DNNE.C99Type("int*")] int* ModelRecHandle)
-    {
-        // TODO move this to getmatchingtxstrecords
-        try
-        {
-            *ModelRecHandle = AltTexRefs[AltTexHandle].Item3;
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.SetLastException(ex);
-        }
-    }
-
-    // Helpers
-
-    private static (AlternateTexture?, IModel?, int) GetAltTexFromHandle(int AltTexHandle)
-    {
-        var oldAltTex = AltTexRefs[AltTexHandle].Item1;
-        var oldType = AltTexRefs[AltTexHandle].Item4;
-        var ModeledRecordId = AltTexRefs[AltTexHandle].Item2;
-
-        var ModeledRecord = ModelCopies[ModeledRecordId];
-
-        // loop through alternate textures to find the one to replace
-        var modelElems = GetModelElems(ModeledRecord);
-        for (int i = 0; i < modelElems.Count; i++)
-        {
-            var modelRec = modelElems[i];
-            if (modelRec.Item1.AlternateTextures is null)
-            {
-                continue;
-            }
-
-            if (oldType != modelRec.Item2)
-            {
-                // useful for records with multiple MODL records like ARMO
-                continue;
-            }
-
-            for (int j = 0; j < modelRec.Item1.AlternateTextures.Count; j++)
-            {
-                var alternateTexture = modelRec.Item1.AlternateTextures[j];
-                if (alternateTexture.Name == oldAltTex.Name &&
-                    alternateTexture.Index == oldAltTex.Index &&
-                    alternateTexture.NewTexture.FormKey.ID.ToString() == oldAltTex.NewTexture.FormKey.ID.ToString())
-                {
-                    // Found the one to update
-                    var EditableModelObj = GetModelElems(ModelCopiesEditable[ModeledRecordId])[i];
-                    var EditableAltTexObj = EditableModelObj.Item1.AlternateTextures?[j];
-                    return (EditableAltTexObj, EditableModelObj.Item1, ModeledRecordId);
-                }
-            }
-        }
-
-        return (null, null, ModeledRecordId);
+        return
+        [
+            textureSet.Diffuse?.ToString().ToLower() ?? string.Empty,
+            textureSet.NormalOrGloss?.ToString().ToLower() ?? string.Empty,
+            textureSet.GlowOrDetailMap?.ToString().ToLower() ?? string.Empty,
+            textureSet.Height?.ToString().ToLower() ?? string.Empty,
+            textureSet.Environment?.ToString().ToLower() ?? string.Empty,
+            textureSet.EnvironmentMaskOrSubsurfaceTint?.ToString().ToLower() ?? string.Empty,
+            textureSet.Multilayer?.ToString().ToLower() ?? string.Empty,
+            textureSet.BacklightMaskOrSpecular?.ToString().ToLower() ?? string.Empty
+        ];
     }
 
     private static string GetRecordDesc(IMajorRecordGetter rec)

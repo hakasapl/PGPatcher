@@ -5,7 +5,6 @@
 
 #include <vector>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMesh.hpp"
 
 /**
@@ -66,7 +65,7 @@ public:
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
-    virtual auto canApply(nifly::NiShape& nifShape) -> bool = 0;
+    virtual auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool = 0;
 
     /// @brief  Methods that determine whether the patcher should apply to a shape
     /// @param[in] nifShape shape to check
@@ -81,7 +80,8 @@ public:
     virtual auto shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool = 0;
 
     // Methods that apply the patch to a shape
-    virtual auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+    virtual auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool
         = 0;
 
     /// @brief apply the matched texture to the texture slots
@@ -91,8 +91,6 @@ public:
     virtual auto applyPatchSlots(
         const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
         = 0;
-
-    virtual void processNewTXSTRecord(const PatcherMatch& match, const std::string& edid = {}) = 0;
 
     /// @brief apply the shader to the shape
     /// @param[in] nifShape shape to apply the shader to

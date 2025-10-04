@@ -3,7 +3,6 @@
 #include <nlohmann/json_fwd.hpp>
 #include <unordered_map>
 
-#include "Geometry.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshGlobal.hpp"
@@ -112,32 +111,4 @@ public:
         // inequality operator
         auto operator!=(const ShaderPatcherMatch& other) const -> bool { return !(*this == other); }
     };
-
-    /**
-     * @brief Get the Winning Match object (checks mod priority)
-     *
-     * @param Matches Matches to check
-     * @param NIFPath NIF path to check
-     * @param ModPriority Mod priority map
-     * @return ShaderPatcherMatch Winning match
-     */
-    static auto getWinningMatch(const std::vector<ShaderPatcherMatch>& matches) -> ShaderPatcherMatch;
-
-    /**
-     * @brief Helper method to run a transform if needed on a match
-     *
-     * @param Match Match to run transform
-     * @param Patchers Patcher set to use
-     * @return ShaderPatcherMatch Transformed match
-     */
-    static auto applyTransformIfNeeded(ShaderPatcherMatch& match, const PatcherMeshObjectSet& patchers) -> bool;
-
-    static auto createCanApplyMap(const PatcherMeshObjectSet& patchers, nifly::NiShape& shape,
-        const NIFUtil::ShapeShader* forceShader) -> std::unordered_map<NIFUtil::ShapeShader, bool>;
-
-    static void filterMatches(
-        std::vector<ShaderPatcherMatch>& matches, const std::unordered_map<NIFUtil::ShapeShader, bool>& canApply);
-
-    static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-        const bool& dryRun) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 };

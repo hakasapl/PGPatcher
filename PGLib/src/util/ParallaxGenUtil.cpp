@@ -197,6 +197,23 @@ auto getJSON(const std::filesystem::path& filePath, nlohmann::json& json) -> boo
     return true;
 }
 
+auto getJSONFromBytes(const vector<std::byte>& bytes, nlohmann::json& json) -> bool
+{
+    try {
+        // Convert vector of bytes to string
+        std::string jsonString(bytes.size(), '\0');
+        std::memcpy(jsonString.data(), bytes.data(), bytes.size());
+
+        // Parse the JSON string
+        json = nlohmann::json::parse(jsonString);
+    } catch (...) {
+        // Handle JSON parsing error
+        return false;
+    }
+
+    return true;
+}
+
 auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json, const bool& readable) -> bool
 {
     ofstream outputFile;
