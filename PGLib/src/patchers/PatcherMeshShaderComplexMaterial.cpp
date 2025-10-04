@@ -15,6 +15,9 @@ using namespace std;
 std::vector<wstring> PatcherMeshShaderComplexMaterial::s_dynCubemapBlocklist;
 bool PatcherMeshShaderComplexMaterial::s_disableMLP;
 
+std::shared_mutex PatcherMeshShaderComplexMaterial::s_metaCacheMutex;
+std::unordered_map<filesystem::path, nlohmann::json> PatcherMeshShaderComplexMaterial::s_metaCache;
+
 auto PatcherMeshShaderComplexMaterial::loadStatics(
     const bool& disableMLP, const std::vector<std::wstring>& dynCubemapBlocklist) -> void
 {
@@ -105,7 +108,6 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
         foundMatches = NIFUtil::getTexMatch(searchPrefixes.at(slot), NIFUtil::TextureType::COMPLEXMATERIAL, cmBaseMap);
 
         if (!foundMatches.empty()) {
-            // TODO should we be trying diffuse after normal too and present all options?
             matchedFromSlot = static_cast<NIFUtil::TextureSlots>(slot);
             break;
         }
@@ -185,18 +187,18 @@ auto PatcherMeshShaderComplexMaterial::applyPatch(const NIFUtil::TextureSet& old
         }
 
         // "specular_strength" attribute
-        if (meta.contains("specular_strength") && meta["specular_strength"].is_number_float()) {
+        if (meta.contains("specular_strength") && meta["specular_strength"].is_number()) {
             changed
                 |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, meta["specular_strength"].get<float>());
         }
 
         // "glosiness" attribute
-        if (meta.contains("glossiness") && meta["glossiness"].is_number_float()) {
+        if (meta.contains("glossiness") && meta["glossiness"].is_number()) {
             changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->glossiness, meta["glossiness"].get<float>());
         }
 
         // "environment_map_scale" attribute
-        if (meta.contains("environment_map_scale") && meta["environment_map_scale"].is_number_float()) {
+        if (meta.contains("environment_map_scale") && meta["environment_map_scale"].is_number()) {
             changed |= NIFUtil::setShaderFloat(
                 nifShaderBSLSP->environmentMapScale, meta["environment_map_scale"].get<float>());
         }
@@ -273,6 +275,13 @@ auto PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape) -> bool
 
 auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& envMaskPath) -> nlohmann::json
 {
+    {
+        const shared_lock lk(s_metaCacheMutex);
+        if (s_metaCache.contains(envMaskPath)) {
+            return s_metaCache.at(envMaskPath);
+        }
+    }
+
     // find file path of meta, which is the envMaskPath extension replaced with .json
     auto metaPath = envMaskPath;
     metaPath.replace_extension(".json");
@@ -288,6 +297,9 @@ auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& e
         Logger::error(L"Failed to parse CM metadata JSON: {}", metaPath.wstring());
         return {};
     }
+
+    const std::scoped_lock lk(s_metaCacheMutex);
+    s_metaCache[envMaskPath] = meta;
 
     return meta;
 }

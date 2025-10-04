@@ -536,11 +536,18 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
             // Verify shape can apply
             if (patcherObjects != nullptr) {
-                if (!patcherObjects->shaderPatchers.at(shader)->canApply(*shape, singlepassMATO)
-                    && !patcherObjects->shaderPatchers.at(curMatch.shaderTransformTo)
-                        ->canApply(*shape, singlepassMATO)) {
-                    Logger::trace(L"Rejecting: Shape cannot apply shader");
-                    continue;
+                if (!patcherObjects->shaderPatchers.at(shader)->canApply(*shape, singlepassMATO)) {
+                    // base shaders can't do it, lets check transforms
+                    if (curMatch.shaderTransformTo == NIFUtil::ShapeShader::UNKNOWN) {
+                        Logger::trace(L"Rejecting: Shape cannot apply shader");
+                        continue;
+                    }
+
+                    if (!patcherObjects->shaderPatchers.at(curMatch.shaderTransformTo)
+                            ->canApply(*shape, singlepassMATO)) {
+                        Logger::trace(L"Rejecting: Shape cannot apply shader");
+                        continue;
+                    }
                 }
             }
 

@@ -17,6 +17,9 @@ private:
     static std::vector<std::wstring> s_dynCubemapBlocklist; /** Stores the dynamic cubemap blocklist set */
     static bool s_disableMLP; /** If true MLP should be replaced with CM */
 
+    static std::shared_mutex s_metaCacheMutex; /** Mutex for material meta cache */
+    static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
+
 public:
     static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures/cubemaps/dynamic1pxcubemap_black.dds";
 
