@@ -51,10 +51,7 @@ public:
     static void initialize(
         const BethesdaGame& game, const std::filesystem::path& exePath, const PluginLang& lang = PluginLang::ENGLISH);
 
-    static void populateObjs();
-
-    static void loadTXSTCache(const nlohmann::json& txstCache);
-    static auto getTXSTCache() -> nlohmann::json;
+    static void populateObjs(const std::filesystem::path& existingModPath = {});
 
     static auto getModelUses(const std::wstring& modelPath)
         -> std::vector<std::pair<MeshTracker::FormKey, MeshUseAttributes>>;

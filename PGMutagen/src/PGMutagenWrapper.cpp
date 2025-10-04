@@ -107,11 +107,11 @@ void PGMutagenWrapper::libInitialize(const int& gameType, const std::wstring& ex
     }
 }
 
-void PGMutagenWrapper::libPopulateObjs()
+void PGMutagenWrapper::libPopulateObjs(const filesystem::path& existingModPath)
 {
     const lock_guard<mutex> lock(s_libMutex);
 
-    PopulateObjs();
+    PopulateObjs(existingModPath.wstring().c_str());
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 }

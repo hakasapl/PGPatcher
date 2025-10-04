@@ -107,13 +107,11 @@ public class PGMutagen
     private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
     private static HashSet<IModelGetter> ProcessedModelUses = [];
     private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
-    private static Dictionary<string[], ITextureSet> NewTextureSets = new(new StructuralArrayComparer());
+    private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
 
 
     private static SkyrimRelease GameType;
     private static Language PluginLanguage = Language.English;
-
-    private static uint maxFormID = 0;
 
     // tracks masters in each split plugin
     private static List<HashSet<ModKey>> OutputMasterTracker = [];
@@ -189,13 +187,40 @@ public class PGMutagen
     }
 
     [UnmanagedCallersOnly(EntryPoint = "PopulateObjs", CallConvs = [typeof(CallConvCdecl)])]
-    public static void PopulateObjs()
+    public static void PopulateObjs([DNNE.C99Type("const wchar_t*")] IntPtr oldPGPluginPath)
     {
         try
         {
             if (Env is null)
             {
                 throw new Exception("Initialize must be called before PopulateObjs");
+            }
+
+            if (OutMod is null)
+            {
+                throw new Exception("OutMod is null in PopulateObjs");
+            }
+
+            // Get path to old PG plugin
+            string oldModPath = Marshal.PtrToStringUni(oldPGPluginPath) ?? string.Empty;
+            if (!oldModPath.IsNullOrEmpty() && File.Exists(oldModPath))
+            {
+                MessageHandler.Log("Loading old output plugin for cache " + oldModPath, 2);
+                // Add all old PG records to output mod
+                using var oldMod = SkyrimMod.Create(GameType).FromPath(oldModPath).Construct();
+                // loop through all texture sets in old mod
+                foreach (var txst in oldMod.TextureSets)
+                {
+                    var newFormKey = new FormKey(OutMod.ModKey, txst.FormKey.ID);
+                    var newTXSTObj = txst.Duplicate(newFormKey);
+
+                    // Add to output mod
+                    OutMod.TextureSets.Add(newTXSTObj);
+
+                    // Add to dictionary (mark as unused)
+                    var textures = GetTextureSet(newTXSTObj);
+                    NewTextureSets[textures] = new Tuple<ITextureSet, bool>(newTXSTObj, false);
+                }
             }
 
             foreach (var modelMajorRec in EnumerateModelRecordsSafe())
@@ -269,6 +294,23 @@ public class PGMutagen
             if (Env is null || OutMod == null)
             {
                 throw new Exception("Initialize must be called before Finalize");
+            }
+
+            // Remove unused texture sets from NewTextureSets
+            foreach (var texSetEntry in NewTextureSets)
+            {
+                if (!texSetEntry.Value.Item2)
+                {
+                    // not used, remove from OutMod
+                    OutMod.TextureSets.Remove(texSetEntry.Value.Item1);
+                }
+            }
+
+            // calculate maximum form ID
+            uint maxFormID = 0;
+            foreach (var txst in OutMod.TextureSets)
+            {
+                maxFormID = Math.Max(maxFormID, txst.FormKey.ID);
             }
 
             // Get output path from C++
@@ -840,15 +882,21 @@ public class PGMutagen
 
                     // Textures are different, we need to find or create a new texture set record
                     changed = true;
-                    if (NewTextureSets.TryGetValue(bufTextures, out ITextureSet? alreadyExistingTXST))
+                    if (NewTextureSets.TryGetValue(bufTextures, out Tuple<ITextureSet, bool>? existingTXSTTuple))
                     {
                         // already exists, just use that
-                        matchModElem.AlternateTextures[j].NewTexture.FormKey = alreadyExistingTXST.FormKey;
+                        matchModElem.AlternateTextures[j].NewTexture.FormKey = existingTXSTTuple.Item1.FormKey;
+
+                        // Update usage flag
+                        if (!existingTXSTTuple.Item2)
+                        {
+                            NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(existingTXSTTuple.Item1, true);
+                        }
                     }
                     else
                     {
                         // Create a new texture set record
-                        var newFormKey = new FormKey(OutMod.ModKey, (uint)NewTextureSets.Count + 1);
+                        var newFormKey = OutMod.GetNextFormKey();
                         // find filename of diffuse texture (just .dds file no path), also remove extension
                         var diffuseTex = bufTextures[0].IsNullOrEmpty() ? "" : Path.GetFileNameWithoutExtension(bufTextures[0]);
                         var formIDHex = newFormKey.ID.ToString("X6");
@@ -877,16 +925,14 @@ public class PGMutagen
 
                         // Add to output mod
                         OutMod.TextureSets.Add(newTXSTObj);
-                        maxFormID = Math.Max(maxFormID, newFormKey.ID);
 
                         // Add to dictionary
-                        NewTextureSets[bufTextures] = newTXSTObj;
+                        NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(newTXSTObj, true);
 
                         // Update formkey
                         matchModElem.AlternateTextures[j].NewTexture.FormKey = newFormKey;
                     }
                 }
-
 
                 // add to modified records only if something has changed
                 if (changed)

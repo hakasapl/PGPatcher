@@ -156,7 +156,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Define paths
     PGPatcherGlobals::setEXEPath(exePath);
     const filesystem::path cfgDir = exePath / "cfg";
-    const filesystem::path cacheDir = exePath / "cache";
 
     // Create cfg directory if it does not exist
     if (!filesystem::exists(cfgDir)) {
@@ -179,7 +178,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Show launcher UI
     if (!args.autostart) {
         Logger::info("Showing launcher UI");
-        ParallaxGenUI::showLauncher(pgc, cacheDir, params);
+        ParallaxGenUI::showLauncher(pgc, params);
     }
 
     // Validate config
@@ -268,16 +267,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGDiag::insert("ActivePlugins", ParallaxGenUtil::utf16VectorToUTF8(activePlugins));
 
     // Init PGP library
-    const auto txstFormIDCacheFile = cacheDir / "txstFormIDs.json";
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
         ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
-        ParallaxGenPlugin::populateObjs();
-
-        nlohmann::json txstFormIDCache;
-        if (ParallaxGenUtil::getJSON(txstFormIDCacheFile, txstFormIDCache)) {
-            ParallaxGenPlugin::loadTXSTCache(txstFormIDCache);
-        }
+        ParallaxGenPlugin::populateObjs(params.Output.dir / "ParallaxGen.esp");
     }
 
     // Populate mod info
@@ -423,11 +416,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         Logger::warn("Output directory is empty. No files were generated. Is your data path set correctly?");
         outputEmpty = true;
     }
-
-    // Save caches
-    Logger::info("Saving cache files...");
-    filesystem::create_directories(cacheDir);
-    ParallaxGenUtil::saveJSON(txstFormIDCacheFile, ParallaxGenPlugin::getTXSTCache(), true);
 
     if (!outputEmpty) {
         // Deploy Assets

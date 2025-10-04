@@ -22,10 +22,9 @@ using namespace std;
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 // class LauncherWindow
-LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc, std::filesystem::path cacheDir)
+LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     : wxDialog(nullptr, wxID_ANY, "PGPatcher " + string(PG_VERSION) + " Launcher", wxDefaultPosition,
           wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE)
-    , m_cacheDir(std::move(cacheDir))
     , m_pgc(pgc)
     , m_textureMapTypeCombo(nullptr)
     , m_advancedOptionsSizer(new wxBoxSizer(wxVERTICAL))

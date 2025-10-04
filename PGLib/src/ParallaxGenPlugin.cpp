@@ -57,10 +57,6 @@ auto ParallaxGenPlugin::getAvailablePluginLangStrs() -> vector<string>
     return langStrs;
 }
 
-void ParallaxGenPlugin::loadTXSTCache(const nlohmann::json& txstCache) { }
-
-auto ParallaxGenPlugin::getTXSTCache() -> nlohmann::json { return {}; }
-
 void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::path& exePath, const PluginLang& lang)
 {
     // Maps BethesdaGame::GameType to Mutagen game type
@@ -73,7 +69,10 @@ void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::p
         game.getGameDataPath().wstring(), game.getActivePlugins(), static_cast<unsigned int>(lang));
 }
 
-void ParallaxGenPlugin::populateObjs() { PGMutagenWrapper::libPopulateObjs(); }
+void ParallaxGenPlugin::populateObjs(const filesystem::path& existingModPath)
+{
+    PGMutagenWrapper::libPopulateObjs(existingModPath);
+}
 
 auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
     -> std::vector<std::pair<MeshTracker::FormKey, MeshUseAttributes>>
