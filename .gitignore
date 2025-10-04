@@ -1,5 +1,6 @@
 # output dirs
 build
+buildRelease
 dist
 install
 
