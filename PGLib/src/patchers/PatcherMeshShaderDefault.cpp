@@ -54,10 +54,11 @@ auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     return !matches.empty();
 }
 
-auto PatcherMeshShaderDefault::applyPatch(
-    nifly::NiShape& nifShape, [[maybe_unused]] const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+auto PatcherMeshShaderDefault::applyPatch(const NIFUtil::TextureSet& oldSlots,
+    [[maybe_unused]] nifly::NiShape& nifShape, [[maybe_unused]] const PatcherMatch& match,
+    NIFUtil::TextureSet& newSlots) -> bool
 {
-    newSlots = getTextureSet(getNIFPath(), *getNIF(), nifShape);
+    newSlots = oldSlots;
     return false;
 }
 

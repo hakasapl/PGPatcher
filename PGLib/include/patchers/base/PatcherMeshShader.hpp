@@ -5,7 +5,6 @@
 
 #include <vector>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMesh.hpp"
 
 /**
@@ -81,7 +80,8 @@ public:
     virtual auto shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool = 0;
 
     // Methods that apply the patch to a shape
-    virtual auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+    virtual auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool
         = 0;
 
     /// @brief apply the matched texture to the texture slots

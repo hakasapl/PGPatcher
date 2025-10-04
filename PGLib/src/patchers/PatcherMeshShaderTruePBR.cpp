@@ -436,10 +436,10 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
     truePBRData.insert({ cfg, { curCfg, matchedPath } });
 }
 
-auto PatcherMeshShaderTruePBR::applyPatch(
-    nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+auto PatcherMeshShaderTruePBR::applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape,
+    const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
 {
-    newSlots = getTextureSet(getNIFPath(), *getNIF(), nifShape);
+    newSlots = oldSlots;
 
     if (match.extraData == nullptr) {
         // already has PBR, just add PBR prefix to the slots if not already there

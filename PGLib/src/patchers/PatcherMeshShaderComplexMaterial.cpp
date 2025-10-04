@@ -139,8 +139,8 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
     return !matches.empty();
 }
 
-auto PatcherMeshShaderComplexMaterial::applyPatch(
-    NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+auto PatcherMeshShaderComplexMaterial::applyPatch(const NIFUtil::TextureSet& oldSlots, NiShape& nifShape,
+    const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
 {
     bool changed = false;
 
@@ -203,7 +203,7 @@ auto PatcherMeshShaderComplexMaterial::applyPatch(
     }
 
     // Apply slots
-    applyPatchSlots(getTextureSet(getNIFPath(), *getNIF(), nifShape), match, newSlots);
+    applyPatchSlots(oldSlots, match, newSlots);
     changed |= setTextureSet(getNIFPath(), *getNIF(), nifShape, newSlots);
 
     return changed;

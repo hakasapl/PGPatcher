@@ -6,8 +6,6 @@
 #include <string>
 #include <winnt.h>
 
-#include "NIFUtil.hpp"
-#include "Object3d.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
 /**
@@ -88,8 +86,8 @@ public:
      * @param[in] match Match to apply
      * @return NIFUtil::TextureSet New slots after patching
      */
-    auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool override;
 
     /**
      * @brief Apply the CM shader to the slots

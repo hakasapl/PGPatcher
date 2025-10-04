@@ -1,24 +1,26 @@
 #pragma once
 
+#include "NIFUtil.hpp"
 #include "NifFile.hpp"
-#include <boost/crc.hpp>
+
 #include <filesystem>
 #include <string>
+#include <vector>
 
 /**
  * @brief Class responsible for tracking all output mesh permutations from a given input mesh
  */
 class MeshTracker {
-private:
-    std::filesystem::path m_origMeshPath;
-    nifly::NifFile m_origNifFile;
-    unsigned long long m_origCrc32;
-
+public:
     struct FormKey {
         std::wstring modKey;
         unsigned int formID;
+        std::string subMODL;
 
-        auto operator==(const FormKey& other) const -> bool { return formID == other.formID && modKey == other.modKey; }
+        auto operator==(const FormKey& other) const -> bool
+        {
+            return formID == other.formID && modKey == other.modKey && subMODL == other.subMODL;
+        }
     };
 
     struct FormKeyHash {
@@ -26,12 +28,27 @@ private:
         {
             const size_t h1 = std::hash<std::wstring> {}(key.modKey);
             const size_t h2 = std::hash<unsigned int> {}(key.formID);
-            return h1 ^ (h2 << 1);
+            const size_t h3 = std::hash<std::string> {}(key.subMODL);
+            return h1 ^ (h2 << 1) ^ (h3 << 2);
         }
     };
 
-    std::vector<nifly::NifFile> m_outputMeshes;
-    std::unordered_map<FormKey, size_t, FormKeyHash> m_formKeyToMeshIdx;
+    struct MeshResult {
+        std::filesystem::path meshPath; // Path of output mesh for this particular file
+        std::vector<std::pair<FormKey, std::unordered_map<unsigned int, NIFUtil::TextureSet>>>
+            altTexResults; // Alternate texture results for this mesh
+        std::unordered_map<int, int> idxCorrections; // List of index corrections (old, new, shape name)
+    };
+
+private:
+    std::filesystem::path m_origMeshPath;
+    nifly::NifFile m_origNifFile;
+    unsigned long long m_origCrc32;
+    bool m_baseMeshExists = false;
+    bool m_baseMeshAttempted = false;
+
+    std::vector<std::pair<MeshResult, nifly::NifFile>> m_outputMeshes;
+    std::unordered_set<FormKey, FormKeyHash> m_processedFormKeys;
 
     nifly::NifFile m_stagedMesh;
     nifly::NifFile* m_stagedMeshPtr;
@@ -44,18 +61,13 @@ public:
     // Plugin mesh staging
     auto stageMesh() -> nifly::NifFile*;
     auto commitBaseMesh() -> bool;
-    auto commitDupMesh(const FormKey& formKey) -> bool;
+    auto commitDupMesh(
+        const FormKey& formKey, const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults) -> bool;
 
     // Used in cases where no alternate textures exist but the form key should still be tracked
     void addFormKeyForBaseMesh(const FormKey& formKey);
 
-    struct MeshInfo {
-        std::filesystem::path meshPath;
-        std::unordered_set<FormKey, FormKeyHash> formKeys;
-        std::vector<std::tuple<int, int, std::string>> idxCorrections;
-    };
-
-    auto saveMeshes() -> std::pair<std::vector<MeshInfo>, std::pair<unsigned long long, unsigned long long>>;
+    auto saveMeshes() -> std::pair<std::vector<MeshResult>, std::pair<unsigned long long, unsigned long long>>;
 
 private:
     // Helpers

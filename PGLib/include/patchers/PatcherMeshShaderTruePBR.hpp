@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
 constexpr unsigned TEXTURE_STR_LENGTH = 9;
@@ -150,8 +149,8 @@ public:
      * @param match Match to apply
      * @return NIFUtil::TextureSet New slots of shape
      */
-    auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool override;
 
     /**
      * @brief Apply a match to slots

@@ -12,6 +12,10 @@ Contributors are welcome. Thank you in advance!
 
 This is a CMake project with VCPKG for packages. Supported IDEs are Visual Studio 2022 or Visual Studio Code. Personally I use Visual Studio Code with the [clangd extension](https://marketplace.visualstudio.com/items?itemName=llvm-vs-code-extensions.vscode-clangd). It tends to be much faster than VS2022.
 
+### Requirements
+
+* FlatBuffers `flatc` compiler version 25.2.10 in your path (if this is ever updated the nuget package also needs an update)
+
 ### Visual Studio Code
 
 * Visual Studio 2022 with desktop development for C++ is still required as this project uses the `MSVC` toolchain.

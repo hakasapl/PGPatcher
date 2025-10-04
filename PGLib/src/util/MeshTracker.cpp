@@ -1,5 +1,4 @@
 #include "util/MeshTracker.hpp"
-#include "BasicTypes.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
 #include <fstream>
@@ -56,35 +55,62 @@ auto MeshTracker::commitBaseMesh() -> bool
         throw std::runtime_error("No staged mesh to commit as base mesh");
     }
 
+    m_baseMeshAttempted = true;
+
+    if (compareMesh(m_stagedMesh, m_origNifFile)) {
+        // Mesh was not modified from the base mesh, do nothing
+        // Clear staged mesh
+        m_stagedMeshPtr = nullptr;
+        m_stagedMesh.Clear();
+
+        return false;
+    }
+
+    const MeshResult meshResult = { .meshPath = {}, .altTexResults = {}, .idxCorrections = {} };
+
     nifly::NifFile newMesh;
     newMesh.CopyFrom(*m_stagedMeshPtr);
-    m_outputMeshes.push_back(newMesh);
+
+    if (m_outputMeshes.empty()) {
+        m_outputMeshes.emplace_back(meshResult, newMesh);
+    } else {
+        m_outputMeshes.at(0) = { meshResult, newMesh };
+    }
 
     // Clear staged mesh
     m_stagedMeshPtr = nullptr;
     m_stagedMesh.Clear();
+    m_baseMeshExists = true;
 
     return true;
 }
 
-auto MeshTracker::commitDupMesh(const FormKey& formKey) -> bool
+auto MeshTracker::commitDupMesh(
+    const FormKey& formKey, const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults) -> bool
 {
     if (m_stagedMeshPtr == nullptr) {
         // No staged mesh to commit
         throw std::runtime_error("No staged mesh to commit as duplicate mesh");
     }
 
+    if (!m_baseMeshAttempted) {
+        throw std::runtime_error("Base mesh must be committed before committing duplicate meshes");
+    }
+
     // Check if this form key already exists
-    if (m_formKeyToMeshIdx.contains(formKey)) {
+    if (m_processedFormKeys.contains(formKey)) {
         // Already exists
         return false;
     }
 
+    // Add to processed form keys
+    m_processedFormKeys.insert(formKey);
+
     // Check if staged mesh is different from all existing output meshes
-    for (size_t i = 0; i < m_outputMeshes.size(); i++) {
-        if (compareMesh(m_stagedMesh, m_outputMeshes.at(i))) {
+    for (auto& outputMesh : m_outputMeshes) {
+        if (compareMesh(m_stagedMesh, outputMesh.second)) {
             // Mesh is identical to an existing output mesh, do not add
-            m_formKeyToMeshIdx[formKey] = i;
+            outputMesh.first.altTexResults.emplace_back(formKey, altTexResults);
             // Clear staged mesh
             m_stagedMeshPtr = nullptr;
             m_stagedMesh.Clear();
@@ -92,13 +118,32 @@ auto MeshTracker::commitDupMesh(const FormKey& formKey) -> bool
             // No need to continue
             return false;
         }
+
+        if (!m_baseMeshExists && compareMesh(m_stagedMesh, m_origNifFile)) {
+            // Mesh was not modified from the base mesh, do nothing
+            // We only do nothing IF a base mesh doesn't exist, because otherwise it will use the base mesh incorrectly
+            // IF a base mesh does exist, then a new mesh that is a duplicate of the original will be created regardless
+            // Clear staged mesh
+            m_stagedMeshPtr = nullptr;
+            m_stagedMesh.Clear();
+
+            return false;
+        }
     }
 
     // Add new mesh
     nifly::NifFile newMesh;
     newMesh.CopyFrom(*m_stagedMeshPtr);
-    m_outputMeshes.push_back(newMesh);
-    m_formKeyToMeshIdx[formKey] = m_outputMeshes.size() - 1;
+
+    const MeshResult meshResult
+        = { .meshPath = {}, .altTexResults = { { formKey, altTexResults } }, .idxCorrections = {} };
+
+    if (m_outputMeshes.empty()) {
+        // fill base mesh with blank
+        m_outputMeshes.emplace_back(MeshResult {}, m_origNifFile);
+    }
+
+    m_outputMeshes.emplace_back(meshResult, newMesh);
 
     // Clear staged mesh
     m_stagedMeshPtr = nullptr;
@@ -114,23 +159,27 @@ void MeshTracker::addFormKeyForBaseMesh(const FormKey& formKey)
     }
 
     // Add form key for base mesh
-    m_formKeyToMeshIdx[formKey] = 0;
+    m_outputMeshes.at(0).first.altTexResults.emplace_back(
+        formKey, std::unordered_map<unsigned int, NIFUtil::TextureSet> {});
 }
 
-auto MeshTracker::saveMeshes() -> pair<vector<MeshInfo>, pair<unsigned long long, unsigned long long>>
+auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long long, unsigned long long>>
 {
     auto* pgd = PGGlobals::getPGD();
 
-    vector<MeshInfo> output;
+    vector<MeshResult> output;
     unsigned long long baseCrc32 = 0;
 
     // loop through output meshes
     for (size_t i = 0; i < m_outputMeshes.size(); i++) {
-        // Output meshinfo
-        MeshInfo meshInfo;
+        // Skip base mesh if it doesn't exist
+        if (i == 0 && !m_baseMeshExists) {
+            continue;
+        }
 
         // Get mesh object
-        auto& mesh = m_outputMeshes.at(i);
+        auto& meshResult = m_outputMeshes.at(i).first;
+        auto& mesh = m_outputMeshes.at(i).second;
 
         // Find new shape indices
         const auto shapes = NIFUtil::getShapesWithBlockIDs(&mesh);
@@ -143,14 +192,12 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshInfo>, pair<unsigned long long
             }
 
             const auto newIndex3D = newShapes.at(nifShape);
-
-            const tuple<int, int, string> idxChange = { oldIndex3D, newIndex3D, nifShape->name.get() };
-            meshInfo.idxCorrections.push_back(idxChange);
+            meshResult.idxCorrections[oldIndex3D] = newIndex3D;
         }
 
         // Get filename of mesh
         const auto meshRelPath = getMeshPath(m_origMeshPath, i);
-        meshInfo.meshPath = meshRelPath;
+        meshResult.meshPath = meshRelPath;
         const auto meshFilename = pgd->getGeneratedPath() / meshRelPath;
         if (filesystem::exists(meshFilename)) {
             throw std::runtime_error("Output mesh file already exists: " + meshFilename.string());
@@ -181,17 +228,14 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshInfo>, pair<unsigned long long
         // tell PGD that this is a generated file
         pgd->addGeneratedFile(meshRelPath, nullptr);
 
-        // Find all formkeys that map to this mesh
-        for (const auto& [formKey, meshIdx] : m_formKeyToMeshIdx) {
-            if (meshIdx == i) {
-                meshInfo.formKeys.insert(formKey);
-            }
-        }
-
-        output.push_back(meshInfo);
+        output.push_back(meshResult);
     }
 
-    return { output, { m_origCrc32, baseCrc32 } };
+    if (m_baseMeshExists) {
+        return { output, { m_origCrc32, baseCrc32 } };
+    }
+
+    return { output, { m_origCrc32, 0 } };
 }
 
 //
@@ -201,28 +245,34 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshInfo>, pair<unsigned long long
 auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
+    // TODO this currently only processes blocks attached to shapes, which isn't always the case, but should be fine for
+    // now
 
-    // Get trees
-    vector<nifly::NiObject*> treeA;
-    meshA.GetTree(treeA);
-    vector<nifly::NiObject*> treeB;
-    meshB.GetTree(treeB);
+    vector<NiShape*> shapesA;
+    for (const auto& shape : NIFUtil::getShapesWithBlockIDs(&meshA)) {
+        shapesA.push_back(shape.first);
+    }
 
-    if (treeA.size() != treeB.size()) {
-        // Different number of blocks
+    vector<NiShape*> shapesB;
+    for (const auto& shape : NIFUtil::getShapesWithBlockIDs(&meshB)) {
+        shapesB.push_back(shape.first);
+    }
+
+    if (shapesA.size() != shapesB.size()) {
+        // Different number of shapes
         return false;
     }
 
-    const size_t numBlocks = treeA.size();
+    const size_t numBlocks = shapesA.size();
     for (size_t i = 0; i < numBlocks; i++) {
-        auto* const blockA = treeA.at(i);
-        auto* const blockB = treeB.at(i);
+        auto* const shapeA = shapesA.at(i);
+        auto* const shapeB = shapesB.at(i);
 
         // We only check certain blocks that PG will actually modify
 
         // BSTriShape
-        auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(blockA);
-        auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(blockB);
+        auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(shapeA);
+        auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(shapeB);
         if ((bstrishapeA == nullptr && bstrishapeB != nullptr) || (bstrishapeA != nullptr && bstrishapeB == nullptr)) {
             // One is a trishape, the other is not (block mismatch)
             return false;
@@ -235,8 +285,8 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
         }
 
         // NiShape
-        auto* const nishapeA = dynamic_cast<nifly::NiShape*>(blockA);
-        auto* const nishapeB = dynamic_cast<nifly::NiShape*>(blockB);
+        auto* const nishapeA = dynamic_cast<nifly::NiShape*>(shapeA);
+        auto* const nishapeB = dynamic_cast<nifly::NiShape*>(shapeB);
         if ((nishapeA == nullptr && nishapeB != nullptr) || (nishapeA != nullptr && nishapeB == nullptr)) {
             // One is a shape, the other is not (block mismatch)
             return false;
@@ -248,9 +298,13 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
             }
         }
 
+        // Get shader properties
+        auto* const shaderA = meshA.GetShader(shapeA);
+        auto* const shaderB = meshB.GetShader(shapeB);
+
         // BSLightingShaderProperty
-        auto* const bslightingA = dynamic_cast<nifly::BSLightingShaderProperty*>(blockA);
-        auto* const bslightingB = dynamic_cast<nifly::BSLightingShaderProperty*>(blockB);
+        auto* const bslightingA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderA);
+        auto* const bslightingB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderB);
         if ((bslightingA == nullptr && bslightingB != nullptr) || (bslightingA != nullptr && bslightingB == nullptr)) {
             // One is a lighting shader, the other is not (block mismatch)
             return false;
@@ -263,8 +317,8 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
         }
 
         // BSEffectShaderProperty
-        auto* const bseffectA = dynamic_cast<nifly::BSEffectShaderProperty*>(blockA);
-        auto* const bseffectB = dynamic_cast<nifly::BSEffectShaderProperty*>(blockB);
+        auto* const bseffectA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderA);
+        auto* const bseffectB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderB);
         if ((bseffectA == nullptr && bseffectB != nullptr) || (bseffectA != nullptr && bseffectB == nullptr)) {
             // One is an effect shader, the other is not (block mismatch)
             return false;
@@ -277,8 +331,8 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
         }
 
         // NiShader
-        auto* const nishaderA = dynamic_cast<nifly::BSShaderProperty*>(blockA);
-        auto* const nishaderB = dynamic_cast<nifly::BSShaderProperty*>(blockB);
+        auto* const nishaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderA);
+        auto* const nishaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderB);
         if ((nishaderA == nullptr && nishaderB != nullptr) || (nishaderA != nullptr && nishaderB == nullptr)) {
             // One is a shader, the other is not (block mismatch)
             return false;

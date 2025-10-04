@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <string>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
 /**
@@ -77,8 +76,8 @@ public:
      * @param[out] shapeDeleted Whether the shape was deleted (always false)
      * @return NIFUtil::TextureSet New slots of shape
      */
-    auto applyPatch(nifly::NiShape& nifShape, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
+        NIFUtil::TextureSet& newSlots) -> bool override;
 
     /**
      * @brief Apply a match to slots for parallax
