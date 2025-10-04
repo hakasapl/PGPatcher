@@ -319,7 +319,11 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
     if (!patchPlugin) {
         // Just save base mesh
-        meshTracker.saveMeshes();
+        const auto savedMeshes = meshTracker.saveMeshes();
+        // run handlers
+        for (const auto& meshResult : savedMeshes.first) {
+            HandlerLightPlacerTracker::handleNIFCreated(nifPath, meshResult.meshPath);
+        }
         return ParallaxGenTask::PGResult::SUCCESS;
     }
 
@@ -345,6 +349,10 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
     // Save all meshes
     const auto saveResults = meshTracker.saveMeshes();
+    // run handlers
+    for (const auto& meshResult : saveResults.first) {
+        HandlerLightPlacerTracker::handleNIFCreated(nifPath, meshResult.meshPath);
+    }
     ParallaxGenPlugin::setModelUses(saveResults.first);
 
     // Add to diff JSON
