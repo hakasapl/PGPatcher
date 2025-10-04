@@ -336,7 +336,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_processingOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Processing Options");
 
     m_processingPluginPatchingCheckbox = new wxCheckBox(this, wxID_ANY, "Plugin Patching");
-    m_processingPluginPatchingCheckbox->SetToolTip("Creates a 'ParallaxGen.esp' plugin in the output that patches TXST "
+    m_processingPluginPatchingCheckbox->SetToolTip("Creates plugins in the output that patches TXST "
                                                    "records according to how NIFs were patched");
     m_processingPluginPatchingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingChange, this);
     m_processingOptionsSizer->Add(m_processingPluginPatchingCheckbox, 0, wxALL, BORDER_SIZE);
