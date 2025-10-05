@@ -12,6 +12,7 @@
 - Improved mesh permutation system significantly for accuracy and coverage of entire property tree, not just material type
 - Improved TXST formid cache
 - Removed optimize meshes post-patcher
+- Messageboxes will now be shown for critical messages or when generation is complete
 - PBR new TXSTs will no longer create TXST jsons (the properties are now set in each NIF)
 - Master plugin renamed to PGPatcher.esp and flagged ESM
 - Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
