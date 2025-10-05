@@ -17,8 +17,12 @@ protected:
             // Convert to wxString
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
 
-            // Must run on the main thread in wxWidgets
-            wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR);
+            if (wxIsMainThread()) {
+                wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR);
+            } else {
+                // Post to main thread safely
+                wxTheApp->CallAfter([wxMsg]() -> auto { wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR); });
+            }
 
             // Exit application
             wxTheApp->Exit();
