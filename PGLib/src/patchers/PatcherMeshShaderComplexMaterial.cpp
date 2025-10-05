@@ -141,27 +141,25 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
     return !matches.empty();
 }
 
-auto PatcherMeshShaderComplexMaterial::applyPatch(const NIFUtil::TextureSet& oldSlots, NiShape& nifShape,
-    const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderComplexMaterial::applyPatch(
+    NIFUtil::TextureSet& slots, NiShape& nifShape, const PatcherMatch& match)
 {
-    bool changed = false;
-
     // Apply shader
-    changed |= applyShader(nifShape);
+    applyShader(nifShape);
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Check if specular should be white
     if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_METALNESS)) {
         Logger::trace(L"Setting specular to white because CM has metalness");
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, 1.0F);
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, 1.0F);
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, 1.0F);
+        NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, 1.0F);
+        NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, 1.0F);
+        NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, 1.0F);
     }
 
     if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_GLOSSINESS)) {
         Logger::trace(L"Setting specular flag because CM has glossiness");
-        changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+        NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
     }
 
     // Apply any extra meta overrides
@@ -171,9 +169,9 @@ auto PatcherMeshShaderComplexMaterial::applyPatch(const NIFUtil::TextureSet& old
         // "specular_enabled" attribute
         if (meta.contains("specular_enabled") && meta["specular_enabled"].is_boolean()) {
             if (meta["specular_enabled"].get<bool>()) {
-                changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+                NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
             } else {
-                changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+                NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
             }
         }
 
@@ -181,45 +179,37 @@ auto PatcherMeshShaderComplexMaterial::applyPatch(const NIFUtil::TextureSet& old
         if (meta.contains("specular_color") && meta["specular_color"].is_array()
             && meta["specular_color"].size() == 3) {
             const auto specColor = meta["specular_color"];
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, specColor[0].get<float>());
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, specColor[1].get<float>());
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, specColor[2].get<float>());
+            NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, specColor[0].get<float>());
+            NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, specColor[1].get<float>());
+            NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, specColor[2].get<float>());
         }
 
         // "specular_strength" attribute
         if (meta.contains("specular_strength") && meta["specular_strength"].is_number()) {
-            changed
-                |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, meta["specular_strength"].get<float>());
+            NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, meta["specular_strength"].get<float>());
         }
 
         // "glosiness" attribute
         if (meta.contains("glossiness") && meta["glossiness"].is_number()) {
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->glossiness, meta["glossiness"].get<float>());
+            NIFUtil::setShaderFloat(nifShaderBSLSP->glossiness, meta["glossiness"].get<float>());
         }
 
         // "environment_map_scale" attribute
         if (meta.contains("environment_map_scale") && meta["environment_map_scale"].is_number()) {
-            changed |= NIFUtil::setShaderFloat(
-                nifShaderBSLSP->environmentMapScale, meta["environment_map_scale"].get<float>());
+            NIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, meta["environment_map_scale"].get<float>());
         }
     }
 
     // Apply slots
-    applyPatchSlots(oldSlots, match, newSlots);
-    changed |= setTextureSet(getNIFPath(), *getNIF(), nifShape, newSlots);
-
-    return changed;
+    applyPatchSlots(slots, match);
 }
 
-auto PatcherMeshShaderComplexMaterial::applyPatchSlots(
-    const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderComplexMaterial::applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match)
 {
-    newSlots = oldSlots;
-
     const auto matchedPath = match.matchedPath;
 
-    newSlots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = L"";
-    newSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)] = matchedPath;
+    slots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = L"";
+    slots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)] = matchedPath;
 
     // Apply any extra meta overrides
     bool enableDynCubemaps
@@ -237,40 +227,34 @@ auto PatcherMeshShaderComplexMaterial::applyPatchSlots(
 
     static const auto dynCubemapPathSlashFix = boost::replace_all_copy(s_DYNCUBEMAPPATH.wstring(), L"/", L"\\");
     if (enableDynCubemaps) {
-        newSlots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = dynCubemapPathSlashFix;
+        slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = dynCubemapPathSlashFix;
     }
-
-    return newSlots != oldSlots;
 }
 
-auto PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape) -> bool
+void PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape)
 {
-    bool changed = false;
-
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Remove texture slots if disabling MLP
     if (s_disableMLP && nifShaderBSLSP->GetShaderType() == BSLSP_MULTILAYERPARALLAX) {
-        changed |= NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW, "");
-        changed |= NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::MULTILAYER, "");
-        changed |= NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::BACKLIGHT, "");
+        NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW, "");
+        NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::MULTILAYER, "");
+        NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::BACKLIGHT, "");
 
-        changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+        NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
     }
 
     // Set NIFShader type to env map
-    changed |= NIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);
-    changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, 1.0F);
-    changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, 1.0F);
+    NIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);
+    NIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, 1.0F);
+    NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, 1.0F);
 
     // Set NIFShader flags
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-
-    return changed;
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+    NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
 }
 
 auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& envMaskPath) -> nlohmann::json

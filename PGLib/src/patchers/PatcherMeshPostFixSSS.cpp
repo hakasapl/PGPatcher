@@ -18,7 +18,7 @@ PatcherMeshPostFixSSS::PatcherMeshPostFixSSS(std::filesystem::path nifPath, nifl
 {
 }
 
-auto PatcherMeshPostFixSSS::applyPatch(nifly::NiShape& nifShape) -> bool
+auto PatcherMeshPostFixSSS::applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
@@ -33,8 +33,8 @@ auto PatcherMeshPostFixSSS::applyPatch(nifly::NiShape& nifShape) -> bool
     }
 
     // check if diffuse and glow are the same
-    const auto diffuseMap = NIFUtil::getTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::DIFFUSE);
-    const auto glowMap = NIFUtil::getTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW);
+    const auto& diffuseMap = slots.at(static_cast<int>(NIFUtil::TextureSlots::DIFFUSE));
+    auto& glowMap = slots.at(static_cast<int>(NIFUtil::TextureSlots::GLOW));
 
     if (!boost::iequals(diffuseMap, glowMap)) {
         return false;
@@ -51,6 +51,7 @@ auto PatcherMeshPostFixSSS::applyPatch(nifly::NiShape& nifShape) -> bool
 
     // create texture hook
     PatcherTextureHookFixSSS::addToProcessList(diffuseMap);
-    return NIFUtil::setTextureSlot(
-        getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW, PatcherTextureHookFixSSS::getOutputFilename(diffuseMap));
+
+    glowMap = PatcherTextureHookFixSSS::getOutputFilename(diffuseMap);
+    return true;
 }

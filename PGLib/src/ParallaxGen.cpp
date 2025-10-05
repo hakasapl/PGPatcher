@@ -433,20 +433,20 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     // Prep
     Logger::trace(L"Starting Processing");
 
+    NIFUtil::TextureSet slots;
+    if (alternateTexture == nullptr) {
+        slots = PatcherMesh::getTextureSet(nifPath, *nif, *nifShape);
+    } else {
+        slots = *alternateTexture;
+    }
+
     // apply prepatchers
     for (const auto& prePatcher : patchers.prePatchers) {
         const Logger::Prefix prefixPatches(prePatcher->getPatcherName());
-        prePatcher->applyPatch(*nifShape);
+        prePatcher->applyPatch(slots, *nifShape);
     }
 
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
-        NIFUtil::TextureSet slots;
-        if (alternateTexture == nullptr) {
-            slots = PatcherMesh::getTextureSet(nifPath, *nif, *nifShape);
-        } else {
-            slots = *alternateTexture;
-        }
-
         // Allowed shaders from result of patchers
         auto matches = getMatches(slots, patchers, false, singlepassMATO, &patchers, nifShape);
 
@@ -459,19 +459,13 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
             applyTransformIfNeeded(winningShaderMatch, patchers);
 
             // loop through patchers
-            NIFUtil::TextureSet newSlots;
             patchers.shaderPatchers.at(winningShaderMatch.shader)
-                ->applyPatch(slots, *nifShape, winningShaderMatch.match, newSlots);
-
-            if (alternateTexture != nullptr) {
-                // assign new slots to propogate upstream
-                *alternateTexture = newSlots;
-            }
+                ->applyPatch(slots, *nifShape, winningShaderMatch.match);
 
             // Post warnings if any
             for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
                 ParallaxGenWarnings::mismatchWarn(
-                    winningShaderMatch.match.matchedPath, newSlots.at(static_cast<int>(curMatchedFrom)));
+                    winningShaderMatch.match.matchedPath, slots.at(static_cast<int>(curMatchedFrom)));
             }
 
             ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
@@ -481,7 +475,15 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     // apply postpatchers
     for (const auto& postPatcher : patchers.postPatchers) {
         const Logger::Prefix prefixPatches(postPatcher->getPatcherName());
-        postPatcher->applyPatch(*nifShape);
+        postPatcher->applyPatch(slots, *nifShape);
+    }
+
+    if (alternateTexture == nullptr) {
+        // assign texture set to nif
+        PatcherMesh::setTextureSet(nifPath, *nif, *nifShape, slots);
+    } else {
+        // assign new slots to propogate upstream for alternate textures
+        *alternateTexture = slots;
     }
 
     return true;

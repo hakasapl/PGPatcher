@@ -75,8 +75,7 @@ public:
      * @param[out] shapeDeleted Whether the shape was deleted (always false)
      * @return NIFUtil::TextureSet New slots of shape
      */
-    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
-        NIFUtil::TextureSet& newSlots) -> bool override;
+    void applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match) override;
 
     /**
      * @brief Apply a match to slots for parallax
@@ -85,8 +84,7 @@ public:
      * @param match Match to apply
      * @return NIFUtil::TextureSet New slots
      */
-    auto applyPatchSlots(const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    void applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match) override;
 
     /**
      * @brief Apply parallax shader to a shape
@@ -94,5 +92,5 @@ public:
      * @param nifShape Shape to apply shader to
      * @param nifModified Whether the NIF was modified
      */
-    auto applyShader(nifly::NiShape& nifShape) -> bool override;
+    void applyShader(nifly::NiShape& nifShape) override;
 };

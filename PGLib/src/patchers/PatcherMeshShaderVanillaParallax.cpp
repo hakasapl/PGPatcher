@@ -142,55 +142,39 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(
     return !matches.empty();
 }
 
-auto PatcherMeshShaderVanillaParallax::applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape,
-    const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderVanillaParallax::applyPatch(
+    NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match)
 {
-    bool changed = false;
-
     // Apply shader
-    changed |= applyShader(nifShape);
+    applyShader(nifShape);
 
     // Apply slots
-    applyPatchSlots(oldSlots, match, newSlots);
-    changed |= setTextureSet(getNIFPath(), *getNIF(), nifShape, newSlots);
-
-    return changed;
+    applyPatchSlots(slots, match);
 }
 
-auto PatcherMeshShaderVanillaParallax::applyPatchSlots(
-    const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderVanillaParallax::applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match)
 {
-    newSlots = oldSlots;
-
-    newSlots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = match.matchedPath;
-
-    return newSlots != oldSlots;
+    slots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = match.matchedPath;
 }
 
-auto PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape) -> bool
+void PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape)
 {
-    bool changed = false;
-
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Set NIFShader type to Parallax
-    changed |= NIFUtil::setShaderType(nifShader, BSLSP_PARALLAX);
+    NIFUtil::setShaderType(nifShader, BSLSP_PARALLAX);
     // Set NIFShader flags
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
-    changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
     // Set vertex colors for shape
     if (!nifShape.HasVertexColors()) {
         nifShape.SetVertexColors(true);
-        changed = true;
     }
     // Set vertex colors for NIFShader
     if (!nifShader->HasVertexColors()) {
         nifShader->SetVertexColors(true);
-        changed = true;
     }
-
-    return changed;
 }

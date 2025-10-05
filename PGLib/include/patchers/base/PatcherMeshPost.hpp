@@ -32,5 +32,5 @@ public:
      * @return true Patch was applied
      * @return false Patch was not applied
      */
-    virtual auto applyPatch(nifly::NiShape& nifShape) -> bool = 0;
+    virtual auto applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool = 0;
 };
