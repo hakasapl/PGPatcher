@@ -59,7 +59,7 @@ auto MeshTracker::commitBaseMesh() -> bool
 
     m_baseMeshAttempted = true;
 
-    if (compareMesh(m_stagedMesh, m_origNifFile)) {
+    if (compareMesh(m_stagedMesh, m_origNifFile, true)) {
         // Mesh was not modified from the base mesh, do nothing
         // Clear staged mesh
         m_stagedMeshPtr = nullptr;
@@ -245,7 +245,7 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 // ANY changes in patchers that involve WRITING new properties must be included in the equality operators below
 //
 
-auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB) -> bool
+auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB, bool compareTXST) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
     // TODO this currently only processes blocks attached to shapes, which isn't always the case, but should be fine for
@@ -336,6 +336,27 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
         if (nishaderA != nullptr && nishaderB != nullptr) {
             // compare nishader helper
             if (!compareBSShaderProperty(*nishaderA, *nishaderB)) {
+                return false;
+            }
+        }
+
+        if (!compareTXST || nishaderA == nullptr || nishaderB == nullptr) {
+            continue;
+        }
+
+        // BSShaderTextureSet
+        auto* const texSetA = meshA.GetHeader().GetBlock(nishaderA->TextureSetRef());
+        auto* const texSetB = meshB.GetHeader().GetBlock(nishaderB->TextureSetRef());
+        auto* const bsshsTexSetA = dynamic_cast<nifly::BSShaderTextureSet*>(texSetA);
+        auto* const bsshsTexSetB = dynamic_cast<nifly::BSShaderTextureSet*>(texSetB);
+        if ((bsshsTexSetA == nullptr && bsshsTexSetB != nullptr)
+            || (bsshsTexSetA != nullptr && bsshsTexSetB == nullptr)) {
+            // One is a texture set, the other is not (block mismatch)
+            return false;
+        }
+        if (bsshsTexSetA != nullptr && bsshsTexSetB != nullptr) {
+            // compare bsshadertextureset helper
+            if (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB)) {
                 return false;
             }
         }
@@ -458,6 +479,26 @@ auto MeshTracker::compareBSShaderProperty(
 
     if (shaderA.uvScale.u != shaderB.uvScale.u || shaderA.uvScale.v != shaderB.uvScale.v) {
         return false;
+    }
+
+    return true;
+}
+
+auto MeshTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, nifly::BSShaderTextureSet& texSetB)
+    -> bool
+{
+    if (texSetA.textures.size() != texSetB.textures.size()) {
+        return false;
+    }
+
+    const uint32_t numTextures = texSetA.textures.size();
+    for (uint32_t i = 0; i < numTextures; i++) {
+        const auto& texA = texSetA.textures[i];
+        const auto& texB = texSetB.textures[i];
+
+        if (!boost::iequals(texA.get(), texB.get())) {
+            return false;
+        }
     }
 
     return true;

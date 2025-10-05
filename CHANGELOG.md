@@ -13,6 +13,8 @@
 - Improved TXST formid cache
 - Removed optimize meshes post-patcher
 - Messageboxes will now be shown for critical messages or when generation is complete
+- Fix Vanilla SSS patcher will now downscale textures by half and save BC1 subsurface maps
+- Vanilla SSS patcher is no longer experimental
 - PBR new TXSTs will no longer create TXST jsons (the properties are now set in each NIF)
 - Master plugin renamed to PGPatcher.esp and flagged ESM
 - Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
