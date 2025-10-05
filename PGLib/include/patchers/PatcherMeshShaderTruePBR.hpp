@@ -149,8 +149,7 @@ public:
      * @param match Match to apply
      * @return NIFUtil::TextureSet New slots of shape
      */
-    auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
-        NIFUtil::TextureSet& newSlots) -> bool override;
+    void applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match) override;
 
     /**
      * @brief Apply a match to slots
@@ -159,15 +158,14 @@ public:
      * @param[out] match Match to apply
      * @return NIFUtil::TextureSet New slots
      */
-    auto applyPatchSlots(const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots)
-        -> bool override;
+    void applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match) override;
 
     /**
      * @brief Apply pbr shader to a shape
      *
      * @param nifShape Shape to apply shader to
      */
-    auto applyShader(nifly::NiShape& nifShape) -> bool override;
+    void applyShader(nifly::NiShape& nifShape) override;
 
     /**
      * @brief Load PBR options string

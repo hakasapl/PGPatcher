@@ -260,8 +260,8 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
         bool valid = true;
 
         if (!deleteShape) {
-            NIFUtil::TextureSet newSlots;
-            applyPatchSlots(oldSlots, match, newSlots);
+            NIFUtil::TextureSet newSlots = oldSlots;
+            applyPatchSlots(newSlots, match);
             for (size_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
                 if (!newSlots.at(i).empty() && !getPGD()->isFile(newSlots.at(i))) {
                     // Slot does not exist
@@ -437,85 +437,53 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
     truePBRData.insert({ cfg, { curCfg, matchedPath } });
 }
 
-auto PatcherMeshShaderTruePBR::applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape,
-    const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderTruePBR::applyPatch(
+    NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match)
 {
-    newSlots = oldSlots;
-
     if (match.extraData == nullptr) {
-        // already has PBR, just add PBR prefix to the slots if not already there
-        for (size_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
-            if (boost::istarts_with(newSlots.at(i), "textures\\")
-                && !boost::istarts_with(newSlots.at(i), "textures\\pbr\\")) {
-                newSlots.at(i).replace(0, TEXTURE_STR_LENGTH, L"textures\\pbr\\");
-            }
-        }
-
-        return false;
+        return;
     }
-
-    // get extra data from match
-    bool changed = false;
 
     auto extraData = static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(match.extraData);
     for (const auto& [Sequence, Data] : *extraData) {
         // apply one patch
         auto truePBRData = get<0>(Data);
         auto matchedPath = get<1>(Data);
-        changed |= applyOnePatch(&nifShape, truePBRData, matchedPath, newSlots);
+        applyOnePatch(&nifShape, truePBRData, matchedPath, slots);
     }
-
-    return changed;
 }
 
-auto PatcherMeshShaderTruePBR::applyPatchSlots(
-    const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderTruePBR::applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match)
 {
     if (match.extraData == nullptr) {
-        // already has PBR, just add PBR prefix to the slots if not already there
-        newSlots = oldSlots;
-        for (size_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
-            if (boost::istarts_with(oldSlots.at(i), "textures\\")
-                && !boost::istarts_with(oldSlots.at(i), "textures\\pbr\\")) {
-                newSlots.at(i).replace(0, TEXTURE_STR_LENGTH, L"textures\\pbr\\");
-            }
-        }
-
-        return newSlots != oldSlots;
+        return;
     }
 
-    newSlots = oldSlots;
     auto extraData = static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(match.extraData);
     for (const auto& [Sequence, Data] : *extraData) {
         auto truePBRData = get<0>(Data);
         auto matchedPath = get<1>(Data);
-        applyOnePatchSlots(newSlots, truePBRData, matchedPath);
+        applyOnePatchSlots(slots, truePBRData, matchedPath);
     }
-
-    return newSlots != oldSlots;
 }
 
-auto PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape) -> bool
+void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
 {
     // Contrary to the other patchers, this one is generic and is not called normally other than setting for plugins,
     // later material swaps in CS are used
-
-    bool changed = false;
 
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Set default PBR shader type
-    changed |= NIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
-    changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    NIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
+    NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
 
     // Clear unused flags
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
-
-    return changed;
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
+    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
 }
 
 void PatcherMeshShaderTruePBR::loadOptions(unordered_map<string, string>& optionsStr)
@@ -846,7 +814,6 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape, NiShader*
     bool changed = false;
 
     applyOnePatchSlots(newSlots, truePBRData, matchedPath);
-    changed |= setTextureSet(getNIFPath(), *getNIF(), *nifShape, newSlots);
 
     // "emissive" attribute
     if (truePBRData.contains("emissive")) {

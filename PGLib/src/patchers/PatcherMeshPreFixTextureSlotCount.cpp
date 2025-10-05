@@ -14,10 +14,9 @@ PatcherMeshPreFixTextureSlotCount::PatcherMeshPreFixTextureSlotCount(std::filesy
 {
 }
 
-auto PatcherMeshPreFixTextureSlotCount::applyPatch(nifly::NiShape& nifShape) -> bool
+auto PatcherMeshPreFixTextureSlotCount::applyPatch(
+    [[maybe_unused]] NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool
 {
-    bool changed = false;
-
     auto* nifShader = getNIF()->GetShader(&nifShape);
 
     auto* txstRec = getNIF()->GetHeader().GetBlock(nifShader->TextureSetRef());
@@ -25,10 +24,10 @@ auto PatcherMeshPreFixTextureSlotCount::applyPatch(nifly::NiShape& nifShape) -> 
         return false;
     }
 
-    if (txstRec->textures.size() < SLOT_COUNT) {
-        txstRec->textures.resize(SLOT_COUNT);
-        changed = true;
+    if (txstRec->textures.size() >= SLOT_COUNT) {
+        return false;
     }
 
-    return changed;
+    txstRec->textures.resize(SLOT_COUNT);
+    return true;
 }

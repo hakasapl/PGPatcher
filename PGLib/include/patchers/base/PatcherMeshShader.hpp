@@ -59,19 +59,15 @@ public:
     virtual auto shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool = 0;
 
     // Methods that apply the patch to a shape
-    virtual auto applyPatch(const NIFUtil::TextureSet& oldSlots, nifly::NiShape& nifShape, const PatcherMatch& match,
-        NIFUtil::TextureSet& newSlots) -> bool
-        = 0;
+    virtual void applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match) = 0;
 
     /// @brief apply the matched texture to the texture slots
     /// @param[in] oldSlots array of the slot textures
     /// @param[in] match matching texture
     /// @return new array containing the applied matched texture
-    virtual auto applyPatchSlots(
-        const NIFUtil::TextureSet& oldSlots, const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
-        = 0;
+    virtual void applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match) = 0;
 
     /// @brief apply the shader to the shape
     /// @param[in] nifShape shape to apply the shader to
-    virtual auto applyShader(nifly::NiShape& nifShape) -> bool = 0;
+    virtual void applyShader(nifly::NiShape& nifShape) = 0;
 };

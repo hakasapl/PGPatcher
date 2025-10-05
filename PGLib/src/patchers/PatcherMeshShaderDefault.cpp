@@ -58,25 +58,14 @@ auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     return !matches.empty();
 }
 
-auto PatcherMeshShaderDefault::applyPatch(const NIFUtil::TextureSet& oldSlots,
-    [[maybe_unused]] nifly::NiShape& nifShape, [[maybe_unused]] const PatcherMatch& match,
-    NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderDefault::applyPatch(
+    NIFUtil::TextureSet& slots, [[maybe_unused]] nifly::NiShape& nifShape, [[maybe_unused]] const PatcherMatch& match)
 {
-    newSlots = oldSlots;
-    return false;
 }
 
-auto PatcherMeshShaderDefault::applyPatchSlots(const NIFUtil::TextureSet& oldSlots,
-    [[maybe_unused]] const PatcherMatch& match, NIFUtil::TextureSet& newSlots) -> bool
+void PatcherMeshShaderDefault::applyPatchSlots(
+    [[maybe_unused]] NIFUtil::TextureSet& slots, [[maybe_unused]] const PatcherMatch& match)
 {
-    newSlots = oldSlots;
-    return false;
 }
 
-auto PatcherMeshShaderDefault::applyShader([[maybe_unused]] nifly::NiShape& nifShape) -> bool
-{
-    // Set texture set to itself so that it is preserved as "used"
-    setTextureSet(getNIFPath(), *getNIF(), nifShape, NIFUtil::getTextureSlots(getNIF(), &nifShape));
-
-    return false;
-}
+void PatcherMeshShaderDefault::applyShader([[maybe_unused]] nifly::NiShape& nifShape) { }

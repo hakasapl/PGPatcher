@@ -29,5 +29,5 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(nifly::NiShape& nifShape) -> bool override;
+    auto applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool override;
 };
