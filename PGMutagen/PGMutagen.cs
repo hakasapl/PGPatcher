@@ -249,7 +249,7 @@ public class PGMutagen
                         {
                             continue;
                         }
-                        meshName = modelRec.Item1.File.ToString().ToLower() ?? string.Empty;
+                        meshName = modelRec.Item1.File.ToString().ToLower();
                     }
                     catch (Exception)
                     {
