@@ -2,6 +2,7 @@
 
 #include "NIFUtil.hpp"
 #include "NifFile.hpp"
+#include "Shaders.hpp"
 
 #include <filesystem>
 #include <string>
@@ -71,7 +72,7 @@ public:
 
 private:
     // Helpers
-    static auto compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB) -> bool;
+    static auto compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB, bool compareTXST = false) -> bool;
 
     static auto compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly::BSTriShape& shapeB) -> bool;
 
@@ -84,6 +85,9 @@ private:
         const nifly::BSEffectShaderProperty& shaderA, const nifly::BSEffectShaderProperty& shaderB) -> bool;
 
     static auto compareBSShaderProperty(const nifly::BSShaderProperty& shaderA, const nifly::BSShaderProperty& shaderB)
+        -> bool;
+
+    static auto compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, nifly::BSShaderTextureSet& texSetB)
         -> bool;
 
     static auto getMeshPath(const std::filesystem::path& nifPath, const size_t& index) -> std::filesystem::path;

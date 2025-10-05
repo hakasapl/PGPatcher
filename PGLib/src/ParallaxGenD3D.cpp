@@ -1009,8 +1009,8 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
 }
 
 auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture, DirectX::ScratchImage& outTexture,
-    const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader, const DXGI_FORMAT& outFormat, const void* shaderParams,
-    const UINT& shaderParamsSize) -> bool
+    const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader, const DXGI_FORMAT& outFormat, const UINT& outWidth,
+    const UINT& outHeight, const void* shaderParams, const UINT& shaderParamsSize) -> bool
 {
     if (shader == nullptr) {
         throw runtime_error("Shader was not initialized");
@@ -1043,6 +1043,12 @@ auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture
     // Create output texture
     D3D11_TEXTURE2D_DESC outputDDSDesc = {};
     inputDDSGPU->GetDesc(&outputDDSDesc);
+    if (outWidth > 0) {
+        outputDDSDesc.Width = outWidth;
+    }
+    if (outHeight > 0) {
+        outputDDSDesc.Height = outHeight;
+    }
     outputDDSDesc.Format = outFormat;
     outputDDSDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 

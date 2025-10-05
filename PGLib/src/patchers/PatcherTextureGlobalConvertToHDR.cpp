@@ -44,7 +44,8 @@ void PatcherTextureGlobalConvertToHDR::applyPatch(bool& ddsModified)
 {
     DirectX::ScratchImage newDDS;
     ShaderParams params = { .luminanceMult = s_luminanceMult };
-    if (!getPGD3D()->applyShaderToTexture(*getDDS(), newDDS, s_shader, s_outputFormat, &params, sizeof(ShaderParams))) {
+    if (!getPGD3D()->applyShaderToTexture(
+            *getDDS(), newDDS, s_shader, s_outputFormat, 0, 0, &params, sizeof(ShaderParams))) {
         return;
     }
 

@@ -259,7 +259,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     //
     auto* postPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Post-Patchers");
 
-    m_postPatcherFixSSSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Vanilla Subsurface Scattering (Experimental)");
+    m_postPatcherFixSSSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Vanilla Subsurface Scattering");
     m_postPatcherFixSSSCheckbox->SetToolTip("Fixes subsurface scattering in meshes");
     m_postPatcherFixSSSCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherFixSSSChange, this);
     postPatcherSizer->Add(m_postPatcherFixSSSCheckbox, 0, wxALL, BORDER_SIZE);

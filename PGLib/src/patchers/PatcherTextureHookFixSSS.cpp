@@ -52,9 +52,12 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     }
 
     DirectX::ScratchImage newDDS;
+    const auto newWidth = static_cast<UINT>(getDDS()->GetMetadata().width / 2);
+    const auto newHeight = static_cast<UINT>(getDDS()->GetMetadata().height / 2);
+    // the shader delights and also reduces size by 4 for efficiency
     ShaderParams params = { .fAlbedoSatPower = SHADER_ALBEDO_SAT_POWER, .fAlbedoNorm = SHADER_ALBEDO_NORM };
-    if (!getPGD3D()->applyShaderToTexture(
-            *getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM, &params, sizeof(ShaderParams))) {
+    if (!getPGD3D()->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM, newWidth, newHeight,
+            &params, sizeof(ShaderParams))) {
         return false;
     }
 
@@ -71,8 +74,16 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     const auto outPath = getPGD()->getGeneratedPath() / newPath;
     filesystem::create_directories(outPath.parent_path());
 
-    const HRESULT hr = DirectX::SaveToDDSFile(
-        newDDS.GetImages(), newDDS.GetImageCount(), newDDS.GetMetadata(), DirectX::DDS_FLAGS_NONE, outPath.c_str());
+    DirectX::ScratchImage compressedImage;
+    HRESULT hr = DirectX::Compress(newDDS.GetImages(), newDDS.GetImageCount(), newDDS.GetMetadata(),
+        DXGI_FORMAT_BC1_UNORM, DirectX::TEX_COMPRESS_DEFAULT, 1.0F, compressedImage);
+
+    if (FAILED(hr)) {
+        return false;
+    }
+
+    hr = DirectX::SaveToDDSFile(compressedImage.GetImages(), compressedImage.GetImageCount(),
+        compressedImage.GetMetadata(), DirectX::DDS_FLAGS_NONE, outPath.c_str());
 
     if (FAILED(hr)) {
         return false;
