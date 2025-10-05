@@ -12,7 +12,7 @@
 #include <wx/wx.h>
 
 /**
- * @brief wxDialog that allows the user to sort the mods in the order they want
+ * @brief wxDialog that displays the completion status of an operation and shows timing information.
  */
 class CompletionDialog : public wxDialog {
 private:
