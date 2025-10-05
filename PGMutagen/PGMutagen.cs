@@ -253,9 +253,8 @@ public class PGMutagen
                     }
                     catch (Exception)
                     {
-                        if (!formKeyErrorsPosted.Contains(modelMajorRec.FormKey))
+                        if (formKeyErrorsPosted.Add(modelMajorRec.FormKey))
                         {
-                            formKeyErrorsPosted.Add(modelMajorRec.FormKey);
                             MessageHandler.Log("Unable to read model path. This should be reported to the plugin author: " + GetRecordDesc(modelMajorRec), 4);
                         }
                         continue;
@@ -618,14 +617,16 @@ public class PGMutagen
                 var formKey = modelRecUsesList[i].Item1;
                 var subModel = modelRecUsesList[i].Item2;
 
-                // find winning model record
-                if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var modelRec))
+                // Try to resolve the model record and submodel
+                if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var modelRec) ||
+                    GetModelElemBySubModel(modelRec, subModel) is not { } matchedModel)
                 {
-                    throw new Exception("Failed to resolve model record for formkey: " + formKey);
+                    if (formKeyErrorsPosted.Add(formKey))
+                    {
+                        MessageHandler.Log($"Failed to resolve model record. A plugin has likely overridden the FormID with a different record (This is bad): {GetRecordDesc(formKey)}", 4);
+                    }
+                    continue;
                 }
-
-                // find submodel
-                var matchedModel = GetModelElemBySubModel(modelRec, subModel) ?? throw new Exception("Failed to find submodel: " + subModel + " in record: " + GetRecordDesc(modelRec));
 
                 // find alternate textures
                 if (matchedModel.AlternateTextures is null)
@@ -1244,9 +1245,8 @@ public class PGMutagen
         }
         catch (Exception)
         {
-            if (!formKeyErrorsPosted.Contains(textureSet.FormKey))
+            if (formKeyErrorsPosted.Add(textureSet.FormKey))
             {
-                formKeyErrorsPosted.Add(textureSet.FormKey);
                 MessageHandler.Log("Unable to read texture set. This should be reported to the plugin author: " + GetRecordDesc(textureSet), 4);
             }
             return [.. Enumerable.Repeat(string.Empty, 8)];
@@ -1256,6 +1256,11 @@ public class PGMutagen
     private static string GetRecordDesc(IMajorRecordGetter rec)
     {
         return rec.FormKey.ModKey.FileName + " / " + rec.FormKey.ID.ToString("X6");
+    }
+
+    private static string GetRecordDesc(FormKey rec)
+    {
+        return rec.ModKey.FileName + " / " + rec.ID.ToString("X6");
     }
 
     private static string RemovePrefixIfExists(string prefix, string str)
