@@ -1194,11 +1194,7 @@ auto LauncherWindow::saveConfig() -> bool
     return true;
 }
 
-void LauncherWindow::onClose([[maybe_unused]] wxCloseEvent& event)
-{
-    ParallaxGenHandlers::nonBlockingExit();
-    wxTheApp->Exit();
-}
+void LauncherWindow::onClose([[maybe_unused]] wxCloseEvent& event) { wxTheApp->Exit(); }
 
 void LauncherWindow::setGamePathBasedOnExe()
 {

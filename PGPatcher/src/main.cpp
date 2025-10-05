@@ -1,4 +1,6 @@
 #include "BethesdaGame.hpp"
+#include "GUI/CompletionDialog.hpp"
+#include "GUI/WXLoggerSink.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGDiag.hpp"
 #include "PGGlobals.hpp"
@@ -37,6 +39,7 @@
 
 #include <spdlog/common.h>
 #include <spdlog/logger.h>
+#include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -451,7 +454,11 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     const auto endTime = chrono::high_resolution_clock::now();
     timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
 
-    Logger::info("PG Patcher took {} seconds to complete (does not include time in user interface)", timeTaken);
+    Logger::info("PGPatcher took {} seconds to complete (does not include time in user interface)", timeTaken);
+
+    // Show completion dialog
+    CompletionDialog dlg(timeTaken);
+    dlg.ShowModal();
 }
 
 void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
@@ -473,6 +480,11 @@ void initLogger(const filesystem::path& logpath, const ParallaxGenCLIArgs& args)
     // Rotating file sink
     auto fileSink = make_shared<spdlog::sinks::rotating_file_sink_mt>(logpath.wstring(), MAX_LOG_SIZE, MAX_LOG_FILES);
     sinks.push_back(fileSink);
+
+    // Messagebox sink
+    auto wxSink = std::make_shared<WXLoggerSink<std::mutex>>();
+    sinks.push_back(wxSink);
+
     auto logger = make_shared<spdlog::logger>("PG", sinks.begin(), sinks.end());
 
     // register logger parameters
@@ -482,6 +494,7 @@ void initLogger(const filesystem::path& logpath, const ParallaxGenCLIArgs& args)
     spdlog::flush_on(spdlog::level::info);
 
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
+    wxSink->set_formatter(std::make_unique<spdlog::pattern_formatter>("%v"));
 
     // Set logging mode
     if (args.verbosity >= 1) {
@@ -508,12 +521,6 @@ auto main(int ArgC, char** ArgV) -> int
 #endif
 
     SetUnhandledExceptionFilter(ParallaxGenHandlers::customExceptionHandler);
-
-    // This is what keeps the console window open after the program exits until user input
-    if (atexit(ParallaxGenHandlers::exitBlocking) != 0) {
-        cerr << "Failed to register exitBlocking function\n";
-        return 1;
-    }
 
     SetConsoleOutputCP(CP_UTF8);
 

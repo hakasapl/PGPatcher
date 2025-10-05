@@ -2,21 +2,17 @@
 
 #include <windows.h>
 
-#include <tlhelp32.h>
-
 #include <DbgHelp.h>
+#include <tlhelp32.h>
 
 #include <array>
 #include <filesystem>
 #include <iostream>
 
-using namespace std;
-
 class ParallaxGenHandlers {
 private:
     // Global variables for crash handling
     static inline std::atomic<bool> s_crashLogged { false };
-    static inline std::atomic<bool> s_exitBlocking { true };
 
     static constexpr const char* CRASHDUMP_DIR = "log";
 
@@ -30,22 +26,23 @@ public:
         }
 
         // Get the current timestamp
-        string timestamp;
+        std::string timestamp;
         const time_t t = time(nullptr);
         tm tm {};
         if (localtime_s(&tm, &t) == 0) {
-            ostringstream oss;
-            oss << put_time(&tm, "%Y-%m-%d_%H-%M-%S");
+            std::ostringstream oss;
+            oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
             timestamp = "_" + oss.str();
         }
 
         // Create the dump file path
-        const filesystem::path dumpFilePath = filesystem::path(CRASHDUMP_DIR) / ("pg_crash" + timestamp + ".dmp");
-        filesystem::create_directories(CRASHDUMP_DIR);
+        const std::filesystem::path dumpFilePath
+            = std::filesystem::path(CRASHDUMP_DIR) / ("pg_crash" + timestamp + ".dmp");
+        std::filesystem::create_directories(CRASHDUMP_DIR);
 
         // Post message to standard console
-        cerr << "Uh oh! Really bad things happened. ParallaxGen has crashed. Please wait while the crash dump \""
-             << dumpFilePath << "\" is generated. Please include this dump in your bug report.\n";
+        std::cerr << "Uh oh! Really bad things happened. ParallaxGen has crashed. Please wait while the crash dump \""
+                  << dumpFilePath << "\" is generated. Please include this dump in your bug report.\n";
 
         // Open the file for writing the dump
         HANDLE hFile = CreateFileA(
@@ -70,28 +67,16 @@ public:
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
-    static void nonBlockingExit() { s_exitBlocking.store(false); }
-
-    static void exitBlocking()
+    static auto getExePath() -> std::filesystem::path
     {
-        if (!s_exitBlocking) {
-            return;
-        }
-
-        cout << "Press ENTER to exit...";
-        cin.get();
-    }
-
-    static auto getExePath() -> filesystem::path
-    {
-        array<wchar_t, MAX_PATH> buffer {};
+        std::array<wchar_t, MAX_PATH> buffer {};
         if (GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH) == 0) {
             return {};
         }
 
-        filesystem::path outPath = filesystem::path(buffer.data());
+        std::filesystem::path outPath = std::filesystem::path(buffer.data());
 
-        if (filesystem::exists(outPath)) {
+        if (std::filesystem::exists(outPath)) {
             return outPath;
         }
 
@@ -110,7 +95,7 @@ public:
 
         if (Module32FirstW(hSnapshot, &me32) != 0) {
             do {
-                const wstring moduleName(me32.szModule);
+                const std::wstring moduleName(me32.szModule);
                 if (moduleName == L"usvfs_x64.dll") {
                     CloseHandle(hSnapshot);
                     return true;
