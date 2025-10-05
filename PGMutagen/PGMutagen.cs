@@ -109,6 +109,7 @@ public class PGMutagen
     private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
     private static SortedSet<uint> allocatedFormIDs = [];
+    private static HashSet<FormKey> formKeyErrorsPosted = [];
     private static uint lastUsedFormID = 1;
 
 
@@ -241,12 +242,24 @@ public class PGMutagen
                 foreach (var modelRec in ModelRecs)
                 {
                     // add to model uses
-                    if (modelRec.Item1.File.IsNullOrEmpty())
+                    string meshName;
+                    try
                     {
+                        if (modelRec.Item1.File.IsNullOrEmpty())
+                        {
+                            continue;
+                        }
+                        meshName = modelRec.Item1.File.ToString().ToLower();
+                    }
+                    catch (Exception)
+                    {
+                        if (!formKeyErrorsPosted.Contains(modelMajorRec.FormKey))
+                        {
+                            formKeyErrorsPosted.Add(modelMajorRec.FormKey);
+                            MessageHandler.Log("Unable to read model path. This should be reported to the plugin author: " + GetRecordDesc(modelMajorRec), 4);
+                        }
                         continue;
                     }
-
-                    string meshName = modelRec.Item1.File.ToString().ToLower();
 
                     if (!ModelUses.ContainsKey(meshName))
                     {
@@ -1215,17 +1228,29 @@ public class PGMutagen
 
     private static string[] GetTextureSet(ITextureSetGetter textureSet)
     {
-        return
-        [
-            textureSet.Diffuse?.ToString().ToLower() ?? string.Empty,
-            textureSet.NormalOrGloss?.ToString().ToLower() ?? string.Empty,
-            textureSet.GlowOrDetailMap?.ToString().ToLower() ?? string.Empty,
-            textureSet.Height?.ToString().ToLower() ?? string.Empty,
-            textureSet.Environment?.ToString().ToLower() ?? string.Empty,
-            textureSet.EnvironmentMaskOrSubsurfaceTint?.ToString().ToLower() ?? string.Empty,
-            textureSet.Multilayer?.ToString().ToLower() ?? string.Empty,
-            textureSet.BacklightMaskOrSpecular?.ToString().ToLower() ?? string.Empty
-        ];
+        try
+        {
+            return
+            [
+                textureSet.Diffuse?.ToString().ToLower() ?? string.Empty,
+                textureSet.NormalOrGloss?.ToString().ToLower() ?? string.Empty,
+                textureSet.GlowOrDetailMap?.ToString().ToLower() ?? string.Empty,
+                textureSet.Height?.ToString().ToLower() ?? string.Empty,
+                textureSet.Environment?.ToString().ToLower() ?? string.Empty,
+                textureSet.EnvironmentMaskOrSubsurfaceTint?.ToString().ToLower() ?? string.Empty,
+                textureSet.Multilayer?.ToString().ToLower() ?? string.Empty,
+                textureSet.BacklightMaskOrSpecular?.ToString().ToLower() ?? string.Empty
+            ];
+        }
+        catch (Exception)
+        {
+            if (!formKeyErrorsPosted.Contains(textureSet.FormKey))
+            {
+                formKeyErrorsPosted.Add(textureSet.FormKey);
+                MessageHandler.Log("Unable to read texture set. This should be reported to the plugin author: " + GetRecordDesc(textureSet), 4);
+            }
+            return [.. Enumerable.Repeat(string.Empty, 8)];
+        }
     }
 
     private static string GetRecordDesc(IMajorRecordGetter rec)
