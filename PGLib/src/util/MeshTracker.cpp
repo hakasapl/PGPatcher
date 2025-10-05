@@ -156,8 +156,9 @@ auto MeshTracker::commitDupMesh(
 
 void MeshTracker::addFormKeyForBaseMesh(const FormKey& formKey)
 {
-    if (m_outputMeshes.empty()) {
-        throw std::runtime_error("No base mesh committed yet, cannot add form key");
+    if (!m_baseMeshExists) {
+        // We don't care about tracking this if and only if no base mesh exists
+        return;
     }
 
     // Add form key for base mesh
