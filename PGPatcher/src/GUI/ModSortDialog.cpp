@@ -221,11 +221,7 @@ void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
     event.Skip(); // allow default processing
 }
 
-void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event)
-{
-    ParallaxGenHandlers::nonBlockingExit();
-    wxTheApp->Exit();
-}
+void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event) { wxTheApp->Exit(); }
 
 void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
 {

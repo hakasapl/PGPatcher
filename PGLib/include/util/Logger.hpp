@@ -63,8 +63,9 @@ public:
     // WString Log functions
     template <typename... Args> static void critical(const std::wstring& fmt, Args&&... moreArgs)
     {
-        spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        exit(1);
+        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        }
     }
 
     template <typename... Args> static void error(const std::wstring& fmt, Args&&... moreArgs)
@@ -99,8 +100,9 @@ public:
     // String Log functions
     template <typename... Args> static void critical(const std::string& fmt, Args&&... moreArgs)
     {
-        spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        exit(1);
+        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        }
     }
 
     template <typename... Args> static void error(const std::string& fmt, Args&&... moreArgs)
