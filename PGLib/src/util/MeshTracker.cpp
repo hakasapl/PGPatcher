@@ -2,10 +2,11 @@
 #include "NifFile.hpp"
 #include "Shaders.hpp"
 #include <algorithm>
+#include <boost/crc.hpp>
 #include <fstream>
+#include <sstream>
 
 #include "PGGlobals.hpp"
-#include "util/CRC32OStream.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -213,10 +214,19 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         bool saveSuccess = false;
         if (i == 0) {
             // process crc for base mesh only
-            ofstream outStream(meshFilename, ios::binary);
-            CRC32OStream crcStream(outStream);
-            saveSuccess = (mesh.Save(crcStream, { .optimize = false, .sortBlocks = false }) == 0);
-            baseCrc32 = crcStream.checksum();
+            ostringstream buffer(std::ios::binary);
+            saveSuccess = (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) == 0);
+
+            // get CRC32
+            const string data = buffer.str();
+            boost::crc_32_type crc;
+            crc.process_bytes(data.data(), data.size());
+            baseCrc32 = crc.checksum();
+
+            // Write to disk
+            std::ofstream outStream(meshFilename, std::ios::binary);
+            outStream.write(data.data(), static_cast<long long>(data.size()));
+            outStream.flush();
         } else {
             saveSuccess = (mesh.Save(meshFilename, { .optimize = false, .sortBlocks = false }) == 0);
         }
