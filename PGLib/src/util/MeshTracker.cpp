@@ -225,8 +225,11 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 
             // Write to disk
             std::ofstream outStream(meshFilename, std::ios::binary);
-            outStream.write(data.data(), static_cast<long long>(data.size()));
+            outStream.write(data.data(), static_cast<streamsize>(data.size()));
             outStream.flush();
+            if (!outStream.good()) {
+                saveSuccess = false;
+            }
         } else {
             saveSuccess = (mesh.Save(meshFilename, { .optimize = false, .sortBlocks = false }) == 0);
         }

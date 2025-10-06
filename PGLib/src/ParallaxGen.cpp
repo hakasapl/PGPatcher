@@ -343,7 +343,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
         }
     }
 
-    // Just save base mesh
+    // Save meshes
     const auto saveResults = meshTracker.saveMeshes();
     if (patchPlugin) {
         ParallaxGenPlugin::setModelUses(saveResults.first);
