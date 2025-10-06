@@ -73,6 +73,14 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unuse
         return false;
     }
 
+    if (singlepassMATO
+        && (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
+            || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
+            || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
+        Logger::trace(L"Shape Rejected: Singlepass MATO incompatible shader flags");
+        return false;
+    }
+
     Logger::trace(L"Shape Accepted");
     return true;
 }
