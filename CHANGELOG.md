@@ -10,6 +10,7 @@
 - Added metadata spec for complex material
 - Patchers are now aware of material type on statics. For example, parallax will not be patched with single pass material
 - Improved mesh permutation system significantly for accuracy and coverage of entire property tree, not just material type
+- Added disable pre-patched meshes post patcher (auto parallax functionality)
 - Improved TXST formid cache
 - Plugins with missing masters will no longer be loaded
 - Removed optimize meshes post-patcher
@@ -25,6 +26,7 @@
 - Fixed "fix effect lighting" patcher patching facegen
 - Fixed single pass material + parallax bad shader permutation
 - Fixed single pass material + back/rim/soft lighting + environment mapping bad shader permutation
+- Fixed zip output checkbox not updating apply button states in the launcher GUI
 
 ## [0.8.13] - 2025-07-04
 
