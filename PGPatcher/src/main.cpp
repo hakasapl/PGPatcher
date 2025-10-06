@@ -17,6 +17,7 @@
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
+#include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -331,12 +332,14 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
     }
 
+    bool conflictPatcherEnabled = false;
     meshPatchers.shaderPatchers.emplace(
         PatcherMeshShaderDefault::getShaderType(), PatcherMeshShaderDefault::getFactory());
     if (params.ShaderPatcher.parallax) {
         Logger::debug("Adding Parallax shader patcher");
         meshPatchers.shaderPatchers.emplace(
             PatcherMeshShaderVanillaParallax::getShaderType(), PatcherMeshShaderVanillaParallax::getFactory());
+        conflictPatcherEnabled = true;
     }
     if (params.ShaderPatcher.complexMaterial) {
         Logger::debug("Adding Complex Material shader patcher");
@@ -344,6 +347,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
         PatcherMeshShaderComplexMaterial::loadStatics(
             params.PrePatcher.disableMLP, params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist);
+        conflictPatcherEnabled = true;
     }
     if (params.ShaderPatcher.truePBR) {
         Logger::debug("Adding True PBR shader patcher");
@@ -352,6 +356,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         PatcherMeshShaderTruePBR::loadOptions(params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths,
             params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths);
         PatcherMeshShaderTruePBR::loadStatics(pgd.getPBRJSONs());
+        conflictPatcherEnabled = true;
     }
     if (params.ShaderTransforms.parallaxToCM) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
@@ -363,6 +368,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         if (!PatcherTextureHookConvertToCM::initShader()) {
             Logger::critical("Failed to initialize ConvertToCM shader");
         }
+    }
+    if (params.PostPatcher.disablePrePatchedMaterials) {
+        Logger::debug("Adding Disable Pre-Patched Materials post-patcher");
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::getFactory());
     }
     if (params.PostPatcher.fixSSS) {
         Logger::debug("Adding SSS fix post-patcher");
@@ -386,7 +395,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     ParallaxGen::loadPatchers(meshPatchers, texPatchers);
 
     // Check if MO2 is used and MO2 use order is checked
-    if (!meshPatchers.shaderPatchers.empty() && params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
+    if (conflictPatcherEnabled && params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
         // Find conflicts
         ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
 

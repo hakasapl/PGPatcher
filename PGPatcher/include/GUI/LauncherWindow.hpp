@@ -136,6 +136,9 @@ private:
     void onShaderTransformParallaxToCMChange(wxCommandEvent& event);
 
     // Post-Patchers
+    wxCheckBox* m_postPatcherRestoreDefaultShadersCheckbox;
+    void onPostPatcherRestoreDefaultShadersChange(wxCommandEvent& event);
+
     wxCheckBox* m_postPatcherFixSSSCheckbox;
     void onPostPatcherFixSSSChange(wxCommandEvent& event);
 

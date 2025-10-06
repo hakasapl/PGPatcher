@@ -148,6 +148,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     m_outputZipCheckbox = new wxCheckBox(this, wxID_ANY, "Zip Output");
     m_outputZipCheckbox->SetToolTip("Zip the output folder after processing");
+    m_outputZipCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onOutputZipChange, this);
 
     outputSizer->Add(m_outputZipCheckbox, 0, wxALL, BORDER_SIZE);
     leftSizer->Add(outputSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
@@ -258,6 +259,14 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     // Post-Patchers
     //
     auto* postPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Post-Patchers");
+
+    m_postPatcherRestoreDefaultShadersCheckbox = new wxCheckBox(this, wxID_ANY, "Disable Pre-Patched Materials");
+    m_postPatcherRestoreDefaultShadersCheckbox->SetToolTip(
+        "Restores shaders to default if parallax or complex "
+        "material textures are missing (highly recommended, replaces auto parallax functionality)");
+    m_postPatcherRestoreDefaultShadersCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherRestoreDefaultShadersChange, this);
+    postPatcherSizer->Add(m_postPatcherRestoreDefaultShadersCheckbox, 0, wxALL, BORDER_SIZE);
 
     m_postPatcherFixSSSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Vanilla Subsurface Scattering");
     m_postPatcherFixSSSCheckbox->SetToolTip("Fixes subsurface scattering in meshes");
@@ -573,6 +582,7 @@ void LauncherWindow::loadConfig()
     m_shaderTransformParallaxToCMCheckbox->SetValue(initParams.ShaderTransforms.parallaxToCM);
 
     // Post-Patchers
+    m_postPatcherRestoreDefaultShadersCheckbox->SetValue(initParams.PostPatcher.disablePrePatchedMaterials);
     m_postPatcherFixSSSCheckbox->SetValue(initParams.PostPatcher.fixSSS);
     m_postPatcherHairFlowMapCheckbox->SetValue(initParams.PostPatcher.hairFlowMap);
 
@@ -780,6 +790,11 @@ void LauncherWindow::onShaderTransformParallaxToCMChange([[maybe_unused]] wxComm
     updateDisabledElements();
 }
 
+void LauncherWindow::onPostPatcherRestoreDefaultShadersChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
 void LauncherWindow::onPostPatcherFixSSSChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEvent& event)
@@ -934,6 +949,7 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     params.ShaderTransforms.parallaxToCM = m_shaderTransformParallaxToCMCheckbox->GetValue();
 
     // Post-Patchers
+    params.PostPatcher.disablePrePatchedMaterials = m_postPatcherRestoreDefaultShadersCheckbox->GetValue();
     params.PostPatcher.fixSSS = m_postPatcherFixSSSCheckbox->GetValue();
     params.PostPatcher.hairFlowMap = m_postPatcherHairFlowMapCheckbox->GetValue();
 

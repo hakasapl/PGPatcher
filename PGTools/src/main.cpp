@@ -20,6 +20,7 @@
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
+#include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -202,6 +203,9 @@ void mainRunner(PGToolsCLIArgs& args)
             meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
         }
 
+        if (patcherDefs.contains("restoredefaultshaders")) {
+            meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::getFactory());
+        }
         if (patcherDefs.contains("fixsss")) {
             meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
 
