@@ -60,12 +60,6 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
     // Game
     outParams.Game.dir = BethesdaGame::findGamePathFromSteam(BethesdaGame::GameType::SKYRIM_SE);
 
-    // Output
-    if (s_exePath.empty()) {
-        throw runtime_error("ExePath not set");
-    }
-    outParams.Output.dir = s_exePath / "ParallaxGen_Output";
-
     // Mesh Rules
     static const vector<wstring> defaultMeshBlocklist
         = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*\\markers\\*" };
