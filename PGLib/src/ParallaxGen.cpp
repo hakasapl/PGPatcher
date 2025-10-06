@@ -321,44 +321,37 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     }
     meshTracker.commitBaseMesh();
 
-    if (!patchPlugin) {
-        // Just save base mesh
-        const auto savedMeshes = meshTracker.saveMeshes();
-        // run handlers
-        for (const auto& meshResult : savedMeshes.first) {
-            HandlerLightPlacerTracker::handleNIFCreated(nifPath, meshResult.meshPath);
+    if (patchPlugin) {
+        // Find all uses of this mesh in plugins
+        const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
+        // loop through each use
+        for (auto use : meshUses) {
+            // check if alternate textures even exist
+            if (use.second.alternateTextures.empty()) {
+                // no alternate textures, skip processing just register the use
+                meshTracker.addFormKeyForBaseMesh(use.first);
+                continue;
+            }
+
+            // alternate textures do exist so we need to do some processing
+            // stage a new mesh
+            auto* stagedNIF = meshTracker.stageMesh();
+            if (!processNIF(nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures)) {
+                return ParallaxGenTask::PGResult::FAILURE;
+            }
+            meshTracker.commitDupMesh(use.first, use.second.alternateTextures);
         }
-        return ParallaxGenTask::PGResult::SUCCESS;
     }
 
-    // Find all uses of this mesh in plugins
-    const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
-    // loop through each use
-    for (auto use : meshUses) {
-        // check if alternate textures even exist
-        if (use.second.alternateTextures.empty()) {
-            // no alternate textures, skip processing just register the use
-            meshTracker.addFormKeyForBaseMesh(use.first);
-            continue;
-        }
-
-        // alternate textures do exist so we need to do some processing
-        // stage a new mesh
-        auto* stagedNIF = meshTracker.stageMesh();
-        if (!processNIF(nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures)) {
-            return ParallaxGenTask::PGResult::FAILURE;
-        }
-        meshTracker.commitDupMesh(use.first, use.second.alternateTextures);
-    }
-
-    // Save all meshes
+    // Save meshes
     const auto saveResults = meshTracker.saveMeshes();
+    if (patchPlugin) {
+        ParallaxGenPlugin::setModelUses(saveResults.first);
+    }
     // run handlers
     for (const auto& meshResult : saveResults.first) {
         HandlerLightPlacerTracker::handleNIFCreated(nifPath, meshResult.meshPath);
     }
-    ParallaxGenPlugin::setModelUses(saveResults.first);
-
     // Add to diff JSON
     const auto diffJSONKey = utf16toUTF8(nifPath.wstring());
     if (saveResults.second.second != 0) {
