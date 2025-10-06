@@ -23,6 +23,8 @@
 - Fixed duplicate mesh shapes not being patched for certain edge cases
 - Fixed null texture sets not being factored when reordering NIF blocks
 - Fixed "fix effect lighting" patcher patching facegen
+- Fixed single pass material + parallax bad shader permutation
+- Fixed single pass material + back/rim/soft lighting + environment mapping bad shader permutation
 
 ## [0.8.13] - 2025-07-04
 
