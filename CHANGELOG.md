@@ -11,12 +11,14 @@
 - Patchers are now aware of material type on statics. For example, parallax will not be patched with single pass material
 - Improved mesh permutation system significantly for accuracy and coverage of entire property tree, not just material type
 - Improved TXST formid cache
+- Plugins with missing masters will no longer be loaded
 - Removed optimize meshes post-patcher
 - Messageboxes will now be shown for critical messages or when generation is complete
 - Fix Vanilla SSS patcher will now downscale textures by half and save BC1 subsurface maps
 - Vanilla SSS patcher is no longer experimental
 - PBR new TXSTs will no longer create TXST jsons (the properties are now set in each NIF)
 - Master plugin renamed to PGPatcher.esp and flagged ESM
+- Added better error handling for several common cases
 - Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
 - Fixed duplicate mesh shapes not being patched for certain edge cases
 - Fixed null texture sets not being factored when reordering NIF blocks

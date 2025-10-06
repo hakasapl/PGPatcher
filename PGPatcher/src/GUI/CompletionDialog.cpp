@@ -9,8 +9,8 @@
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
 CompletionDialog::CompletionDialog(const long long& timeTaken)
-    : wxDialog(
-          nullptr, wxID_ANY, "PGPatcher Generation Complete", wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE)
+    : wxDialog(nullptr, wxID_ANY, "PGPatcher Generation Complete", wxDefaultPosition, wxDefaultSize,
+          wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP)
 {
     // Play system information sound
     wxBell();

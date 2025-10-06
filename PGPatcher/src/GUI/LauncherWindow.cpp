@@ -129,11 +129,11 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     //
     auto* outputSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Output");
 
-    auto* outputLocationLabel = new wxStaticText(this, wxID_ANY, "Location");
+    auto* outputLocationLabel
+        = new wxStaticText(this, wxID_ANY, "Location (Can be a Mod Folder if you disable Zip Output)");
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_outputLocationTextbox->SetToolTip(
-        "Path to the output folder - This folder should be used EXCLUSIVELY for ParallaxGen. Don't set it to your data "
-        "directory or any other folder that contains mods.");
+        "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher");
     m_outputLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onOutputLocationChange, this);
 
     auto* outputLocationBrowseButton = new wxButton(this, wxID_ANY, "Browse");

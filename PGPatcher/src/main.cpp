@@ -386,7 +386,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     ParallaxGen::loadPatchers(meshPatchers, texPatchers);
 
     // Check if MO2 is used and MO2 use order is checked
-    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
+    if (!meshPatchers.shaderPatchers.empty() && params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
         // Find conflicts
         ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
 

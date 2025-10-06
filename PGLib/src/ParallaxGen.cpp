@@ -201,28 +201,32 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput)
     spdlog::info("Deleting old output files from output directory...");
 
     // Delete old output
-    filesToDeleteParsed.insert(filesToDeleteParsed.end(), filesToDelete.begin(), filesToDelete.end());
-    for (const auto& fileToDelete : filesToDeleteParsed) {
-        const auto file = outputDir / fileToDelete;
-        if (filesystem::exists(file)) {
-            filesystem::remove(file);
-        }
-    }
-
-    for (const auto& folderToDelete : foldersToDelete) {
-        const auto folder = outputDir / folderToDelete;
-        if (filesystem::exists(folder)) {
-            filesystem::remove_all(folder);
-        }
-    }
-
-    if (preOutput) {
-        for (const auto& fileToDelete : filesToDeletePreOutput) {
+    try {
+        filesToDeleteParsed.insert(filesToDeleteParsed.end(), filesToDelete.begin(), filesToDelete.end());
+        for (const auto& fileToDelete : filesToDeleteParsed) {
             const auto file = outputDir / fileToDelete;
             if (filesystem::exists(file)) {
                 filesystem::remove(file);
             }
         }
+
+        for (const auto& folderToDelete : foldersToDelete) {
+            const auto folder = outputDir / folderToDelete;
+            if (filesystem::exists(folder)) {
+                filesystem::remove_all(folder);
+            }
+        }
+
+        if (preOutput) {
+            for (const auto& fileToDelete : filesToDeletePreOutput) {
+                const auto file = outputDir / fileToDelete;
+                if (filesystem::exists(file)) {
+                    filesystem::remove(file);
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        Logger::critical("Failed to delete old output files: {}", e.what());
     }
 }
 

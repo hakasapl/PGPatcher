@@ -157,10 +157,66 @@ public class PGMutagen
             GameType = (SkyrimRelease)gameType;
             OutMod = new SkyrimMod(ModKey.FromFileName("PGPatcher.esp"), GameType);
 
+            // First, convert the pointers to proper strings
             List<ModKey> loadOrderList = [];
             for (int i = 0; loadOrder[i] != IntPtr.Zero; i++)
             {
-                loadOrderList.Add(Marshal.PtrToStringUni(loadOrder[i]) ?? string.Empty);
+                var curModName = Marshal.PtrToStringUni(loadOrder[i]) ?? string.Empty;
+                if (curModName.IsNullOrEmpty())
+                {
+                    continue;
+                }
+
+                loadOrderList.Add(ModKey.FromFileName(curModName));
+            }
+
+            // Stores mods that have missing masters
+            HashSet<ModKey> modsWithMissingMasters = [];
+
+            // Create validMods to indicate all mods which actually exist and are loadable
+            HashSet<ModKey> validMods = [];
+            foreach (var modKey in loadOrderList)
+            {
+                string modPath = Path.Combine(dataPath, modKey.FileName);
+                if (File.Exists(modPath))
+                {
+                    validMods.Add(modKey);
+                }
+            }
+
+            // Loop through loadOrderList and determine if any mods have missing masters
+            List<ModKey> finalLoadOrderList = [];
+            foreach (var modKey in loadOrderList)
+            {
+                if (!validMods.Contains(modKey))
+                {
+                    // skip mods that don't exist
+                    continue;
+                }
+
+                string modPath = Path.Combine(dataPath, modKey.FileName);
+                var curMod = SkyrimMod.Create(GameType).FromPath(modPath).Construct();
+                // loop through masters
+                bool currentModHasMissingMasters = false;
+                for (int j = 0; j < curMod.MasterReferences.Count; j++)
+                {
+                    var masterModKey = curMod.MasterReferences[j].Master;
+                    if (!validMods.Contains(masterModKey) || modsWithMissingMasters.Contains(masterModKey))
+                    {
+                        modsWithMissingMasters.Add(masterModKey);
+                        currentModHasMissingMasters = true;
+                    }
+                }
+
+                if (!currentModHasMissingMasters)
+                {
+                    finalLoadOrderList.Add(modKey);
+                }
+                else
+                {
+                    modsWithMissingMasters.Add(modKey);
+                    MessageHandler.Log("Plugin has missing masters, skipping: " + modKey.FileName, 4);
+                }
             }
 
             var stringReadParams = new StringsReadParameters()
@@ -173,7 +229,7 @@ public class PGMutagen
             {
                 Env = GameEnvironment.Typical.Builder<ISkyrimMod, ISkyrimModGetter>((GameRelease)GameType)
                     .WithTargetDataFolder(dataPath)
-                    .WithLoadOrder(loadOrderList.ToArray())
+                    .WithLoadOrder(finalLoadOrderList.ToArray())
                     .WithOutputMod(OutMod)
                     .WithStringParameters(stringReadParams)
                     .Build();
