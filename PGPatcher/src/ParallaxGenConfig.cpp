@@ -209,6 +209,11 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("shadertransforms") && paramJ["shadertransforms"].contains("parallaxtocm")) {
             paramJ["shadertransforms"]["parallaxtocm"].get_to<bool>(m_params.ShaderTransforms.parallaxToCM);
         }
+        if (paramJ.contains("shadertransforms")
+            && paramJ["shadertransforms"].contains("parallaxtocm_onlywhenrequired")) {
+            paramJ["shadertransforms"]["parallaxtocm_onlywhenrequired"].get_to<bool>(
+                m_params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
+        }
 
         // "postpatcher"
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("disableprepatchedmaterials")) {
@@ -448,6 +453,8 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
 
     // "shadertransforms"
     j["params"]["shadertransforms"]["parallaxtocm"] = m_params.ShaderTransforms.parallaxToCM;
+    j["params"]["shadertransforms"]["parallaxtocm_onlyWhenRequired"]
+        = m_params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired;
 
     // "postpatcher"
     j["params"]["postpatcher"]["disableprepatchedmaterials"] = m_params.PostPatcher.disablePrePatchedMaterials;

@@ -2,7 +2,6 @@
 
 #include <string>
 
-#include "NIFUtil.hpp"
 #include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 
@@ -29,6 +28,8 @@ public:
     auto operator=(const PatcherMeshShaderTransform& other) -> PatcherMeshShaderTransform& = default;
     PatcherMeshShaderTransform(PatcherMeshShaderTransform&& other) noexcept = default;
     auto operator=(PatcherMeshShaderTransform&& other) noexcept -> PatcherMeshShaderTransform& = default;
+
+    virtual auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch, bool canApplyBaseShader) -> bool = 0;
 
     /**
      * @brief Transform shader match to new shader match

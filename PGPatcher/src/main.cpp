@@ -363,6 +363,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
             = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
                   PatcherMeshShaderTransformParallaxToCM::getFactory() };
+        PatcherMeshShaderTransformParallaxToCM::loadOptions(
+            params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
 
         // initialize patcher hooks
         if (!PatcherTextureHookConvertToCM::initShader()) {

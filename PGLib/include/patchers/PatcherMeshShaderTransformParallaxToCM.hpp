@@ -9,7 +9,12 @@
  * @brief Transform patcher to upgrade Parallax to CM
  */
 class PatcherMeshShaderTransformParallaxToCM : public PatcherMeshShaderTransform {
+private:
+    static inline bool s_onlyWhenRequired = true;
+
 public:
+    static void loadOptions(const bool& onlyWhenRequired);
+
     /**
      * @brief Get the Factory object for Parallax > CM transform
      *
@@ -38,6 +43,8 @@ public:
      * @param nif NIF object to be patched
      */
     PatcherMeshShaderTransformParallaxToCM(std::filesystem::path nifPath, nifly::NifFile* nif);
+
+    auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch, bool canApplyBaseShader) -> bool override;
 
     /**
      * @brief Transform shader match to new shader match

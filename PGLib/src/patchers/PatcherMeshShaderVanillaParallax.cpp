@@ -58,6 +58,11 @@ auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepa
         return false;
     }
 
+    if (nifShape.HasAlphaProperty()) {
+        Logger::trace(L"Cannot Apply: Shape has alpha property");
+        return false;
+    }
+
     // Check for shader type
     auto nifShaderType = static_cast<nifly::BSLightingShaderPropertyShaderType>(nifShader->GetShaderType());
     if (nifShaderType != BSLSP_DEFAULT && nifShaderType != BSLSP_PARALLAX && nifShaderType != BSLSP_ENVMAP) {

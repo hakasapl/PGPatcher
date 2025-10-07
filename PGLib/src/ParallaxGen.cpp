@@ -545,13 +545,6 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                 curMatch.match = match;
                 curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
 
-                // See if transform is possible
-                if (patchers.shaderTransformPatchers.contains(shader)) {
-                    const auto& [shaderTransformTo, transformPatcher] = patchers.shaderTransformPatchers.at(shader);
-                    // loop from highest element of map to 0
-                    curMatch.shaderTransformTo = shaderTransformTo;
-                }
-
                 if (shader != NIFUtil::ShapeShader::NONE) {
                     // a non-default match is available. If this match is the same mod as any default matches, remove
                     // the defaults
@@ -611,9 +604,34 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     // Verify shape can apply
     if (patcherObjects != nullptr) {
         for (auto it = matches.begin(); it != matches.end();) {
-            const auto& curMatch = *it;
+            auto& curMatch = *it;
 
-            if (!patcherObjects->shaderPatchers.at(curMatch.shader)->canApply(*shape, singlepassMATO)) {
+            // check canApply for this shape
+            const bool canApplyBaseShader
+                = patcherObjects->shaderPatchers.at(curMatch.shader)->canApply(*shape, singlepassMATO);
+            bool canApplyTransformShader = false;
+
+            // See if transform is possible
+            if (patchers.shaderTransformPatchers.contains(curMatch.shader)) {
+                // a transform patcher is avilable, see if it should be applied
+                // get objects
+                const auto& transformPatcherPair = patcherObjects->shaderTransformPatchers.at(curMatch.shader);
+                auto* const transformPatcher = transformPatcherPair.second.get();
+
+                // check if transform should be applied
+                if (transformPatcher->shouldTransform(curMatch.match, canApplyBaseShader)) {
+                    // transform can apply
+                    const auto transformToShader = transformPatcherPair.first;
+                    canApplyTransformShader
+                        = patcherObjects->shaderPatchers.at(transformToShader)->canApply(*shape, singlepassMATO);
+
+                    if (canApplyTransformShader) {
+                        curMatch.shaderTransformTo = transformToShader;
+                    }
+                }
+            }
+
+            if (!canApplyBaseShader) {
                 // base shaders can't do it, lets check transforms
                 if (curMatch.shaderTransformTo == NIFUtil::ShapeShader::UNKNOWN) {
                     Logger::trace(L"Rejecting: Shape cannot apply shader");
@@ -621,7 +639,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                     continue;
                 }
 
-                if (!patcherObjects->shaderPatchers.at(curMatch.shaderTransformTo)->canApply(*shape, singlepassMATO)) {
+                if (!canApplyTransformShader) {
                     Logger::trace(L"Rejecting: Shape cannot apply shader");
                     it = matches.erase(it);
                     continue;
