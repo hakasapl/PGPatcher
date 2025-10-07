@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderTransformParallaxToCM.hpp"
 
+#include "patchers/base/PatcherMeshShaderTransform.hpp"
 #include "util/NIFUtil.hpp"
 
 #include <filesystem>
@@ -8,6 +9,11 @@
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 
 using namespace std;
+
+void PatcherMeshShaderTransformParallaxToCM::loadOptions(const bool& onlyWhenRequired)
+{
+    s_onlyWhenRequired = onlyWhenRequired;
+}
 
 auto PatcherMeshShaderTransformParallaxToCM::getFactory()
     -> PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory
@@ -31,6 +37,12 @@ PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(
     : PatcherMeshShaderTransform(std::move(nifPath), nif, "UpgradeParallaxToCM", NIFUtil::ShapeShader::VANILLAPARALLAX,
           NIFUtil::ShapeShader::COMPLEXMATERIAL)
 {
+}
+
+auto PatcherMeshShaderTransformParallaxToCM::shouldTransform(
+    [[maybe_unused]] const PatcherMeshShader::PatcherMatch& baseMatch, bool canApplyBaseShader) -> bool
+{
+    return !canApplyBaseShader || !s_onlyWhenRequired;
 }
 
 auto PatcherMeshShaderTransformParallaxToCM::transform(

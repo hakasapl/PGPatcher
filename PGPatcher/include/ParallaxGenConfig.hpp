@@ -117,8 +117,20 @@ public:
         // Shader Transforms
         struct ShaderTransforms {
             bool parallaxToCM = false;
+            struct ShaderTransformParallaxToCM {
+                bool onlyWhenRequired = true;
 
-            auto operator==(const ShaderTransforms& other) const -> bool { return parallaxToCM == other.parallaxToCM; }
+                auto operator==(const ShaderTransformParallaxToCM& other) const -> bool
+                {
+                    return onlyWhenRequired == other.onlyWhenRequired;
+                }
+            } ShaderTransformParallaxToCM;
+
+            auto operator==(const ShaderTransforms& other) const -> bool
+            {
+                return parallaxToCM == other.parallaxToCM
+                    && ShaderTransformParallaxToCM == other.ShaderTransformParallaxToCM;
+            }
         } ShaderTransforms;
 
         // Post-Patchers

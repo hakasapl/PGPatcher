@@ -253,6 +253,17 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
         wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMChange, this);
     shaderTransformSizer->Add(m_shaderTransformParallaxToCMCheckbox, 0, wxALL, BORDER_SIZE);
 
+    m_shaderTransformParallaxToCMSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Parallax to Complex Material Options");
+    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox = new wxCheckBox(this, wxID_ANY, "Only When Required");
+    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->SetToolTip(
+        "Only upgrade parallax textures to complex material if the mesh will have issues with parallax (recommended)");
+    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMOnlyWhenRequiredChange, this);
+    m_shaderTransformParallaxToCMSizer->Add(
+        m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox, 0, wxALL, BORDER_SIZE);
+
+    shaderTransformSizer->Add(m_shaderTransformParallaxToCMSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
     rightSizer->Add(shaderTransformSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
@@ -477,6 +488,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_advancedOptionsSizer->Show(false); // Initially hidden
     m_shaderPatcherComplexMaterialOptionsSizer->Show(false); // Initially hidden
     m_shaderPatcherTruePBROptionsSizer->Show(false); // Initially hidden
+    m_shaderTransformParallaxToCMSizer->Show(false); // Initially hidden
     m_processingOptionsSizer->Show(false); // Initially hidden
     m_processingPluginPatchingOptions->Show(false); // Initially hidden
 
@@ -580,6 +592,8 @@ void LauncherWindow::loadConfig()
 
     // Shader Transforms
     m_shaderTransformParallaxToCMCheckbox->SetValue(initParams.ShaderTransforms.parallaxToCM);
+    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->SetValue(
+        initParams.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
 
     // Post-Patchers
     m_postPatcherRestoreDefaultShadersCheckbox->SetValue(initParams.PostPatcher.disablePrePatchedMaterials);
@@ -678,12 +692,28 @@ void LauncherWindow::updateAdvanced()
     m_advancedOptionsSizer->Show(advancedVisible);
     m_processingOptionsSizer->Show(advancedVisible);
 
-    if (m_shaderPatcherComplexMaterialCheckbox->GetValue()) {
-        m_shaderPatcherComplexMaterialOptionsSizer->Show(advancedVisible);
+    if (m_processingPluginPatchingCheckbox->GetValue() && advancedVisible) {
+        m_processingPluginPatchingOptions->Show(true);
+    } else {
+        m_processingPluginPatchingOptions->Show(false);
     }
 
-    if (m_shaderPatcherTruePBRCheckbox->GetValue()) {
-        m_shaderPatcherTruePBROptionsSizer->Show(advancedVisible);
+    if (m_shaderPatcherComplexMaterialCheckbox->GetValue() && advancedVisible) {
+        m_shaderPatcherComplexMaterialOptionsSizer->Show(true);
+    } else {
+        m_shaderPatcherComplexMaterialOptionsSizer->Show(false);
+    }
+
+    if (m_shaderPatcherTruePBRCheckbox->GetValue() && advancedVisible) {
+        m_shaderPatcherTruePBROptionsSizer->Show(true);
+    } else {
+        m_shaderPatcherTruePBROptionsSizer->Show(false);
+    }
+
+    if (m_shaderTransformParallaxToCMCheckbox->GetValue() && advancedVisible) {
+        m_shaderTransformParallaxToCMSizer->Show(true);
+    } else {
+        m_shaderTransformParallaxToCMSizer->Show(false);
     }
 
     Layout(); // Refresh layout to apply visibility changes
@@ -692,16 +722,7 @@ void LauncherWindow::updateAdvanced()
 
 void LauncherWindow::onProcessingPluginPatchingChange([[maybe_unused]] wxCommandEvent& event)
 {
-    if (m_processingPluginPatchingCheckbox->GetValue()) {
-        m_processingPluginPatchingOptions->Show(m_processingPluginPatchingCheckbox->GetValue());
-        Layout(); // Refresh layout to apply visibility changes
-        Fit();
-    } else {
-        m_processingPluginPatchingOptions->Show(false);
-        Layout(); // Refresh layout to apply visibility changes
-        Fit();
-    }
-
+    updateAdvanced();
     updateDisabledElements();
 }
 
@@ -740,16 +761,7 @@ void LauncherWindow::onShaderPatcherParallaxChange([[maybe_unused]] wxCommandEve
 
 void LauncherWindow::onShaderPatcherComplexMaterialChange([[maybe_unused]] wxCommandEvent& event)
 {
-    if (m_shaderPatcherComplexMaterialCheckbox->GetValue() && m_advancedOptionsCheckbox->GetValue()) {
-        m_shaderPatcherComplexMaterialOptionsSizer->Show(m_shaderPatcherComplexMaterialCheckbox->GetValue());
-        Layout(); // Refresh layout to apply visibility changes
-        Fit();
-    } else {
-        m_shaderPatcherComplexMaterialOptionsSizer->Show(false);
-        Layout(); // Refresh layout to apply visibility changes
-        Fit();
-    }
-
+    updateAdvanced();
     updateDisabledElements();
 }
 
@@ -762,16 +774,7 @@ void LauncherWindow::onShaderPatcherComplexMaterialDynCubemapBlocklistChange([[m
 
 void LauncherWindow::onShaderPatcherTruePBRChange([[maybe_unused]] wxCommandEvent& event)
 {
-    if (m_shaderPatcherTruePBRCheckbox->GetValue() && m_advancedOptionsCheckbox->GetValue()) {
-        m_shaderPatcherTruePBROptionsSizer->Show(m_shaderPatcherTruePBRCheckbox->GetValue());
-        Layout(); // Refresh layout to apply visibility changes
-        Fit();
-    } else {
-        m_shaderPatcherTruePBROptionsSizer->Show(false);
-        Layout(); // Refresh layout to apply visibility changes
-        Fit();
-    }
-
+    updateAdvanced();
     updateDisabledElements();
 }
 
@@ -786,6 +789,12 @@ void LauncherWindow::onShaderPatcherTruePBRPrintNonExistentPathsChange([[maybe_u
 }
 
 void LauncherWindow::onShaderTransformParallaxToCMChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateAdvanced();
+    updateDisabledElements();
+}
+
+void LauncherWindow::onShaderTransformParallaxToCMOnlyWhenRequiredChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
@@ -947,6 +956,8 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
 
     // Shader Transforms
     params.ShaderTransforms.parallaxToCM = m_shaderTransformParallaxToCMCheckbox->GetValue();
+    params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired
+        = m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->GetValue();
 
     // Post-Patchers
     params.PostPatcher.disablePrePatchedMaterials = m_postPatcherRestoreDefaultShadersCheckbox->GetValue();

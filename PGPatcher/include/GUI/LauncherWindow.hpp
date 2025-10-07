@@ -132,8 +132,12 @@ private:
     void onShaderPatcherTruePBRPrintNonExistentPathsChange(wxCommandEvent& event);
 
     // Shader Transforms
+    wxStaticBoxSizer* m_shaderTransformParallaxToCMSizer;
     wxCheckBox* m_shaderTransformParallaxToCMCheckbox;
     void onShaderTransformParallaxToCMChange(wxCommandEvent& event);
+
+    wxCheckBox* m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox;
+    void onShaderTransformParallaxToCMOnlyWhenRequiredChange(wxCommandEvent& event);
 
     // Post-Patchers
     wxCheckBox* m_postPatcherRestoreDefaultShadersCheckbox;

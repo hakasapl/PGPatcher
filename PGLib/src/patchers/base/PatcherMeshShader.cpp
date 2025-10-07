@@ -1,11 +1,8 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 
 #include "NifFile.hpp"
-#include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
 #include <BasicTypes.hpp>
 #include <Shaders.hpp>
-#include <mutex>
 #include <string>
 #include <utility>
 

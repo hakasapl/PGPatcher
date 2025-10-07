@@ -11,6 +11,7 @@
 - Patchers are now aware of material type on statics. For example, parallax will not be patched with single pass material
 - Improved mesh permutation system significantly for accuracy and coverage of entire property tree, not just material type
 - Added disable pre-patched meshes post patcher (auto parallax functionality)
+- Added "Only When Required" option for parallax to CM upgrade patcher
 - Improved TXST formid cache
 - Plugins with missing masters will no longer be loaded
 - Removed optimize meshes post-patcher
