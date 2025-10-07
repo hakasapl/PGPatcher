@@ -281,7 +281,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Populate mod info
     Logger::info("Populating mod info");
     nlohmann::json modJSON;
-    const auto modListFile = cfgDir / "mods.json";
+    const auto modListFile = cfgDir / "modrules.json";
     if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
         mmd.loadJSON(modJSON);
     }
