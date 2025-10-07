@@ -18,6 +18,7 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
+#include "patchers/PatcherMeshPreDisableMLP.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -323,6 +324,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Create patcher factory
     PatcherUtil::PatcherMeshSet meshPatchers;
+    if (params.PrePatcher.disableMLP) {
+        Logger::debug("Adding Disable MLP pre-patcher");
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreDisableMLP::getFactory());
+    }
     if (params.PrePatcher.fixMeshLighting) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
@@ -346,7 +351,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         meshPatchers.shaderPatchers.emplace(
             PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
         PatcherMeshShaderComplexMaterial::loadStatics(
-            params.PrePatcher.disableMLP, params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist);
+            params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist);
         conflictPatcherEnabled = true;
     }
     if (params.ShaderPatcher.truePBR) {

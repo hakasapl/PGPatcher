@@ -21,6 +21,7 @@
 - PBR new TXSTs will no longer create TXST jsons (the properties are now set in each NIF)
 - Master plugin renamed to PGPatcher.esp and flagged ESM
 - Added better error handling for several common cases
+- Disable MLP patcher is now independent of the CM patcher
 - Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
 - Fixed duplicate mesh shapes not being patched for certain edge cases
 - Fixed null texture sets not being factored when reordering NIF blocks
