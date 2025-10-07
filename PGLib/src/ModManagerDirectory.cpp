@@ -470,6 +470,9 @@ auto ModManagerDirectory::getMO2INIField(
 
             wstring parsedVal;
 
+            // remove leading and trailing quotes
+            boost::trim_if(fieldValue, boost::is_any_of(L"\""));
+
             // remove @ByteArray( and ) from the string if isByteArray is true
             if (isByteArray && boost::starts_with(fieldValue, MO2INI_BYTEARRAYPREFIX)
                 && boost::ends_with(fieldValue, MO2INI_BYTEARRAYSUFFIX)) {
