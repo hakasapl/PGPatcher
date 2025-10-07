@@ -13,16 +13,13 @@ using namespace std;
 
 // Statics
 std::vector<wstring> PatcherMeshShaderComplexMaterial::s_dynCubemapBlocklist;
-bool PatcherMeshShaderComplexMaterial::s_disableMLP;
 
 std::shared_mutex PatcherMeshShaderComplexMaterial::s_metaCacheMutex;
 std::unordered_map<filesystem::path, nlohmann::json> PatcherMeshShaderComplexMaterial::s_metaCache;
 
-auto PatcherMeshShaderComplexMaterial::loadStatics(
-    const bool& disableMLP, const std::vector<std::wstring>& dynCubemapBlocklist) -> void
+auto PatcherMeshShaderComplexMaterial::loadStatics(const std::vector<std::wstring>& dynCubemapBlocklist) -> void
 {
     PatcherMeshShaderComplexMaterial::s_dynCubemapBlocklist = dynCubemapBlocklist;
-    PatcherMeshShaderComplexMaterial::s_disableMLP = disableMLP;
 }
 
 auto PatcherMeshShaderComplexMaterial::getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory
@@ -53,7 +50,7 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unuse
     // Get NIFShader type
     auto nifShaderType = static_cast<nifly::BSLightingShaderPropertyShaderType>(nifShader->GetShaderType());
     if (nifShaderType != BSLSP_DEFAULT && nifShaderType != BSLSP_ENVMAP && nifShaderType != BSLSP_PARALLAX
-        && (nifShaderType != BSLSP_MULTILAYERPARALLAX || !s_disableMLP)) {
+        && nifShaderType != BSLSP_MULTILAYERPARALLAX) {
         Logger::trace(L"Shape Rejected: Incorrect NIFShader type");
         return false;
     }
@@ -243,15 +240,6 @@ void PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape)
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
-
-    // Remove texture slots if disabling MLP
-    if (s_disableMLP && nifShaderBSLSP->GetShaderType() == BSLSP_MULTILAYERPARALLAX) {
-        NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::GLOW, "");
-        NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::MULTILAYER, "");
-        NIFUtil::setTextureSlot(getNIF(), &nifShape, NIFUtil::TextureSlots::BACKLIGHT, "");
-
-        NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    }
 
     // Set NIFShader type to env map
     NIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);

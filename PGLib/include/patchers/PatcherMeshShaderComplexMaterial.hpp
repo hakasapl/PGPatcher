@@ -15,7 +15,6 @@
 class PatcherMeshShaderComplexMaterial : public PatcherMeshShader {
 private:
     static std::vector<std::wstring> s_dynCubemapBlocklist; /** Stores the dynamic cubemap blocklist set */
-    static bool s_disableMLP; /** If true MLP should be replaced with CM */
 
     static std::shared_mutex s_metaCacheMutex; /** Mutex for material meta cache */
     static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
@@ -33,10 +32,9 @@ public:
     /**
      * @brief Load required statics for CM patcher
      *
-     * @param disableMLP If true MLP should be replaced with CM
      * @param dynCubemapBlocklist Set of blocklisted dynamic cubemaps
      */
-    static void loadStatics(const bool& disableMLP, const std::vector<std::wstring>& dynCubemapBlocklist);
+    static void loadStatics(const std::vector<std::wstring>& dynCubemapBlocklist);
 
     /**
      * @brief Get the shader type for this patcher (CM)

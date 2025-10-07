@@ -557,20 +557,28 @@ auto MeshTracker::compareBSShaderProperty(
 auto MeshTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, nifly::BSShaderTextureSet& texSetB)
     -> bool
 {
-    if (texSetA.textures.size() != texSetB.textures.size()) {
-        return false;
-    }
+    auto texturesA = texSetA.textures;
+    auto texturesB = texSetB.textures;
+    const auto maxSize = std::max(texturesA.size(), texturesB.size());
 
-    const uint32_t numTextures = texSetA.textures.size();
-    for (uint32_t i = 0; i < numTextures; i++) {
-        const auto& texA = texSetA.textures[i];
-        const auto& texB = texSetB.textures[i];
+    for (uint32_t i = 0; i < maxSize; i++) {
+        const bool hasA = i < texturesA.size();
+        const bool hasB = i < texturesB.size();
 
-        if (!boost::iequals(texA.get(), texB.get())) {
-            return false;
+        if (hasA && hasB) {
+            if (!boost::iequals(texturesA[i].get(), texturesB[i].get())) {
+                return false;
+            }
+        } else if (hasA) {
+            if (!texturesA[i].get().empty()) {
+                return false;
+            }
+        } else { // hasB
+            if (!texturesB[i].get().empty()) {
+                return false;
+            }
         }
     }
-
     return true;
 }
 
