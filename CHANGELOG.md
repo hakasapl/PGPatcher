@@ -29,6 +29,8 @@
 - Fixed single pass material + parallax bad shader permutation
 - Fixed single pass material + back/rim/soft lighting + environment mapping bad shader permutation
 - Fixed zip output checkbox not updating apply button states in the launcher GUI
+- Fixed some UTF8 files being corrupted in the output zip when converted to ascii (potentially caused the OAR startup crash)
+- Fixed crash when modorganizer.ini uses quotes around bytearrays for certain fields
 
 ## [0.8.13] - 2025-07-04
 
