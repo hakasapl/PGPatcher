@@ -627,7 +627,7 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
     return outSlots;
 }
 
-auto NIFUtil::getShapes(const nifly::NifFile* nif) -> vector<nifly::NiShape*>
+auto NIFUtil::getComparableObjects(const nifly::NifFile* nif) -> vector<nifly::NiObject*>
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
@@ -635,11 +635,17 @@ auto NIFUtil::getShapes(const nifly::NifFile* nif) -> vector<nifly::NiShape*>
 
     vector<NiObject*> tree;
     nif->GetTree(tree);
-    vector<NiShape*> shapes;
+    vector<NiObject*> shapes;
     for (auto& obj : tree) {
         auto* const curShape = dynamic_cast<NiShape*>(obj);
         if (curShape != nullptr) {
             shapes.push_back(curShape);
+            continue;
+        }
+
+        auto* const particleSystem = dynamic_cast<NiParticleSystem*>(obj);
+        if (particleSystem != nullptr) {
+            shapes.push_back(particleSystem);
         }
     }
 

@@ -269,7 +269,7 @@ auto getSearchPrefixes(nifly::NifFile const& nif, nifly::NiShape* nifShape, cons
 auto getSearchPrefixes(const std::array<std::wstring, NUM_TEXTURE_SLOTS>& oldSlots, const bool& findBaseSlots = true)
     -> std::array<std::wstring, NUM_TEXTURE_SLOTS>;
 
-auto getShapes(const nifly::NifFile* nif) -> std::vector<nifly::NiShape*>;
+auto getComparableObjects(const nifly::NifFile* nif) -> std::vector<nifly::NiObject*>;
 
 auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiShape*, int>;
 
