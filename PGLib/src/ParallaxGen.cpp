@@ -326,12 +326,8 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
         const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
         // loop through each use
         for (auto use : meshUses) {
-            // check if alternate textures even exist
-            if (use.second.alternateTextures.empty()) {
-                // no alternate textures, skip processing just register the use
-                meshTracker.addFormKeyForBaseMesh(use.first);
-                continue;
-            }
+            // we process even if alternate textures is empty because attributes like singlepass MATO or others may
+            // differ
 
             // alternate textures do exist so we need to do some processing
             // stage a new mesh

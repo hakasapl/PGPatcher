@@ -453,7 +453,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
 
     // "shadertransforms"
     j["params"]["shadertransforms"]["parallaxtocm"] = m_params.ShaderTransforms.parallaxToCM;
-    j["params"]["shadertransforms"]["parallaxtocm_onlyWhenRequired"]
+    j["params"]["shadertransforms"]["parallaxtocm_onlywhenrequired"]
         = m_params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired;
 
     // "postpatcher"

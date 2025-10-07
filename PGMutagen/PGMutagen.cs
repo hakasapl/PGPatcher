@@ -105,7 +105,6 @@ public class PGMutagen
     private static SkyrimMod? OutMod;
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
     private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
-    private static HashSet<IModelGetter> ProcessedModelUses = [];
     private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
     private static SortedSet<uint> allocatedFormIDs = [];
@@ -684,62 +683,66 @@ public class PGMutagen
                     continue;
                 }
 
-                // find alternate textures
-                if (matchedModel.AlternateTextures is null)
+                var altTexVector = new VectorOffset();
+                if (matchedModel.AlternateTextures is not null)
                 {
-                    continue;
-                }
+                    var altTexOffsets = new List<Offset<PGMutagenBuffers.AlternateTexture>>();
 
-                var altTexOffsets = new List<Offset<PGMutagenBuffers.AlternateTexture>>();
-
-                for (int j = 0; j < matchedModel.AlternateTextures.Count; j++)
-                {
-                    var altTexIdx = matchedModel.AlternateTextures[j].Index;
-                    var newTXST = matchedModel.AlternateTextures[j].NewTexture;
-
-                    var textureSetOffsets = new List<Offset<PGMutagenBuffers.TextureSet>>();
-
-                    // find newTXST record
-                    var textures = new string[8];
-                    if (Env.LinkCache.TryResolve<ITextureSetGetter>(newTXST.FormKey, out var newTXSTRec))
+                    for (int j = 0; j < matchedModel.AlternateTextures.Count; j++)
                     {
-                        // The 8 strings in textureset are:
-                        // newTXSTRec.Texture1 - Texture8
-                        textures = GetTextureSet(newTXSTRec);
-                        for (int k = 0; k < 8; k++)
+                        var altTexIdx = matchedModel.AlternateTextures[j].Index;
+                        var newTXST = matchedModel.AlternateTextures[j].NewTexture;
+
+                        var textureSetOffsets = new List<Offset<PGMutagenBuffers.TextureSet>>();
+
+                        // find newTXST record
+                        var textures = new string[8];
+                        if (Env.LinkCache.TryResolve<ITextureSetGetter>(newTXST.FormKey, out var newTXSTRec))
                         {
-                            if (textures[k].IsNullOrEmpty())
+                            // The 8 strings in textureset are:
+                            // newTXSTRec.Texture1 - Texture8
+                            textures = GetTextureSet(newTXSTRec);
+                            for (int k = 0; k < 8; k++)
                             {
-                                continue;
+                                if (textures[k].IsNullOrEmpty())
+                                {
+                                    continue;
+                                }
+
+                                textures[k] = AddPrefixIfNotExists("textures\\", textures[k]);
                             }
-
-                            textures[k] = AddPrefixIfNotExists("textures\\", textures[k]);
                         }
+                        else
+                        {
+                            // the 8 strings in the textureset should exist but all be empty
+                            textures = [.. Enumerable.Repeat(string.Empty, 8)];
+                        }
+
+                        // Build the TextureSet
+                        var textureSetVec = PGMutagenBuffers.TextureSet.CreateTexturesVector(
+                            builder,
+                            [.. textures.Select(s => builder.CreateString(s))]
+                        );
+
+                        PGMutagenBuffers.TextureSet.StartTextureSet(builder);
+                        PGMutagenBuffers.TextureSet.AddTextures(builder, textureSetVec);
+                        var textureSetOffset = PGMutagenBuffers.TextureSet.EndTextureSet(builder);
+
+                        // Build the AlternateTexture (slots now holds a single TextureSet, not a vector)
+                        PGMutagenBuffers.AlternateTexture.StartAlternateTexture(builder);
+                        PGMutagenBuffers.AlternateTexture.AddSlotId(builder, altTexIdx);
+                        // add slot_id_new if you have a value for it
+                        PGMutagenBuffers.AlternateTexture.AddSlots(builder, textureSetOffset);
+                        var altTexOffset = PGMutagenBuffers.AlternateTexture.EndAlternateTexture(builder);
+
+                        altTexOffsets.Add(altTexOffset);
                     }
-                    else
-                    {
-                        // the 8 strings in the textureset should exist but all be empty
-                        textures = [.. Enumerable.Repeat(string.Empty, 8)];
-                    }
 
-                    // Build the TextureSet
-                    var textureSetVec = PGMutagenBuffers.TextureSet.CreateTexturesVector(
-                        builder,
-                        [.. textures.Select(s => builder.CreateString(s))]
-                    );
-
-                    PGMutagenBuffers.TextureSet.StartTextureSet(builder);
-                    PGMutagenBuffers.TextureSet.AddTextures(builder, textureSetVec);
-                    var textureSetOffset = PGMutagenBuffers.TextureSet.EndTextureSet(builder);
-
-                    // Build the AlternateTexture (slots now holds a single TextureSet, not a vector)
-                    PGMutagenBuffers.AlternateTexture.StartAlternateTexture(builder);
-                    PGMutagenBuffers.AlternateTexture.AddSlotId(builder, altTexIdx);
-                    // add slot_id_new if you have a value for it
-                    PGMutagenBuffers.AlternateTexture.AddSlots(builder, textureSetOffset);
-                    var altTexOffset = PGMutagenBuffers.AlternateTexture.EndAlternateTexture(builder);
-
-                    altTexOffsets.Add(altTexOffset);
+                    altTexVector = PGMutagenBuffers.ModelUse.CreateAlternateTexturesVector(builder, [.. altTexOffsets]);
+                }
+                else
+                {
+                    altTexVector = PGMutagenBuffers.ModelUse.CreateAlternateTexturesVector(builder, []);
                 }
 
                 // check if this is IStaticGetter for materials
@@ -749,7 +752,6 @@ public class PGMutagen
                     is_singlePass = (materialRec.Flags & MaterialObject.Flag.SinglePass) != 0;
                 }
 
-                var altTexVector = PGMutagenBuffers.ModelUse.CreateAlternateTexturesVector(builder, [.. altTexOffsets]);
                 var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
                 var subModelOffset = builder.CreateString(subModel);
                 var modelNameOffset = builder.CreateString(nifName);
@@ -854,14 +856,6 @@ public class PGMutagen
                     throw new Exception("Failed to find submodel: " + modelUse.SubModel + " in record: " + GetRecordDesc(existingRecord));
                 }
 
-                if (ProcessedModelUses.Contains(matchExistingElem))
-                {
-                    // already processed this model use, skip
-                    continue;
-                }
-
-                ProcessedModelUses.Add(matchExistingElem);
-
                 // Actual changes starting
                 bool changed = false;
 
@@ -874,55 +868,51 @@ public class PGMutagen
                     changed = true;
                 }
 
-                if (matchExistingElem.AlternateTextures is null || matchModElem.AlternateTextures is null)
+                if (matchExistingElem.AlternateTextures is not null && matchModElem.AlternateTextures is not null)
                 {
-                    // Not allowed to modify alternate textures that do not exist
-                    continue;
-                }
-
-                // Create dictionary of old alternate texture idx to buffer entry
-                Dictionary<int, PGMutagenBuffers.AlternateTexture> altTexDict = [];
-                for (int j = 0; j < modelUse.AlternateTexturesLength; j++)
-                {
-                    var curAltTex = modelUse.AlternateTextures(j);
-                    if (!curAltTex.HasValue)
+                    // Create dictionary of old alternate texture idx to buffer entry
+                    Dictionary<int, PGMutagenBuffers.AlternateTexture> altTexDict = [];
+                    for (int j = 0; j < modelUse.AlternateTexturesLength; j++)
                     {
-                        continue;
-                    }
+                        var curAltTex = modelUse.AlternateTextures(j);
+                        if (!curAltTex.HasValue)
+                        {
+                            continue;
+                        }
 
-                    altTexDict[curAltTex.Value.SlotId] = curAltTex.Value;
-                }
-                // Loop through existing alternate textures
-                for (int j = 0; j < matchExistingElem.AlternateTextures.Count; j++)
-                {
-                    var curAltTex = matchExistingElem.AlternateTextures[j];
-                    if (!altTexDict.ContainsKey(curAltTex.Index))
+                        altTexDict[curAltTex.Value.SlotId] = curAltTex.Value;
+                    }
+                    // Loop through existing alternate textures
+                    for (int j = 0; j < matchExistingElem.AlternateTextures.Count; j++)
                     {
-                        continue;
-                    }
+                        var curAltTex = matchExistingElem.AlternateTextures[j];
+                        if (!altTexDict.ContainsKey(curAltTex.Index))
+                        {
+                            continue;
+                        }
 
-                    // Found matching alternate texture, update it if required
-                    var bufAltTex = altTexDict[curAltTex.Index];
+                        // Found matching alternate texture, update it if required
+                        var bufAltTex = altTexDict[curAltTex.Index];
 
-                    // Index
-                    var newAltTex = bufAltTex.SlotIdNew;
-                    if (curAltTex.Index != newAltTex)
-                    {
-                        // Change index
-                        matchModElem.AlternateTextures[j].Index = newAltTex;
-                        changed = true;
-                    }
+                        // Index
+                        var newAltTex = bufAltTex.SlotIdNew;
+                        if (curAltTex.Index != newAltTex)
+                        {
+                            // Change index
+                            matchModElem.AlternateTextures[j].Index = newAltTex;
+                            changed = true;
+                        }
 
-                    // Find new texture set
-                    if (bufAltTex.Slots is null || !bufAltTex.Slots.HasValue || bufAltTex.Slots.Value.TexturesLength != 8)
-                    {
-                        // No texture set, skip
-                        continue;
-                    }
+                        // Find new texture set
+                        if (bufAltTex.Slots is null || !bufAltTex.Slots.HasValue || bufAltTex.Slots.Value.TexturesLength != 8)
+                        {
+                            // No texture set, skip
+                            continue;
+                        }
 
-                    // get texture set array from buffer
-                    string[] bufTextures = [
-                        bufAltTex.Slots.Value.Textures(0) ?? string.Empty,
+                        // get texture set array from buffer
+                        string[] bufTextures = [
+                            bufAltTex.Slots.Value.Textures(0) ?? string.Empty,
                         bufAltTex.Slots.Value.Textures(1) ?? string.Empty,
                         bufAltTex.Slots.Value.Textures(2) ?? string.Empty,
                         bufAltTex.Slots.Value.Textures(3) ?? string.Empty,
@@ -930,78 +920,79 @@ public class PGMutagen
                         bufAltTex.Slots.Value.Textures(5) ?? string.Empty,
                         bufAltTex.Slots.Value.Textures(6) ?? string.Empty,
                         bufAltTex.Slots.Value.Textures(7) ?? string.Empty
-                    ];
+                        ];
 
-                    string[] existingTextures;
-                    // find existing texture set record
-                    if (Env.LinkCache.TryResolve<ITextureSetGetter>(curAltTex.NewTexture.FormKey, out var existingTXSTRec))
-                    {
-                        existingTextures = GetTextureSet(existingTXSTRec);
-                    }
-                    else
-                    {
-                        existingTextures = [.. Enumerable.Repeat(string.Empty, 8)];
-                    }
-
-                    // check if textures are different
-                    if (existingTextures.SequenceEqual(bufTextures, StringComparer.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    // Textures are different, we need to find or create a new texture set record
-                    changed = true;
-                    if (NewTextureSets.TryGetValue(bufTextures, out Tuple<ITextureSet, bool>? existingTXSTTuple))
-                    {
-                        // already exists, just use that
-                        matchModElem.AlternateTextures[j].NewTexture.FormKey = existingTXSTTuple.Item1.FormKey;
-
-                        // Update usage flag
-                        if (!existingTXSTTuple.Item2)
+                        string[] existingTextures;
+                        // find existing texture set record
+                        if (Env.LinkCache.TryResolve<ITextureSetGetter>(curAltTex.NewTexture.FormKey, out var existingTXSTRec))
                         {
-                            NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(existingTXSTTuple.Item1, true);
-                        }
-                    }
-                    else
-                    {
-                        // Create a new texture set record
-                        var newFormKey = new FormKey(OutMod.ModKey, GetLowestAvailableFormID());
-                        // find filename of diffuse texture (just .dds file no path), also remove extension
-                        var diffuseTex = bufTextures[0].IsNullOrEmpty() ? "" : Path.GetFileNameWithoutExtension(bufTextures[0]);
-                        var formIDHex = newFormKey.ID.ToString("X6");
-                        var newEDID = "PG_";
-                        if (!diffuseTex.IsNullOrEmpty())
-                        {
-                            newEDID += diffuseTex + "_" + formIDHex;
+                            existingTextures = GetTextureSet(existingTXSTRec);
                         }
                         else
                         {
-                            newEDID += formIDHex;
+                            existingTextures = [.. Enumerable.Repeat(string.Empty, 8)];
                         }
 
-                        var newTXSTObj = new TextureSet(newFormKey, Env.GameRelease.ToSkyrimRelease())
+                        // check if textures are different
+                        if (existingTextures.SequenceEqual(bufTextures, StringComparer.OrdinalIgnoreCase))
                         {
-                            Diffuse = bufTextures[0].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[0]),
-                            NormalOrGloss = bufTextures[1].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[1]),
-                            GlowOrDetailMap = bufTextures[2].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[2]),
-                            Height = bufTextures[3].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[3]),
-                            Environment = bufTextures[4].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[4]),
-                            EnvironmentMaskOrSubsurfaceTint = bufTextures[5].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[5]),
-                            Multilayer = bufTextures[6].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[6]),
-                            BacklightMaskOrSpecular = bufTextures[7].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[7]),
-                            EditorID = newEDID
-                        };
+                            continue;
+                        }
 
-                        // Add to output mod
-                        OutMod.TextureSets.Add(newTXSTObj);
-                        allocatedFormIDs.Add(newFormKey.ID);
-                        lastUsedFormID = newFormKey.ID;
+                        // Textures are different, we need to find or create a new texture set record
+                        changed = true;
+                        if (NewTextureSets.TryGetValue(bufTextures, out Tuple<ITextureSet, bool>? existingTXSTTuple))
+                        {
+                            // already exists, just use that
+                            matchModElem.AlternateTextures[j].NewTexture.FormKey = existingTXSTTuple.Item1.FormKey;
 
-                        // Add to dictionary
-                        NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(newTXSTObj, true);
+                            // Update usage flag
+                            if (!existingTXSTTuple.Item2)
+                            {
+                                NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(existingTXSTTuple.Item1, true);
+                            }
+                        }
+                        else
+                        {
+                            // Create a new texture set record
+                            var newFormKey = new FormKey(OutMod.ModKey, GetLowestAvailableFormID());
+                            // find filename of diffuse texture (just .dds file no path), also remove extension
+                            var diffuseTex = bufTextures[0].IsNullOrEmpty() ? "" : Path.GetFileNameWithoutExtension(bufTextures[0]);
+                            var formIDHex = newFormKey.ID.ToString("X6");
+                            var newEDID = "PG_";
+                            if (!diffuseTex.IsNullOrEmpty())
+                            {
+                                newEDID += diffuseTex + "_" + formIDHex;
+                            }
+                            else
+                            {
+                                newEDID += formIDHex;
+                            }
 
-                        // Update formkey
-                        matchModElem.AlternateTextures[j].NewTexture.FormKey = newFormKey;
+                            var newTXSTObj = new TextureSet(newFormKey, Env.GameRelease.ToSkyrimRelease())
+                            {
+                                Diffuse = bufTextures[0].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[0]),
+                                NormalOrGloss = bufTextures[1].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[1]),
+                                GlowOrDetailMap = bufTextures[2].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[2]),
+                                Height = bufTextures[3].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[3]),
+                                Environment = bufTextures[4].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[4]),
+                                EnvironmentMaskOrSubsurfaceTint = bufTextures[5].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[5]),
+                                Multilayer = bufTextures[6].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[6]),
+                                BacklightMaskOrSpecular = bufTextures[7].IsNullOrEmpty() ? null : RemovePrefixIfExists("textures\\", bufTextures[7]),
+                                EditorID = newEDID
+                            };
+
+                            // Add to output mod
+                            OutMod.TextureSets.Add(newTXSTObj);
+                            allocatedFormIDs.Add(newFormKey.ID);
+                            lastUsedFormID = newFormKey.ID;
+
+                            // Add to dictionary
+                            NewTextureSets[bufTextures] = new Tuple<ITextureSet, bool>(newTXSTObj, true);
+
+                            // Update formkey
+                            matchModElem.AlternateTextures[j].NewTexture.FormKey = newFormKey;
+                        }
                     }
                 }
 
