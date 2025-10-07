@@ -77,10 +77,10 @@ void addFileToZip(mz_zip_archive& zip, const filesystem::path& filePath, const f
     vector<std::byte> buffer = ParallaxGenUtil::getFileBytes(filePath);
 
     const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
-    const string relativeFilePathAscii = ParallaxGenUtil::utf16toASCII(relativePath.wstring());
+    const string relativeFilePathUTF8 = ParallaxGenUtil::utf16toUTF8(relativePath.wstring());
 
     // add file to Zip
-    if (mz_zip_writer_add_mem(&zip, relativeFilePathAscii.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
+    if (mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
         == 0) {
         spdlog::error(L"Error adding file to zip: {}", filePath.wstring());
         exit(1);
