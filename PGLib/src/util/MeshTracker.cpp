@@ -275,9 +275,15 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
         // Check ifthis is a NiParticleSystem
         auto* const particleA = dynamic_cast<nifly::NiParticleSystem*>(blocksA.at(i));
         auto* const particleB = dynamic_cast<nifly::NiParticleSystem*>(blocksB.at(i));
+        if ((particleA == nullptr && particleB != nullptr) || (particleA != nullptr && particleB == nullptr)) {
+            return false;
+        }
 
         auto* const shapeA = dynamic_cast<NiShape*>(blocksA.at(i));
         auto* const shapeB = dynamic_cast<NiShape*>(blocksB.at(i));
+        if ((shapeA == nullptr && shapeB != nullptr) || (shapeA != nullptr && shapeB == nullptr)) {
+            return false;
+        }
 
         if (particleA != nullptr && particleB != nullptr) {
             if ((particleA->shaderPropertyRef.IsEmpty() && !particleB->shaderPropertyRef.IsEmpty())
@@ -335,12 +341,6 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
                 }
             }
         } else if (shapeA != nullptr && shapeB != nullptr) {
-            // Both are shapes, continue to shape comparison below
-            if ((shapeA == nullptr && shapeB != nullptr) || (shapeA != nullptr && shapeB == nullptr)) {
-                // One is a shape, the other is not (block mismatch)
-                return false;
-            }
-
             // BSTriShape
             auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(shapeA);
             auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(shapeB);
@@ -357,11 +357,9 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
             }
 
             // NiShape
-            if (shapeA != nullptr && shapeB != nullptr) {
-                // compare nishape helper
-                if (!compareNiShape(*shapeA, *shapeB)) {
-                    return false;
-                }
+            // compare nishape helper
+            if (!compareNiShape(*shapeA, *shapeB)) {
+                return false;
             }
 
             // Get shader properties
@@ -599,23 +597,25 @@ auto MeshTracker::getComparableBlocks(const nifly::NifFile* nif) -> vector<nifly
         throw runtime_error("NIF is null");
     }
 
-    vector<NiObject*> tree;
-    nif->GetTree(tree);
-    vector<NiObject*> blocks;
-    for (auto& obj : tree) {
-        auto* const curShape = dynamic_cast<NiShape*>(obj);
-        if (curShape != nullptr) {
-            blocks.push_back(curShape);
-            continue;
-        }
-
-        auto* const particleSystem = dynamic_cast<NiParticleSystem*>(obj);
-        if (particleSystem != nullptr) {
-            blocks.push_back(particleSystem);
-        }
+    // get 3d indices
+    const auto blocks = get3dIndices(nif);
+    vector<pair<NiObject*, int>> out;
+    out.reserve(blocks.size());
+    for (const auto& [nifObject, idx] : blocks) {
+        out.emplace_back(nifObject, idx);
     }
 
-    return blocks;
+    // sort by index3d
+    std::ranges::sort(out, [](const auto& a, const auto& b) -> auto { return a.second < b.second; });
+
+    // drop index3d
+    vector<NiObject*> outBlocks;
+    outBlocks.reserve(out.size());
+    for (const auto& [nifObject, idx] : out) {
+        outBlocks.push_back(nifObject);
+    }
+
+    return outBlocks;
 }
 
 auto MeshTracker::get3dIndices(const nifly::NifFile* nif) -> unordered_map<nifly::NiObject*, int>
