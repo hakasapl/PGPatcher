@@ -12,7 +12,7 @@ public:
     static auto getFactory() -> PatcherMeshPre::PatcherMeshPreFactory;
 
     /**
-     * @brief Construct a new PrePatcher Particle Lights To LP patcher
+     * @brief Construct a new PrePatcher DisableMLP patcher
      *
      * @param nifPath NIF path to be patched
      * @param nif NIF object to be patched
