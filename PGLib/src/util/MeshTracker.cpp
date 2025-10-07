@@ -1,5 +1,6 @@
 #include "util/MeshTracker.hpp"
 #include "NifFile.hpp"
+#include "Particles.hpp"
 #include "Shaders.hpp"
 #include <algorithm>
 #include <boost/crc.hpp>
@@ -186,16 +187,16 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         auto& mesh = m_outputMeshes.at(i).second;
 
         // Find new shape indices
-        const auto shapes = NIFUtil::getShapesWithBlockIDs(&mesh);
+        const auto blocks = get3dIndices(&mesh);
         mesh.PrettySortBlocks();
-        const auto newShapes = NIFUtil::getShapesWithBlockIDs(&mesh);
+        const auto newBlocks = get3dIndices(&mesh);
 
-        for (const auto& [nifShape, oldIndex3D] : shapes) {
-            if (!newShapes.contains(nifShape)) {
+        for (const auto& [nifObject, oldIndex3D] : blocks) {
+            if (!newBlocks.contains(nifObject)) {
                 throw runtime_error("Shape not found in new NIF after patching");
             }
 
-            const auto newIndex3D = newShapes.at(nifShape);
+            const auto newIndex3D = newBlocks.at(nifObject);
             meshResult.idxCorrections[oldIndex3D] = newIndex3D;
         }
 
@@ -261,116 +262,172 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB, bool compareTXST) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
-    // TODO this currently only processes blocks attached to shapes, which isn't always the case, but should be fine for
-    // now
+    const auto blocksA = NIFUtil::getComparableObjects(&meshA);
+    const auto blocksB = NIFUtil::getComparableObjects(&meshB);
 
-    vector<NiShape*> shapesA = NIFUtil::getShapes(&meshA);
-    vector<NiShape*> shapesB = NIFUtil::getShapes(&meshB);
-
-    if (shapesA.size() != shapesB.size()) {
+    if (blocksA.size() != blocksB.size()) {
         // Different number of shapes
         return false;
     }
 
-    const size_t numBlocks = shapesA.size();
+    const size_t numBlocks = blocksA.size();
     for (size_t i = 0; i < numBlocks; i++) {
-        auto* const shapeA = shapesA.at(i);
-        auto* const shapeB = shapesB.at(i);
-
-        // We only check certain blocks that PG will actually modify
-
-        // BSTriShape
-        auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(shapeA);
-        auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(shapeB);
-        if ((bstrishapeA == nullptr && bstrishapeB != nullptr) || (bstrishapeA != nullptr && bstrishapeB == nullptr)) {
-            // One is a trishape, the other is not (block mismatch)
+        // Check ifthis is a NiParticleSystem
+        auto* const particleA = dynamic_cast<nifly::NiParticleSystem*>(blocksA.at(i));
+        auto* const particleB = dynamic_cast<nifly::NiParticleSystem*>(blocksB.at(i));
+        if ((particleA == nullptr && particleB != nullptr) || (particleA != nullptr && particleB == nullptr)) {
             return false;
         }
-        if (bstrishapeA != nullptr && bstrishapeB != nullptr) {
-            // compare trishape helper
-            if (!compareBSTriShape(*bstrishapeA, *bstrishapeB)) {
+
+        auto* const shapeA = dynamic_cast<NiShape*>(blocksA.at(i));
+        auto* const shapeB = dynamic_cast<NiShape*>(blocksB.at(i));
+        if ((shapeA == nullptr && shapeB != nullptr) || (shapeA != nullptr && shapeB == nullptr)) {
+            return false;
+        }
+
+        if (particleA != nullptr && particleB != nullptr) {
+            if ((particleA->shaderPropertyRef.IsEmpty() && !particleB->shaderPropertyRef.IsEmpty())
+                || (!particleA->shaderPropertyRef.IsEmpty() && particleB->shaderPropertyRef.IsEmpty())) {
+                // One has a shader property, the other doesn't
                 return false;
             }
-        }
+            if (particleA->shaderPropertyRef.IsEmpty() && particleB->shaderPropertyRef.IsEmpty()) {
+                // Both don't have a shader property, continue
+                continue;
+            }
 
-        // NiShape
-        auto* const nishapeA = dynamic_cast<nifly::NiShape*>(shapeA);
-        auto* const nishapeB = dynamic_cast<nifly::NiShape*>(shapeB);
-        if ((nishapeA == nullptr && nishapeB != nullptr) || (nishapeA != nullptr && nishapeB == nullptr)) {
-            // One is a shape, the other is not (block mismatch)
-            return false;
-        }
-        if (nishapeA != nullptr && nishapeB != nullptr) {
+            // Both are particle systems, get effect shader property if it exists
+            auto* const shaderPropA = meshA.GetHeader().GetBlock(particleA->shaderPropertyRef);
+            auto* const shaderPropB = meshB.GetHeader().GetBlock(particleB->shaderPropertyRef);
+
+            auto* const lightingShaderA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropA);
+            auto* const lightingShaderB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropB);
+            if ((lightingShaderA == nullptr && lightingShaderB != nullptr)
+                || (lightingShaderA != nullptr && lightingShaderB == nullptr)) {
+                // One is an effect shader, the other is not (block mismatch)
+                return false;
+            }
+            if (lightingShaderA != nullptr && lightingShaderB != nullptr) {
+                // compare bslightingshader helper
+                if (!compareBSLightingShaderProperty(*lightingShaderA, *lightingShaderB)) {
+                    return false;
+                }
+            }
+
+            auto* const effectShaderA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropA);
+            auto* const effectShaderB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropB);
+            if ((effectShaderA == nullptr && effectShaderB != nullptr)
+                || (effectShaderA != nullptr && effectShaderB == nullptr)) {
+                // One is an effect shader, the other is not (block mismatch)
+                return false;
+            }
+            if (effectShaderA != nullptr && effectShaderB != nullptr) {
+                // compare bseffectshader helper
+                if (!compareBSEffectShaderProperty(*effectShaderA, *effectShaderB)) {
+                    return false;
+                }
+            }
+
+            auto* const shaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderPropA);
+            auto* const shaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderPropB);
+            if ((shaderA == nullptr && shaderB != nullptr) || (shaderA != nullptr && shaderB == nullptr)) {
+                // One is a shader, the other is not (block mismatch)
+                return false;
+            }
+            if (shaderA != nullptr && shaderB != nullptr) {
+                // compare nishader helper
+                if (!compareBSShaderProperty(*shaderA, *shaderB)) {
+                    return false;
+                }
+            }
+        } else if (shapeA != nullptr && shapeB != nullptr) {
+            // BSTriShape
+            auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(shapeA);
+            auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(shapeB);
+            if ((bstrishapeA == nullptr && bstrishapeB != nullptr)
+                || (bstrishapeA != nullptr && bstrishapeB == nullptr)) {
+                // One is a trishape, the other is not (block mismatch)
+                return false;
+            }
+            if (bstrishapeA != nullptr && bstrishapeB != nullptr) {
+                // compare trishape helper
+                if (!compareBSTriShape(*bstrishapeA, *bstrishapeB)) {
+                    return false;
+                }
+            }
+
+            // NiShape
             // compare nishape helper
-            if (!compareNiShape(*nishapeA, *nishapeB)) {
+            if (!compareNiShape(*shapeA, *shapeB)) {
                 return false;
             }
-        }
 
-        // Get shader properties
-        auto* const shaderA = meshA.GetShader(shapeA);
-        auto* const shaderB = meshB.GetShader(shapeB);
+            // Get shader properties
+            auto* const shaderA = meshA.GetShader(shapeA);
+            auto* const shaderB = meshB.GetShader(shapeB);
 
-        // BSLightingShaderProperty
-        auto* const bslightingA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderA);
-        auto* const bslightingB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderB);
-        if ((bslightingA == nullptr && bslightingB != nullptr) || (bslightingA != nullptr && bslightingB == nullptr)) {
-            // One is a lighting shader, the other is not (block mismatch)
-            return false;
-        }
-        if (bslightingA != nullptr && bslightingB != nullptr) {
-            // compare bslightingshader helper
-            if (!compareBSLightingShaderProperty(*bslightingA, *bslightingB)) {
+            // BSLightingShaderProperty
+            auto* const bslightingA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderA);
+            auto* const bslightingB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderB);
+            if ((bslightingA == nullptr && bslightingB != nullptr)
+                || (bslightingA != nullptr && bslightingB == nullptr)) {
+                // One is a lighting shader, the other is not (block mismatch)
                 return false;
             }
-        }
+            if (bslightingA != nullptr && bslightingB != nullptr) {
+                // compare bslightingshader helper
+                if (!compareBSLightingShaderProperty(*bslightingA, *bslightingB)) {
+                    return false;
+                }
+            }
 
-        // BSEffectShaderProperty
-        auto* const bseffectA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderA);
-        auto* const bseffectB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderB);
-        if ((bseffectA == nullptr && bseffectB != nullptr) || (bseffectA != nullptr && bseffectB == nullptr)) {
-            // One is an effect shader, the other is not (block mismatch)
-            return false;
-        }
-        if (bseffectA != nullptr && bseffectB != nullptr) {
-            // compare bseffectshader helper
-            if (!compareBSEffectShaderProperty(*bseffectA, *bseffectB)) {
+            // BSEffectShaderProperty
+            auto* const bseffectA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderA);
+            auto* const bseffectB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderB);
+            if ((bseffectA == nullptr && bseffectB != nullptr) || (bseffectA != nullptr && bseffectB == nullptr)) {
+                // One is an effect shader, the other is not (block mismatch)
                 return false;
             }
-        }
+            if (bseffectA != nullptr && bseffectB != nullptr) {
+                // compare bseffectshader helper
+                if (!compareBSEffectShaderProperty(*bseffectA, *bseffectB)) {
+                    return false;
+                }
+            }
 
-        // NiShader
-        auto* const nishaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderA);
-        auto* const nishaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderB);
-        if ((nishaderA == nullptr && nishaderB != nullptr) || (nishaderA != nullptr && nishaderB == nullptr)) {
-            // One is a shader, the other is not (block mismatch)
-            return false;
-        }
-        if (nishaderA != nullptr && nishaderB != nullptr) {
-            // compare nishader helper
-            if (!compareBSShaderProperty(*nishaderA, *nishaderB)) {
+            // NiShader
+            auto* const nishaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderA);
+            auto* const nishaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderB);
+            if ((nishaderA == nullptr && nishaderB != nullptr) || (nishaderA != nullptr && nishaderB == nullptr)) {
+                // One is a shader, the other is not (block mismatch)
                 return false;
             }
-        }
+            if (nishaderA != nullptr && nishaderB != nullptr) {
+                // compare nishader helper
+                if (!compareBSShaderProperty(*nishaderA, *nishaderB)) {
+                    return false;
+                }
+            }
 
-        if (!compareTXST || nishaderA == nullptr || nishaderB == nullptr) {
-            continue;
-        }
+            if (!compareTXST || nishaderA == nullptr || nishaderB == nullptr) {
+                continue;
+            }
 
-        // BSShaderTextureSet
-        auto* const texSetA = meshA.GetHeader().GetBlock(nishaderA->TextureSetRef());
-        auto* const texSetB = meshB.GetHeader().GetBlock(nishaderB->TextureSetRef());
-        auto* const bsshsTexSetA = dynamic_cast<nifly::BSShaderTextureSet*>(texSetA);
-        auto* const bsshsTexSetB = dynamic_cast<nifly::BSShaderTextureSet*>(texSetB);
-        if ((bsshsTexSetA == nullptr && bsshsTexSetB != nullptr)
-            || (bsshsTexSetA != nullptr && bsshsTexSetB == nullptr)) {
-            // One is a texture set, the other is not (block mismatch)
-            return false;
-        }
-        if (bsshsTexSetA != nullptr && bsshsTexSetB != nullptr) {
-            // compare bsshadertextureset helper
-            if (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB)) {
+            // BSShaderTextureSet
+            auto* const texSetA = meshA.GetHeader().GetBlock(nishaderA->TextureSetRef());
+            auto* const texSetB = meshB.GetHeader().GetBlock(nishaderB->TextureSetRef());
+            auto* const bsshsTexSetA = dynamic_cast<nifly::BSShaderTextureSet*>(texSetA);
+            auto* const bsshsTexSetB = dynamic_cast<nifly::BSShaderTextureSet*>(texSetB);
+            if ((bsshsTexSetA == nullptr && bsshsTexSetB != nullptr)
+                || (bsshsTexSetA != nullptr && bsshsTexSetB == nullptr)) {
+                // One is a texture set, the other is not (block mismatch)
                 return false;
+            }
+            if (bsshsTexSetA != nullptr && bsshsTexSetB != nullptr) {
+                // compare bsshadertextureset helper
+                if (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB)) {
+                    return false;
+                }
             }
         }
     }
@@ -532,4 +589,58 @@ auto MeshTracker::getMeshPath(const std::filesystem::path& nifPath, const size_t
     }
 
     return newNIFPath;
+}
+
+auto MeshTracker::getComparableBlocks(const nifly::NifFile* nif) -> vector<nifly::NiObject*>
+{
+    if (nif == nullptr) {
+        throw runtime_error("NIF is null");
+    }
+
+    // get 3d indices
+    const auto blocks = get3dIndices(nif);
+    vector<pair<NiObject*, int>> out;
+    out.reserve(blocks.size());
+    for (const auto& [nifObject, idx] : blocks) {
+        out.emplace_back(nifObject, idx);
+    }
+
+    // sort by index3d
+    std::ranges::sort(out, [](const auto& a, const auto& b) -> auto { return a.second < b.second; });
+
+    // drop index3d
+    vector<NiObject*> outBlocks;
+    outBlocks.reserve(out.size());
+    for (const auto& [nifObject, idx] : out) {
+        outBlocks.push_back(nifObject);
+    }
+
+    return outBlocks;
+}
+
+auto MeshTracker::get3dIndices(const nifly::NifFile* nif) -> unordered_map<nifly::NiObject*, int>
+{
+    if (nif == nullptr) {
+        throw runtime_error("NIF is null");
+    }
+
+    vector<NiObject*> tree;
+    nif->GetTree(tree);
+    unordered_map<NiObject*, int> blocks;
+    int oldIndex3D = 0;
+    for (auto& obj : tree) {
+        if (dynamic_cast<NiShape*>(obj) != nullptr) {
+            blocks[obj] = oldIndex3D++;
+            continue;
+        }
+
+        // other stuff that should increment oldIndex3D
+        if (dynamic_cast<NiParticleSystem*>(obj) != nullptr) {
+            // Particle system, increment index3d
+            blocks[obj] = oldIndex3D;
+            oldIndex3D++;
+        }
+    }
+
+    return blocks;
 }

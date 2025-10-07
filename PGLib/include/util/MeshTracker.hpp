@@ -91,4 +91,8 @@ private:
         -> bool;
 
     static auto getMeshPath(const std::filesystem::path& nifPath, const size_t& index) -> std::filesystem::path;
+
+    static auto getComparableBlocks(const nifly::NifFile* nif) -> std::vector<nifly::NiObject*>;
+
+    static auto get3dIndices(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiObject*, int>;
 };
