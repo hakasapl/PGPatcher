@@ -2,7 +2,6 @@
 
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
-#include "PGDiag.hpp"
 #include "PGGlobals.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
@@ -114,8 +113,6 @@ auto BethesdaDirectory::checkGlob(const wstring& str, const vector<wstring>& glo
 
 void BethesdaDirectory::populateFileMap(bool includeBSAs)
 {
-    const PGDiag::Prefix fileMapPrefix("fileMap", nlohmann::json::value_t::object);
-
     // clear map before populating
     {
         const unique_lock lock(m_fileMapMutex);
@@ -669,8 +666,6 @@ void BethesdaDirectory::updateFileMap(const filesystem::path& filePath, shared_p
         = { .path = filePath, .bsaFile = std::move(bsaFile), .mod = std::move(mod), .generated = generated };
 
     m_fileMap[filePath] = newBFile;
-
-    PGDiag::insert(filePath.wstring(), newBFile.getDiagJSON());
 }
 
 auto BethesdaDirectory::isFileInBSA(const filesystem::path& file, const std::vector<std::wstring>& bsaFiles) -> bool

@@ -15,6 +15,7 @@
 - Improved TXST formid cache
 - Plugins with missing masters will no longer be loaded
 - Removed optimize meshes post-patcher
+- Removed diagnostics advanced option
 - Messageboxes will now be shown for critical messages or when generation is complete
 - Fix Vanilla SSS patcher will now downscale textures by half and save BC1 subsurface maps
 - Vanilla SSS patcher is no longer experimental

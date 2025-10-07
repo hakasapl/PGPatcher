@@ -27,7 +27,6 @@
 
 #include <d3d11.h>
 
-#include "PGDiag.hpp"
 #include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
@@ -154,8 +153,7 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput)
 {
     static const unordered_set<filesystem::path> foldersToDelete
         = { "meshes", "textures", "pbrnifpatcher", "lightplacer", "pbrtexturesets" };
-    static const unordered_set<filesystem::path> filesToDelete
-        = { "pgpatcher.esp", "parallaxgen_diff.json", "parallaxgen_diag.json" };
+    static const unordered_set<filesystem::path> filesToDelete = { "pgpatcher.esp", "parallaxgen_diff.json" };
     static const vector<pair<wstring, wstring>> filesToDeleteParseRules = { { L"pg_", L".esp" } };
     static const unordered_set<filesystem::path> filesToIgnore = { "meta.ini" };
     static const unordered_set<filesystem::path> filesToDeletePreOutput = { "pgpatcher_output.zip" };
@@ -580,14 +578,6 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
             return matches;
         }
-
-        // Populate diag JSON if set with each match
-        {
-            const PGDiag::Prefix diagShaderPatcherPrefix("shaderPatcherMatches", nlohmann::json::value_t::array);
-            for (const auto& match : matches) {
-                PGDiag::pushBack(match.getJSON());
-            }
-        }
     }
 
     // Cache matches
@@ -743,8 +733,6 @@ auto ParallaxGen::patchDDS(const filesystem::path& ddsPath) -> ParallaxGenTask::
     }
 
     Logger::debug(L"Cache for DDS {} is invalidated or nonexistent", ddsPath.wstring());
-
-    const PGDiag::Prefix nifPrefix("textures", nlohmann::json::value_t::object);
 
     // Prep
     Logger::trace(L"Starting Processing");

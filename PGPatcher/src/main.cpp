@@ -2,7 +2,6 @@
 #include "GUI/CompletionDialog.hpp"
 #include "GUI/WXLoggerSink.hpp"
 #include "ModManagerDirectory.hpp"
-#include "PGDiag.hpp"
 #include "PGGlobals.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "ParallaxGen.hpp"
@@ -196,18 +195,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         Logger::critical("Validation errors were found. Exiting.");
     }
 
-    // Initialize PGDiag
-    if (params.Processing.diagnostics) {
-        // This enables PGDiag so other functions will start using it
-        PGDiag::init();
-    }
-
-    PGDiag::insert("Version", PG_VERSION);
-    PGDiag::insert("UserConfig", pgc.getUserConfigJSON());
-
     // print output location
     Logger::info(L"ParallaxGen output directory: {}", params.Output.dir.wstring());
-    PGDiag::insert("OutputDir", params.Output.dir.wstring());
 
     // Create relevant objects
     // TODO control the lifetime of these in PGLib
@@ -268,8 +257,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
             "generate LODs after running PGPatcher with the PGPatcher output enabled.");
     }
-
-    PGDiag::insert("ActivePlugins", ParallaxGenUtil::utf16VectorToUTF8(activePlugins));
 
     // Init PGP library
     if (params.Processing.pluginPatching) {
@@ -439,15 +426,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     if (!outputEmpty) {
         // Deploy Assets
         deployAssets(params.Output.dir, exePath);
-
-        // Save diag JSON
-        if (params.Processing.diagnostics) {
-            spdlog::info("Saving diag JSON file...");
-            const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_DIAG.json";
-            ParallaxGenUtil::saveJSON(diffJSONPath, PGDiag::getJSON(), true);
-
-            pgd.addGeneratedFile("ParallaxGen_DIAG.json", nullptr);
-        }
 
         // Save diff json
         const auto diffJSON = ParallaxGen::getDiffJSON();

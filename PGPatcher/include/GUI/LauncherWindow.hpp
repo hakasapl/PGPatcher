@@ -100,9 +100,6 @@ private:
     wxCheckBox* m_processingBSACheckbox;
     void onProcessingBSAChange(wxCommandEvent& event);
 
-    wxCheckBox* m_enableDiagnosticsCheckbox;
-    void onEnableDiagnosticsChange(wxCommandEvent& event);
-
     // Pre-Patchers
     wxCheckBox* m_prePatcherDisableMLPCheckbox;
     void onPrePatcherDisableMLPChange(wxCommandEvent& event);
