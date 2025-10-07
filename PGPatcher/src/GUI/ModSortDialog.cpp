@@ -434,7 +434,7 @@ void ModSortDialog::updateMods()
 
     if (!ParallaxGenConfig::saveModConfig()) {
         // critical dialog
-        wxMessageBox("Failed to save mod configuration to mods.json", "Error", wxOK | wxICON_ERROR, this);
+        wxMessageBox("Failed to save mod configuration to modrules.json", "Error", wxOK | wxICON_ERROR, this);
     }
 
     auto currentParams = pgc->getParams();

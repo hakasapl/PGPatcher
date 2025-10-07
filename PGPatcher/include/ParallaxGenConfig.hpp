@@ -269,7 +269,7 @@ public:
     auto saveUserConfig() -> bool;
 
     /**
-     * @brief Saves the current mod configuration to mods.json
+     * @brief Saves the current mod configuration to modrules.json
      *
      * @return true if save was successful
      */

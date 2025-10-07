@@ -49,7 +49,7 @@ auto ParallaxGenConfig::getModConfigFile() -> filesystem::path
     }
 
     // Get mod config file
-    static const filesystem::path modConfigFile = s_exePath / "cfg" / "mods.json";
+    static const filesystem::path modConfigFile = s_exePath / "cfg" / "modrules.json";
     return modConfigFile;
 }
 
