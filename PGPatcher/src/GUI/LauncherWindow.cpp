@@ -403,12 +403,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_processingBSACheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingBSAChange, this);
     m_processingOptionsSizer->Add(m_processingBSACheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_enableDiagnosticsCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Diagnostics");
-    m_enableDiagnosticsCheckbox->SetToolTip(
-        "Generates ParallaxGen_DIAG.json. Usually only on request from the developer");
-    m_enableDiagnosticsCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onEnableDiagnosticsChange, this);
-    m_processingOptionsSizer->Add(m_enableDiagnosticsCheckbox, 0, wxALL, BORDER_SIZE);
-
     leftSizer->Add(m_processingOptionsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
@@ -564,7 +558,6 @@ void LauncherWindow::loadConfig()
         ParallaxGenPlugin::getStringFromPluginLang(initParams.Processing.pluginLang));
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
     m_processingBSACheckbox->SetValue(initParams.Processing.bsa);
-    m_enableDiagnosticsCheckbox->SetValue(initParams.Processing.diagnostics);
 
     // Pre-Patchers
     m_prePatcherDisableMLPCheckbox->SetValue(initParams.PrePatcher.disableMLP);
@@ -740,8 +733,6 @@ void LauncherWindow::onProcessingMultithreadingChange([[maybe_unused]] wxCommand
 {
     updateDisabledElements();
 }
-
-void LauncherWindow::onEnableDiagnosticsChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onProcessingBSAChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
@@ -930,7 +921,6 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
         m_processingPluginPatchingOptionsLangCombo->GetStringSelection().ToStdString());
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
     params.Processing.bsa = m_processingBSACheckbox->GetValue();
-    params.Processing.diagnostics = m_enableDiagnosticsCheckbox->GetValue();
 
     // Pre-Patchers
     params.PrePatcher.disableMLP = m_prePatcherDisableMLPCheckbox->GetValue();
