@@ -262,8 +262,8 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB, bool compareTXST) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
-    const auto blocksA = NIFUtil::getComparableObjects(&meshA);
-    const auto blocksB = NIFUtil::getComparableObjects(&meshB);
+    const auto blocksA = getComparableBlocks(&meshA);
+    const auto blocksB = getComparableBlocks(&meshB);
 
     if (blocksA.size() != blocksB.size()) {
         // Different number of shapes
