@@ -1,9 +1,13 @@
 #pragma once
 
-#include <Geometry.hpp>
-#include <NifFile.hpp>
-
 #include "patchers/base/PatcherMesh.hpp"
+
+#include "NifFile.hpp"
+
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <string>
 
 /**
  * @class PrePatcher

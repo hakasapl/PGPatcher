@@ -1,4 +1,6 @@
 Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
   Suppress:
     - invalid_consteval_call
   ClangTidy:

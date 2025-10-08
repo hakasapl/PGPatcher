@@ -1,24 +1,39 @@
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 
-#include <Geometry.hpp>
-#include <Shaders.hpp>
-#include <VertexData.hpp>
-#include <algorithm>
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <cstddef>
-#include <fstream>
-#include <memory>
-#include <nlohmann/json_fwd.hpp>
-#include <string>
-
-#include <boost/gil.hpp>
-#include <boost/gil/extension/toolbox/color_converters.hpp>
-#include <boost/gil/extension/toolbox/color_spaces/hsl.hpp>
-
+#include "patchers/base/PatcherMeshShader.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Object3d.hpp"
+#include "Shaders.hpp"
+#include "VertexData.hpp"
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/gil.hpp>
+#include <boost/gil/color_convert.hpp>
+#include <boost/gil/extension/toolbox/color_converters.hpp>
+#include <boost/gil/extension/toolbox/color_spaces/hsl.hpp>
+#include <boost/gil/typedefs.hpp>
+#include <nlohmann/json_fwd.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdlib>
+#include <filesystem>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

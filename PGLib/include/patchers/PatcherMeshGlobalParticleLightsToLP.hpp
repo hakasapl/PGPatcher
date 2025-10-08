@@ -1,13 +1,17 @@
 #pragma once
 
-#include <Animation.hpp>
-#include <BasicTypes.hpp>
-#include <Geometry.hpp>
-#include <Nodes.hpp>
-#include <mutex>
-
 #include "patchers/base/PatcherMeshGlobal.hpp"
-#include <Shaders.hpp>
+
+#include "Animation.hpp"
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Nodes.hpp"
+#include "Shaders.hpp"
+#include <nlohmann/json_fwd.hpp>
+
+#include <filesystem>
+#include <mutex>
+#include <string>
 
 /**
  * @class PrePatcherMeshGlobalParticleLightsToLP

@@ -1,9 +1,14 @@
 #pragma once
 
-#include <filesystem>
-#include <mutex>
-
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 class HandlerLightPlacerTracker {
 private:

@@ -1,15 +1,29 @@
 #include "util/MeshTracker.hpp"
-#include "NifFile.hpp"
-#include "Particles.hpp"
-#include "Shaders.hpp"
-#include <algorithm>
-#include <boost/crc.hpp>
-#include <fstream>
-#include <sstream>
 
 #include "PGGlobals.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
+
+#include "BasicTypes.hpp"
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Particles.hpp"
+#include "Shaders.hpp"
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/crc.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

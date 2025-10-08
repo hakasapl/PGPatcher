@@ -3,11 +3,10 @@
 #include "ModManagerDirectory.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
-#include <nlohmann/json.hpp>
-
-#include <bsa/tes4.hpp>
-
 #include <boost/algorithm/string.hpp>
+#include <bsa/tes4.hpp>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 
 #include <cstddef>
 #include <cstdint>

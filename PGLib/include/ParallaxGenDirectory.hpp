@@ -1,23 +1,26 @@
 #pragma once
 
+#include "BethesdaDirectory.hpp"
+#include "BethesdaGame.hpp"
+#include "ModManagerDirectory.hpp"
+#include "ParallaxGenTask.hpp"
+#include "util/NIFUtil.hpp"
+
 #include <DirectXTex.h>
-#include <NifFile.hpp>
+#include <nlohmann/json.hpp>
+
 #include <array>
+#include <cstddef>
 #include <filesystem>
 #include <map>
 #include <mutex>
-#include <nlohmann/json.hpp>
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 #include <winnt.h>
-
-#include "BethesdaDirectory.hpp"
-#include "ModManagerDirectory.hpp"
-#include "ParallaxGenTask.hpp"
-#include "util/NIFUtil.hpp"
 
 class ModManagerDirectory;
 

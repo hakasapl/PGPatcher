@@ -1,8 +1,10 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 
+#include "patchers/base/PatcherMesh.hpp"
+
 #include "NifFile.hpp"
-#include <BasicTypes.hpp>
-#include <Shaders.hpp>
+
+#include <filesystem>
 #include <string>
 #include <utility>
 

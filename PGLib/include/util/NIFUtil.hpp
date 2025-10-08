@@ -1,10 +1,21 @@
 #pragma once
 
-#include <Geometry.hpp>
-#include <NifFile.hpp>
-#include <Shaders.hpp>
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Object3d.hpp"
+#include "Shaders.hpp"
+
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <functional>
+#include <map>
+#include <string>
 #include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 constexpr unsigned NUM_TEXTURE_SLOTS = 9;
 

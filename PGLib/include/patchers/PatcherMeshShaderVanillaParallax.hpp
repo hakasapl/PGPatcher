@@ -1,9 +1,13 @@
 #pragma once
 
-#include <NifFile.hpp>
-#include <filesystem>
-
 #include "patchers/base/PatcherMeshShader.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+
+#include <filesystem>
+#include <vector>
 
 /**
  * @class PatcherMeshShaderVanillaParallax

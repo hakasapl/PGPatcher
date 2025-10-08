@@ -1,6 +1,15 @@
 #include "patchers/PatcherMeshPreDisableMLP.hpp"
-#include "Shaders.hpp"
+
+#include "patchers/base/PatcherMeshPre.hpp"
 #include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+
+#include <filesystem>
+#include <memory>
+#include <utility>
 
 using namespace std;
 

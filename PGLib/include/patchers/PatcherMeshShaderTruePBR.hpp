@@ -1,15 +1,23 @@
 #pragma once
 
-#include <Geometry.hpp>
-#include <NifFile.hpp>
-#include <filesystem>
-#include <map>
+#include "patchers/base/PatcherMeshShader.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Object3d.hpp"
+#include "Shaders.hpp"
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+
+#include <cstddef>
+#include <filesystem>
+#include <functional>
+#include <map>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
-
-#include "patchers/base/PatcherMeshShader.hpp"
 
 constexpr unsigned TEXTURE_STR_LENGTH = 9;
 

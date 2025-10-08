@@ -1,9 +1,15 @@
 #pragma once
 
-#include <string>
-
 #include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "NifFile.hpp"
+
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <string>
 
 /**
  * @class PatcherMeshShaderTransform

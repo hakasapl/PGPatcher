@@ -1,13 +1,29 @@
 #include "util/ParallaxGenUtil.hpp"
 
 #include <DirectXTex.h>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/locale.hpp>
+#include <boost/locale/encoding.hpp>
+#include <nlohmann/detail/output/serializer.hpp>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/locale.hpp>
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <locale>
+#include <sstream>
+#include <string>
+#include <stringapiset.h>
+#include <thread>
+#include <vector>
 #include <wingdi.h>
+#include <winnls.h>
 #include <winnt.h>
 
 using namespace std;

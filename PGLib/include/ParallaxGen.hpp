@@ -1,19 +1,25 @@
 #pragma once
 
-#include <DirectXTex.h>
-#include <NifFile.hpp>
-#include <filesystem>
-#include <miniz.h>
-#include <nlohmann/json.hpp>
-#include <shared_mutex>
-#include <spdlog/spdlog.h>
-
-#include <boost/functional/hash.hpp>
-
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenTask.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include <DirectXTex.h>
+#include <boost/container_hash/hash.hpp>
+#include <boost/functional/hash.hpp>
+#include <miniz.h>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+#include <spdlog/spdlog.h>
+
+#include <cstddef>
+#include <filesystem>
+#include <shared_mutex>
+#include <unordered_map>
+#include <vector>
 
 class ParallaxGen {
 private:

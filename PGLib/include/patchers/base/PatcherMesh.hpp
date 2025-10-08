@@ -1,10 +1,16 @@
 #pragma once
 
-#include <filesystem>
+#include "Patcher.hpp"
+#include "util/NIFUtil.hpp"
 
+#include "Geometry.hpp"
 #include "NifFile.hpp"
 
-#include "Patcher.hpp"
+#include <cstdint>
+#include <filesystem>
+#include <shared_mutex>
+#include <string>
+#include <unordered_map>
 
 /**
  * @class Patcher

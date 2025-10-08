@@ -1,9 +1,12 @@
 #pragma once
 
-#include <shared_mutex>
 #include <spdlog/spdlog.h>
 
+#include <fmt/base.h>
 #include <fmt/format.h>
+#include <fmt/xchar.h>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <unordered_set>
 #include <vector>

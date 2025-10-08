@@ -1,8 +1,12 @@
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 class ParallaxGenWarnings {
 private:

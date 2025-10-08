@@ -1,8 +1,17 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
-#include "util/NIFUtil.hpp"
 
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+#include "patchers/base/PatcherMeshPost.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
 #include <boost/algorithm/string/predicate.hpp>
+
+#include <filesystem>
+#include <memory>
+#include <utility>
 
 using namespace std;
 

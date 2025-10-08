@@ -2,6 +2,10 @@
 
 #include "patchers/base/PatcherMeshGlobal.hpp"
 
+#include "NifFile.hpp"
+
+#include <filesystem>
+
 class PatcherMeshGlobalFixEffectLightingCS : public PatcherMeshGlobal {
 private:
     constexpr static float SOFTLIGHTING_MAX = 0.6F;

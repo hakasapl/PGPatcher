@@ -1,5 +1,17 @@
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
+
+#include "patchers/base/PatcherMeshGlobal.hpp"
 #include "util/NIFUtil.hpp"
+
+#include "BasicTypes.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

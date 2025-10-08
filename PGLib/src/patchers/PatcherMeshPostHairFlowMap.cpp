@@ -1,8 +1,16 @@
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
-#include "Shaders.hpp"
+
+#include "patchers/base/PatcherMeshPost.hpp"
 #include "util/NIFUtil.hpp"
 
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
 #include <spdlog/spdlog.h>
+
+#include <filesystem>
+#include <memory>
+#include <utility>
 
 using namespace std;
 

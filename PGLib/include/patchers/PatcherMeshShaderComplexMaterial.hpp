@@ -1,13 +1,19 @@
 #pragma once
 
-#include <NifFile.hpp>
+#include "patchers/base/PatcherMeshShader.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include <nlohmann/json_fwd.hpp>
+
 #include <filesystem>
+#include <shared_mutex>
 #include <shlwapi.h>
 #include <string>
+#include <unordered_map>
+#include <vector>
 #include <winnt.h>
-
-#include "patchers/base/PatcherMeshShader.hpp"
-
 /**
  * @class PatcherMeshShaderComplexMaterial
  * @brief Shader patcher for complex material

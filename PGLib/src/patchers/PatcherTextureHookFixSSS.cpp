@@ -1,6 +1,19 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+
+#include "patchers/base/PatcherTextureHook.hpp"
+#include "util/NIFUtil.hpp"
+
 #include <DirectXTex.h>
 #include <dxgiformat.h>
+
+#include <filesystem>
+#include <minwindef.h>
+#include <mutex>
+#include <shared_mutex>
+#include <stdexcept>
+#include <utility>
+#include <winerror.h>
+#include <winnt.h>
 
 using namespace std;
 using namespace Microsoft::WRL;

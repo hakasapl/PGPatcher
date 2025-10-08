@@ -1,8 +1,15 @@
 #pragma once
 
 #include "patchers/base/PatcherTextureGlobal.hpp"
+
 #include <DirectXTex.h>
+#include <d3d11.h>
 #include <dxgiformat.h>
+
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <wrl/client.h>
 
 /**
  * @class PrePatcherParticleLightsToLP

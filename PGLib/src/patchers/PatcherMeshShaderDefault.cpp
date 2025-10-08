@@ -1,9 +1,17 @@
 #include "patchers/PatcherMeshShaderDefault.hpp"
 
-#include <Geometry.hpp>
+#include "patchers/base/PatcherMeshShader.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
 #include <boost/algorithm/string.hpp>
 
-#include "util/NIFUtil.hpp"
+#include <cstddef>
+#include <filesystem>
+#include <memory>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

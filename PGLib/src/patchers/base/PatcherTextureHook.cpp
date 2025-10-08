@@ -2,6 +2,12 @@
 
 #include "patchers/base/PatcherTexture.hpp"
 
+#include <DirectXTex.h>
+
+#include <filesystem>
+#include <string>
+#include <utility>
+
 using namespace std;
 
 PatcherTextureHook::PatcherTextureHook(

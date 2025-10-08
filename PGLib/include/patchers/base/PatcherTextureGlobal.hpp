@@ -1,8 +1,13 @@
 #pragma once
 
+#include "patchers/base/PatcherTexture.hpp"
+
 #include <DirectXTex.h>
 
-#include "patchers/base/PatcherTexture.hpp"
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <string>
 
 /**
  * @class PrePatcher

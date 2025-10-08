@@ -1,33 +1,7 @@
 #include "ParallaxGen.hpp"
 
-#include <DirectXTex.h>
-#include <Geometry.hpp>
-#include <NifFile.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/asio.hpp>
-#include <boost/crc.hpp>
-#include <boost/iostreams/device/array.hpp>
-#include <boost/iostreams/stream.hpp>
-#include <boost/thread.hpp>
-#include <filesystem>
-#include <memory>
-#include <miniz.h>
-#include <mutex>
-#include <nlohmann/json_fwd.hpp>
-#include <ranges>
-#include <shared_mutex>
-#include <spdlog/spdlog.h>
-#include <stdexcept>
-#include <string>
-#include <unordered_set>
-#include <utility>
-#include <vector>
-
-#include <d3d11.h>
-
 #include "PGGlobals.hpp"
+#include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenRunner.hpp"
@@ -36,11 +10,43 @@
 #include "handlers/HandlerLightPlacerTracker.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+#include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/Logger.hpp"
+#include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include <DirectXTex.h>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/asio.hpp>
+#include <boost/crc.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <boost/thread.hpp>
+#include <nlohmann/json_fwd.hpp>
+#include <spdlog/spdlog.h>
+
+#include <d3d11.h>
+#include <exception>
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <ranges>
+#include <shared_mutex>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+#include <winerror.h>
+#include <winnt.h>
 
 using namespace std;
 using namespace ParallaxGenUtil;

@@ -1,25 +1,32 @@
 #include "BethesdaGame.hpp"
+
 #include "util/ParallaxGenUtil.hpp"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <spdlog/spdlog.h>
 
-#include <guiddef.h>
-#include <shlobj.h>
-
-#include <objbase.h>
-#include <windows.h>
-
 #include <algorithm>
+#include <combaseapi.h>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <guiddef.h>
+#include <knownfolders.h>
 #include <map>
+#include <minwindef.h>
+#include <objbase.h>
+#include <shlobj.h>
+#include <shlobj_core.h>
 #include <stdexcept>
 #include <string>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/join.hpp>
-
-#include <cstdlib>
+#include <unordered_map>
+#include <vector>
+#include <winerror.h>
+#include <winnt.h>
+#include <winreg.h>
 
 using namespace std;
 
