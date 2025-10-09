@@ -2,44 +2,42 @@
   "dependencies": [
     {
       "name": "boost-algorithm",
-      "version>=": "1.85.0#1"
+      "version>=": "1.86.0"
     },
     {
       "name": "boost-asio",
-      "version>=": "1.85.0#2"
+      "version>=": "1.86.0"
     },
     {
       "name": "boost-crc",
-      "version>=": "1.85.0#1"
+      "version>=": "1.86.0"
     },
-    "boost-gil",
+    {
+      "name": "boost-gil",
+      "version>=": "1.86.0"
+    },
     {
       "name": "boost-iostreams",
-      "version>=": "1.85.0#1"
+      "version>=": "1.86.0"
     },
     {
       "name": "boost-locale",
-      "version>=": "1.85.0#2"
+      "version>=": "1.86.0"
     },
     {
       "name": "cli11",
       "version>=": "2.4.2"
     },
-    "cpptrace",
+    {
+      "name": "cpptrace",
+      "version>=": "0.7.3"
+    },
     {
       "name": "directxtex",
       "features": [
         "dx11"
       ],
       "version>=": "2024-06-04"
-    },
-    {
-      "name": "directxtk",
-      "version>=": "2024-06-04"
-    },
-    {
-      "name": "gtest",
-      "version>=": "1.14.0#1"
     },
     {
       "name": "json-schema-validator",
