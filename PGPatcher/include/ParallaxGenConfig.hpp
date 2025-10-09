@@ -38,7 +38,7 @@ public:
         struct ModManager {
             ModManagerDirectory::ModManagerType type = ModManagerDirectory::ModManagerType::NONE;
             std::filesystem::path mo2InstanceDir;
-            bool mo2UseLooseFileOrder = false;
+            bool mo2UseLooseFileOrder = true;
 
             auto operator==(const ModManager& other) const -> bool
             {
