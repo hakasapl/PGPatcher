@@ -67,6 +67,7 @@ public:
     MeshTracker(const std::filesystem::path& origMeshPath);
 
     // Plugin mesh staging
+    void load();
     auto stageMesh() -> nifly::NifFile*;
     auto commitBaseMesh() -> bool;
     auto commitDupMesh(

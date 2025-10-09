@@ -317,6 +317,13 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // Create mesh tracker for this NIF
     auto meshTracker = MeshTracker(nifPath);
 
+    try {
+        meshTracker.load();
+    } catch (const std::exception& e) {
+        Logger::error("Failed to load NIF {}: {}", nifPath.string(), e.what());
+        return ParallaxGenTask::PGResult::FAILURE;
+    }
+
     // Patch base NIF
     auto* baseNIF = meshTracker.stageMesh();
     unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures; // empty alternate textures for base mesh

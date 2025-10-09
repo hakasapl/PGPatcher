@@ -29,6 +29,7 @@ using namespace std;
 
 MeshTracker::MeshTracker(const std::filesystem::path& origMeshPath)
     : m_origMeshPath(origMeshPath)
+    , m_origCrc32(0)
     , m_stagedMeshPtr(nullptr)
 {
     // Check if file exists
@@ -36,9 +37,12 @@ MeshTracker::MeshTracker(const std::filesystem::path& origMeshPath)
     if (!pgd->isFile(origMeshPath)) {
         throw std::runtime_error("Original mesh path does not exist: " + origMeshPath.string());
     }
+}
 
+void MeshTracker::load()
+{
     // Load original NIF file
-    const vector<std::byte> nifFileData = pgd->getFile(origMeshPath);
+    const vector<std::byte> nifFileData = PGGlobals::getPGD()->getFile(m_origMeshPath);
 
     // Calculate original CRC32
     boost::crc_32_type crcBeforeResult {};
