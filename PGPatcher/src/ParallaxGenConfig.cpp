@@ -3,6 +3,7 @@
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "ParallaxGenPlugin.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
@@ -10,14 +11,17 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <spdlog/spdlog.h>
-
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <spdlog/spdlog.h>
 
+#include <cstddef>
 #include <exception>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 using namespace std;
 using namespace ParallaxGenUtil;

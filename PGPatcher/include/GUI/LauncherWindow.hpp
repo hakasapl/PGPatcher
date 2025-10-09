@@ -1,19 +1,13 @@
 #pragma once
 
-#include <wx/arrstr.h>
-#include <wx/dnd.h>
-#include <wx/dragimag.h>
-#include <wx/event.h>
-#include <wx/listbox.h>
-#include <wx/listctrl.h>
-#include <wx/msw/textctrl.h>
-#include <wx/overlay.h>
-#include <wx/sizer.h>
-#include <wx/wx.h>
-
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenConfig.hpp"
+
+#include <wx/listctrl.h>
+#include <wx/wx.h>
+
+#include <unordered_map>
 
 /**
  * @brief wxDialog that allows the user to configure the ParallaxGen parameters.

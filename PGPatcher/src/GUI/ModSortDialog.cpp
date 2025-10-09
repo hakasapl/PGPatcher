@@ -1,14 +1,23 @@
-#include <algorithm>
-#include <unordered_set>
-#include <wx/arrstr.h>
-
 #include "GUI/ModSortDialog.hpp"
+
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "PGPatcherGlobals.hpp"
-#include "ParallaxGenHandlers.hpp"
+#include "ParallaxGenConfig.hpp"
 #include "util/NIFUtil.hpp"
+
+#include <wx/wx.h>
+
+#include <algorithm>
+#include <memory>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <unordered_set>
+#include <vector>
 
 using namespace std;
 

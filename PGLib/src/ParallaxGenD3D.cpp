@@ -24,7 +24,6 @@
 #include <dxgiformat.h>
 #include <exception>
 #include <filesystem>
-#include <minwindef.h>
 #include <mutex>
 #include <shared_mutex>
 #include <stdexcept>
@@ -33,8 +32,6 @@
 #include <utility>
 #include <vector>
 #include <windows.h>
-#include <winerror.h>
-#include <winnt.h>
 #include <wrl/client.h>
 
 using namespace std;

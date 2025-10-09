@@ -1,5 +1,9 @@
 #include "PGPatcherGlobals.hpp"
 
+#include "ParallaxGenConfig.hpp"
+
+#include <filesystem>
+
 ParallaxGenConfig* PGPatcherGlobals::s_PGC = nullptr;
 auto PGPatcherGlobals::getPGC() -> ParallaxGenConfig* { return s_PGC; }
 void PGPatcherGlobals::setPGC(ParallaxGenConfig* pgc) { s_PGC = pgc; }

@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 #include <windows.h>
-#include <winnt.h>
 
 // Steam game ID definitions
 enum {

@@ -1,13 +1,19 @@
 #pragma once
 
-#include <filesystem>
-#include <nlohmann/json-schema.hpp>
-#include <nlohmann/json.hpp>
-#include <string>
-
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
+#include "util/NIFUtil.hpp"
+
+#include <nlohmann/json-schema.hpp>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+
+#include <cstddef>
+#include <filesystem>
+#include <string>
+#include <utility>
+#include <vector>
 
 /**
  * @class ParallaxGenConfig

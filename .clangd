@@ -1,6 +1,11 @@
 Diagnostics:
   UnusedIncludes: Strict
   MissingIncludes: Strict
+  # Ignore headers that don't follow the "Include what you use" model
+  Includes:
+    IgnoreHeader:
+      - ".*/Windows Kits/.*"
+      - ".*/wx/.*"
   Suppress:
     - invalid_consteval_call
   ClangTidy:

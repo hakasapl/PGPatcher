@@ -1,9 +1,10 @@
-#include <algorithm>
+#include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
 
 #include <wx/dcbuffer.h>
 #include <wx/gdicmn.h>
 
-#include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
+#include <algorithm>
+#include <vector>
 
 PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* parent, const std::vector<wxString>& lines)
     : wxFrame(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize,

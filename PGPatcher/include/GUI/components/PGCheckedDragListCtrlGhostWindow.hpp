@@ -1,7 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <wx/wx.h>
+
+#include <vector>
 
 class PGCheckedDragListCtrlGhostWindow : public wxFrame {
 private:

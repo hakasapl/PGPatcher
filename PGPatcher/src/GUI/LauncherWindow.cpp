@@ -4,16 +4,16 @@
 #include "ModManagerDirectory.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
-#include "ParallaxGenHandlers.hpp"
 #include "ParallaxGenPlugin.hpp"
+#include "util/NIFUtil.hpp"
 
 #include <boost/algorithm/string/join.hpp>
+#include <wx/statline.h>
+#include <wx/wx.h>
 
 #include <filesystem>
-#include <wx/arrstr.h>
-#include <wx/listbase.h>
-#include <wx/msw/combobox.h>
-#include <wx/statline.h>
+#include <string>
+#include <vector>
 
 using namespace std;
 
