@@ -372,7 +372,8 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_processingPluginPatchingOptions = new wxStaticBoxSizer(wxVERTICAL, this, "Plugin Patching Options");
     m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin (Not Recommended)");
     m_processingPluginPatchingOptionsESMifyCheckbox->SetToolTip(
-        "ESM flags the output plugin (don't check this if you don't know what you're doing)");
+        "ESM flags all the output plugins, not just PGPatcher.esp (don't check this if you don't know what you're "
+        "doing)");
     m_processingPluginPatchingOptionsESMifyCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
     m_processingPluginPatchingOptions->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
@@ -454,7 +455,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_textureRulesMaps->SetColumnWidth(1, (m_textureRulesMaps->GetClientSize().GetWidth() - scrollbarWidth) / 2);
     m_textureRulesMaps->SetToolTip(
         "Use this to manually specify what type of texture a texture is. This is useful for textures that don't follow "
-        "the standard naming conventions. Set to unknown for it to be skipped.");
+        "the standard naming conventions. Path should start with \"textures/\". Set to unknown for it to be skipped.");
     textureRulesSizer->Add(m_textureRulesMaps, 0, wxEXPAND | wxALL, BORDER_SIZE);
     m_textureRulesMaps->Bind(pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onTextureRulesMapsChange, this);
 
