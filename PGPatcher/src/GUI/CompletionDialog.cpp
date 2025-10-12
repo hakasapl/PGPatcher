@@ -1,8 +1,12 @@
 #include "GUI/CompletionDialog.hpp"
+
 #include "PGPatcherGlobals.hpp"
 
-#include <string>
 #include <wx/artprov.h>
+#include <wx/wx.h>
+
+#include <algorithm>
+#include <string>
 
 // Disable owning memory checks because wxWidgets will take care of deleting the objects
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets

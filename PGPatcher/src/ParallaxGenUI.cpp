@@ -1,18 +1,13 @@
 #include "ParallaxGenUI.hpp"
 
-#include <boost/algorithm/string/join.hpp>
-#include <wx/app.h>
-#include <wx/arrstr.h>
-#include <wx/event.h>
-#include <wx/gdicmn.h>
-#include <wx/msw/statbox.h>
-#include <wx/msw/stattext.h>
-#include <wx/sizer.h>
-#include <wx/toplevel.h>
-
 #include "GUI/LauncherWindow.hpp"
 #include "GUI/ModSortDialog.hpp"
 #include "ParallaxGenConfig.hpp"
+
+#include <boost/algorithm/string/join.hpp>
+#include <wx/wx.h>
+
+#include <stdexcept>
 
 using namespace std;
 

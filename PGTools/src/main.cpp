@@ -1,21 +1,9 @@
-#include <CLI/CLI.hpp>
-
-#include <spdlog/spdlog.h>
-
-#include <windows.h>
-
-#include <cpptrace/from_current.hpp>
-
-#include <string>
-#include <unordered_set>
-
 #include "PGGlobals.hpp"
 #include "ParallaxGen.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenWarnings.hpp"
-
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
@@ -33,6 +21,23 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+
+#include <CLI/CLI.hpp>
+#include <cpptrace/from_current.hpp>
+#include <spdlog/common.h>
+#include <spdlog/spdlog.h>
+
+#include <array>
+#include <chrono>
+#include <cstdlib>
+#include <exception>
+#include <filesystem>
+#include <iostream>
+#include <ranges>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <windows.h>
 
 using namespace std;
 

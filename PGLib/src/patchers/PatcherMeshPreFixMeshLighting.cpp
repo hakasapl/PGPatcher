@@ -1,8 +1,16 @@
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
-#include "Shaders.hpp"
+
+#include "patchers/base/PatcherMeshPre.hpp"
+#include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 
-#include "util/Logger.hpp"
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+
+#include <filesystem>
+#include <memory>
+#include <utility>
 
 using namespace std;
 

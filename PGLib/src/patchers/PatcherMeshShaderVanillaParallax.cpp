@@ -1,10 +1,20 @@
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
 
-#include <Geometry.hpp>
-#include <boost/algorithm/string.hpp>
-
+#include "patchers/base/PatcherMeshShader.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
+
+#include "BasicTypes.hpp"
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
+#include <filesystem>
+#include <memory>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

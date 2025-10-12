@@ -5,14 +5,8 @@
 #include "PGGlobals.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
-#include <bsa/tes4.hpp>
-
-#include <shared_mutex>
-#include <spdlog/spdlog.h>
-
 #include <binary_io/any_stream.hpp>
 #include <binary_io/memory_stream.hpp>
-
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -20,27 +14,30 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/crc.hpp>
-
-#include <shlwapi.h>
-#include <winnt.h>
+#include <bsa/tes4.hpp>
+#include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
 #include <exception>
+#include <fileapi.h>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <minwindef.h>
 #include <mutex>
+#include <shared_mutex>
+#include <shlwapi.h>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <cctype>
-#include <cstddef>
-#include <cstdio>
-#include <cstdlib>
+#include <winnt.h>
 
 using namespace std;
 using namespace ParallaxGenUtil;

@@ -1,10 +1,11 @@
 #pragma once
 
-#include <vector>
-#include <wx/listctrl.h>
-#include <wx/timer.h>
-
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
+
+#include <vector>
+
+#include <wx/listctrl.h>
+#include <wx/wx.h>
 
 class PGCheckedDragListCtrl : public wxListCtrl {
 private:

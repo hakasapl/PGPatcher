@@ -1,5 +1,25 @@
 #include "patchers/base/PatcherMesh.hpp"
 
+#include "patchers/base/Patcher.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
+
+#include "BasicTypes.hpp"
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+
+#include <array>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <shared_mutex>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+
 using namespace std;
 
 // statics

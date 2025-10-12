@@ -1,13 +1,28 @@
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 
-#include <Shaders.hpp>
+#include "ParallaxGenDirectory.hpp"
+#include "patchers/base/PatcherMeshShader.hpp"
+#include "util/Logger.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include <cstddef>
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <shared_mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

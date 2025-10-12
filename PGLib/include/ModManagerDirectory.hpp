@@ -1,16 +1,22 @@
 #pragma once
 
-#include <filesystem>
-#include <memory>
+#include "BethesdaGame.hpp"
+#include "util/NIFUtil.hpp"
+
 #include <nlohmann/json_fwd.hpp>
+
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <set>
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-
-#include "util/NIFUtil.hpp"
-
-#include "BethesdaGame.hpp"
+#include <utility>
+#include <vector>
 
 class ModManagerDirectory {
 

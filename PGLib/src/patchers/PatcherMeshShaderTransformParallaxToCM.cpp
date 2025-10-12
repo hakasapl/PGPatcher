@@ -1,12 +1,15 @@
 #include "patchers/PatcherMeshShaderTransformParallaxToCM.hpp"
 
+#include "patchers/PatcherTextureHookConvertToCM.hpp"
+#include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
 #include "util/NIFUtil.hpp"
 
-#include <filesystem>
-#include <utility>
+#include "NifFile.hpp"
 
-#include "patchers/PatcherTextureHookConvertToCM.hpp"
+#include <filesystem>
+#include <memory>
+#include <utility>
 
 using namespace std;
 

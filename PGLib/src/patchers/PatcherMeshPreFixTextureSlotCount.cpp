@@ -1,5 +1,15 @@
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 
+#include "patchers/base/PatcherMeshPre.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+
+#include <filesystem>
+#include <memory>
+#include <utility>
+
 using namespace std;
 
 auto PatcherMeshPreFixTextureSlotCount::getFactory() -> PatcherMeshPre::PatcherMeshPreFactory

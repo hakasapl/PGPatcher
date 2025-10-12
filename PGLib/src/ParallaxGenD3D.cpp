@@ -2,41 +2,37 @@
 
 #include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
+#include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
-#include <dxgiformat.h>
-#include <spdlog/spdlog.h>
-
 #include <DirectXMath.h>
 #include <DirectXTex.h>
-
-// windows
-#include <windows.h>
-
-// COM support
-#include <comdef.h>
-
-// D3D
-#include <d3d11.h>
-
-// DXGI
-#include <dxgi.h>
-
-// HLSL
-#include <d3dcompiler.h>
-#include <dxcapi.h>
+#include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <filesystem>
-#include <mutex>
-#include <string>
-
+#include <array>
+#include <comdef.h>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <winnt.h>
-
-#include "util/Logger.hpp"
+#include <d3d11.h>
+#include <d3dcommon.h>
+#include <d3dcompiler.h>
+#include <dxcapi.h>
+#include <dxgi.h>
+#include <dxgiformat.h>
+#include <exception>
+#include <filesystem>
+#include <mutex>
+#include <shared_mutex>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
+#include <windows.h>
+#include <wrl/client.h>
 
 using namespace std;
 using namespace ParallaxGenUtil;

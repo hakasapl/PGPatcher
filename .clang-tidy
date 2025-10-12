@@ -1,6 +1,7 @@
 ---
 Checks: "-*,
   cppcoreguidelines-*,
+  llvm-include-order,
   misc-*,
   -misc-include-cleaner,
   -misc-no-recursion,

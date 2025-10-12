@@ -1,12 +1,17 @@
 #pragma once
 
-#include <Geometry.hpp>
-#include <NifFile.hpp>
-
-#include <cstdint>
-#include <vector>
-
 #include "patchers/base/PatcherMesh.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <string>
+#include <unordered_set>
+#include <vector>
 
 /**
  * @class PatcherMeshShader

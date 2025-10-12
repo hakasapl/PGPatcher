@@ -1,6 +1,12 @@
 #pragma once
 
 #include "patchers/base/PatcherMeshPost.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+
+#include <filesystem>
 
 class PatcherMeshPostFixSSS : public PatcherMeshPost {
 public:

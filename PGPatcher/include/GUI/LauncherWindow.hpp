@@ -1,19 +1,16 @@
 #pragma once
 
-#include <wx/arrstr.h>
-#include <wx/dnd.h>
-#include <wx/dragimag.h>
-#include <wx/event.h>
-#include <wx/listbox.h>
-#include <wx/listctrl.h>
-#include <wx/msw/textctrl.h>
-#include <wx/overlay.h>
-#include <wx/sizer.h>
-#include <wx/wx.h>
-
 #include "BethesdaGame.hpp"
+#include "GUI/components/PGCustomListctrlChangedEvent.hpp"
+#include "GUI/components/PGModifiableListCtrl.hpp"
+#include "GUI/components/PGTextureMapListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenConfig.hpp"
+
+#include <wx/listctrl.h>
+#include <wx/wx.h>
+
+#include <unordered_map>
 
 /**
  * @brief wxDialog that allows the user to configure the ParallaxGen parameters.
@@ -115,8 +112,8 @@ private:
     void onShaderPatcherComplexMaterialChange(wxCommandEvent& event);
 
     wxStaticBoxSizer* m_shaderPatcherComplexMaterialOptionsSizer; /** Stores the complex material options */
-    wxListCtrl* m_shaderPatcherComplexMaterialDynCubemapBlocklist;
-    void onShaderPatcherComplexMaterialDynCubemapBlocklistChange(wxListEvent& event);
+    PGModifiableListCtrl* m_shaderPatcherComplexMaterialDynCubemapBlocklist;
+    void onShaderPatcherComplexMaterialDynCubemapBlocklistChange(PGCustomListctrlChangedEvent& event);
 
     wxCheckBox* m_shaderPatcherTruePBRCheckbox;
     void onShaderPatcherTruePBRChange(wxCommandEvent& event);
@@ -151,19 +148,17 @@ private:
     void onGlobalPatcherFixEffectLightingCSChange(wxCommandEvent& event);
 
     // Mesh Rules
-    wxListCtrl* m_meshRulesAllowList;
-    void onMeshRulesAllowListChange(wxListEvent& event);
+    PGModifiableListCtrl* m_meshRulesAllowList;
+    void onMeshRulesAllowListChange(PGCustomListctrlChangedEvent& event);
 
-    wxListCtrl* m_meshRulesBlockList;
-    void onMeshRulesBlockListChange(wxListEvent& event);
+    PGModifiableListCtrl* m_meshRulesBlockList;
+    void onMeshRulesBlockListChange(PGCustomListctrlChangedEvent& event);
 
     // Texture Rules
-    wxListCtrl* m_textureRulesMaps;
-    void onTextureRulesMapsChange(wxListEvent& event);
-    void onTextureRulesMapsChangeStart(wxMouseEvent& event);
+    PGTextureMapListCtrl* m_textureRulesMaps;
 
-    wxListCtrl* m_textureRulesVanillaBSAList;
-    void onTextureRulesVanillaBSAListChange(wxListEvent& event);
+    PGModifiableListCtrl* m_textureRulesVanillaBSAList;
+    void onTextureRulesVanillaBSAListChange(PGCustomListctrlChangedEvent& event);
 
     //
     // UI Controls
@@ -171,7 +166,7 @@ private:
     wxStaticBoxSizer* m_mo2OptionsSizer; /** Stores the MO2-specific options since these are only sometimes shown */
     wxStaticBoxSizer* m_processingOptionsSizer; /** Stores the processing options */
 
-    wxComboBox* m_textureMapTypeCombo; /** Stores the texture map type combo box */
+    void onTextureRulesMapsChange(PGCustomListctrlChangedEvent& event);
 
     /**
      * @brief Event handler responsible for showing the brose dialog when the user clicks on the browse button - for
@@ -206,22 +201,6 @@ private:
 
     wxBoxSizer* m_advancedOptionsSizer; /** Container that stores advanced options */
     void updateAdvanced();
-
-    /**
-     * @brief Event handler responsible for deleting/adding items based on list edits
-     *
-     * @param event wxWidgets event object
-     */
-    void onListEdit(wxListEvent& event);
-
-    /**
-     * @brief Event handler responsible for activating list items on double click or enter
-     *
-     * @param event wxWidgets event object
-     */
-    void onListItemActivated(wxListEvent& event);
-
-    auto getColumnAtPosition(const wxPoint& pos, long item) -> int;
 
     //
     // Validation

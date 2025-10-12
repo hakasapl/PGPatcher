@@ -1,6 +1,13 @@
 #pragma once
 
 #include "patchers/base/PatcherMeshPost.hpp"
+#include "util/NIFUtil.hpp"
+
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+
+#include <filesystem>
 
 class PatcherMeshPostRestoreDefaultShaders : public PatcherMeshPost {
 public:

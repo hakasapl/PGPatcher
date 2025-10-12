@@ -1,11 +1,18 @@
 #pragma once
 
+#include "BasicTypes.hpp"
+#include "Geometry.hpp"
 #include "NIFUtil.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
 
+#include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 /**
@@ -60,6 +67,7 @@ public:
     MeshTracker(const std::filesystem::path& origMeshPath);
 
     // Plugin mesh staging
+    void load();
     auto stageMesh() -> nifly::NifFile*;
     auto commitBaseMesh() -> bool;
     auto commitDupMesh(

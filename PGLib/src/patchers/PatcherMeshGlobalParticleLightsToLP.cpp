@@ -1,21 +1,34 @@
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
+
+#include "patchers/base/PatcherMeshGlobal.hpp"
+#include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
-#include <Animation.hpp>
-#include <BasicTypes.hpp>
-#include <Geometry.hpp>
-#include <Keys.hpp>
-#include <Nodes.hpp>
-#include <Object3d.hpp>
-#include <Shaders.hpp>
+#include "Animation.hpp"
+#include "BasicTypes.hpp"
+#include "Geometry.hpp"
+#include "Keys.hpp"
+#include "NifFile.hpp"
+#include "Nodes.hpp"
+#include "Object3d.hpp"
+#include "Particles.hpp"
+#include "Shaders.hpp"
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 
-#include <Particles.hpp>
-
+#include <cmath>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
-
-#include "util/Logger.hpp"
+#include <memory>
+#include <mutex>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

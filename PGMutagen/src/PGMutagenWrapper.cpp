@@ -1,12 +1,29 @@
 #include "PGMutagenWrapper.hpp"
 
-#include <combaseapi.h>
-#include <flatbuffers/flatbuffers.h>
-#include <spdlog/spdlog.h>
-#include <winbase.h>
-
 #include "PGMutagenBuffers_generated.h"
 #include "PGMutagenNE.h"
+#include "dnne.h"
+
+#include <flatbuffers/buffer.h>
+#include <flatbuffers/flatbuffer_builder.h>
+#include <flatbuffers/flatbuffers.h>
+#include <flatbuffers/string.h>
+#include <flatbuffers/verifier.h>
+#include <spdlog/spdlog.h>
+
+#include <array>
+#include <combaseapi.h>
+#include <cstdint>
+#include <filesystem>
+#include <minwindef.h>
+#include <mutex>
+#include <stdexcept>
+#include <string>
+#include <stringapiset.h>
+#include <utility>
+#include <vector>
+#include <winbase.h>
+#include <winnls.h>
 
 using namespace std;
 

@@ -1,8 +1,12 @@
 #pragma once
 
-#include "NIFUtil.hpp"
+#include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
-#include <mutex>
+#include "util/NIFUtil.hpp"
+
+#include "NifFile.hpp"
+
+#include <filesystem>
 
 /**
  * @class PatcherMeshShaderTransformParallaxToCM

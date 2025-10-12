@@ -1,5 +1,13 @@
 #include "patchers/base/PatcherMeshGlobal.hpp"
 
+#include "patchers/base/PatcherMesh.hpp"
+
+#include "NifFile.hpp"
+
+#include <filesystem>
+#include <string>
+#include <utility>
+
 using namespace std;
 
 PatcherMeshGlobal::PatcherMeshGlobal(

@@ -11,14 +11,13 @@ add_library(PGLib SHARED ${SOURCES} ${HEADERS})
 find_package(spdlog REQUIRED CONFIG)
 find_package(bsa REQUIRED CONFIG)
 find_package(Boost REQUIRED COMPONENTS locale)
-find_package(directxtk REQUIRED)
 find_package(directxtex REQUIRED CONFIG)
 find_package(miniz REQUIRED CONFIG)
 find_package(nlohmann_json REQUIRED CONFIG)
 find_package(nlohmann_json_schema_validator REQUIRED)
 find_package(cpptrace REQUIRED CONFIG)
 
-set(DirectXTK_LIBS
+set(D3D_LIBS
     d3d11.lib
     dxgi.lib
     dxguid.lib
@@ -39,8 +38,7 @@ target_link_libraries(PGLib PUBLIC
     nifly
     miniz::miniz
     Microsoft::DirectXTex
-    ${DirectXTK_LIBS}
-    Microsoft::DirectXTK
+    ${D3D_LIBS}
     Shlwapi
     nlohmann_json::nlohmann_json
     nlohmann_json_schema_validator::validator

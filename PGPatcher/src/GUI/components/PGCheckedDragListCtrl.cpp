@@ -1,13 +1,17 @@
-#include <wx/gdicmn.h>
-#include <wx/renderer.h>
-
-#include <algorithm>
-#include <unordered_map>
-
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
+
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
+
+#include <wx/renderer.h>
+#include <wx/wx.h>
+
+#include <algorithm>
+#include <cstddef>
+#include <functional>
+#include <unordered_map>
+#include <vector>
 
 using namespace std;
 

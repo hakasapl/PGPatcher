@@ -1,24 +1,34 @@
 #include "ModManagerDirectory.hpp"
 
-#include <algorithm>
-#include <boost/algorithm/string.hpp>
-
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <fstream>
-
-#include <ranges>
-#include <regex>
-#include <unordered_set>
-
-#include <nlohmann/json.hpp>
-
-#include <spdlog/spdlog.h>
-
 #include "BethesdaDirectory.hpp"
 #include "BethesdaGame.hpp"
 #include "PGGlobals.hpp"
 #include "util/ParallaxGenUtil.hpp"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+#include <spdlog/spdlog.h>
+
+#include <algorithm>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <ranges>
+#include <regex>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

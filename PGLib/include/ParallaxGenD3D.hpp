@@ -1,17 +1,21 @@
 #pragma once
 
 #include <DirectXTex.h>
-#include <d3d11.h>
-#include <dxgiformat.h>
-#include <wrl/client.h>
 
+#include <array>
 #include <cstddef>
+#include <d3d11.h>
+#include <d3dcommon.h>
+#include <dxgiformat.h>
 #include <filesystem>
+#include <minwindef.h>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <winnt.h>
+#include <wrl/client.h>
 
 class ParallaxGenD3D {
 private:

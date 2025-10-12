@@ -1,24 +1,18 @@
 #pragma once
 
-#include <wx/arrstr.h>
-#include <wx/dnd.h>
-#include <wx/dragimag.h>
-#include <wx/listbox.h>
-#include <wx/listctrl.h>
-#include <wx/msw/textctrl.h>
-#include <wx/overlay.h>
-#include <wx/renderer.h>
-#include <wx/sizer.h>
-#include <wx/wx.h>
-
-#include <set>
-#include <string>
-#include <unordered_map>
-
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
 #include "ModManagerDirectory.hpp"
+#include "util/NIFUtil.hpp"
+
+#include <wx/wx.h>
+
+#include <memory>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 /**
  * @brief wxDialog that allows the user to sort the mods in the order they want

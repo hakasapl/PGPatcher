@@ -1,31 +1,41 @@
 #include "ParallaxGenDirectory.hpp"
 
+#include "BethesdaDirectory.hpp"
+#include "BethesdaGame.hpp"
+#include "ModManagerDirectory.hpp"
+#include "ParallaxGenRunner.hpp"
+#include "ParallaxGenTask.hpp"
+#include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
+
+#include "NifFile.hpp"
+#include "Shaders.hpp"
 #include <DirectXTex.h>
-#include <NifFile.hpp>
-#include <Shaders.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio.hpp>
 #include <boost/crc.hpp>
 #include <boost/thread.hpp>
-#include <filesystem>
-#include <mutex>
 #include <nlohmann/json_fwd.hpp>
+#include <spdlog/spdlog.h>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <filesystem>
+#include <map>
+#include <mutex>
 #include <shared_mutex>
 #include <shlwapi.h>
-#include <spdlog/spdlog.h>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 #include <winnt.h>
-
-#include "BethesdaDirectory.hpp"
-#include "ModManagerDirectory.hpp"
-#include "ParallaxGenRunner.hpp"
-#include "ParallaxGenTask.hpp"
-#include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
 
 using namespace std;
 using namespace ParallaxGenUtil;

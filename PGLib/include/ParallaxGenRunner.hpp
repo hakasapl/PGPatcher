@@ -1,7 +1,14 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <boost/asio/thread_pool.hpp>
+
+#include <atomic>
+#include <cstddef>
 #include <exception>
+#include <functional>
+#include <string>
+#include <vector>
 
 class ParallaxGenRunner {
 private:

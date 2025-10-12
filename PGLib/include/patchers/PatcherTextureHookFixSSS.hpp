@@ -1,10 +1,14 @@
 #pragma once
 
-#include <filesystem>
-
-#include <shared_mutex>
-
 #include "patchers/base/PatcherTextureHook.hpp"
+
+#include <DirectXTex.h>
+#include <d3d11.h>
+
+#include <filesystem>
+#include <shared_mutex>
+#include <unordered_set>
+#include <wrl/client.h>
 
 class PatcherTextureHookFixSSS : public PatcherTextureHook {
 private:

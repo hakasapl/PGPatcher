@@ -1,19 +1,22 @@
 #include "GUI/LauncherWindow.hpp"
 
 #include "BethesdaGame.hpp"
+#include "GUI/components/PGCustomListctrlChangedEvent.hpp"
+#include "GUI/components/PGModifiableListCtrl.hpp"
+#include "GUI/components/PGTextureMapListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
-#include "ParallaxGenHandlers.hpp"
 #include "ParallaxGenPlugin.hpp"
+#include "util/NIFUtil.hpp"
 
 #include <boost/algorithm/string/join.hpp>
+#include <wx/statline.h>
+#include <wx/wx.h>
 
 #include <filesystem>
-#include <wx/arrstr.h>
-#include <wx/listbase.h>
-#include <wx/msw/combobox.h>
-#include <wx/statline.h>
+#include <string>
+#include <vector>
 
 using namespace std;
 
@@ -26,7 +29,16 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     : wxDialog(nullptr, wxID_ANY, "PGPatcher " + string(PG_VERSION) + " Launcher", wxDefaultPosition,
           wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE)
     , m_pgc(pgc)
-    , m_textureMapTypeCombo(nullptr)
+    , m_shaderPatcherComplexMaterialDynCubemapBlocklist(new PGModifiableListCtrl(
+          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+    , m_meshRulesAllowList(new PGModifiableListCtrl(
+          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+    , m_meshRulesBlockList(new PGModifiableListCtrl(
+          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+    , m_textureRulesMaps(new PGTextureMapListCtrl(
+          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+    , m_textureRulesVanillaBSAList(new PGModifiableListCtrl(
+          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
     , m_advancedOptionsSizer(new wxBoxSizer(wxVERTICAL))
 {
     // Calculate the scrollbar width (if visible)
@@ -204,17 +216,13 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_shaderPatcherComplexMaterialOptionsSizer->Add(
         shaderPatcherComplexMaterialDynCubemapBlocklistLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist = new wxListCtrl(
-        this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER);
     m_shaderPatcherComplexMaterialDynCubemapBlocklist->AppendColumn("DynCubemap Blocklist", wxLIST_FORMAT_LEFT);
     m_shaderPatcherComplexMaterialDynCubemapBlocklist->SetColumnWidth(
         0, m_shaderPatcherComplexMaterialDynCubemapBlocklist->GetClientSize().GetWidth() - scrollbarWidth);
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->Bind(
-        wxEVT_LIST_END_LABEL_EDIT, &LauncherWindow::onShaderPatcherComplexMaterialDynCubemapBlocklistChange, this);
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->Bind(
-        wxEVT_LIST_ITEM_ACTIVATED, &LauncherWindow::onListItemActivated, this);
     m_shaderPatcherComplexMaterialOptionsSizer->Add(
         m_shaderPatcherComplexMaterialDynCubemapBlocklist, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    m_shaderPatcherComplexMaterialDynCubemapBlocklist->Bind(
+        pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onShaderPatcherComplexMaterialDynCubemapBlocklistChange, this);
 
     shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialOptionsSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
@@ -364,7 +372,8 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_processingPluginPatchingOptions = new wxStaticBoxSizer(wxVERTICAL, this, "Plugin Patching Options");
     m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin (Not Recommended)");
     m_processingPluginPatchingOptionsESMifyCheckbox->SetToolTip(
-        "ESM flags the output plugin (don't check this if you don't know what you're doing)");
+        "ESM flags all the output plugins, not just PGPatcher.esp (don't check this if you don't know what you're "
+        "doing)");
     m_processingPluginPatchingOptionsESMifyCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
     m_processingPluginPatchingOptions->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
@@ -413,28 +422,22 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* meshRulesAllowListLabel = new wxStaticText(this, wxID_ANY, "Mesh Allow List");
     meshRulesSizer->Add(meshRulesAllowListLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
-    m_meshRulesAllowList = new wxListCtrl(
-        this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER);
     m_meshRulesAllowList->AppendColumn("Mesh Allow List", wxLIST_FORMAT_LEFT);
     m_meshRulesAllowList->SetColumnWidth(0, m_meshRulesAllowList->GetClientSize().GetWidth() - scrollbarWidth);
     m_meshRulesAllowList->SetToolTip("If anything is in this list, only meshes matching items in this list will be "
                                      "patched. Wildcards are supported.");
-    m_meshRulesAllowList->Bind(wxEVT_LIST_END_LABEL_EDIT, &LauncherWindow::onMeshRulesAllowListChange, this);
-    m_meshRulesAllowList->Bind(wxEVT_LIST_ITEM_ACTIVATED, &LauncherWindow::onListItemActivated, this);
     meshRulesSizer->Add(m_meshRulesAllowList, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    m_meshRulesAllowList->Bind(pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onMeshRulesAllowListChange, this);
 
     auto* meshRulesBlockListLabel = new wxStaticText(this, wxID_ANY, "Mesh Block List");
     meshRulesSizer->Add(meshRulesBlockListLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
-    m_meshRulesBlockList = new wxListCtrl(
-        this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER);
     m_meshRulesBlockList->AppendColumn("Mesh Block List", wxLIST_FORMAT_LEFT);
     m_meshRulesBlockList->SetColumnWidth(0, m_meshRulesBlockList->GetClientSize().GetWidth() - scrollbarWidth);
     m_meshRulesBlockList->SetToolTip(
         "Any matches in this list will not be patched. This is checked after allowlist. Wildcards are supported.");
-    m_meshRulesBlockList->Bind(wxEVT_LIST_END_LABEL_EDIT, &LauncherWindow::onMeshRulesBlockListChange, this);
-    m_meshRulesBlockList->Bind(wxEVT_LIST_ITEM_ACTIVATED, &LauncherWindow::onListItemActivated, this);
     meshRulesSizer->Add(m_meshRulesBlockList, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    m_meshRulesBlockList->Bind(pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onMeshRulesBlockListChange, this);
 
     m_advancedOptionsSizer->Add(meshRulesSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
@@ -446,33 +449,27 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* textureRulesMapsLabel = new wxStaticText(this, wxID_ANY, "Manual Texture Maps");
     textureRulesSizer->Add(textureRulesMapsLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
-    m_textureRulesMaps = new wxListCtrl(
-        this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER);
     m_textureRulesMaps->AppendColumn("Texture Maps", wxLIST_FORMAT_LEFT);
     m_textureRulesMaps->AppendColumn("Type", wxLIST_FORMAT_LEFT);
     m_textureRulesMaps->SetColumnWidth(0, (m_textureRulesMaps->GetClientSize().GetWidth() - scrollbarWidth) / 2);
     m_textureRulesMaps->SetColumnWidth(1, (m_textureRulesMaps->GetClientSize().GetWidth() - scrollbarWidth) / 2);
     m_textureRulesMaps->SetToolTip(
         "Use this to manually specify what type of texture a texture is. This is useful for textures that don't follow "
-        "the standard naming conventions. Set to unknown for it to be skipped.");
-    m_textureRulesMaps->Bind(wxEVT_LIST_END_LABEL_EDIT, &LauncherWindow::onTextureRulesMapsChange, this);
-    m_textureRulesMaps->Bind(wxEVT_LEFT_DCLICK, &LauncherWindow::onTextureRulesMapsChangeStart, this);
+        "the standard naming conventions. Path should start with \"textures/\". Set to unknown for it to be skipped.");
     textureRulesSizer->Add(m_textureRulesMaps, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    m_textureRulesMaps->Bind(pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onTextureRulesMapsChange, this);
 
     auto* textureRulesVanillaBSAListLabel = new wxStaticText(this, wxID_ANY, "Vanilla BSA List");
     textureRulesSizer->Add(textureRulesVanillaBSAListLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
-    m_textureRulesVanillaBSAList = new wxListCtrl(
-        this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER);
     m_textureRulesVanillaBSAList->AppendColumn("Vanilla BSA List", wxLIST_FORMAT_LEFT);
     m_textureRulesVanillaBSAList->SetColumnWidth(
         0, m_textureRulesVanillaBSAList->GetClientSize().GetWidth() - scrollbarWidth);
     m_textureRulesVanillaBSAList->SetToolTip(
         "Define vanilla or vanilla-like BSAs. Files from these BSAs will only be considered vanilla types.");
-    m_textureRulesVanillaBSAList->Bind(
-        wxEVT_LIST_END_LABEL_EDIT, &LauncherWindow::onTextureRulesVanillaBSAListChange, this);
-    m_textureRulesVanillaBSAList->Bind(wxEVT_LIST_ITEM_ACTIVATED, &LauncherWindow::onListItemActivated, this);
     textureRulesSizer->Add(m_textureRulesVanillaBSAList, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    m_textureRulesVanillaBSAList->Bind(
+        pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onTextureRulesVanillaBSAListChange, this);
 
     m_advancedOptionsSizer->Add(textureRulesSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
@@ -756,11 +753,10 @@ void LauncherWindow::onShaderPatcherComplexMaterialChange([[maybe_unused]] wxCom
     updateDisabledElements();
 }
 
-void LauncherWindow::onShaderPatcherComplexMaterialDynCubemapBlocklistChange([[maybe_unused]] wxListEvent& event)
+void LauncherWindow::onShaderPatcherComplexMaterialDynCubemapBlocklistChange(
+    [[maybe_unused]] PGCustomListctrlChangedEvent& event)
 {
-    onListEdit(event);
-
-    this->CallAfter([this]() { updateDisabledElements(); });
+    updateDisabledElements();
 }
 
 void LauncherWindow::onShaderPatcherTruePBRChange([[maybe_unused]] wxCommandEvent& event)
@@ -802,89 +798,24 @@ void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEv
     updateDisabledElements();
 }
 
-void LauncherWindow::onMeshRulesAllowListChange(wxListEvent& event)
+void LauncherWindow::onMeshRulesAllowListChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
 {
-    onListEdit(event);
-
-    this->CallAfter([this]() { updateDisabledElements(); });
+    updateDisabledElements();
 }
 
-void LauncherWindow::onMeshRulesBlockListChange(wxListEvent& event)
+void LauncherWindow::onMeshRulesBlockListChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
 {
-    onListEdit(event);
-
-    this->CallAfter([this]() { updateDisabledElements(); });
+    updateDisabledElements();
 }
 
-void LauncherWindow::onTextureRulesMapsChange([[maybe_unused]] wxListEvent& event)
+void LauncherWindow::onTextureRulesMapsChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
 {
-    onListEdit(event);
-
-    this->CallAfter([this]() { updateDisabledElements(); });
+    updateDisabledElements();
 }
 
-void LauncherWindow::onTextureRulesMapsChangeStart([[maybe_unused]] wxMouseEvent& event)
+void LauncherWindow::onTextureRulesVanillaBSAListChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
 {
-    static const auto possibleTexTypes = NIFUtil::getTexTypesStr();
-    // convert to wxArrayStr
-    wxArrayString wxPossibleTexTypes;
-    for (const auto& texType : possibleTexTypes) {
-        wxPossibleTexTypes.Add(texType);
-    }
-
-    const wxPoint pos = event.GetPosition();
-    int flags = 0;
-    const long item = m_textureRulesMaps->HitTest(pos, flags);
-
-    if (item != wxNOT_FOUND && ((flags & wxLIST_HITTEST_ONITEM) != 0)) {
-        const int column = getColumnAtPosition(pos, item);
-        if (column == 0) {
-            // Start editing the first column
-            m_textureRulesMaps->EditLabel(item);
-        } else if (column == 1) {
-            // Create dropdown for the second column
-            wxRect rect;
-            m_textureRulesMaps->GetSubItemRect(item, column, rect);
-
-            m_textureMapTypeCombo = new wxComboBox(m_textureRulesMaps, wxID_ANY, "", rect.GetTopLeft(), rect.GetSize(),
-                wxPossibleTexTypes, wxCB_DROPDOWN | wxCB_READONLY);
-            m_textureMapTypeCombo->SetFocus();
-            m_textureMapTypeCombo->Popup();
-            m_textureMapTypeCombo->Bind(wxEVT_COMBOBOX, [item, column, this](wxCommandEvent&) {
-                m_textureRulesMaps->SetItem(item, column, m_textureMapTypeCombo->GetValue());
-                m_textureMapTypeCombo->Show(false);
-
-                // Check if it's the last row and add a new blank row
-                if (item == m_textureRulesMaps->GetItemCount() - 1) {
-                    m_textureRulesMaps->InsertItem(m_textureRulesMaps->GetItemCount(), "");
-                }
-            });
-
-            m_textureMapTypeCombo->Bind(
-                wxEVT_KILL_FOCUS, [this](wxFocusEvent&) { m_textureMapTypeCombo->Show(false); });
-        }
-    } else {
-        event.Skip();
-    }
-}
-
-auto LauncherWindow::getColumnAtPosition(const wxPoint& pos, long item) -> int
-{
-    wxRect rect;
-    for (int col = 0; col < m_textureRulesMaps->GetColumnCount(); ++col) {
-        m_textureRulesMaps->GetSubItemRect(item, col, rect);
-        if (rect.Contains(pos)) {
-            return col;
-        }
-    }
-    return -1; // No column found
-}
-
-void LauncherWindow::onTextureRulesVanillaBSAListChange(wxListEvent& event)
-{
-    onListEdit(event);
-
-    this->CallAfter([this]() { updateDisabledElements(); });
+    updateDisabledElements();
 }
 
 void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
@@ -1076,46 +1007,6 @@ void LauncherWindow::onBrowseOutputLocation([[maybe_unused]] wxCommandEvent& eve
     if (dialog.ShowModal() == wxID_OK) {
         m_outputLocationTextbox->SetValue(dialog.GetPath());
     }
-}
-
-void LauncherWindow::onListEdit(wxListEvent& event)
-{
-    auto* listCtrl = dynamic_cast<wxListCtrl*>(event.GetEventObject());
-    if (listCtrl == nullptr) {
-        return;
-    }
-
-    if (event.IsEditCancelled()) {
-        return;
-    }
-
-    const auto editedIndex = event.GetIndex();
-    const auto& editedText = event.GetLabel();
-
-    if (editedText.IsEmpty() && editedIndex != listCtrl->GetItemCount() - 1) {
-        // If the edited item is empty and it's not the last item
-        this->CallAfter([listCtrl, editedIndex]() { listCtrl->DeleteItem(editedIndex); });
-        return;
-    }
-
-    // If the edited item is not empty and it's the last item
-    if (!editedText.IsEmpty() && editedIndex == listCtrl->GetItemCount() - 1) {
-        // Add a new empty item
-        listCtrl->InsertItem(listCtrl->GetItemCount(), "");
-    }
-}
-
-void LauncherWindow::onListItemActivated(wxListEvent& event)
-{
-    auto* listCtrl = dynamic_cast<wxListCtrl*>(event.GetEventObject());
-    if (listCtrl == nullptr) {
-        return;
-    }
-
-    const auto itemIndex = event.GetIndex();
-
-    // Start editing the label of the item
-    listCtrl->EditLabel(itemIndex);
 }
 
 void LauncherWindow::updateDisabledElements()

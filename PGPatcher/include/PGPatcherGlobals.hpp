@@ -2,6 +2,8 @@
 
 #include "ParallaxGenConfig.hpp"
 
+#include <filesystem>
+
 class PGPatcherGlobals {
 private:
     static ParallaxGenConfig* s_PGC;

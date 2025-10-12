@@ -1,9 +1,11 @@
 #pragma once
 
-#include <DirectXTex.h>
-#include <filesystem>
-
 #include "patchers/base/Patcher.hpp"
+
+#include <DirectXTex.h>
+
+#include <filesystem>
+#include <string>
 
 /**
  * @class Patcher

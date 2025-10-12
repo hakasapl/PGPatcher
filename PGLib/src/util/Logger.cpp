@@ -1,8 +1,12 @@
 #include "util/Logger.hpp"
 
+#include "util/ParallaxGenUtil.hpp"
+
 #include <spdlog/spdlog.h>
 
-#include "util/ParallaxGenUtil.hpp"
+#include <sstream>
+#include <string>
+#include <vector>
 
 using namespace std;
 

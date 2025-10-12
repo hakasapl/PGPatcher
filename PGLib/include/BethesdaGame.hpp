@@ -1,8 +1,10 @@
 #pragma once
 
-#include <windows.h>
-
+#include <cstdint>
 #include <filesystem>
+#include <string>
+#include <vector>
+#include <windows.h>
 
 // Steam game ID definitions
 enum {

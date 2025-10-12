@@ -1,20 +1,35 @@
 #include "util/MeshTracker.hpp"
-#include "NifFile.hpp"
-#include "Particles.hpp"
-#include "Shaders.hpp"
-#include <algorithm>
-#include <boost/crc.hpp>
-#include <fstream>
-#include <sstream>
 
 #include "PGGlobals.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 
+#include "BasicTypes.hpp"
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Particles.hpp"
+#include "Shaders.hpp"
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/crc.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 using namespace std;
 
 MeshTracker::MeshTracker(const std::filesystem::path& origMeshPath)
     : m_origMeshPath(origMeshPath)
+    , m_origCrc32(0)
     , m_stagedMeshPtr(nullptr)
 {
     // Check if file exists
@@ -22,9 +37,12 @@ MeshTracker::MeshTracker(const std::filesystem::path& origMeshPath)
     if (!pgd->isFile(origMeshPath)) {
         throw std::runtime_error("Original mesh path does not exist: " + origMeshPath.string());
     }
+}
 
+void MeshTracker::load()
+{
     // Load original NIF file
-    const vector<std::byte> nifFileData = pgd->getFile(origMeshPath);
+    const vector<std::byte> nifFileData = PGGlobals::getPGD()->getFile(m_origMeshPath);
 
     // Calculate original CRC32
     boost::crc_32_type crcBeforeResult {};
@@ -262,8 +280,8 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB, bool compareTXST) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
-    const auto blocksA = NIFUtil::getComparableObjects(&meshA);
-    const auto blocksB = NIFUtil::getComparableObjects(&meshB);
+    const auto blocksA = getComparableBlocks(&meshA);
+    const auto blocksB = getComparableBlocks(&meshB);
 
     if (blocksA.size() != blocksB.size()) {
         // Different number of shapes

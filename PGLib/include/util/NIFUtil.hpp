@@ -1,10 +1,21 @@
 #pragma once
 
-#include <Geometry.hpp>
-#include <NifFile.hpp>
-#include <Shaders.hpp>
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Object3d.hpp"
+#include "Shaders.hpp"
+
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <functional>
+#include <map>
+#include <string>
 #include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 constexpr unsigned NUM_TEXTURE_SLOTS = 9;
 
@@ -268,8 +279,6 @@ auto getSearchPrefixes(nifly::NifFile const& nif, nifly::NiShape* nifShape, cons
 /// @return array of texture names without suffixes
 auto getSearchPrefixes(const std::array<std::wstring, NUM_TEXTURE_SLOTS>& oldSlots, const bool& findBaseSlots = true)
     -> std::array<std::wstring, NUM_TEXTURE_SLOTS>;
-
-auto getComparableObjects(const nifly::NifFile* nif) -> std::vector<nifly::NiObject*>;
 
 auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiShape*, int>;
 

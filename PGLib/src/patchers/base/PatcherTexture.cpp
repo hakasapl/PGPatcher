@@ -1,5 +1,12 @@
 #include "patchers/base/PatcherTexture.hpp"
+
+#include "patchers/base/Patcher.hpp"
+
 #include <DirectXTex.h>
+
+#include <filesystem>
+#include <string>
+#include <utility>
 
 using namespace std;
 

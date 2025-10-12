@@ -1,9 +1,17 @@
 #include "ParallaxGenPlugin.hpp"
 
-#include <spdlog/spdlog.h>
-#include <unordered_map>
-
+#include "BethesdaGame.hpp"
 #include "PGMutagenWrapper.hpp"
+#include "util/MeshTracker.hpp"
+#include "util/NIFUtil.hpp"
+
+#include <spdlog/spdlog.h>
+
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

@@ -3,6 +3,10 @@
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
+
+#include <filesystem>
+#include <unordered_set>
+
 class PGGlobals {
 private:
     static ParallaxGenDirectory* s_PGD;

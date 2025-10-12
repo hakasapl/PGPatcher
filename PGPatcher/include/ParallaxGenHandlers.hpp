@@ -1,13 +1,18 @@
 #pragma once
 
+#include <array>
+#include <atomic>
+#include <ctime>
+#include <excpt.h>
+#include <filesystem>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
 #include <windows.h>
 
-#include <DbgHelp.h>
+#include <minidumpapiset.h>
 #include <tlhelp32.h>
-
-#include <array>
-#include <filesystem>
-#include <iostream>
 
 class ParallaxGenHandlers {
 private:

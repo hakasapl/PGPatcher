@@ -1,8 +1,17 @@
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
-#include "Shaders.hpp"
+
+#include "patchers/base/PatcherMeshPost.hpp"
 #include "util/NIFUtil.hpp"
 
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Shaders.hpp"
+#include <boost/algorithm/string/case_conv.hpp>
 #include <spdlog/spdlog.h>
+
+#include <filesystem>
+#include <memory>
+#include <utility>
 
 using namespace std;
 

@@ -1,15 +1,19 @@
 #pragma once
 
-#include <Geometry.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <filesystem>
-#include <nlohmann/json.hpp>
-#include <vector>
-#include <windows.h>
-
 #include "BethesdaGame.hpp"
 #include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <nlohmann/json.hpp>
+
+#include <cstdint>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <windows.h>
 
 class ParallaxGenPlugin {
 public:

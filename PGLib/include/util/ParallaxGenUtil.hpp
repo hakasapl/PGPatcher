@@ -1,12 +1,13 @@
 #pragma once
 
-#include <windows.h>
+#include <nlohmann/json_fwd.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
+#include <string>
 #include <unordered_set>
-
-#include <nlohmann/json.hpp>
+#include <vector>
 
 namespace ParallaxGenUtil {
 

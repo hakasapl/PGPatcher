@@ -1,12 +1,14 @@
 #include "util/NIFUtil.hpp"
+
+#include "BasicTypes.hpp"
+#include "ExtraData.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
-#include <Geometry.hpp>
-#include <NifFile.hpp>
-#include <Object3d.hpp>
-#include <Particles.hpp>
-#include <Shaders.hpp>
-
+#include "Geometry.hpp"
+#include "NifFile.hpp"
+#include "Object3d.hpp"
+#include "Particles.hpp"
+#include "Shaders.hpp"
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -15,17 +17,16 @@
 #include <boost/iostreams/stream.hpp>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <stdexcept>
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
-
-#include <cstddef>
-#include <cstdint>
-
 #include <windows.h>
 
 using namespace std;
@@ -625,31 +626,6 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
     }
 
     return outSlots;
-}
-
-auto NIFUtil::getComparableObjects(const nifly::NifFile* nif) -> vector<nifly::NiObject*>
-{
-    if (nif == nullptr) {
-        throw runtime_error("NIF is null");
-    }
-
-    vector<NiObject*> tree;
-    nif->GetTree(tree);
-    vector<NiObject*> shapes;
-    for (auto& obj : tree) {
-        auto* const curShape = dynamic_cast<NiShape*>(obj);
-        if (curShape != nullptr) {
-            shapes.push_back(curShape);
-            continue;
-        }
-
-        auto* const particleSystem = dynamic_cast<NiParticleSystem*>(obj);
-        if (particleSystem != nullptr) {
-            shapes.push_back(particleSystem);
-        }
-    }
-
-    return shapes;
 }
 
 auto NIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<nifly::NiShape*, int>

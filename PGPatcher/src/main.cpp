@@ -27,17 +27,18 @@
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+#include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
+#include <CLI/CLI.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-
-#include <CLI/CLI.hpp>
-
 #include <cpptrace/from_current.hpp>
-
+#include <miniz.h>
+#include <miniz_zip.h>
+#include <nlohmann/json_fwd.hpp>
 #include <spdlog/common.h>
 #include <spdlog/logger.h>
 #include <spdlog/pattern_formatter.h>
@@ -45,15 +46,20 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-#include <windows.h>
-
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
+#include <windows.h>
 
 constexpr unsigned MAX_LOG_SIZE = 5242880;
 constexpr unsigned MAX_LOG_FILES = 1000;

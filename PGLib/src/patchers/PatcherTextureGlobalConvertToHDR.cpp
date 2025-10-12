@@ -1,7 +1,14 @@
 #include "patchers/PatcherTextureGlobalConvertToHDR.hpp"
-#include "ParallaxGenD3D.hpp"
 
+#include "ParallaxGenD3D.hpp"
+#include "patchers/base/PatcherTextureGlobal.hpp"
 #include <DirectXTex.h>
+
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
 
 using namespace std;
 

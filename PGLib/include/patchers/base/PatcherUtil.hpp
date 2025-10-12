@@ -1,8 +1,5 @@
 #pragma once
 
-#include <nlohmann/json_fwd.hpp>
-#include <unordered_map>
-
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshGlobal.hpp"
@@ -11,9 +8,16 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
-
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
+
+#include <nlohmann/json_fwd.hpp>
+
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 /**
  * @class PatcherUtil

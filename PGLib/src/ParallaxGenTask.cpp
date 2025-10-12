@@ -2,6 +2,11 @@
 
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
+#include <mutex>
+#include <string>
+#include <utility>
+
 using namespace std;
 
 ParallaxGenTask::ParallaxGenTask(string taskName, const size_t& totalJobs, const int& progressPrintModulo)

@@ -1,8 +1,18 @@
 #include "handlers/HandlerLightPlacerTracker.hpp"
+
 #include "PGGlobals.hpp"
 #include "util/ParallaxGenUtil.hpp"
+
 #include <boost/algorithm/string/predicate.hpp>
 #include <nlohmann/json_fwd.hpp>
+
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace std;
 

@@ -3,6 +3,8 @@
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
 
+#include <string>
+
 /**
  * @class Patcher
  * @brief Base class for all patchers

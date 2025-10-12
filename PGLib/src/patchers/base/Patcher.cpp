@@ -1,5 +1,11 @@
 #include "patchers/base/Patcher.hpp"
 
+#include "ParallaxGenD3D.hpp"
+#include "ParallaxGenDirectory.hpp"
+
+#include <string>
+#include <utility>
+
 using namespace std;
 
 ParallaxGenDirectory* Patcher::s_pgd = nullptr;
