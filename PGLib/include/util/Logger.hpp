@@ -1,5 +1,6 @@
 #pragma once
 
+#include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 
 #include <fmt/base.h>
@@ -9,12 +10,20 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_set>
+#include <utility>
+#include <variant>
 #include <vector>
 
 class Logger {
 private:
     inline static std::unordered_set<std::wstring> s_existingMessages;
     inline static std::shared_mutex s_existingMessagesMutex;
+
+    inline static std::shared_mutex s_mtLogLock;
+    inline thread_local static std::vector<
+        std::pair<spdlog::level::level_enum, std::variant<std::wstring, std::string>>>
+        s_curBuffer;
+    inline thread_local static bool s_isThreadedBufferActive;
 
     thread_local static std::vector<std::wstring> s_prefixStack;
     static auto buildPrefixWString() -> std::wstring;
@@ -24,7 +33,7 @@ private:
     {
         {
             const std::shared_lock lock(s_existingMessagesMutex);
-            if (s_existingMessages.find(message) != s_existingMessages.end()) {
+            if (s_existingMessages.contains(message)) {
                 // don't log anything if already logged
                 return false;
             }
@@ -63,77 +72,187 @@ public:
         auto operator=(Prefix&&) -> Prefix& = delete;
     };
 
+    // MT helpers
+    static void startThreadedBuffer();
+    static void flushThreadedBuffer();
+
     // WString Log functions
     template <typename... Args> static void critical(const std::wstring& fmt, Args&&... moreArgs)
     {
-        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
-            spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (!shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            return;
         }
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::critical, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
+        spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void error(const std::wstring& fmt, Args&&... moreArgs)
     {
-        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
-            spdlog::error(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (!shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            return;
         }
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::err, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
+        spdlog::error(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void warn(const std::wstring& fmt, Args&&... moreArgs)
     {
-        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
-            spdlog::warn(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (!shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            return;
         }
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::warn, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
+        spdlog::warn(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void info(const std::wstring& fmt, Args&&... moreArgs)
     {
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::info, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
         spdlog::info(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void debug(const std::wstring& fmt, Args&&... moreArgs)
     {
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(spdlog::level::debug,
+                fmt::format(fmt::runtime(buildPrefixWString() + fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
         spdlog::debug(fmt::runtime(buildPrefixWString() + fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void trace(const std::wstring& fmt, Args&&... moreArgs)
     {
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(spdlog::level::trace,
+                fmt::format(fmt::runtime(buildPrefixWString() + fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
         spdlog::trace(fmt::runtime(buildPrefixWString() + fmt), std::forward<Args>(moreArgs)...);
     }
 
     // String Log functions
     template <typename... Args> static void critical(const std::string& fmt, Args&&... moreArgs)
     {
-        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
-            spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (!shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            return;
         }
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::critical, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
+        spdlog::critical(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void error(const std::string& fmt, Args&&... moreArgs)
     {
-        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
-            spdlog::error(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (!shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            return;
         }
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::err, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
+        spdlog::error(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void warn(const std::string& fmt, Args&&... moreArgs)
     {
-        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
-            spdlog::warn(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (!shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            return;
         }
+
+        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+            return;
+        }
+
+        spdlog::warn(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void info(const std::string& fmt, Args&&... moreArgs)
     {
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::info, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
         spdlog::info(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void debug(const std::string& fmt, Args&&... moreArgs)
     {
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(spdlog::level::debug,
+                fmt::format(fmt::runtime(buildPrefixString() + fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
         spdlog::debug(fmt::runtime(buildPrefixString() + fmt), std::forward<Args>(moreArgs)...);
     }
 
     template <typename... Args> static void trace(const std::string& fmt, Args&&... moreArgs)
     {
+        const std::shared_lock lock(s_mtLogLock);
+
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(spdlog::level::trace,
+                fmt::format(fmt::runtime(buildPrefixString() + fmt), std::forward<Args>(moreArgs)...));
+            return;
+        }
+
         spdlog::trace(fmt::runtime(buildPrefixString() + fmt), std::forward<Args>(moreArgs)...);
     }
 };
