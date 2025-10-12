@@ -412,6 +412,18 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_processingBSACheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingBSAChange, this);
     m_processingOptionsSizer->Add(m_processingBSACheckbox, 0, wxALL, BORDER_SIZE);
 
+    m_processingEnableDebugLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Debug Logging");
+    m_processingEnableDebugLoggingCheckbox->SetToolTip("Enables debug logging in the output log");
+    m_processingEnableDebugLoggingCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDebugLoggingChange, this);
+    m_processingOptionsSizer->Add(m_processingEnableDebugLoggingCheckbox, 0, wxALL, BORDER_SIZE);
+
+    m_processingEnableTraceLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Trace Logging");
+    m_processingEnableTraceLoggingCheckbox->SetToolTip("Enables trace logging in the output log (very verbose)");
+    m_processingEnableTraceLoggingCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableTraceLoggingChange, this);
+    m_processingOptionsSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, BORDER_SIZE);
+
     leftSizer->Add(m_processingOptionsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
@@ -555,6 +567,8 @@ void LauncherWindow::loadConfig()
         ParallaxGenPlugin::getStringFromPluginLang(initParams.Processing.pluginLang));
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
     m_processingBSACheckbox->SetValue(initParams.Processing.bsa);
+    m_processingEnableDebugLoggingCheckbox->SetValue(initParams.Processing.enableDebugLogging);
+    m_processingEnableTraceLoggingCheckbox->SetValue(initParams.Processing.enableTraceLogging);
 
     // Pre-Patchers
     m_prePatcherDisableMLPCheckbox->SetValue(initParams.PrePatcher.disableMLP);
@@ -733,6 +747,16 @@ void LauncherWindow::onProcessingMultithreadingChange([[maybe_unused]] wxCommand
 
 void LauncherWindow::onProcessingBSAChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
+void LauncherWindow::onProcessingEnableDebugLoggingChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
+void LauncherWindow::onProcessingEnableTraceLoggingChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
 void LauncherWindow::onPrePatcherDisableMLPChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onPrePatcherFixMeshLightingChange([[maybe_unused]] wxCommandEvent& event)
@@ -852,6 +876,8 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
         m_processingPluginPatchingOptionsLangCombo->GetStringSelection().ToStdString());
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
     params.Processing.bsa = m_processingBSACheckbox->GetValue();
+    params.Processing.enableDebugLogging = m_processingEnableDebugLoggingCheckbox->GetValue();
+    params.Processing.enableTraceLogging = m_processingEnableTraceLoggingCheckbox->GetValue();
 
     // Pre-Patchers
     params.PrePatcher.disableMLP = m_prePatcherDisableMLPCheckbox->GetValue();
@@ -1030,6 +1056,14 @@ void LauncherWindow::updateDisabledElements()
 
     // save button
     m_saveConfigButton->Enable(curParams != m_pgc.getParams());
+
+    // logging checkboxes
+    if (curParams.Processing.enableDebugLogging) {
+        m_processingEnableTraceLoggingCheckbox->Enable(true);
+    } else {
+        m_processingEnableTraceLoggingCheckbox->SetValue(false);
+        m_processingEnableTraceLoggingCheckbox->Enable(false);
+    }
 }
 
 void LauncherWindow::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)

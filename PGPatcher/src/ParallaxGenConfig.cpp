@@ -171,6 +171,12 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
             m_params.Processing.pluginLang
                 = ParallaxGenPlugin::getPluginLangFromString(paramJ["processing"]["pluginlang"].get<string>());
         }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("enabledebuglogging")) {
+            paramJ["processing"]["enabledebuglogging"].get_to<bool>(m_params.Processing.enableDebugLogging);
+        }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("enabletracelogging")) {
+            paramJ["processing"]["enabletracelogging"].get_to<bool>(m_params.Processing.enableTraceLogging);
+        }
 
         // "prepatcher"
         if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("disablemlp")) {
@@ -436,6 +442,8 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["processing"]["pluginesmify"] = m_params.Processing.pluginESMify;
     j["params"]["processing"]["pluginlang"]
         = ParallaxGenPlugin::getStringFromPluginLang(m_params.Processing.pluginLang);
+    j["params"]["processing"]["enabledebuglogging"] = m_params.Processing.enableDebugLogging;
+    j["params"]["processing"]["enabletracelogging"] = m_params.Processing.enableTraceLogging;
 
     // "prepatcher"
     j["params"]["prepatcher"]["disablemlp"] = m_params.PrePatcher.disableMLP;

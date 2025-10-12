@@ -201,6 +201,16 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         Logger::critical("Validation errors were found. Exiting.");
     }
 
+    // Set log level
+    if (params.Processing.enableDebugLogging) {
+        spdlog::set_level(spdlog::level::debug);
+        spdlog::flush_on(spdlog::level::debug);
+    }
+    if (params.Processing.enableTraceLogging) {
+        spdlog::set_level(spdlog::level::trace);
+        spdlog::flush_on(spdlog::level::trace);
+    }
+
     // print output location
     Logger::info(L"ParallaxGen output directory: {}", params.Output.dir.wstring());
 
@@ -464,13 +474,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
 {
     // Logging
-    app.add_flag("-v", args.verbosity,
-        "Verbosity level -v for DEBUG data or -vv for TRACE data "
-        "(warning: TRACE data is very verbose)");
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
 }
 
-void initLogger(const filesystem::path& logpath, const ParallaxGenCLIArgs& args)
+void initLogger(const filesystem::path& logpath)
 {
     // Create loggers
     vector<spdlog::sink_ptr> sinks;
@@ -495,20 +502,6 @@ void initLogger(const filesystem::path& logpath, const ParallaxGenCLIArgs& args)
 
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
     wxSink->set_formatter(std::make_unique<spdlog::pattern_formatter>("%v"));
-
-    // Set logging mode
-    if (args.verbosity >= 1) {
-        spdlog::set_level(spdlog::level::debug);
-        spdlog::flush_on(spdlog::level::debug);
-        spdlog::debug("DEBUG logging enabled");
-    }
-
-    if (args.verbosity >= 2) {
-        spdlog::set_level(spdlog::level::trace);
-        consoleSink->set_level(spdlog::level::debug);
-        spdlog::flush_on(spdlog::level::trace);
-        spdlog::trace("TRACE logging enabled");
-    }
 }
 }
 
@@ -554,7 +547,7 @@ auto main(int ArgC, char** ArgV) -> int
     }
 
     const filesystem::path logPath = logDir / "ParallaxGen.log";
-    initLogger(logPath, args);
+    initLogger(logPath);
 
     // Main Runner (Catches all exceptions)
     CPPTRACE_TRY { mainRunner(args, exePath); }
