@@ -210,7 +210,9 @@ public:
             return;
         }
 
-        if (shouldLogString(fmt, std::forward<Args>(moreArgs)...)) {
+        if (s_isThreadedBufferActive) {
+            s_curBuffer.emplace_back(
+                spdlog::level::warn, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
             return;
         }
 
