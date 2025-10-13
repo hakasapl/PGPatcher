@@ -87,7 +87,6 @@ private:
     std::shared_mutex m_fileMapMutex; /** < Shared Mutex for the file map */
     std::vector<ModFile> m_modFiles; /** < Stores files in mod staging directory */
 
-    bool m_logging; /** < Bool for whether logging is enabled or not */
     BethesdaGame* m_bg; /** < BethesdaGame which stores a BethesdaGame object
                         corresponding to this load order */
     ModManagerDirectory* m_mmd; /** < ModManagerDirectory which stores a pointer to a
@@ -115,8 +114,7 @@ public:
      * @param bg BethesdaGame object corresponding to load order
      * @param logging Whether to enable CLI logging
      */
-    BethesdaDirectory(BethesdaGame* bg, std::filesystem::path generatedPath = "", ModManagerDirectory* mmd = nullptr,
-        const bool& logging = false);
+    BethesdaDirectory(BethesdaGame* bg, std::filesystem::path generatedPath = "", ModManagerDirectory* mmd = nullptr);
 
     /**
      * @brief Construct a new Bethesda Directory object without a game type, for generic folders only
@@ -126,8 +124,8 @@ public:
      * @param mmd ModManagerDirectory object
      * @param logging Whether to enable CLI logging
      */
-    BethesdaDirectory(std::filesystem::path dataPath, std::filesystem::path generatedPath = "",
-        ModManagerDirectory* mmd = nullptr, const bool& logging = false);
+    BethesdaDirectory(
+        std::filesystem::path dataPath, std::filesystem::path generatedPath = "", ModManagerDirectory* mmd = nullptr);
 
     /**
      * @brief Populate file map with all files in the load order
@@ -262,24 +260,6 @@ public:
         -> bool;
 
     /**
-     * @brief Get the lowercase path of a path using the "C" locale, i.e. only ASCII characters are converted
-     *
-     * @param path Path to be made lowercase
-     * @return std::filesystem::path lowercase path of the input
-     */
-    static auto getAsciiPathLower(const std::filesystem::path& path) -> std::filesystem::path;
-
-    /**
-     * @brief Check if two paths are equal, ignoring case
-     *
-     * @param path1 1st path to check
-     * @param path2 2nd path to check
-     * @return true if paths equal ignoring case
-     * @return false if paths don't equal ignoring case
-     */
-    static auto pathEqualityIgnoreCase(const std::filesystem::path& path1, const std::filesystem::path& path2) -> bool;
-
-    /**
      * @brief Check if any component on a path is in a list of components
      *
      * @param path path to check
@@ -360,8 +340,8 @@ private:
      * @param pluginPrefix Plugin to check without extension
      * @return std::vector<std::wstring> list of BSAs loaded with plugin
      */
-    [[nodiscard]] auto findBSAFilesFromPluginName(const std::vector<std::wstring>& bsaFileList,
-        const std::wstring& pluginPrefix) const -> std::vector<std::wstring>;
+    [[nodiscard]] static auto findBSAFilesFromPluginName(
+        const std::vector<std::wstring>& bsaFileList, const std::wstring& pluginPrefix) -> std::vector<std::wstring>;
 
     /**
      * @brief Get a file object from the file map
@@ -401,5 +381,5 @@ private:
     static auto checkGlob(const LPCWSTR& str, LPCWSTR& winningGlob, const std::vector<LPCWSTR>& globList) -> bool;
 
     static auto readINIValue(const std::filesystem::path& iniPath, const std::wstring& section, const std::wstring& key,
-        const bool& logging, const bool& firstINIRead) -> std::wstring;
+        const bool& firstINIRead) -> std::wstring;
 };

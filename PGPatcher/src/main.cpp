@@ -261,7 +261,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Create relevant objects
     // TODO control the lifetime of these in PGLib
-    auto bg = BethesdaGame(params.Game.type, true, params.Game.dir);
+    auto bg = BethesdaGame(params.Game.type, params.Game.dir);
 
     auto mmd = ModManagerDirectory(params.ModManager.type);
     PGGlobals::setMMD(&mmd);
@@ -318,6 +318,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
             "generate LODs after running PGPatcher with the PGPatcher output enabled.");
     }
+
+    // Log active plugins
+    const wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
+    Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
 
     // Init PGP library
     if (params.Processing.pluginPatching) {

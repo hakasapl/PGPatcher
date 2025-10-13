@@ -254,10 +254,16 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         }
 
         if (saveSuccess) {
-            Logger::debug(L"Saving patched NIF to output");
+            if (i == 0) {
+                Logger::debug("Saved patched base mesh");
+            } else {
+                Logger::debug("Saved patched duplicate mesh {}", to_string(i));
+            }
         } else {
-            Logger::error(L"Unable to save NIF file {}", meshFilename.wstring());
-            continue;
+            // A mesh that we were able to open but cannot save will cause issues in-game because it might have
+            // partially saved
+            Logger::critical(L"Unable to save NIF file {}", meshFilename.wstring());
+            return {};
         }
 
         // tell PGD that this is a generated file

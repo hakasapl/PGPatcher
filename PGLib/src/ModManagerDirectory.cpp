@@ -17,7 +17,6 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -206,7 +205,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
 
         // Update file map
-        Logger::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
+        Logger::trace(L"Mapping file to mod: {} -> {}", relPath.wstring(), modName);
 
         m_modMap[modName] = modPtr;
         foundMods.insert(modName);
@@ -291,7 +290,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
         if (filesystem::equivalent(curModDir, outputDir)) {
             Logger::critical(
                 L"If outputting to MO2 you must disable the mod {} first to prevent issues with MO2 VFS", mod);
-            exit(1);
+            return;
         }
 
         foundOneMod = true;
@@ -350,7 +349,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
                         continue;
                     }
 
-                    Logger::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
+                    Logger::trace(L"Mapping file to mod: {} -> {}", relPathLower.wstring(), mod);
 
                     m_modFileMap[relPathLower] = modPtr;
                 }
@@ -370,7 +369,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
                     continue;
                 }
 
-                Logger::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
+                Logger::trace(L"Mapping file to mod: {} -> {}", relPathLower.wstring(), mod);
 
                 m_modFileMap[relPathLower] = modPtr;
             }
@@ -388,7 +387,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
 
     if (!foundOneMod) {
         Logger::critical(L"MO2 modlist.txt was empty, no mods found");
-        exit(1);
+        return;
     }
 
     modListFileF.close();

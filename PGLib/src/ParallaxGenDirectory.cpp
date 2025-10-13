@@ -42,13 +42,13 @@ using namespace std;
 using namespace ParallaxGenUtil;
 
 ParallaxGenDirectory::ParallaxGenDirectory(BethesdaGame* bg, filesystem::path outputPath, ModManagerDirectory* mmd)
-    : BethesdaDirectory(bg, std::move(outputPath), mmd, true)
+    : BethesdaDirectory(bg, std::move(outputPath), mmd)
 {
 }
 
 ParallaxGenDirectory::ParallaxGenDirectory(
     filesystem::path dataPath, filesystem::path outputPath, ModManagerDirectory* mmd)
-    : BethesdaDirectory(std::move(dataPath), std::move(outputPath), mmd, true)
+    : BethesdaDirectory(std::move(dataPath), std::move(outputPath), mmd)
 {
 }
 
@@ -77,7 +77,7 @@ auto ParallaxGenDirectory::findFiles() -> void
             }
 
             // Found a DDS
-            Logger::trace(L"Finding Files | Found DDS | {}", path.wstring());
+            Logger::trace(L"Found texture: {}", path.wstring());
             m_unconfirmedTextures[path] = {};
 
             {
@@ -87,22 +87,21 @@ auto ParallaxGenDirectory::findFiles() -> void
             }
         } else if (boost::iequals(firstPath, "meshes") && boost::iequals(path.extension().wstring(), L".nif")) {
             // Found a NIF
-            Logger::trace(L"Finding Files | Found NIF | {}", path.wstring());
+            Logger::trace(L"Found mesh: {}", path.wstring());
             m_unconfirmedMeshes.insert(path);
         } else if (boost::iequals(path.extension().wstring(), L".json")) {
             // Found a JSON file
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {
                 // Found PBR JSON config
-                Logger::trace(L"Finding Files | Found PBR JSON | {}", path.wstring());
+                Logger::trace(L"Found PBR json: {}", path.wstring());
                 m_pbrJSONs.push_back(path);
             } else if (boost::iequals(firstPath, L"lightplacer")) {
                 // Found Light Placer JSON config
-                Logger::trace(L"Finding Files | Found Light Placer JSON | {}", path.wstring());
+                Logger::trace(L"Found light placer json: {}", path.wstring());
                 m_lightPlacerJSONs.push_back(path);
             }
         }
     }
-    Logger::info("Finding files done");
 }
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
@@ -115,7 +114,7 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     const unordered_map<wstring, NIFUtil::TextureType> manualTextureMapsMap(
         manualTextureMaps.begin(), manualTextureMaps.end());
 
-    Logger::info("Starting building texture map");
+    Logger::info("Starting to build texture mappings");
 
     // Create task tracker
     ParallaxGenTask taskTracker("Loading NIFs", m_unconfirmedMeshes.size(), MAPTEXTURE_PROGRESS_MODULO);
@@ -127,14 +126,14 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     for (const auto& mesh : m_unconfirmedMeshes) {
         if (!nifAllowlist.empty() && !checkGlobMatchInVector(mesh.wstring(), nifAllowlist)) {
             // Skip mesh because it is not on allowlist
-            Logger::trace(L"Loading NIFs | Skipping Mesh due to Allowlist | Mesh: {}", mesh.wstring());
+            Logger::debug(L"Skipping mesh due to allowlist: {}", mesh.wstring());
             taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
             continue;
         }
 
         if (!nifBlocklist.empty() && checkGlobMatchInVector(mesh.wstring(), nifBlocklist)) {
             // Skip mesh because it is on blocklist
-            Logger::trace(L"Loading NIFs | Skipping Mesh due to Blocklist | Mesh: {}", mesh.wstring());
+            Logger::debug(L"Skipping mesh due to blocklist: {}", mesh.wstring());
             taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
             continue;
         }
@@ -178,20 +177,19 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
             winningType = get<1>(defProperty);
         }
 
-        if (manualTextureMapsMap.find(texture.wstring()) != manualTextureMapsMap.end()) {
+        if (manualTextureMapsMap.contains(texture.wstring())) {
             // Manual texture map found, override
             winningType = manualTextureMapsMap.at(texture.wstring());
             winningSlot = NIFUtil::getSlotFromTexType(winningType);
         }
 
         if ((winningSlot == NIFUtil::TextureSlots::PARALLAX) && isFileInBSA(texture, parallaxBSAExcludes)) {
-            Logger::trace(L"Mapping Textures | Ignored vanilla parallax texture | Texture: {}", texture.wstring());
             continue;
         }
 
         // Log result
-        Logger::trace(L"Mapping Textures | Mapping Result | Texture: {} | Slot: {} | Type: {}", texture.wstring(),
-            static_cast<size_t>(winningSlot), utf8toUTF16(NIFUtil::getStrFromTexType(winningType)));
+        Logger::trace(L"Mapping Texture: {} / Slot: {} / Type: {}", texture.wstring(), static_cast<size_t>(winningSlot),
+            utf8toUTF16(NIFUtil::getStrFromTexType(winningType)));
 
         // Add to texture map
         if (winningSlot != NIFUtil::TextureSlots::UNKNOWN) {
@@ -203,8 +201,6 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     // cleanup
     m_unconfirmedTextures.clear();
     m_unconfirmedMeshes.clear();
-
-    Logger::info("Mapping textures done");
 }
 
 auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const vector<std::wstring>& list) -> bool
@@ -408,10 +404,6 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
                 textureType = NIFUtil::TextureType::UNKNOWN;
             }
 
-            // Log finding
-            Logger::trace(L"Mapping Textures | Slot Found | NIF: {} | Texture: {} | Slot: {} | Type: {}",
-                nifPath.wstring(), asciitoUTF16(texture), slot, utf8toUTF16(NIFUtil::getStrFromTexType(textureType)));
-
             // Update unconfirmed textures map
             updateUnconfirmedTexturesMap(texture, static_cast<NIFUtil::TextureSlots>(slot), textureType);
         }
@@ -430,7 +422,7 @@ auto ParallaxGenDirectory::updateUnconfirmedTexturesMap(
     const lock_guard<mutex> lock(m_unconfirmedTexturesMutex);
 
     // Check if texture is already in map
-    if (m_unconfirmedTextures.find(path) != m_unconfirmedTextures.end()) {
+    if (m_unconfirmedTextures.contains(path)) {
         // Texture is present
         m_unconfirmedTextures[path].slots[slot]++;
         m_unconfirmedTextures[path].types[type]++;
@@ -493,7 +485,7 @@ auto ParallaxGenDirectory::addTextureAttribute(const filesystem::path& path, con
 {
     const unique_lock lock(m_textureTypesMutex);
 
-    if (m_textureTypes.find(path) != m_textureTypes.end()) {
+    if (m_textureTypes.contains(path)) {
         return m_textureTypes.at(path).attributes.insert(attribute).second;
     }
 
@@ -505,7 +497,7 @@ auto ParallaxGenDirectory::removeTextureAttribute(
 {
     const unique_lock lock(m_textureTypesMutex);
 
-    if (m_textureTypes.find(path) != m_textureTypes.end()) {
+    if (m_textureTypes.contains(path)) {
         return m_textureTypes.at(path).attributes.erase(attribute) > 0;
     }
 
@@ -517,8 +509,8 @@ auto ParallaxGenDirectory::hasTextureAttribute(const filesystem::path& path, con
 {
     const shared_lock lock(m_textureTypesMutex);
 
-    if (m_textureTypes.find(path) != m_textureTypes.end()) {
-        return m_textureTypes.at(path).attributes.find(attribute) != m_textureTypes.at(path).attributes.end();
+    if (m_textureTypes.contains(path)) {
+        return m_textureTypes.at(path).attributes.contains(attribute);
     }
 
     return false;
@@ -529,7 +521,7 @@ auto ParallaxGenDirectory::getTextureAttributes(const filesystem::path& path)
 {
     const shared_lock lock(m_textureTypesMutex);
 
-    if (m_textureTypes.find(path) != m_textureTypes.end()) {
+    if (m_textureTypes.contains(path)) {
         return m_textureTypes.at(path).attributes;
     }
 
@@ -546,7 +538,7 @@ auto ParallaxGenDirectory::getTextureType(const filesystem::path& path) -> NIFUt
 {
     const shared_lock lock(m_textureTypesMutex);
 
-    if (m_textureTypes.find(path) != m_textureTypes.end()) {
+    if (m_textureTypes.contains(path)) {
         return m_textureTypes.at(path).type;
     }
 

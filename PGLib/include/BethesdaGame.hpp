@@ -7,7 +7,7 @@
 #include <windows.h>
 
 // Steam game ID definitions
-enum {
+enum class SteamGameID : int {
     STEAMGAMEID_SKYRIM_SE = 489830,
     STEAMGAMEID_SKYRIM_VR = 611670,
     STEAMGAMEID_SKYRIM = 72850,
@@ -35,7 +35,7 @@ public:
 private:
     [[nodiscard]] auto getINILocations() const -> ININame;
     [[nodiscard]] auto getDocumentLocation() const -> std::filesystem::path;
-    [[nodiscard]] auto getAppDataLocation() const -> std::filesystem::path;
+    [[nodiscard]] static auto getAppDataLocation(const GameType& type) -> std::filesystem::path;
     [[nodiscard]] auto getSteamGameID() const -> int;
     [[nodiscard]] static auto getDataCheckFile(const GameType& type) -> std::filesystem::path;
 
@@ -48,12 +48,9 @@ private:
     std::filesystem::path m_gameAppDataPath;
     std::filesystem::path m_gameDocumentPath;
 
-    // stores whether logging is enabled
-    bool m_logging;
-
 public:
     // constructor
-    BethesdaGame(GameType gameType, const bool& logging = false, const std::filesystem::path& gamePath = "",
+    BethesdaGame(GameType gameType, const std::filesystem::path& gamePath = "",
         const std::filesystem::path& appDataPath = "", const std::filesystem::path& documentPath = "");
 
     // get functions
@@ -79,7 +76,7 @@ public:
 
 private:
     [[nodiscard]] auto getGameDocumentSystemPath() const -> std::filesystem::path;
-    [[nodiscard]] auto getGameAppdataSystemPath() const -> std::filesystem::path;
+    [[nodiscard]] static auto getGameAppdataSystemPath(const GameType& type) -> std::filesystem::path;
 
     // gets the system path for a folder (from windows.h)
     static auto getSystemPath(const GUID& folderID) -> std::filesystem::path;
