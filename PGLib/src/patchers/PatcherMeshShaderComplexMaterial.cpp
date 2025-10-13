@@ -64,7 +64,6 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unuse
     auto nifShaderType = static_cast<nifly::BSLightingShaderPropertyShaderType>(nifShader->GetShaderType());
     if (nifShaderType != BSLSP_DEFAULT && nifShaderType != BSLSP_ENVMAP && nifShaderType != BSLSP_PARALLAX
         && nifShaderType != BSLSP_MULTILAYERPARALLAX) {
-        Logger::trace(L"Shape Rejected: Incorrect NIFShader type");
         return false;
     }
 
@@ -72,14 +71,12 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unuse
         && (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
             || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
             || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
-        Logger::trace(L"Shape Rejected: Unable shader permutation");
         return false;
     }
 
     if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
         && NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
         && NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
-        Logger::trace(L"Shape Rejected: Unable shader permutation");
         return false;
     }
 
@@ -87,11 +84,9 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unuse
         && (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
             || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
             || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
-        Logger::trace(L"Shape Rejected: Singlepass MATO incompatible shader flags");
         return false;
     }
 
-    Logger::trace(L"Shape Accepted");
     return true;
 }
 

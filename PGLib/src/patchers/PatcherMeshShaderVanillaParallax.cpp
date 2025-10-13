@@ -1,7 +1,6 @@
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
 
 #include "patchers/base/PatcherMeshShader.hpp"
-#include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 
 #include "BasicTypes.hpp"
@@ -50,7 +49,6 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::p
 auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepassMATO) -> bool
 {
     if (singlepassMATO) {
-        Logger::trace(L"Cannot Apply: Singlepass MATO enabled");
         return false;
     }
 
@@ -59,18 +57,15 @@ auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepa
 
     // Check if nif has attached havok (Results in crashes for vanilla Parallax)
     if (m_hasAttachedHavok) {
-        Logger::trace(L"Cannot Apply: Attached havok animations");
         return false;
     }
 
     // ignore skinned meshes, these don't support Parallax
     if (nifShape.HasSkinInstance() || nifShape.IsSkinned()) {
-        Logger::trace(L"Cannot Apply: Skinned mesh");
         return false;
     }
 
     if (nifShape.HasAlphaProperty()) {
-        Logger::trace(L"Cannot Apply: Shape has alpha property");
         return false;
     }
 
@@ -78,14 +73,12 @@ auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepa
     auto nifShaderType = static_cast<nifly::BSLightingShaderPropertyShaderType>(nifShader->GetShaderType());
     if (nifShaderType != BSLSP_DEFAULT && nifShaderType != BSLSP_PARALLAX && nifShaderType != BSLSP_ENVMAP) {
         // don't overwrite existing NIFShaders
-        Logger::trace(L"Cannot Apply: Incorrect NIFShader type");
         return false;
     }
 
     // decals don't work with regular Parallax
     if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_DECAL)
         || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_DYNAMIC_DECAL)) {
-        Logger::trace(L"Cannot Apply: Shape has decal");
         return false;
     }
 
@@ -93,7 +86,6 @@ auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepa
     if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
         || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
         || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
-        Logger::trace(L"Cannot Apply: Lighting on shape");
         return false;
     }
 

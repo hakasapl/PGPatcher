@@ -101,15 +101,15 @@ void zipDirectory(const filesystem::path& dirPath, const filesystem::path& zipPa
 
     // Check if file already exists and delete
     if (filesystem::exists(zipPath)) {
-        spdlog::info(L"Deleting existing output Zip file: {}", zipPath.wstring());
+        Logger::info(L"Deleting existing output Zip file: {}", zipPath.wstring());
         filesystem::remove(zipPath);
     }
 
     // initialize file
     const string zipPathString = ParallaxGenUtil::utf16toUTF8(zipPath);
     if (mz_zip_writer_init_file(&zip, zipPathString.c_str(), 0) == 0) {
-        spdlog::critical(L"Error creating Zip file: {}", zipPath.wstring());
-        exit(1);
+        Logger::critical(L"Error creating Zip file: {}", zipPath.wstring());
+        return;
     }
 
     // add each file in directory to Zip
@@ -121,13 +121,11 @@ void zipDirectory(const filesystem::path& dirPath, const filesystem::path& zipPa
 
     // finalize Zip
     if (mz_zip_writer_finalize_archive(&zip) == 0) {
-        spdlog::critical(L"Error finalizing Zip archive: {}", zipPath.wstring());
-        exit(1);
+        Logger::critical(L"Error finalizing Zip archive: {}", zipPath.wstring());
+        return;
     }
 
     mz_zip_writer_end(&zip);
-
-    spdlog::info(L"Please import this file into your mod manager: {}", zipPath.wstring());
 }
 
 auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exePath) -> void
@@ -158,7 +156,7 @@ void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool 
             // Only delete files that are .log and start with ParallaxGen
             for (const auto& entry : filesystem::directory_iterator(logpath.parent_path())) {
                 if (entry.is_regular_file() && entry.path().extension() == ".log"
-                    && entry.path().filename().wstring().starts_with(L"ParallaxGen")) {
+                    && entry.path().filename().wstring().starts_with(L"PGPatcher")) {
                     filesystem::remove(entry.path());
                 }
             }
@@ -194,13 +192,13 @@ void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool 
     if (enableDebug) {
         spdlog::set_level(spdlog::level::debug);
         spdlog::flush_on(spdlog::level::debug);
-        spdlog::debug("DEBUG logging enabled");
+        Logger::debug("DEBUG logging enabled");
     }
     if (enableTrace) {
         spdlog::set_level(spdlog::level::trace);
         consoleSink->set_level(spdlog::level::debug);
         spdlog::flush_on(spdlog::level::trace);
-        spdlog::trace("TRACE logging enabled");
+        Logger::trace("TRACE logging enabled");
     }
 }
 
@@ -236,28 +234,31 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     vector<string> errors;
     if (!ParallaxGenConfig::validateParams(params, errors)) {
         // This should never happen because there is a frontend validation that would have to be bypassed
+        string errorList;
         for (const auto& error : errors) {
-            Logger::error("{}", error);
+            errorList += "- " + error + "\n";
         }
-        Logger::critical("Validation errors were found. Exiting.");
+        cerr << "Configuration is invalid:\n" << errorList << "\n";
+        return;
     }
 
-    const filesystem::path logPath = exePath / "log" / "ParallaxGen.log";
+    // LOGGING SHOULD ONLY HAPPEN PAST THIS POINT
+    const filesystem::path logPath = exePath / "log" / "PGPatcher.log";
     initLogger(logPath, params.Processing.enableDebugLogging, params.Processing.enableTraceLogging);
 
     // Welcome Message
-    Logger::info("Welcome to PG Patcher version {}!", PG_VERSION);
+    Logger::info("Welcome to PGPatcher version {}!", PG_VERSION);
 
 #if PG_TEST_BUILD
     // Post test message for test builds
-    Logger::warn("This is an EXPERIMENTAL development build of PG Patcher");
+    Logger::warn("This is an EXPERIMENTAL development build of PGPatcher");
 #endif
 
     // Alpha message
-    Logger::warn("ParallaxGen is currently in BETA. Please file detailed bug reports on nexus or github.");
+    Logger::warn("PGPatcher is currently in BETA. Please file detailed bug reports on nexus or github.");
 
     // print output location
-    Logger::info(L"ParallaxGen output directory: {}", params.Output.dir.wstring());
+    Logger::info(L"PGPatcher output directory: {}", params.Output.dir.wstring());
 
     // Create relevant objects
     // TODO control the lifetime of these in PGLib
@@ -276,10 +277,12 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     Logger::info("Initializing GPU");
     if (!pgd3d.initGPU()) {
         Logger::critical("Failed to initialize GPU. Exiting.");
+        return;
     }
 
     if (!pgd3d.initShaders()) {
         Logger::critical("Failed to initialize internal shaders. Exiting.");
+        return;
     }
 
     //
@@ -296,19 +299,21 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             Logger::debug(L"Output directory created: {}", params.Output.dir.wstring());
         }
     } catch (const filesystem::filesystem_error& e) {
-        Logger::error("Failed to create output directory: {}", e.what());
-        exit(1);
+        Logger::critical("Failed to create output directory: {}", e.what());
+        return;
     }
 
     // If output dir is the same as data dir meshes might get overwritten
     if (filesystem::equivalent(params.Output.dir, pgd.getDataPath())) {
         Logger::critical("Output directory cannot be the same directory as your data folder. "
                          "Exiting.");
+        return;
     }
 
     // If output dir is a subdirectory of data dir vfs issues can occur
     if (boost::istarts_with(params.Output.dir.wstring(), bg.getGameDataPath().wstring() + "\\")) {
         Logger::critical("Output directory cannot be a subdirectory of your data folder. Exiting.");
+        return;
     }
 
     // Check if dyndolod.esp exists
@@ -317,6 +322,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         Logger::critical(
             "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
             "generate LODs after running PGPatcher with the PGPatcher output enabled.");
+        return;
     }
 
     // Log active plugins
@@ -343,6 +349,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         // Make sure running is USVFS
         if (!ParallaxGenHandlers::isUnderUSVFS()) {
             Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
+            return;
         }
 
         // MO2
@@ -357,6 +364,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     if (filesystem::exists(pgStateFilePath)) {
         Logger::critical("ParallaxGen meshes exist in your data directory, please delete before "
                          "re-running.");
+        return;
     }
 
     // delete existing output
@@ -370,9 +378,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         params.TextureRules.vanillaBSAList, params.Processing.multithread);
 
     // Classify textures (for CM etc.)
-    Logger::info("Starting extended classification of textures");
+    Logger::info("Running extended texture classification");
     pgd3d.extendedTexClassify(params.TextureRules.vanillaBSAList);
-    Logger::info("Extended classification done");
 
     // Create patcher factory
     PatcherUtil::PatcherMeshSet meshPatchers;
@@ -386,6 +393,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     }
     if (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR) {
         // fix slots only needed for shader patchers
+        Logger::debug("Adding Texture Slot Count Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
     }
 
@@ -426,6 +434,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         // initialize patcher hooks
         if (!PatcherTextureHookConvertToCM::initShader()) {
             Logger::critical("Failed to initialize ConvertToCM shader");
+            return;
         }
     }
     if (params.PostPatcher.disablePrePatchedMaterials) {
@@ -438,6 +447,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
         if (!PatcherTextureHookFixSSS::initShader()) {
             Logger::critical("Failed to initialize FixSSS shader");
+            return;
         }
     }
     if (params.PostPatcher.hairFlowMap) {
@@ -465,7 +475,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
 
         // Select mod order
-        Logger::info("Mod conflicts found. Showing mod order dialog.");
+        Logger::info("Showing mod priority order dialog");
         ParallaxGenUI::selectModOrder();
         startTime = chrono::high_resolution_clock::now();
     }
@@ -476,7 +486,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Write plugin
     if (params.Processing.pluginPatching) {
-        Logger::info("Saving Plugins...");
+        Logger::info("Saving Plugins");
         ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
     }
 
@@ -484,7 +494,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     bool outputEmpty = false;
     if (ParallaxGen::isOutputEmpty()) {
         // output is empty
-        Logger::warn("Output directory is empty. No files were generated. Is your data path set correctly?");
+        Logger::warn("Output directory is empty. No files were generated. Is your game path set correctly?");
         outputEmpty = true;
     }
 
@@ -544,7 +554,7 @@ auto main(int argC, char** argV) -> int
 
     // CLI Arguments
     ParallaxGenCLIArgs args;
-    CLI::App app { "PG Patcher" };
+    CLI::App app { "PGPatcher" };
     addArguments(app, args);
 
     // Parse CLI Arguments (this is what exits on any validation issues)

@@ -77,7 +77,8 @@ auto ParallaxGenDirectory::findFiles() -> void
             }
 
             // Found a DDS
-            Logger::trace(L"Found texture: {}", path.wstring());
+            Logger::trace(L"Found texture: {} / {}", path.wstring(),
+                file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedTextures[path] = {};
 
             {
@@ -87,17 +88,20 @@ auto ParallaxGenDirectory::findFiles() -> void
             }
         } else if (boost::iequals(firstPath, "meshes") && boost::iequals(path.extension().wstring(), L".nif")) {
             // Found a NIF
-            Logger::trace(L"Found mesh: {}", path.wstring());
+            Logger::trace(
+                L"Found mesh: {} / {}", path.wstring(), file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedMeshes.insert(path);
         } else if (boost::iequals(path.extension().wstring(), L".json")) {
             // Found a JSON file
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {
                 // Found PBR JSON config
-                Logger::trace(L"Found PBR json: {}", path.wstring());
+                Logger::trace(L"Found PBR json: {} / {}", path.wstring(),
+                    file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
                 m_pbrJSONs.push_back(path);
             } else if (boost::iequals(firstPath, L"lightplacer")) {
                 // Found Light Placer JSON config
-                Logger::trace(L"Found light placer json: {}", path.wstring());
+                Logger::trace(L"Found light placer json: {} / {}", path.wstring(),
+                    file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
                 m_lightPlacerJSONs.push_back(path);
             }
         }
