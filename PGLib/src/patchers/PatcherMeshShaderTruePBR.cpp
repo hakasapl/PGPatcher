@@ -241,7 +241,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
         auto matchedPath = ParallaxGenUtil::utf8toUTF16(get<0>(data)["json"].get<string>());
 
         // Add to output
-        if (truePBROutputData.find(matchedPath) == truePBROutputData.end()) {
+        if (!truePBROutputData.contains(matchedPath)) {
             // If MatchedPath doesn't exist, insert it with an empty map and then add Sequence, Data
             truePBROutputData.emplace(matchedPath, map<size_t, tuple<nlohmann::json, wstring>> {});
         }
@@ -308,18 +308,15 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
             > get<0>(*(static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(b.extraData)->begin()));
     });
 
-    // Check for no-JSON RMAOS
+    // Check for pre-patch case
     if (truePBRData.empty()) {
-        auto rmaosPath = oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)];
+        const auto& rmaosPath = oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)];
         // if not start with PBR add it for the check
-        if (boost::istarts_with(rmaosPath, "textures\\") && !boost::istarts_with(rmaosPath, "textures\\pbr\\")) {
-            rmaosPath.replace(0, TEXTURE_STR_LENGTH, L"textures\\pbr\\");
-        }
-
         if (getPGD()->getTextureType(rmaosPath) == NIFUtil::TextureType::RMAOS) {
             // found RMAOS without json
             PatcherMatch match;
             match.matchedPath = rmaosPath;
+            match.extraData = nullptr;
             matches.insert(matches.begin(), match);
         }
     }
@@ -456,6 +453,8 @@ void PatcherMeshShaderTruePBR::applyPatch(
     NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match)
 {
     if (match.extraData == nullptr) {
+        // no extra data, so this is a pre-patched mesh, just apply shader, don't touch slots
+        applyShader(nifShape);
         return;
     }
 
