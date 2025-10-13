@@ -1,6 +1,5 @@
 #include "BethesdaGame.hpp"
 
-#include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -11,7 +10,6 @@
 
 #include <algorithm>
 #include <combaseapi.h>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <guiddef.h>
@@ -31,10 +29,9 @@
 
 using namespace std;
 
-BethesdaGame::BethesdaGame(GameType gameType, const bool& logging, const filesystem::path& gamePath,
-    const filesystem::path& appDataPath, const filesystem::path& documentPath)
+BethesdaGame::BethesdaGame(GameType gameType, const filesystem::path& gamePath, const filesystem::path& appDataPath,
+    const filesystem::path& documentPath)
     : m_objGameType(gameType)
-    , m_logging(logging)
 {
     if (gamePath.empty()) {
         // If the game path is empty, find
@@ -46,42 +43,25 @@ BethesdaGame::BethesdaGame(GameType gameType, const bool& logging, const filesys
 
     if (this->m_gamePath.empty()) {
         // If the game path is still empty, throw an exception
-        if (this->m_logging) {
-            Logger::critical("Unable to locate game data path. Please specify the game data path "
-                             "manually using the -d argument.");
-            exit(1);
-        } else {
-            throw runtime_error("Game path not found");
-        }
+        throw runtime_error("Game path not found");
     }
 
     // check if path actually exists
     if (!filesystem::exists(this->m_gamePath)) {
         // If the game path does not exist, throw an exception
-        if (this->m_logging) {
-            Logger::critical(L"Game path does not exist: {}", this->m_gamePath.wstring());
-            exit(1);
-        } else {
-            throw runtime_error("Game path does not exist");
-        }
+        throw runtime_error("Game path does not exist");
     }
 
     this->m_gameDataPath = this->m_gamePath / "Data";
 
     if (!isGamePathValid(this->m_gamePath, gameType)) {
         // If the game path does not contain Skyrim.esm, throw an exception
-        if (this->m_logging) {
-            Logger::critical(
-                L"Game data location is invalid: {} does not contain Skyrim.esm", this->m_gameDataPath.wstring());
-            exit(1);
-        } else {
-            throw runtime_error("Game data path does not contain Skyrim.esm");
-        }
+        throw runtime_error("Game data path does not contain Skyrim.esm");
     }
 
     // Define appdata path
     if (appDataPath.empty()) {
-        m_gameAppDataPath = getGameAppdataSystemPath();
+        m_gameAppDataPath = getGameAppdataSystemPath(m_objGameType);
     } else {
         m_gameAppDataPath = appDataPath;
     }
@@ -98,9 +78,18 @@ auto BethesdaGame::isGamePathValid(const std::filesystem::path& gamePath, const 
 {
     // Check if the game path is valid
     const auto gameDataPath = gamePath / "Data";
+    if (!filesystem::exists(gameDataPath) || !filesystem::is_directory(gameDataPath)) {
+        return false;
+    }
 
     const auto checkPath = gameDataPath / getDataCheckFile(type);
-    return filesystem::exists(checkPath);
+    if (!filesystem::exists(checkPath)) {
+        return false;
+    }
+
+    // Check if plugins.txt exists for this game type
+    const filesystem::path pluginsFile = getGameAppdataSystemPath(type) / "plugins.txt";
+    return filesystem::exists(pluginsFile);
 }
 
 // Statics
@@ -162,29 +151,29 @@ auto BethesdaGame::getDocumentLocation() const -> filesystem::path
     return {};
 }
 
-auto BethesdaGame::getAppDataLocation() const -> filesystem::path
+auto BethesdaGame::getAppDataLocation(const GameType& type) -> filesystem::path
 {
-    if (m_objGameType == BethesdaGame::GameType::SKYRIM_SE) {
+    if (type == BethesdaGame::GameType::SKYRIM_SE) {
         return "Skyrim Special Edition";
     }
 
-    if (m_objGameType == BethesdaGame::GameType::SKYRIM_GOG) {
+    if (type == BethesdaGame::GameType::SKYRIM_GOG) {
         return "Skyrim Special Edition GOG";
     }
 
-    if (m_objGameType == BethesdaGame::GameType::SKYRIM_VR) {
+    if (type == BethesdaGame::GameType::SKYRIM_VR) {
         return "Skyrim VR";
     }
 
-    if (m_objGameType == BethesdaGame::GameType::SKYRIM) {
+    if (type == BethesdaGame::GameType::SKYRIM) {
         return "Skyrim";
     }
 
-    if (m_objGameType == BethesdaGame::GameType::ENDERAL) {
+    if (type == BethesdaGame::GameType::ENDERAL) {
         return "Enderal";
     }
 
-    if (m_objGameType == BethesdaGame::GameType::ENDERAL_SE) {
+    if (type == BethesdaGame::GameType::ENDERAL_SE) {
         return "Enderal Special Edition";
     }
 
@@ -194,23 +183,23 @@ auto BethesdaGame::getAppDataLocation() const -> filesystem::path
 auto BethesdaGame::getSteamGameID() const -> int
 {
     if (m_objGameType == BethesdaGame::GameType::SKYRIM_SE) {
-        return STEAMGAMEID_SKYRIM_SE;
+        return static_cast<int>(SteamGameID::STEAMGAMEID_SKYRIM_SE);
     }
 
     if (m_objGameType == BethesdaGame::GameType::SKYRIM_VR) {
-        return STEAMGAMEID_SKYRIM_VR;
+        return static_cast<int>(SteamGameID::STEAMGAMEID_SKYRIM_VR);
     }
 
     if (m_objGameType == BethesdaGame::GameType::SKYRIM) {
-        return STEAMGAMEID_SKYRIM;
+        return static_cast<int>(SteamGameID::STEAMGAMEID_SKYRIM);
     }
 
     if (m_objGameType == BethesdaGame::GameType::ENDERAL) {
-        return STEAMGAMEID_ENDERAL;
+        return static_cast<int>(SteamGameID::STEAMGAMEID_ENDERAL);
     }
 
     if (m_objGameType == BethesdaGame::GameType::ENDERAL_SE) {
-        return STEAMGAMEID_ENDERAL_SE;
+        return static_cast<int>(SteamGameID::STEAMGAMEID_ENDERAL_SE);
     }
 
     return {};
@@ -367,12 +356,7 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
     const filesystem::path pluginsFile = getPluginsFile();
     ifstream pluginsFileHandle(pluginsFile, 1);
     if (!pluginsFileHandle.is_open()) {
-        if (m_logging) {
-            Logger::critical("Unable to open plugins.txt");
-            exit(1);
-        } else {
-            throw runtime_error("Unable to open plugins.txt");
-        }
+        throw runtime_error("Unable to open plugins.txt file");
     }
 
     // loop through each line of plugins.txt
@@ -414,11 +398,6 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
         }
     }
 
-    if (m_logging) {
-        wstring loadOrderStr = boost::algorithm::join(outputLO, L",");
-        Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
-    }
-
     return outputLO;
 }
 
@@ -433,14 +412,14 @@ auto BethesdaGame::getGameDocumentSystemPath() const -> filesystem::path
     return docPath;
 }
 
-auto BethesdaGame::getGameAppdataSystemPath() const -> filesystem::path
+auto BethesdaGame::getGameAppdataSystemPath(const GameType& type) -> filesystem::path
 {
     filesystem::path appDataPath = getSystemPath(FOLDERID_LocalAppData);
     if (appDataPath.empty()) {
         return {};
     }
 
-    appDataPath /= getAppDataLocation();
+    appDataPath /= getAppDataLocation(type);
     return appDataPath;
 }
 

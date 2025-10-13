@@ -14,25 +14,11 @@
 using namespace std;
 
 // statics
-unordered_map<wstring, unordered_set<wstring>> ParallaxGenWarnings::s_mismatchWarnTracker;
+unordered_map<std::wstring, unordered_set<pair<wstring, wstring>, ParallaxGenWarnings::PairHash>>
+    ParallaxGenWarnings::s_mismatchWarnTracker;
 mutex ParallaxGenWarnings::s_mismatchWarnTrackerMutex;
 
-unordered_map<std::wstring, unordered_set<pair<wstring, wstring>, ParallaxGenWarnings::PairHash>>
-    ParallaxGenWarnings::s_mismatchWarnDebugTracker;
-mutex ParallaxGenWarnings::s_mismatchWarnDebugTrackerMutex;
-
-unordered_set<pair<wstring, wstring>, ParallaxGenWarnings::PairHash> ParallaxGenWarnings::s_meshWarnTracker;
-mutex ParallaxGenWarnings::s_meshWarnTrackerMutex;
-unordered_set<pair<wstring, wstring>, ParallaxGenWarnings::PairHash> ParallaxGenWarnings::s_meshWarnDebugTracker;
-mutex ParallaxGenWarnings::s_meshWarnDebugTrackerMutex;
-
-void ParallaxGenWarnings::init()
-{
-    s_mismatchWarnTracker.clear();
-    s_mismatchWarnDebugTracker.clear();
-    s_meshWarnTracker.clear();
-    s_meshWarnDebugTracker.clear();
-}
+void ParallaxGenWarnings::init() { s_mismatchWarnTracker.clear(); }
 
 void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring& baseTex)
 {
@@ -51,13 +37,8 @@ void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring
     }
 
     {
-        const lock_guard<mutex> lock(s_mismatchWarnDebugTrackerMutex);
-        s_mismatchWarnDebugTracker[matchedPathMod->name].insert(std::make_pair(matchedPath, baseTex));
-    }
-
-    {
-        const lock_guard<mutex> lock(s_mismatchWarnTrackerMutex);
-        s_mismatchWarnTracker[matchedPathMod->name].insert(baseTexMod->name);
+        const std::scoped_lock lock(s_mismatchWarnTrackerMutex);
+        s_mismatchWarnTracker[matchedPathMod->name].insert(std::make_pair(matchedPath, baseTex));
     }
 }
 
@@ -66,25 +47,15 @@ void ParallaxGenWarnings::printWarnings()
     auto* const pgd = PGGlobals::getPGD();
 
     if (!s_mismatchWarnTracker.empty()) {
-        Logger::warn(
-            "Potential Texture mismatches were found, there may be visual issues, Please verify for each warning if "
-            "this is intended, address them and re-run ParallaxGen if needed.");
+        Logger::warn("Potential mismatches were found, if you see any issues in-game please refer to this list to find "
+                     "the culprit. PGPatcher cannot determine whether a mismatch is intended or not. Enable debug "
+                     "logging to see each file that triggers this warning for each case.");
     }
+
     for (const auto& matchedMod : s_mismatchWarnTracker) {
-        Logger::warn(L"\"{}\" assets are used with:", matchedMod.first);
-        for (auto baseMod : matchedMod.second) {
-            Logger::warn(L"  - diffuse/normal textures from \"{}\"", baseMod);
-        }
-        Logger::warn("");
-    }
-
-    if (!s_mismatchWarnDebugTracker.empty()) {
-        Logger::debug("Potential texture mismatches:");
-    }
-    for (auto& matchedMod : s_mismatchWarnDebugTracker) {
-        Logger::debug(L"Mod \"{}\":", matchedMod.first);
-
+        Logger::warn(L"\"{}\" assets are used in combination with:", matchedMod.first);
         for (auto texturePair : matchedMod.second) {
+            Logger::warn(L"  - \"{}\"", texturePair.first);
             auto baseTexMod = pgd->getMod(texturePair.second);
             Logger::debug(L"  - {} used with {} from \"{}\"", texturePair.first, texturePair.second, baseTexMod->name);
         }
@@ -115,27 +86,6 @@ void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& ni
     auto key = make_pair(matchedPathMod->name, nifPathMod->name);
 
     // Issue debug log
-    {
-        auto keyDebug = make_pair(matchedPath, nifPath);
-        const lock_guard<mutex> lock(s_meshWarnDebugTrackerMutex);
-        if (s_meshWarnDebugTracker.find(keyDebug) != s_meshWarnDebugTracker.end()) {
-            return;
-        }
-
-        s_meshWarnDebugTracker.insert(keyDebug);
-
-        Logger::debug(L"[Potential Mesh Mismatch] Matched path {} from mod {} were used on mesh {} from mod {}",
-            matchedPath, matchedPathMod->name, nifPath, nifPathMod->name);
-    }
-
-    // check if warning was already issued
-    {
-        const lock_guard<mutex> lock(s_meshWarnTrackerMutex);
-        if (s_meshWarnTracker.find(key) != s_meshWarnTracker.end()) {
-            return;
-        }
-
-        // add to tracker if not
-        s_meshWarnTracker.insert(key);
-    }
+    Logger::debug(L"[Potential Mesh Mismatch] Matched path {} from mod {} were used on mesh {} from mod {}",
+        matchedPath, matchedPathMod->name, nifPath, nifPathMod->name);
 }
