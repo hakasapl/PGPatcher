@@ -1,5 +1,6 @@
 #include "BethesdaGame.hpp"
 
+#include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -46,7 +47,7 @@ BethesdaGame::BethesdaGame(GameType gameType, const bool& logging, const filesys
     if (this->m_gamePath.empty()) {
         // If the game path is still empty, throw an exception
         if (this->m_logging) {
-            spdlog::critical("Unable to locate game data path. Please specify the game data path "
+            Logger::critical("Unable to locate game data path. Please specify the game data path "
                              "manually using the -d argument.");
             exit(1);
         } else {
@@ -58,7 +59,7 @@ BethesdaGame::BethesdaGame(GameType gameType, const bool& logging, const filesys
     if (!filesystem::exists(this->m_gamePath)) {
         // If the game path does not exist, throw an exception
         if (this->m_logging) {
-            spdlog::critical(L"Game path does not exist: {}", this->m_gamePath.wstring());
+            Logger::critical(L"Game path does not exist: {}", this->m_gamePath.wstring());
             exit(1);
         } else {
             throw runtime_error("Game path does not exist");
@@ -70,7 +71,7 @@ BethesdaGame::BethesdaGame(GameType gameType, const bool& logging, const filesys
     if (!isGamePathValid(this->m_gamePath, gameType)) {
         // If the game path does not contain Skyrim.esm, throw an exception
         if (this->m_logging) {
-            spdlog::critical(
+            Logger::critical(
                 L"Game data location is invalid: {} does not contain Skyrim.esm", this->m_gameDataPath.wstring());
             exit(1);
         } else {
@@ -367,7 +368,7 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
     ifstream pluginsFileHandle(pluginsFile, 1);
     if (!pluginsFileHandle.is_open()) {
         if (m_logging) {
-            spdlog::critical("Unable to open plugins.txt");
+            Logger::critical("Unable to open plugins.txt");
             exit(1);
         } else {
             throw runtime_error("Unable to open plugins.txt");
@@ -415,7 +416,7 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
 
     if (m_logging) {
         wstring loadOrderStr = boost::algorithm::join(outputLO, L",");
-        spdlog::debug(L"Active Plugin Load Order: {}", loadOrderStr);
+        Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
     }
 
     return outputLO;

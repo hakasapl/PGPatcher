@@ -408,7 +408,7 @@ auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPt
 
     if (FAILED(hr)) {
         // Log on failure
-        spdlog::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -437,7 +437,7 @@ auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, C
     hr = m_ptrDevice->CreateTexture2D(&textureOutDesc, nullptr, dest.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         // Log on failure
-        spdlog::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -458,7 +458,7 @@ auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Te
     hr = m_ptrDevice->CreateTexture2D(&desc, nullptr, dest.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         // Log on failure
-        spdlog::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11Texture2D on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -484,7 +484,7 @@ auto ParallaxGenD3D::createShaderResourceView(
     hr = m_ptrDevice->CreateShaderResourceView(texture.Get(), &shaderDesc, dest.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         // Log on failure
-        spdlog::debug("Failed to create ID3D11ShaderResourceView on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11ShaderResourceView on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -510,7 +510,7 @@ auto ParallaxGenD3D::createUnorderedAccessView(
     hr = m_ptrDevice->CreateUnorderedAccessView(texture.Get(), &uavDesc, dest.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         // Log on failure
-        spdlog::debug("Failed to create ID3D11UnorderedAccessView on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11UnorderedAccessView on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -528,7 +528,7 @@ auto ParallaxGenD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpu
 
     hr = m_ptrDevice->CreateUnorderedAccessView(gpuResource.Get(), &desc, &dest);
     if (FAILED(hr)) {
-        spdlog::debug("Failed to create ID3D11UnorderedAccessView on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11UnorderedAccessView on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -546,7 +546,7 @@ auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, Com
 
     const HRESULT hr = m_ptrDevice->CreateBuffer(&desc, &initData, dest.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
-        spdlog::debug("Failed to create ID3D11Buffer on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11Buffer on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -581,7 +581,7 @@ auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, Co
     hr = m_ptrDevice->CreateBuffer(&cbDesc, &cbInitData, dest.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         // Log on failure
-        spdlog::debug("Failed to create ID3D11Buffer on GPU: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create ID3D11Buffer on GPU: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -654,7 +654,7 @@ auto ParallaxGenD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11Compute
     queryDesc.Query = D3D11_QUERY_EVENT;
     hr = m_ptrDevice->CreateQuery(&queryDesc, ptrQuery.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
-        spdlog::debug("Failed to create query: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create query: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -671,7 +671,7 @@ auto ParallaxGenD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11Compute
     hr = m_ptrContext->GetData(ptrQuery.Get(), &queryData, sizeof(queryData),
         D3D11_ASYNC_GETDATA_DONOTFLUSH); // block until complete
     if (FAILED(hr)) {
-        spdlog::debug("Failed to get query data: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to get query data: {}", getHRESULTErrorMessage(hr));
         return false;
     }
     ptrQuery.Reset();
@@ -810,7 +810,7 @@ auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource, Direct
     // Create staging texture
     ComPtr<ID3D11Texture2D> stagingTex2D;
     if (!createTexture2D(stagingTex2DDesc, stagingTex2D)) {
-        spdlog::debug("Failed to create staging texture: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create staging texture: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -833,7 +833,7 @@ auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource, Direct
             hr = m_ptrContext->Map(stagingTex2D.Get(), mipLevel, D3D11_MAP_READ, 0, &mappedResource);
 
             if (FAILED(hr)) {
-                spdlog::debug("Failed to map resource to CPU during read back at mip level {}: {}", mipLevel,
+                Logger::debug("Failed to map resource to CPU during read back at mip level {}: {}", mipLevel,
                     getHRESULTErrorMessage(hr));
                 return false;
             }
@@ -887,7 +887,7 @@ template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& 
 
     hr = m_ptrDevice->CreateBuffer(&bufferDesc, nullptr, stagingBuffer.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
-        spdlog::debug("Failed to create staging buffer: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to create staging buffer: {}", getHRESULTErrorMessage(hr));
         return false;
     }
 
@@ -901,7 +901,7 @@ template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& 
         D3D11_MAPPED_SUBRESOURCE mappedResource;
         hr = m_ptrContext->Map(stagingBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
         if (FAILED(hr)) {
-            spdlog::debug("Failed to map resource to CPU during read back: {}", getHRESULTErrorMessage(hr));
+            Logger::debug("Failed to map resource to CPU during read back: {}", getHRESULTErrorMessage(hr));
             return false;
         }
 
@@ -932,13 +932,13 @@ auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readabili
     HRESULT hr {};
 
     if (pgd->isLooseFile(ddsPath)) {
-        spdlog::trace(L"Reading DDS loose file {}", ddsPath.wstring());
+        Logger::trace(L"Reading DDS loose file {}", ddsPath.wstring());
         const filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
 
         // Load DDS file
         hr = DirectX::LoadFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
     } else if (pgd->isBSAFile(ddsPath)) {
-        spdlog::trace(L"Reading DDS BSA file {}", ddsPath.wstring());
+        Logger::trace(L"Reading DDS BSA file {}", ddsPath.wstring());
         vector<std::byte> ddsBytes = pgd->getFile(ddsPath);
 
         // Load DDS file
@@ -948,7 +948,7 @@ auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readabili
     }
 
     if (FAILED(hr)) {
-        spdlog::debug(
+        Logger::debug(
             L"Failed to load DDS file from {}: {}", ddsPath.wstring(), asciitoUTF16(getHRESULTErrorMessage(hr)));
         return false;
     }
@@ -972,13 +972,13 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
     HRESULT hr {};
 
     if (pgd->isLooseFile(ddsPath)) {
-        spdlog::trace(L"Reading DDS loose file metadata {}", ddsPath.wstring());
+        Logger::trace(L"Reading DDS loose file metadata {}", ddsPath.wstring());
         const filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
 
         // Load DDS file
         hr = DirectX::GetMetadataFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, ddsMeta);
     } else if (pgd->isBSAFile(ddsPath)) {
-        spdlog::trace(L"Reading DDS BSA file metadata {}", ddsPath.wstring());
+        Logger::trace(L"Reading DDS BSA file metadata {}", ddsPath.wstring());
         vector<std::byte> ddsBytes = pgd->getFile(ddsPath);
 
         // Load DDS file
@@ -988,7 +988,7 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
     }
 
     if (FAILED(hr)) {
-        spdlog::debug(L"Failed to load DDS file metadata from {}: {}", ddsPath.wstring(),
+        Logger::debug(L"Failed to load DDS file metadata from {}: {}", ddsPath.wstring(),
             asciitoUTF16(getHRESULTErrorMessage(hr)));
         return false;
     }
@@ -1121,14 +1121,14 @@ auto ParallaxGenD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& ra
     const HRESULT hr = image.Initialize2D(format, width, height, 1,
         mips); // 1 array slice, 1 mipmap level
     if (FAILED(hr)) {
-        spdlog::debug("Failed to initialize ScratchImage: {}", getHRESULTErrorMessage(hr));
+        Logger::debug("Failed to initialize ScratchImage: {}", getHRESULTErrorMessage(hr));
         return {};
     }
 
     // Get the image data
     const DirectX::Image* img = image.GetImage(0, 0, 0);
     if (img == nullptr) {
-        spdlog::debug("Failed to get image data from ScratchImage");
+        Logger::debug("Failed to get image data from ScratchImage");
         return {};
     }
 

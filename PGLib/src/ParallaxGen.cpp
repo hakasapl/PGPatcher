@@ -35,6 +35,7 @@
 #include <d3d11.h>
 #include <exception>
 #include <filesystem>
+#include <fmt/xchar.h>
 #include <memory>
 #include <mutex>
 #include <ranges>
@@ -313,10 +314,13 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
 
 auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin) -> ParallaxGenTask::PGResult
 {
+    const Logger::Prefix nifPrefix(nifPath.wstring());
+
     // Create mesh tracker for this NIF
     auto meshTracker = MeshTracker(nifPath);
 
     try {
+        Logger::trace("Loading NIF into meshTracker...");
         meshTracker.load();
     } catch (const std::exception& e) {
         Logger::error("Failed to load NIF {}: {}", nifPath.string(), e.what());
@@ -326,18 +330,31 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // Patch base NIF
     auto* baseNIF = meshTracker.stageMesh();
     unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures; // empty alternate textures for base mesh
-    if (!processNIF(nifPath, baseNIF, false, alternateTextures)) {
-        return ParallaxGenTask::PGResult::FAILURE;
+    {
+        const Logger::Prefix basePrefix("Base");
+        if (!processNIF(nifPath, baseNIF, false, alternateTextures)) {
+            Logger::error("Failed to process NIF {}", nifPath.string());
+            return ParallaxGenTask::PGResult::FAILURE;
+        }
+
+        if (meshTracker.commitBaseMesh()) {
+            Logger::trace("Mesh committed");
+        } else {
+            Logger::trace("Mesh not committed (no changes)");
+        }
     }
-    meshTracker.commitBaseMesh();
 
     if (patchPlugin) {
+        Logger::trace("Processing plugin uses...");
         // Find all uses of this mesh in plugins
         const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
         // loop through each use
         for (auto use : meshUses) {
             // we process even if alternate textures is empty because attributes like singlepass MATO or others may
             // differ
+            const auto formKey = use.first;
+            const Logger::Prefix dupPrefix(fmt::format(
+                L"{}:{:06X}:{}", formKey.modKey, formKey.formID, ParallaxGenUtil::utf8toUTF16(formKey.subMODL)));
 
             // alternate textures do exist so we need to do some processing
             // stage a new mesh
@@ -345,23 +362,32 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
             if (!processNIF(nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures)) {
                 return ParallaxGenTask::PGResult::FAILURE;
             }
-            meshTracker.commitDupMesh(use.first, use.second.alternateTextures);
+            if (meshTracker.commitDupMesh(formKey, use.second.alternateTextures)) {
+                Logger::trace("Mesh committed");
+            } else {
+                Logger::trace("Mesh not committed (already exists or no changes)");
+            }
         }
     }
 
     // Save meshes
     const auto saveResults = meshTracker.saveMeshes();
     if (patchPlugin) {
+        Logger::trace("Setting plugin model uses...");
         ParallaxGenPlugin::setModelUses(saveResults.first);
     }
     // run handlers
     for (const auto& meshResult : saveResults.first) {
+        Logger::Prefix(L"Handler: " + meshResult.meshPath.wstring());
         HandlerLightPlacerTracker::handleNIFCreated(nifPath, meshResult.meshPath);
     }
     // Add to diff JSON
     const auto diffJSONKey = utf16toUTF8(nifPath.wstring());
     if (saveResults.second.second != 0) {
         // only add to diff if the base mesh actually saved, which is indicated by a non-zero patched crc32
+        Logger::trace(
+            "Base mesh was updated, saving diff CRC32: {} -> {}", saveResults.second.first, saveResults.second.second);
+
         const unique_lock lock(s_diffJSONMutex);
         s_diffJSON[diffJSONKey]["crc32original"] = saveResults.second.first;
         s_diffJSON[diffJSONKey]["crc32patched"] = saveResults.second.second;
@@ -383,22 +409,21 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
     const auto shapes = NIFUtil::getShapesWithBlockIDs(nif);
 
     for (const auto& [nifShape, oldIndex3D] : shapes) {
+        const auto shapeBlockID = nif->GetBlockID(nifShape);
+        const auto shapeName = nifShape->name.get();
+        const Logger::Prefix shapePrefix(to_string(shapeBlockID) + "/" + shapeName + "/" + to_string(oldIndex3D));
+
         if (nifShape == nullptr) {
             // Skip if shape is null (invalid shapes)
+            Logger::trace(L"Skipping: Shape is null");
             continue;
         }
 
         if (!NIFUtil::isPatchableShape(*nif, *nifShape)) {
             // Skip if not patchable shape
+            Logger::trace(L"Skipping: Shape is not patchable");
             continue;
         }
-
-        // get shape name and blockid
-        const auto shapeBlockID = nif->GetBlockID(nifShape);
-        const auto shapeName = nifShape->name.get();
-        const auto shapeIDStr = to_string(shapeBlockID) + " / " + shapeName;
-
-        const Logger::Prefix prefixShape(shapeIDStr);
 
         NIFUtil::TextureSet* ptrAltTex = nullptr;
         if (alternateTextures.contains(oldIndex3D)) {
@@ -434,13 +459,17 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     }
 
     // Prep
-    Logger::trace(L"Starting Processing");
-
     NIFUtil::TextureSet slots;
     if (alternateTexture == nullptr) {
         slots = PatcherMesh::getTextureSet(nifPath, *nif, *nifShape);
     } else {
+        Logger::trace("Alternate texture exist for this shape");
         slots = *alternateTexture;
+    }
+
+    // log slots
+    for (unsigned int i = 0; i < NUM_TEXTURE_SLOTS; i++) {
+        Logger::trace(L"Slot {}: {}", i, slots.at(i));
     }
 
     // apply prepatchers

@@ -112,7 +112,7 @@ void ParallaxGenRunner::processException(
         return;
     }
 
-    spdlog::critical("An unhandled exception occured. Please provide your full log in the bug report.\nException type: "
+    Logger::critical("An unhandled exception occured. Please provide your full log in the bug report.\nException type: "
                      "\"{}\" / Message: \"{}\"\n{}",
         typeid(e).name(), e.what(), stacktrace);
 

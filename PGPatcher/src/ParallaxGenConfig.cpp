@@ -101,14 +101,10 @@ void ParallaxGenConfig::loadConfig()
 
             m_userConfig = j;
             loadedConfig = true;
-            Logger::info("Loaded user config successfully");
-        } else {
-            Logger::error("Failed to parse ParallaxGen config file");
         }
     }
 
     if (!loadedConfig) {
-        Logger::warn("No user config found, using defaults");
         m_params = getDefaultParams();
     }
 }
