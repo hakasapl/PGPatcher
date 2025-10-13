@@ -61,7 +61,7 @@
 #include <vector>
 #include <windows.h>
 
-constexpr unsigned MAX_LOG_SIZE = 5242880;
+constexpr unsigned MAX_LOG_SIZE = 10490000; // 10 MB
 constexpr unsigned MAX_LOG_FILES = 1000;
 
 using namespace std;
