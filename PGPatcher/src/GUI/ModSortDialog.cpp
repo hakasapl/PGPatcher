@@ -83,7 +83,7 @@ ModSortDialog::ModSortDialog()
     auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     topPanel->SetBackgroundColour(*wxGREEN);
     auto* topLabel
-        = new wxStaticText(topPanel, wxID_ANY, "Winning Mods", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+        = new wxStaticText(topPanel, wxID_ANY, "Winning Mods on Top", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
     topLabel->SetFont(rectFont);
 
     // Use a box sizer to center the text in the panel
@@ -100,8 +100,8 @@ ModSortDialog::ModSortDialog()
     // BOTTOM RECTANGLE
     auto* bottomPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     bottomPanel->SetBackgroundColour(*wxRED);
-    auto* bottomLabel
-        = new wxStaticText(bottomPanel, wxID_ANY, "Losing Mods", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+    auto* bottomLabel = new wxStaticText(
+        bottomPanel, wxID_ANY, "Losing Mods on Bottom", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
 
     bottomLabel->SetFont(rectFont);
 
