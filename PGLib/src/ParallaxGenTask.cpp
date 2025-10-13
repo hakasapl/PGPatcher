@@ -1,5 +1,7 @@
 #include "ParallaxGenTask.hpp"
 
+#include "util/Logger.hpp"
+
 #include <spdlog/spdlog.h>
 
 #include <cstddef>
@@ -35,7 +37,7 @@ void ParallaxGenTask::initJobStatus()
     m_numJobsCompleted[PGResult::SUCCESS] = 0;
     m_numJobsCompleted[PGResult::SUCCESS_WITH_WARNINGS] = 0;
 
-    spdlog::info("{} Starting...", m_taskName);
+    Logger::info("{} Starting...", m_taskName);
 }
 
 void ParallaxGenTask::printJobStatus(bool force)
@@ -46,7 +48,7 @@ void ParallaxGenTask::printJobStatus(bool force)
         m_lastPerc = perc;
 
         if (perc % m_progressPrintModulo == 0) {
-            spdlog::info("{} Progress: {}/{} [{}%]", m_taskName, combinedJobs, m_totalJobs, perc);
+            Logger::info("{} Progress: {}/{} [{}%]", m_taskName, combinedJobs, m_totalJobs, perc);
         }
     }
 
@@ -66,7 +68,7 @@ void ParallaxGenTask::printJobSummary()
         }
     }
     outputLog += "See log to see error messages, if any.";
-    spdlog::info(outputLog);
+    Logger::info(outputLog);
 }
 
 auto ParallaxGenTask::getCompletedJobs() -> size_t

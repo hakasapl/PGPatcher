@@ -3,6 +3,7 @@
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
 #include <binary_io/any_stream.hpp>
@@ -54,7 +55,7 @@ BethesdaDirectory::BethesdaDirectory(
 
     if (this->m_logging) {
         // Log starting message
-        spdlog::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
+        Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
     }
 }
 
@@ -68,7 +69,7 @@ BethesdaDirectory::BethesdaDirectory(
 {
     if (this->m_logging) {
         // Log starting message
-        spdlog::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
+        Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
     }
 }
 
@@ -136,7 +137,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
     const BethesdaFile& file = getFileFromMap(relPath);
     if (file.path.empty()) {
         if (m_logging) {
-            spdlog::error(L"File not found in file map: {}", relPath.wstring());
+            Logger::error(L"File not found in file map: {}", relPath.wstring());
         }
         throw runtime_error("File not found in file map");
     }
@@ -145,7 +146,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
     const shared_ptr<BSAFile> bsaStruct = file.bsaFile;
     if (bsaStruct == nullptr) {
         if (m_logging) {
-            spdlog::trace(L"Reading loose file from BethesdaDirectory: {}", relPath.wstring());
+            Logger::trace(L"Reading loose file from BethesdaDirectory: {}", relPath.wstring());
         }
 
         filesystem::path filePath;
@@ -160,7 +161,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
         const filesystem::path bsaPath = bsaStruct->path;
 
         if (m_logging) {
-            spdlog::trace(L"Reading BSA file from {}: {}", bsaPath.wstring(), relPath.wstring());
+            Logger::trace(L"Reading BSA file from {}: {}", bsaPath.wstring(), relPath.wstring());
         }
 
         // this is a bsa archive file
@@ -178,7 +179,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
                 file->write(aos, bsaVersion);
             } catch (const std::exception& e) {
                 if (m_logging) {
-                    spdlog::error(L"Failed to read file {}: {}", relPath.wstring(), asciitoUTF16(e.what()));
+                    Logger::error(L"Failed to read file {}: {}", relPath.wstring(), asciitoUTF16(e.what()));
                 }
             }
 
@@ -291,7 +292,7 @@ void BethesdaDirectory::addBSAFilesToMap()
     }
 
     if (m_logging) {
-        spdlog::info("Adding BSA files to file map.");
+        Logger::info("Adding BSA files to file map.");
     }
 
     // Get list of BSA files
@@ -304,7 +305,7 @@ void BethesdaDirectory::addBSAFilesToMap()
             addBSAToFileMap(bsaName);
         } catch (const std::exception& e) {
             if (m_logging) {
-                spdlog::error(L"Failed to add BSA file {} to map (Skipping): {}", bsaName, asciitoUTF16(e.what()));
+                Logger::error(L"Failed to add BSA file {} to map (Skipping): {}", bsaName, asciitoUTF16(e.what()));
             }
             continue;
         }
@@ -314,7 +315,7 @@ void BethesdaDirectory::addBSAFilesToMap()
 void BethesdaDirectory::addLooseFilesToMap()
 {
     if (m_logging) {
-        spdlog::info("Adding loose files to file map.");
+        Logger::info("Adding loose files to file map.");
     }
 
     // loop through each folder to map
@@ -348,7 +349,7 @@ void BethesdaDirectory::addLooseFilesToMap()
             }
 
             if (m_logging) {
-                spdlog::trace(L"Adding loose file to map: {}", relativePath.wstring());
+                Logger::trace(L"Adding loose file to map: {}", relativePath.wstring());
             }
 
             shared_ptr<ModManagerDirectory::Mod> curMod;
@@ -364,7 +365,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
 {
     if (m_logging) {
         // log message
-        spdlog::debug(L"Adding files from {} to file map.", bsaName);
+        Logger::debug(L"Adding files from {} to file map.", bsaName);
     }
 
     bsa::tes4::archive bsaObj;
@@ -374,7 +375,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
     // data folder)
     if (!filesystem::exists(bsaPath)) {
         if (m_logging) {
-            spdlog::warn(L"Skipping BSA {} because it doesn't exist", bsaPath.wstring());
+            Logger::warn(L"Skipping BSA {} because it doesn't exist", bsaPath.wstring());
         }
         return;
     }
@@ -396,7 +397,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
 
                 if (!containsOnlyAscii(string(fileEntry.first.name()))
                     || !containsOnlyAscii(string(entry.first.name()))) {
-                    spdlog::warn(L"File {}\\{} in BSA {} contains non-ascii characters which is not handled correctly "
+                    Logger::warn(L"File {}\\{} in BSA {} contains non-ascii characters which is not handled correctly "
                                  L"by Skyrim - skipping",
                         windows1252toUTF16(string(fileEntry.first.name())),
                         windows1252toUTF16(string(entry.first.name())), bsaName);
@@ -423,7 +424,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 }
 
                 if (m_logging) {
-                    spdlog::trace(L"Adding file from BSA {} to file map: {}", bsaName, curPath.wstring());
+                    Logger::trace(L"Adding file from BSA {} to file map: {}", bsaName, curPath.wstring());
                 }
 
                 // add to filemap
@@ -435,7 +436,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
             }
         } catch (const std::exception& e) {
             if (m_logging) {
-                spdlog::error(L"Failed to get file pointer from BSA, skipping {}: {}", bsaName, asciitoUTF16(e.what()));
+                Logger::error(L"Failed to get file pointer from BSA, skipping {}: {}", bsaName, asciitoUTF16(e.what()));
             }
             continue;
         }
@@ -463,11 +464,11 @@ auto BethesdaDirectory::getBSALoadOrder() const -> vector<wstring>
     if (m_logging) {
         // log output
         wstring bsaListStr = boost::algorithm::join(outBSAOrder, ",");
-        spdlog::trace(L"BSA Load Order: {}", bsaListStr);
+        Logger::trace(L"BSA Load Order: {}", bsaListStr);
 
         for (const auto& bsa : allBSAFiles) {
             if (!isInVector(outBSAOrder, bsa)) {
-                spdlog::warn(L"BSA file {} not loaded by any active plugin or INI.", bsa);
+                Logger::warn(L"BSA file {} not loaded by any active plugin or INI.", bsa);
             }
         }
     }
@@ -478,7 +479,7 @@ auto BethesdaDirectory::getBSALoadOrder() const -> vector<wstring>
 auto BethesdaDirectory::getAsciiPathLower(const filesystem::path& path) -> filesystem::path
 {
     if (!isPathAscii(path)) {
-        spdlog::debug(
+        Logger::debug(
             L"Trying to convert unicode path {} to lower case but only ASCII characters are converted", path.wstring());
     }
     return { boost::to_lower_copy(path.wstring(), std::locale::classic()) };
@@ -495,7 +496,7 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
     vector<wstring> bsaFiles;
 
     if (m_logging) {
-        spdlog::debug("Reading manually loaded BSAs from INI files.");
+        Logger::debug("Reading manually loaded BSAs from INI files.");
     }
 
     // find ini paths
@@ -520,7 +521,7 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
             wstring curVal = readINIValue(iniPath, L"Archive", asciitoUTF16(field), m_logging, firstINIRead);
 
             if (m_logging) {
-                spdlog::trace(
+                Logger::trace(
                     L"Found ini key pair from INI {}: {}: {}", iniPath.wstring(), asciitoUTF16(field), curVal);
             }
 
@@ -538,7 +539,7 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
         }
 
         if (m_logging) {
-            spdlog::trace(L"Found BSA files from INI field {}: {}", asciitoUTF16(field), iniVal);
+            Logger::trace(L"Found BSA files from INI field {}: {}", asciitoUTF16(field), iniVal);
         }
 
         // split into components
@@ -559,7 +560,7 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
 auto BethesdaDirectory::getBSAFilesInDirectory() const -> vector<wstring>
 {
     if (m_logging) {
-        spdlog::debug("Finding existing BSA files in data directory.");
+        Logger::debug("Finding existing BSA files in data directory.");
     }
 
     vector<wstring> bsaFiles;
@@ -584,7 +585,7 @@ auto BethesdaDirectory::findBSAFilesFromPluginName(
     const vector<wstring>& bsaFileList, const wstring& pluginPrefix) const -> vector<wstring>
 {
     if (m_logging) {
-        spdlog::trace(L"Finding BSA files that correspond to plugin {}", pluginPrefix);
+        Logger::trace(L"Finding BSA files that correspond to plugin {}", pluginPrefix);
     }
 
     vector<wstring> bsaFilesFound;
@@ -615,7 +616,7 @@ auto BethesdaDirectory::findBSAFilesFromPluginName(
             }
 
             if (m_logging) {
-                spdlog::trace(L"Found BSA file that corresponds to plugin {}: {}", pluginPrefix, bsa);
+                Logger::trace(L"Found BSA file that corresponds to plugin {}: {}", pluginPrefix, bsa);
             }
 
             bsaFilesFound.push_back(bsa);
@@ -746,7 +747,7 @@ auto BethesdaDirectory::readINIValue(const filesystem::path& iniPath, const wstr
 {
     if (!filesystem::exists(iniPath)) {
         if (logging && firstINIRead) {
-            spdlog::warn(L"INI file does not exist (ignoring): {}", iniPath.wstring());
+            Logger::warn(L"INI file does not exist (ignoring): {}", iniPath.wstring());
         }
         return L"";
     }
@@ -754,7 +755,7 @@ auto BethesdaDirectory::readINIValue(const filesystem::path& iniPath, const wstr
     ifstream f(iniPath);
     if (!f.is_open()) {
         if (logging && firstINIRead) {
-            spdlog::warn(L"Unable to open INI (ignoring): {}", iniPath.wstring());
+            Logger::warn(L"Unable to open INI (ignoring): {}", iniPath.wstring());
         }
         return L"";
     }

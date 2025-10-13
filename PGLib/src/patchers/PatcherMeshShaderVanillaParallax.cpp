@@ -11,6 +11,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <utility>

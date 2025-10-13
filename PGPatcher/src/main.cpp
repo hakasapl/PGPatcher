@@ -150,26 +150,68 @@ auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exe
     PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH, nullptr);
 }
 
+void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool enableTrace = false)
+{
+    // delete old logs
+    if (filesystem::exists(logpath.parent_path())) {
+        try {
+            // Only delete files that are .log and start with ParallaxGen
+            for (const auto& entry : filesystem::directory_iterator(logpath.parent_path())) {
+                if (entry.is_regular_file() && entry.path().extension() == ".log"
+                    && entry.path().filename().wstring().starts_with(L"ParallaxGen")) {
+                    filesystem::remove(entry.path());
+                }
+            }
+        } catch (const filesystem::filesystem_error& e) {
+            cerr << "Failed to delete old logs: " << e.what() << "\n";
+        }
+    }
+
+    // Create loggers
+    vector<spdlog::sink_ptr> sinks;
+    auto consoleSink = make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    sinks.push_back(consoleSink);
+
+    // Rotating file sink
+    auto fileSink = make_shared<spdlog::sinks::rotating_file_sink_mt>(logpath.wstring(), MAX_LOG_SIZE, MAX_LOG_FILES);
+    sinks.push_back(fileSink);
+
+    // Messagebox sink
+    auto wxSink = std::make_shared<WXLoggerSink<std::mutex>>();
+    sinks.push_back(wxSink);
+
+    auto logger = make_shared<spdlog::logger>("PG", sinks.begin(), sinks.end());
+
+    // register logger parameters
+    spdlog::register_logger(logger);
+    spdlog::set_default_logger(logger);
+    spdlog::set_level(spdlog::level::info);
+    spdlog::flush_on(spdlog::level::info);
+
+    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
+    wxSink->set_formatter(std::make_unique<spdlog::pattern_formatter>("%v"));
+
+    if (enableDebug) {
+        spdlog::set_level(spdlog::level::debug);
+        spdlog::flush_on(spdlog::level::debug);
+        spdlog::debug("DEBUG logging enabled");
+    }
+    if (enableTrace) {
+        spdlog::set_level(spdlog::level::trace);
+        consoleSink->set_level(spdlog::level::debug);
+        spdlog::flush_on(spdlog::level::trace);
+        spdlog::trace("TRACE logging enabled");
+    }
+}
+
 void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 {
-    // Welcome Message
-    Logger::info("Welcome to PG Patcher version {}!", PG_VERSION);
-
-#if PG_TEST_BUILD
-    // Post test message for test builds
-    Logger::warn("This is an EXPERIMENTAL development build of PG Patcher");
-#endif
-
-    // Alpha message
-    Logger::warn("ParallaxGen is currently in BETA. Please file detailed bug reports on nexus or github.");
-
     // Define paths
     PGPatcherGlobals::setEXEPath(exePath);
     const filesystem::path cfgDir = exePath / "cfg";
 
     // Create cfg directory if it does not exist
     if (!filesystem::exists(cfgDir)) {
-        Logger::info(L"There is no existing configuration. Creating config directory \"{}\"", cfgDir.wstring());
         filesystem::create_directories(cfgDir);
     }
 
@@ -187,7 +229,6 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Show launcher UI
     if (!args.autostart) {
-        Logger::info("Showing launcher UI");
         ParallaxGenUI::showLauncher(pgc, params);
     }
 
@@ -200,6 +241,20 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         }
         Logger::critical("Validation errors were found. Exiting.");
     }
+
+    const filesystem::path logPath = exePath / "log" / "ParallaxGen.log";
+    initLogger(logPath, params.Processing.enableDebugLogging, params.Processing.enableTraceLogging);
+
+    // Welcome Message
+    Logger::info("Welcome to PG Patcher version {}!", PG_VERSION);
+
+#if PG_TEST_BUILD
+    // Post test message for test builds
+    Logger::warn("This is an EXPERIMENTAL development build of PG Patcher");
+#endif
+
+    // Alpha message
+    Logger::warn("ParallaxGen is currently in BETA. Please file detailed bug reports on nexus or github.");
 
     // print output location
     Logger::info(L"ParallaxGen output directory: {}", params.Output.dir.wstring());
@@ -464,55 +519,11 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
 {
     // Logging
-    app.add_flag("-v", args.verbosity,
-        "Verbosity level -v for DEBUG data or -vv for TRACE data "
-        "(warning: TRACE data is very verbose)");
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
 }
-
-void initLogger(const filesystem::path& logpath, const ParallaxGenCLIArgs& args)
-{
-    // Create loggers
-    vector<spdlog::sink_ptr> sinks;
-    auto consoleSink = make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    sinks.push_back(consoleSink);
-
-    // Rotating file sink
-    auto fileSink = make_shared<spdlog::sinks::rotating_file_sink_mt>(logpath.wstring(), MAX_LOG_SIZE, MAX_LOG_FILES);
-    sinks.push_back(fileSink);
-
-    // Messagebox sink
-    auto wxSink = std::make_shared<WXLoggerSink<std::mutex>>();
-    sinks.push_back(wxSink);
-
-    auto logger = make_shared<spdlog::logger>("PG", sinks.begin(), sinks.end());
-
-    // register logger parameters
-    spdlog::register_logger(logger);
-    spdlog::set_default_logger(logger);
-    spdlog::set_level(spdlog::level::info);
-    spdlog::flush_on(spdlog::level::info);
-
-    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
-    wxSink->set_formatter(std::make_unique<spdlog::pattern_formatter>("%v"));
-
-    // Set logging mode
-    if (args.verbosity >= 1) {
-        spdlog::set_level(spdlog::level::debug);
-        spdlog::flush_on(spdlog::level::debug);
-        spdlog::debug("DEBUG logging enabled");
-    }
-
-    if (args.verbosity >= 2) {
-        spdlog::set_level(spdlog::level::trace);
-        consoleSink->set_level(spdlog::level::debug);
-        spdlog::flush_on(spdlog::level::trace);
-        spdlog::trace("TRACE logging enabled");
-    }
-}
 }
 
-auto main(int ArgC, char** ArgV) -> int
+auto main(int argC, char** argV) -> int
 {
 // Block until enter only in debug mode
 #ifdef _DEBUG
@@ -533,28 +544,7 @@ auto main(int ArgC, char** ArgV) -> int
     addArguments(app, args);
 
     // Parse CLI Arguments (this is what exits on any validation issues)
-    CLI11_PARSE(app, ArgC, ArgV);
-
-    // Initialize logger
-    const filesystem::path logDir = exePath / "log";
-    // delete old logs
-    if (filesystem::exists(logDir)) {
-        try {
-            // Only delete files that are .log and start with ParallaxGen
-            for (const auto& entry : filesystem::directory_iterator(logDir)) {
-                if (entry.is_regular_file() && entry.path().extension() == ".log"
-                    && entry.path().filename().wstring().starts_with(L"ParallaxGen")) {
-                    filesystem::remove(entry.path());
-                }
-            }
-        } catch (const filesystem::filesystem_error& e) {
-            cerr << "Failed to delete old logs: " << e.what() << "\n";
-            return 1;
-        }
-    }
-
-    const filesystem::path logPath = logDir / "ParallaxGen.log";
-    initLogger(logPath, args);
+    CLI11_PARSE(app, argC, argV);
 
     // Main Runner (Catches all exceptions)
     CPPTRACE_TRY { mainRunner(args, exePath); }
@@ -566,4 +556,6 @@ auto main(int ArgC, char** ArgV) -> int
         cin.get();
         abort();
     }
+
+    return 0;
 }

@@ -1,5 +1,7 @@
 #include "ParallaxGenWarnings.hpp"
 
+#include "util/Logger.hpp"
+
 #include "PGGlobals.hpp"
 #include <spdlog/spdlog.h>
 
@@ -64,32 +66,27 @@ void ParallaxGenWarnings::printWarnings()
     auto* const pgd = PGGlobals::getPGD();
 
     if (!s_mismatchWarnTracker.empty()) {
-        spdlog::warn(
+        Logger::warn(
             "Potential Texture mismatches were found, there may be visual issues, Please verify for each warning if "
             "this is intended, address them and re-run ParallaxGen if needed.");
-        spdlog::warn("See https://github.com/hakasapl/ParallaxGen/wiki/FAQ for further information");
-        spdlog::warn("************************************************************");
     }
     for (const auto& matchedMod : s_mismatchWarnTracker) {
-        spdlog::warn(L"\"{}\" assets are used with:", matchedMod.first);
+        Logger::warn(L"\"{}\" assets are used with:", matchedMod.first);
         for (auto baseMod : matchedMod.second) {
-            spdlog::warn(L"  - diffuse/normal textures from \"{}\"", baseMod);
+            Logger::warn(L"  - diffuse/normal textures from \"{}\"", baseMod);
         }
-        spdlog::warn("");
-    }
-    if (!s_mismatchWarnTracker.empty()) {
-        spdlog::warn("************************************************************");
+        Logger::warn("");
     }
 
     if (!s_mismatchWarnDebugTracker.empty()) {
-        spdlog::debug("Potential texture mismatches:");
+        Logger::debug("Potential texture mismatches:");
     }
     for (auto& matchedMod : s_mismatchWarnDebugTracker) {
-        spdlog::debug(L"Mod \"{}\":", matchedMod.first);
+        Logger::debug(L"Mod \"{}\":", matchedMod.first);
 
         for (auto texturePair : matchedMod.second) {
             auto baseTexMod = pgd->getMod(texturePair.second);
-            spdlog::debug(L"  - {} used with {} from \"{}\"", texturePair.first, texturePair.second, baseTexMod->name);
+            Logger::debug(L"  - {} used with {} from \"{}\"", texturePair.first, texturePair.second, baseTexMod->name);
         }
     }
 }
@@ -127,7 +124,7 @@ void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& ni
 
         s_meshWarnDebugTracker.insert(keyDebug);
 
-        spdlog::debug(L"[Potential Mesh Mismatch] Matched path {} from mod {} were used on mesh {} from mod {}",
+        Logger::debug(L"[Potential Mesh Mismatch] Matched path {} from mod {} were used on mesh {} from mod {}",
             matchedPath, matchedPathMod->name, nifPath, nifPathMod->name);
     }
 

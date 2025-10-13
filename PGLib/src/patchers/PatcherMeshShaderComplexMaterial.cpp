@@ -57,8 +57,6 @@ PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::p
 auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unused]] bool singlepassMATO) -> bool
 {
     // Prep
-    Logger::trace(L"Starting checking");
-
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
@@ -171,14 +169,12 @@ void PatcherMeshShaderComplexMaterial::applyPatch(
 
     // Check if specular should be white
     if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_METALNESS)) {
-        Logger::trace(L"Setting specular to white because CM has metalness");
         NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, 1.0F);
         NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, 1.0F);
         NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, 1.0F);
     }
 
     if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_GLOSSINESS)) {
-        Logger::trace(L"Setting specular flag because CM has glossiness");
         NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
     }
 

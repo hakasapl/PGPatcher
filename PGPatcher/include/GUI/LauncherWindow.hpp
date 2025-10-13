@@ -97,6 +97,12 @@ private:
     wxCheckBox* m_processingBSACheckbox;
     void onProcessingBSAChange(wxCommandEvent& event);
 
+    wxCheckBox* m_processingEnableDebugLoggingCheckbox;
+    void onProcessingEnableDebugLoggingChange(wxCommandEvent& event);
+
+    wxCheckBox* m_processingEnableTraceLoggingCheckbox;
+    void onProcessingEnableTraceLoggingChange(wxCommandEvent& event);
+
     // Pre-Patchers
     wxCheckBox* m_prePatcherDisableMLPCheckbox;
     void onPrePatcherDisableMLPChange(wxCommandEvent& event);

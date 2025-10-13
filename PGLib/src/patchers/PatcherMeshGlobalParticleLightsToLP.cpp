@@ -1,8 +1,6 @@
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 
 #include "patchers/base/PatcherMeshGlobal.hpp"
-#include "util/Logger.hpp"
-#include "util/ParallaxGenUtil.hpp"
 
 #include "Animation.hpp"
 #include "BasicTypes.hpp"
@@ -75,9 +73,9 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
 
         // get relevant objects
         nifly::NiShape* shape = nullptr;
-        nifly::NiAlphaProperty* alphaProperty = nullptr;
+        nifly::NiAlphaProperty const* alphaProperty = nullptr;
         nifly::BSEffectShaderProperty* effectShader = nullptr;
-        nifly::NiParticleSystem* particleSystem = nullptr;
+        nifly::NiParticleSystem const* particleSystem = nullptr;
 
         // Loop through children and assign whatever is found
         for (auto* childRef : childRefs) {
@@ -138,8 +136,6 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
             // no soft effect shader flag
             continue;
         }
-
-        Logger::trace(L"Found Particle Light: {}", ParallaxGenUtil::asciitoUTF16(nifBlock->GetBlockName()));
 
         // Apply patch to this particle light
         if (applySinglePatch(billboardNode, shape, effectShader)) {
@@ -308,8 +304,8 @@ auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeControl
     }
 
     // Find data block
-    nifly::NiFloatData* fadeDataBlock = nullptr;
-    nifly::NiPosData* colorDataBlock = nullptr;
+    nifly::NiFloatData const* fadeDataBlock = nullptr;
+    nifly::NiPosData const* colorDataBlock = nullptr;
 
     auto* const floatInterpolator = getNIF()->GetHeader().GetBlock<NiFloatInterpolator>(interpRef);
     if (floatInterpolator != nullptr) {

@@ -3,6 +3,7 @@
 #include "BethesdaDirectory.hpp"
 #include "BethesdaGame.hpp"
 #include "PGGlobals.hpp"
+#include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -154,7 +155,7 @@ auto ModManagerDirectory::getJSON() -> nlohmann::json
 void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deploymentDir)
 {
     // required file is vortex.deployment.json in the data folder
-    spdlog::info("Populating mods from Vortex");
+    Logger::info("Populating mods from Vortex");
 
     const auto deploymentFile = deploymentDir / "vortex.deployment.json";
 
@@ -205,7 +206,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
 
         // Update file map
-        spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
+        Logger::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPath.wstring(), modName);
 
         m_modMap[modName] = modPtr;
         foundMods.insert(modName);
@@ -226,7 +227,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
 {
     // required file is modlist.txt in the profile folder
 
-    spdlog::info("Populating mods from Mod Organizer 2");
+    Logger::info("Populating mods from Mod Organizer 2");
 
     // First read modorganizer.ini in the instance folder to get the profiles and mods folders
     const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
@@ -282,13 +283,13 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
 
         // Check if mod folder exists
         if (!filesystem::exists(curModDir)) {
-            spdlog::warn(L"Mod directory from modlist.txt does not exist: {}", curModDir.wstring());
+            Logger::warn(L"Mod directory from modlist.txt does not exist: {}", curModDir.wstring());
             continue;
         }
 
         // check if mod dir is output dir
         if (filesystem::equivalent(curModDir, outputDir)) {
-            spdlog::critical(
+            Logger::critical(
                 L"If outputting to MO2 you must disable the mod {} first to prevent issues with MO2 VFS", mod);
             exit(1);
         }
@@ -349,12 +350,12 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
                         continue;
                     }
 
-                    spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
+                    Logger::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
 
                     m_modFileMap[relPathLower] = modPtr;
                 }
             } catch (const filesystem::filesystem_error& e) {
-                spdlog::error(
+                Logger::error(
                     L"Error reading mod directory {} (skipping): {}", mod, ParallaxGenUtil::asciitoUTF16(e.what()));
             }
         }
@@ -369,7 +370,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
                     continue;
                 }
 
-                spdlog::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
+                Logger::trace(L"ModManagerDirectory | Adding Files to Map : {} -> {}", relPathLower.wstring(), mod);
 
                 m_modFileMap[relPathLower] = modPtr;
             }
@@ -386,7 +387,7 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
     }
 
     if (!foundOneMod) {
-        spdlog::critical(L"MO2 modlist.txt was empty, no mods found");
+        Logger::critical(L"MO2 modlist.txt was empty, no mods found");
         exit(1);
     }
 

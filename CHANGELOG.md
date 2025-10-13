@@ -24,6 +24,7 @@
 - Added better error handling for several common cases
 - Disable MLP patcher is now independent of the CM patcher
 - Parallax patcher will no longer apply on shapes with alpha properties (use upgrade to CM option for these)
+- Fixed multithreaded trace logs being in random order
 - Fixed incosistent UI panels losing their persistence in the launcher
 - Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
 - Fixed duplicate mesh shapes not being patched for certain edge cases

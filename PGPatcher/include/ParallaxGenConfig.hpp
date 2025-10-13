@@ -66,12 +66,15 @@ public:
             bool pluginPatching = true;
             bool pluginESMify = false;
             ParallaxGenPlugin::PluginLang pluginLang = ParallaxGenPlugin::PluginLang::ENGLISH;
+            bool enableDebugLogging = false;
+            bool enableTraceLogging = false;
 
             auto operator==(const Processing& other) const -> bool
             {
                 return multithread == other.multithread && highMem == other.highMem && bsa == other.bsa
                     && pluginPatching == other.pluginPatching && pluginESMify == other.pluginESMify
-                    && pluginLang == other.pluginLang;
+                    && pluginLang == other.pluginLang && enableDebugLogging == other.enableDebugLogging
+                    && enableTraceLogging == other.enableTraceLogging;
             }
         } Processing;
 

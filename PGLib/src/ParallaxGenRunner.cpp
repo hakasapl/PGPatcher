@@ -1,5 +1,7 @@
 #include "ParallaxGenRunner.hpp"
 
+#include "util/Logger.hpp"
+
 #include <boost/asio/post.hpp>
 #include <cpptrace/from_current.hpp>
 #include <spdlog/spdlog.h>
@@ -56,6 +58,9 @@ void ParallaxGenRunner::runTasks()
                     return;
                 }
 
+                // Create log buffer
+                Logger::startThreadedBuffer();
+
                 CPPTRACE_TRY
                 {
                     task();
@@ -70,6 +75,9 @@ void ParallaxGenRunner::runTasks()
                         exceptionThrown.store(true);
                     }
                 }
+
+                // Flush log buffer
+                Logger::flushThreadedBuffer();
             });
     }
 
@@ -104,7 +112,7 @@ void ParallaxGenRunner::processException(
         return;
     }
 
-    spdlog::critical("An unhandled exception occured. Please provide your full log in the bug report.\nException type: "
+    Logger::critical("An unhandled exception occured. Please provide your full log in the bug report.\nException type: "
                      "\"{}\" / Message: \"{}\"\n{}",
         typeid(e).name(), e.what(), stacktrace);
 

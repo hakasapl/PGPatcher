@@ -1,7 +1,6 @@
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 
 #include "patchers/base/PatcherMeshPre.hpp"
-#include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 
 #include "Geometry.hpp"
@@ -46,7 +45,6 @@ auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] NIFUtil::Texture
         return false;
     }
 
-    Logger::trace(L"Setting softlighting to 0.6 because it is too high");
     NIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, SOFTLIGHTING_MAX);
 
     return true;

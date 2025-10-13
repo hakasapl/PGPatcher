@@ -5,6 +5,7 @@
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
+#include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
@@ -58,7 +59,7 @@ auto ParallaxGenDirectory::findFiles() -> void
     m_unconfirmedMeshes.clear();
 
     // Populate unconfirmed maps
-    spdlog::info("Finding Relevant Files");
+    Logger::info("Finding Relevant Files");
     const auto& fileMap = getFileMap();
 
     if (fileMap.empty()) {
@@ -70,13 +71,13 @@ auto ParallaxGenDirectory::findFiles() -> void
         if (boost::iequals(firstPath, "textures") && boost::iequals(path.extension().wstring(), L".dds")) {
             if (!isPathAscii(path)) {
                 // Skip non-ascii paths
-                spdlog::warn(
+                Logger::warn(
                     L"Texture {} contains non-ascii characters which are not allowed - skipping", path.wstring());
                 continue;
             }
 
             // Found a DDS
-            spdlog::trace(L"Finding Files | Found DDS | {}", path.wstring());
+            Logger::trace(L"Finding Files | Found DDS | {}", path.wstring());
             m_unconfirmedTextures[path] = {};
 
             {
@@ -86,22 +87,22 @@ auto ParallaxGenDirectory::findFiles() -> void
             }
         } else if (boost::iequals(firstPath, "meshes") && boost::iequals(path.extension().wstring(), L".nif")) {
             // Found a NIF
-            spdlog::trace(L"Finding Files | Found NIF | {}", path.wstring());
+            Logger::trace(L"Finding Files | Found NIF | {}", path.wstring());
             m_unconfirmedMeshes.insert(path);
         } else if (boost::iequals(path.extension().wstring(), L".json")) {
             // Found a JSON file
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {
                 // Found PBR JSON config
-                spdlog::trace(L"Finding Files | Found PBR JSON | {}", path.wstring());
+                Logger::trace(L"Finding Files | Found PBR JSON | {}", path.wstring());
                 m_pbrJSONs.push_back(path);
             } else if (boost::iequals(firstPath, L"lightplacer")) {
                 // Found Light Placer JSON config
-                spdlog::trace(L"Finding Files | Found Light Placer JSON | {}", path.wstring());
+                Logger::trace(L"Finding Files | Found Light Placer JSON | {}", path.wstring());
                 m_lightPlacerJSONs.push_back(path);
             }
         }
     }
-    spdlog::info("Finding files done");
+    Logger::info("Finding files done");
 }
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
@@ -114,7 +115,7 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     const unordered_map<wstring, NIFUtil::TextureType> manualTextureMapsMap(
         manualTextureMaps.begin(), manualTextureMaps.end());
 
-    spdlog::info("Starting building texture map");
+    Logger::info("Starting building texture map");
 
     // Create task tracker
     ParallaxGenTask taskTracker("Loading NIFs", m_unconfirmedMeshes.size(), MAPTEXTURE_PROGRESS_MODULO);
@@ -126,14 +127,14 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     for (const auto& mesh : m_unconfirmedMeshes) {
         if (!nifAllowlist.empty() && !checkGlobMatchInVector(mesh.wstring(), nifAllowlist)) {
             // Skip mesh because it is not on allowlist
-            spdlog::trace(L"Loading NIFs | Skipping Mesh due to Allowlist | Mesh: {}", mesh.wstring());
+            Logger::trace(L"Loading NIFs | Skipping Mesh due to Allowlist | Mesh: {}", mesh.wstring());
             taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
             continue;
         }
 
         if (!nifBlocklist.empty() && checkGlobMatchInVector(mesh.wstring(), nifBlocklist)) {
             // Skip mesh because it is on blocklist
-            spdlog::trace(L"Loading NIFs | Skipping Mesh due to Blocklist | Mesh: {}", mesh.wstring());
+            Logger::trace(L"Loading NIFs | Skipping Mesh due to Blocklist | Mesh: {}", mesh.wstring());
             taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
             continue;
         }
@@ -184,12 +185,12 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
         }
 
         if ((winningSlot == NIFUtil::TextureSlots::PARALLAX) && isFileInBSA(texture, parallaxBSAExcludes)) {
-            spdlog::trace(L"Mapping Textures | Ignored vanilla parallax texture | Texture: {}", texture.wstring());
+            Logger::trace(L"Mapping Textures | Ignored vanilla parallax texture | Texture: {}", texture.wstring());
             continue;
         }
 
         // Log result
-        spdlog::trace(L"Mapping Textures | Mapping Result | Texture: {} | Slot: {} | Type: {}", texture.wstring(),
+        Logger::trace(L"Mapping Textures | Mapping Result | Texture: {} | Slot: {} | Type: {}", texture.wstring(),
             static_cast<size_t>(winningSlot), utf8toUTF16(NIFUtil::getStrFromTexType(winningType)));
 
         // Add to texture map
@@ -203,7 +204,7 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     m_unconfirmedTextures.clear();
     m_unconfirmedMeshes.clear();
 
-    spdlog::info("Mapping textures done");
+    Logger::info("Mapping textures done");
 }
 
 auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const vector<std::wstring>& list) -> bool
@@ -227,7 +228,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
         try {
             nifBytes = getFile(nifPath);
         } catch (const exception& e) {
-            spdlog::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
+            Logger::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
             return ParallaxGenTask::PGResult::FAILURE;
         }
 
@@ -236,7 +237,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
             nif = NIFUtil::loadNIFFromBytes(nifBytes);
         } catch (const exception& e) {
             // Unable to read NIF, delete from Meshes set
-            spdlog::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
+            Logger::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
             return ParallaxGenTask::PGResult::FAILURE;
         }
     }
@@ -269,7 +270,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
             string texture = utf16toUTF8(textureSet.at(slot));
 
             if (!containsOnlyAscii(texture)) {
-                spdlog::error(L"NIF {} has texture slot(s) with invalid non-ASCII chars (skipping)", nifPath.wstring());
+                Logger::error(L"NIF {} has texture slot(s) with invalid non-ASCII chars (skipping)", nifPath.wstring());
                 return ParallaxGenTask::PGResult::FAILURE;
             }
 
@@ -408,7 +409,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
             }
 
             // Log finding
-            spdlog::trace(L"Mapping Textures | Slot Found | NIF: {} | Texture: {} | Slot: {} | Type: {}",
+            Logger::trace(L"Mapping Textures | Slot Found | NIF: {} | Texture: {} | Slot: {} | Type: {}",
                 nifPath.wstring(), asciitoUTF16(texture), slot, utf8toUTF16(NIFUtil::getStrFromTexType(textureType)));
 
             // Update unconfirmed textures map
