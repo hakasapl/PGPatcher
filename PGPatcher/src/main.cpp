@@ -164,7 +164,6 @@ void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool 
             }
         } catch (const filesystem::filesystem_error& e) {
             cerr << "Failed to delete old logs: " << e.what() << "\n";
-            return;
         }
     }
 
