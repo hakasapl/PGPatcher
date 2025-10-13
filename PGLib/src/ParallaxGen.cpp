@@ -488,7 +488,12 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
             winningShaderMatch = getWinningMatch(matches);
 
             // Apply transforms
-            applyTransformIfNeeded(winningShaderMatch, patchers);
+            if (applyTransformIfNeeded(winningShaderMatch, patchers)) {
+                Logger::trace("Shader transform was applied");
+            }
+
+            Logger::trace("Winning shader: {}", NIFUtil::getStrFromShader(winningShaderMatch.shader));
+            Logger::trace(L"Winning mod: {}", winningShaderMatch.mod == nullptr ? L"" : winningShaderMatch.mod->name);
 
             // loop through patchers
             patchers.shaderPatchers.at(winningShaderMatch.shader)
@@ -634,8 +639,12 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             auto& curMatch = *it;
 
             // check canApply for this shape
-            const bool canApplyBaseShader
-                = patcherObjects->shaderPatchers.at(curMatch.shader)->canApply(*shape, singlepassMATO);
+            bool canApplyBaseShader = false;
+            {
+                const auto& curPatcher = patcherObjects->shaderPatchers.at(curMatch.shader);
+                const Logger::Prefix prefixPatcher(curPatcher->getPatcherName());
+                canApplyBaseShader = curPatcher->canApply(*shape, singlepassMATO);
+            }
             bool canApplyTransformShader = false;
 
             // See if transform is possible
@@ -649,8 +658,11 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                 if (transformPatcher->shouldTransform(curMatch.match, canApplyBaseShader)) {
                     // transform can apply
                     const auto transformToShader = transformPatcherPair.first;
-                    canApplyTransformShader
-                        = patcherObjects->shaderPatchers.at(transformToShader)->canApply(*shape, singlepassMATO);
+                    {
+                        const auto& curPatcher = patcherObjects->shaderPatchers.at(transformToShader);
+                        const Logger::Prefix prefixPatcher(curPatcher->getPatcherName());
+                        canApplyTransformShader = curPatcher->canApply(*shape, singlepassMATO);
+                    }
 
                     if (canApplyTransformShader) {
                         curMatch.shaderTransformTo = transformToShader;
