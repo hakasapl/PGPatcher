@@ -18,6 +18,7 @@
 #include <boost/asio.hpp>
 #include <boost/crc.hpp>
 #include <boost/thread.hpp>
+#include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
 
@@ -110,7 +111,7 @@ auto ParallaxGenDirectory::findFiles() -> void
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
-    const bool& multithreading) -> void
+    const bool& multithreading, const bool& highmem) -> void
 {
     findFiles();
 
@@ -142,7 +143,8 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
             continue;
         }
 
-        runner.addTask([this, &taskTracker, &mesh] { taskTracker.completeJob(mapTexturesFromNIF(mesh)); });
+        runner.addTask(
+            [this, &taskTracker, &mesh, &highmem] { taskTracker.completeJob(mapTexturesFromNIF(mesh, highmem)); });
     }
 
     // Blocks until all tasks are done
@@ -216,15 +218,16 @@ auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const ve
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -> ParallaxGenTask::PGResult
+auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, const bool& cachenif)
+    -> ParallaxGenTask::PGResult
 {
     auto result = ParallaxGenTask::PGResult::SUCCESS;
 
     // Load NIF
     NifCache nifCache;
-    nifly::NifFile nif;
+    shared_ptr<nifly::NifFile> nif = nullptr;
+    vector<std::byte> nifBytes;
     {
-        vector<std::byte> nifBytes;
         try {
             nifBytes = getFile(nifPath);
         } catch (const exception& e) {
@@ -234,7 +237,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
 
         try {
             // Attempt to load NIF file
-            nif = NIFUtil::loadNIFFromBytes(nifBytes);
+            nif = make_shared<nifly::NifFile>(NIFUtil::loadNIFFromBytes(nifBytes));
         } catch (const exception& e) {
             // Unable to read NIF, delete from Meshes set
             Logger::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
@@ -243,7 +246,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
     }
 
     // Loop through each shape
-    const auto shapes = NIFUtil::getShapesWithBlockIDs(&nif);
+    const auto shapes = NIFUtil::getShapesWithBlockIDs(nif.get());
     // clear shapes in cache
     for (const auto& [shape, oldindex3d] : shapes) {
         if (shape == nullptr) {
@@ -251,18 +254,18 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
             continue;
         }
 
-        if (!NIFUtil::isPatchableShape(nif, *shape)) {
+        if (!NIFUtil::isPatchableShape(*nif, *shape)) {
             // Skip if not patchable shape
             continue;
         }
 
-        if (!NIFUtil::isShaderPatchableShape(nif, *shape)) {
+        if (!NIFUtil::isShaderPatchableShape(*nif, *shape)) {
             // Skip if not shader patchable shape
             continue;
         }
 
-        auto* const shader = nif.GetShader(shape);
-        const auto textureSet = NIFUtil::getTextureSlots(&nif, shape);
+        auto* const shader = nif->GetShader(shape);
+        const auto textureSet = NIFUtil::getTextureSlots(nif.get(), shape);
         nifCache.textureSets.emplace_back(oldindex3d, textureSet);
 
         // Loop through each texture slot
@@ -411,6 +414,16 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath) -
             // Update unconfirmed textures map
             updateUnconfirmedTexturesMap(texture, static_cast<NIFUtil::TextureSlots>(slot), textureType);
         }
+    }
+
+    if (cachenif) {
+        // Calculate original CRC32
+        boost::crc_32_type crcBeforeResult {};
+        crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
+        nifCache.origCRC32 = crcBeforeResult.checksum();
+
+        // cache nif
+        nifCache.nif = nif;
     }
 
     // Add mesh to set

@@ -66,8 +66,8 @@ constexpr unsigned MAX_LOG_FILES = 1000;
 
 using namespace std;
 struct ParallaxGenCLIArgs {
-    int verbosity = 0;
     bool autostart = false;
+    bool highmem = false;
 };
 
 namespace {
@@ -375,7 +375,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Map files
     pgd.mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
-        params.TextureRules.vanillaBSAList, params.Processing.multithread);
+        params.TextureRules.vanillaBSAList, params.Processing.multithread, args.highmem);
 
     // Classify textures (for CM etc.)
     Logger::info("Running extended texture classification");
@@ -534,6 +534,7 @@ void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
 {
     // Logging
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
+    app.add_flag("--highmem", args.highmem, "Enable high memory mode");
 }
 }
 

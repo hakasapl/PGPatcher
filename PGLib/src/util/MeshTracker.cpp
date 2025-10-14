@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -51,6 +52,16 @@ void MeshTracker::load()
 
     // Load original NIF
     m_origNifFile = NIFUtil::loadNIFFromBytes(nifFileData, false);
+}
+
+void MeshTracker::load(const std::shared_ptr<nifly::NifFile>& origNifFile, const unsigned long long& origCrc32)
+{
+    if (origNifFile == nullptr) {
+        throw std::runtime_error("Original NIF file pointer is null");
+    }
+
+    m_origNifFile = *origNifFile;
+    m_origCrc32 = origCrc32;
 }
 
 auto MeshTracker::stageMesh() -> nifly::NifFile*
