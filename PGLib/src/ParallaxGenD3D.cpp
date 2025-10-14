@@ -123,7 +123,7 @@ auto ParallaxGenD3D::checkIfCM(
     // If Alpha is opaque move on
     if (ddsImageMeta.GetAlphaMode() == DirectX::TEX_ALPHA_MODE_OPAQUE) {
         result = false;
-        return false;
+        return true;
     }
 
     // bool bcCompressed = false;
