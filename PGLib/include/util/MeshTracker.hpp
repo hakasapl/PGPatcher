@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -68,6 +69,7 @@ public:
 
     // Plugin mesh staging
     void load();
+    void load(const std::shared_ptr<nifly::NifFile>& origNifFile, const unsigned long long& origCrc32);
     auto stageMesh() -> nifly::NifFile*;
     auto commitBaseMesh() -> bool;
     auto commitDupMesh(

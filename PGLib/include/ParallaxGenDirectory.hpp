@@ -3,6 +3,7 @@
 #include "BethesdaDirectory.hpp"
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
+#include "NifFile.hpp"
 #include "ParallaxGenTask.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -13,6 +14,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -28,6 +30,8 @@ class ParallaxGenDirectory : public BethesdaDirectory {
 public:
     struct NifCache {
         std::vector<std::pair<int, NIFUtil::TextureSet>> textureSets;
+        std::shared_ptr<nifly::NifFile> nif; // keep nif in cache to avoid reloading it multiple times
+        unsigned long long origCRC32 = 0; // CRC32 of the NIF file
     };
 
 private:
@@ -81,12 +85,14 @@ public:
     /// @param cacheNIFs Faster but higher memory consumption
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist, const std::vector<std::wstring>& nifAllowlist,
         const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
-        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true) -> void;
+        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true,
+        const bool& highmem = false) -> void;
 
 private:
     auto findFiles() -> void;
 
-    auto mapTexturesFromNIF(const std::filesystem::path& nifPath) -> ParallaxGenTask::PGResult;
+    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& cachenif = false)
+        -> ParallaxGenTask::PGResult;
 
     auto updateUnconfirmedTexturesMap(
         const std::filesystem::path& path, const NIFUtil::TextureSlots& slot, const NIFUtil::TextureType& type) -> void;

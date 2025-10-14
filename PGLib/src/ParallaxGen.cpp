@@ -321,11 +321,13 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // Create mesh tracker for this NIF
     auto meshTracker = MeshTracker(nifPath);
 
-    try {
+    // check if we have the nif in cache
+    auto* const pgd = PGGlobals::getPGD();
+    const auto& meshes = pgd->getMeshes();
+    if (meshes.contains(nifPath) && meshes.at(nifPath).nif != nullptr) {
+        meshTracker.load(meshes.at(nifPath).nif, meshes.at(nifPath).origCRC32);
+    } else {
         meshTracker.load();
-    } catch (const std::exception& e) {
-        Logger::error("Failed to load NIF {}: {}", nifPath.string(), e.what());
-        return ParallaxGenTask::PGResult::FAILURE;
     }
 
     // Patch base NIF
