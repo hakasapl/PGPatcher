@@ -2,29 +2,32 @@
 
 ## [0.9.0] - UNRELEASED
 
-- Redesigned mod priority window
-- Vanilla/default mods can now be prioritized over extended material mods
-- Mods can now be disabled such that assets from them are not used for patching your load order
-- "Use MO2 Loose File Order" option is now in the mod sort dialog
-- Download archive can now be installed as a mod with auto detection for game path based on install location
-- Added metadata spec for complex material
-- Patchers are now aware of material type on statics. For example, parallax will not be patched with single pass material
-- Improved mesh permutation system significantly for accuracy and coverage of entire property tree, not just material type
-- Added disable pre-patched meshes post patcher (auto parallax functionality)
-- Added "Only When Required" option for parallax to CM upgrade patcher
-- Improved TXST formid cache
-- Plugins with missing masters will no longer be loaded
+- Redesigned mod priority window for usability
+- Rewrote mesh permutation system for accuracy and coverage of entire property tree, not just material type
+- Vanilla/default mods can now be prioritized over extended material mods, which allows for non-special material mods to not be overwritten
+- Mods can now be disabled such that assets from them are not used for patching your load order (meshes from those mods will still be patched)
+- PGPatcher can now be installed as a mod (not required). Doing this will lock the data folder to where you installed it.
+- Added metadata spec for complex material for mod author control over additional properties. See wiki.
+- Added disable pre-patched meshes post patcher (replaces auto parallax functionality)
+- Added "Only When Required" option for parallax to CM upgrade patcher which will convert to CM and patch for CM only when parallax cannot be applied
 - Removed optimize meshes post-patcher
 - Removed diagnostics advanced option
-- Messageboxes will now be shown for critical messages or when generation is complete
-- Fix Vanilla SSS patcher will now downscale textures by half and save BC1 subsurface maps
+- If output directory is set to a folder containing an old generated output, the old plugin will be read to keep formids consistent where possible
+- Added --highmem CLI argument. Do not use this unless you know what you are doing.
+- Messageboxes will now be shown for critical messages and when generation is complete
+- Vanilla SSS patcher will now downscale textures by half and save BC1 subsurface maps
 - Vanilla SSS patcher is no longer experimental
-- PBR new TXSTs will no longer create TXST jsons (the properties are now set in each NIF)
-- Master plugin renamed to PGPatcher.esp and flagged ESM
-- Added better error handling for several common cases
-- Disable MLP patcher is now independent of the CM patcher
-- Parallax patcher will no longer apply on shapes with alpha properties (use upgrade to CM option for these)
+- Main plugin renamed to PGPatcher.esp and flagged ESM
+- Added better error handling for several common error cases
+- Disable MLP patcher will now always apply regardless of whether CM exists or not
 - Added debug logging and trace logging toggles to the launcher UI advanced options
+- Improved logging in general for consistency
+- Removed `-v` and `-vv` CLI arguments, they are in the GUI now
+- PBR patcher will no longer create texture set jsons (mesh permutation system takes care of this instead)
+- Fixed parallax applying on statics with single pass materials (a mesh permutation will be created instead where possible)
+- Fixed parallax applying on shapes with alpha properties which causes the blue LOD bug (use upgrade to CM option for these)
+- Fixed complex material applying on statics with single pass materials in combination with certain lighting flags
+- Fixed plugins with missing masters being loaded
 - Fixed multithreaded trace logs being in random order
 - Fixed incosistent UI panels losing their persistence in the launcher
 - Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
@@ -36,6 +39,7 @@
 - Fixed zip output checkbox not updating apply button states in the launcher GUI
 - Fixed some UTF8 files being corrupted in the output zip when converted to ascii (potentially caused the OAR startup crash)
 - Fixed crash when modorganizer.ini uses quotes around bytearrays for certain fields
+- Fixed plugin strings being set incorrectly for enderal (fix comes from mutagen library update)
 
 ## [0.8.13] - 2025-07-04
 
