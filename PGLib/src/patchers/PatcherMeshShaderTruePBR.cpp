@@ -453,8 +453,7 @@ void PatcherMeshShaderTruePBR::applyPatch(
     NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match)
 {
     if (match.extraData == nullptr) {
-        // no extra data, so this is a pre-patched mesh, just apply shader, don't touch slots
-        applyShader(nifShape);
+        // no extra data, so this is a pre-patched mesh, do nothing
         return;
     }
 
