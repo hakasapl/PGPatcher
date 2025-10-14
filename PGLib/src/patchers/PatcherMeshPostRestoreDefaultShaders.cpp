@@ -80,8 +80,9 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
 
     // this is complex material type, check the _cm texture to see if it exists
     const auto& envTex = boost::to_lower_copy(slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)));
-    if (getPGD()->isFile(envTex)) {
-        // cubemap exists, no need to disable
+    const auto& envMaskTex = boost::to_lower_copy(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
+    if (getPGD()->isFile(envTex) && (envMaskTex.empty() || getPGD()->isFile(envMaskTex))) {
+        // cubemap and env mask exists, no need to disable
         return false;
     }
 
