@@ -5,6 +5,8 @@
 #include "PGGlobals.hpp"
 #include <spdlog/spdlog.h>
 
+#include <fmt/format.h>
+#include <fmt/xchar.h>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -14,7 +16,8 @@
 using namespace std;
 
 // statics
-unordered_map<std::wstring, unordered_set<pair<wstring, wstring>, ParallaxGenWarnings::PairHash>>
+std::unordered_map<std::wstring,
+    std::unordered_set<ParallaxGenWarnings::MismatchWarnInfo, ParallaxGenWarnings::MismatchWarnInfoHash>>
     ParallaxGenWarnings::s_mismatchWarnTracker;
 mutex ParallaxGenWarnings::s_mismatchWarnTrackerMutex;
 
@@ -38,27 +41,7 @@ void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring
 
     {
         const std::scoped_lock lock(s_mismatchWarnTrackerMutex);
-        s_mismatchWarnTracker[matchedPathMod->name].insert(std::make_pair(matchedPath, baseTex));
-    }
-}
-
-void ParallaxGenWarnings::printWarnings()
-{
-    auto* const pgd = PGGlobals::getPGD();
-
-    if (!s_mismatchWarnTracker.empty()) {
-        Logger::warn("Potential mismatches were found, if you see any issues in-game please refer to this list to find "
-                     "the culprit. PGPatcher cannot determine whether a mismatch is intended or not. Enable debug "
-                     "logging to see each file that triggers this warning for each case.");
-    }
-
-    for (const auto& matchedMod : s_mismatchWarnTracker) {
-        Logger::warn(L"\"{}\" assets are used in combination with:", matchedMod.first);
-        for (auto texturePair : matchedMod.second) {
-            Logger::warn(L"  - \"{}\"", texturePair.first);
-            auto baseTexMod = pgd->getMod(texturePair.second);
-            Logger::debug(L"  - {} used with {} from \"{}\"", texturePair.first, texturePair.second, baseTexMod->name);
-        }
+        s_mismatchWarnTracker[matchedPathMod->name].insert({ matchedPath, baseTex, baseTexMod->name });
     }
 }
 
@@ -88,4 +71,35 @@ void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& ni
     // Issue debug log
     Logger::debug(L"[Potential Mesh Mismatch] Matched path {} from mod {} were used on mesh {} from mod {}",
         matchedPath, matchedPathMod->name, nifPath, nifPathMod->name);
+}
+
+void ParallaxGenWarnings::printWarnings()
+{
+    unordered_set<wstring> printedMods;
+
+    wstring warnMsg
+        = L"Potential mismatches were found, if you see any issues in-game please refer to this list to find "
+          "the culprit. PGPatcher cannot determine whether a mismatch is intended or not. Enable debug "
+          "logging to see each file that triggers this warning for each case.\n\n";
+    wstring dbgMsg;
+    for (const auto& [mod, mismatches] : s_mismatchWarnTracker) {
+        warnMsg += mod + L" assets are used in combination with:\n";
+        for (const auto& mismatch : mismatches) {
+            if (printedMods.insert(mismatch.matchedFromMod).second) {
+                // only print once per mod combination
+                warnMsg += L"  - " + mismatch.matchedFromMod + L"\n";
+            }
+
+            dbgMsg += fmt::format(L"  - {} used with {} from \"{}\"\n", mismatch.matchedPath, mismatch.matchedFromPath,
+                mismatch.matchedFromMod);
+        }
+    }
+
+    if (!warnMsg.empty()) {
+        Logger::warn(warnMsg);
+    }
+
+    if (!dbgMsg.empty()) {
+        Logger::debug(L"Potential mismatches details:\n{}", dbgMsg);
+    }
 }
