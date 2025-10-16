@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.0] - UNRELEASED
+## [0.9.0] - 2025-10-16
 
 - Redesigned mod priority window for usability
 - Rewrote mesh permutation system for accuracy and coverage of entire property tree, not just material type
@@ -24,13 +24,11 @@
 - Improved logging in general for consistency
 - Removed `-v` and `-vv` CLI arguments, they are in the GUI now
 - PBR patcher will no longer create texture set jsons (mesh permutation system takes care of this instead)
-- Fixed parallax applying on statics with single pass materials (a mesh permutation will be created instead where possible)
 - Fixed parallax applying on shapes with alpha properties which causes the blue LOD bug (use upgrade to CM option for these)
-- Fixed complex material applying on statics with single pass materials in combination with certain lighting flags
 - Fixed plugins with missing masters being loaded
-- Fixed multithreaded trace logs being in random order
+- Fixed multithreaded trace logs being in inconsistent order
 - Fixed incosistent UI panels losing their persistence in the launcher
-- Fixed mod managers assuming "shaders" folder should go into data and causing conflicts
+- Fixed mod managers assuming "shaders" folder should go into data and causing conflicts by renaming to "cshaders"
 - Fixed duplicate mesh shapes not being patched for certain edge cases
 - Fixed null texture sets not being factored when reordering NIF blocks
 - Fixed "fix effect lighting" patcher patching facegen
