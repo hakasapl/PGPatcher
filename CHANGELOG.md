@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.1] - UNRELEASED
+
+- Fixed PBR prepatch mesh and texture set handling
+- Fixed mismatch warning appearing even when no mismatches exist
+
 ## [0.9.0] - 2025-10-16
 
 - Redesigned mod priority window for usability
