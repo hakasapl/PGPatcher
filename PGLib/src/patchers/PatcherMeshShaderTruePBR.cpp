@@ -223,6 +223,14 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     // only normal map gets _n part removed to match properly
     searchPrefixes[1] = NIFUtil::getTexBase(oldSlots[1], NIFUtil::TextureSlots::NORMAL);
 
+    // Remove "pbr" part if starts with "textures\\pbr" for each search prefix
+    static constexpr size_t TEXTURE_PBR_STR_LENGTH = 13; // length of "textures\pbr\"
+    for (auto& prefix : searchPrefixes) {
+        if (boost::istarts_with(prefix, L"textures\\pbr\\")) {
+            prefix.replace(0, TEXTURE_PBR_STR_LENGTH, L"textures\\");
+        }
+    }
+
     map<size_t, tuple<nlohmann::json, wstring>> truePBRData;
     // "match_normal" attribute: Binary search for normal map
     getSlotMatch(truePBRData, searchPrefixes[1], getTruePBRNormalInverse(), getNIFPath().wstring());

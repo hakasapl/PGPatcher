@@ -75,6 +75,10 @@ void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& ni
 
 void ParallaxGenWarnings::printWarnings()
 {
+    if (s_mismatchWarnTracker.empty()) {
+        return;
+    }
+
     unordered_set<wstring> printedMods;
 
     wstring warnMsg
