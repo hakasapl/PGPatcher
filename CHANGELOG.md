@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.1] - UNRELEASED
+## [0.9.1] - 2025-10-16
 
 - Fixed PBR prepatch mesh and texture set handling
 - Fixed mismatch warning appearing even when no mismatches exist
