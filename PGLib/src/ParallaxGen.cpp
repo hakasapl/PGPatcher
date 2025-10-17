@@ -271,7 +271,7 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
     // loop through each texture set in cache
     for (const auto& textureSet : nifCache.textureSets) {
         // find matches
-        auto matches = getMatches(textureSet.second, patcherObjects, true, false);
+        auto matches = getMatches(nifPath.wstring(), textureSet.second, patcherObjects, true, false);
 
         // find all uses of this nif
         if (patchPlugin) {
@@ -285,7 +285,8 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
                 // loop through each alternate texture set
                 for (const auto& [altTexIndex, altTexSet] : use.second.alternateTextures) {
                     // find matches
-                    const auto curMatches = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO);
+                    const auto curMatches
+                        = getMatches(nifPath.wstring(), altTexSet, patcherObjects, true, use.second.singlepassMATO);
                     matches.insert(matches.end(), curMatches.begin(), curMatches.end());
                 }
             }
@@ -480,7 +481,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         // Allowed shaders from result of patchers
-        auto matches = getMatches(slots, patchers, false, singlepassMATO, &patchers, nifShape);
+        auto matches = getMatches(nifPath.wstring(), slots, patchers, false, singlepassMATO, &patchers, nifShape);
         // log each match
         for (const auto& match : matches) {
             Logger::trace(L"Match: {} / {} / {}", utf8toUTF16(NIFUtil::getStrFromShader(match.shader)),
@@ -535,9 +536,10 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     return true;
 }
 
-auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-    const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects,
-    nifly::NiShape* shape) -> std::vector<PatcherUtil::ShaderPatcherMatch>
+auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::TextureSet& slots,
+    const PatcherUtil::PatcherMeshObjectSet& patchers, const bool& dryRun, bool singlepassMATO,
+    const PatcherUtil::PatcherMeshObjectSet* patcherObjects, nifly::NiShape* shape)
+    -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
     if (PGGlobals::getPGD() == nullptr) {
         throw runtime_error("PGD is null");
@@ -547,7 +549,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
     bool foundCache = false;
     {
-        const MatchCacheKey key { .slots = slots, .singlepassMATO = singlepassMATO };
+        const MatchCacheKey key { .nifPath = nifPath, .slots = slots, .singlepassMATO = singlepassMATO };
 
         const shared_lock lock(s_matchCacheMutex);
         if (s_matchCache.contains(key)) {
@@ -638,7 +640,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     // Cache matches
     {
         const unique_lock lock(s_matchCacheMutex);
-        s_matchCache[{ slots, singlepassMATO }] = matches;
+        s_matchCache[{ nifPath, slots, singlepassMATO }] = matches;
     }
 
     // Loop through matches and delete any that cannot apply

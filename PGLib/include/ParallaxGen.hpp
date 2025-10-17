@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <shared_mutex>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -31,12 +32,13 @@ private:
     static nlohmann::json s_diffJSON;
 
     struct MatchCacheKey {
+        std::wstring nifPath;
         NIFUtil::TextureSet slots;
         bool singlepassMATO = false;
 
         auto operator==(const MatchCacheKey& other) const -> bool
         {
-            return slots == other.slots && singlepassMATO == other.singlepassMATO;
+            return slots == other.slots && singlepassMATO == other.singlepassMATO && nifPath == other.nifPath;
         }
     };
 
@@ -156,9 +158,10 @@ private:
         const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO,
         NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
 
-    static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-        const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
-        nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+    static auto getMatches(const std::wstring& nifPath, const NIFUtil::TextureSet& slots,
+        const PatcherUtil::PatcherMeshObjectSet& patchers, const bool& dryRun, bool singlepassMATO,
+        const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr, nifly::NiShape* shape = nullptr)
+        -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 
     /**
      * @brief Get the Winning Match object (checks mod priority)
