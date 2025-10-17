@@ -126,6 +126,12 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Finalize handlers
     HandlerLightPlacerTracker::finalize();
+
+    // Wait for file saver to complete
+    if (PGGlobals::getFileSaver().isWorking()) {
+        Logger::info("Waiting for files to finish saving...");
+        PGGlobals::getFileSaver().waitForCompletion();
+    }
 }
 
 void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlugin)

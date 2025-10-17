@@ -3,6 +3,7 @@
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
+#include "util/FileSaver.hpp"
 
 #include <filesystem>
 #include <unordered_set>
@@ -25,4 +26,6 @@ public:
 
     static auto getMMD() -> ModManagerDirectory*;
     static void setMMD(ModManagerDirectory* mmd);
+
+    static auto getFileSaver() -> FileSaver&;
 };
