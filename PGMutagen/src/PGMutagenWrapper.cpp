@@ -59,22 +59,22 @@ void PGMutagenWrapper::libLogMessageIfExists()
         // log the message
         switch (level) {
         case TRACE_LOG:
-            spdlog::trace(messageOut);
+            spdlog::trace(L"{}", messageOut);
             break;
         case DEBUG_LOG:
-            spdlog::debug(messageOut);
+            spdlog::debug(L"{}", messageOut);
             break;
         case INFO_LOG:
-            spdlog::info(messageOut);
+            spdlog::info(L"{}", messageOut);
             break;
         case WARN_LOG:
-            spdlog::warn(messageOut);
+            spdlog::warn(L"{}", messageOut);
             break;
         case ERROR_LOG:
-            spdlog::error(messageOut);
+            spdlog::error(L"{}", messageOut);
             break;
         case CRITICAL_LOG:
-            spdlog::critical(messageOut);
+            spdlog::critical(L"{}", messageOut);
             break;
         }
 

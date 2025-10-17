@@ -4,7 +4,6 @@
 #include "ParallaxGenDirectory.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
 
 #include <DirectXMath.h>
 #include <DirectXTex.h>
@@ -22,7 +21,6 @@
 #include <dxcapi.h>
 #include <dxgi.h>
 #include <dxgiformat.h>
-#include <exception>
 #include <filesystem>
 #include <mutex>
 #include <shared_mutex>
@@ -74,9 +72,8 @@ auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExc
                         Logger::error(L"Failed to check if {} is complex material", envMask.path.wstring());
                         continue;
                     }
-                } catch (const exception& e) {
-                    Logger::error(L"Failed to check if {} is complex material: {}", envMask.path.wstring(),
-                        utf8toUTF16(e.what()));
+                } catch (...) {
+                    Logger::error(L"Failed to check if {} is complex material", envMask.path.wstring());
                     continue;
                 }
             }
