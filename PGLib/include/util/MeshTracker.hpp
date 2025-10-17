@@ -72,8 +72,9 @@ public:
     void load(const std::shared_ptr<nifly::NifFile>& origNifFile, const unsigned long long& origCrc32);
     auto stageMesh() -> nifly::NifFile*;
     auto commitBaseMesh() -> bool;
-    auto commitDupMesh(
-        const FormKey& formKey, const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults) -> bool;
+    auto commitDupMesh(const FormKey& formKey,
+        const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
+        const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
 
     // Used in cases where no alternate textures exist but the form key should still be tracked
     void addFormKeyForBaseMesh(const FormKey& formKey);
@@ -82,7 +83,8 @@ public:
 
 private:
     // Helpers
-    static auto compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB, bool compareTXST = false) -> bool;
+    static auto compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
+        const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareTXST = false) -> bool;
 
     static auto compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly::BSTriShape& shapeB) -> bool;
 

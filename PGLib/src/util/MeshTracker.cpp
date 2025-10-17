@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -90,7 +91,7 @@ auto MeshTracker::commitBaseMesh() -> bool
 
     m_baseMeshAttempted = true;
 
-    if (compareMesh(m_stagedMesh, m_origNifFile, true)) {
+    if (compareMesh(m_stagedMesh, m_origNifFile, {}, true)) {
         // Mesh was not modified from the base mesh, do nothing
         // Clear staged mesh
         m_stagedMeshPtr = nullptr;
@@ -118,8 +119,9 @@ auto MeshTracker::commitBaseMesh() -> bool
     return true;
 }
 
-auto MeshTracker::commitDupMesh(
-    const FormKey& formKey, const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults) -> bool
+auto MeshTracker::commitDupMesh(const FormKey& formKey,
+    const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
+    const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
     if (m_stagedMeshPtr == nullptr) {
         // No staged mesh to commit
@@ -141,7 +143,7 @@ auto MeshTracker::commitDupMesh(
 
     // Check if staged mesh is different from all existing output meshes
     for (auto& outputMesh : m_outputMeshes) {
-        if (compareMesh(m_stagedMesh, outputMesh.second)) {
+        if (compareMesh(m_stagedMesh, outputMesh.second, nonAltTexShapes)) {
             // Mesh is identical to an existing output mesh, do not add
             outputMesh.first.altTexResults.emplace_back(formKey, altTexResults);
             // Clear staged mesh
@@ -153,7 +155,7 @@ auto MeshTracker::commitDupMesh(
         }
     }
 
-    if (!m_baseMeshExists && compareMesh(m_stagedMesh, m_origNifFile)) {
+    if (!m_baseMeshExists && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
         // Mesh was not modified from the base mesh, do nothing
         // We only do nothing IF a base mesh doesn't exist, because otherwise it will use the base mesh incorrectly
         // IF a base mesh does exist, then a new mesh that is a duplicate of the original will be created regardless
@@ -294,7 +296,8 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 // ANY changes in patchers that involve WRITING new properties must be included in the equality operators below
 //
 
-auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB, bool compareTXST) -> bool
+auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
+    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareTXST) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
     const auto blocksA = getComparableBlocks(&meshA);
@@ -444,7 +447,7 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
                 }
             }
 
-            if (!compareTXST || nishaderA == nullptr || nishaderB == nullptr) {
+            if (nishaderA == nullptr || nishaderB == nullptr) {
                 continue;
             }
 
@@ -458,6 +461,14 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
                 // One is a texture set, the other is not (block mismatch)
                 return false;
             }
+
+            // get txst block id
+            const auto shapeBlockIdA = meshA.GetBlockID(shapeA);
+            const bool enforceTxstCheck = enforceCheckShapeTXSTA.contains(shapeBlockIdA);
+            if (!enforceTxstCheck && !compareTXST) {
+                continue;
+            }
+
             if (bsshsTexSetA != nullptr && bsshsTexSetB != nullptr) {
                 // compare bsshadertextureset helper
                 if (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB)) {

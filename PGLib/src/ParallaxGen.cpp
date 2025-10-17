@@ -333,10 +333,13 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 
     // Patch base NIF
     auto* baseNIF = meshTracker.stageMesh();
-    unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures; // empty alternate textures for base mesh
     {
         const Logger::Prefix basePrefix("Base");
-        if (!processNIF(nifPath, baseNIF, false, alternateTextures)) {
+
+        // empty sets
+        unordered_set<unsigned int> enforceCheckBlocks;
+        unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures; // empty alternate textures for base mesh
+        if (!processNIF(nifPath, baseNIF, false, alternateTextures, enforceCheckBlocks)) {
             Logger::error(L"Failed to process NIF {}", nifPath.wstring());
             return ParallaxGenTask::PGResult::FAILURE;
         }
@@ -356,16 +359,19 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
             // we process even if alternate textures is empty because attributes like singlepass MATO or others may
             // differ
             const auto formKey = use.first;
+
             const Logger::Prefix dupPrefix(fmt::format(
                 L"{}:{:06X}:{}", formKey.modKey, formKey.formID, ParallaxGenUtil::utf8toUTF16(formKey.subMODL)));
 
             // alternate textures do exist so we need to do some processing
             // stage a new mesh
             auto* stagedNIF = meshTracker.stageMesh();
-            if (!processNIF(nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures)) {
+            unordered_set<unsigned int> enforceCheckBlocks;
+            if (!processNIF(
+                    nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures, enforceCheckBlocks)) {
                 return ParallaxGenTask::PGResult::FAILURE;
             }
-            if (meshTracker.commitDupMesh(formKey, use.second.alternateTextures)) {
+            if (meshTracker.commitDupMesh(formKey, use.second.alternateTextures, enforceCheckBlocks)) {
                 Logger::trace("Mesh committed");
             } else {
                 Logger::trace("Mesh not committed (already exists or no changes)");
@@ -400,7 +406,8 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 }
 
 auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
-    std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures) -> bool
+    std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures,
+    std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
     auto* const pgd = PGGlobals::getPGD();
     const auto modPtr = pgd->getMod(nifPath);
@@ -431,6 +438,9 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
         NIFUtil::TextureSet* ptrAltTex = nullptr;
         if (alternateTextures.contains(oldIndex3D)) {
             ptrAltTex = &alternateTextures.at(oldIndex3D);
+        } else {
+            // we want to include any texture sets that do not have alternate textures defined to be compared
+            nonAltTexShapes.insert(shapeBlockID);
         }
         if (!processNIFShape(nifPath, nif, nifShape, patcherObjects, singlepassMATO, ptrAltTex)) {
             return false;
