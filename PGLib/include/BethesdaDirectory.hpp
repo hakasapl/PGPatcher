@@ -15,6 +15,7 @@
 #include <memory>
 #include <shared_mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 constexpr unsigned ASCII_UPPER_BOUND = 127;
@@ -30,6 +31,13 @@ private:
      * archive object, which is where files can be accessed
      */
     struct BSAFile {
+        BSAFile(std::filesystem::path p, bsa::tes4::version v, bsa::tes4::archive a)
+            : path(std::move(p))
+            , version(v)
+            , archive(std::move(a))
+        {
+        }
+
         std::filesystem::path path;
         bsa::tes4::version version;
         bsa::tes4::archive archive;

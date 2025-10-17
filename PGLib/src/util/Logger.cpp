@@ -8,6 +8,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -62,7 +63,16 @@ void Logger::flushThreadedBuffer()
 
     s_isThreadedBufferActive = false;
     for (const auto& [level, message] : s_curBuffer) {
-        std::visit([level](auto&& value) -> auto { spdlog::log(level, value); }, message);
+        std::visit(
+            [level](auto&& value) -> auto {
+                using T = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<T, std::wstring>) {
+                    spdlog::log(level, L"{}", value);
+                } else {
+                    spdlog::log(level, "{}", value);
+                }
+            },
+            message);
     }
     s_curBuffer.clear();
 }

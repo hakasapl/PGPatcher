@@ -336,7 +336,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     {
         const Logger::Prefix basePrefix("Base");
         if (!processNIF(nifPath, baseNIF, false, alternateTextures)) {
-            Logger::error("Failed to process NIF {}", nifPath.string());
+            Logger::error(L"Failed to process NIF {}", nifPath.wstring());
             return ParallaxGenTask::PGResult::FAILURE;
         }
 

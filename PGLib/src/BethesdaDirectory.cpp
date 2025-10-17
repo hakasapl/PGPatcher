@@ -23,7 +23,6 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <exception>
 #include <fileapi.h>
 #include <filesystem>
 #include <fstream>
@@ -159,8 +158,8 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
             // read file from output stream
             try {
                 file->write(aos, bsaVersion);
-            } catch (const std::exception& e) {
-                Logger::error(L"Failed to read file {}: {}", relPath.wstring(), asciitoUTF16(e.what()));
+            } catch (...) {
+                Logger::error(L"Failed to read file {}", relPath.wstring());
                 return {};
             }
 
@@ -282,8 +281,8 @@ void BethesdaDirectory::addBSAFilesToMap()
         // add bsa to file map
         try {
             addBSAToFileMap(bsaName);
-        } catch (const std::exception& e) {
-            Logger::error(L"Failed to add BSA file {} to map (Skipping): {}", bsaName, asciitoUTF16(e.what()));
+        } catch (...) {
+            Logger::error(L"Failed to add BSA file {} to map (Skipping)", bsaName);
             continue;
         }
     }
@@ -348,9 +347,8 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
     }
 
     const bsa::tes4::version bsaVersion = bsaObj.read(bsaPath);
-    const BSAFile bsaStruct = { .path = bsaPath, .version = bsaVersion, .archive = bsaObj };
 
-    const shared_ptr<BSAFile> bsaStructPtr = make_shared<BSAFile>(bsaStruct);
+    const shared_ptr<BSAFile> bsaStructPtr = make_shared<BSAFile>(bsaPath, bsaVersion, bsaObj);
 
     // loop iterator
     for (auto& fileEntry : bsaObj) {
@@ -397,8 +395,8 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 }
                 updateFileMap(curPath, bsaStructPtr, bsaMod);
             }
-        } catch (const std::exception& e) {
-            Logger::error(L"Failed to get file pointer from BSA, skipping {}: {}", bsaName, asciitoUTF16(e.what()));
+        } catch (...) {
+            Logger::error(L"Failed to get file pointer from BSA, skipping {}", bsaName);
             continue;
         }
     }

@@ -85,8 +85,6 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
 
 void ParallaxGenConfig::loadConfig()
 {
-    const Logger::Prefix prefix("PGC/loadConfig");
-
     bool loadedConfig = false;
     if (filesystem::exists(getUserConfigFile())) {
         // don't load a config that doesn't exist

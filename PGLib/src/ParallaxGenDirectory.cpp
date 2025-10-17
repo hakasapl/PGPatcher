@@ -25,7 +25,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <filesystem>
 #include <map>
 #include <mutex>
@@ -230,17 +229,17 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     {
         try {
             nifBytes = getFile(nifPath);
-        } catch (const exception& e) {
-            Logger::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
+        } catch (...) {
+            Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
             return ParallaxGenTask::PGResult::FAILURE;
         }
 
         try {
             // Attempt to load NIF file
             nif = make_shared<nifly::NifFile>(NIFUtil::loadNIFFromBytes(nifBytes));
-        } catch (const exception& e) {
+        } catch (...) {
             // Unable to read NIF, delete from Meshes set
-            Logger::error(L"Error reading NIF File \"{}\" (skipping): {}", nifPath.wstring(), asciitoUTF16(e.what()));
+            Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
             return ParallaxGenTask::PGResult::FAILURE;
         }
     }
