@@ -194,7 +194,21 @@ public class PGMutagen
                 }
 
                 string modPath = Path.Combine(dataPath, modKey.FileName);
-                var curMod = SkyrimMod.Create(GameType).FromPath(modPath).Construct();
+                ISkyrimModDisposableGetter? curMod = null;
+                try
+                {
+                    curMod = SkyrimMod.Create(GameType).FromPath(modPath).Construct();
+                }
+                catch (Exception)
+                {
+                    // failed to load mod, skip
+                    MessageHandler.Log("Failed to read plugin, skipping: " + modKey.FileName, 4);
+
+                    // add to missing masters
+                    modsWithMissingMasters.Add(modKey);
+
+                    continue;
+                }
                 // loop through masters
                 bool currentModHasMissingMasters = false;
                 for (int j = 0; j < curMod.MasterReferences.Count; j++)

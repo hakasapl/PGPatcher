@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.3] - UNRELEASED
+
+- Added error handling for corrupt plugin (esp) files
+
 ## [0.9.2] - 2025-10-17
 
 - Fixed multithreading string formatting issue for logging
