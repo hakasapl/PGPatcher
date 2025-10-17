@@ -4,6 +4,7 @@
 
 - Added error handling for corrupt plugin (esp) files
 - Fixed matching cache not using nif path as a validator key (affected nif filter for PBR)
+- Fixed mesh permutation not comparing non-alternate texture sets resulting in incorrect texture results in-game
 
 ## [0.9.2] - 2025-10-17
 

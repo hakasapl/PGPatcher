@@ -20,6 +20,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class ParallaxGen {
@@ -137,7 +138,8 @@ private:
      * @return false if the NIF file was not processed successfully
      */
     static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
-        std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures) -> bool;
+        std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures,
+        std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
 
     /**
      * @brief Process a single NIF shape
