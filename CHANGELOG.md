@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.2] - 2025-10-17
+
+- Fixed multithreading string formatting issue for logging
+
 ## [0.9.1] - 2025-10-16
 
 - Fixed PBR prepatch mesh and texture set handling
