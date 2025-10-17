@@ -84,7 +84,7 @@ public:
 private:
     // Helpers
     static auto compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
-        const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareTXST = false) -> bool;
+        const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST = false) -> bool;
 
     static auto compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly::BSTriShape& shapeB) -> bool;
 

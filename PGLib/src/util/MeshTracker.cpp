@@ -297,7 +297,7 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 //
 
 auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
-    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareTXST) -> bool
+    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
     const auto blocksA = getComparableBlocks(&meshA);
@@ -465,7 +465,7 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
             // get txst block id
             const auto shapeBlockIdA = meshA.GetBlockID(shapeA);
             const bool enforceTxstCheck = enforceCheckShapeTXSTA.contains(shapeBlockIdA);
-            if (!enforceTxstCheck && !compareTXST) {
+            if (!enforceTxstCheck && !compareAllTXST) {
                 continue;
             }
 
