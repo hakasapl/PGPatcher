@@ -2,7 +2,8 @@
 
 #include "BethesdaDirectory.hpp"
 #include "BethesdaGame.hpp"
-#include "ModManagerDirectory.hpp"
+#include "PGGlobals.hpp"
+#include "ParallaxGenD3D.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
@@ -43,14 +44,13 @@
 using namespace std;
 using namespace ParallaxGenUtil;
 
-ParallaxGenDirectory::ParallaxGenDirectory(BethesdaGame* bg, filesystem::path outputPath, ModManagerDirectory* mmd)
-    : BethesdaDirectory(bg, std::move(outputPath), mmd)
+ParallaxGenDirectory::ParallaxGenDirectory(BethesdaGame* bg, filesystem::path outputPath)
+    : BethesdaDirectory(bg, std::move(outputPath))
 {
 }
 
-ParallaxGenDirectory::ParallaxGenDirectory(
-    filesystem::path dataPath, filesystem::path outputPath, ModManagerDirectory* mmd)
-    : BethesdaDirectory(std::move(dataPath), std::move(outputPath), mmd)
+ParallaxGenDirectory::ParallaxGenDirectory(filesystem::path dataPath, filesystem::path outputPath)
+    : BethesdaDirectory(std::move(dataPath), std::move(outputPath))
 {
 }
 
@@ -134,6 +134,22 @@ void ParallaxGenDirectory::waitForMeshMapping()
     m_meshUseMappingQueue.shutdown();
 }
 
+void ParallaxGenDirectory::waitForCMClassification()
+{
+    if (m_CMClassificationQueue.isShutdown()) {
+        // already done
+        return;
+    }
+
+    if (m_CMClassificationQueue.isProcessing()) {
+        Logger::info("Waiting for extended texture classification to complete...");
+        m_CMClassificationQueue.waitForCompletion();
+    }
+
+    // shutdown the queue to free resources
+    m_CMClassificationQueue.shutdown();
+}
+
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
     const bool& patchPlugin, const bool& multithreading, const bool& highmem) -> void
@@ -214,13 +230,54 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
             winningSlot = NIFUtil::getSlotFromTexType(winningType);
         }
 
-        if ((winningSlot == NIFUtil::TextureSlots::PARALLAX) && isFileInBSA(texture, parallaxBSAExcludes)) {
+        if (winningSlot == NIFUtil::TextureSlots::PARALLAX && isFileInBSA(texture, parallaxBSAExcludes)) {
             continue;
         }
 
-        // Log result
-        Logger::trace(L"Mapping Texture: {} / Slot: {} / Type: {}", texture.wstring(), static_cast<size_t>(winningSlot),
-            utf8toUTF16(NIFUtil::getStrFromTexType(winningType)));
+        // extended classification
+        // check if CM
+        if (winningType == NIFUtil::TextureType::ENVIRONMENTMASK && !isFileInBSA(texture, parallaxBSAExcludes)) {
+            m_CMClassificationQueue.queueTask([this, texture, winningSlot]() -> void {
+                // classify as CM or not
+                bool hasMetalness = false;
+                bool hasGlosiness = false;
+                bool hasEnvMask = false;
+                bool result = false;
+
+                bool success = false;
+                try {
+                    success = PGGlobals::getPGD3D()->checkIfCM(texture, result, hasEnvMask, hasGlosiness, hasMetalness);
+                } catch (...) {
+                    success = false;
+                }
+
+                if (!success) {
+                    Logger::error(L"Failed to check if {} is complex material", texture.wstring());
+                    return;
+                }
+
+                if (!result) {
+                    addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::ENVIRONMENTMASK, {});
+                    return;
+                }
+
+                unordered_set<NIFUtil::TextureAttribute> attributes;
+                if (hasEnvMask) {
+                    attributes.insert(NIFUtil::TextureAttribute::CM_ENVMASK);
+                }
+                if (hasGlosiness) {
+                    attributes.insert(NIFUtil::TextureAttribute::CM_GLOSSINESS);
+                }
+                if (hasMetalness) {
+                    attributes.insert(NIFUtil::TextureAttribute::CM_METALNESS);
+                }
+
+                addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::COMPLEXMATERIAL, attributes);
+            });
+
+            // defer adding to texture maps until classification is done
+            continue;
+        }
 
         // Add to texture map
         if (winningSlot != NIFUtil::TextureSlots::UNKNOWN) {
@@ -471,6 +528,10 @@ auto ParallaxGenDirectory::updateUnconfirmedTexturesMap(
 auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path, const NIFUtil::TextureSlots& slot,
     const NIFUtil::TextureType& type, const unordered_set<NIFUtil::TextureAttribute>& attributes) -> void
 {
+    // Log result
+    Logger::trace(L"Mapping Texture: {} / Slot: {} / Type: {}", path.wstring(), static_cast<size_t>(slot),
+        utf8toUTF16(NIFUtil::getStrFromTexType(type)));
+
     // Get texture base
     const auto& base = NIFUtil::getTexBase(path, slot);
     const auto& slotInt = static_cast<size_t>(slot);

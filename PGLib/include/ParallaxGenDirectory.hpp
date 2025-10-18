@@ -74,12 +74,12 @@ private:
     std::shared_mutex m_texturesMutex;
 
     TaskQueue m_meshUseMappingQueue;
+    TaskQueue m_CMClassificationQueue;
 
 public:
     // constructor - calls the BethesdaDirectory constructor
-    ParallaxGenDirectory(BethesdaGame* bg, std::filesystem::path outputPath = "", ModManagerDirectory* mmd = nullptr);
-    ParallaxGenDirectory(
-        std::filesystem::path dataPath, std::filesystem::path outputPath = "", ModManagerDirectory* mmd = nullptr);
+    ParallaxGenDirectory(BethesdaGame* bg, std::filesystem::path outputPath = "");
+    ParallaxGenDirectory(std::filesystem::path dataPath, std::filesystem::path outputPath = "");
 
     /// @brief Map all files in the load order to their type
     ///
@@ -96,6 +96,8 @@ public:
         const bool& multithreading = true, const bool& highmem = false) -> void;
 
     void waitForMeshMapping();
+
+    void waitForCMClassification();
 
 private:
     auto findFiles(bool patchPlugin) -> void;

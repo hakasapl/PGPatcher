@@ -77,6 +77,7 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 {
     auto* const pgd = PGGlobals::getPGD();
     pgd->waitForMeshMapping();
+    pgd->waitForCMClassification();
 
     // Init Handlers
     HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
@@ -155,6 +156,7 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
 
     auto* const pgd = PGGlobals::getPGD();
     pgd->waitForMeshMapping();
+    pgd->waitForCMClassification();
 
     auto meshes = pgd->getMeshes();
 
@@ -433,9 +435,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
     std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures,
     std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
-    auto* const pgd = PGGlobals::getPGD();
-    const auto modPtr = pgd->getMod(nifPath);
-
     // Create patcher objects
     const auto patcherObjects = createNIFPatcherObjects(nifPath, nif);
 
@@ -615,7 +614,8 @@ auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::Texture
 
             for (const auto& match : curMatches) {
                 PatcherUtil::ShaderPatcherMatch curMatch;
-                curMatch.mod = PGGlobals::getPGD()->getMod(match.matchedPath);
+                curMatch.mod
+                    = PGGlobals::getMMD()->getModByFile(PGGlobals::getPGD()->getModLookupFile(match.matchedPath));
 
                 if (!dryRun && curMatch.mod != nullptr) {
                     const std::shared_lock lk(curMatch.mod->mutex);
@@ -629,17 +629,6 @@ auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::Texture
                 curMatch.shader = shader;
                 curMatch.match = match;
                 curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
-
-                if (shader != NIFUtil::ShapeShader::NONE) {
-                    // a non-default match is available. If this match is the same mod as any default matches, remove
-                    // the defaults
-                    // TODO if canapply purges stuff later, default may be unnecessarily deleted but I'm not sure it
-                    // TODO matters
-                    std::erase_if(matches, [&curMatch](const PatcherUtil::ShaderPatcherMatch& m) -> bool {
-                        return m.shader == NIFUtil::ShapeShader::NONE && m.mod != nullptr && curMatch.mod != nullptr
-                            && m.mod == curMatch.mod;
-                    });
-                }
 
                 matches.push_back(curMatch);
                 if (curMatch.mod != nullptr) {
@@ -669,12 +658,12 @@ auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::Texture
 
             return matches;
         }
-    }
 
-    // Cache matches
-    {
-        const unique_lock lock(s_matchCacheMutex);
-        s_matchCache[{ nifPath, slots, singlepassMATO }] = matches;
+        // Cache matches
+        {
+            const unique_lock lock(s_matchCacheMutex);
+            s_matchCache[{ nifPath, slots, singlepassMATO }] = matches;
+        }
     }
 
     // Loop through matches and delete any that cannot apply
@@ -870,7 +859,7 @@ auto ParallaxGen::patchDDS(const filesystem::path& ddsPath) -> ParallaxGenTask::
         }
 
         // Update file map with generated file
-        pgd->addGeneratedFile(ddsPath, nullptr);
+        pgd->addGeneratedFile(ddsPath);
     }
 
     return result;

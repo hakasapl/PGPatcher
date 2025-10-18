@@ -280,7 +280,7 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         }
 
         // tell PGD that this is a generated file
-        pgd->addGeneratedFile(meshRelPath, nullptr);
+        pgd->addGeneratedFile(meshRelPath);
 
         output.push_back(meshResult);
     }

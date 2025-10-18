@@ -1,6 +1,7 @@
 #include "util/TaskQueue.hpp"
 
 #include <chrono>
+#include <cstddef>
 #include <functional>
 #include <mutex>
 #include <thread>

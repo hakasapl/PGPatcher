@@ -1,6 +1,5 @@
 #pragma once
 #include "BethesdaGame.hpp"
-#include "ModManagerDirectory.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -9,7 +8,6 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include <cstddef>
-#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -31,14 +29,16 @@ private:
      * archive object, which is where files can be accessed
      */
     struct BSAFile {
-        BSAFile(std::filesystem::path p, bsa::tes4::version v, bsa::tes4::archive a)
+        BSAFile(std::filesystem::path p, std::filesystem::path rp, bsa::tes4::version v, bsa::tes4::archive a)
             : path(std::move(p))
+            , relPath(std::move(rp))
             , version(v)
             , archive(std::move(a))
         {
         }
 
         std::filesystem::path path;
+        std::filesystem::path relPath;
         bsa::tes4::version version;
         bsa::tes4::archive archive;
     };
@@ -55,15 +55,11 @@ private:
     struct BethesdaFile {
         std::filesystem::path path;
         std::shared_ptr<BSAFile> bsaFile;
-        std::shared_ptr<ModManagerDirectory::Mod> mod;
         bool generated;
 
         [[nodiscard]] auto getDiagJSON() const -> nlohmann::json
         {
             auto j = nlohmann::json::object();
-            if (mod != nullptr) {
-                j["mod"] = ParallaxGenUtil::utf16toUTF8(mod->name);
-            }
 
             if (bsaFile != nullptr) {
                 j["bsa"] = ParallaxGenUtil::utf16toUTF8(bsaFile->path.wstring());
@@ -73,33 +69,15 @@ private:
         }
     };
 
-    /**
-     * @struct ModFile
-     * @brief Structure which the path and the file size for a specific mod file
-     *
-     * Path stores the path to the file, preserving case from the original path
-     * FileSize stores the size of the file in bytes
-     * CRC32 stores the CRC32 checksum of the file
-     */
-    struct ModFile {
-        std::filesystem::path path;
-        uintmax_t fileSize;
-        unsigned int crc32;
-    };
-
     // Class member variables
     std::filesystem::path m_dataDir; /**< Stores the path to the game data directory */
     std::filesystem::path m_generatedDir; /**< Stores the path to the generated directory */
     std::map<std::filesystem::path, BethesdaFile> m_fileMap; /** < Stores the file map for every file found in the load
                                                               order. Key is a lowercase path, value is a BethesdaFile*/
     std::shared_mutex m_fileMapMutex; /** < Shared Mutex for the file map */
-    std::vector<ModFile> m_modFiles; /** < Stores files in mod staging directory */
 
     BethesdaGame* m_bg; /** < BethesdaGame which stores a BethesdaGame object
                         corresponding to this load order */
-    ModManagerDirectory* m_mmd; /** < ModManagerDirectory which stores a pointer to a
-                                 ModManagerDirectory object corresponding to this
-                                 load order */
 
     /**
      * @brief Returns a vector of strings that represent the fields in the INI
@@ -122,7 +100,7 @@ public:
      * @param bg BethesdaGame object corresponding to load order
      * @param logging Whether to enable CLI logging
      */
-    BethesdaDirectory(BethesdaGame* bg, std::filesystem::path generatedPath = "", ModManagerDirectory* mmd = nullptr);
+    BethesdaDirectory(BethesdaGame* bg, std::filesystem::path generatedPath = "");
 
     /**
      * @brief Construct a new Bethesda Directory object without a game type, for generic folders only
@@ -132,8 +110,7 @@ public:
      * @param mmd ModManagerDirectory object
      * @param logging Whether to enable CLI logging
      */
-    BethesdaDirectory(
-        std::filesystem::path dataPath, std::filesystem::path generatedPath = "", ModManagerDirectory* mmd = nullptr);
+    BethesdaDirectory(std::filesystem::path dataPath, std::filesystem::path generatedPath = "");
 
     /**
      * @brief Populate file map with all files in the load order
@@ -171,20 +148,11 @@ public:
     [[nodiscard]] auto getFile(const std::filesystem::path& relPath) -> std::vector<std::byte>;
 
     /**
-     * @brief Get the Mod that has the winning version of the file
-     *
-     * @param relPath path to the file relative to the data directory
-     * @return std::wstring mod label
-     */
-    [[nodiscard]] auto getMod(const std::filesystem::path& relPath) -> std::shared_ptr<ModManagerDirectory::Mod>;
-
-    /**
      * @brief Create a Generated file in the file map
      *
      * @param relPath path of the generated file
-     * @param mod wstring mod label to assign
      */
-    void addGeneratedFile(const std::filesystem::path& relPath, std::shared_ptr<ModManagerDirectory::Mod> mod);
+    void addGeneratedFile(const std::filesystem::path& relPath);
 
     /**
      * @brief Check if a file in the load order is a loose file
@@ -246,6 +214,8 @@ public:
      * First element is loaded first.
      */
     [[nodiscard]] auto getBSALoadOrder() const -> std::vector<std::wstring>;
+
+    [[nodiscard]] auto getModLookupFile(const std::filesystem::path& relPath) -> std::filesystem::path;
 
     // Helpers
 
@@ -365,8 +335,8 @@ private:
      * @param filePath path to update or add
      * @param bsaFile BSA file or nullptr if it doesn't exist
      */
-    void updateFileMap(const std::filesystem::path& filePath, std::shared_ptr<BSAFile> bsaFile,
-        std::shared_ptr<ModManagerDirectory::Mod> mod, const bool& generated = false);
+    void updateFileMap(
+        const std::filesystem::path& filePath, std::shared_ptr<BSAFile> bsaFile, const bool& generated = false);
 
     /**
      * @brief Convert a list of wstrings to a LPCWSTRs

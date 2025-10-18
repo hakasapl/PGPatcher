@@ -31,6 +31,7 @@
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
+#include "util/TaskQueue.hpp"
 
 #include <CLI/CLI.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -145,7 +146,7 @@ auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exe
     filesystem::copy_file(assetPath, outputPath, filesystem::copy_options::overwrite_existing);
 
     // Add any files to ignore as generated files
-    PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH, nullptr);
+    PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
 }
 
 void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool enableTrace = false)
@@ -266,7 +267,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     auto mmd = ModManagerDirectory(params.ModManager.type);
     PGGlobals::setMMD(&mmd);
-    auto pgd = ParallaxGenDirectory(&bg, params.Output.dir, &mmd);
+    auto pgd = ParallaxGenDirectory(&bg, params.Output.dir);
     PGGlobals::setPGD(&pgd);
     auto pgd3d = ParallaxGenD3D(exePath / "cshaders");
     PGGlobals::setPGD3D(&pgd3d);
@@ -329,20 +330,25 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     const wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
     Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
 
+    TaskQueue pluginInit;
+
     // Init PGP library
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
-        ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
-        ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        pluginInit.queueTask([&bg, &exePath, &params]() -> void {
+            ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
+            ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        });
     }
 
     // Populate mod info
-    Logger::info("Populating mod info");
     nlohmann::json modJSON;
     const auto modListFile = cfgDir / "modrules.json";
     if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
         mmd.loadJSON(modJSON);
     }
+
+    TaskQueue modManagerInit;
 
     if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty()) {
@@ -353,10 +359,12 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         }
 
         // MO2
-        mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+        modManagerInit.queueTask([&mmd, &params]() -> void {
+            mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+        });
     } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
         // Vortex
-        mmd.populateModFileMapVortex(bg.getGameDataPath());
+        modManagerInit.queueTask([&mmd, &bg]() -> void { mmd.populateModFileMapVortex(bg.getGameDataPath()); });
     }
 
     // Check if ParallaxGen output already exists in data directory
@@ -373,14 +381,18 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Init file map
     pgd.populateFileMap(params.Processing.bsa);
 
+    // Plugins requires for map files
+    pluginInit.waitForCompletion();
+    pluginInit.shutdown();
+
     // Map files
     pgd.mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
         params.TextureRules.vanillaBSAList, params.Processing.pluginPatching, params.Processing.multithread,
         args.highmem);
 
-    // Classify textures (for CM etc.)
-    Logger::info("Running extended texture classification");
-    pgd3d.extendedTexClassify(params.TextureRules.vanillaBSAList);
+    // Wait for threads
+    modManagerInit.waitForCompletion();
+    modManagerInit.shutdown();
 
     // Create patcher factory
     PatcherUtil::PatcherMeshSet meshPatchers;
@@ -509,7 +521,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_Diff.json";
             ParallaxGenUtil::saveJSON(diffJSONPath, diffJSON, true);
 
-            pgd.addGeneratedFile("ParallaxGen_Diff.json", nullptr);
+            pgd.addGeneratedFile("ParallaxGen_Diff.json");
         }
 
         // archive

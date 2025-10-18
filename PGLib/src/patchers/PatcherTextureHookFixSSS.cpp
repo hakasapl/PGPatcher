@@ -108,8 +108,7 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     getPGD()->setTextureType(newPath, NIFUtil::TextureType::SUBSURFACECOLOR);
 
     // Update file map
-    auto origTexMod = getPGD()->getMod(getDDSPath());
-    getPGD()->addGeneratedFile(newPath, origTexMod);
+    getPGD()->addGeneratedFile(newPath);
 
     return true;
 }

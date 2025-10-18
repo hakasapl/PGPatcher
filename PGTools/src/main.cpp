@@ -98,7 +98,7 @@ void mainRunner(PGToolsCLIArgs& args)
         args.Patch.source = filesystem::absolute(args.Patch.source);
         args.Patch.output = filesystem::absolute(args.Patch.output);
 
-        auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output, nullptr);
+        auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output);
         PGGlobals::setPGD(&pgd);
         auto pgd3D = ParallaxGenD3D(exePath / "cshaders");
         PGGlobals::setPGD3D(&pgd3D);
