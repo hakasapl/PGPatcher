@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <ios>
 #include <memory>
 #include <sstream>
@@ -257,7 +258,13 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         }
 
         // queue save to file saver
-        PGGlobals::getFileSaver().queueSave(data, meshFilename);
+        PGGlobals::getFileSaver().queueTask([data, meshFilename]() -> void {
+            std::ofstream file(meshFilename, std::ios::binary);
+            if (file.is_open()) {
+                file.write(data.data(), static_cast<std::streamsize>(data.size()));
+                file.close();
+            }
+        });
 
         if (saveSuccess) {
             if (i == 0) {

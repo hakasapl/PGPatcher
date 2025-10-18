@@ -3,9 +3,11 @@
 #include "BethesdaDirectory.hpp"
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
+#include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
 #include "util/Logger.hpp"
+#include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
@@ -52,7 +54,7 @@ ParallaxGenDirectory::ParallaxGenDirectory(
 {
 }
 
-auto ParallaxGenDirectory::findFiles() -> void
+auto ParallaxGenDirectory::findFiles(bool patchPlugin) -> void
 {
     // Clear existing unconfirmedtextures
     m_unconfirmedTextures.clear();
@@ -91,6 +93,14 @@ auto ParallaxGenDirectory::findFiles() -> void
             Logger::trace(
                 L"Found mesh: {} / {}", path.wstring(), file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedMeshes.insert(path);
+
+            if (patchPlugin) {
+                m_meshUseMappingQueue.queueTask([this, path]() -> void {
+                    // send job to find mesh uses for this mesh
+                    const auto modelUses = ParallaxGenPlugin::getModelUses(path);
+                    updateNifCache(path, modelUses);
+                });
+            }
         } else if (boost::iequals(path.extension().wstring(), L".json")) {
             // Found a JSON file
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {
@@ -108,11 +118,27 @@ auto ParallaxGenDirectory::findFiles() -> void
     }
 }
 
+void ParallaxGenDirectory::waitForMeshMapping()
+{
+    if (m_meshUseMappingQueue.isShutdown()) {
+        // already done
+        return;
+    }
+
+    if (m_meshUseMappingQueue.isProcessing()) {
+        Logger::info("Waiting for plugin mesh use mapping to complete...");
+        m_meshUseMappingQueue.waitForCompletion();
+    }
+
+    // shutdown the queue to free resources
+    m_meshUseMappingQueue.shutdown();
+}
+
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
-    const bool& multithreading, const bool& highmem) -> void
+    const bool& patchPlugin, const bool& multithreading, const bool& highmem) -> void
 {
-    findFiles();
+    findFiles(patchPlugin);
 
     // Helpers
     const unordered_map<wstring, NIFUtil::TextureType> manualTextureMapsMap(
@@ -223,7 +249,6 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     auto result = ParallaxGenTask::PGResult::SUCCESS;
 
     // Load NIF
-    NifCache nifCache;
     shared_ptr<nifly::NifFile> nif = nullptr;
     vector<std::byte> nifBytes;
     {
@@ -247,6 +272,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
     // Loop through each shape
     const auto shapes = NIFUtil::getShapesWithBlockIDs(nif.get());
     // clear shapes in cache
+    std::vector<std::pair<int, NIFUtil::TextureSet>> textureSets;
     for (const auto& [shape, oldindex3d] : shapes) {
         if (shape == nullptr) {
             // Skip if shape is null (invalid shapes)
@@ -265,7 +291,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
 
         auto* const shader = nif->GetShader(shape);
         const auto textureSet = NIFUtil::getTextureSlots(nif.get(), shape);
-        nifCache.textureSets.emplace_back(oldindex3d, textureSet);
+        textureSets.emplace_back(oldindex3d, textureSet);
 
         // Loop through each texture slot
         for (uint32_t slot = 0; slot < NUM_TEXTURE_SLOTS; slot++) {
@@ -419,14 +445,11 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
         // Calculate original CRC32
         boost::crc_32_type crcBeforeResult {};
         crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
-        nifCache.origCRC32 = crcBeforeResult.checksum();
-
-        // cache nif
-        nifCache.nif = nif;
+        updateNifCache(nifPath, nif, crcBeforeResult.checksum());
     }
 
-    // Add mesh to set
-    addMesh(nifPath, nifCache);
+    // update nif cache
+    updateNifCache(nifPath, textureSets);
 
     return result;
 }
@@ -467,13 +490,41 @@ auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path, const 
     }
 }
 
-auto ParallaxGenDirectory::addMesh(const filesystem::path& path, const NifCache& nifCache) -> void
+void ParallaxGenDirectory::updateNifCache(
+    const filesystem::path& path, const vector<pair<int, NIFUtil::TextureSet>>& txstSets)
 {
-    // Use mutex to make this thread safe
     const unique_lock lock(m_meshesMutex);
 
-    // Add mesh to set
-    m_meshes[path] = nifCache;
+    if (!m_meshes.contains(path)) {
+        m_meshes[path] = NifCache {};
+    }
+
+    m_meshes.at(path).textureSets = txstSets;
+}
+
+void ParallaxGenDirectory::updateNifCache(const filesystem::path& path,
+    const vector<pair<MeshTracker::FormKey, ParallaxGenPlugin::MeshUseAttributes>>& meshUses)
+{
+    const unique_lock lock(m_meshesMutex);
+
+    if (!m_meshes.contains(path)) {
+        m_meshes[path] = NifCache {};
+    }
+
+    m_meshes.at(path).meshUses = meshUses;
+}
+
+void ParallaxGenDirectory::updateNifCache(
+    const filesystem::path& path, const shared_ptr<nifly::NifFile>& nif, const unsigned long long& crc32)
+{
+    const unique_lock lock(m_meshesMutex);
+
+    if (!m_meshes.contains(path)) {
+        m_meshes[path] = NifCache {};
+    }
+
+    m_meshes.at(path).nif = nif;
+    m_meshes.at(path).origCRC32 = crc32;
 }
 
 auto ParallaxGenDirectory::getTextureMap(const NIFUtil::TextureSlots& slot)

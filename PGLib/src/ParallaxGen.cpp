@@ -75,6 +75,7 @@ void ParallaxGen::loadPatchers(
 void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 {
     auto* const pgd = PGGlobals::getPGD();
+    pgd->waitForMeshMapping();
 
     // Init Handlers
     HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
@@ -142,6 +143,8 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
     }
 
     auto* const pgd = PGGlobals::getPGD();
+    pgd->waitForMeshMapping();
+
     auto meshes = pgd->getMeshes();
 
     // Create task tracker
@@ -281,8 +284,8 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
 
         // find all uses of this nif
         if (patchPlugin) {
-            const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
-            for (const auto& use : meshUses) {
+            // get mesh uses from nif cache
+            for (const auto& use : nifCache.meshUses) {
                 if (use.second.alternateTextures.empty()) {
                     // no alternate textures, skip processing
                     continue;
@@ -331,7 +334,13 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // check if we have the nif in cache
     auto* const pgd = PGGlobals::getPGD();
     const auto& meshes = pgd->getMeshes();
-    if (meshes.contains(nifPath) && meshes.at(nifPath).nif != nullptr) {
+    if (!meshes.contains(nifPath)) {
+        throw runtime_error("NIF not found in cache: " + nifPath.string());
+    }
+
+    const auto nifCache = meshes.at(nifPath);
+
+    if (nifCache.nif != nullptr) {
         meshTracker.load(meshes.at(nifPath).nif, meshes.at(nifPath).origCRC32);
     } else {
         meshTracker.load();
@@ -358,10 +367,8 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     }
 
     if (patchPlugin) {
-        // Find all uses of this mesh in plugins
-        const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
         // loop through each use
-        for (auto use : meshUses) {
+        for (auto use : nifCache.meshUses) {
             // we process even if alternate textures is empty because attributes like singlepass MATO or others may
             // differ
             const auto formKey = use.first;

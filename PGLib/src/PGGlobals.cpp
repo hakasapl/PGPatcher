@@ -2,7 +2,7 @@
 
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
-#include "util/FileSaver.hpp"
+#include "util/TaskQueue.hpp"
 
 ParallaxGenDirectory* PGGlobals::s_PGD = nullptr;
 auto PGGlobals::getPGD() -> ParallaxGenDirectory* { return s_PGD; }
@@ -16,8 +16,8 @@ ModManagerDirectory* PGGlobals::s_MMD = nullptr;
 auto PGGlobals::getMMD() -> ModManagerDirectory* { return s_MMD; }
 void PGGlobals::setMMD(ModManagerDirectory* mmd) { s_MMD = mmd; }
 
-auto PGGlobals::getFileSaver() -> FileSaver&
+auto PGGlobals::getFileSaver() -> TaskQueue&
 {
-    static FileSaver fileSaver;
+    static TaskQueue fileSaver;
     return fileSaver;
 }

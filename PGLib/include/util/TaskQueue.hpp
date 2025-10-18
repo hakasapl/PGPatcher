@@ -1,32 +1,17 @@
 #pragma once
-
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
-#include <filesystem>
+#include <functional>
 #include <mutex>
 #include <queue>
-#include <string>
 #include <thread>
-#include <utility>
 
-class FileSaver {
-public:
-    struct WriteTask {
-        std::string data;
-        std::filesystem::path filepath;
-
-        WriteTask(std::string data, std::filesystem::path path)
-            : data(std::move(data))
-            , filepath(std::move(path))
-        {
-        }
-    };
-
+class TaskQueue {
 private:
     static constexpr int LOOP_INTERVAL = 10; /** Worker loop interval in milliseconds */
 
-    std::queue<WriteTask> m_taskQueue;
+    std::queue<std::function<void()>> m_taskQueue;
     std::mutex m_queueMutex;
     std::condition_variable m_cv;
     std::atomic<bool> m_running { true };
@@ -35,18 +20,26 @@ private:
     std::thread m_workerThread;
 
     void workerLoop();
-    static void saveToFile(const WriteTask& task);
 
 public:
-    FileSaver();
-    ~FileSaver();
-    FileSaver(const FileSaver&) = delete;
-    auto operator=(const FileSaver&) -> FileSaver& = delete;
-    FileSaver(FileSaver&&) = delete;
-    auto operator=(FileSaver&&) -> FileSaver& = delete;
+    TaskQueue();
+    ~TaskQueue();
 
-    // Queue a file save task
-    void queueSave(std::string data, std::filesystem::path filepath);
+    TaskQueue(const TaskQueue&) = delete;
+    auto operator=(const TaskQueue&) -> TaskQueue& = delete;
+    TaskQueue(TaskQueue&&) = delete;
+    auto operator=(TaskQueue&&) -> TaskQueue& = delete;
+
+    // Queue a task to run
+    template <typename Func> void queueTask(Func&& func)
+    {
+        {
+            std::scoped_lock const lock(m_queueMutex);
+            m_taskQueue.emplace(std::forward<Func>(func));
+            m_queuedTasks++;
+        }
+        m_cv.notify_one();
+    }
 
     // Check if the thread is currently working or has queued tasks
     auto isWorking() const -> bool;
@@ -54,8 +47,11 @@ public:
     // Get number of queued tasks (not including currently processing)
     auto getQueuedTaskCount() const -> size_t;
 
-    // Check if currently processing a file
+    // Check if currently processing a task
     auto isProcessing() const -> bool;
+
+    // Check if the queue has been shut down
+    auto isShutdown() const -> bool;
 
     // Wait for all tasks to complete
     void waitForCompletion() const;

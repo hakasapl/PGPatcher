@@ -4,8 +4,11 @@
 #include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
 #include "NifFile.hpp"
+#include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenTask.hpp"
+#include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
+#include "util/TaskQueue.hpp"
 
 #include <DirectXTex.h>
 #include <nlohmann/json.hpp>
@@ -32,6 +35,8 @@ public:
         std::vector<std::pair<int, NIFUtil::TextureSet>> textureSets;
         std::shared_ptr<nifly::NifFile> nif; // keep nif in cache to avoid reloading it multiple times
         unsigned long long origCRC32 = 0; // CRC32 of the NIF file
+        std::vector<std::pair<MeshTracker::FormKey, ParallaxGenPlugin::MeshUseAttributes>>
+            meshUses; // list of mesh uses
     };
 
 private:
@@ -68,6 +73,8 @@ private:
     std::shared_mutex m_meshesMutex;
     std::shared_mutex m_texturesMutex;
 
+    TaskQueue m_meshUseMappingQueue;
+
 public:
     // constructor - calls the BethesdaDirectory constructor
     ParallaxGenDirectory(BethesdaGame* bg, std::filesystem::path outputPath = "", ModManagerDirectory* mmd = nullptr);
@@ -85,11 +92,13 @@ public:
     /// @param cacheNIFs Faster but higher memory consumption
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist, const std::vector<std::wstring>& nifAllowlist,
         const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
-        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true,
-        const bool& highmem = false) -> void;
+        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& patchPlugin,
+        const bool& multithreading = true, const bool& highmem = false) -> void;
+
+    void waitForMeshMapping();
 
 private:
-    auto findFiles() -> void;
+    auto findFiles(bool patchPlugin) -> void;
 
     auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& cachenif = false)
         -> ParallaxGenTask::PGResult;
@@ -100,7 +109,12 @@ private:
     auto addToTextureMaps(const std::filesystem::path& path, const NIFUtil::TextureSlots& slot,
         const NIFUtil::TextureType& type, const std::unordered_set<NIFUtil::TextureAttribute>& attributes) -> void;
 
-    auto addMesh(const std::filesystem::path& path, const NifCache& nifCache) -> void;
+    void updateNifCache(
+        const std::filesystem::path& path, const std::vector<std::pair<int, NIFUtil::TextureSet>>& txstSets);
+    void updateNifCache(const std::filesystem::path& path,
+        const std::vector<std::pair<MeshTracker::FormKey, ParallaxGenPlugin::MeshUseAttributes>>& meshUses);
+    void updateNifCache(
+        const std::filesystem::path& path, const std::shared_ptr<nifly::NifFile>& nif, const unsigned long long& crc32);
 
 public:
     static auto checkGlobMatchInVector(const std::wstring& check, const std::vector<std::wstring>& list) -> bool;
