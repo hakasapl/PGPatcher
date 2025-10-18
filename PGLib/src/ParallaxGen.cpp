@@ -354,7 +354,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     const auto nifCache = meshes.at(nifPath);
 
     if (nifCache.nif != nullptr) {
-        meshTracker.load(meshes.at(nifPath).nif, meshes.at(nifPath).origCRC32);
+        meshTracker.load(nifCache.nif, nifCache.origCRC32);
     } else {
         meshTracker.load();
     }

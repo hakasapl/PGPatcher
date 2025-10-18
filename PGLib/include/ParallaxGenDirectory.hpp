@@ -100,9 +100,9 @@ public:
     void waitForCMClassification();
 
 private:
-    auto findFiles(bool patchPlugin) -> void;
+    auto findFiles() -> void;
 
-    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& cachenif = false)
+    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, const bool& cachenif = false)
         -> ParallaxGenTask::PGResult;
 
     auto updateUnconfirmedTexturesMap(

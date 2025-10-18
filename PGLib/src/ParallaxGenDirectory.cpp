@@ -54,7 +54,7 @@ ParallaxGenDirectory::ParallaxGenDirectory(filesystem::path dataPath, filesystem
 {
 }
 
-auto ParallaxGenDirectory::findFiles(bool patchPlugin) -> void
+auto ParallaxGenDirectory::findFiles() -> void
 {
     // Clear existing unconfirmedtextures
     m_unconfirmedTextures.clear();
@@ -93,14 +93,6 @@ auto ParallaxGenDirectory::findFiles(bool patchPlugin) -> void
             Logger::trace(
                 L"Found mesh: {} / {}", path.wstring(), file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedMeshes.insert(path);
-
-            if (patchPlugin) {
-                m_meshUseMappingQueue.queueTask([this, path]() -> void {
-                    // send job to find mesh uses for this mesh
-                    const auto modelUses = ParallaxGenPlugin::getModelUses(path);
-                    updateNifCache(path, modelUses);
-                });
-            }
         } else if (boost::iequals(path.extension().wstring(), L".json")) {
             // Found a JSON file
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {
@@ -154,7 +146,7 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
     const bool& patchPlugin, const bool& multithreading, const bool& highmem) -> void
 {
-    findFiles(patchPlugin);
+    findFiles();
 
     // Helpers
     const unordered_map<wstring, NIFUtil::TextureType> manualTextureMapsMap(
@@ -184,8 +176,9 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
             continue;
         }
 
-        runner.addTask(
-            [this, &taskTracker, &mesh, &highmem] { taskTracker.completeJob(mapTexturesFromNIF(mesh, highmem)); });
+        runner.addTask([this, &taskTracker, &mesh, &highmem, &patchPlugin] {
+            taskTracker.completeJob(mapTexturesFromNIF(mesh, patchPlugin, highmem));
+        });
     }
 
     // Blocks until all tasks are done
@@ -300,8 +293,8 @@ auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const ve
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, const bool& cachenif)
-    -> ParallaxGenTask::PGResult
+auto ParallaxGenDirectory::mapTexturesFromNIF(
+    const filesystem::path& nifPath, const bool& patchPlugin, const bool& cachenif) -> ParallaxGenTask::PGResult
 {
     auto result = ParallaxGenTask::PGResult::SUCCESS;
 
@@ -496,6 +489,14 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
             // Update unconfirmed textures map
             updateUnconfirmedTexturesMap(texture, static_cast<NIFUtil::TextureSlots>(slot), textureType);
         }
+    }
+
+    if (patchPlugin) {
+        m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
+            // send job to find mesh uses for this mesh
+            const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
+            updateNifCache(nifPath, modelUses);
+        });
     }
 
     if (cachenif) {
