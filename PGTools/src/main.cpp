@@ -169,9 +169,6 @@ void mainRunner(PGToolsCLIArgs& args)
             patcherDefs[patcher.substr(0, openBracket)] = optionSet;
         }
 
-        // extended classifications
-        pgd3D.extendedTexClassify({});
-
         // Create patcher factory
         PatcherUtil::PatcherMeshSet meshPatchers;
         if (patcherDefs.contains("disablemlp")) {

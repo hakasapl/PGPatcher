@@ -3,7 +3,6 @@
 #include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
 
 #include <DirectXMath.h>
 #include <DirectXTex.h>
@@ -26,7 +25,6 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 #include <windows.h>
@@ -43,68 +41,6 @@ using Microsoft::WRL::ComPtr;
 ParallaxGenD3D::ParallaxGenD3D(filesystem::path shaderPath)
     : m_shaderPath(std::move(shaderPath))
 {
-}
-
-auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExcludes) -> bool
-{
-    auto* const pgd = PGGlobals::getPGD();
-
-    auto& envMasks = pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK);
-
-    // loop through maps
-    for (auto& envSlot : envMasks) {
-        vector<tuple<NIFUtil::PGTexture, bool, bool, bool>> cmMaps;
-
-        for (const auto& envMask : envSlot.second) {
-            if (envMask.type != NIFUtil::TextureType::ENVIRONMENTMASK) {
-                continue;
-            }
-
-            bool result = false;
-            bool hasMetalness = false;
-            bool hasGlosiness = false;
-            bool hasEnvMask = false;
-
-            const bool bFileInVanillaBSA = pgd->isFileInBSA(envMask.path, bsaExcludes);
-            if (!bFileInVanillaBSA) {
-                try {
-                    if (!checkIfCM(envMask.path, result, hasEnvMask, hasGlosiness, hasMetalness)) {
-                        Logger::error(L"Failed to check if {} is complex material", envMask.path.wstring());
-                        continue;
-                    }
-                } catch (...) {
-                    Logger::error(L"Failed to check if {} is complex material", envMask.path.wstring());
-                    continue;
-                }
-            }
-
-            if (result) {
-                // remove old env mask
-                cmMaps.emplace_back(envMask, hasEnvMask, hasGlosiness, hasMetalness);
-            }
-        }
-
-        // update map
-        for (const auto& [cmMap, hasEnvMask, hasGlosiness, hasMetalness] : cmMaps) {
-            envSlot.second.erase(cmMap);
-            envSlot.second.insert({ cmMap.path, NIFUtil::TextureType::COMPLEXMATERIAL });
-            pgd->setTextureType(cmMap.path, NIFUtil::TextureType::COMPLEXMATERIAL);
-
-            if (hasEnvMask) {
-                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_ENVMASK);
-            }
-
-            if (hasGlosiness) {
-                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_GLOSSINESS);
-            }
-
-            if (hasMetalness) {
-                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_METALNESS);
-            }
-        }
-    }
-
-    return true;
 }
 
 auto ParallaxGenD3D::checkIfCM(

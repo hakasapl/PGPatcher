@@ -107,15 +107,6 @@ public:
         const DXGI_FORMAT& outFormat = DXGI_FORMAT_R8G8B8A8_UNORM, const UINT& outWidth = 0, const UINT& outHeight = 0,
         const void* shaderParams = nullptr, const UINT& shaderParamsSize = 0) -> bool;
 
-    /**
-     * @brief Refine texture classifications by looking at certain textures
-     *
-     * @param bsaExcludes BSA files to exclude
-     * @return true on success
-     * @return false on failure
-     */
-    auto extendedTexClassify(const std::vector<std::wstring>& bsaExcludes) -> bool;
-
     auto checkIfCM(const std::filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness,
         bool& hasMetalness) -> bool;
 
