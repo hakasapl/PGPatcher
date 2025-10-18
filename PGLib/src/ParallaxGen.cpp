@@ -293,7 +293,7 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
     // loop through each texture set in cache
     for (const auto& textureSet : nifCache.textureSets) {
         // find matches
-        auto matches = getMatches(nifPath.wstring(), textureSet.second, patcherObjects, true, false);
+        auto matches = getMatches(textureSet.second, patcherObjects, true, false);
 
         // find all uses of this nif
         if (patchPlugin) {
@@ -307,8 +307,7 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
                 // loop through each alternate texture set
                 for (const auto& [altTexIndex, altTexSet] : use.second.alternateTextures) {
                     // find matches
-                    const auto curMatches
-                        = getMatches(nifPath.wstring(), altTexSet, patcherObjects, true, use.second.singlepassMATO);
+                    const auto curMatches = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO);
                     matches.insert(matches.end(), curMatches.begin(), curMatches.end());
                 }
             }
@@ -514,7 +513,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         // Allowed shaders from result of patchers
-        auto matches = getMatches(nifPath.wstring(), slots, patchers, false, singlepassMATO, &patchers, nifShape);
+        auto matches = getMatches(slots, patchers, false, singlepassMATO, &patchers, nifShape);
         // log each match
         for (const auto& match : matches) {
             Logger::trace(L"Match: {} / {} / {}", utf8toUTF16(NIFUtil::getStrFromShader(match.shader)),
@@ -569,10 +568,9 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     return true;
 }
 
-auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::TextureSet& slots,
-    const PatcherUtil::PatcherMeshObjectSet& patchers, const bool& dryRun, bool singlepassMATO,
-    const PatcherUtil::PatcherMeshObjectSet* patcherObjects, nifly::NiShape* shape)
-    -> std::vector<PatcherUtil::ShaderPatcherMatch>
+auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
+    const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects,
+    nifly::NiShape* shape) -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
     if (PGGlobals::getPGD() == nullptr) {
         throw runtime_error("PGD is null");
@@ -580,90 +578,75 @@ auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::Texture
 
     vector<PatcherUtil::ShaderPatcherMatch> matches;
 
-    bool foundCache = false;
-    {
-        const MatchCacheKey key { .nifPath = nifPath, .slots = slots, .singlepassMATO = singlepassMATO };
-
-        const shared_lock lock(s_matchCacheMutex);
-        if (s_matchCache.contains(key)) {
-            foundCache = true;
-            matches = s_matchCache.at(key);
-        }
+    unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
+    if (patcherObjects != nullptr && patchers.shaderPatchers.size() != patcherObjects->shaderPatchers.size()) {
+        throw runtime_error("Patcher objects size mismatch");
     }
 
-    if (!foundCache) {
-        unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
-        if (patcherObjects != nullptr && patchers.shaderPatchers.size() != patcherObjects->shaderPatchers.size()) {
-            throw runtime_error("Patcher objects size mismatch");
+    if ((patcherObjects != nullptr && shape == nullptr) || (patcherObjects == nullptr && shape != nullptr)) {
+        throw runtime_error("If shape or patcherObjects is set, both must be set");
+    }
+
+    for (const auto& [shader, patcher] : patchers.shaderPatchers) {
+        // note: name is defined in source code in UTF8-encoded files
+        const Logger::Prefix prefixPatches(patcher->getPatcherName());
+
+        // Check if shader should be applied
+        vector<PatcherMeshShader::PatcherMatch> curMatches;
+        if (!patcher->shouldApply(slots, curMatches)) {
+            Logger::trace(L"Rejecting: Shader not applicable");
+            continue;
         }
 
-        if ((patcherObjects != nullptr && shape == nullptr) || (patcherObjects == nullptr && shape != nullptr)) {
-            throw runtime_error("If shape or patcherObjects is set, both must be set");
-        }
-
-        for (const auto& [shader, patcher] : patchers.shaderPatchers) {
-            // note: name is defined in source code in UTF8-encoded files
-            const Logger::Prefix prefixPatches(patcher->getPatcherName());
-
-            // Check if shader should be applied
-            vector<PatcherMeshShader::PatcherMatch> curMatches;
-            if (!patcher->shouldApply(slots, curMatches)) {
-                Logger::trace(L"Rejecting: Shader not applicable");
+        for (const auto& match : curMatches) {
+            if (!PGGlobals::getPGD()->isFile(match.matchedPath)) {
+                Logger::trace(L"Rejecting: Matched path '{}' is not a file", match.matchedPath);
                 continue;
             }
 
-            for (const auto& match : curMatches) {
-                PatcherUtil::ShaderPatcherMatch curMatch;
-                curMatch.mod
-                    = PGGlobals::getMMD()->getModByFile(PGGlobals::getPGD()->getModLookupFile(match.matchedPath));
+            PatcherUtil::ShaderPatcherMatch curMatch;
+            curMatch.mod = PGGlobals::getMMD()->getModByFile(PGGlobals::getPGD()->getModLookupFile(match.matchedPath));
 
-                if (!dryRun && curMatch.mod != nullptr) {
-                    const std::shared_lock lk(curMatch.mod->mutex);
-                    if (!curMatch.mod->isEnabled) {
-                        // do not add match if mod it matched from is disabled
-                        Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
-                        continue;
-                    }
-                }
-
-                curMatch.shader = shader;
-                curMatch.match = match;
-                curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
-
-                matches.push_back(curMatch);
-                if (curMatch.mod != nullptr) {
-                    // add mod to set
-                    modSet.insert(curMatch.mod);
-                }
-            }
-        }
-
-        // Populate conflict mods if set
-        if (dryRun && !modSet.empty()) {
-            // add mods to conflict set
-            for (const auto& match : matches) {
-                if (match.mod == nullptr) {
+            if (!dryRun && curMatch.mod != nullptr) {
+                const std::shared_lock lk(curMatch.mod->mutex);
+                if (!curMatch.mod->isEnabled) {
+                    // do not add match if mod it matched from is disabled
+                    Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
                     continue;
                 }
-
-                const unique_lock lock(match.mod->mutex);
-
-                match.mod->shaders.insert(match.shader);
-                for (const auto& conflictMod : modSet) {
-                    if (conflictMod != match.mod) {
-                        match.mod->conflicts.insert(conflictMod);
-                    }
-                }
             }
 
-            return matches;
+            curMatch.shader = shader;
+            curMatch.match = match;
+            curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
+
+            matches.push_back(curMatch);
+            if (curMatch.mod != nullptr) {
+                // add mod to set
+                modSet.insert(curMatch.mod);
+            }
+        }
+    }
+
+    // Populate conflict mods if set
+    if (dryRun && !modSet.empty()) {
+        // add mods to conflict set
+        for (const auto& match : matches) {
+            if (match.mod == nullptr) {
+                continue;
+            }
+
+            const unique_lock lock(match.mod->mutex);
+
+            match.mod->shaders.insert(match.shader);
+            for (const auto& conflictMod : modSet) {
+                if (conflictMod != match.mod) {
+                    match.mod->conflicts.insert(conflictMod);
+                }
+            }
         }
 
-        // Cache matches
-        {
-            const unique_lock lock(s_matchCacheMutex);
-            s_matchCache[{ nifPath, slots, singlepassMATO }] = matches;
-        }
+        return matches;
     }
 
     // Loop through matches and delete any that cannot apply

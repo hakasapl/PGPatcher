@@ -3,6 +3,7 @@
 #include "PGGlobals.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
@@ -612,7 +613,7 @@ auto MeshTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, 
         const bool hasB = i < texturesB.size();
 
         if (hasA && hasB) {
-            if (!boost::iequals(texturesA[i].get(), texturesB[i].get())) {
+            if (!ParallaxGenUtil::asciiFastIEquals(texturesA[i].get(), texturesB[i].get())) {
                 return false;
             }
         } else if (hasA) {

@@ -25,7 +25,6 @@
 #include <fileapi.h>
 #include <filesystem>
 #include <fstream>
-#include <iterator>
 #include <map>
 #include <memory>
 #include <minwindef.h>
@@ -214,21 +213,6 @@ auto BethesdaDirectory::isGenerated(const filesystem::path& relPath) -> bool
     return !file.path.empty() && file.generated;
 }
 
-auto BethesdaDirectory::isPrefix(const filesystem::path& relPath) -> bool
-{
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
-
-    auto it = m_fileMap.lower_bound(relPath);
-    if (it == m_fileMap.end()) {
-        return false;
-    }
-
-    return boost::istarts_with(it->first.wstring(), relPath.wstring())
-        || (it != m_fileMap.begin() && boost::istarts_with(prev(it)->first.wstring(), relPath.wstring()));
-}
-
 auto BethesdaDirectory::getLooseFileFullPath(const filesystem::path& relPath) -> filesystem::path
 {
     if (m_fileMap.empty()) {
@@ -408,10 +392,6 @@ auto BethesdaDirectory::getBSALoadOrder() const -> vector<wstring>
 
 auto BethesdaDirectory::getModLookupFile(const filesystem::path& relPath) -> filesystem::path
 {
-    if (!isFile(relPath)) {
-        return relPath;
-    }
-
     // get file
     const BethesdaFile& file = getFileFromMap(relPath);
     if (file.bsaFile != nullptr) {
@@ -582,19 +562,6 @@ auto BethesdaDirectory::isFileInBSA(const filesystem::path& file, const std::vec
             return true;
         }
     }
-    return false;
-}
-
-auto BethesdaDirectory::checkIfAnyComponentIs(const filesystem::path& path, const vector<wstring>& components) -> bool
-{
-    for (const auto& component : path) {
-        for (const auto& comp : components) {
-            if (boost::iequals(component.wstring(), comp)) {
-                return true;
-            }
-        }
-    }
-
     return false;
 }
 

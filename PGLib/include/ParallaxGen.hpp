@@ -162,10 +162,9 @@ private:
         const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO,
         NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
 
-    static auto getMatches(const std::wstring& nifPath, const NIFUtil::TextureSet& slots,
-        const PatcherUtil::PatcherMeshObjectSet& patchers, const bool& dryRun, bool singlepassMATO,
-        const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr, nifly::NiShape* shape = nullptr)
-        -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+    static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
+        const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
+        nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 
     /**
      * @brief Get the Winning Match object (checks mod priority)
