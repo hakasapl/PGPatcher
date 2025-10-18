@@ -3,6 +3,7 @@
 #include "PGGlobals.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
+#include "util/ParallaxGenUtil.hpp"
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
@@ -243,28 +244,28 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         filesystem::create_directories(meshFilename.parent_path());
 
         // Save Mesh file
-        bool saveSuccess = false;
-        if (i == 0) {
-            // process crc for base mesh only
-            ostringstream buffer(std::ios::binary);
-            saveSuccess = (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) == 0);
 
+        // Write to memory buffer
+        bool saveSuccess = false;
+        ostringstream buffer(std::ios::binary);
+        saveSuccess = (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) == 0);
+        const string& data = buffer.str();
+
+        if (i == 0) {
             // get CRC32
-            const string data = buffer.str();
             boost::crc_32_type crc;
             crc.process_bytes(data.data(), data.size());
             baseCrc32 = crc.checksum();
-
-            // Write to disk
-            std::ofstream outStream(meshFilename, std::ios::binary);
-            outStream.write(data.data(), static_cast<streamsize>(data.size()));
-            outStream.flush();
-            if (!outStream.good()) {
-                saveSuccess = false;
-            }
-        } else {
-            saveSuccess = (mesh.Save(meshFilename, { .optimize = false, .sortBlocks = false }) == 0);
         }
+
+        // queue save to file saver
+        PGGlobals::getFileSaver().queueTask([data, meshFilename]() -> void {
+            std::ofstream file(meshFilename, std::ios::binary);
+            if (file.is_open()) {
+                file.write(data.data(), static_cast<std::streamsize>(data.size()));
+                file.close();
+            }
+        });
 
         if (saveSuccess) {
             if (i == 0) {
@@ -280,7 +281,7 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         }
 
         // tell PGD that this is a generated file
-        pgd->addGeneratedFile(meshRelPath, nullptr);
+        pgd->addGeneratedFile(meshRelPath);
 
         output.push_back(meshResult);
     }
@@ -612,7 +613,7 @@ auto MeshTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, 
         const bool hasB = i < texturesB.size();
 
         if (hasA && hasB) {
-            if (!boost::iequals(texturesA[i].get(), texturesB[i].get())) {
+            if (!ParallaxGenUtil::asciiFastIEquals(texturesA[i].get(), texturesB[i].get())) {
                 return false;
             }
         } else if (hasA) {

@@ -606,6 +606,10 @@ auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& 
 {
     wxString shaderStr;
     for (const auto& shader : shaders) {
+        if (shader == NIFUtil::ShapeShader::NONE) {
+            continue;
+        }
+
         if (!shaderStr.empty()) {
             shaderStr += ", ";
         }

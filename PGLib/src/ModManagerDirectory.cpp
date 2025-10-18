@@ -44,9 +44,8 @@ auto ModManagerDirectory::getModFileMap() const -> const unordered_map<filesyste
 
 auto ModManagerDirectory::getModByFile(const filesystem::path& relPath) const -> shared_ptr<Mod>
 {
-    auto relPathLower = filesystem::path(ParallaxGenUtil::toLowerASCII(relPath.wstring()));
-    if (m_modFileMap.contains(relPathLower)) {
-        return m_modFileMap.at(relPathLower);
+    if (m_modFileMap.contains(relPath)) {
+        return m_modFileMap.at(relPath);
     }
 
     return nullptr;

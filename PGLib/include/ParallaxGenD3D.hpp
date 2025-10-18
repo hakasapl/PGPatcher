@@ -116,6 +116,9 @@ public:
      */
     auto extendedTexClassify(const std::vector<std::wstring>& bsaExcludes) -> bool;
 
+    auto checkIfCM(const std::filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness,
+        bool& hasMetalness) -> bool;
+
     /**
      * @brief Count the number of alpha values in a texture
      *
@@ -332,9 +335,6 @@ public:
         -> bool;
 
 private:
-    auto checkIfCM(const std::filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness,
-        bool& hasMetalness) -> bool;
-
     //
     // Private Helpers
     //

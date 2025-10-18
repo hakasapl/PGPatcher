@@ -18,7 +18,7 @@
 using namespace std;
 
 ParallaxGenRunner::ParallaxGenRunner(const bool& multithread)
-    : m_threadPool(std::thread::hardware_concurrency())
+    : m_threadPool(std::thread::hardware_concurrency() - NUM_STATIC_THREADS)
     , m_multithread(multithread)
     , m_completedTasks(0)
 {

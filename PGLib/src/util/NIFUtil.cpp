@@ -50,7 +50,7 @@ auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
         = { { "Default", ShapeShader::NONE }, { "Unknown", ShapeShader::UNKNOWN }, { "PBR", ShapeShader::TRUEPBR },
               { "Complex Material", ShapeShader::COMPLEXMATERIAL }, { "Parallax", ShapeShader::VANILLAPARALLAX } };
 
-    const auto searchKey = boost::to_lower_copy(shader);
+    const auto searchKey = ParallaxGenUtil::toLowerASCIIFast(shader);
     if (shaderFromStrMap.find(searchKey) != shaderFromStrMap.end()) {
         return shaderFromStrMap.at(searchKey);
     }
@@ -191,7 +191,7 @@ auto NIFUtil::getTexTypeFromStr(const string& type) -> TextureType
         { "specular", TextureType::SPECULAR }, { "hair flowmap", TextureType::HAIR_FLOWMAP },
         { "subsurface pbr", TextureType::SUBSURFACEPBR }, { "unknown", TextureType::UNKNOWN } };
 
-    const auto searchKey = boost::to_lower_copy(type);
+    const auto searchKey = ParallaxGenUtil::toLowerASCIIFast(type);
     if (texFromStrMap.find(type) != texFromStrMap.end()) {
         return texFromStrMap[type];
     }
@@ -454,7 +454,7 @@ auto NIFUtil::setTextureSlot(
 {
     string existingTex;
     nif->GetTextureSlot(nifShape, existingTex, static_cast<unsigned int>(slot));
-    if (!boost::iequals(existingTex, texturePath)) {
+    if (!ParallaxGenUtil::asciiFastIEquals(existingTex, texturePath)) {
         auto newTex = texturePath;
         nif->SetTextureSlot(nifShape, newTex, static_cast<unsigned int>(slot));
         return true;
@@ -478,7 +478,7 @@ auto NIFUtil::getTextureSlot(nifly::NifFile* nif, nifly::NiShape* nifShape, cons
 {
     string texture;
     nif->GetTextureSlot(nifShape, texture, static_cast<unsigned int>(slot));
-    boost::to_lower(texture);
+    ParallaxGenUtil::toLowerASCIIFastInPlace(texture);
     return texture;
 }
 
@@ -489,7 +489,7 @@ auto NIFUtil::getTextureSlots(nifly::NifFile* nif, nifly::NiShape* nifShape) -> 
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
         string texture;
         const uint32_t result = nif->GetTextureSlot(nifShape, texture, i);
-        boost::to_lower(texture);
+        ParallaxGenUtil::toLowerASCIIFastInPlace(texture);
 
         if (result == 0 || texture.empty()) {
             // no texture in Slot
@@ -519,7 +519,9 @@ auto NIFUtil::getTexBase(const std::filesystem::path& path, const TextureSlots& 
 
     // Get the texture suffix
     const auto pathWithoutExtension = path.parent_path() / path.stem();
-    const auto& pathStr = pathWithoutExtension.wstring();
+    auto pathStr = pathWithoutExtension.wstring();
+    // faster ascii lower is okay here because ALL textures must be purely ascii by the time they reach here
+    ParallaxGenUtil::toLowerASCIIFastInPlace(pathStr);
 
     if (slot == TextureSlots::UNKNOWN) {
         // just return path without extension
@@ -531,7 +533,7 @@ auto NIFUtil::getTexBase(const std::filesystem::path& path, const TextureSlots& 
             continue;
         }
 
-        if (boost::iends_with(pathStr, suffix)) {
+        if (pathStr.ends_with(suffix)) {
             return pathStr.substr(0, pathStr.size() - suffix.size());
         }
     }
@@ -543,7 +545,7 @@ auto NIFUtil::getTexMatch(const wstring& base, const TextureType& desiredType,
     const map<wstring, unordered_set<PGTexture, PGTextureHasher>>& searchMap) -> vector<PGTexture>
 {
     // Binary search on base list
-    const wstring baseLower = boost::to_lower_copy(base);
+    const wstring baseLower = ParallaxGenUtil::toLowerASCIIFast(base);
     const auto it = searchMap.find(baseLower);
 
     if (it != searchMap.end()) {

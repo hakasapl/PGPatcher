@@ -291,4 +291,44 @@ auto getPluginPathFromDataPath(const filesystem::path& dataPath) -> filesystem::
     return relativePath;
 }
 
+auto toLowerASCIIFast(const std::string& str) -> std::string
+{
+    std::string lowerStr = str;
+    for (char& ch : lowerStr) {
+        if (ch >= 'A' && ch <= 'Z') {
+            ch += ('a' - 'A');
+        }
+    }
+    return lowerStr;
+}
+
+auto toLowerASCIIFast(const std::wstring& str) -> std::wstring
+{
+    std::wstring lowerStr = str;
+    for (wchar_t& ch : lowerStr) {
+        if (ch >= L'A' && ch <= L'Z') {
+            ch += (L'a' - L'A');
+        }
+    }
+    return lowerStr;
+}
+
+auto toLowerASCIIFastInPlace(std::string& str) -> void
+{
+    for (char& ch : str) {
+        if (ch >= 'A' && ch <= 'Z') {
+            ch += ('a' - 'A');
+        }
+    }
+}
+
+auto toLowerASCIIFastInPlace(std::wstring& str) -> void
+{
+    for (wchar_t& ch : str) {
+        if (ch >= L'A' && ch <= L'Z') {
+            ch += (L'a' - L'A');
+        }
+    }
+}
+
 } // namespace ParallaxGenUtil
