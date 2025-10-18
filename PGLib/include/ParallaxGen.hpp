@@ -7,6 +7,7 @@
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
+#include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
 #include <boost/container_hash/hash.hpp>
 #include <boost/functional/hash.hpp>
@@ -116,7 +117,8 @@ private:
      * @param dryRun whether to run in dry run mode (no changes made)
      * @return ParallaxGenTask::PGResult result of the patching process
      */
-    static auto patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin) -> ParallaxGenTask::PGResult;
+    static auto patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, TaskQueue& setModelUsesQueue)
+        -> ParallaxGenTask::PGResult;
 
     static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
         const ParallaxGenDirectory::NifCache& nifCache, const bool& patchPlugin) -> ParallaxGenTask::PGResult;

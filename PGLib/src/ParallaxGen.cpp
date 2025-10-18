@@ -20,6 +20,7 @@
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
+#include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -84,6 +85,9 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
     // MESH PATCHING
     //
 
+    // Create task queue for setting model uses
+    TaskQueue setModelUsesQueue;
+
     // Add tasks
     auto meshes = pgd->getMeshes();
 
@@ -94,8 +98,9 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
     ParallaxGenRunner meshRunner(multiThread);
 
     for (auto& [mesh, nifCache] : meshes) {
-        meshRunner.addTask(
-            [&taskTracker, &mesh, &patchPlugin] { taskTracker.completeJob(patchNIF(mesh, patchPlugin)); });
+        meshRunner.addTask([&taskTracker, &mesh, &patchPlugin, &setModelUsesQueue] {
+            taskTracker.completeJob(patchNIF(mesh, patchPlugin, setModelUsesQueue));
+        });
     }
 
     // Blocks until all tasks are done
@@ -127,6 +132,12 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Finalize handlers
     HandlerLightPlacerTracker::finalize();
+
+    // Wait for model uses to complete
+    if (setModelUsesQueue.isWorking()) {
+        Logger::info("Waiting for setting plugin model uses to complete...");
+        setModelUsesQueue.waitForCompletion();
+    }
 
     // Wait for file saver to complete
     if (PGGlobals::getFileSaver().isWorking()) {
@@ -324,7 +335,8 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
     return ParallaxGenTask::PGResult::SUCCESS;
 }
 
-auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin) -> ParallaxGenTask::PGResult
+auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, TaskQueue& setModelUsesQueue)
+    -> ParallaxGenTask::PGResult
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -395,8 +407,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // Save meshes
     const auto saveResults = meshTracker.saveMeshes();
     if (patchPlugin) {
-        Logger::trace("Setting plugin model uses...");
-        ParallaxGenPlugin::setModelUses(saveResults.first);
+        setModelUsesQueue.queueTask([saveResults]() -> void { ParallaxGenPlugin::setModelUses(saveResults.first); });
     }
     // run handlers
     for (const auto& meshResult : saveResults.first) {
