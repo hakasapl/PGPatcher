@@ -250,6 +250,7 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
                 }
 
                 if (!result) {
+                    // regular env mask
                     addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::ENVIRONMENTMASK, {});
                     return;
                 }
