@@ -812,11 +812,17 @@ auto ParallaxGen::patchDDS(const filesystem::path& ddsPath) -> ParallaxGenTask::
     // Run any hook patchers (these create other textures)
     if (PatcherTextureHookConvertToCM::isInProcessList(ddsPath)) {
         auto patcher = PatcherTextureHookConvertToCM(ddsPath, &ddsImage);
-        patcher.applyPatch();
+        if (!patcher.applyPatch()) {
+            Logger::error(L"Failed to convert to complex material for texture {}", ddsPath.wstring());
+            return ParallaxGenTask::PGResult::FAILURE;
+        }
     }
     if (PatcherTextureHookFixSSS::isInProcessList(ddsPath)) {
         auto patcher = PatcherTextureHookFixSSS(ddsPath, &ddsImage);
-        patcher.applyPatch();
+        if (!patcher.applyPatch()) {
+            Logger::error(L"Failed to generate SSS map for texture {}", ddsPath.wstring());
+            return ParallaxGenTask::PGResult::FAILURE;
+        }
     }
 
     bool ddsModified = false;

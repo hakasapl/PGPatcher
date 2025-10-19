@@ -6,6 +6,7 @@
 #include <DirectXTex.h>
 #include <dxgiformat.h>
 
+#include <cstddef>
 #include <filesystem>
 #include <minwindef.h>
 #include <mutex>
@@ -65,8 +66,9 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     }
 
     DirectX::ScratchImage newDDS;
-    const auto newWidth = static_cast<UINT>(getDDS()->GetMetadata().width / 2);
-    const auto newHeight = static_cast<UINT>(getDDS()->GetMetadata().height / 2);
+    static constexpr size_t SCALE_FACTOR = 2;
+    const auto newWidth = static_cast<UINT>(getDDS()->GetMetadata().width / SCALE_FACTOR);
+    const auto newHeight = static_cast<UINT>(getDDS()->GetMetadata().height / SCALE_FACTOR);
     // the shader delights and also reduces size by 4 for efficiency
     ShaderParams params = { .fAlbedoSatPower = SHADER_ALBEDO_SAT_POWER, .fAlbedoNorm = SHADER_ALBEDO_NORM };
     if (!getPGD3D()->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM, newWidth, newHeight,
@@ -89,7 +91,7 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
 
     DirectX::ScratchImage compressedImage;
     HRESULT hr = DirectX::Compress(newDDS.GetImages(), newDDS.GetImageCount(), newDDS.GetMetadata(),
-        DXGI_FORMAT_BC1_UNORM, DirectX::TEX_COMPRESS_DEFAULT, 1.0F, compressedImage);
+        DXGI_FORMAT_BC2_UNORM, DirectX::TEX_COMPRESS_DEFAULT, 1.0F, compressedImage);
 
     if (FAILED(hr)) {
         return false;
