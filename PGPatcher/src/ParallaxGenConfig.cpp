@@ -66,7 +66,7 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
 
     // Mesh Rules
     static const vector<wstring> defaultMeshBlocklist
-        = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*_lod_*", L"*\\markers\\*" };
+        = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*_lod_*", L"*_lod.*", L"*\\markers\\*" };
     outParams.MeshRules.blockList = defaultMeshBlocklist;
 
     // Texture Rules
