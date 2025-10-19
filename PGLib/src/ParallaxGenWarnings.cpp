@@ -25,11 +25,12 @@ void ParallaxGenWarnings::init() { s_mismatchWarnTracker.clear(); }
 
 void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring& baseTex)
 {
+    auto* const mmd = PGGlobals::getMMD();
     auto* const pgd = PGGlobals::getPGD();
 
     // construct key
-    auto matchedPathMod = pgd->getMod(matchedPath);
-    auto baseTexMod = pgd->getMod(baseTex);
+    auto matchedPathMod = mmd->getModByFile(pgd->getModLookupFile(matchedPath));
+    auto baseTexMod = mmd->getModByFile(pgd->getModLookupFile(baseTex));
 
     if (matchedPathMod == nullptr || baseTexMod == nullptr) {
         return;
@@ -47,11 +48,12 @@ void ParallaxGenWarnings::mismatchWarn(const wstring& matchedPath, const wstring
 
 void ParallaxGenWarnings::meshWarn(const wstring& matchedPath, const wstring& nifPath)
 {
+    auto* const mmd = PGGlobals::getMMD();
     auto* const pgd = PGGlobals::getPGD();
 
     // construct key
-    auto matchedPathMod = pgd->getMod(matchedPath);
-    auto nifPathMod = pgd->getMod(nifPath);
+    auto matchedPathMod = mmd->getModByFile(pgd->getModLookupFile(matchedPath));
+    auto nifPathMod = mmd->getModByFile(pgd->getModLookupFile(nifPath));
 
     if (matchedPathMod == nullptr || nifPathMod == nullptr) {
         return;

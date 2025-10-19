@@ -6,6 +6,7 @@
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
+#include "util/ParallaxGenUtil.hpp"
 #include <boost/algorithm/string/case_conv.hpp>
 #include <spdlog/spdlog.h>
 
@@ -55,7 +56,8 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(
     }
 
     // this is parallax type, check the _p texture to see if it exists
-    const auto& parallaxTex = boost::to_lower_copy(slots.at(static_cast<int>(NIFUtil::TextureSlots::PARALLAX)));
+    const auto& parallaxTex
+        = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::PARALLAX)));
     if (getPGD()->isFile(parallaxTex)) {
         // definitely a parallax map, no need to disable
         return false;
@@ -79,8 +81,9 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
     }
 
     // this is complex material type, check the _cm texture to see if it exists
-    const auto& envTex = boost::to_lower_copy(slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)));
-    const auto& envMaskTex = boost::to_lower_copy(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
+    const auto& envTex = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)));
+    const auto& envMaskTex
+        = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
     if (getPGD()->isFile(envTex) && (envMaskTex.empty() || getPGD()->isFile(envMaskTex))) {
         // cubemap and env mask exists, no need to disable
         return false;

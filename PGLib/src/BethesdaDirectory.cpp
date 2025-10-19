@@ -1,7 +1,6 @@
 #include "BethesdaDirectory.hpp"
 
 #include "BethesdaGame.hpp"
-#include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
@@ -26,7 +25,6 @@
 #include <fileapi.h>
 #include <filesystem>
 #include <fstream>
-#include <iterator>
 #include <map>
 #include <memory>
 #include <minwindef.h>
@@ -42,10 +40,9 @@
 using namespace std;
 using namespace ParallaxGenUtil;
 
-BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg, filesystem::path generatedPath, ModManagerDirectory* mmd)
+BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg, filesystem::path generatedPath)
     : m_generatedDir(std::move(generatedPath))
     , m_bg(bg)
-    , m_mmd(mmd)
 {
     // Assign instance vars
     m_dataDir = filesystem::path(this->m_bg->getGameDataPath());
@@ -54,12 +51,10 @@ BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg, filesystem::path generate
     Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
 }
 
-BethesdaDirectory::BethesdaDirectory(
-    filesystem::path dataPath, filesystem::path generatedPath, ModManagerDirectory* mmd)
+BethesdaDirectory::BethesdaDirectory(filesystem::path dataPath, filesystem::path generatedPath)
     : m_dataDir(std::move(dataPath))
     , m_generatedDir(std::move(generatedPath))
     , m_bg(nullptr)
-    , m_mmd(mmd)
 {
     // Log starting message
     Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
@@ -177,20 +172,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
     return outFileBytes;
 }
 
-auto BethesdaDirectory::getMod(const filesystem::path& relPath) -> shared_ptr<ModManagerDirectory::Mod>
-{
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
-
-    const BethesdaFile file = getFileFromMap(relPath);
-    return file.mod;
-}
-
-void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath, std::shared_ptr<ModManagerDirectory::Mod> mod)
-{
-    updateFileMap(relPath, nullptr, std::move(mod), true);
-}
+void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath) { updateFileMap(relPath, nullptr, true); }
 
 auto BethesdaDirectory::isLooseFile(const filesystem::path& relPath) -> bool
 {
@@ -229,21 +211,6 @@ auto BethesdaDirectory::isGenerated(const filesystem::path& relPath) -> bool
 
     const BethesdaFile file = getFileFromMap(relPath);
     return !file.path.empty() && file.generated;
-}
-
-auto BethesdaDirectory::isPrefix(const filesystem::path& relPath) -> bool
-{
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
-
-    auto it = m_fileMap.lower_bound(relPath);
-    if (it == m_fileMap.end()) {
-        return false;
-    }
-
-    return boost::istarts_with(it->first.wstring(), relPath.wstring())
-        || (it != m_fileMap.begin() && boost::istarts_with(prev(it)->first.wstring(), relPath.wstring()));
 }
 
 auto BethesdaDirectory::getLooseFileFullPath(const filesystem::path& relPath) -> filesystem::path
@@ -322,11 +289,7 @@ void BethesdaDirectory::addLooseFilesToMap()
                 continue;
             }
 
-            shared_ptr<ModManagerDirectory::Mod> curMod;
-            if (m_mmd != nullptr) {
-                curMod = m_mmd->getModByFile(relativePath);
-            }
-            updateFileMap(relativePath, nullptr, curMod);
+            updateFileMap(relativePath, nullptr);
         }
     }
 }
@@ -348,7 +311,8 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
 
     const bsa::tes4::version bsaVersion = bsaObj.read(bsaPath);
 
-    const shared_ptr<BSAFile> bsaStructPtr = make_shared<BSAFile>(bsaPath, bsaVersion, bsaObj);
+    const shared_ptr<BSAFile> bsaStructPtr
+        = make_shared<BSAFile>(bsaPath, boost::to_lower_copy(bsaName), bsaVersion, bsaObj);
 
     // loop iterator
     for (auto& fileEntry : bsaObj) {
@@ -389,11 +353,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 }
 
                 // add to filemap
-                shared_ptr<ModManagerDirectory::Mod> bsaMod;
-                if (m_mmd != nullptr) {
-                    bsaMod = m_mmd->getModByFile(bsaName);
-                }
-                updateFileMap(curPath, bsaStructPtr, bsaMod);
+                updateFileMap(curPath, bsaStructPtr);
             }
         } catch (...) {
             Logger::error(L"Failed to get file pointer from BSA, skipping {}", bsaName);
@@ -428,6 +388,17 @@ auto BethesdaDirectory::getBSALoadOrder() const -> vector<wstring>
     }
 
     return outBSAOrder;
+}
+
+auto BethesdaDirectory::getModLookupFile(const filesystem::path& relPath) -> filesystem::path
+{
+    // get file
+    const BethesdaFile& file = getFileFromMap(relPath);
+    if (file.bsaFile != nullptr) {
+        return file.bsaFile->relPath;
+    }
+
+    return relPath;
 }
 
 auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
@@ -567,15 +538,14 @@ auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> Beth
     return m_fileMap.at(filePath);
 }
 
-void BethesdaDirectory::updateFileMap(const filesystem::path& filePath, shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
-    std::shared_ptr<ModManagerDirectory::Mod> mod, const bool& generated)
+void BethesdaDirectory::updateFileMap(
+    const filesystem::path& filePath, shared_ptr<BethesdaDirectory::BSAFile> bsaFile, const bool& generated)
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
     const unique_lock lock(m_fileMapMutex);
 
-    const BethesdaFile newBFile
-        = { .path = filePath, .bsaFile = std::move(bsaFile), .mod = std::move(mod), .generated = generated };
+    const BethesdaFile newBFile = { .path = filePath, .bsaFile = std::move(bsaFile), .generated = generated };
 
     m_fileMap[filePath] = newBFile;
 }
@@ -592,19 +562,6 @@ auto BethesdaDirectory::isFileInBSA(const filesystem::path& file, const std::vec
             return true;
         }
     }
-    return false;
-}
-
-auto BethesdaDirectory::checkIfAnyComponentIs(const filesystem::path& path, const vector<wstring>& components) -> bool
-{
-    for (const auto& component : path) {
-        for (const auto& comp : components) {
-            if (boost::iequals(component.wstring(), comp)) {
-                return true;
-            }
-        }
-    }
-
     return false;
 }
 

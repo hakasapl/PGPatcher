@@ -318,7 +318,7 @@ public class PGMutagen
                         {
                             continue;
                         }
-                        meshName = modelRec.Item1.File.ToString().ToLower();
+                        meshName = modelRec.Item1.File.ToString().ToLowerInvariant();
                     }
                     catch (Exception)
                     {
@@ -668,7 +668,7 @@ public class PGMutagen
             var builder = new FlatBufferBuilder(1024);
 
             // Get the lowercase nifname (with meshes\ prefix) from C++
-            string nifName = Marshal.PtrToStringUni(modelPathPtr)?.ToLower() ?? string.Empty;
+            string nifName = Marshal.PtrToStringUni(modelPathPtr)?.ToLowerInvariant() ?? string.Empty;
 
             // find all uses
             if (!ModelUses.TryGetValue(nifName, out List<Tuple<FormKey, string>>? modelRecUsesList))
@@ -1294,14 +1294,14 @@ public class PGMutagen
         {
             return
             [
-                textureSet.Diffuse?.ToString().ToLower() ?? string.Empty,
-                textureSet.NormalOrGloss?.ToString().ToLower() ?? string.Empty,
-                textureSet.GlowOrDetailMap?.ToString().ToLower() ?? string.Empty,
-                textureSet.Height?.ToString().ToLower() ?? string.Empty,
-                textureSet.Environment?.ToString().ToLower() ?? string.Empty,
-                textureSet.EnvironmentMaskOrSubsurfaceTint?.ToString().ToLower() ?? string.Empty,
-                textureSet.Multilayer?.ToString().ToLower() ?? string.Empty,
-                textureSet.BacklightMaskOrSpecular?.ToString().ToLower() ?? string.Empty
+                textureSet.Diffuse?.ToString().ToLowerInvariant() ?? string.Empty,
+                textureSet.NormalOrGloss?.ToString().ToLowerInvariant() ?? string.Empty,
+                textureSet.GlowOrDetailMap?.ToString().ToLowerInvariant() ?? string.Empty,
+                textureSet.Height?.ToString().ToLowerInvariant() ?? string.Empty,
+                textureSet.Environment?.ToString().ToLowerInvariant() ?? string.Empty,
+                textureSet.EnvironmentMaskOrSubsurfaceTint?.ToString().ToLowerInvariant() ?? string.Empty,
+                textureSet.Multilayer?.ToString().ToLowerInvariant() ?? string.Empty,
+                textureSet.BacklightMaskOrSpecular?.ToString().ToLowerInvariant() ?? string.Empty
             ];
         }
         catch (Exception)

@@ -19,6 +19,8 @@
 
 class ParallaxGenD3D {
 private:
+    std::mutex m_d3dMutex;
+
     static constexpr unsigned NUM_GPU_THREADS = 16;
     static constexpr unsigned GPU_BUFFER_SIZE_MULTIPLE = 16;
     static constexpr unsigned MAX_CHANNEL_VALUE = 255;
@@ -33,8 +35,6 @@ private:
 
     std::unordered_map<std::filesystem::path, DirectX::TexMetadata> m_ddsMetaDataCache;
     std::shared_mutex m_ddsMetaDataMutex;
-
-    std::mutex m_gpuOperationMutex;
 
     // Global shader storage
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> m_shaderCountAlphaValues;
@@ -107,14 +107,8 @@ public:
         const DXGI_FORMAT& outFormat = DXGI_FORMAT_R8G8B8A8_UNORM, const UINT& outWidth = 0, const UINT& outHeight = 0,
         const void* shaderParams = nullptr, const UINT& shaderParamsSize = 0) -> bool;
 
-    /**
-     * @brief Refine texture classifications by looking at certain textures
-     *
-     * @param bsaExcludes BSA files to exclude
-     * @return true on success
-     * @return false on failure
-     */
-    auto extendedTexClassify(const std::vector<std::wstring>& bsaExcludes) -> bool;
+    auto checkIfCM(const std::filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness,
+        bool& hasMetalness) -> bool;
 
     /**
      * @brief Count the number of alpha values in a texture
@@ -138,7 +132,7 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto initShader(const std::filesystem::path& filename, Microsoft::WRL::ComPtr<ID3D11ComputeShader>& outShader) const
+    auto initShader(const std::filesystem::path& filename, Microsoft::WRL::ComPtr<ID3D11ComputeShader>& outShader)
         -> bool;
 
     /**
@@ -149,8 +143,7 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createTexture2D(const DirectX::ScratchImage& texture, Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) const
-        -> bool;
+    auto createTexture2D(const DirectX::ScratchImage& texture, Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) -> bool;
 
     /**
      * @brief Create a Texture2D object on the GPU from an existing Texture2D
@@ -161,7 +154,7 @@ public:
      * @return false on failure
      */
     auto createTexture2D(Microsoft::WRL::ComPtr<ID3D11Texture2D>& existingTexture,
-        Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) const -> bool;
+        Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) -> bool;
 
     /**
      * @brief Create a Texture2D object from a description
@@ -171,7 +164,7 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createTexture2D(D3D11_TEXTURE2D_DESC& desc, Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) const -> bool;
+    auto createTexture2D(D3D11_TEXTURE2D_DESC& desc, Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) -> bool;
 
     /**
      * @brief Create a Shader Resource View for a Texture2D
@@ -182,7 +175,7 @@ public:
      * @return false on failure
      */
     auto createShaderResourceView(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
-        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& dest) const -> bool;
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& dest) -> bool;
 
     /**
      * @brief Create a Unordered Access View object from a Texture2D
@@ -193,7 +186,7 @@ public:
      * @return false on failure
      */
     auto createUnorderedAccessView(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
-        Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest) const -> bool;
+        Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest) -> bool;
 
     /**
      * @brief Create a Unordered Access View object from a generic resource and description
@@ -205,8 +198,7 @@ public:
      * @return false on failure
      */
     auto createUnorderedAccessView(const Microsoft::WRL::ComPtr<ID3D11Resource>& gpuResource,
-        const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc, Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest) const
-        -> bool;
+        const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc, Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest) -> bool;
 
     /**
      * @brief Create a Buffer object
@@ -217,8 +209,7 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createBuffer(const void* data, D3D11_BUFFER_DESC& desc, Microsoft::WRL::ComPtr<ID3D11Buffer>& dest) const
-        -> bool;
+    auto createBuffer(const void* data, D3D11_BUFFER_DESC& desc, Microsoft::WRL::ComPtr<ID3D11Buffer>& dest) -> bool;
 
     /**
      * @brief Create a Constant Buffer object
@@ -229,8 +220,7 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createConstantBuffer(const void* data, const UINT& size, Microsoft::WRL::ComPtr<ID3D11Buffer>& dest) const
-        -> bool;
+    auto createConstantBuffer(const void* data, const UINT& size, Microsoft::WRL::ComPtr<ID3D11Buffer>& dest) -> bool;
 
     /**
      * @brief dispatch a compute shader
@@ -332,9 +322,6 @@ public:
         -> bool;
 
 private:
-    auto checkIfCM(const std::filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness,
-        bool& hasMetalness) -> bool;
-
     //
     // Private Helpers
     //

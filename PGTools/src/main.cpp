@@ -98,7 +98,7 @@ void mainRunner(PGToolsCLIArgs& args)
         args.Patch.source = filesystem::absolute(args.Patch.source);
         args.Patch.output = filesystem::absolute(args.Patch.output);
 
-        auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output, nullptr);
+        auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output);
         PGGlobals::setPGD(&pgd);
         auto pgd3D = ParallaxGenD3D(exePath / "cshaders");
         PGGlobals::setPGD3D(&pgd3D);
@@ -137,7 +137,7 @@ void mainRunner(PGToolsCLIArgs& args)
         pgd.populateFileMap(false);
 
         // Map files
-        pgd.mapFiles({}, {}, {}, {}, args.multithreading);
+        pgd.mapFiles({}, {}, {}, {}, false, args.multithreading, false);
 
         // Split patchers into names and options
         unordered_map<string, unordered_map<string, string>> patcherDefs;
@@ -168,9 +168,6 @@ void mainRunner(PGToolsCLIArgs& args)
             // Add to set
             patcherDefs[patcher.substr(0, openBracket)] = optionSet;
         }
-
-        // extended classifications
-        pgd3D.extendedTexClassify({});
 
         // Create patcher factory
         PatcherUtil::PatcherMeshSet meshPatchers;

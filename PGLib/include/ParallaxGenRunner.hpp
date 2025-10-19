@@ -21,6 +21,8 @@ private:
 
     static constexpr int LOOP_INTERVAL = 10; /** Task loop interval */
 
+    static constexpr int NUM_STATIC_THREADS = 2; /** Number of static threads to reserve for system */
+
 public:
     /**
      * @brief Construct a new Parallax Gen Runner object

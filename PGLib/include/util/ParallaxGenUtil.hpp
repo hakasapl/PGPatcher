@@ -1,5 +1,8 @@
 #pragma once
 
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 #include <algorithm>
@@ -77,5 +80,16 @@ template <typename T> void addUniqueElement(std::vector<T>& vec, const T& elemen
 }
 
 auto getThreadID() -> std::string;
+
+auto toLowerASCIIFast(const std::string& str) -> std::string;
+auto toLowerASCIIFast(const std::wstring& str) -> std::wstring;
+auto toLowerASCIIFastInPlace(std::string& str) -> void;
+auto toLowerASCIIFastInPlace(std::wstring& str) -> void;
+
+template <typename StringType1, typename StringType2>
+auto asciiFastIEquals(const StringType1& str1, const StringType2& str2) -> bool
+{
+    return boost::equals(toLowerASCIIFast(str1), toLowerASCIIFast(str2));
+}
 
 } // namespace ParallaxGenUtil

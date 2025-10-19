@@ -20,6 +20,7 @@
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
+#include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -75,6 +76,8 @@ void ParallaxGen::loadPatchers(
 void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 {
     auto* const pgd = PGGlobals::getPGD();
+    pgd->waitForMeshMapping();
+    pgd->waitForCMClassification();
 
     // Init Handlers
     HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
@@ -82,6 +85,9 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
     //
     // MESH PATCHING
     //
+
+    // Create task queue for setting model uses
+    TaskQueue setModelUsesQueue;
 
     // Add tasks
     auto meshes = pgd->getMeshes();
@@ -93,8 +99,9 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
     ParallaxGenRunner meshRunner(multiThread);
 
     for (auto& [mesh, nifCache] : meshes) {
-        meshRunner.addTask(
-            [&taskTracker, &mesh, &patchPlugin] { taskTracker.completeJob(patchNIF(mesh, patchPlugin)); });
+        meshRunner.addTask([&taskTracker, &mesh, &patchPlugin, &setModelUsesQueue] {
+            taskTracker.completeJob(patchNIF(mesh, patchPlugin, setModelUsesQueue));
+        });
     }
 
     // Blocks until all tasks are done
@@ -126,6 +133,18 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Finalize handlers
     HandlerLightPlacerTracker::finalize();
+
+    // Wait for model uses to complete
+    if (setModelUsesQueue.isWorking()) {
+        Logger::info("Waiting for setting plugin model uses to complete...");
+        setModelUsesQueue.waitForCompletion();
+    }
+
+    // Wait for file saver to complete
+    if (PGGlobals::getFileSaver().isWorking()) {
+        Logger::info("Waiting for files to finish saving...");
+        PGGlobals::getFileSaver().waitForCompletion();
+    }
 }
 
 void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlugin)
@@ -136,6 +155,9 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
     }
 
     auto* const pgd = PGGlobals::getPGD();
+    pgd->waitForMeshMapping();
+    pgd->waitForCMClassification();
+
     auto meshes = pgd->getMeshes();
 
     // Create task tracker
@@ -271,12 +293,12 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
     // loop through each texture set in cache
     for (const auto& textureSet : nifCache.textureSets) {
         // find matches
-        auto matches = getMatches(nifPath.wstring(), textureSet.second, patcherObjects, true, false);
+        auto matches = getMatches(textureSet.second, patcherObjects, true, false);
 
         // find all uses of this nif
         if (patchPlugin) {
-            const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
-            for (const auto& use : meshUses) {
+            // get mesh uses from nif cache
+            for (const auto& use : nifCache.meshUses) {
                 if (use.second.alternateTextures.empty()) {
                     // no alternate textures, skip processing
                     continue;
@@ -285,8 +307,7 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
                 // loop through each alternate texture set
                 for (const auto& [altTexIndex, altTexSet] : use.second.alternateTextures) {
                     // find matches
-                    const auto curMatches
-                        = getMatches(nifPath.wstring(), altTexSet, patcherObjects, true, use.second.singlepassMATO);
+                    const auto curMatches = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO);
                     matches.insert(matches.end(), curMatches.begin(), curMatches.end());
                 }
             }
@@ -315,7 +336,8 @@ auto ParallaxGen::populateModInfoFromNIF(const std::filesystem::path& nifPath,
     return ParallaxGenTask::PGResult::SUCCESS;
 }
 
-auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin) -> ParallaxGenTask::PGResult
+auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, TaskQueue& setModelUsesQueue)
+    -> ParallaxGenTask::PGResult
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -325,8 +347,14 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // check if we have the nif in cache
     auto* const pgd = PGGlobals::getPGD();
     const auto& meshes = pgd->getMeshes();
-    if (meshes.contains(nifPath) && meshes.at(nifPath).nif != nullptr) {
-        meshTracker.load(meshes.at(nifPath).nif, meshes.at(nifPath).origCRC32);
+    if (!meshes.contains(nifPath)) {
+        throw runtime_error("NIF not found in cache: " + nifPath.string());
+    }
+
+    const auto nifCache = meshes.at(nifPath);
+
+    if (nifCache.nif != nullptr) {
+        meshTracker.load(nifCache.nif, nifCache.origCRC32);
     } else {
         meshTracker.load();
     }
@@ -352,10 +380,8 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     }
 
     if (patchPlugin) {
-        // Find all uses of this mesh in plugins
-        const auto meshUses = ParallaxGenPlugin::getModelUses(nifPath.wstring());
         // loop through each use
-        for (auto use : meshUses) {
+        for (auto use : nifCache.meshUses) {
             // we process even if alternate textures is empty because attributes like singlepass MATO or others may
             // differ
             const auto formKey = use.first;
@@ -382,8 +408,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
     // Save meshes
     const auto saveResults = meshTracker.saveMeshes();
     if (patchPlugin) {
-        Logger::trace("Setting plugin model uses...");
-        ParallaxGenPlugin::setModelUses(saveResults.first);
+        setModelUsesQueue.queueTask([saveResults]() -> void { ParallaxGenPlugin::setModelUses(saveResults.first); });
     }
     // run handlers
     for (const auto& meshResult : saveResults.first) {
@@ -409,9 +434,6 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
     std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures,
     std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
-    auto* const pgd = PGGlobals::getPGD();
-    const auto modPtr = pgd->getMod(nifPath);
-
     // Create patcher objects
     const auto patcherObjects = createNIFPatcherObjects(nifPath, nif);
 
@@ -491,7 +513,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         // Allowed shaders from result of patchers
-        auto matches = getMatches(nifPath.wstring(), slots, patchers, false, singlepassMATO, &patchers, nifShape);
+        auto matches = getMatches(slots, patchers, false, singlepassMATO, &patchers, nifShape);
         // log each match
         for (const auto& match : matches) {
             Logger::trace(L"Match: {} / {} / {}", utf8toUTF16(NIFUtil::getStrFromShader(match.shader)),
@@ -546,10 +568,9 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     return true;
 }
 
-auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::TextureSet& slots,
-    const PatcherUtil::PatcherMeshObjectSet& patchers, const bool& dryRun, bool singlepassMATO,
-    const PatcherUtil::PatcherMeshObjectSet* patcherObjects, nifly::NiShape* shape)
-    -> std::vector<PatcherUtil::ShaderPatcherMatch>
+auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
+    const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects,
+    nifly::NiShape* shape) -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
     if (PGGlobals::getPGD() == nullptr) {
         throw runtime_error("PGD is null");
@@ -557,100 +578,75 @@ auto ParallaxGen::getMatches(const std::wstring& nifPath, const NIFUtil::Texture
 
     vector<PatcherUtil::ShaderPatcherMatch> matches;
 
-    bool foundCache = false;
-    {
-        const MatchCacheKey key { .nifPath = nifPath, .slots = slots, .singlepassMATO = singlepassMATO };
-
-        const shared_lock lock(s_matchCacheMutex);
-        if (s_matchCache.contains(key)) {
-            foundCache = true;
-            matches = s_matchCache.at(key);
-        }
+    unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
+    if (patcherObjects != nullptr && patchers.shaderPatchers.size() != patcherObjects->shaderPatchers.size()) {
+        throw runtime_error("Patcher objects size mismatch");
     }
 
-    if (!foundCache) {
-        unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
-        if (patcherObjects != nullptr && patchers.shaderPatchers.size() != patcherObjects->shaderPatchers.size()) {
-            throw runtime_error("Patcher objects size mismatch");
+    if ((patcherObjects != nullptr && shape == nullptr) || (patcherObjects == nullptr && shape != nullptr)) {
+        throw runtime_error("If shape or patcherObjects is set, both must be set");
+    }
+
+    for (const auto& [shader, patcher] : patchers.shaderPatchers) {
+        // note: name is defined in source code in UTF8-encoded files
+        const Logger::Prefix prefixPatches(patcher->getPatcherName());
+
+        // Check if shader should be applied
+        vector<PatcherMeshShader::PatcherMatch> curMatches;
+        if (!patcher->shouldApply(slots, curMatches)) {
+            Logger::trace(L"Rejecting: Shader not applicable");
+            continue;
         }
 
-        if ((patcherObjects != nullptr && shape == nullptr) || (patcherObjects == nullptr && shape != nullptr)) {
-            throw runtime_error("If shape or patcherObjects is set, both must be set");
-        }
-
-        for (const auto& [shader, patcher] : patchers.shaderPatchers) {
-            // note: name is defined in source code in UTF8-encoded files
-            const Logger::Prefix prefixPatches(patcher->getPatcherName());
-
-            // Check if shader should be applied
-            vector<PatcherMeshShader::PatcherMatch> curMatches;
-            if (!patcher->shouldApply(slots, curMatches)) {
-                Logger::trace(L"Rejecting: Shader not applicable");
+        for (const auto& match : curMatches) {
+            if (!PGGlobals::getPGD()->isFile(match.matchedPath)) {
+                Logger::trace(L"Rejecting: Matched path '{}' is not a file", match.matchedPath);
                 continue;
             }
 
-            for (const auto& match : curMatches) {
-                PatcherUtil::ShaderPatcherMatch curMatch;
-                curMatch.mod = PGGlobals::getPGD()->getMod(match.matchedPath);
+            PatcherUtil::ShaderPatcherMatch curMatch;
+            curMatch.mod = PGGlobals::getMMD()->getModByFile(PGGlobals::getPGD()->getModLookupFile(match.matchedPath));
 
-                if (!dryRun && curMatch.mod != nullptr) {
-                    const std::shared_lock lk(curMatch.mod->mutex);
-                    if (!curMatch.mod->isEnabled) {
-                        // do not add match if mod it matched from is disabled
-                        Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
-                        continue;
-                    }
-                }
-
-                curMatch.shader = shader;
-                curMatch.match = match;
-                curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
-
-                if (shader != NIFUtil::ShapeShader::NONE) {
-                    // a non-default match is available. If this match is the same mod as any default matches, remove
-                    // the defaults
-                    // TODO if canapply purges stuff later, default may be unnecessarily deleted but I'm not sure it
-                    // TODO matters
-                    std::erase_if(matches, [&curMatch](const PatcherUtil::ShaderPatcherMatch& m) -> bool {
-                        return m.shader == NIFUtil::ShapeShader::NONE && m.mod != nullptr && curMatch.mod != nullptr
-                            && m.mod == curMatch.mod;
-                    });
-                }
-
-                matches.push_back(curMatch);
-                if (curMatch.mod != nullptr) {
-                    // add mod to set
-                    modSet.insert(curMatch.mod);
-                }
-            }
-        }
-
-        // Populate conflict mods if set
-        if (dryRun && !modSet.empty()) {
-            // add mods to conflict set
-            for (const auto& match : matches) {
-                if (match.mod == nullptr) {
+            if (!dryRun && curMatch.mod != nullptr) {
+                const std::shared_lock lk(curMatch.mod->mutex);
+                if (!curMatch.mod->isEnabled) {
+                    // do not add match if mod it matched from is disabled
+                    Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
                     continue;
                 }
-
-                const unique_lock lock(match.mod->mutex);
-
-                match.mod->shaders.insert(match.shader);
-                for (const auto& conflictMod : modSet) {
-                    if (conflictMod != match.mod) {
-                        match.mod->conflicts.insert(conflictMod);
-                    }
-                }
             }
 
-            return matches;
+            curMatch.shader = shader;
+            curMatch.match = match;
+            curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
+
+            matches.push_back(curMatch);
+            if (curMatch.mod != nullptr) {
+                // add mod to set
+                modSet.insert(curMatch.mod);
+            }
         }
     }
 
-    // Cache matches
-    {
-        const unique_lock lock(s_matchCacheMutex);
-        s_matchCache[{ nifPath, slots, singlepassMATO }] = matches;
+    // Populate conflict mods if set
+    if (dryRun && !modSet.empty()) {
+        // add mods to conflict set
+        for (const auto& match : matches) {
+            if (match.mod == nullptr) {
+                continue;
+            }
+
+            const unique_lock lock(match.mod->mutex);
+
+            match.mod->shaders.insert(match.shader);
+            for (const auto& conflictMod : modSet) {
+                if (conflictMod != match.mod) {
+                    match.mod->conflicts.insert(conflictMod);
+                }
+            }
+        }
+
+        return matches;
     }
 
     // Loop through matches and delete any that cannot apply
@@ -846,7 +842,7 @@ auto ParallaxGen::patchDDS(const filesystem::path& ddsPath) -> ParallaxGenTask::
         }
 
         // Update file map with generated file
-        pgd->addGeneratedFile(ddsPath, nullptr);
+        pgd->addGeneratedFile(ddsPath);
     }
 
     return result;

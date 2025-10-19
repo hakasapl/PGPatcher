@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.4] - UNRELEASED
+
+- Multithreading optimizations
+- String optimizations
+- Mod sort dialog no longer has "default" listed as a shader
+- Improved match caching performance
+- Fixed system locale messing with certain characters in textures
+- Fixed texture names in plugins for turkish locales
+
 ## [0.9.3] - 2025-10-18
 
 - Added error handling for corrupt plugin (esp) files

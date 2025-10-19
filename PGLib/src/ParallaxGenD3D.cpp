@@ -3,7 +3,6 @@
 #include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
 
 #include <DirectXMath.h>
 #include <DirectXTex.h>
@@ -26,7 +25,6 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 #include <windows.h>
@@ -43,68 +41,6 @@ using Microsoft::WRL::ComPtr;
 ParallaxGenD3D::ParallaxGenD3D(filesystem::path shaderPath)
     : m_shaderPath(std::move(shaderPath))
 {
-}
-
-auto ParallaxGenD3D::extendedTexClassify(const std::vector<std::wstring>& bsaExcludes) -> bool
-{
-    auto* const pgd = PGGlobals::getPGD();
-
-    auto& envMasks = pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK);
-
-    // loop through maps
-    for (auto& envSlot : envMasks) {
-        vector<tuple<NIFUtil::PGTexture, bool, bool, bool>> cmMaps;
-
-        for (const auto& envMask : envSlot.second) {
-            if (envMask.type != NIFUtil::TextureType::ENVIRONMENTMASK) {
-                continue;
-            }
-
-            bool result = false;
-            bool hasMetalness = false;
-            bool hasGlosiness = false;
-            bool hasEnvMask = false;
-
-            const bool bFileInVanillaBSA = pgd->isFileInBSA(envMask.path, bsaExcludes);
-            if (!bFileInVanillaBSA) {
-                try {
-                    if (!checkIfCM(envMask.path, result, hasEnvMask, hasGlosiness, hasMetalness)) {
-                        Logger::error(L"Failed to check if {} is complex material", envMask.path.wstring());
-                        continue;
-                    }
-                } catch (...) {
-                    Logger::error(L"Failed to check if {} is complex material", envMask.path.wstring());
-                    continue;
-                }
-            }
-
-            if (result) {
-                // remove old env mask
-                cmMaps.emplace_back(envMask, hasEnvMask, hasGlosiness, hasMetalness);
-            }
-        }
-
-        // update map
-        for (const auto& [cmMap, hasEnvMask, hasGlosiness, hasMetalness] : cmMaps) {
-            envSlot.second.erase(cmMap);
-            envSlot.second.insert({ cmMap.path, NIFUtil::TextureType::COMPLEXMATERIAL });
-            pgd->setTextureType(cmMap.path, NIFUtil::TextureType::COMPLEXMATERIAL);
-
-            if (hasEnvMask) {
-                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_ENVMASK);
-            }
-
-            if (hasGlosiness) {
-                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_GLOSSINESS);
-            }
-
-            if (hasMetalness) {
-                pgd->addTextureAttribute(cmMap.path, NIFUtil::TextureAttribute::CM_METALNESS);
-            }
-        }
-    }
-
-    return true;
 }
 
 auto ParallaxGenD3D::checkIfCM(
@@ -168,6 +104,7 @@ auto ParallaxGenD3D::checkIfCM(
     // Read image
     DirectX::ScratchImage image;
     if (!getDDS(ddsPath, image)) {
+        result = false;
         return false;
     }
 
@@ -304,6 +241,8 @@ auto ParallaxGenD3D::checkIfAspectRatioMatches(
 
 auto ParallaxGenD3D::initGPU() -> bool
 {
+    const std::scoped_lock lock(m_d3dMutex);
+
 // initialize GPU device and context
 #ifdef _DEBUG
     UINT deviceFlags = D3D11_CREATE_DEVICE_DEBUG;
@@ -333,8 +272,7 @@ auto ParallaxGenD3D::initShaders() -> bool
     return initShader("CountAlphaValues.hlsl", m_shaderCountAlphaValues);
 }
 
-auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID3D11ComputeShader>& outShader) const
-    -> bool
+auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID3D11ComputeShader>& outShader) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -360,8 +298,11 @@ auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID
     }
 
     // Create compute shader on GPU
-    hr = m_ptrDevice->CreateComputeShader(
-        shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, outShader.ReleaseAndGetAddressOf());
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateComputeShader(
+            shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, outShader.ReleaseAndGetAddressOf());
+    }
     return !FAILED(hr);
 }
 
@@ -370,7 +311,7 @@ auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID
 //
 auto ParallaxGenD3D::isPowerOfTwo(unsigned int x) -> bool { return (x != 0U) && ((x & (x - 1)) == 0U); }
 
-auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPtr<ID3D11Texture2D>& dest) const -> bool
+auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPtr<ID3D11Texture2D>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -387,14 +328,16 @@ auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPt
     }
 
     // Create texture
-    hr = DirectX::CreateTexture(m_ptrDevice.Get(), texture.GetImages(), texture.GetImageCount(), texture.GetMetadata(),
-        reinterpret_cast<ID3D11Resource**>(dest.ReleaseAndGetAddressOf()));
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = DirectX::CreateTexture(m_ptrDevice.Get(), texture.GetImages(), texture.GetImageCount(),
+            texture.GetMetadata(), reinterpret_cast<ID3D11Resource**>(dest.ReleaseAndGetAddressOf()));
+    }
 
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, ComPtr<ID3D11Texture2D>& dest) const
-    -> bool
+auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, ComPtr<ID3D11Texture2D>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -410,11 +353,14 @@ auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, C
     HRESULT hr {};
 
     // Create texture
-    hr = m_ptrDevice->CreateTexture2D(&textureOutDesc, nullptr, dest.ReleaseAndGetAddressOf());
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateTexture2D(&textureOutDesc, nullptr, dest.ReleaseAndGetAddressOf());
+    }
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Texture2D>& dest) const -> bool
+auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Texture2D>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -424,12 +370,15 @@ auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Te
     HRESULT hr {};
 
     // Create texture
-    hr = m_ptrDevice->CreateTexture2D(&desc, nullptr, dest.ReleaseAndGetAddressOf());
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateTexture2D(&desc, nullptr, dest.ReleaseAndGetAddressOf());
+    }
     return !FAILED(hr);
 }
 
 auto ParallaxGenD3D::createShaderResourceView(
-    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11ShaderResourceView>& dest) const -> bool
+    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11ShaderResourceView>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -444,12 +393,15 @@ auto ParallaxGenD3D::createShaderResourceView(
     shaderDesc.Texture2D.MipLevels = -1;
 
     // Create SRV
-    hr = m_ptrDevice->CreateShaderResourceView(texture.Get(), &shaderDesc, dest.ReleaseAndGetAddressOf());
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateShaderResourceView(texture.Get(), &shaderDesc, dest.ReleaseAndGetAddressOf());
+    }
     return !FAILED(hr);
 }
 
 auto ParallaxGenD3D::createUnorderedAccessView(
-    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11UnorderedAccessView>& dest) const -> bool
+    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -464,12 +416,15 @@ auto ParallaxGenD3D::createUnorderedAccessView(
     uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
 
     // Create UAV
-    hr = m_ptrDevice->CreateUnorderedAccessView(texture.Get(), &uavDesc, dest.ReleaseAndGetAddressOf());
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateUnorderedAccessView(texture.Get(), &uavDesc, dest.ReleaseAndGetAddressOf());
+    }
     return !FAILED(hr);
 }
 
 auto ParallaxGenD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
-    const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc, ComPtr<ID3D11UnorderedAccessView>& dest) const -> bool
+    const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc, ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -477,11 +432,14 @@ auto ParallaxGenD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpu
 
     HRESULT hr {};
 
-    hr = m_ptrDevice->CreateUnorderedAccessView(gpuResource.Get(), &desc, &dest);
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateUnorderedAccessView(gpuResource.Get(), &desc, &dest);
+    }
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, ComPtr<ID3D11Buffer>& dest) const -> bool
+auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, ComPtr<ID3D11Buffer>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -490,11 +448,15 @@ auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, Com
     D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = data;
 
-    const HRESULT hr = m_ptrDevice->CreateBuffer(&desc, &initData, dest.ReleaseAndGetAddressOf());
+    HRESULT hr {};
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateBuffer(&desc, &initData, dest.ReleaseAndGetAddressOf());
+    }
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, ComPtr<ID3D11Buffer>& dest) const -> bool
+auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, ComPtr<ID3D11Buffer>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -519,7 +481,10 @@ auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, Co
     cbInitData.SysMemSlicePitch = 0;
 
     // Create buffer
-    hr = m_ptrDevice->CreateBuffer(&cbDesc, &cbInitData, dest.ReleaseAndGetAddressOf());
+    {
+        const std::scoped_lock lock(m_d3dMutex);
+        hr = m_ptrDevice->CreateBuffer(&cbDesc, &cbInitData, dest.ReleaseAndGetAddressOf());
+    }
     return !FAILED(hr);
 }
 
@@ -529,7 +494,7 @@ void ParallaxGenD3D::copyResource(const ComPtr<ID3D11Resource>& src, const ComPt
         throw runtime_error("Context not initialized");
     }
 
-    const lock_guard<mutex> lock(m_gpuOperationMutex);
+    const std::scoped_lock lock(m_d3dMutex);
     m_ptrContext->CopyResource(dest.Get(), src.Get());
 }
 
@@ -539,7 +504,7 @@ void ParallaxGenD3D::generateMips(const ComPtr<ID3D11ShaderResourceView>& srv)
         throw runtime_error("Context not initialized");
     }
 
-    const lock_guard<mutex> lock(m_gpuOperationMutex);
+    const std::scoped_lock lock(m_d3dMutex);
     m_ptrContext->GenerateMips(srv.Get());
 }
 
@@ -549,7 +514,7 @@ void ParallaxGenD3D::flushGPU()
         throw runtime_error("Context not initialized");
     }
 
-    const lock_guard<mutex> lock(m_gpuOperationMutex);
+    const std::scoped_lock lock(m_d3dMutex);
     m_ptrContext->Flush();
 }
 
@@ -567,7 +532,7 @@ auto ParallaxGenD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11Compute
         throw runtime_error("Context not initialized");
     }
 
-    const lock_guard<mutex> lock(m_gpuOperationMutex);
+    const std::scoped_lock lock(m_d3dMutex);
 
     m_ptrContext->CSSetShader(shader.Get(), nullptr, 0);
     for (UINT i = 0; i < srvs.size(); i++) {
@@ -753,7 +718,7 @@ auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource, Direct
 
     // Iterate over each mip level and read back
     {
-        const lock_guard<mutex> lock(m_gpuOperationMutex);
+        const std::scoped_lock lock(m_d3dMutex);
 
         for (UINT mipLevel = 0; mipLevel < mipLevels; ++mipLevel) {
             // Get dimensions for the current mip level
@@ -825,7 +790,7 @@ template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& 
 
     // map resource to CPU
     {
-        const lock_guard<mutex> lock(m_gpuOperationMutex);
+        const std::scoped_lock lock(m_d3dMutex);
 
         D3D11_MAPPED_SUBRESOURCE mappedResource;
         hr = m_ptrContext->Map(stagingBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);

@@ -151,7 +151,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             revNormal = NIFUtil::getTexBase(revNormal);
             std::ranges::reverse(revNormal);
 
-            getTruePBRNormalInverse()[boost::to_lower_copy(revNormal)].push_back(config.first);
+            getTruePBRNormalInverse()[ParallaxGenUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
             continue;
         }
 
@@ -161,7 +161,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             revDiffuse = NIFUtil::getTexBase(revDiffuse);
             std::ranges::reverse(revDiffuse);
 
-            getTruePBRDiffuseInverse()[boost::to_lower_copy(revDiffuse)].push_back(config.first);
+            getTruePBRDiffuseInverse()[ParallaxGenUtil::toLowerASCIIFast(revDiffuse)].push_back(config.first);
         }
 
         // "path_contains" attribute
@@ -226,7 +226,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     // Remove "pbr" part if starts with "textures\\pbr" for each search prefix
     static constexpr size_t TEXTURE_PBR_STR_LENGTH = 13; // length of "textures\pbr\"
     for (auto& prefix : searchPrefixes) {
-        if (boost::istarts_with(prefix, L"textures\\pbr\\")) {
+        if (ParallaxGenUtil::toLowerASCIIFast(prefix).starts_with(L"textures\\pbr\\")) {
             prefix.replace(0, TEXTURE_PBR_STR_LENGTH, L"textures\\");
         }
     }
@@ -336,13 +336,13 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t, tuple<nlohmann::json, ws
     const wstring& texName, const map<wstring, vector<size_t>>& lookup, const wstring& nifPath)
 {
     // binary search for map
-    auto mapReverse = boost::to_lower_copy(texName);
+    auto mapReverse = ParallaxGenUtil::toLowerASCIIFast(texName);
     std::ranges::reverse(mapReverse);
     auto it = lookup.lower_bound(mapReverse);
 
     // get the first element of the reverse path
     auto reverseFile = mapReverse;
-    auto pos = reverseFile.find_first_of(L"\\");
+    auto pos = reverseFile.find_first_of(L'\\');
     if (pos != wstring::npos) {
         reverseFile = reverseFile.substr(0, pos);
     }
@@ -430,7 +430,8 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
     // Find and check prefix value
     // Add the PBR part to the texture path
     auto texPath = texName;
-    if (boost::istarts_with(texPath, "textures\\") && !boost::istarts_with(texPath, "textures\\pbr\\")) {
+    const auto texPathLower = ParallaxGenUtil::toLowerASCIIFast(texPath);
+    if (texPathLower.starts_with(L"textures\\") && !texPathLower.starts_with(L"textures\\pbr\\")) {
         texPath.replace(0, TEXTURE_STR_LENGTH, L"textures\\pbr\\");
     }
 
@@ -442,13 +443,13 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(
     // "rename" attribute
     if (curCfg.contains("rename")) {
         auto renameField = curCfg["rename"].get<string>();
-        if (!boost::iequals(renameField, matchedField)) {
+        if (!ParallaxGenUtil::asciiFastIEquals(renameField, matchedField)) {
             matchedField = ParallaxGenUtil::utf8toUTF16(renameField);
         }
     }
 
     // Check if named_field is a directory
-    wstring matchedPath = boost::to_lower_copy(texPath + matchedField);
+    wstring matchedPath = ParallaxGenUtil::toLowerASCIIFast(texPath + matchedField);
     const bool enableTruePBR = (!curCfg.contains("pbr") || curCfg["pbr"]) && !matchedPath.empty();
     if (!enableTruePBR) {
         matchedPath = L"";
@@ -816,10 +817,10 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(
 
         if (truePBRData.contains(slotName)) {
             std::string newSlot = truePBRData[slotName].get<std::string>();
-            boost::to_lower(newSlot);
+            ParallaxGenUtil::toLowerASCIIFastInPlace(newSlot);
 
             // Prepend "textures\\" if it's not already there
-            if (!newSlot.empty() && !boost::istarts_with(newSlot, "textures\\")) {
+            if (!newSlot.empty() && !newSlot.starts_with("textures\\")) {
                 newSlot.insert(0, "textures\\");
             }
 
