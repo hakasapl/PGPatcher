@@ -9,7 +9,7 @@
 - Fixed system locale messing with certain characters in textures
 - Fixed texture names in plugins for turkish locales
 
-## [0.9.3] - UNRELEASED
+## [0.9.3] - 2025-10-18
 
 - Added error handling for corrupt plugin (esp) files
 - Fixed matching cache not using nif path as a validator key (affected nif filter for PBR)
