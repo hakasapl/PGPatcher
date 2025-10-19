@@ -1,15 +1,14 @@
 # Changelog
 
-## [0.9.4] - UNRELEASED
+## [0.9.4] - 2025-10-19
 
 - Multithreading optimizations
 - String optimizations
-- Mod sort dialog no longer has "default" listed as a shader
 - Improved match caching performance
+- Mod sort dialog no longer has "default" listed as a shader
 - Added "meshes" blank folder to archive to make mod managers happy
-- Added a default blocklist rule for other LOD meshes
-- Added errors for failing texture hook patchers
-- Fixed system locale messing with certain characters in textures
+- Added a default blocklist rule for other LOD meshes (click on restore defaults to see it with existing configs)
+- Added error logs for failing texture hook patchers
 - Fixed texture names in plugins for turkish locales
 - Fixed backslashes in zip files for linux users
 - Fixed crash from certain kinds of log messages
