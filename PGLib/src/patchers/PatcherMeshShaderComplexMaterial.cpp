@@ -62,8 +62,7 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unuse
 
     // Get NIFShader type
     auto nifShaderType = static_cast<nifly::BSLightingShaderPropertyShaderType>(nifShader->GetShaderType());
-    if (nifShaderType != BSLSP_DEFAULT && nifShaderType != BSLSP_ENVMAP && nifShaderType != BSLSP_PARALLAX
-        && nifShaderType != BSLSP_MULTILAYERPARALLAX) {
+    if (nifShaderType != BSLSP_DEFAULT && nifShaderType != BSLSP_ENVMAP && nifShaderType != BSLSP_PARALLAX) {
         return false;
     }
 
