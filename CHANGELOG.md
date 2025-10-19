@@ -8,6 +8,7 @@
 - Improved match caching performance
 - Fixed system locale messing with certain characters in textures
 - Fixed texture names in plugins for turkish locales
+- Fixed backslashes in zip files for linux users
 
 ## [0.9.3] - 2025-10-18
 
