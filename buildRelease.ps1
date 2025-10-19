@@ -108,6 +108,11 @@ try {
         }
     }
 
+    # Create blank meshes folder at root of zip
+    $meshesDir = Join-Path -Path $tempDir -ChildPath "meshes"
+    Write-Host "Creating blank meshes folder: $meshesDir"
+    New-Item -Path $meshesDir -ItemType Directory -Force | Out-Null
+
     # Create the zip file
     Write-Host "Creating zip file: $zipFile"
     if (Test-Path -Path $zipFile) {

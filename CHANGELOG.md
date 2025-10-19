@@ -6,6 +6,7 @@
 - String optimizations
 - Mod sort dialog no longer has "default" listed as a shader
 - Improved match caching performance
+- Added "meshes" blank folder to archive to make mod managers happy
 - Fixed system locale messing with certain characters in textures
 - Fixed texture names in plugins for turkish locales
 - Fixed backslashes in zip files for linux users
