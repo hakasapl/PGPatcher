@@ -1,5 +1,6 @@
 #pragma once
 
+#include "util/ParallaxGenUtil.hpp"
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 
@@ -48,15 +49,12 @@ private:
 
     template <typename... Args> static auto shouldLogString(const std::wstring& fmt) -> bool
     {
-        const auto resultLog = fmt::format(fmt::runtime(fmt));
-        return processMessage(resultLog);
+        return processMessage(fmt);
     }
 
     template <typename... Args> static auto shouldLogString(const std::string& fmt) -> bool
     {
-        const std::string resolvedNarrow = fmt::format(fmt::runtime(fmt));
-        const std::wstring resolvedWide(resolvedNarrow.begin(), resolvedNarrow.end());
-        return processMessage(resolvedWide);
+        return processMessage(ParallaxGenUtil::utf8toUTF16(fmt));
     }
 
 public:

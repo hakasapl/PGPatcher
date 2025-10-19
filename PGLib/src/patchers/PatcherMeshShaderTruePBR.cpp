@@ -136,7 +136,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             }
         } catch (nlohmann::json::parse_error& e) {
             Logger::error(L"Unable to parse TruePBR Config file {}: {}", config.wstring(),
-                ParallaxGenUtil::asciitoUTF16(e.what()));
+                ParallaxGenUtil::utf8toUTF16(e.what()));
             continue;
         }
     }
