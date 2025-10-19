@@ -83,7 +83,10 @@ void addFileToZip(mz_zip_archive& zip, const filesystem::path& filePath, const f
     vector<std::byte> buffer = ParallaxGenUtil::getFileBytes(filePath);
 
     const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
-    const string relativeFilePathUTF8 = ParallaxGenUtil::utf16toUTF8(relativePath.wstring());
+    string relativeFilePathUTF8 = ParallaxGenUtil::utf16toUTF8(relativePath.wstring());
+
+    // Replace backslashes with forward slashes for ZIP format
+    std::ranges::replace(relativeFilePathUTF8, '\\', '/');
 
     // add file to Zip
     if (mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
