@@ -357,7 +357,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(
                 continue;
             }
 
-            boost::to_lower(texture); // Lowercase for comparison
+            toLowerASCIIFastInPlace(texture); // Lowercase for comparison
 
             const auto shaderType = shader->GetShaderType();
             NIFUtil::TextureType textureType = {};

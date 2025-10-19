@@ -2,7 +2,6 @@
 
 #include "BethesdaDirectory.hpp"
 #include "BethesdaGame.hpp"
-#include "ModManagerDirectory.hpp"
 #include "NifFile.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenTask.hpp"

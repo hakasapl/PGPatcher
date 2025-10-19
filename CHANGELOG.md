@@ -7,6 +7,7 @@
 - Mod sort dialog no longer has "default" listed as a shader
 - Improved match caching performance
 - Fixed system locale messing with certain characters in textures
+- Fixed texture names in plugins for turkish locales
 
 ## [0.9.3] - UNRELEASED
 
