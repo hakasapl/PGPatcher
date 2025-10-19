@@ -3,6 +3,7 @@
 #include "util/Logger.hpp"
 
 #include <boost/asio/post.hpp>
+#include <boost/asio/thread_pool.hpp>
 #include <cpptrace/from_current.hpp>
 #include <spdlog/spdlog.h>
 
@@ -18,7 +19,13 @@
 using namespace std;
 
 ParallaxGenRunner::ParallaxGenRunner(const bool& multithread)
-    : m_threadPool(std::thread::hardware_concurrency() - NUM_STATIC_THREADS)
+    : m_threadPool([]() -> unsigned int {
+        auto availableThreads = std::thread::hardware_concurrency();
+        if (availableThreads == 0) {
+            availableThreads = 4;
+        }
+        return availableThreads - NUM_STATIC_THREADS;
+    }())
     , m_multithread(multithread)
     , m_completedTasks(0)
 {
