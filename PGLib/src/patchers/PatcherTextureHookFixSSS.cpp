@@ -16,8 +16,6 @@
 #include <winerror.h>
 #include <winnt.h>
 
-#include <spdlog/spdlog.h>
-
 using namespace std;
 using namespace Microsoft::WRL;
 
