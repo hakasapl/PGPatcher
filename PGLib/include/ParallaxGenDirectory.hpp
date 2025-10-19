@@ -101,8 +101,8 @@ public:
 private:
     auto findFiles() -> void;
 
-    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, const bool& cachenif = false)
-        -> ParallaxGenTask::PGResult;
+    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, const bool& cachenif = false,
+        const bool& multithreading = true) -> ParallaxGenTask::PGResult;
 
     auto updateUnconfirmedTexturesMap(
         const std::filesystem::path& path, const NIFUtil::TextureSlots& slot, const NIFUtil::TextureType& type) -> void;
@@ -116,6 +116,8 @@ private:
         const std::vector<std::pair<MeshTracker::FormKey, ParallaxGenPlugin::MeshUseAttributes>>& meshUses);
     void updateNifCache(
         const std::filesystem::path& path, const std::shared_ptr<nifly::NifFile>& nif, const unsigned long long& crc32);
+
+    void checkIfCMAddToMap(const std::filesystem::path& texture, const NIFUtil::TextureSlots& winningSlot);
 
 public:
     static auto checkGlobMatchInVector(const std::wstring& check, const std::vector<std::wstring>& list) -> bool;

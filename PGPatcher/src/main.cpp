@@ -335,10 +335,15 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Init PGP library
     if (params.Processing.pluginPatching) {
         Logger::info("Initializing plugin patching");
-        pluginInit.queueTask([&bg, &exePath, &params]() -> void {
+        if (params.Processing.multithread) {
+            pluginInit.queueTask([&bg, &exePath, &params]() -> void {
+                ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
+                ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+            });
+        } else {
             ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
             ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
-        });
+        }
     }
 
     // Populate mod info
@@ -359,12 +364,20 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         }
 
         // MO2
-        modManagerInit.queueTask([&mmd, &params]() -> void {
+        if (params.Processing.multithread) {
+            modManagerInit.queueTask([&mmd, &params]() -> void {
+                mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+            });
+        } else {
             mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
-        });
+        }
     } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
         // Vortex
-        modManagerInit.queueTask([&mmd, &bg]() -> void { mmd.populateModFileMapVortex(bg.getGameDataPath()); });
+        if (params.Processing.multithread) {
+            modManagerInit.queueTask([&mmd, &bg]() -> void { mmd.populateModFileMapVortex(bg.getGameDataPath()); });
+        } else {
+            mmd.populateModFileMapVortex(bg.getGameDataPath());
+        }
     }
 
     // Check if ParallaxGen output already exists in data directory

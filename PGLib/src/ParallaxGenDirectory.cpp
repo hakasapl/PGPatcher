@@ -176,8 +176,8 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
             continue;
         }
 
-        runner.addTask([this, &taskTracker, &mesh, &highmem, &patchPlugin] {
-            taskTracker.completeJob(mapTexturesFromNIF(mesh, patchPlugin, highmem));
+        runner.addTask([this, &taskTracker, &mesh, &highmem, &patchPlugin, &multithreading] {
+            taskTracker.completeJob(mapTexturesFromNIF(mesh, patchPlugin, highmem, multithreading));
         });
     }
 
@@ -230,44 +230,12 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
         // extended classification
         // check if CM
         if (winningType == NIFUtil::TextureType::ENVIRONMENTMASK && !isFileInBSA(texture, parallaxBSAExcludes)) {
-            m_CMClassificationQueue.queueTask([this, texture, winningSlot]() -> void {
-                // classify as CM or not
-                bool hasMetalness = false;
-                bool hasGlosiness = false;
-                bool hasEnvMask = false;
-                bool result = false;
-
-                bool success = false;
-                try {
-                    success = PGGlobals::getPGD3D()->checkIfCM(texture, result, hasEnvMask, hasGlosiness, hasMetalness);
-                } catch (...) {
-                    success = false;
-                }
-
-                if (!success) {
-                    Logger::error(L"Failed to check if {} is complex material", texture.wstring());
-                    return;
-                }
-
-                if (!result) {
-                    // regular env mask
-                    addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::ENVIRONMENTMASK, {});
-                    return;
-                }
-
-                unordered_set<NIFUtil::TextureAttribute> attributes;
-                if (hasEnvMask) {
-                    attributes.insert(NIFUtil::TextureAttribute::CM_ENVMASK);
-                }
-                if (hasGlosiness) {
-                    attributes.insert(NIFUtil::TextureAttribute::CM_GLOSSINESS);
-                }
-                if (hasMetalness) {
-                    attributes.insert(NIFUtil::TextureAttribute::CM_METALNESS);
-                }
-
-                addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::COMPLEXMATERIAL, attributes);
-            });
+            if (multithreading) {
+                m_CMClassificationQueue.queueTask(
+                    [this, texture, winningSlot]() -> void { checkIfCMAddToMap(texture, winningSlot); });
+            } else {
+                checkIfCMAddToMap(texture, winningSlot);
+            }
 
             // defer adding to texture maps until classification is done
             continue;
@@ -285,6 +253,47 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     m_unconfirmedMeshes.clear();
 }
 
+void ParallaxGenDirectory::checkIfCMAddToMap(
+    const std::filesystem::path& texture, const NIFUtil::TextureSlots& winningSlot)
+{
+    // classify as CM or not
+    bool hasMetalness = false;
+    bool hasGlosiness = false;
+    bool hasEnvMask = false;
+    bool result = false;
+
+    bool success = false;
+    try {
+        success = PGGlobals::getPGD3D()->checkIfCM(texture, result, hasEnvMask, hasGlosiness, hasMetalness);
+    } catch (...) {
+        success = false;
+    }
+
+    if (!success) {
+        Logger::error(L"Failed to check if {} is complex material", texture.wstring());
+        return;
+    }
+
+    if (!result) {
+        // regular env mask
+        addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::ENVIRONMENTMASK, {});
+        return;
+    }
+
+    unordered_set<NIFUtil::TextureAttribute> attributes;
+    if (hasEnvMask) {
+        attributes.insert(NIFUtil::TextureAttribute::CM_ENVMASK);
+    }
+    if (hasGlosiness) {
+        attributes.insert(NIFUtil::TextureAttribute::CM_GLOSSINESS);
+    }
+    if (hasMetalness) {
+        attributes.insert(NIFUtil::TextureAttribute::CM_METALNESS);
+    }
+
+    addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::COMPLEXMATERIAL, attributes);
+}
+
 auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const vector<std::wstring>& list) -> bool
 {
     // convert wstring to LPCWSTR
@@ -294,8 +303,8 @@ auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const ve
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto ParallaxGenDirectory::mapTexturesFromNIF(
-    const filesystem::path& nifPath, const bool& patchPlugin, const bool& cachenif) -> ParallaxGenTask::PGResult
+auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, const bool& patchPlugin,
+    const bool& cachenif, const bool& multithreading) -> ParallaxGenTask::PGResult
 {
     auto result = ParallaxGenTask::PGResult::SUCCESS;
 
@@ -493,11 +502,17 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(
     }
 
     if (patchPlugin) {
-        m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
+        if (multithreading) {
+            m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
+                // send job to find mesh uses for this mesh
+                const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
+                updateNifCache(nifPath, modelUses);
+            });
+        } else {
             // send job to find mesh uses for this mesh
             const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
             updateNifCache(nifPath, modelUses);
-        });
+        }
     }
 
     if (cachenif) {
