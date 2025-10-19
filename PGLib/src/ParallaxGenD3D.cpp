@@ -931,6 +931,7 @@ auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture
         outputDDSDesc.Height = outHeight;
     }
     outputDDSDesc.Format = outFormat;
+    outputDDSDesc.MipLevels = 0; // Generate full mip chain
     outputDDSDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 
     ComPtr<ID3D11Texture2D> outputDDSGPU;
