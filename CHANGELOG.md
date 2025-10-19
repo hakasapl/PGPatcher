@@ -14,6 +14,7 @@
 - Fixed backslashes in zip files for linux users
 - Fixed crash from certain kinds of log messages
 - Fixed vanilla SSS patcher not generating some texture maps
+- Fixed complex material patcher allowing patches on MLP meshes
 
 ## [0.9.3] - 2025-10-18
 
