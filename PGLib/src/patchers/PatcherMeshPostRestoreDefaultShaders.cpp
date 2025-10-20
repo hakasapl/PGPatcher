@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 
+#include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -84,8 +85,12 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
     const auto& envTex = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)));
     const auto& envMaskTex
         = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
-    if (getPGD()->isFile(envTex) && (envMaskTex.empty() || getPGD()->isFile(envMaskTex))) {
-        // cubemap and env mask exists, no need to disable
+
+    const bool envValid = getPGD()->isFile(envTex)
+        || ParallaxGenUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
+    const bool envMaskValid = envMaskTex.empty() || getPGD()->isFile(envMaskTex);
+    if (envValid && envMaskValid) {
+        // cubemap and env mask valid, no need to disable
         return false;
     }
 

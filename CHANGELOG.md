@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.5] - UNRELEASED
+
+- Fixed disable pre-patched materials patcher wrongly disabling complex materials with dynamic cubemaps
+
 ## [0.9.4] - 2025-10-19
 
 - Multithreading optimizations

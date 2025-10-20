@@ -235,9 +235,8 @@ void PatcherMeshShaderComplexMaterial::applyPatchSlots(NIFUtil::TextureSet& slot
         }
     }
 
-    static const auto dynCubemapPathSlashFix = boost::replace_all_copy(s_DYNCUBEMAPPATH.wstring(), L"/", L"\\");
     if (enableDynCubemaps) {
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = dynCubemapPathSlashFix;
+        slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = s_DYNCUBEMAPPATH.wstring();
     }
 }
 
