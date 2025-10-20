@@ -26,7 +26,7 @@ private:
     static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
 
 public:
-    static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures/cubemaps/dynamic1pxcubemap_black.dds";
+    static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures\\cubemaps\\dynamic1pxcubemap_black.dds";
 
     /**
      * @brief Get the Factory object
