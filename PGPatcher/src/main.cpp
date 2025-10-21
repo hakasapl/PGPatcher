@@ -83,10 +83,17 @@ void addFileToZip(mz_zip_archive& zip, const filesystem::path& filePath, const f
     vector<std::byte> buffer = ParallaxGenUtil::getFileBytes(filePath);
 
     const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
-    string relativeFilePathUTF8 = ParallaxGenUtil::utf16toUTF8(relativePath.wstring());
 
-    // Replace backslashes with forward slashes for ZIP format
-    std::ranges::replace(relativeFilePathUTF8, '\\', '/');
+    // Build ZIP path directly with forward slashes
+    string relativeFilePathUTF8;
+    bool first = true;
+    for (const auto& part : relativePath) {
+        if (!first) {
+            relativeFilePathUTF8 += '/';
+        }
+        first = false;
+        relativeFilePathUTF8 += ParallaxGenUtil::utf16toUTF8(part.wstring());
+    }
 
     // add file to Zip
     if (mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
@@ -543,6 +550,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         // archive
         if (params.Output.zip) {
             // create zip file
+            Logger::info("Creating output Zip archive");
             const auto zipPath = params.Output.dir / "PGPatcher_Output.zip";
             zipDirectory(params.Output.dir, zipPath);
             ParallaxGen::deleteOutputDir(false);
