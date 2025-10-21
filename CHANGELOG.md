@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.5] - UNRELEASED
+## [0.9.5] - 2025-10-20
 
 - Added log message when creating zip output
 - Fixed disable pre-patched materials patcher wrongly disabling complex materials with dynamic cubemaps
