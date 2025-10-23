@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.6] - UNRELEASED
+
+- Fixed disable pre-patched materials patcher not knowing about texture hook outputs
+
 ## [0.9.5] - 2025-10-20
 
 - Added log message when creating zip output

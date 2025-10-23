@@ -109,8 +109,5 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
         { newPath, NIFUtil::TextureType::SUBSURFACECOLOR });
     getPGD()->setTextureType(newPath, NIFUtil::TextureType::SUBSURFACECOLOR);
 
-    // Update file map
-    getPGD()->addGeneratedFile(newPath);
-
     return true;
 }

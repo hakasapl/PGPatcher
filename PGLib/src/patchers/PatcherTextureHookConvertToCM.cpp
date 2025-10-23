@@ -101,8 +101,5 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
         { newPath, NIFUtil::TextureType::COMPLEXMATERIAL });
     getPGD()->setTextureType(newPath, NIFUtil::TextureType::COMPLEXMATERIAL);
 
-    // Update file map
-    getPGD()->addGeneratedFile(newPath);
-
     return true;
 }
