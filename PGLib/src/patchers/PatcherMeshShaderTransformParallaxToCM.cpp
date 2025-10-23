@@ -59,7 +59,5 @@ auto PatcherMeshShaderTransformParallaxToCM::transform(
     PatcherTextureHookConvertToCM::addToProcessList(heightMap);
     result.matchedPath = PatcherTextureHookConvertToCM::getOutputFilename(heightMap);
 
-    getPGD()->addGeneratedFile(result.matchedPath);
-
     return true;
 }

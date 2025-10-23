@@ -62,7 +62,6 @@ auto PatcherMeshPostFixSSS::applyPatch(NIFUtil::TextureSet& slots, nifly::NiShap
     PatcherTextureHookFixSSS::addToProcessList(diffuseMap);
 
     glowMap = PatcherTextureHookFixSSS::getOutputFilename(diffuseMap);
-    getPGD()->addGeneratedFile(glowMap);
 
     return true;
 }

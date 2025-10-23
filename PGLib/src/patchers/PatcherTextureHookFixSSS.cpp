@@ -22,7 +22,10 @@ using namespace Microsoft::WRL;
 auto PatcherTextureHookFixSSS::addToProcessList(const filesystem::path& texPath) -> void
 {
     const unique_lock lock(s_texToProcessMutex);
-    s_texToProcess.insert(texPath);
+    if (s_texToProcess.insert(texPath).second) {
+        // only add if not present before
+        getPGD()->addGeneratedFile(getOutputFilename(texPath));
+    }
 }
 
 auto PatcherTextureHookFixSSS::isInProcessList(const filesystem::path& texPath) -> bool
