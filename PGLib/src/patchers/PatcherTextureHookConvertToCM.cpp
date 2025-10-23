@@ -20,7 +20,10 @@ using namespace Microsoft::WRL;
 auto PatcherTextureHookConvertToCM::addToProcessList(const filesystem::path& texPath) -> void
 {
     const unique_lock lock(s_texToProcessMutex);
-    s_texToProcess.insert(texPath);
+    if (s_texToProcess.insert(texPath).second) {
+        // only add if not present before
+        getPGD()->addGeneratedFile(getOutputFilename(texPath));
+    }
 }
 
 auto PatcherTextureHookConvertToCM::isInProcessList(const filesystem::path& texPath) -> bool
