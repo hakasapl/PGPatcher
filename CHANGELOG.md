@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.7] - 2025-10-24
+
+- Fixed texture hook patchers not generating the output texture
+
 ## [0.9.6] - 2025-10-23
 
 - Fixed disable pre-patched materials patcher breaking some instances of upgrade parallax to CM

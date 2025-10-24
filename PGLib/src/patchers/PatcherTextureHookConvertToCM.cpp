@@ -61,11 +61,6 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
     const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::PARALLAX);
     const auto newPath = texBase + L"_m.dds";
 
-    if (getPGD()->isGenerated(newPath)) {
-        // already generated
-        return true;
-    }
-
     DirectX::ScratchImage newDDS;
     if (!getPGD3D()->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM)) {
         return false;
@@ -76,10 +71,6 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
     }
 
     const lock_guard<mutex> lock(s_generatedFileTrackerMutex);
-    if (getPGD()->isGenerated(newPath)) {
-        // already generated
-        return true;
-    }
 
     const auto outPath = getPGD()->getGeneratedPath() / newPath;
     filesystem::create_directories(outPath.parent_path());

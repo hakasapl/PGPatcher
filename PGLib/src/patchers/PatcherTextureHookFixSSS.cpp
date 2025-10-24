@@ -63,11 +63,6 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::DIFFUSE);
     const auto newPath = texBase + L"_s.dds";
 
-    if (getPGD()->isGenerated(newPath)) {
-        // already generated
-        return true;
-    }
-
     DirectX::ScratchImage newDDS;
     static constexpr size_t SCALE_FACTOR = 2;
     const auto newWidth = static_cast<UINT>(getDDS()->GetMetadata().width / SCALE_FACTOR);
@@ -84,10 +79,6 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     }
 
     const lock_guard<mutex> lock(s_generatedFileTrackerMutex);
-    if (getPGD()->isGenerated(newPath)) {
-        // already generated
-        return true;
-    }
 
     const auto outPath = getPGD()->getGeneratedPath() / newPath;
     filesystem::create_directories(outPath.parent_path());
