@@ -912,6 +912,13 @@ public class PGMutagen
                         var newAltTex = bufAltTex.SlotIdNew;
                         if (curAltTex.Index != newAltTex)
                         {
+                            if (newAltTex == -1)
+                            {
+                                // delete the alternate texture
+                                matchModElem.AlternateTextures.RemoveAt(j);
+                                continue;
+                            }
+
                             // Change index
                             matchModElem.AlternateTextures[j].Index = newAltTex;
                             changed = true;

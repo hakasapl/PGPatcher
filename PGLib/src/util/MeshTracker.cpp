@@ -224,11 +224,12 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         const auto newBlocks = get3dIndices(&mesh);
 
         for (const auto& [nifObject, oldIndex3D] : blocks) {
-            if (!newBlocks.contains(nifObject)) {
-                throw runtime_error("Shape not found in new NIF after patching");
+            int newIndex3D = -1;
+            if (newBlocks.contains(nifObject)) {
+                // exists after patching, set new index 3d
+                newIndex3D = newBlocks.at(nifObject);
             }
 
-            const auto newIndex3D = newBlocks.at(nifObject);
             meshResult.idxCorrections[oldIndex3D] = newIndex3D;
         }
 
