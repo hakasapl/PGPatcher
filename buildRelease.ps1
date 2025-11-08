@@ -119,9 +119,22 @@ try {
         Remove-Item -Path $zipFile -Force
     }
 
+    # Custom encoder to fix linux paths
+    Add-Type -AssemblyName System.Text.Encoding
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    class FixedEncoder : System.Text.UTF8Encoding {
+        FixedEncoder() : base($true) { }
+
+        [byte[]] GetBytes([string] $s) {
+            $s = $s.Replace("\\", "/");
+            return ([System.Text.UTF8Encoding]$this).GetBytes($s);
+        }
+    }
+
     # Create zip file
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $zipFile)
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $zipFile, [System.IO.Compression.CompressionLevel]::Optimal, $false, [FixedEncoder]::new())
 
     Write-Host "Zip file created successfully: $zipFile"
 }
