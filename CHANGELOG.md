@@ -2,6 +2,7 @@
 
 ## [0.9.8] - UNRELEASED
 
+- Added support for deleted shapes in combination with alternate textrues
 - PBR patcher "delete" will delete the shape instead of setting alpha to 0 now
 - Changed disabled text color in mod sort dialog to be darker for readability
 - Fixed escape key assuming "okay" action in dialogs
