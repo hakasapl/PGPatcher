@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.8] - UNRELEASED
+
+- Added support for removing shapes during mesh patching (unused for now)
+
 ## [0.9.7] - 2025-10-24
 
 - Fixed texture hook patchers not generating the output texture
