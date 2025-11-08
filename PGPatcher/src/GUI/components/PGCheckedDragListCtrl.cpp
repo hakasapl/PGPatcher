@@ -79,7 +79,7 @@ void PGCheckedDragListCtrl::check(long item, bool checked)
     // This is what actually adds the checkmark
     SetItemImage(item, checked ? 1 : 0);
     // Grays out the text if unchecked
-    SetItemTextColour(item, checked ? *wxBLACK : *wxLIGHT_GREY);
+    SetItemTextColour(item, checked ? *wxBLACK : s_DisabledTextColor);
 }
 
 auto PGCheckedDragListCtrl::isChecked(long item) const -> bool

@@ -16,6 +16,8 @@ private:
     wxTimer m_autoscrollTimer; /** Timer that is responsible for autoscroll */
     static constexpr int AUTOSCROLL_TIMER_INTERVAL = 250; /** Scroll every this amount in ms when autoscrolling */
 
+    static inline const wxColor s_DisabledTextColor = wxColour(50, 50, 50); /** Color for disabled (unchecked) items */
+
     /**
      * @brief Struct that represents a row being dragged
      */

@@ -3,6 +3,7 @@
 ## [0.9.8] - UNRELEASED
 
 - Added support for removing shapes during mesh patching (unused for now)
+- Changed disabled text color in mod sort dialog to be darker for readability
 - Fixed escape key assuming "okay" action in dialogs
 
 ## [0.9.7] - 2025-10-24
