@@ -224,6 +224,13 @@ private:
     void onOkButtonPressed(wxCommandEvent& event);
 
     /**
+     * @brief Event handler that triggers when the user presses the "Cancel" button
+     *
+     * @param event wxWidgets event object
+     */
+    void onCancelButtonPressed(wxCommandEvent& event);
+
+    /**
      * @brief Event handler that triggers when the user presses the "Save Config" button
      *
      * @param event wxWidgets event object

@@ -342,14 +342,25 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* separatorLine = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
     rightSizer->Add(separatorLine, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
+    // cancel button on the right side
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
+
+    wxFont cancelButtonFont = cancelButton->GetFont();
+    cancelButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
+    cancelButton->SetFont(cancelButtonFont);
+    cancelButton->Bind(wxEVT_BUTTON, &LauncherWindow::onCancelButtonPressed, this);
+    rightSizer->Add(cancelButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
     // Start Patching button on the right side
-    m_okButton = new wxButton(this, wxID_OK, "Start Patching");
+    m_okButton = new wxButton(this, wxID_ANY, "Start Patching");
 
     // Set font size for the "start patching" button
     wxFont okButtonFont = m_okButton->GetFont();
     okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
+    okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     m_okButton->SetFont(okButtonFont);
     m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
+
     Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
 
     rightSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
@@ -1073,6 +1084,8 @@ void LauncherWindow::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)
         EndModal(wxID_OK);
     }
 }
+
+void LauncherWindow::onCancelButtonPressed([[maybe_unused]] wxCommandEvent& event) { wxTheApp->Exit(); }
 
 void LauncherWindow::onSaveConfigButtonPressed([[maybe_unused]] wxCommandEvent& event)
 {

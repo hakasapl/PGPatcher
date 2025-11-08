@@ -92,6 +92,13 @@ private:
     void onClose(wxCloseEvent& event);
 
     /**
+     * @brief Event handler that triggers when the Close button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onBtnClose(wxCommandEvent& event);
+
+    /**
      * @brief Event handler that triggers when the OK button is pressed
      *
      * @param event wxWidgets event object
