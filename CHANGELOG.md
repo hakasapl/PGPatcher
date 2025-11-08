@@ -4,6 +4,7 @@
 
 - Added support for deleted shapes in combination with alternate textrues
 - PBR patcher "delete" will delete the shape instead of setting alpha to 0 now
+- Added cancel buttons to launcher and mod sort dialog
 - Changed disabled text color in mod sort dialog to be darker for readability
 - Fixed escape key assuming "okay" action in dialogs
 - Fixed download zip file constructed incorrectly due to back slashes on linux
