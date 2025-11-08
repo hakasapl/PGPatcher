@@ -541,6 +541,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape, nlohmann::json& 
     // "delete" attribute
     if (truePBRData.contains("delete") && truePBRData["delete"]) {
         getNIF()->DeleteShape(nifShape);
+        changed = true;
         return changed;
     }
 
