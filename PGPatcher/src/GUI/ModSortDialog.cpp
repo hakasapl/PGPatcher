@@ -136,6 +136,11 @@ ModSortDialog::ModSortDialog()
 
     m_discardButton->Enable(false);
 
+    // Add cancel button
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
+    buttonSizer->Add(cancelButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    cancelButton->Bind(wxEVT_BUTTON, &ModSortDialog::onBtnClose, this);
+
     // Add apply button
     m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
     buttonSizer->Add(m_applyButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
@@ -237,6 +242,8 @@ void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
     updateMods();
     EndModal(wxID_OK);
 }
+
+void ModSortDialog::onBtnClose([[maybe_unused]] wxCommandEvent& event) { wxTheApp->Exit(); }
 
 void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods(); }
 
