@@ -916,6 +916,7 @@ public class PGMutagen
                             {
                                 // delete the alternate texture
                                 matchModElem.AlternateTextures.RemoveAt(j);
+                                j--;
                                 continue;
                             }
 
