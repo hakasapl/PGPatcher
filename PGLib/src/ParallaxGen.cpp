@@ -18,6 +18,7 @@
 #include "util/NIFUtil.hpp"
 #include "util/ParallaxGenUtil.hpp"
 
+#include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "util/TaskQueue.hpp"
@@ -508,7 +509,12 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
     // apply prepatchers
     for (const auto& prePatcher : patchers.prePatchers) {
         const Logger::Prefix prefixPatches(prePatcher->getPatcherName());
-        prePatcher->applyPatch(slots, *nifShape);
+        if (prePatcher->applyPatch(slots, *nifShape)) {
+            if (nif->GetBlockID(nifShape) == NIF_NPOS) {
+                // shape was deleted, nothing else to do
+                return true;
+            }
+        }
     }
 
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
@@ -546,13 +552,23 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
             }
 
             ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
+
+            if (nif->GetBlockID(nifShape) == NIF_NPOS) {
+                // shape was deleted, nothing else to do
+                return true;
+            }
         }
     }
 
     // apply postpatchers
     for (const auto& postPatcher : patchers.postPatchers) {
         const Logger::Prefix prefixPatches(postPatcher->getPatcherName());
-        postPatcher->applyPatch(slots, *nifShape);
+        if (postPatcher->applyPatch(slots, *nifShape)) {
+            if (nif->GetBlockID(nifShape) == NIF_NPOS) {
+                // shape was deleted, nothing else to do
+                return true;
+            }
+        }
     }
 
     if (alternateTexture == nullptr) {

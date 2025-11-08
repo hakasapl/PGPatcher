@@ -2,7 +2,7 @@
 
 ## [0.9.8] - UNRELEASED
 
-- Added support for removing shapes during mesh patching (unused for now)
+- PBR patcher "delete" will delete the shape instead of setting alpha to 0 now
 - Changed disabled text color in mod sort dialog to be darker for readability
 - Fixed escape key assuming "okay" action in dialogs
 - Fixed download zip file constructed incorrectly due to back slashes on linux
