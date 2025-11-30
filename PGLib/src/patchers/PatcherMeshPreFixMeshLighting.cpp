@@ -36,8 +36,8 @@ auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] NIFUtil::Texture
     }
 
     const auto shaderType = nifShaderBSLSP->GetShaderType();
-    if (shaderType == BSLSP_FACE || shaderType == BSLSP_HAIRTINT || shaderType == BSLSP_EYE) {
-        // skip facegen
+    if (shaderType != BSLSP_DEFAULT) {
+        // only patch the default shader type
         return false;
     }
 

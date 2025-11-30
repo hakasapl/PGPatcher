@@ -36,6 +36,12 @@ auto PatcherMeshPostFixSSS::applyPatch(NIFUtil::TextureSet& slots, nifly::NiShap
         return false;
     }
 
+    const auto shaderType = nifShaderBSLSP->GetShaderType();
+    if (shaderType != BSLSP_DEFAULT) {
+        // only patch the default shader type
+        return false;
+    }
+
     if (!NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)) {
         // we don't care if it doesn't have soft lighting
         return false;
