@@ -404,6 +404,12 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Init file map
     pgd.populateFileMap(params.Processing.bsa);
 
+    // Check if VRAMR Output is enabled
+    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE && pgd.isFile("vramroutput.tmp")) {
+        Logger::critical("Please disable VRAMr output mod before running PGPatcher.");
+        return;
+    }
+
     // Plugins requires for map files
     pluginInit.waitForCompletion();
     pluginInit.shutdown();

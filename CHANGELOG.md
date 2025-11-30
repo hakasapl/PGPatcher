@@ -6,6 +6,7 @@
 - PBR patcher "delete" will delete the shape instead of setting alpha to 0 now
 - Added cancel buttons to launcher and mod sort dialog
 - Changed disabled text color in mod sort dialog to be darker for readability
+- Added critical error for when vramr output is enabled
 - Fixed escape key assuming "okay" action in dialogs
 - Fixed download zip file constructed incorrectly due to back slashes on linux
 - Fixed restore default shaders assuming empty environment texture is invalid for environment mapping shader type

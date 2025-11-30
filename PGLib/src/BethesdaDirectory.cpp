@@ -259,6 +259,27 @@ void BethesdaDirectory::addLooseFilesToMap()
 {
     Logger::info("Adding loose files to file map.");
 
+    // Map top level folder (not recursive)
+    for (auto it = filesystem::directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied);
+        it != filesystem::directory_iterator(); ++it) {
+        const auto& entry = *it;
+
+        if (isHidden(entry.path()) || entry.is_directory()) {
+            continue;
+        }
+
+        const filesystem::path& filePath = entry.path();
+        filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
+        relativePath = boost::to_lower_copy(relativePath.wstring());
+
+        // check type of file, skip BSAs and ESPs
+        if (!isFileAllowed(filePath)) {
+            continue;
+        }
+
+        updateFileMap(relativePath, nullptr);
+    }
+
     // loop through each folder to map
     for (const auto& folder : PGGlobals::s_foldersToMap) {
         // check if folder exists
