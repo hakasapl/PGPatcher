@@ -86,7 +86,7 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
     const auto& envMaskTex
         = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
 
-    const bool envValid = getPGD()->isFile(envTex)
+    const bool envValid = envMaskTex.empty() || getPGD()->isFile(envTex)
         || ParallaxGenUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
     const bool envMaskValid = envMaskTex.empty() || getPGD()->isFile(envMaskTex);
     if (envValid && envMaskValid) {

@@ -8,6 +8,7 @@
 - Changed disabled text color in mod sort dialog to be darker for readability
 - Fixed escape key assuming "okay" action in dialogs
 - Fixed download zip file constructed incorrectly due to back slashes on linux
+- Fixed restore default shaders assuming empty environment texture is invalid for environment mapping shader type
 
 ## [0.9.7] - 2025-10-24
 
