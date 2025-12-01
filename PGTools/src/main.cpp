@@ -2,7 +2,6 @@
 #include "ParallaxGen.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenRunner.hpp"
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
@@ -21,6 +20,7 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "util/ExceptionHandler.hpp"
 
 #include <CLI/CLI.hpp>
 #include <cpptrace/from_current.hpp>
@@ -88,6 +88,8 @@ void mainRunner(PGToolsCLIArgs& args)
     // Post test message for test builds
     spdlog::warn("This is an EXPERIMENTAL development build of PG Patcher");
 #endif
+
+    ExceptionHandler::setMainThread();
 
     // Check if patch subcommand was used
     if (args.Patch.subCommand->parsed()) {
@@ -317,10 +319,8 @@ auto main(int argC, char** argV) -> int
     CPPTRACE_TRY { mainRunner(args); }
     CPPTRACE_CATCH(const exception& e)
     {
-        ParallaxGenRunner::processException(e, cpptrace::from_current_exception().to_string());
-
-        cout << "Press ENTER to abort...";
-        cin.get();
-        abort();
+        ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
+
+    ExceptionHandler::throwExceptionOnMainThread();
 }

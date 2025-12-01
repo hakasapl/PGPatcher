@@ -1,5 +1,6 @@
 #include "ParallaxGenRunner.hpp"
 
+#include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
 
 #include <boost/asio/post.hpp>
@@ -11,9 +12,6 @@
 #include <chrono>
 #include <exception>
 #include <functional>
-#include <mutex>
-#include <stdexcept>
-#include <string>
 #include <thread>
 
 using namespace std;
@@ -45,47 +43,37 @@ void ParallaxGenRunner::runTasks()
         }
         CPPTRACE_CATCH(const exception& e)
         {
-            processException(e, cpptrace::from_current_exception().to_string(), false);
+            ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
         }
 
+        ExceptionHandler::throwExceptionOnMainThread();
         return;
     }
 
-    std::atomic<bool> exceptionThrown;
-    std::exception exception;
-    std::string exceptionStackTrace;
-    std::mutex exceptionMutex;
-
     // Multithreading only beyond this point
     for (const auto& task : m_tasks) {
-        boost::asio::post(
-            m_threadPool, [this, task, &exceptionThrown, &exception, &exceptionStackTrace, &exceptionMutex] {
-                if (exceptionThrown.load()) {
-                    // Exception already thrown, don't run thread
-                    return;
-                }
+        boost::asio::post(m_threadPool, [this, task] {
+            if (ExceptionHandler::hasException()) {
+                // Exception already thrown, don't run thread
+                return;
+            }
 
-                // Create log buffer
-                Logger::startThreadedBuffer();
+            // Create log buffer
+            Logger::startThreadedBuffer();
 
-                CPPTRACE_TRY
-                {
-                    task();
-                    m_completedTasks.fetch_add(1);
-                }
-                CPPTRACE_CATCH(const class exception& e)
-                {
-                    if (!exceptionThrown.load()) {
-                        const lock_guard<mutex> lock(exceptionMutex);
-                        exception = e;
-                        exceptionStackTrace = cpptrace::from_current_exception().to_string();
-                        exceptionThrown.store(true);
-                    }
-                }
+            CPPTRACE_TRY
+            {
+                task();
+                m_completedTasks.fetch_add(1);
+            }
+            CPPTRACE_CATCH(const class exception& e)
+            {
+                ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
+            }
 
-                // Flush log buffer
-                Logger::flushThreadedBuffer();
-            });
+            // Flush log buffer
+            Logger::flushThreadedBuffer();
+        });
     }
 
     while (true) {
@@ -96,35 +84,12 @@ void ParallaxGenRunner::runTasks()
         }
 
         // If exception stop thread pool and throw
-        if (exceptionThrown.load()) {
+        if (ExceptionHandler::hasException()) {
             m_threadPool.stop();
-            processException(exception, exceptionStackTrace, false);
+            ExceptionHandler::throwExceptionOnMainThread();
         }
 
         // Sleep in between loops
         this_thread::sleep_for(chrono::milliseconds(LOOP_INTERVAL));
-    }
-}
-
-void ParallaxGenRunner::processException(const exception& e, const string& stacktrace)
-{
-    processException(e, stacktrace, true);
-}
-
-void ParallaxGenRunner::processException(
-    const std::exception& e, const std::string& stacktrace, const bool& externalCaller)
-{
-    if (string(e.what()) == "PGRUNNERINTERNAL") {
-        // Internal exception, don't print
-        return;
-    }
-
-    Logger::critical("An unhandled exception occured. Please provide your full log in the bug report.\nException type: "
-                     "\"{}\" / Message: \"{}\"\n{}",
-        typeid(e).name(), e.what(), stacktrace);
-
-    if (!externalCaller) {
-        // Internal exception, throw on main thread
-        throw runtime_error("PGRUNNERINTERNAL");
     }
 }
