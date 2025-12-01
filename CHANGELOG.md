@@ -7,10 +7,12 @@
 - Added cancel buttons to launcher and mod sort dialog
 - Changed disabled text color in mod sort dialog to be darker for readability
 - Added critical error for when vramr output is enabled
-- Fix SSS patcher and Fix Mesh Lighting patcher will only patch default shader types now
+- Fixed SSS patcher and Fix Mesh Lighting patcher will only patch default shader types now
 - Fixed escape key assuming "okay" action in dialogs
 - Fixed download zip file constructed incorrectly due to back slashes on linux
 - Fixed restore default shaders assuming empty environment texture is invalid for environment mapping shader type
+- Fixed error dialogs not appearing for some cases when multithreading was enabled
+- Fixed uncaught exceptions in threads not propagating to the main thread
 
 ## [0.9.7] - 2025-10-24
 

@@ -10,7 +10,6 @@
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenHandlers.hpp"
 #include "ParallaxGenPlugin.hpp"
-#include "ParallaxGenRunner.hpp"
 #include "ParallaxGenUI.hpp"
 #include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
@@ -29,6 +28,7 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
 #include "util/ParallaxGenUtil.hpp"
 #include "util/TaskQueue.hpp"
@@ -215,6 +215,8 @@ void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool 
 
 void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 {
+    ExceptionHandler::setMainThread();
+
     // Define paths
     PGPatcherGlobals::setEXEPath(exePath);
     const filesystem::path cfgDir = exePath / "cfg";
@@ -605,15 +607,16 @@ auto main(int argC, char** argV) -> int
     CLI11_PARSE(app, argC, argV);
 
     // Main Runner (Catches all exceptions)
-    CPPTRACE_TRY { mainRunner(args, exePath); }
+    CPPTRACE_TRY
+    {
+        mainRunner(args, exePath);
+        return 0;
+    }
     CPPTRACE_CATCH(const exception& e)
     {
-        ParallaxGenRunner::processException(e, cpptrace::from_current_exception().to_string());
-
-        cout << "Press ENTER to abort...";
-        cin.get();
-        abort();
+        ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
 
-    return 0;
+    ExceptionHandler::throwExceptionOnMainThread();
+    return 1;
 }

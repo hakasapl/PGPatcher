@@ -1,4 +1,9 @@
 #pragma once
+
+#include "util/ExceptionHandler.hpp"
+
+#include <cpptrace/from_current.hpp>
+
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
@@ -33,6 +38,11 @@ public:
     // Queue a task to run
     template <typename Func> void queueTask(Func&& func)
     {
+        if (ExceptionHandler::hasException()) {
+            // exception was thrown, don't allow any further queued tasks
+            return;
+        }
+
         {
             std::scoped_lock const lock(m_queueMutex);
             m_taskQueue.emplace(std::forward<Func>(func));

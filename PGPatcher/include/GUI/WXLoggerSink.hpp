@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <spdlog/common.h>
 #include <spdlog/details/log_msg.h>
 #include <spdlog/sinks/base_sink.h>
@@ -21,15 +22,8 @@ protected:
             // Convert to wxString
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
 
-            if (wxIsMainThread()) {
-                wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR);
-            } else {
-                // Post to main thread safely
-                wxTheApp->CallAfter([wxMsg]() -> auto { wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR); });
-            }
-
-            // Exit application
-            wxTheApp->Exit();
+            wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR);
+            exit(1);
         }
     }
 

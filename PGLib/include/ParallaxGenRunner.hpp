@@ -5,9 +5,7 @@
 
 #include <atomic>
 #include <cstddef>
-#include <exception>
 #include <functional>
-#include <string>
 #include <vector>
 
 class ParallaxGenRunner {
@@ -42,23 +40,4 @@ public:
      * @brief Blocking function that runs all tasks in the task list. Intended to be run from the main thread
      */
     void runTasks();
-
-    /**
-     * @brief Process an exception - prints stack trace and exception message, and throws a main thread exception (for
-     * external callers)
-     *
-     * @param e Exception to process
-     * @param stacktrace Stack trace of the exception
-     */
-    static void processException(const std::exception& e, const std::string& stacktrace);
-
-private:
-    /**
-     * @brief Process an exception - prints stack trace and exception message, and throws a main thread exception
-     *
-     * @param e Exception to process
-     * @param stacktrace Stack trace of the exception
-     * @param externalCaller Set to false for internal, true for external
-     */
-    static void processException(const std::exception& e, const std::string& stackTrace, const bool& externalCaller);
 };
