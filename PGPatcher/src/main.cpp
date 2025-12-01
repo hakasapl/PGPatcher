@@ -607,13 +607,16 @@ auto main(int argC, char** argV) -> int
     CLI11_PARSE(app, argC, argV);
 
     // Main Runner (Catches all exceptions)
-    CPPTRACE_TRY { mainRunner(args, exePath); }
+    CPPTRACE_TRY
+    {
+        mainRunner(args, exePath);
+        return 0;
+    }
     CPPTRACE_CATCH(const exception& e)
     {
         ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
 
     ExceptionHandler::throwExceptionOnMainThread();
-
-    return 0;
+    return 1;
 }

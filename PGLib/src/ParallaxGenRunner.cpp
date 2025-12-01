@@ -66,7 +66,7 @@ void ParallaxGenRunner::runTasks()
                 task();
                 m_completedTasks.fetch_add(1);
             }
-            CPPTRACE_CATCH(const class exception& e)
+            CPPTRACE_CATCH(const exception& e)
             {
                 ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
             }

@@ -316,13 +316,16 @@ auto main(int argC, char** argV) -> int
     }
 
     // Main Runner (Catches all exceptions)
-    CPPTRACE_TRY { mainRunner(args); }
+    CPPTRACE_TRY
+    {
+        mainRunner(args);
+        return 0;
+    }
     CPPTRACE_CATCH(const exception& e)
     {
         ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
 
     ExceptionHandler::throwExceptionOnMainThread();
-
-    return 0;
+    return 1;
 }

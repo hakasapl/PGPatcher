@@ -44,7 +44,7 @@ void TaskQueue::workerLoop()
         if (task) {
             m_isBusy = true;
             CPPTRACE_TRY { task(); }
-            CPPTRACE_CATCH(const class std::exception& e)
+            CPPTRACE_CATCH(const std::exception& e)
             {
                 ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
             }

@@ -26,6 +26,7 @@ void ExceptionHandler::throwExceptionOnMainThread()
 
     if (s_exceptionThrown.load()) {
         // only log critical message if an exception has been thrown
+        const std::scoped_lock lock(s_exceptionMutex);
         Logger::critical(
             "An unhandled exception occurred. Please provide your full log in the bug report.\nException type: "
             "\"{}\" / Message: \"{}\"\n{}",
