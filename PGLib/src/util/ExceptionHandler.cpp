@@ -27,7 +27,7 @@ void ExceptionHandler::throwExceptionOnMainThread()
     if (s_exceptionThrown.load()) {
         // only log critical message if an exception has been thrown
         Logger::critical(
-            "An unhandled exception occured. Please provide your full log in the bug report.\nException type: "
+            "An unhandled exception occurred. Please provide your full log in the bug report.\nException type: "
             "\"{}\" / Message: \"{}\"\n{}",
             typeid(s_exception).name(), s_exception.what(), s_exceptionStackTrace);
     }
@@ -35,8 +35,8 @@ void ExceptionHandler::throwExceptionOnMainThread()
 
 void ExceptionHandler::setException(const std::exception& e, const std::string& stackTrace)
 {
+    const std::scoped_lock lock(s_exceptionMutex);
     if (!s_exceptionThrown.load()) {
-        const std::scoped_lock lock(s_exceptionMutex);
         s_exception = e;
         s_exceptionStackTrace = stackTrace;
         s_exceptionThrown.store(true);

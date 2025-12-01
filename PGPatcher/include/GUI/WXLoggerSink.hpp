@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <spdlog/common.h>
 #include <spdlog/details/log_msg.h>
 #include <spdlog/sinks/base_sink.h>
@@ -22,7 +23,7 @@ protected:
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
 
             wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR);
-            wxTheApp->Exit();
+            exit(1);
         }
     }
 

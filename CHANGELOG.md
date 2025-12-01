@@ -12,7 +12,7 @@
 - Fixed download zip file constructed incorrectly due to back slashes on linux
 - Fixed restore default shaders assuming empty environment texture is invalid for environment mapping shader type
 - Fixed error dialogs not appearing for some cases when multithreading was enabled
-- Fixed uncaught exceptions in threads not propogating to the main thread
+- Fixed uncaught exceptions in threads not propagating to the main thread
 
 ## [0.9.7] - 2025-10-24
 

@@ -323,4 +323,6 @@ auto main(int argC, char** argV) -> int
     }
 
     ExceptionHandler::throwExceptionOnMainThread();
+
+    return 0;
 }
