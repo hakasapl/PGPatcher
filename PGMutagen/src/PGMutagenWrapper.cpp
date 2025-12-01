@@ -28,11 +28,9 @@
 using namespace std;
 
 namespace {
-void dnneFailure(enum failure_type type, [[maybe_unused]] int errorCode)
+void dnneFailure([[maybe_unused]] enum failure_type type, [[maybe_unused]] int errorCode)
 {
-    if (type == failure_type::failure_load_runtime || type == failure_type::failure_load_export) {
-        throw runtime_error("PGMutagen.dll failed to load");
-    }
+    spdlog::critical("DotNet Wrapper failed to load, verify .NET runtime is installed properly");
 }
 } // namespace
 
