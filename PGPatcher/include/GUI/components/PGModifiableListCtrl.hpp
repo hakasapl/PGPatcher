@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <wx/listctrl.h>
 #include <wx/wx.h>
 
@@ -18,6 +19,8 @@ public:
         const wxSize& sz = wxDefaultSize, long style = wxLC_REPORT);
 
 private:
+    enum class ContextMenu : uint16_t { ID_PG_ADD_ITEM = wxID_HIGHEST + 1, ID_PG_REMOVE_ITEM };
+
     /**
      * @brief Event handler responsible for deleting/adding items based on list edits
      *
@@ -31,4 +34,25 @@ private:
      * @param event wxWidgets event object
      */
     void onListItemActivated(wxListEvent& event);
+
+    /**
+     * @brief Event handler for context menu
+     *
+     * @param event wxWidgets event object
+     */
+    void onContextMenu(wxContextMenuEvent& event);
+
+    /**
+     * @brief Event handler for adding an item
+     *
+     * @param event wxWidgets event object
+     */
+    void onAddItem(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler for removing selected items
+     *
+     * @param event wxWidgets event object
+     */
+    void onRemoveItem(wxCommandEvent& event);
 };
