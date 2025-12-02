@@ -7,6 +7,7 @@
 - Added cancel buttons to launcher and mod sort dialog
 - Changed disabled text color in mod sort dialog to be darker for readability
 - Added critical error for when vramr output is enabled
+- Added error message for record copy failures
 - Fixed SSS patcher and Fix Mesh Lighting patcher will only patch default shader types now
 - Fixed escape key assuming "okay" action in dialogs
 - Fixed download zip file constructed incorrectly due to back slashes on linux

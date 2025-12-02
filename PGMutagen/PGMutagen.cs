@@ -105,7 +105,7 @@ public class PGMutagen
     private static SkyrimMod? OutMod;
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
     private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
-    private static Dictionary<FormKey, IMajorRecord> ModifiedRecords = [];
+    private static Dictionary<FormKey, IMajorRecord?> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
     private static SortedSet<uint> allocatedFormIDs = [];
     private static HashSet<FormKey> formKeyErrorsPosted = [];
@@ -432,6 +432,11 @@ public class PGMutagen
             foreach (var rec in ModifiedRecords)
             {
                 var ModifiedRecord = rec.Value;
+                if (ModifiedRecord is null)
+                {
+                    // invalid record, skip
+                    continue;
+                }
 
                 var outputMod = GetModToAdd(ModifiedRecord);
 
@@ -851,7 +856,7 @@ public class PGMutagen
                 }
 
                 // check if we already modified this record
-                IMajorRecord modRecord;
+                IMajorRecord? modRecord = null;
                 if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
                 {
                     // record already modified
@@ -859,7 +864,22 @@ public class PGMutagen
                 }
                 else
                 {
-                    modRecord = existingRecord.DeepCopy();
+                    try
+                    {
+                        // create a mutable copy of the existing record
+                        modRecord = existingRecord.DeepCopy();
+                    }
+                    catch (Exception)
+                    {
+                        MessageHandler.Log("Failed to copy model record - this is usually an issue with the plugin: " + GetRecordDesc(existingRecord), 4);
+                        ModifiedRecords[searchFormKey] = null;
+                    }
+                }
+
+                if (modRecord is null)
+                {
+                    // invalid record, skip
+                    continue;
                 }
 
                 // Find model record to modify
