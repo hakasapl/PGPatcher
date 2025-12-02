@@ -79,22 +79,9 @@ void PGModifiableListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& ev
 void PGModifiableListCtrl::onAddItem([[maybe_unused]] wxCommandEvent& event)
 {
     const long lastIndex = GetItemCount() - 1;
-    const wxString lastText = GetItemText(lastIndex);
-
-    long editIndex = lastIndex;
-
-    if (!lastText.IsEmpty()) {
-        // No trailing blank row exists → create one
-        editIndex = InsertItem(GetItemCount(), "");
-    }
 
     // Begin editing the appropriate blank row
-    EditLabel(editIndex);
-
-    // Notify change
-    PGCustomListctrlChangedEvent evt(GetId(), editIndex);
-    evt.SetEventObject(this);
-    wxPostEvent(this, evt);
+    EditLabel(lastIndex);
 }
 
 void PGModifiableListCtrl::onRemoveItem([[maybe_unused]] wxCommandEvent& event)
