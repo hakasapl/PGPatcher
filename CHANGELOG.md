@@ -9,6 +9,7 @@
 - Added critical error for when vramr output is enabled
 - Added error message for record copy failures
 - Added context menus for advanced option lists (allowlist, blocklist, etc.)
+- Archives will now include PDB files for PGPatcher libraries
 - Fixed SSS patcher and Fix Mesh Lighting patcher will only patch default shader types now
 - Fixed escape key assuming "okay" action in dialogs
 - Fixed download zip file constructed incorrectly due to back slashes on linux
