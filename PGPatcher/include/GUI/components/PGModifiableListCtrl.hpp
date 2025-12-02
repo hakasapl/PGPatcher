@@ -35,9 +35,24 @@ private:
      */
     void onListItemActivated(wxListEvent& event);
 
+    /**
+     * @brief Event handler for context menu
+     *
+     * @param event wxWidgets event object
+     */
     void onContextMenu(wxContextMenuEvent& event);
 
+    /**
+     * @brief Event handler for adding an item
+     *
+     * @param event wxWidgets event object
+     */
     void onAddItem(wxCommandEvent& event);
 
+    /**
+     * @brief Event handler for removing selected items
+     *
+     * @param event wxWidgets event object
+     */
     void onRemoveItem(wxCommandEvent& event);
 };
