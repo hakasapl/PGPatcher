@@ -68,7 +68,7 @@ try {
         $copyFile = $false
 
         # Check if file ends in .dll
-        if ($_.Name -match '\.dll$' -or $_.Name -match '\.exe$') {
+        if ($_.Name -match '\.dll$' -or $_.Name -match '\.exe$' -or $_.Name -match '\.pdb$') {
             $copyFile = $true
         }
 
