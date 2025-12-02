@@ -100,16 +100,16 @@ void PGModifiableListCtrl::onAddItem([[maybe_unused]] wxCommandEvent& event)
 void PGModifiableListCtrl::onRemoveItem([[maybe_unused]] wxCommandEvent& event)
 {
     long item = -1;
-    const long lastIndex = GetItemCount() - 1; // trailing blank row
     bool removed = false;
 
-    // Remove all selected items, but skip the last blank row
+    // Remove all selected items, but skip the trailing blank row
     for (;;) {
         item = GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
         if (item == wxNOT_FOUND) {
             break;
         }
-        if (item == lastIndex) {
+        // Skip if this is the trailing blank row (identified by being empty and last)
+        if (GetItemText(item).IsEmpty() && item == GetItemCount() - 1) {
             continue; // skip the always-present blank row
         }
 
