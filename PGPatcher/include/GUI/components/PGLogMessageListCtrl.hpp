@@ -38,7 +38,7 @@ public:
     void setShowIgnored(bool showIgnored);
     void setLogMessages(const std::vector<wxString>& messages);
     void setIgnoreMap(const std::unordered_map<wxString, bool>& ignoredItems);
-    [[nodiscard]] auto getIgnoreMap() const -> std::unordered_map<wxString, bool>;
+    [[nodiscard]] auto getIgnoreMap() const -> const std::unordered_map<wxString, bool>&;
     [[nodiscard]] auto getNumUnignoredMessages() const -> size_t;
 
 private:

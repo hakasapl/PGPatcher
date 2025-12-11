@@ -9,6 +9,7 @@
 
 #include <cstdlib>
 #include <fmt/format.h>
+#include <mutex>
 #include <vector>
 
 template <typename Mutex> class WXLoggerSink : public spdlog::sinks::base_sink<Mutex> {
@@ -43,9 +44,25 @@ protected:
     void flush_() override { }
 
 public:
-    [[nodiscard]] auto hasErrors() const -> bool { return !m_errorMessages.empty(); }
-    [[nodiscard]] auto hasWarnings() const -> bool { return !m_warningMessages.empty(); }
+    [[nodiscard]] auto hasErrors() -> bool
+    {
+        std::scoped_lock<Mutex> lock(this->mutex_);
+        return !m_errorMessages.empty();
+    }
+    [[nodiscard]] auto hasWarnings() -> bool
+    {
+        std::scoped_lock<Mutex> lock(this->mutex_);
+        return !m_warningMessages.empty();
+    }
 
-    [[nodiscard]] auto getErrorMessages() const -> const std::vector<wxString>& { return m_errorMessages; }
-    [[nodiscard]] auto getWarningMessages() const -> const std::vector<wxString>& { return m_warningMessages; }
+    [[nodiscard]] auto getErrorMessages() -> std::vector<wxString>
+    {
+        std::scoped_lock<Mutex> lock(this->mutex_);
+        return m_errorMessages;
+    }
+    [[nodiscard]] auto getWarningMessages() -> std::vector<wxString>
+    {
+        std::scoped_lock<Mutex> lock(this->mutex_);
+        return m_warningMessages;
+    }
 };

@@ -11,7 +11,7 @@ PGLogMessageListCtrl::PGLogMessageListCtrl(wxWindow* parent, wxWindowID id, bool
     , m_allowIgnore(allowIgnore)
     , m_showIgnored(false)
 {
-    InsertColumn(0, "Warning", wxLIST_FORMAT_LEFT);
+    InsertColumn(0, "Message", wxLIST_FORMAT_LEFT);
 
     Bind(wxEVT_SIZE, [this](wxSizeEvent& evt) -> void {
         const int width = GetClientSize().GetWidth();
@@ -42,7 +42,7 @@ void PGLogMessageListCtrl::setIgnoreMap(const std::unordered_map<wxString, bool>
     repopulateList();
 }
 
-auto PGLogMessageListCtrl::getIgnoreMap() const -> std::unordered_map<wxString, bool> { return m_ignoredItems; }
+auto PGLogMessageListCtrl::getIgnoreMap() const -> const std::unordered_map<wxString, bool>& { return m_ignoredItems; }
 
 auto PGLogMessageListCtrl::getNumUnignoredMessages() const -> size_t
 {
