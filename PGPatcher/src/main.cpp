@@ -187,6 +187,7 @@ void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool 
 
     // Messagebox sink
     auto wxSink = std::make_shared<WXLoggerSink<std::mutex>>();
+    PGPatcherGlobals::setWXLoggerSink(wxSink);
     sinks.push_back(wxSink);
 
     auto logger = make_shared<spdlog::logger>("PG", sinks.begin(), sinks.end());

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.9] - UNRELEASED
+
+- Added warnings and error messages to confirmation dialog with ability to ignore them persistently
+
 ## [0.9.8] - UNRELEASED
 
 - Added support for deleted shapes in combination with alternate textrues

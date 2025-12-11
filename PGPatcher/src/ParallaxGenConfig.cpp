@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -55,6 +56,17 @@ auto ParallaxGenConfig::getModConfigFile() -> filesystem::path
     // Get mod config file
     static const filesystem::path modConfigFile = s_exePath / "cfg" / "modrules.json";
     return modConfigFile;
+}
+
+auto ParallaxGenConfig::getIgnoredMessagesConfigFile() -> filesystem::path
+{
+    if (s_exePath.empty()) {
+        throw runtime_error("ExePath not set");
+    }
+
+    // Get ignored messages config file
+    static const filesystem::path ignoredMessagesConfigFile = s_exePath / "cfg" / "ignored_messages.json";
+    return ignoredMessagesConfigFile;
 }
 
 auto ParallaxGenConfig::getDefaultParams() -> PGParams
@@ -515,6 +527,51 @@ auto ParallaxGenConfig::saveModConfig() -> bool
         ParallaxGenUtil::saveJSON(getModConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save mod config: {}", e.what());
+        return false;
+    }
+
+    return true;
+}
+
+auto ParallaxGenConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString, bool>
+{
+    std::unordered_map<wxString, bool> ignoredItems;
+
+    if (!filesystem::exists(getIgnoredMessagesConfigFile())) {
+        return ignoredItems;
+    }
+
+    nlohmann::json j;
+    if (!parseJSON(getFileBytes(getIgnoredMessagesConfigFile()), j)) {
+        throw std::runtime_error("Failed to parse ignored messages config JSON");
+    }
+
+    if (!j.contains("ignored_messages") || !j["ignored_messages"].is_object()) {
+        throw std::runtime_error("Invalid ignored messages config JSON format");
+    }
+
+    for (const auto& item : j["ignored_messages"].items()) {
+        ignoredItems[wxString::FromUTF8(item.key().c_str())] = item.value().get<bool>();
+    }
+
+    return ignoredItems;
+}
+
+auto ParallaxGenConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString, bool>& ignoredItems) -> bool
+{
+    nlohmann::json j;
+    j["ignored_messages"] = nlohmann::json::object();
+
+    for (const auto& [key, value] : ignoredItems) {
+        j["ignored_messages"][std::string(key.ToUTF8().data())] = value;
+    }
+
+    // write to file
+    try {
+        filesystem::create_directories(getIgnoredMessagesConfigFile().parent_path());
+        ParallaxGenUtil::saveJSON(getIgnoredMessagesConfigFile(), j, true);
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to save ignored messages config: {}", e.what());
         return false;
     }
 
