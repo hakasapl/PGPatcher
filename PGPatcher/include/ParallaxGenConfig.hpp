@@ -8,10 +8,12 @@
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <wx/string.h>
 
 #include <cstddef>
 #include <filesystem>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -227,6 +229,13 @@ public:
     [[nodiscard]] static auto getModConfigFile() -> std::filesystem::path;
 
     /**
+     * @brief Get the Ignored Messages Config File object
+     *
+     * @return std::filesystem::path Path to ignored messages config file
+     */
+    [[nodiscard]] static auto getIgnoredMessagesConfigFile() -> std::filesystem::path;
+
+    /**
      * @brief Loads the config files in the `cfg` folder
      */
     void loadConfig();
@@ -282,6 +291,9 @@ public:
      * @return true if save was successful
      */
     static auto saveModConfig() -> bool;
+
+    static auto getIgnoredMessagesConfig() -> std::unordered_map<wxString, bool>;
+    static auto saveIgnoredMessagesConfig(const std::unordered_map<wxString, bool>& ignoredItems) -> bool;
 
 private:
     /**
