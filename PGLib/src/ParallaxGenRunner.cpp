@@ -46,7 +46,6 @@ void ParallaxGenRunner::runTasks()
             ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
         }
 
-        ExceptionHandler::throwExceptionOnMainThread();
         return;
     }
 
@@ -86,7 +85,6 @@ void ParallaxGenRunner::runTasks()
         // If exception stop thread pool and throw
         if (ExceptionHandler::hasException()) {
             m_threadPool.stop();
-            ExceptionHandler::throwExceptionOnMainThread();
         }
 
         // Sleep in between loops

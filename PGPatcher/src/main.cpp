@@ -1,5 +1,6 @@
 #include "BethesdaGame.hpp"
 #include "GUI/CompletionDialog.hpp"
+#include "GUI/ProgressWindow.hpp"
 #include "GUI/WXLoggerSink.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
@@ -214,6 +215,285 @@ void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool 
     }
 }
 
+void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGParams& params,
+    const filesystem::path& exePath, bool needModSortDialog, const std::filesystem::path& cfgDir)
+{
+    // print output location
+    Logger::info(L"PGPatcher output directory: {}", params.Output.dir.wstring());
+
+    auto* bg = PGGlobals::getBG();
+    auto* pgd = PGGlobals::getPGD();
+    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* mmd = PGGlobals::getMMD();
+    Patcher::loadStatics(*pgd, *pgd3d);
+
+    // Check if GPU needs to be initialized
+    Logger::info("Initializing GPU");
+    if (!pgd3d->initGPU()) {
+        Logger::critical("Failed to initialize GPU. Exiting.");
+        return;
+    }
+
+    if (!pgd3d->initShaders()) {
+        Logger::critical("Failed to initialize internal shaders. Exiting.");
+        return;
+    }
+
+    //
+    // Generation
+    //
+
+    // Create output directory
+    try {
+        if (filesystem::create_directories(params.Output.dir)) {
+            Logger::debug(L"Output directory created: {}", params.Output.dir.wstring());
+        }
+    } catch (const filesystem::filesystem_error& e) {
+        Logger::critical("Failed to create output directory: {}", e.what());
+        return;
+    }
+
+    // If output dir is the same as data dir meshes might get overwritten
+    if (filesystem::equivalent(params.Output.dir, pgd->getDataPath())) {
+        Logger::critical("Output directory cannot be the same directory as your data folder. "
+                         "Exiting.");
+        return;
+    }
+
+    // If output dir is a subdirectory of data dir vfs issues can occur
+    if (boost::istarts_with(params.Output.dir.wstring(), bg->getGameDataPath().wstring() + "\\")) {
+        Logger::critical("Output directory cannot be a subdirectory of your data folder. Exiting.");
+        return;
+    }
+
+    // Check if dyndolod.esp exists
+    const auto activePlugins = bg->getActivePlugins(false, true);
+    if (ranges::find(activePlugins, L"dyndolod.esp") != activePlugins.end()) {
+        Logger::critical(
+            "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
+            "generate LODs after running PGPatcher with the PGPatcher output enabled.");
+        return;
+    }
+
+    // Log active plugins
+    const wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
+    Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
+
+    TaskQueue pluginInit;
+
+    // Init PGP library
+    if (params.Processing.pluginPatching) {
+        Logger::info("Initializing plugin patching");
+        if (params.Processing.multithread) {
+            pluginInit.queueTask([&bg, &exePath, &params]() -> void {
+                ParallaxGenPlugin::initialize(*bg, exePath, params.Processing.pluginLang);
+                ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+            });
+        } else {
+            ParallaxGenPlugin::initialize(*bg, exePath, params.Processing.pluginLang);
+            ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        }
+    }
+
+    // Populate mod info
+    nlohmann::json modJSON;
+    const auto modListFile = cfgDir / "modrules.json";
+    if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
+        mmd->loadJSON(modJSON);
+    }
+
+    TaskQueue modManagerInit;
+
+    if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
+        && !params.ModManager.mo2InstanceDir.empty()) {
+        // Make sure running is USVFS
+        if (!ParallaxGenHandlers::isUnderUSVFS()) {
+            Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
+            return;
+        }
+
+        // MO2
+        if (params.Processing.multithread) {
+            modManagerInit.queueTask([&mmd, &params]() -> void {
+                mmd->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+            });
+        } else {
+            mmd->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+        }
+    } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
+        // Vortex
+        if (params.Processing.multithread) {
+            modManagerInit.queueTask([&mmd, &bg]() -> void { mmd->populateModFileMapVortex(bg->getGameDataPath()); });
+        } else {
+            mmd->populateModFileMapVortex(bg->getGameDataPath());
+        }
+    }
+
+    // Check if ParallaxGen output already exists in data directory
+    const filesystem::path pgStateFilePath = bg->getGameDataPath() / "ParallaxGen_Diff.json";
+    if (filesystem::exists(pgStateFilePath)) {
+        Logger::critical("ParallaxGen meshes exist in your data directory, please delete before "
+                         "re-running.");
+        return;
+    }
+
+    // delete existing output
+    ParallaxGen::deleteOutputDir();
+
+    // Init file map
+    pgd->populateFileMap(params.Processing.bsa);
+
+    // Check if VRAMR Output is enabled
+    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE && pgd->isFile("vramroutput.tmp")) {
+        Logger::critical("Please disable VRAMr output mod before running PGPatcher.");
+        return;
+    }
+
+    // Plugins requires for map files
+    pluginInit.waitForCompletion();
+    pluginInit.shutdown();
+
+    // Map files
+    pgd->mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
+        params.TextureRules.vanillaBSAList, params.Processing.pluginPatching, params.Processing.multithread,
+        args.highmem);
+
+    // Wait for threads
+    modManagerInit.waitForCompletion();
+    modManagerInit.shutdown();
+
+    // Create patcher factory
+    PatcherUtil::PatcherMeshSet meshPatchers;
+    if (params.PrePatcher.disableMLP) {
+        Logger::debug("Adding Disable MLP pre-patcher");
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreDisableMLP::getFactory());
+    }
+    if (params.PrePatcher.fixMeshLighting) {
+        Logger::debug("Adding Mesh Lighting Fix pre-patcher");
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
+    }
+    if (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR) {
+        // fix slots only needed for shader patchers
+        Logger::debug("Adding Texture Slot Count Fix pre-patcher");
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
+    }
+
+    meshPatchers.shaderPatchers.emplace(
+        PatcherMeshShaderDefault::getShaderType(), PatcherMeshShaderDefault::getFactory());
+    if (params.ShaderPatcher.parallax) {
+        Logger::debug("Adding Parallax shader patcher");
+        meshPatchers.shaderPatchers.emplace(
+            PatcherMeshShaderVanillaParallax::getShaderType(), PatcherMeshShaderVanillaParallax::getFactory());
+    }
+    if (params.ShaderPatcher.complexMaterial) {
+        Logger::debug("Adding Complex Material shader patcher");
+        meshPatchers.shaderPatchers.emplace(
+            PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
+        PatcherMeshShaderComplexMaterial::loadStatics(
+            params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist);
+    }
+    if (params.ShaderPatcher.truePBR) {
+        Logger::debug("Adding True PBR shader patcher");
+        meshPatchers.shaderPatchers.emplace(
+            PatcherMeshShaderTruePBR::getShaderType(), PatcherMeshShaderTruePBR::getFactory());
+        PatcherMeshShaderTruePBR::loadOptions(params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths,
+            params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths);
+        PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
+    }
+    if (params.ShaderTransforms.parallaxToCM) {
+        Logger::debug("Adding Parallax to Complex Material shader transform patcher");
+        meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
+            = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
+                  PatcherMeshShaderTransformParallaxToCM::getFactory() };
+        PatcherMeshShaderTransformParallaxToCM::loadOptions(
+            params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
+
+        // initialize patcher hooks
+        if (!PatcherTextureHookConvertToCM::initShader()) {
+            Logger::critical("Failed to initialize ConvertToCM shader");
+            return;
+        }
+    }
+    if (params.PostPatcher.disablePrePatchedMaterials) {
+        Logger::debug("Adding Disable Pre-Patched Materials post-patcher");
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::getFactory());
+    }
+    if (params.PostPatcher.fixSSS) {
+        Logger::debug("Adding SSS fix post-patcher");
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
+
+        if (!PatcherTextureHookFixSSS::initShader()) {
+            Logger::critical("Failed to initialize FixSSS shader");
+            return;
+        }
+    }
+    if (params.PostPatcher.hairFlowMap) {
+        Logger::debug("Adding Hair Flow Map post-patcher");
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
+    }
+
+    if (params.GlobalPatcher.fixEffectLightingCS) {
+        Logger::debug("Adding Effect Lighting CS Fix pre-patcher");
+        meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
+    }
+
+    const PatcherUtil::PatcherTextureSet texPatchers;
+    ParallaxGen::loadPatchers(meshPatchers, texPatchers);
+
+    // Check if MO2 is used and MO2 use order is checked
+    if (needModSortDialog) {
+        // Find conflicts
+        ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
+
+        // Assign new mod priorities for new mods
+        mmd->assignNewModPriorities();
+    }
+}
+
+void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem::path& exePath)
+{
+    // Patch meshes if set
+    ParallaxGenWarnings::init();
+    ParallaxGen::patch(params.Processing.multithread, params.Processing.pluginPatching);
+
+    // Write plugin
+    if (params.Processing.pluginPatching) {
+        Logger::info("Saving Plugins");
+        ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
+    }
+
+    // Check for empty output
+    bool outputEmpty = false;
+    if (ParallaxGen::isOutputEmpty()) {
+        // output is empty
+        Logger::warn("Output directory is empty. No files were generated. Is your game path set correctly?");
+        outputEmpty = true;
+    }
+
+    if (!outputEmpty) {
+        // Deploy Assets
+        deployAssets(params.Output.dir, exePath);
+
+        // Save diff json
+        const auto diffJSON = ParallaxGen::getDiffJSON();
+        if (!diffJSON.empty()) {
+            const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_Diff.json";
+            ParallaxGenUtil::saveJSON(diffJSONPath, diffJSON, true);
+
+            PGGlobals::getPGD()->addGeneratedFile("ParallaxGen_Diff.json");
+        }
+
+        // archive
+        if (params.Output.zip) {
+            // create zip file
+            Logger::info("Creating output Zip archive");
+            const auto zipPath = params.Output.dir / "PGPatcher_Output.zip";
+            zipDirectory(params.Output.dir, zipPath);
+            ParallaxGen::deleteOutputDir(false);
+        }
+    }
+}
+
 void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 {
     ExceptionHandler::setMainThread();
@@ -271,13 +551,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Alpha message
     Logger::warn("PGPatcher is currently in BETA. Please file detailed bug reports on nexus or github.");
 
-    // print output location
-    Logger::info(L"PGPatcher output directory: {}", params.Output.dir.wstring());
-
     // Create relevant objects
     // TODO control the lifetime of these in PGLib
     auto bg = BethesdaGame(params.Game.type, params.Game.dir);
-
+    PGGlobals::setBG(&bg);
     auto mmd = ModManagerDirectory(params.ModManager.type);
     PGGlobals::setMMD(&mmd);
     auto pgd = ParallaxGenDirectory(&bg, params.Output.dir);
@@ -285,237 +562,43 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     auto pgd3d = ParallaxGenD3D(exePath / "cshaders");
     PGGlobals::setPGD3D(&pgd3d);
 
-    Patcher::loadStatics(pgd, pgd3d);
-
-    // Check if GPU needs to be initialized
-    Logger::info("Initializing GPU");
-    if (!pgd3d.initGPU()) {
-        Logger::critical("Failed to initialize GPU. Exiting.");
-        return;
-    }
-
-    if (!pgd3d.initShaders()) {
-        Logger::critical("Failed to initialize internal shaders. Exiting.");
-        return;
-    }
-
-    //
-    // Generation
-    //
+    // Create progress dialog object
+    auto* progressWindow = new ProgressWindow(); // NOLINT(cppcoreguidelines-owning-memory)
 
     // Get current time to compare later
     auto startTime = chrono::high_resolution_clock::now();
     long long timeTaken = 0;
 
-    // Create output directory
-    try {
-        if (filesystem::create_directories(params.Output.dir)) {
-            Logger::debug(L"Output directory created: {}", params.Output.dir.wstring());
+    const bool needModSortDialog
+        = (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR)
+        && params.ModManager.type != ModManagerDirectory::ModManagerType::NONE;
+
+    // Dispatch the pre-generation task
+    TaskQueue backgroundRunners;
+    backgroundRunners.queueTask([&args, &params, &exePath, needModSortDialog, &progressWindow, &cfgDir]() -> void {
+        mainRunnerPre(args, params, exePath, needModSortDialog, cfgDir);
+        if (needModSortDialog) {
+            // if we need the mod sort dialog we need to close the progress dialog here
+            progressWindow->CallAfter([&, progressWindow]() -> void { progressWindow->Close(); });
         }
-    } catch (const filesystem::filesystem_error& e) {
-        Logger::critical("Failed to create output directory: {}", e.what());
-        return;
+    });
+    if (!needModSortDialog) {
+        // if we don't need the mod sort dialog we should queue both tasks and close the dialog after
+        backgroundRunners.queueTask([&params, &exePath, &progressWindow]() -> void {
+            mainRunnerPost(params, exePath);
+            progressWindow->CallAfter([&, progressWindow]() -> void { progressWindow->Close(); });
+        });
     }
 
-    // If output dir is the same as data dir meshes might get overwritten
-    if (filesystem::equivalent(params.Output.dir, pgd.getDataPath())) {
-        Logger::critical("Output directory cannot be the same directory as your data folder. "
-                         "Exiting.");
-        return;
-    }
+    // Show progress dialog (this will block until closed by one of the callafters)
+    progressWindow->ShowModal();
 
-    // If output dir is a subdirectory of data dir vfs issues can occur
-    if (boost::istarts_with(params.Output.dir.wstring(), bg.getGameDataPath().wstring() + "\\")) {
-        Logger::critical("Output directory cannot be a subdirectory of your data folder. Exiting.");
-        return;
-    }
+    // Verify tasks are finished
+    backgroundRunners.waitForCompletion();
+    ExceptionHandler::throwExceptionOnMainThread();
 
-    // Check if dyndolod.esp exists
-    const auto activePlugins = bg.getActivePlugins(false, true);
-    if (ranges::find(activePlugins, L"dyndolod.esp") != activePlugins.end()) {
-        Logger::critical(
-            "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
-            "generate LODs after running PGPatcher with the PGPatcher output enabled.");
-        return;
-    }
-
-    // Log active plugins
-    const wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
-    Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
-
-    TaskQueue pluginInit;
-
-    // Init PGP library
-    if (params.Processing.pluginPatching) {
-        Logger::info("Initializing plugin patching");
-        if (params.Processing.multithread) {
-            pluginInit.queueTask([&bg, &exePath, &params]() -> void {
-                ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
-                ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
-            });
-        } else {
-            ParallaxGenPlugin::initialize(bg, exePath, params.Processing.pluginLang);
-            ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
-        }
-    }
-
-    // Populate mod info
-    nlohmann::json modJSON;
-    const auto modListFile = cfgDir / "modrules.json";
-    if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
-        mmd.loadJSON(modJSON);
-    }
-
-    TaskQueue modManagerInit;
-
-    if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
-        && !params.ModManager.mo2InstanceDir.empty()) {
-        // Make sure running is USVFS
-        if (!ParallaxGenHandlers::isUnderUSVFS()) {
-            Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
-            return;
-        }
-
-        // MO2
-        if (params.Processing.multithread) {
-            modManagerInit.queueTask([&mmd, &params]() -> void {
-                mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
-            });
-        } else {
-            mmd.populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
-        }
-    } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
-        // Vortex
-        if (params.Processing.multithread) {
-            modManagerInit.queueTask([&mmd, &bg]() -> void { mmd.populateModFileMapVortex(bg.getGameDataPath()); });
-        } else {
-            mmd.populateModFileMapVortex(bg.getGameDataPath());
-        }
-    }
-
-    // Check if ParallaxGen output already exists in data directory
-    const filesystem::path pgStateFilePath = bg.getGameDataPath() / "ParallaxGen_Diff.json";
-    if (filesystem::exists(pgStateFilePath)) {
-        Logger::critical("ParallaxGen meshes exist in your data directory, please delete before "
-                         "re-running.");
-        return;
-    }
-
-    // delete existing output
-    ParallaxGen::deleteOutputDir();
-
-    // Init file map
-    pgd.populateFileMap(params.Processing.bsa);
-
-    // Check if VRAMR Output is enabled
-    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE && pgd.isFile("vramroutput.tmp")) {
-        Logger::critical("Please disable VRAMr output mod before running PGPatcher.");
-        return;
-    }
-
-    // Plugins requires for map files
-    pluginInit.waitForCompletion();
-    pluginInit.shutdown();
-
-    // Map files
-    pgd.mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
-        params.TextureRules.vanillaBSAList, params.Processing.pluginPatching, params.Processing.multithread,
-        args.highmem);
-
-    // Wait for threads
-    modManagerInit.waitForCompletion();
-    modManagerInit.shutdown();
-
-    // Create patcher factory
-    PatcherUtil::PatcherMeshSet meshPatchers;
-    if (params.PrePatcher.disableMLP) {
-        Logger::debug("Adding Disable MLP pre-patcher");
-        meshPatchers.prePatchers.emplace_back(PatcherMeshPreDisableMLP::getFactory());
-    }
-    if (params.PrePatcher.fixMeshLighting) {
-        Logger::debug("Adding Mesh Lighting Fix pre-patcher");
-        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
-    }
-    if (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR) {
-        // fix slots only needed for shader patchers
-        Logger::debug("Adding Texture Slot Count Fix pre-patcher");
-        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
-    }
-
-    bool conflictPatcherEnabled = false;
-    meshPatchers.shaderPatchers.emplace(
-        PatcherMeshShaderDefault::getShaderType(), PatcherMeshShaderDefault::getFactory());
-    if (params.ShaderPatcher.parallax) {
-        Logger::debug("Adding Parallax shader patcher");
-        meshPatchers.shaderPatchers.emplace(
-            PatcherMeshShaderVanillaParallax::getShaderType(), PatcherMeshShaderVanillaParallax::getFactory());
-        conflictPatcherEnabled = true;
-    }
-    if (params.ShaderPatcher.complexMaterial) {
-        Logger::debug("Adding Complex Material shader patcher");
-        meshPatchers.shaderPatchers.emplace(
-            PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
-        PatcherMeshShaderComplexMaterial::loadStatics(
-            params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist);
-        conflictPatcherEnabled = true;
-    }
-    if (params.ShaderPatcher.truePBR) {
-        Logger::debug("Adding True PBR shader patcher");
-        meshPatchers.shaderPatchers.emplace(
-            PatcherMeshShaderTruePBR::getShaderType(), PatcherMeshShaderTruePBR::getFactory());
-        PatcherMeshShaderTruePBR::loadOptions(params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths,
-            params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths);
-        PatcherMeshShaderTruePBR::loadStatics(pgd.getPBRJSONs());
-        conflictPatcherEnabled = true;
-    }
-    if (params.ShaderTransforms.parallaxToCM) {
-        Logger::debug("Adding Parallax to Complex Material shader transform patcher");
-        meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
-            = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
-                  PatcherMeshShaderTransformParallaxToCM::getFactory() };
-        PatcherMeshShaderTransformParallaxToCM::loadOptions(
-            params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
-
-        // initialize patcher hooks
-        if (!PatcherTextureHookConvertToCM::initShader()) {
-            Logger::critical("Failed to initialize ConvertToCM shader");
-            return;
-        }
-    }
-    if (params.PostPatcher.disablePrePatchedMaterials) {
-        Logger::debug("Adding Disable Pre-Patched Materials post-patcher");
-        meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::getFactory());
-    }
-    if (params.PostPatcher.fixSSS) {
-        Logger::debug("Adding SSS fix post-patcher");
-        meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
-
-        if (!PatcherTextureHookFixSSS::initShader()) {
-            Logger::critical("Failed to initialize FixSSS shader");
-            return;
-        }
-    }
-    if (params.PostPatcher.hairFlowMap) {
-        Logger::debug("Adding Hair Flow Map post-patcher");
-        meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
-    }
-
-    if (params.GlobalPatcher.fixEffectLightingCS) {
-        Logger::debug("Adding Effect Lighting CS Fix pre-patcher");
-        meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
-    }
-
-    const PatcherUtil::PatcherTextureSet texPatchers;
-    ParallaxGen::loadPatchers(meshPatchers, texPatchers);
-
-    // Check if MO2 is used and MO2 use order is checked
-    if (conflictPatcherEnabled && params.ModManager.type != ModManagerDirectory::ModManagerType::NONE) {
-        // Find conflicts
-        ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching);
-
-        // Assign new mod priorities for new mods
-        mmd.assignNewModPriorities();
-
+    // Show conflict window if needed
+    if (needModSortDialog) {
         // pause timer for UI
         timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
 
@@ -523,49 +606,22 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         Logger::info("Showing mod priority order dialog");
         ParallaxGenUI::selectModOrder();
         startTime = chrono::high_resolution_clock::now();
+
+        // dispatch post task
+        backgroundRunners.queueTask([&params, &exePath, &progressWindow]() -> void {
+            mainRunnerPost(params, exePath);
+            progressWindow->CallAfter([&, progressWindow]() -> void { progressWindow->Close(); });
+        });
+
+        // Show progress dialog (this will block until closed by one of the callafters)
+        progressWindow->ShowModal();
+
+        // Verify tasks are finished
+        backgroundRunners.waitForCompletion();
+        ExceptionHandler::throwExceptionOnMainThread();
     }
 
-    // Patch meshes if set
-    ParallaxGenWarnings::init();
-    ParallaxGen::patch(params.Processing.multithread, params.Processing.pluginPatching);
-
-    // Write plugin
-    if (params.Processing.pluginPatching) {
-        Logger::info("Saving Plugins");
-        ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
-    }
-
-    // Check for empty output
-    bool outputEmpty = false;
-    if (ParallaxGen::isOutputEmpty()) {
-        // output is empty
-        Logger::warn("Output directory is empty. No files were generated. Is your game path set correctly?");
-        outputEmpty = true;
-    }
-
-    if (!outputEmpty) {
-        // Deploy Assets
-        deployAssets(params.Output.dir, exePath);
-
-        // Save diff json
-        const auto diffJSON = ParallaxGen::getDiffJSON();
-        if (!diffJSON.empty()) {
-            const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_Diff.json";
-            ParallaxGenUtil::saveJSON(diffJSONPath, diffJSON, true);
-
-            pgd.addGeneratedFile("ParallaxGen_Diff.json");
-        }
-
-        // archive
-        if (params.Output.zip) {
-            // create zip file
-            Logger::info("Creating output Zip archive");
-            const auto zipPath = params.Output.dir / "PGPatcher_Output.zip";
-            zipDirectory(params.Output.dir, zipPath);
-            ParallaxGen::deleteOutputDir(false);
-        }
-    }
-
+    // Confirmation UI
     const auto endTime = chrono::high_resolution_clock::now();
     timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
 
