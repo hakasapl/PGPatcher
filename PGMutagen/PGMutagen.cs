@@ -338,28 +338,32 @@ public class PGMutagen
                     ModelUses[meshName].Add(curTuple);
 
                     // Check if we need to also add the weight counterpart
-                    if (modelMajorRec is IArmorAddonGetter || modelMajorRec is IArmorGetter)
+                    if (modelMajorRec is IArmorAddonGetter armorAddonGetter)
                     {
-                        string weightMeshName = string.Empty;
-                        if (meshName.EndsWith("_0.nif"))
+                        if ((modelRec.Item2 == "MALE" && armorAddonGetter.WeightSliderEnabled.Male) || (modelRec.Item2 == "FEMALE" && armorAddonGetter.WeightSliderEnabled.Female))
                         {
-                            // replace _0.nif with _1.nif
-                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
-                        }
-                        else if (meshName.EndsWith("_1.nif"))
-                        {
-                            // replace _1.nif with _0.nif
-                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
-                        }
-
-                        if (!weightMeshName.IsNullOrEmpty())
-                        {
-                            if (!ModelUses.ContainsKey(weightMeshName))
+                            // weight slider is enabled
+                            string weightMeshName = string.Empty;
+                            if (meshName.EndsWith("_0.nif"))
                             {
-                                ModelUses[weightMeshName] = [];
+                                // replace _0.nif with _1.nif
+                                weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
+                            }
+                            else if (meshName.EndsWith("_1.nif"))
+                            {
+                                // replace _1.nif with _0.nif
+                                weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
                             }
 
-                            ModelUses[weightMeshName].Add(curTuple);
+                            if (!weightMeshName.IsNullOrEmpty())
+                            {
+                                if (!ModelUses.ContainsKey(weightMeshName))
+                                {
+                                    ModelUses[weightMeshName] = [];
+                                }
+
+                                ModelUses[weightMeshName].Add(curTuple);
+                            }
                         }
                     }
                 }
@@ -893,12 +897,32 @@ public class PGMutagen
                 // Actual changes starting
                 bool changed = false;
 
+                // Check model major record if it is addon node and weight slider is enabled
+                string newMeshFile = modelUse.MeshFile;
+                if (modRecord is IArmorAddon armorAddonRec)
+                {
+                    // if weight slider is enabled, do not update the file if it is either _1 or _0 variant
+                    if ((modelUse.SubModel == "MALE" && armorAddonRec.WeightSliderEnabled.Male) ||
+                        (modelUse.SubModel == "FEMALE" && armorAddonRec.WeightSliderEnabled.Female))
+                    {
+                        string existingFile = matchExistingElem.File.ToString();
+                        // add other variant to check list
+                        if (existingFile.EndsWith("_0.nif", StringComparison.OrdinalIgnoreCase) && newMeshFile.EndsWith("_1.nif", StringComparison.OrdinalIgnoreCase))
+                        {
+                            newMeshFile = string.Concat(newMeshFile.AsSpan(0, newMeshFile.Length - 6), "_0.nif");
+                        }
+                        else if (existingFile.EndsWith("_1.nif", StringComparison.OrdinalIgnoreCase) && newMeshFile.EndsWith("_0.nif", StringComparison.OrdinalIgnoreCase))
+                        {
+                            newMeshFile = string.Concat(newMeshFile.AsSpan(0, newMeshFile.Length - 6), "_1.nif");
+                        }
+                    }
+                }
+
                 // Mesh path
-                var newMeshFile = RemovePrefixIfExists("meshes\\", modelUse.MeshFile);
-                if (!string.Equals(matchExistingElem.File, newMeshFile, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(matchExistingElem.File.ToString(), newMeshFile, StringComparison.OrdinalIgnoreCase))
                 {
                     // Change mesh path
-                    matchModElem.File = newMeshFile;
+                    matchModElem.File = RemovePrefixIfExists("meshes\\", newMeshFile);
                     changed = true;
                 }
 
