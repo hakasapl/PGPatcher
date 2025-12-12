@@ -9,6 +9,7 @@
 #include <wx/gdicmn.h>
 #include <wx/listbase.h>
 #include <wx/listctrl.h>
+#include <wx/toplevel.h>
 #include <wx/wx.h>
 
 #include <algorithm>
@@ -21,7 +22,7 @@
 
 CompletionDialog::CompletionDialog(const long long& timeTaken)
     : wxDialog(nullptr, wxID_ANY, "PGPatcher Generation Complete", wxDefaultPosition, wxDefaultSize,
-          wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER)
+          wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     // Play system information sound
     wxBell();

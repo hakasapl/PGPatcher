@@ -9,6 +9,7 @@
 #include "ParallaxGenConfig.hpp"
 #include "util/NIFUtil.hpp"
 
+#include <wx/toplevel.h>
 #include <wx/wx.h>
 
 #include <algorithm>
@@ -28,7 +29,7 @@ using namespace std;
 // class ModSortDialog
 ModSortDialog::ModSortDialog()
     : wxDialog(nullptr, wxID_ANY, "Set Mod Priority", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
-          wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER)
+          wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     auto* pgc = PGPatcherGlobals::getPGC();
     if (pgc == nullptr) {

@@ -12,6 +12,7 @@
 
 #include <boost/algorithm/string/join.hpp>
 #include <wx/statline.h>
+#include <wx/toplevel.h>
 #include <wx/wx.h>
 
 #include <filesystem>
@@ -27,7 +28,7 @@ using namespace std;
 // class LauncherWindow
 LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     : wxDialog(nullptr, wxID_ANY, "PGPatcher " + string(PG_VERSION) + " Launcher", wxDefaultPosition,
-          wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE)
+          wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
     , m_pgc(pgc)
     , m_shaderPatcherComplexMaterialDynCubemapBlocklist(new PGModifiableListCtrl(
           this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
