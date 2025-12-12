@@ -219,7 +219,7 @@ void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool 
 
 constexpr auto NUM_PREPARING_STEPS = 9;
 constexpr auto NUM_FINALIZING_STEPS = 5;
-constexpr auto NUM_TOTAL_STEPS = 5;
+constexpr auto NUM_TOTAL_STEPS = 6;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
@@ -785,7 +785,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Create callback function for progress bars
     const std::function<void(size_t, size_t)>& progressCallback
         = [&progressWindow](size_t completed, size_t total) -> void {
-        progressWindow->CallAfter([=, &progressWindow]() -> void {
+        progressWindow->CallAfter([&progressWindow, &completed, &total]() -> void {
             progressWindow->setStepProgress(static_cast<int>(completed), static_cast<int>(total), true);
         });
     };
@@ -805,14 +805,14 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
             mainRunnerPre(args, params, exePath, needModSortDialog, cfgDir, progressWindow, progressCallback);
             if (needModSortDialog) {
                 // if we need the mod sort dialog we need to close the progress dialog here
-                progressWindow->CallAfter([&, progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+                progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
             }
         });
     if (!needModSortDialog) {
         // if we don't need the mod sort dialog we should queue both tasks and close the dialog after
         backgroundRunners.queueTask([&params, &exePath, &progressWindow, &progressCallback]() -> void {
             mainRunnerPost(params, exePath, progressWindow, progressCallback);
-            progressWindow->CallAfter([&, progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
         });
     }
 
@@ -836,7 +836,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         // dispatch post task
         backgroundRunners.queueTask([&params, &exePath, &progressWindow, &progressCallback]() -> void {
             mainRunnerPost(params, exePath, progressWindow, progressCallback);
-            progressWindow->CallAfter([&, progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
         });
 
         // Show progress dialog (this will block until closed by one of the callafters)

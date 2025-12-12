@@ -61,7 +61,10 @@ ProgressWindow::ProgressWindow()
 
 void ProgressWindow::setMainProgress(int done, int total, bool addToLabel)
 {
-    const int perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100.0);
+    int perc = 0;
+    if (total > 0) {
+        perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100.0);
+    }
     m_progressBarMain->SetValue(perc);
     m_progressBarMain->Refresh();
     m_progressBarMain->Update();
@@ -81,7 +84,10 @@ void ProgressWindow::setMainLabel(const std::string& label)
 
 void ProgressWindow::setStepProgress(int done, int total, bool addToLabel)
 {
-    const int perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100.0);
+    int perc = 0;
+    if (total > 0) {
+        perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100.0);
+    }
     m_progressBarStep->SetValue(perc);
     m_progressBarStep->Refresh();
     m_progressBarStep->Update();
