@@ -2,19 +2,22 @@
 
 #include <wx/animate.h>
 #include <wx/button.h>
+#include <wx/dialog.h>
 #include <wx/gauge.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
 #include <string>
 #include <wx/string.h>
+#include <wx/toplevel.h>
 
 // Disable owning memory checks because wxWidgets will take care of deleting the objects
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
 ProgressWindow::ProgressWindow()
-    : wxDialog(nullptr, wxID_ANY, "PGPatcher Generation Progress", wxDefaultPosition, wxSize(300, 150))
+    : wxDialog(nullptr, wxID_ANY, "PGPatcher Generation Progress", wxDefaultPosition, wxSize(300, 150),
+          wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
 {
     const wxIcon icon(wxICON(IDI_ICON1));
     SetIcon(icon);
