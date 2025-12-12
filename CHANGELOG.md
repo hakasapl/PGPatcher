@@ -8,8 +8,9 @@
 - Added minimize box to all GUI
 - Added "Open Log File" button to confirmation dialog
 - Mod mismatch warnings are now printed during generation (and are shown in the confirmation dialog)
+- Fixed weight variants being swapped for the other variant when it is not necessary
 
-## [0.9.8] - UNRELEASED
+## [0.9.8] - 2025-12-01
 
 - Added support for deleted shapes in combination with alternate textrues
 - PBR patcher "delete" will delete the shape instead of setting alpha to 0 now
