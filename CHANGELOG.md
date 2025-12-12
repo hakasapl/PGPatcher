@@ -6,6 +6,7 @@
 - Added progress dialog that appears during processing
 - Console will no longer launch by default, can be launcher by passing the --console argument
 - Added minimize box to all GUI
+- Added "Open Log File" button to confirmation dialog
 
 ## [0.9.8] - UNRELEASED
 

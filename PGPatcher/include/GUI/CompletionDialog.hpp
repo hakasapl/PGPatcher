@@ -31,5 +31,7 @@ private:
      */
     void onOpenOutputLocation(wxCommandEvent& event);
 
+    void onOpenLogFile(wxCommandEvent& event);
+
     void saveIgnoredMessagesToConfig();
 };
