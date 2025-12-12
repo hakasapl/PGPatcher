@@ -1,6 +1,7 @@
 #include "GUI/CompletionDialog.hpp"
 
 #include "GUI/components/PGLogMessageListCtrl.hpp"
+#include "PGGlobals.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
 
@@ -108,6 +109,11 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     openFileLocationButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenOutputLocation, this);
     buttonSizer->Add(openFileLocationButton, 0, wxALL, 10);
 
+    // Open Log file button
+    auto* openLogFileButton = new wxButton(this, wxID_ANY, "Open Log File");
+    openLogFileButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenLogFile, this);
+    buttonSizer->Add(openLogFileButton, 0, wxALL, 10);
+
     mainSizer->Add(buttonSizer, 0, wxALIGN_CENTER_HORIZONTAL);
 
     SetSizerAndFit(mainSizer); // This automatically sizes the dialog to fit content
@@ -191,6 +197,17 @@ void CompletionDialog::onOpenOutputLocation([[maybe_unused]] wxCommandEvent& eve
 
     const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
     wxLaunchDefaultApplication(outputPath.wstring());
+
+    // Close dialog
+    EndModal(wxID_OK);
+}
+
+void CompletionDialog::onOpenLogFile([[maybe_unused]] wxCommandEvent& event)
+{
+    saveIgnoredMessagesToConfig();
+
+    const auto logFilePath = PGPatcherGlobals::getEXEPath() / "log" / "PGPatcher.log";
+    wxLaunchDefaultApplication(logFilePath.wstring());
 
     // Close dialog
     EndModal(wxID_OK);
