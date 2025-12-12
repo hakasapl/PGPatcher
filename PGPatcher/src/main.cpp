@@ -492,7 +492,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
             PatcherMeshShaderTruePBR::getShaderType(), PatcherMeshShaderTruePBR::getFactory());
         PatcherMeshShaderTruePBR::loadOptions(params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths,
             params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths);
-        PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
     }
     if (params.ShaderTransforms.parallaxToCM) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
@@ -557,6 +556,11 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     pgd->mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
         params.TextureRules.vanillaBSAList, params.Processing.pluginPatching, params.Processing.multithread,
         args.highmem, progressCallback, exceptionCallback);
+
+    // Any patcher initialization that requires PGD
+    if (params.ShaderPatcher.truePBR) {
+        PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
+    }
 
     // Check if MO2 is used and MO2 use order is checked
     if (needModSortDialog) {
