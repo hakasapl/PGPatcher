@@ -92,7 +92,8 @@ public:
         const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
         const std::vector<std::wstring>& parallaxBSAExcludes, const bool& patchPlugin,
         const bool& multithreading = true, const bool& highmem = false,
-        const std::function<void(size_t, size_t)>& progressCallback = {}) -> void;
+        const std::function<void(size_t, size_t)>& progressCallback = {},
+        const std::function<void()>& exceptionCallback = {}) -> void;
 
     void waitForMeshMapping();
 

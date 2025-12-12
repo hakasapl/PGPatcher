@@ -44,6 +44,9 @@ void ParallaxGenRunner::runTasks()
         CPPTRACE_CATCH(const exception& e)
         {
             ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
+            if (m_exceptionCallback) {
+                m_exceptionCallback();
+            }
         }
 
         return;
@@ -68,6 +71,9 @@ void ParallaxGenRunner::runTasks()
             CPPTRACE_CATCH(const exception& e)
             {
                 ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
+                if (m_exceptionCallback) {
+                    m_exceptionCallback();
+                }
             }
 
             // Flush log buffer
@@ -91,3 +97,5 @@ void ParallaxGenRunner::runTasks()
         this_thread::sleep_for(chrono::milliseconds(LOOP_INTERVAL));
     }
 }
+
+void ParallaxGenRunner::setExceptionCallback(const std::function<void()>& callback) { m_exceptionCallback = callback; }

@@ -47,6 +47,9 @@ void TaskQueue::workerLoop()
             CPPTRACE_CATCH(const std::exception& e)
             {
                 ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
+                if (m_exceptionCallback) {
+                    m_exceptionCallback();
+                }
             }
             m_isBusy = false;
         }
@@ -76,3 +79,5 @@ void TaskQueue::shutdown()
         m_workerThread.join();
     }
 }
+
+void TaskQueue::setExceptionCallback(const std::function<void()>& callback) { m_exceptionCallback = callback; }

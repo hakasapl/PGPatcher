@@ -76,7 +76,8 @@ public:
      * @param patchPlugin whether to generate plugin patches
      */
     static void patchMeshes(const bool& multiThread = true, const bool& patchPlugin = true,
-        const std::function<void(size_t, size_t)>& progressCallback = {});
+        const std::function<void(size_t, size_t)>& progressCallback = {},
+        const std::function<void()>& exceptionCallback = {});
 
     /**
      * @brief Run texture patcher
@@ -84,8 +85,9 @@ public:
      * @param multiThread whether to use multithreading
      * @param patchPlugin whether to generate plugin patches
      */
-    static void patchTextures(
-        const bool& multiThread = true, const std::function<void(size_t, size_t)>& progressCallback = {});
+    static void patchTextures(const bool& multiThread = true,
+        const std::function<void(size_t, size_t)>& progressCallback = {},
+        const std::function<void()>& exceptionCallback = {});
 
     /**
      * @brief Finalize any other requires output files
@@ -99,7 +101,8 @@ public:
      * @param patchPlugin whether to generate plugin patches
      */
     static void populateModData(const bool& multiThread = true, const bool& patchPlugin = true,
-        const std::function<void(size_t, size_t)>& progressCallback = {});
+        const std::function<void(size_t, size_t)>& progressCallback = {},
+        const std::function<void()>& exceptionCallback = {});
 
     /**
      * @brief Delets output directory in a smart way

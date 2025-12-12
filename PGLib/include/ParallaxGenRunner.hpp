@@ -21,6 +21,8 @@ private:
 
     static constexpr int NUM_STATIC_THREADS = 2; /** Number of static threads to reserve for system */
 
+    std::function<void()> m_exceptionCallback; /** Exception callback function */
+
 public:
     /**
      * @brief Construct a new Parallax Gen Runner object
@@ -35,6 +37,8 @@ public:
      * @param task Task to add (function<void()>)
      */
     void addTask(const std::function<void()>& task);
+
+    void setExceptionCallback(const std::function<void()>& callback);
 
     /**
      * @brief Blocking function that runs all tasks in the task list. Intended to be run from the main thread

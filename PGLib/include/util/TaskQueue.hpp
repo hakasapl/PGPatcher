@@ -24,6 +24,8 @@ private:
     std::atomic<size_t> m_queuedTasks { 0 };
     std::thread m_workerThread;
 
+    std::function<void()> m_exceptionCallback;
+
     void workerLoop();
 
 public:
@@ -67,4 +69,6 @@ public:
     void waitForCompletion() const;
 
     void shutdown();
+
+    void setExceptionCallback(const std::function<void()>& callback);
 };

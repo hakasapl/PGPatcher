@@ -146,7 +146,7 @@ void ParallaxGenDirectory::waitForCMClassification()
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
     const bool& patchPlugin, const bool& multithreading, const bool& highmem,
-    const std::function<void(size_t, size_t)>& progressCallback) -> void
+    const std::function<void(size_t, size_t)>& progressCallback, const std::function<void()>& exceptionCallback) -> void
 {
     findFiles();
 
@@ -164,6 +164,9 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
 
     // Create runner
     ParallaxGenRunner runner(multithreading);
+    if (exceptionCallback) {
+        runner.setExceptionCallback(exceptionCallback);
+    }
 
     // Loop through each mesh to confirm textures
     for (const auto& mesh : m_unconfirmedMeshes) {
