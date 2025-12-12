@@ -4,6 +4,7 @@
 
 - Added warnings and error messages to confirmation dialog with ability to ignore them persistently
 - Added progress dialog that appears during processing
+- Console will no longer launch by default, can be launcher by passing the --console argument
 
 ## [0.9.8] - UNRELEASED
 

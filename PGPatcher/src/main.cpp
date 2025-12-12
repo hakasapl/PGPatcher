@@ -37,6 +37,7 @@
 #include <CLI/CLI.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <consoleapi.h>
 #include <cpptrace/from_current.hpp>
 #include <miniz.h>
 #include <miniz_zip.h>
@@ -72,6 +73,7 @@ using namespace std;
 struct ParallaxGenCLIArgs {
     bool autostart = false;
     bool highmem = false;
+    bool console = false;
 };
 
 namespace {
@@ -863,10 +865,11 @@ void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
     // Logging
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
     app.add_flag("--highmem", args.highmem, "Enable high memory mode");
+    app.add_flag("--console", args.console, "Show console in the background");
 }
 }
 
-auto main(int argC, char** argV) -> int
+auto WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/) -> int
 {
 // Block until enter only in debug mode
 #ifdef _DEBUG
@@ -887,7 +890,13 @@ auto main(int argC, char** argV) -> int
     addArguments(app, args);
 
     // Parse CLI Arguments (this is what exits on any validation issues)
-    CLI11_PARSE(app, argC, argV);
+    CLI11_PARSE(app, __argc, __argv);
+
+    if (args.console) {
+        // Allocate a console
+        AllocConsole();
+        SetConsoleOutputCP(CP_UTF8);
+    }
 
     // Main Runner (Catches all exceptions)
     CPPTRACE_TRY
