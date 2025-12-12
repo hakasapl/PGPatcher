@@ -6,7 +6,6 @@
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenRunner.hpp"
 #include "ParallaxGenTask.hpp"
-#include "ParallaxGenWarnings.hpp"
 #include "handlers/HandlerLightPlacerTracker.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
@@ -116,9 +115,6 @@ void ParallaxGen::patchMeshes(const bool& multiThread, const bool& patchPlugin,
 
     // Blocks until all tasks are done
     meshRunner.runTasks();
-
-    // Print any resulting warning
-    ParallaxGenWarnings::printWarnings();
 
     // Finalize handlers
     HandlerLightPlacerTracker::finalize();
@@ -574,11 +570,14 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 
             // Post warnings if any
             for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
-                ParallaxGenWarnings::mismatchWarn(
-                    winningShaderMatch.match.matchedPath, slots.at(static_cast<int>(curMatchedFrom)));
-            }
+                const auto modMatchFrom = PGGlobals::getMMD()->getModByFile(slots.at(static_cast<int>(curMatchedFrom)));
+                const auto modMatchPath = PGGlobals::getMMD()->getModByFile(winningShaderMatch.match.matchedPath);
 
-            ParallaxGenWarnings::meshWarn(winningShaderMatch.match.matchedPath, nifPath.wstring());
+                if (modMatchFrom != nullptr && modMatchPath != nullptr && modMatchFrom != modMatchPath) {
+                    Logger::warn(L"Mod {} assets are matching assets from {}. Verify this is intended behavior.",
+                        modMatchPath->name, modMatchFrom->name);
+                }
+            }
 
             if (nif->GetBlockID(nifShape) == NIF_NPOS) {
                 // shape was deleted, nothing else to do

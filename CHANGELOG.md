@@ -7,6 +7,7 @@
 - Console will no longer launch by default, can be launcher by passing the --console argument
 - Added minimize box to all GUI
 - Added "Open Log File" button to confirmation dialog
+- Mod mismatch warnings are now printed during generation (and are shown in the confirmation dialog)
 
 ## [0.9.8] - UNRELEASED
 

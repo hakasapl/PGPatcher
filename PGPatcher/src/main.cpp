@@ -12,7 +12,6 @@
 #include "ParallaxGenHandlers.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenUI.hpp"
-#include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
@@ -593,9 +592,6 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
         progressWindow->setMainProgress(3, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
-
-    // Patch meshes if set
-    ParallaxGenWarnings::init();
 
     progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepLabel("Processing NIFs"); });
 
