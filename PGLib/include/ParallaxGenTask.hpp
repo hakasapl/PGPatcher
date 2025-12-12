@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -20,6 +21,9 @@ private:
     size_t m_lastPerc = 0;
     std::mutex m_numJobsCompletedMutex;
 
+    size_t m_totalRanJobs;
+    std::function<void(size_t, size_t)> m_callbackFunc;
+
     std::unordered_map<PGResult, size_t> m_numJobsCompleted;
 
     std::unordered_map<PGResult, std::string> m_pgResultStr = { { PGResult::SUCCESS, "COMPLETED" },
@@ -27,6 +31,8 @@ private:
 
 public:
     ParallaxGenTask(std::string taskName, const size_t& totalJobs, const int& progressPrintModulo = 1);
+
+    void setCallbackFunc(std::function<void(size_t, size_t)> callbackFunc);
 
     void completeJob(const PGResult& result);
     [[nodiscard]] auto isCompleted() -> bool;

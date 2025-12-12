@@ -3,6 +3,7 @@
 ## [0.9.9] - UNRELEASED
 
 - Added warnings and error messages to confirmation dialog with ability to ignore them persistently
+- Added progress dialog that appears during processing
 
 ## [0.9.8] - UNRELEASED
 

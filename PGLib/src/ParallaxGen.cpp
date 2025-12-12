@@ -34,10 +34,12 @@
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
 #include <d3d11.h>
 #include <exception>
 #include <filesystem>
 #include <fmt/xchar.h>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <ranges>
@@ -74,7 +76,8 @@ void ParallaxGen::loadPatchers(
     s_texPatchers = texPatchers;
 }
 
-void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
+void ParallaxGen::patchMeshes(
+    const bool& multiThread, const bool& patchPlugin, const std::function<void(size_t, size_t)>& progressCallback)
 {
     auto* const pgd = PGGlobals::getPGD();
     pgd->waitForMeshMapping();
@@ -98,6 +101,9 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Create runner
     ParallaxGenRunner meshRunner(multiThread);
+    if (progressCallback) {
+        taskTracker.setCallbackFunc(progressCallback);
+    }
 
     for (auto& [mesh, nifCache] : meshes) {
         meshRunner.addTask([&taskTracker, &mesh, &patchPlugin, &setModelUsesQueue] {
@@ -107,6 +113,29 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Blocks until all tasks are done
     meshRunner.runTasks();
+
+    // Print any resulting warning
+    ParallaxGenWarnings::printWarnings();
+
+    // Finalize handlers
+    HandlerLightPlacerTracker::finalize();
+
+    // Wait for model uses to complete
+    // TODO this wait does not need to wait here, just needs to end before finalize
+    if (setModelUsesQueue.isWorking()) {
+        Logger::info("Waiting for setting plugin model uses to complete...");
+        setModelUsesQueue.waitForCompletion();
+    }
+}
+
+void ParallaxGen::patchTextures(const bool& multiThread, const std::function<void(size_t, size_t)>& progressCallback)
+{
+    auto* const pgd = PGGlobals::getPGD();
+    pgd->waitForMeshMapping();
+    pgd->waitForCMClassification();
+
+    // Init Handlers
+    HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
 
     //
     // TEXTURE PATCHING
@@ -120,6 +149,9 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Create runner
     ParallaxGenRunner textureRunner(multiThread);
+    if (progressCallback) {
+        textureTaskTracker.setCallbackFunc(progressCallback);
+    }
 
     // Add tasks
     for (const auto& texture : textures) {
@@ -128,27 +160,10 @@ void ParallaxGen::patch(const bool& multiThread, const bool& patchPlugin)
 
     // Blocks until all tasks are done
     textureRunner.runTasks();
-
-    // Print any resulting warning
-    ParallaxGenWarnings::printWarnings();
-
-    // Finalize handlers
-    HandlerLightPlacerTracker::finalize();
-
-    // Wait for model uses to complete
-    if (setModelUsesQueue.isWorking()) {
-        Logger::info("Waiting for setting plugin model uses to complete...");
-        setModelUsesQueue.waitForCompletion();
-    }
-
-    // Wait for file saver to complete
-    if (PGGlobals::getFileSaver().isWorking()) {
-        Logger::info("Waiting for files to finish saving...");
-        PGGlobals::getFileSaver().waitForCompletion();
-    }
 }
 
-void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlugin)
+void ParallaxGen::populateModData(
+    const bool& multiThread, const bool& patchPlugin, const std::function<void(size_t, size_t)>& progressCallback)
 {
     if (s_meshPatchers.globalPatchers.empty() && s_meshPatchers.shaderPatchers.empty()
         && s_meshPatchers.prePatchers.empty() && s_meshPatchers.postPatchers.empty()) {
@@ -162,11 +177,13 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
     auto meshes = pgd->getMeshes();
 
     // Create task tracker
-    static constexpr int PROGRESS_INTERVAL_CONFLICTS = 10;
-    ParallaxGenTask taskTracker("Finding Mod Conflicts", meshes.size(), PROGRESS_INTERVAL_CONFLICTS);
+    ParallaxGenTask taskTracker("Finding Mod Conflicts", meshes.size());
 
     // Create runner
     ParallaxGenRunner runner(multiThread);
+    if (progressCallback) {
+        taskTracker.setCallbackFunc(progressCallback);
+    }
 
     // Add tasks
     for (auto& [mesh, nifCache] : meshes) {

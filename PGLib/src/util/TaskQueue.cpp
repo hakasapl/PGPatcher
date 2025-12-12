@@ -66,10 +66,6 @@ void TaskQueue::waitForCompletion() const
     while (isWorking()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(LOOP_INTERVAL));
     }
-
-    if (ExceptionHandler::hasException()) {
-        ExceptionHandler::throwExceptionOnMainThread();
-    }
 }
 
 void TaskQueue::shutdown()

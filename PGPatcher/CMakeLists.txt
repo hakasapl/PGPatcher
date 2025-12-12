@@ -32,3 +32,4 @@ target_link_libraries(PGPatcher PRIVATE
 
 # Copy Folders
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/runningparallaxgen.gif DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources/)

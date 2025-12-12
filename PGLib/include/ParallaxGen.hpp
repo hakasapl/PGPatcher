@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
@@ -69,12 +70,22 @@ public:
         const PatcherUtil::PatcherMeshSet& meshPatchers, const PatcherUtil::PatcherTextureSet& texPatchers);
 
     /**
-     * @brief Run patcher (this is the meat of this whole thing)
+     * @brief Run mesh patcher
      *
      * @param multiThread whether to use multithreading
      * @param patchPlugin whether to generate plugin patches
      */
-    static void patch(const bool& multiThread = true, const bool& patchPlugin = true);
+    static void patchMeshes(const bool& multiThread = true, const bool& patchPlugin = true,
+        const std::function<void(size_t, size_t)>& progressCallback = {});
+
+    /**
+     * @brief Run texture patcher
+     *
+     * @param multiThread whether to use multithreading
+     * @param patchPlugin whether to generate plugin patches
+     */
+    static void patchTextures(
+        const bool& multiThread = true, const std::function<void(size_t, size_t)>& progressCallback = {});
 
     /**
      * @brief Finalize any other requires output files
@@ -87,7 +98,8 @@ public:
      * @param multiThread whether to use multithreading
      * @param patchPlugin whether to generate plugin patches
      */
-    static void populateModData(const bool& multiThread = true, const bool& patchPlugin = true);
+    static void populateModData(const bool& multiThread = true, const bool& patchPlugin = true,
+        const std::function<void(size_t, size_t)>& progressCallback = {});
 
     /**
      * @brief Delets output directory in a smart way

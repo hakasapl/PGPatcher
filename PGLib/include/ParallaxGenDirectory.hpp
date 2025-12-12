@@ -15,6 +15,7 @@
 #include <array>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -39,8 +40,6 @@ public:
     };
 
 private:
-    static constexpr int MAPTEXTURE_PROGRESS_MODULO = 10;
-
     struct UnconfirmedTextureProperty {
         std::unordered_map<NIFUtil::TextureSlots, size_t> slots;
         std::unordered_map<NIFUtil::TextureType, size_t> types;
@@ -92,7 +91,8 @@ public:
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist, const std::vector<std::wstring>& nifAllowlist,
         const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
         const std::vector<std::wstring>& parallaxBSAExcludes, const bool& patchPlugin,
-        const bool& multithreading = true, const bool& highmem = false) -> void;
+        const bool& multithreading = true, const bool& highmem = false,
+        const std::function<void(size_t, size_t)>& progressCallback = {}) -> void;
 
     void waitForMeshMapping();
 

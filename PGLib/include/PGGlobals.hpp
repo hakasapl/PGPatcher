@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BethesdaGame.hpp"
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
@@ -10,6 +11,7 @@
 
 class PGGlobals {
 private:
+    static BethesdaGame* s_BG;
     static ParallaxGenDirectory* s_PGD;
     static ParallaxGenD3D* s_PGD3D;
     static ModManagerDirectory* s_MMD;
@@ -17,6 +19,9 @@ private:
 public:
     static inline std::unordered_set<std::filesystem::path> s_foldersToMap
         = { "meshes", "textures", "pbrnifpatcher", "lightplacer" };
+
+    static auto getBG() -> BethesdaGame*;
+    static void setBG(BethesdaGame* bg);
 
     static auto getPGD() -> ParallaxGenDirectory*;
     static void setPGD(ParallaxGenDirectory* pgd);

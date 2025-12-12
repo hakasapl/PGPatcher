@@ -1,8 +1,13 @@
 #include "PGGlobals.hpp"
 
+#include "BethesdaGame.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "util/TaskQueue.hpp"
+
+BethesdaGame* PGGlobals::s_BG = nullptr;
+auto PGGlobals::getBG() -> BethesdaGame* { return s_BG; }
+void PGGlobals::setBG(BethesdaGame* bg) { s_BG = bg; }
 
 ParallaxGenDirectory* PGGlobals::s_PGD = nullptr;
 auto PGGlobals::getPGD() -> ParallaxGenDirectory* { return s_PGD; }
