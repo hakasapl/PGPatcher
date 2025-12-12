@@ -82,6 +82,10 @@ try {
             $copyFile = $true
         }
 
+        if ($_.PSIsContainer -and $_.Name -eq 'resources') {
+            $copyFile = $true
+        }
+
         # Check if is folder and name is "cshaders"
         if ($_.PSIsContainer -and $_.Name -eq 'cshaders') {
             $copyFile = $true
