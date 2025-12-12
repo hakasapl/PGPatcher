@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cstddef>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -15,8 +16,14 @@ ParallaxGenTask::ParallaxGenTask(string taskName, const size_t& totalJobs, const
     : m_progressPrintModulo(progressPrintModulo)
     , m_taskName(std::move(taskName))
     , m_totalJobs(totalJobs)
+    , m_totalRanJobs(0)
 {
     initJobStatus();
+}
+
+void ParallaxGenTask::setCallbackFunc(std::function<void(size_t, size_t)> callbackFunc)
+{
+    m_callbackFunc = std::move(callbackFunc);
 }
 
 void ParallaxGenTask::completeJob(const PGResult& result)
@@ -25,6 +32,7 @@ void ParallaxGenTask::completeJob(const PGResult& result)
     const lock_guard<mutex> lock(m_numJobsCompletedMutex);
 
     m_numJobsCompleted[result]++;
+    m_totalRanJobs++;
     printJobStatus();
 }
 
@@ -49,6 +57,11 @@ void ParallaxGenTask::printJobStatus(bool force)
 
         if (perc % m_progressPrintModulo == 0) {
             Logger::info("{} Progress: {}/{} [{}%]", m_taskName, combinedJobs, m_totalJobs, perc);
+
+            // callback
+            if (m_callbackFunc) {
+                m_callbackFunc(m_totalRanJobs, m_totalJobs);
+            }
         }
     }
 

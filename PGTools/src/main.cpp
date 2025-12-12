@@ -232,7 +232,8 @@ void mainRunner(PGToolsCLIArgs& args)
         }
 
         ParallaxGen::loadPatchers(meshPatchers, texPatchers);
-        ParallaxGen::patch(args.multithreading, false);
+        ParallaxGen::patchMeshes(args.multithreading, false);
+        ParallaxGen::patchTextures(args.multithreading);
 
         // Finalize step
         if (patcherDefs.contains("particlelightstolp")) {

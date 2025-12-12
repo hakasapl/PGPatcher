@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <shared_mutex>
@@ -144,7 +145,8 @@ void ParallaxGenDirectory::waitForCMClassification()
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
-    const bool& patchPlugin, const bool& multithreading, const bool& highmem) -> void
+    const bool& patchPlugin, const bool& multithreading, const bool& highmem,
+    const std::function<void(size_t, size_t)>& progressCallback) -> void
 {
     findFiles();
 
@@ -155,7 +157,10 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
     Logger::info("Starting to build texture mappings");
 
     // Create task tracker
-    ParallaxGenTask taskTracker("Loading NIFs", m_unconfirmedMeshes.size(), MAPTEXTURE_PROGRESS_MODULO);
+    ParallaxGenTask taskTracker("Loading NIFs", m_unconfirmedMeshes.size());
+    if (progressCallback) {
+        taskTracker.setCallbackFunc(progressCallback);
+    }
 
     // Create runner
     ParallaxGenRunner runner(multithreading);
