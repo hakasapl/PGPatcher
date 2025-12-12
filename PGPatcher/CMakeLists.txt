@@ -10,7 +10,7 @@ file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS include/*.hpp)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
 include_directories("include")
-add_executable(PGPatcher
+add_executable(PGPatcher WIN32
     ${SOURCES}
     ${HEADERS}
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.rc
