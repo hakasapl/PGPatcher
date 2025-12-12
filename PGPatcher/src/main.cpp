@@ -785,7 +785,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     // Create callback function for progress bars
     const std::function<void(size_t, size_t)>& progressCallback
         = [&progressWindow](size_t completed, size_t total) -> void {
-        progressWindow->CallAfter([&progressWindow, &completed, &total]() -> void {
+        progressWindow->CallAfter([=]() -> void {
             progressWindow->setStepProgress(static_cast<int>(completed), static_cast<int>(total), true);
         });
     };
