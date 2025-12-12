@@ -59,15 +59,21 @@ ProgressWindow::ProgressWindow()
     Centre();
 }
 
-void ProgressWindow::setMainProgress(int done, int total)
+void ProgressWindow::setMainProgress(int done, int total, bool addToLabel)
 {
     const int perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100.0);
     m_progressBarMain->SetValue(perc);
     m_progressBarMain->Refresh();
     m_progressBarMain->Update();
+    if (addToLabel) {
+        m_mainStatusText->SetLabel(m_mainLabelBase + wxString::Format(" %d / %d [ %d%% ]", done, total, perc));
+        m_mainStatusText->Refresh();
+        m_mainStatusText->Update();
+    }
 }
 void ProgressWindow::setMainLabel(const std::string& label)
 {
+    m_mainLabelBase = wxString(label);
     m_mainStatusText->SetLabel(label);
     m_mainStatusText->Refresh();
     m_mainStatusText->Update();

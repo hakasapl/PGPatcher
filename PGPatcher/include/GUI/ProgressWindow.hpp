@@ -8,6 +8,7 @@
 
 class ProgressWindow : public wxDialog {
 private:
+    wxString m_mainLabelBase;
     wxString m_stepLabelBase;
 
     wxStaticText* m_mainStatusText;
@@ -19,7 +20,7 @@ private:
 public:
     ProgressWindow();
 
-    void setMainProgress(int done, int total);
+    void setMainProgress(int done, int total, bool addToLabel = false);
     void setMainLabel(const std::string& label);
 
     void setStepProgress(int done, int total, bool addToLabel = false);

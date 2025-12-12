@@ -231,7 +231,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Preparing");
         progressWindow->setStepLabel("");
-        progressWindow->setMainProgress(0, NUM_TOTAL_STEPS);
+        progressWindow->setMainProgress(0, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, NUM_PREPARING_STEPS);
     });
 
@@ -539,7 +539,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Loading meshes");
         progressWindow->setStepLabel("");
-        progressWindow->setMainProgress(1, NUM_TOTAL_STEPS);
+        progressWindow->setMainProgress(1, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
 
@@ -559,7 +559,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         progressWindow->CallAfter([&progressWindow]() -> void {
             progressWindow->setMainLabel("Building mod conflict information");
             progressWindow->setStepLabel("");
-            progressWindow->setMainProgress(2, NUM_TOTAL_STEPS);
+            progressWindow->setMainProgress(2, NUM_TOTAL_STEPS, true);
             progressWindow->setStepProgress(0, 1);
         });
 
@@ -583,7 +583,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Patching meshes");
         progressWindow->setStepLabel("");
-        progressWindow->setMainProgress(3, NUM_TOTAL_STEPS);
+        progressWindow->setMainProgress(3, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
 
@@ -597,7 +597,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Patching textures");
         progressWindow->setStepLabel("Processing textures");
-        progressWindow->setMainProgress(4, NUM_TOTAL_STEPS);
+        progressWindow->setMainProgress(4, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
 
@@ -606,7 +606,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Finalizing");
         progressWindow->setStepLabel("");
-        progressWindow->setMainProgress(5, NUM_TOTAL_STEPS);
+        progressWindow->setMainProgress(5, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, NUM_FINALIZING_STEPS);
     });
 
@@ -705,7 +705,8 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
         //
     }
 
-    progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setMainProgress(6, NUM_TOTAL_STEPS); });
+    progressWindow->CallAfter(
+        [&progressWindow]() -> void { progressWindow->setMainProgress(6, NUM_TOTAL_STEPS, true); });
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
