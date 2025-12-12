@@ -116,6 +116,9 @@ void ParallaxGen::patchMeshes(const bool& multiThread, const bool& patchPlugin,
     // Blocks until all tasks are done
     meshRunner.runTasks();
 
+    // final validation for weight variants
+    MeshTracker::validateWeightedVariants();
+
     // Finalize handlers
     HandlerLightPlacerTracker::finalize();
 
@@ -421,7 +424,8 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
                     nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures, enforceCheckBlocks)) {
                 return ParallaxGenTask::PGResult::FAILURE;
             }
-            if (meshTracker.commitDupMesh(formKey, use.second.alternateTextures, enforceCheckBlocks)) {
+            if (meshTracker.commitDupMesh(
+                    formKey, use.second.isWeighted, use.second.alternateTextures, enforceCheckBlocks)) {
                 Logger::trace("Mesh committed");
             } else {
                 Logger::trace("Mesh not committed (already exists or no changes)");

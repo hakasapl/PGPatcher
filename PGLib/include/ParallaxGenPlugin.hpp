@@ -44,6 +44,7 @@ public:
     };
 
     struct MeshUseAttributes {
+        bool isWeighted;
         bool singlepassMATO;
         std::unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures;
     };

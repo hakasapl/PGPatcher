@@ -20,6 +20,7 @@
 #include <fstream>
 #include <ios>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -120,7 +121,7 @@ auto MeshTracker::commitBaseMesh() -> bool
     return true;
 }
 
-auto MeshTracker::commitDupMesh(const FormKey& formKey,
+auto MeshTracker::commitDupMesh(const FormKey& formKey, bool isWeighted,
     const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
     const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
@@ -165,6 +166,30 @@ auto MeshTracker::commitDupMesh(const FormKey& formKey,
         m_stagedMesh.Clear();
 
         return false;
+    }
+
+    // Check other weight variant cache
+    if (isWeighted) {
+        const std::scoped_lock lock(s_otherWeightVariantsMutex);
+        const auto dupIdx = m_outputMeshes.size();
+        // check if other variant exists
+        const auto otherVariantPath = getOtherWeightVariant(m_origMeshPath);
+        if (s_otherWeightVariants.contains({ otherVariantPath, dupIdx })) {
+            // this is weighted and was processed before, compare them
+            if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{ otherVariantPath, dupIdx }], {}, true)) {
+                // different from each other, post error
+                Logger::error(L"Weighted mesh variant for '{}' differs from other weight variant '{}'. This is an "
+                              L"issue with the original models and can cause CTDs.",
+                    m_origMeshPath.wstring(), otherVariantPath.wstring());
+            }
+
+            // delete from cache to free memory
+            s_otherWeightVariants.erase({ otherVariantPath, dupIdx });
+        } else {
+            // add to cache
+            s_otherWeightVariants[{ m_origMeshPath, dupIdx }] = nifly::NifFile();
+            s_otherWeightVariants[{ m_origMeshPath, dupIdx }].CopyFrom(m_stagedMesh);
+        }
     }
 
     // Add new mesh
@@ -292,6 +317,17 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
     }
 
     return { output, { m_origCrc32, 0 } };
+}
+
+void MeshTracker::validateWeightedVariants()
+{
+    const std::scoped_lock lock(s_otherWeightVariantsMutex);
+    for (const auto& [key, nifFile] : s_otherWeightVariants) {
+        Logger::error(L"Weighted mesh variant for '{}' was not created. This is an issue with the original plugins and "
+                      L"can cause CTDs.",
+            key.first.wstring());
+    }
+    s_otherWeightVariants.clear();
 }
 
 //
@@ -699,4 +735,23 @@ auto MeshTracker::get3dIndices(const nifly::NifFile* nif) -> unordered_map<nifly
     }
 
     return blocks;
+}
+
+auto MeshTracker::getOtherWeightVariant(const std::filesystem::path& nifPath) -> std::filesystem::path
+{
+    // convert m_origMeshPath to weight slider variant
+    std::filesystem::path weightVariant = nifPath;
+
+    const static wstring oneWeightVariant = L"_1.nif";
+    const static wstring zeroWeightVariant = L"_0.nif";
+
+    if (nifPath.wstring().ends_with(oneWeightVariant)) {
+        weightVariant = weightVariant.wstring().substr(0, weightVariant.wstring().size() - oneWeightVariant.size())
+            + zeroWeightVariant;
+    } else if (nifPath.wstring().ends_with(zeroWeightVariant)) {
+        weightVariant = weightVariant.wstring().substr(0, weightVariant.wstring().size() - zeroWeightVariant.size())
+            + oneWeightVariant;
+    }
+
+    return weightVariant;
 }

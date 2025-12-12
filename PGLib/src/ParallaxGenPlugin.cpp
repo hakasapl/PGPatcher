@@ -7,6 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
@@ -87,11 +88,27 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
 {
     vector<pair<MeshTracker::FormKey, MeshUseAttributes>> result;
 
+    auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
+    // sort modelUses by putting weighted ones first, then by mod name, then by formid, then by submodel
+    std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) -> bool {
+        if (a.isWeighted != b.isWeighted) {
+            return a.isWeighted > b.isWeighted; // weighted first
+        }
+        if (a.modName != b.modName) {
+            return a.modName < b.modName; // alphabetical mod name
+        }
+        if (a.formID != b.formID) {
+            return a.formID < b.formID; // ascending formid
+        }
+        return a.subModel < b.subModel; // alphabetical submodel
+    });
+
     for (const auto& modelUse : PGMutagenWrapper::libGetModelUses(modelPath)) {
         const MeshTracker::FormKey formKey {
             .modKey = modelUse.modName, .formID = modelUse.formID, .subMODL = modelUse.subModel
         };
         MeshUseAttributes attributes;
+        attributes.isWeighted = modelUse.isWeighted;
         attributes.singlepassMATO = modelUse.singlepassMATO;
 
         for (const auto& altTex : modelUse.alternateTextures) {
