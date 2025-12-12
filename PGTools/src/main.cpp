@@ -2,7 +2,6 @@
 #include "ParallaxGen.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenWarnings.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
@@ -106,7 +105,6 @@ void mainRunner(PGToolsCLIArgs& args)
         PGGlobals::setPGD3D(&pgd3D);
 
         Patcher::loadStatics(pgd, pgd3D);
-        ParallaxGenWarnings::init();
 
         // Check if GPU needs to be initialized
         if (!pgd3D.initGPU()) {
