@@ -17,6 +17,11 @@ jobs:
         with:
           arch: amd64
 
+      - name: Install flatc
+        uses: Nugine/setup-flatc@v1
+        with:
+          version: "25.2.10"
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
