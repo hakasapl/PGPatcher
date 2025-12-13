@@ -760,11 +760,12 @@ auto MeshTracker::getOtherWeightVariant(const std::filesystem::path& nifPath) ->
     const static wstring oneWeightVariant = L"_1.nif";
     const static wstring zeroWeightVariant = L"_0.nif";
 
-    if (nifPath.wstring().ends_with(oneWeightVariant)) {
-        weightVariant = weightVariant.wstring().substr(0, weightVariant.wstring().size() - oneWeightVariant.size())
+    const std::wstring nifPathStr = nifPath.wstring();
+    if (nifPathStr.ends_with(oneWeightVariant)) {
+        weightVariant = nifPathStr.substr(0, nifPathStr.size() - oneWeightVariant.size())
             + zeroWeightVariant;
-    } else if (nifPath.wstring().ends_with(zeroWeightVariant)) {
-        weightVariant = weightVariant.wstring().substr(0, weightVariant.wstring().size() - zeroWeightVariant.size())
+    } else if (nifPathStr.ends_with(zeroWeightVariant)) {
+        weightVariant = nifPathStr.substr(0, nifPathStr.size() - zeroWeightVariant.size())
             + oneWeightVariant;
     }
 
