@@ -17,6 +17,11 @@ jobs:
         with:
           arch: amd64
 
+      - name: Install flatc
+        uses: Nugine/setup-flatc@v1
+        with:
+          version: "25.2.10"
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -25,16 +30,10 @@ jobs:
 
       - name: Build Release
         run: |
-          ./buildRelease.ps1
+          ./buildRelease.ps1 -NoZip
 
       - name: Upload Release
         uses: actions/upload-artifact@v4
         with:
-          name: pgpatcher-dist-${{ github.sha }}
-          path: dist
-
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: pgpatcher-build-${{ github.sha }}
-          path: buildRelease/bin
+          name: pgpatcher-${{ github.sha }}
+          path: dist/PGPatcher

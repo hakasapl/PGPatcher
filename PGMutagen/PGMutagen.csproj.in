@@ -10,17 +10,25 @@
         <Configurations>Release;Debug</Configurations>
         <PlatformTarget>x64</PlatformTarget>
         <Platforms>x64</Platforms>
+
+        <RestorePackagesPath>@PGMUTAGENNE_NUGET_DIR@</RestorePackagesPath>
+        <BaseIntermediateOutputPath>@PGMUTAGENNE_OBJ_DIR@</BaseIntermediateOutputPath>
+        <BaseOutputPath>@PGMUTAGENNE_BIN_DIR@</BaseOutputPath>
+        <FlatBuffersGeneratedFolder>@PGMUTAGENNE_OBJ_DIR@/flatbuffers/PGMutagenBuffers</FlatBuffersGeneratedFolder>
     </PropertyGroup>
+
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
         <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
     </PropertyGroup>
+
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|AnyCPU'">
         <Optimize>true</Optimize>
         <DebugType>pdbonly</DebugType>
         <DebugSymbols>true</DebugSymbols>
     </PropertyGroup>
+
     <ItemGroup>
-        <Compile Include=".\obj\flatbuffers\PGMutagenBuffers\*.cs" />
+        <Compile Include="$(FlatBuffersGeneratedFolder)\*.cs" />
         <PackageReference Include="DNNE" Version="2.0.7" />
         <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
         <PackageReference Include="Lib.Harmony" Version="2.3.3" />
