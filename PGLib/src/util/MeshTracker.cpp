@@ -534,6 +534,9 @@ auto MeshTracker::compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly
     if (!shapeA.HasVertexColors() && !shapeB.HasVertexColors()) {
         // nothing to check
         return true;
+    } else if (shapeA.HasVertexColors() != shapeB.HasVertexColors()) {
+        // only one shape has vertex colors
+        return false;
     }
 
     const auto vertdataA = shapeA.vertData;
