@@ -534,7 +534,9 @@ auto MeshTracker::compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly
     if (!shapeA.HasVertexColors() && !shapeB.HasVertexColors()) {
         // nothing to check
         return true;
-    } else if (shapeA.HasVertexColors() != shapeB.HasVertexColors()) {
+    }
+
+    if (shapeA.HasVertexColors() != shapeB.HasVertexColors()) {
         // only one shape has vertex colors
         return false;
     }
@@ -765,11 +767,9 @@ auto MeshTracker::getOtherWeightVariant(const std::filesystem::path& nifPath) ->
 
     const std::wstring nifPathStr = nifPath.wstring();
     if (nifPathStr.ends_with(oneWeightVariant)) {
-        weightVariant = nifPathStr.substr(0, nifPathStr.size() - oneWeightVariant.size())
-            + zeroWeightVariant;
+        weightVariant = nifPathStr.substr(0, nifPathStr.size() - oneWeightVariant.size()) + zeroWeightVariant;
     } else if (nifPathStr.ends_with(zeroWeightVariant)) {
-        weightVariant = nifPathStr.substr(0, nifPathStr.size() - zeroWeightVariant.size())
-            + oneWeightVariant;
+        weightVariant = nifPathStr.substr(0, nifPathStr.size() - zeroWeightVariant.size()) + oneWeightVariant;
     }
 
     return weightVariant;
