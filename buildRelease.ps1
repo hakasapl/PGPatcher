@@ -3,6 +3,10 @@ PowerShell script to build the release version of PGPatcher as well as a symbols
 This script is intended to be run from the command line, not from within an IDE.
 #>
 
+param(
+    [switch]$NoZip  # If specified, skip creating the zip file
+)
+
 # Enable strict mode for safer scripting
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -48,7 +52,7 @@ if (-not (Test-Path -Path $distDir -PathType Container)) {
 $zipFile = Join-Path -Path $distDir -ChildPath "PGPatcher.zip"
 
 # Create a temporary directory to collect the files
-$tempDir = Join-Path -Path $env:TEMP -ChildPath "PGPatcherZipTemp_$(Get-Random)"
+$tempDir = Join-Path -Path $distDir -ChildPath "PGPatcher"
 $fileDir = Join-Path -Path $tempDir -ChildPath "PGPatcher"
 New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
 New-Item -Path $fileDir -ItemType Directory -Force | Out-Null
@@ -117,38 +121,42 @@ try {
     Write-Host "Creating blank meshes folder: $meshesDir"
     New-Item -Path $meshesDir -ItemType Directory -Force | Out-Null
 
-    # Create the zip file
-    Write-Host "Creating zip file: $zipFile"
-    if (Test-Path -Path $zipFile) {
-        Remove-Item -Path $zipFile -Force
-    }
-
-    # Custom encoder to fix linux paths
-    Add-Type -AssemblyName System.Text.Encoding
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-    class FixedEncoder : System.Text.UTF8Encoding {
-        FixedEncoder() : base($true) { }
-
-        [byte[]] GetBytes([string] $s) {
-            $s = $s.Replace("\\", "/");
-            return ([System.Text.UTF8Encoding]$this).GetBytes($s);
+    if (-not $NoZip) {
+        # Create the zip file
+        Write-Host "Creating zip file: $zipFile"
+        if (Test-Path -Path $zipFile) {
+            Remove-Item -Path $zipFile -Force
         }
+
+        # Custom encoder to fix linux paths
+        Add-Type -AssemblyName System.Text.Encoding
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+        class FixedEncoder : System.Text.UTF8Encoding {
+            FixedEncoder() : base($true) { }
+
+            [byte[]] GetBytes([string] $s) {
+                $s = $s.Replace("\\", "/");
+                return ([System.Text.UTF8Encoding]$this).GetBytes($s);
+            }
+        }
+
+        # Create zip file
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $zipFile, [System.IO.Compression.CompressionLevel]::Optimal, $false, [FixedEncoder]::new())
+
+        Write-Host "Zip file created successfully: $zipFile"
     }
-
-    # Create zip file
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $zipFile, [System.IO.Compression.CompressionLevel]::Optimal, $false, [FixedEncoder]::new())
-
-    Write-Host "Zip file created successfully: $zipFile"
 }
 catch {
     Write-Error "An error occurred: $_"
     exit 1
 }
 finally {
-    # Clean up the temporary directory
-    if (Test-Path -Path $tempDir) {
-        Remove-Item -Path $tempDir -Recurse -Force
+    if (-not $NoZip) {
+        # Clean up the temporary directory
+        if (Test-Path -Path $tempDir) {
+            Remove-Item -Path $tempDir -Recurse -Force
+        }
     }
 }
