@@ -1,6 +1,11 @@
 cmake_minimum_required (VERSION 3.31)
 
 #
+# Project
+#
+set(PROJECT_NAME "PGPatcher")
+
+#
 # Using C++20 Standard for all modules
 #
 set(CMAKE_CXX_STANDARD 20)
@@ -22,11 +27,6 @@ add_compile_definitions(WIN32_LEAN_AND_MEAN)
 add_compile_definitions(NOSOCKETTYPE)
 add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 add_compile_definitions(_WIN32_WINNT=0x0A00)
-
-#
-# Project
-#
-set(PROJECT_NAME "PGPatcher")
 
 # Version
 set(PG_VERSION_MAJOR 0)
