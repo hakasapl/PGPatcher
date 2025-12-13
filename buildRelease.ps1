@@ -19,10 +19,6 @@ if (-not $scriptDir) {
 
 # Setup folders with absolute paths
 $buildDir = Join-Path -Path $scriptDir -ChildPath "buildRelease"
-if (-not (Test-Path -Path $buildDir -PathType Container)) {
-    New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
-}
-
 $sourceBinDir = Join-Path -Path $buildDir -ChildPath "bin"
 $distDir = Join-Path -Path $scriptDir -ChildPath "dist"
 $toolchain = "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
@@ -30,7 +26,14 @@ $toolchain = "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 # Delete build directory if it exists
 if (Test-Path $buildDir) {
     Remove-Item -Recurse -Force $buildDir
+}
+
+if (Test-Path $distDir) {
     Remove-Item -Recurse -Force $distDir
+}
+
+if (-not (Test-Path -Path $buildDir -PathType Container)) {
+    New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
 }
 
 # Configure PGPatcher
