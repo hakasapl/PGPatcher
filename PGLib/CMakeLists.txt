@@ -1,13 +1,22 @@
-﻿set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+﻿# Export all symbols in the DLL so we don't have to use __declspec in the code
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
+#
+# Includes and Sources
+#
 include_directories("include")
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS include/*.hpp)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
-# Add the library
-add_library(PGLib SHARED ${SOURCES} ${HEADERS})
+#
+# Library
+#
+set(LIBRARY_NAME "PGLib")
+add_library(${LIBRARY_NAME} SHARED ${SOURCES} ${HEADERS})
 
-# Add Packages
+#
+# VCPKG Dependencies
+#
 find_package(spdlog REQUIRED CONFIG)
 find_package(bsa REQUIRED CONFIG)
 find_package(Boost REQUIRED COMPONENTS locale)
@@ -31,7 +40,7 @@ set(D3D_LIBS
     oleaut32.lib
     D3DCompiler.lib
 )
-target_link_libraries(PGLib PUBLIC
+target_link_libraries(${LIBRARY_NAME} PUBLIC
     spdlog::spdlog
     bsa::bsa
     ${Boost_LIBRARIES}
@@ -45,16 +54,18 @@ target_link_libraries(PGLib PUBLIC
     cpptrace::cpptrace
     PGMutagenWrapper
 )
-target_include_directories(PGLib PUBLIC include)
+target_include_directories(${LIBRARY_NAME} PUBLIC include)
 
-# Asset moving
-add_custom_command(TARGET PGLib POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:PGLib>/cshaders
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:PGLib>/cshaders
+#
+# Shader Files
+#
+add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/cshaders
-        $<TARGET_FILE_DIR:PGLib>/cshaders
+        $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
 )
 
 # include and link mutagen wrapper output
-add_dependencies(PGLib PGMutagenWrapper)
+add_dependencies(${LIBRARY_NAME} PGMutagenWrapper)

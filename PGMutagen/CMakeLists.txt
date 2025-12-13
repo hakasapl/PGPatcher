@@ -1,39 +1,43 @@
-project(PGMutagenWrapper LANGUAGES CXX)
-
+# Export all symbols in the DLL so we don't have to use __declspec in the code
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Include directories ---
+#
+# Includes and Sources
+#
 include_directories("include")
 include_directories(
     spdlog::spdlog
     ${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen
     ${CMAKE_CURRENT_SOURCE_DIR}/obj/flatbuffers
 )
-
-# --- Gather sources ---
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS include/*.hpp)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
-# --- Add the shared library ---
-add_library(PGMutagenWrapper SHARED ${SOURCES} ${HEADERS})
-target_compile_options(PGMutagenWrapper PRIVATE /utf-8)
+#
+# Library
+#
+set(LIBRARY_NAME "PGMutagenWrapper")
+add_library(${LIBRARY_NAME} SHARED ${SOURCES} ${HEADERS})
+target_compile_options(${LIBRARY_NAME} PRIVATE /utf-8)
 
-# --- Find Packages ---
+#
+# VCPKG Dependencies
+#
 find_package(spdlog REQUIRED CONFIG)
 find_package(flatbuffers REQUIRED)
 
-target_link_libraries(PGMutagenWrapper
+target_link_libraries(${LIBRARY_NAME}
     PRIVATE
         flatbuffers::flatbuffers
         spdlog::spdlog
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen/PGMutagenNE.lib"
 )
-target_include_directories(PGMutagenWrapper PUBLIC include)
+target_include_directories(${LIBRARY_NAME} PUBLIC include)
 
-# --- FlatBuffers generation ---
+#
+# FlatBuffers Code Generation
+#
 find_program(FLATC_EXECUTABLE flatc)
 if(NOT FLATC_EXECUTABLE)
     message(FATAL_ERROR "flatc not found! Please install FlatBuffers compiler and add to your path.")
@@ -55,9 +59,11 @@ add_custom_target(PGMutagenBuffers ALL
     DEPENDS ${GENERATED_FLATBUFFERS_HEADER}
 )
 
-add_dependencies(PGMutagenWrapper PGMutagenBuffers)
+add_dependencies(${LIBRARY_NAME} PGMutagenBuffers)
 
-# --- Build PGMutagenNE.lib via MSBuild ---
+#
+# C# Project Build
+#
 if (${CMAKE_BUILD_TYPE} STREQUAL "Release" OR ${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo")
     set(MSBUILD_CONFIGURATION "Release")
 elseif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
@@ -75,12 +81,14 @@ add_custom_target(PGMutagenNE ALL
     COMMENT "Building PGMutagenNE.lib"
 )
 
-add_dependencies(PGMutagenWrapper PGMutagenNE)
+add_dependencies(${LIBRARY_NAME} PGMutagenNE)
 
-# --- Post-build: copy DLLs to runtime output ---
+#
+# C# DLLs Copy
+#
 file(GLOB PG_MUTAGEN_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/bin/PGMutagen/*")
 foreach(file_path IN LISTS PG_MUTAGEN_DLLS)
-    add_custom_command(TARGET PGMutagenWrapper POST_BUILD
+    add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${file_path}"
             "${CMAKE_BINARY_DIR}/bin"
