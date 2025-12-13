@@ -24,19 +24,18 @@ if (-not (Test-Path -Path $buildDir -PathType Container)) {
 }
 
 $sourceBinDir = Join-Path -Path $buildDir -ChildPath "bin"
-$installDir = Join-Path -Path $scriptDir -ChildPath "install"
 $distDir = Join-Path -Path $scriptDir -ChildPath "dist"
 $toolchain = "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 
 # Delete build directory if it exists
 if (Test-Path $buildDir) {
     Remove-Item -Recurse -Force $buildDir
+    Remove-Item -Recurse -Force $distDir
 }
 
 # Configure PGPatcher
 cmake -B $buildDir -S . -G Ninja `
     -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
-    -DCMAKE_INSTALL_PREFIX="$installDir" `
     -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 # Build and install
