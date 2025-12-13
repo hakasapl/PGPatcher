@@ -27,6 +27,7 @@ public:
         std::wstring modName;
         unsigned int formID;
         std::string subModel;
+        bool isWeighted;
         std::wstring meshFile;
         bool singlepassMATO;
         std::vector<AlternateTexture> alternateTextures;

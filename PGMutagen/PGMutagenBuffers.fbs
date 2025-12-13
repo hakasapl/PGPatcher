@@ -17,6 +17,7 @@ table ModelUse {
   mod_name:string;
   form_id:uint;
   sub_model:string;
+  is_weighted:bool;
   mesh_file:string;
   singlepass_mato:bool;  // This is readonly
   alternate_textures:[AlternateTexture];

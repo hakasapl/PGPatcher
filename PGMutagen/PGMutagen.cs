@@ -338,32 +338,37 @@ public class PGMutagen
                     ModelUses[meshName].Add(curTuple);
 
                     // Check if we need to also add the weight counterpart
+                    bool isWeighted = false;
                     if (modelMajorRec is IArmorAddonGetter armorAddonGetter)
                     {
                         if ((modelRec.Item2 == "MALE" && armorAddonGetter.WeightSliderEnabled.Male) || (modelRec.Item2 == "FEMALE" && armorAddonGetter.WeightSliderEnabled.Female))
                         {
-                            // weight slider is enabled
-                            string weightMeshName = string.Empty;
-                            if (meshName.EndsWith("_0.nif"))
+                            isWeighted = true;
+                        }
+                    }
+                    if (isWeighted)
+                    {
+                        // weight slider is enabled
+                        string weightMeshName = string.Empty;
+                        if (meshName.EndsWith("_0.nif"))
+                        {
+                            // replace _0.nif with _1.nif
+                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
+                        }
+                        else if (meshName.EndsWith("_1.nif"))
+                        {
+                            // replace _1.nif with _0.nif
+                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
+                        }
+
+                        if (!weightMeshName.IsNullOrEmpty())
+                        {
+                            if (!ModelUses.ContainsKey(weightMeshName))
                             {
-                                // replace _0.nif with _1.nif
-                                weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
-                            }
-                            else if (meshName.EndsWith("_1.nif"))
-                            {
-                                // replace _1.nif with _0.nif
-                                weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
+                                ModelUses[weightMeshName] = [];
                             }
 
-                            if (!weightMeshName.IsNullOrEmpty())
-                            {
-                                if (!ModelUses.ContainsKey(weightMeshName))
-                                {
-                                    ModelUses[weightMeshName] = [];
-                                }
-
-                                ModelUses[weightMeshName].Add(curTuple);
-                            }
+                            ModelUses[weightMeshName].Add(curTuple);
                         }
                     }
                 }
@@ -775,6 +780,15 @@ public class PGMutagen
                     is_singlePass = (materialRec.Flags & MaterialObject.Flag.SinglePass) != 0;
                 }
 
+                bool is_weighted = false;
+                if (modelRec is IArmorAddonGetter armorAddonRec)
+                {
+                    if ((subModel == "MALE" && armorAddonRec.WeightSliderEnabled.Male) || (subModel == "FEMALE" && armorAddonRec.WeightSliderEnabled.Female))
+                    {
+                        is_weighted = true;
+                    }
+                }
+
                 var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
                 var subModelOffset = builder.CreateString(subModel);
                 var modelNameOffset = builder.CreateString(nifName);
@@ -783,6 +797,7 @@ public class PGMutagen
                 PGMutagenBuffers.ModelUse.AddModName(builder, modNameOffset);
                 PGMutagenBuffers.ModelUse.AddFormId(builder, formKey.ID);
                 PGMutagenBuffers.ModelUse.AddSubModel(builder, subModelOffset);
+                PGMutagenBuffers.ModelUse.AddIsWeighted(builder, is_weighted);
                 PGMutagenBuffers.ModelUse.AddMeshFile(builder, modelNameOffset);
                 PGMutagenBuffers.ModelUse.AddSinglepassMato(builder, is_singlePass);
                 PGMutagenBuffers.ModelUse.AddAlternateTextures(builder, altTexVector);

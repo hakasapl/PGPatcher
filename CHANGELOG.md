@@ -8,7 +8,9 @@
 - Added minimize box to all GUI
 - Added "Open Log File" button to confirmation dialog
 - Mod mismatch warnings are now printed during generation (and are shown in the confirmation dialog)
+- Added error messages for mismatched weighted meshes
 - Fixed weight variants being swapped for the other variant when it is not necessary
+- Fixed out of order weighted mesh processing edge case
 
 ## [0.9.8] - 2025-12-01
 
