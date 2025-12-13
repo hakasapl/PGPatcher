@@ -79,7 +79,7 @@ auto MeshTracker::stageMesh() -> nifly::NifFile*
     return m_stagedMeshPtr;
 }
 
-auto MeshTracker::commitBaseMesh() -> bool
+auto MeshTracker::commitBaseMesh(bool isWeighted) -> bool
 {
     if (!m_outputMeshes.empty()) {
         // Base mesh already committed
@@ -100,6 +100,11 @@ auto MeshTracker::commitBaseMesh() -> bool
         m_stagedMesh.Clear();
 
         return false;
+    }
+
+    if (isWeighted) {
+        // Process weighted variant
+        processWeightVariant();
     }
 
     const MeshResult meshResult = { .meshPath = {}, .altTexResults = {}, .idxCorrections = {} };
@@ -168,28 +173,9 @@ auto MeshTracker::commitDupMesh(const FormKey& formKey, bool isWeighted,
         return false;
     }
 
-    // Check other weight variant cache
     if (isWeighted) {
-        const std::scoped_lock lock(s_otherWeightVariantsMutex);
-        const auto dupIdx = m_outputMeshes.size();
-        // check if other variant exists
-        const auto otherVariantPath = getOtherWeightVariant(m_origMeshPath);
-        if (s_otherWeightVariants.contains({ otherVariantPath, dupIdx })) {
-            // this is weighted and was processed before, compare them
-            if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{ otherVariantPath, dupIdx }], {}, true)) {
-                // different from each other, post error
-                Logger::error(L"Weighted mesh variant for '{}' differs from other weight variant '{}'. This is an "
-                              L"issue with the original models and can cause CTDs.",
-                    m_origMeshPath.wstring(), otherVariantPath.wstring());
-            }
-
-            // delete from cache to free memory
-            s_otherWeightVariants.erase({ otherVariantPath, dupIdx });
-        } else {
-            // add to cache
-            s_otherWeightVariants[{ m_origMeshPath, dupIdx }] = nifly::NifFile();
-            s_otherWeightVariants[{ m_origMeshPath, dupIdx }].CopyFrom(m_stagedMesh);
-        }
+        // Process weighted variant
+        processWeightVariant();
     }
 
     // Add new mesh
@@ -330,12 +316,36 @@ void MeshTracker::validateWeightedVariants()
     s_otherWeightVariants.clear();
 }
 
+void MeshTracker::processWeightVariant()
+{
+    // Check other weight variant cache
+    const std::scoped_lock lock(s_otherWeightVariantsMutex);
+    const auto dupIdx = m_outputMeshes.size();
+    // check if other variant exists
+    const auto otherVariantPath = getOtherWeightVariant(m_origMeshPath);
+    if (s_otherWeightVariants.contains({ otherVariantPath, dupIdx })) {
+        if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{ otherVariantPath, dupIdx }], {}, true, true)) {
+            // different from each other, post error
+            Logger::error(L"Weighted mesh variant for '{}' differs from other weight variant '{}'. This is an "
+                          L"issue with the original models or bad pbr json definitions and can cause CTDs.",
+                m_origMeshPath.wstring(), otherVariantPath.wstring());
+        }
+
+        // delete from cache to free memory
+        s_otherWeightVariants.erase({ otherVariantPath, dupIdx });
+    } else {
+        // add to cache
+        s_otherWeightVariants[{ m_origMeshPath, dupIdx }] = nifly::NifFile();
+        s_otherWeightVariants[{ m_origMeshPath, dupIdx }].CopyFrom(m_stagedMesh);
+    }
+}
+
 //
 // ANY changes in patchers that involve WRITING new properties must be included in the equality operators below
 //
 
 auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
-    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST) -> bool
+    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST, bool skipVertCheck) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
     const auto blocksA = getComparableBlocks(&meshA);
@@ -427,7 +437,7 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
             }
             if (bstrishapeA != nullptr && bstrishapeB != nullptr) {
                 // compare trishape helper
-                if (!compareBSTriShape(*bstrishapeA, *bstrishapeB)) {
+                if (!skipVertCheck && !compareBSTriShape(*bstrishapeA, *bstrishapeB)) {
                     return false;
                 }
             }
@@ -521,6 +531,11 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
 
 auto MeshTracker::compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly::BSTriShape& shapeB) -> bool
 {
+    if (!shapeA.HasVertexColors() && !shapeB.HasVertexColors()) {
+        // nothing to check
+        return true;
+    }
+
     const auto vertdataA = shapeA.vertData;
     const auto vertdataB = shapeB.vertData;
     if (vertdataA.size() != vertdataB.size()) {

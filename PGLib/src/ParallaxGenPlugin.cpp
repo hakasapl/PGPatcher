@@ -103,7 +103,7 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
         return a.subModel < b.subModel; // alphabetical submodel
     });
 
-    for (const auto& modelUse : PGMutagenWrapper::libGetModelUses(modelPath)) {
+    for (const auto& modelUse : modelUses) {
         const MeshTracker::FormKey formKey {
             .modKey = modelUse.modName, .formID = modelUse.formID, .subMODL = modelUse.subModel
         };

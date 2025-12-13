@@ -386,6 +386,17 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
         meshTracker.load();
     }
 
+    bool isWeighted = false;
+    // set to true if patchPlugin is true and any mesh use is weighted
+    if (patchPlugin) {
+        for (const auto& use : nifCache.meshUses) {
+            if (use.second.isWeighted) {
+                isWeighted = true;
+                break;
+            }
+        }
+    }
+
     // Patch base NIF
     auto* baseNIF = meshTracker.stageMesh();
     {
@@ -399,7 +410,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
             return ParallaxGenTask::PGResult::FAILURE;
         }
 
-        if (meshTracker.commitBaseMesh()) {
+        if (meshTracker.commitBaseMesh(isWeighted)) {
             Logger::trace("Mesh committed");
         } else {
             Logger::trace("Mesh not committed (no changes)");

@@ -87,7 +87,7 @@ public:
     void load();
     void load(const std::shared_ptr<nifly::NifFile>& origNifFile, const unsigned long long& origCrc32);
     auto stageMesh() -> nifly::NifFile*;
-    auto commitBaseMesh() -> bool;
+    auto commitBaseMesh(bool isWeighted) -> bool;
     auto commitDupMesh(const FormKey& formKey, bool isWeighted,
         const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
         const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
@@ -100,9 +100,12 @@ public:
     static void validateWeightedVariants();
 
 private:
+    void processWeightVariant();
+
     // Helpers
     static auto compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
-        const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST = false) -> bool;
+        const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST = false,
+        bool skipVertCheck = false) -> bool;
 
     static auto compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly::BSTriShape& shapeB) -> bool;
 
