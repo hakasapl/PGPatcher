@@ -12,6 +12,9 @@
 #include <thread>
 #include <utility>
 
+// STATICS
+std::function<void()> TaskQueue::s_exceptionCallback = nullptr;
+
 TaskQueue::TaskQueue() { m_workerThread = std::thread(&TaskQueue::workerLoop, this); }
 
 TaskQueue::~TaskQueue() { shutdown(); }
@@ -47,8 +50,8 @@ void TaskQueue::workerLoop()
             CPPTRACE_CATCH(const std::exception& e)
             {
                 ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
-                if (m_exceptionCallback) {
-                    m_exceptionCallback();
+                if (s_exceptionCallback) {
+                    s_exceptionCallback();
                 }
             }
             m_isBusy = false;
@@ -80,4 +83,4 @@ void TaskQueue::shutdown()
     }
 }
 
-void TaskQueue::setExceptionCallback(const std::function<void()>& callback) { m_exceptionCallback = callback; }
+void TaskQueue::setExceptionCallback(const std::function<void()>& callback) { s_exceptionCallback = callback; }

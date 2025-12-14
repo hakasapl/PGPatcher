@@ -16,6 +16,9 @@
 
 using namespace std;
 
+// STATICS
+std::function<void()> ParallaxGenRunner::s_exceptionCallback = nullptr;
+
 ParallaxGenRunner::ParallaxGenRunner(const bool& multithread)
     : m_threadPool([]() -> unsigned int {
         auto availableThreads = std::thread::hardware_concurrency();
@@ -44,8 +47,8 @@ void ParallaxGenRunner::runTasks()
         CPPTRACE_CATCH(const exception& e)
         {
             ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
-            if (m_exceptionCallback) {
-                m_exceptionCallback();
+            if (s_exceptionCallback) {
+                s_exceptionCallback();
             }
         }
 
@@ -71,8 +74,8 @@ void ParallaxGenRunner::runTasks()
             CPPTRACE_CATCH(const exception& e)
             {
                 ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
-                if (m_exceptionCallback) {
-                    m_exceptionCallback();
+                if (s_exceptionCallback) {
+                    s_exceptionCallback();
                 }
             }
 
@@ -98,4 +101,4 @@ void ParallaxGenRunner::runTasks()
     }
 }
 
-void ParallaxGenRunner::setExceptionCallback(const std::function<void()>& callback) { m_exceptionCallback = callback; }
+void ParallaxGenRunner::setExceptionCallback(const std::function<void()>& callback) { s_exceptionCallback = callback; }

@@ -75,8 +75,8 @@ void ParallaxGen::loadPatchers(
     s_texPatchers = texPatchers;
 }
 
-void ParallaxGen::patchMeshes(const bool& multiThread, const bool& patchPlugin,
-    const std::function<void(size_t, size_t)>& progressCallback, const std::function<void()>& exceptionCallback)
+void ParallaxGen::patchMeshes(
+    const bool& multiThread, const bool& patchPlugin, const std::function<void(size_t, size_t)>& progressCallback)
 {
     auto* const pgd = PGGlobals::getPGD();
     pgd->waitForMeshMapping();
@@ -103,9 +103,6 @@ void ParallaxGen::patchMeshes(const bool& multiThread, const bool& patchPlugin,
     if (progressCallback) {
         taskTracker.setCallbackFunc(progressCallback);
     }
-    if (exceptionCallback) {
-        meshRunner.setExceptionCallback(exceptionCallback);
-    }
 
     for (auto& [mesh, nifCache] : meshes) {
         meshRunner.addTask([&taskTracker, &mesh, &patchPlugin, &setModelUsesQueue] {
@@ -130,8 +127,7 @@ void ParallaxGen::patchMeshes(const bool& multiThread, const bool& patchPlugin,
     }
 }
 
-void ParallaxGen::patchTextures(const bool& multiThread, const std::function<void(size_t, size_t)>& progressCallback,
-    const std::function<void()>& exceptionCallback)
+void ParallaxGen::patchTextures(const bool& multiThread, const std::function<void(size_t, size_t)>& progressCallback)
 {
     auto* const pgd = PGGlobals::getPGD();
     pgd->waitForMeshMapping();
@@ -155,9 +151,6 @@ void ParallaxGen::patchTextures(const bool& multiThread, const std::function<voi
     if (progressCallback) {
         textureTaskTracker.setCallbackFunc(progressCallback);
     }
-    if (exceptionCallback) {
-        textureRunner.setExceptionCallback(exceptionCallback);
-    }
 
     // Add tasks
     for (const auto& texture : textures) {
@@ -168,8 +161,8 @@ void ParallaxGen::patchTextures(const bool& multiThread, const std::function<voi
     textureRunner.runTasks();
 }
 
-void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlugin,
-    const std::function<void(size_t, size_t)>& progressCallback, const std::function<void()>& exceptionCallback)
+void ParallaxGen::populateModData(
+    const bool& multiThread, const bool& patchPlugin, const std::function<void(size_t, size_t)>& progressCallback)
 {
     if (s_meshPatchers.globalPatchers.empty() && s_meshPatchers.shaderPatchers.empty()
         && s_meshPatchers.prePatchers.empty() && s_meshPatchers.postPatchers.empty()) {
@@ -189,9 +182,6 @@ void ParallaxGen::populateModData(const bool& multiThread, const bool& patchPlug
     ParallaxGenRunner runner(multiThread);
     if (progressCallback) {
         taskTracker.setCallbackFunc(progressCallback);
-    }
-    if (exceptionCallback) {
-        runner.setExceptionCallback(exceptionCallback);
     }
 
     // Add tasks

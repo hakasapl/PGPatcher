@@ -11,6 +11,7 @@
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenHandlers.hpp"
 #include "ParallaxGenPlugin.hpp"
+#include "ParallaxGenRunner.hpp"
 #include "ParallaxGenUI.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
@@ -226,8 +227,7 @@ constexpr auto NUM_TOTAL_STEPS = 6;
 
 void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGParams& params,
     const filesystem::path& exePath, bool needModSortDialog, const std::filesystem::path& cfgDir,
-    ProgressWindow* progressWindow, const function<void(size_t, size_t)>& progressCallback,
-    const std::function<void()>& exceptionCallback)
+    ProgressWindow* progressWindow, const function<void(size_t, size_t)>& progressCallback)
 {
     // Initialize "Preparing" Step
     progressWindow->CallAfter([&progressWindow]() -> void {
@@ -332,7 +332,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         [&progressWindow]() -> void { progressWindow->setStepLabel("Initializing plugin patching"); });
 
     TaskQueue pluginInit;
-    pluginInit.setExceptionCallback(exceptionCallback);
 
     // Init PGP library
     if (params.Processing.pluginPatching) {
@@ -367,7 +366,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     }
 
     TaskQueue modManagerInit;
-    modManagerInit.setExceptionCallback(exceptionCallback);
 
     if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty()) {
@@ -555,7 +553,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     // Map files
     pgd->mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
         params.TextureRules.vanillaBSAList, params.Processing.pluginPatching, params.Processing.multithread,
-        args.highmem, progressCallback, exceptionCallback);
+        args.highmem, progressCallback);
 
     // Any patcher initialization that requires PGD
     if (params.ShaderPatcher.truePBR) {
@@ -578,8 +576,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepLabel("Finding conflicts"); });
 
         // Find conflicts
-        ParallaxGen::populateModData(
-            params.Processing.multithread, params.Processing.pluginPatching, progressCallback, exceptionCallback);
+        ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching, progressCallback);
 
         // Assign new mod priorities for new mods
         mmd->assignNewModPriorities();
@@ -587,8 +584,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
 }
 
 void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem::path& exePath,
-    ProgressWindow* progressWindow, const function<void(size_t, size_t)>& progressCallback,
-    const std::function<void()>& exceptionCallback)
+    ProgressWindow* progressWindow, const function<void(size_t, size_t)>& progressCallback)
 {
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Patching meshes");
@@ -599,8 +595,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
 
     progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepLabel("Processing NIFs"); });
 
-    ParallaxGen::patchMeshes(
-        params.Processing.multithread, params.Processing.pluginPatching, progressCallback, exceptionCallback);
+    ParallaxGen::patchMeshes(params.Processing.multithread, params.Processing.pluginPatching, progressCallback);
 
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Patching textures");
@@ -609,7 +604,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
         progressWindow->setStepProgress(0, 1);
     });
 
-    ParallaxGen::patchTextures(params.Processing.multithread, progressCallback, exceptionCallback);
+    ParallaxGen::patchTextures(params.Processing.multithread, progressCallback);
 
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Finalizing");
@@ -802,6 +797,9 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         progressWindow->CallAfter([=]() -> void { progressWindow->EndModal(wxID_OK); });
     };
 
+    ParallaxGenRunner::setExceptionCallback(exceptionCallback);
+    TaskQueue::setExceptionCallback(exceptionCallback);
+
     // Get current time to compare later
     auto startTime = chrono::high_resolution_clock::now();
     long long timeTaken = 0;
@@ -812,23 +810,20 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
 
     // Dispatch the pre-generation task
     TaskQueue backgroundRunners;
-    backgroundRunners.setExceptionCallback(exceptionCallback);
-    backgroundRunners.queueTask([&args, &params, &exePath, needModSortDialog, &progressWindow, &cfgDir,
-                                    &progressCallback, &exceptionCallback]() -> void {
-        mainRunnerPre(
-            args, params, exePath, needModSortDialog, cfgDir, progressWindow, progressCallback, exceptionCallback);
-        if (needModSortDialog) {
-            // if we need the mod sort dialog we need to close the progress dialog here
-            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-        }
-    });
+    backgroundRunners.queueTask(
+        [&args, &params, &exePath, needModSortDialog, &progressWindow, &cfgDir, &progressCallback]() -> void {
+            mainRunnerPre(args, params, exePath, needModSortDialog, cfgDir, progressWindow, progressCallback);
+            if (needModSortDialog) {
+                // if we need the mod sort dialog we need to close the progress dialog here
+                progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+            }
+        });
     if (!needModSortDialog) {
         // if we don't need the mod sort dialog we should queue both tasks and close the dialog after
-        backgroundRunners.queueTask(
-            [&params, &exePath, &progressWindow, &progressCallback, &exceptionCallback]() -> void {
-                mainRunnerPost(params, exePath, progressWindow, progressCallback, exceptionCallback);
-                progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-            });
+        backgroundRunners.queueTask([&params, &exePath, &progressWindow, &progressCallback]() -> void {
+            mainRunnerPost(params, exePath, progressWindow, progressCallback);
+            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+        });
     }
 
     // Show progress dialog (this will block until closed by one of the callafters)
@@ -849,11 +844,10 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
         startTime = chrono::high_resolution_clock::now();
 
         // dispatch post task
-        backgroundRunners.queueTask(
-            [&params, &exePath, &progressWindow, &progressCallback, &exceptionCallback]() -> void {
-                mainRunnerPost(params, exePath, progressWindow, progressCallback, exceptionCallback);
-                progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-            });
+        backgroundRunners.queueTask([&params, &exePath, &progressWindow, &progressCallback]() -> void {
+            mainRunnerPost(params, exePath, progressWindow, progressCallback);
+            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+        });
 
         // Show progress dialog (this will block until closed by one of the callafters)
         progressWindow->ShowModal();
