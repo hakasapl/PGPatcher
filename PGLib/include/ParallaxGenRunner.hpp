@@ -21,7 +21,7 @@ private:
 
     static constexpr int NUM_STATIC_THREADS = 2; /** Number of static threads to reserve for system */
 
-    std::function<void()> m_exceptionCallback; /** Exception callback function */
+    static std::function<void()> s_exceptionCallback; /** Exception callback function */
 
 public:
     /**
@@ -38,7 +38,7 @@ public:
      */
     void addTask(const std::function<void()>& task);
 
-    void setExceptionCallback(const std::function<void()>& callback);
+    static void setExceptionCallback(const std::function<void()>& callback);
 
     /**
      * @brief Blocking function that runs all tasks in the task list. Intended to be run from the main thread

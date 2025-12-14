@@ -104,6 +104,12 @@ else()
     set(MSBUILD_CONFIGURATION "Release")
 endif()
 
+set(CSHARP_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/PGMutagen.cs
+    ${CMAKE_CURRENT_SOURCE_DIR}/PGMutagen.csproj
+    ${FLATBUFFERS_SCHEMA}
+)
+
 add_custom_command(
     OUTPUT ${PGMUTAGEN_LIB}
     COMMAND msbuild PGMutagen.csproj
@@ -111,8 +117,9 @@ add_custom_command(
         -p:Platform=x64
         -p:OutputPath=${PGMUTAGENNE_BIN_DIR}/
         -p:BaseIntermediateOutputPath=${PGMUTAGENNE_OBJ_DIR}/
-        -p:IntermediateOutputPath=${PGMUTAGENNE_OBJ_DIR}/
         -p:BaseOutputPath=${PGMUTAGENNE_BIN_DIR}/
+    DEPENDS
+        ${CSHARP_SOURCES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Building PGMutagenNE.lib"
 )

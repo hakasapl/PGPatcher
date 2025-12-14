@@ -24,7 +24,7 @@ private:
     std::atomic<size_t> m_queuedTasks { 0 };
     std::thread m_workerThread;
 
-    std::function<void()> m_exceptionCallback;
+    static std::function<void()> s_exceptionCallback;
 
     void workerLoop();
 
@@ -70,5 +70,5 @@ public:
 
     void shutdown();
 
-    void setExceptionCallback(const std::function<void()>& callback);
+    static void setExceptionCallback(const std::function<void()>& callback);
 };
