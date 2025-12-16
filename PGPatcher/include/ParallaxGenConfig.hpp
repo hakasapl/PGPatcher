@@ -52,7 +52,7 @@ public:
         // Output
         struct Output {
             std::filesystem::path dir;
-            bool zip = true;
+            bool zip = false;
 
             auto operator==(const Output& other) const -> bool { return dir == other.dir && zip == other.zip; }
         } Output;

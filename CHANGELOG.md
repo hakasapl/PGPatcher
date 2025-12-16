@@ -9,6 +9,8 @@
 - Added "Open Log File" button to confirmation dialog
 - Mod mismatch warnings are now printed during generation (and are shown in the confirmation dialog)
 - Added error messages for mismatched weighted meshes
+- Added help text for outputs in launcher GUI
+- Default for zip output is now disabled
 - Fixed weight variants being swapped for the other variant when it is not necessary
 - Fixed out of order weighted mesh processing edge case
 
