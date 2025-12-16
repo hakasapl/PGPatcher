@@ -327,7 +327,7 @@ void MeshTracker::processWeightVariant()
         if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{ otherVariantPath, dupIdx }], {}, true, true)) {
             // different from each other, post error
             Logger::error(L"Weighted mesh variant for '{}' differs from other weight variant '{}'. This is an "
-                          L"issue with the original models or bad pbr json definitions and can cause CTDs.",
+                          L"issue with the original models.",
                 m_origMeshPath.wstring(), otherVariantPath.wstring());
         }
 
@@ -345,7 +345,7 @@ void MeshTracker::processWeightVariant()
 //
 
 auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
-    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST, bool skipVertCheck) -> bool
+    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST, bool checkOnlyWeighted) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
     const auto blocksA = getComparableBlocks(&meshA);
@@ -372,6 +372,11 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
         }
 
         if (particleA != nullptr && particleB != nullptr) {
+            if (checkOnlyWeighted) {
+                // skip non-weighted checks
+                continue;
+            }
+
             if ((particleA->shaderPropertyRef.IsEmpty() && !particleB->shaderPropertyRef.IsEmpty())
                 || (!particleA->shaderPropertyRef.IsEmpty() && particleB->shaderPropertyRef.IsEmpty())) {
                 // One has a shader property, the other doesn't
@@ -435,9 +440,15 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
                 // One is a trishape, the other is not (block mismatch)
                 return false;
             }
+
+            if (checkOnlyWeighted) {
+                // skip non-weighted checks
+                continue;
+            }
+
             if (bstrishapeA != nullptr && bstrishapeB != nullptr) {
                 // compare trishape helper
-                if (!skipVertCheck && !compareBSTriShape(*bstrishapeA, *bstrishapeB)) {
+                if (!compareBSTriShape(*bstrishapeA, *bstrishapeB)) {
                     return false;
                 }
             }
