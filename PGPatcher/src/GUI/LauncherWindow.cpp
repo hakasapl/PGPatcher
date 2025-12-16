@@ -142,8 +142,10 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     //
     auto* outputSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Output");
 
-    auto* outputLocationLabel
-        = new wxStaticText(this, wxID_ANY, "Location (Can be a Mod Folder if you disable Zip Output)");
+    auto* outputLocationLabel = new wxStaticText(this, wxID_ANY,
+        "Location recommended to be a mod folder. CANNOT be in your data folder.\nAVOID DELETING OLD OUTPUT BEFORE "
+        "RUNNING "
+        "if output is set to a mod folder.");
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_outputLocationTextbox->SetToolTip(
         "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher");
@@ -159,7 +161,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     outputSizer->Add(outputLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
     outputSizer->Add(outputLocationSizer, 0, wxEXPAND);
 
-    m_outputZipCheckbox = new wxCheckBox(this, wxID_ANY, "Zip Output");
+    m_outputZipCheckbox = new wxCheckBox(this, wxID_ANY, "Zip Output (Keep disabled if outputting to a mod folder)");
     m_outputZipCheckbox->SetToolTip("Zip the output folder after processing");
     m_outputZipCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onOutputZipChange, this);
 
