@@ -11,6 +11,7 @@
 - Added error messages for mismatched weighted meshes
 - Added help text for outputs in launcher GUI
 - Default for zip output is now disabled
+- Skyrim (non-SE) and Enderal (non-SE) have been removed as game options
 - Fixed weight variants being swapped for the other variant when it is not necessary
 - Fixed out of order weighted mesh processing edge case
 
