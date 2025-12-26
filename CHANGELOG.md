@@ -1,10 +1,10 @@
 # Changelog
 
-## [0.9.9] - UNRELEASED
+## [0.9.9] - 2025-12-26
 
 - Added warnings and error messages to confirmation dialog with ability to ignore them persistently
 - Added progress dialog that appears during processing
-- Console will no longer launch by default, can be launcher by passing the --console argument
+- Console will no longer launch by default, can be launched by passing the --console argument
 - Added minimize box to all GUI
 - Added "Open Log File" button to confirmation dialog
 - Mod mismatch warnings are now printed during generation (and are shown in the confirmation dialog)
