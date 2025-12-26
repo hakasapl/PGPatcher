@@ -10,8 +10,6 @@
 enum class SteamGameID : int {
     STEAMGAMEID_SKYRIM_SE = 489830,
     STEAMGAMEID_SKYRIM_VR = 611670,
-    STEAMGAMEID_SKYRIM = 72850,
-    STEAMGAMEID_ENDERAL = 933480,
     STEAMGAMEID_ENDERAL_SE = 976620
 };
 
@@ -20,7 +18,7 @@ constexpr unsigned REG_BUFFER_SIZE = 1024;
 class BethesdaGame {
 public:
     // GameType enum
-    enum class GameType : uint8_t { SKYRIM_SE, SKYRIM_GOG, SKYRIM_VR, SKYRIM, ENDERAL, ENDERAL_SE, UNKNOWN };
+    enum class GameType : uint8_t { SKYRIM_SE, SKYRIM_GOG, SKYRIM_VR, ENDERAL_SE, UNKNOWN };
 
     // StoreType enum (for now only Steam is used)
     enum class StoreType : uint8_t { STEAM, WINDOWS_STORE, EPIC_GAMES_STORE, GOG };

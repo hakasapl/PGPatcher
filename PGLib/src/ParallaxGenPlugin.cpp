@@ -70,8 +70,7 @@ void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::p
 {
     // Maps BethesdaGame::GameType to Mutagen game type
     static const unordered_map<BethesdaGame::GameType, int> mutagenGameTypeMap
-        = { { BethesdaGame::GameType::SKYRIM, 1 }, { BethesdaGame::GameType::SKYRIM_SE, 2 },
-              { BethesdaGame::GameType::SKYRIM_VR, 3 }, { BethesdaGame::GameType::ENDERAL, 5 },
+        = { { BethesdaGame::GameType::SKYRIM_SE, 2 }, { BethesdaGame::GameType::SKYRIM_VR, 3 },
               { BethesdaGame::GameType::ENDERAL_SE, 6 }, { BethesdaGame::GameType::SKYRIM_GOG, 7 } };
 
     PGMutagenWrapper::libInitialize(mutagenGameTypeMap.at(game.getGameType()), exePath,
