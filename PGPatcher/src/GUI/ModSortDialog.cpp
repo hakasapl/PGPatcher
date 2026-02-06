@@ -543,6 +543,13 @@ void ModSortDialog::fillListCtrl(
         // Enable checkbox
         m_listCtrl->check(index, true);
 
+        // Set ignore meshes checkbox
+        if ((preserveChecks && currentlyIgnoredMeshMods.contains(mod->name))
+            || (!preserveChecks && mod->areMeshesIgnored)) {
+            // if preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes
+            m_listCtrl->ignoreMeshes(index, true);
+        }
+
         // iterate listIdx
         listIdx++;
     }
@@ -568,8 +575,10 @@ void ModSortDialog::fillListCtrl(
         // Disable checkbox
         m_listCtrl->check(index, false);
 
+        // Set ignore meshes checkbox
         if ((preserveChecks && currentlyIgnoredMeshMods.contains(mod->name))
             || (!preserveChecks && mod->areMeshesIgnored)) {
+            // if preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes
             m_listCtrl->ignoreMeshes(index, true);
         }
 

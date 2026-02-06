@@ -4,6 +4,7 @@
 
 - Added ability to ignore patching meshes by mod in the mod dialog
 - Mods that contain just meshes will also be in the mod dialog now
+- UX improvements to Mod dialog
 
 ## [0.9.9] - 2025-12-26
 
