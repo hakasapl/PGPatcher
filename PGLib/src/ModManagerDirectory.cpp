@@ -145,6 +145,8 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
             modPtr = make_shared<Mod>();
             modPtr->name = modNameWStr;
             m_modMap[modNameWStr] = modPtr;
+        } else {
+            modPtr = m_modMap.at(modNameWStr);
         }
 
         modPtr->isNew = false;

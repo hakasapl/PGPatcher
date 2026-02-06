@@ -393,7 +393,6 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
             // check all selected items
             for (const long item : selectedItems) {
                 check(item, true);
-                ignoreMeshes(item, false);
             }
             processCheckItems(selectedItems, true);
         },
@@ -425,10 +424,8 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
         [this, selectedItems](wxCommandEvent&) -> void {
             // Disable patching meshes for all selected items
             for (const long item : selectedItems) {
-                check(item, false);
                 ignoreMeshes(item, true);
             }
-            processCheckItems(selectedItems, false);
         },
         ID_DISABLE_MESHES);
 
