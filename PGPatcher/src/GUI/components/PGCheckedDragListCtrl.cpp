@@ -94,6 +94,20 @@ auto PGCheckedDragListCtrl::isChecked(long item) const -> bool
     return false;
 }
 
+void PGCheckedDragListCtrl::ignoreMeshes(long item, bool ignore)
+{
+    wxFont font = GetItemFont(item);
+    font.SetStrikethrough(ignore);
+
+    SetItemFont(item, font);
+}
+
+auto PGCheckedDragListCtrl::areMeshesIgnored(long item) const -> bool
+{
+    const wxFont font = GetItemFont(item);
+    return font.IsOk() && font.GetStrikethrough();
+}
+
 void PGCheckedDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
 
 auto PGCheckedDragListCtrl::getCutoffLine() const -> int { return m_cutoffLine; }
@@ -313,12 +327,17 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     static constexpr int ID_MOVE_BOTTOM = 1002;
     static constexpr int ID_ENABLE = 1003;
     static constexpr int ID_DISABLE = 1004;
+    static constexpr int ID_ENABLE_MESHES = 1005;
+    static constexpr int ID_DISABLE_MESHES = 1006;
 
     menu.Append(ID_MOVE_TOP, "Move to Top");
     menu.Append(ID_MOVE_BOTTOM, "Move to Bottom");
     menu.AppendSeparator();
     menu.Append(ID_ENABLE, "Enable");
     menu.Append(ID_DISABLE, "Disable");
+    menu.AppendSeparator();
+    menu.Append(ID_ENABLE_MESHES, "Patch Meshes");
+    menu.Append(ID_DISABLE_MESHES, "Ignore Meshes");
 
     // Gather all selected items
     std::vector<long> selectedItems = getSelectedItems();
@@ -334,6 +353,20 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
         selectedItems, [this](long idx) -> bool { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
     menu.Enable(ID_MOVE_TOP, !anyBelowCutoff && m_draggingEnabled);
     menu.Enable(ID_MOVE_BOTTOM, !anyBelowCutoff && m_draggingEnabled);
+
+    // Disable enable/disable options if all selected items are already in that state
+    const bool allEnabled = std::ranges::all_of(selectedItems, [this](long idx) -> bool { return isChecked(idx); });
+    const bool allDisabled = std::ranges::all_of(selectedItems, [this](long idx) -> bool { return !isChecked(idx); });
+    menu.Enable(ID_ENABLE, !allEnabled);
+    menu.Enable(ID_DISABLE, !allDisabled);
+
+    // Disable mesh patching options if all selected items are already in that state
+    const bool allIgnoringMeshes
+        = std::ranges::all_of(selectedItems, [this](long idx) -> bool { return areMeshesIgnored(idx); });
+    const bool allPatchingMeshes
+        = std::ranges::all_of(selectedItems, [this](long idx) -> bool { return !areMeshesIgnored(idx); });
+    menu.Enable(ID_ENABLE_MESHES, !allPatchingMeshes);
+    menu.Enable(ID_DISABLE_MESHES, !allIgnoringMeshes);
 
     // Bind menu actions
     menu.Bind(
@@ -375,6 +408,26 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
             processCheckItems(selectedItems, false);
         },
         ID_DISABLE);
+
+    menu.Bind(
+        wxEVT_MENU,
+        [this, selectedItems](wxCommandEvent&) -> void {
+            // Enable patching meshes for all selected items
+            for (const long item : selectedItems) {
+                ignoreMeshes(item, false);
+            }
+        },
+        ID_ENABLE_MESHES);
+
+    menu.Bind(
+        wxEVT_MENU,
+        [this, selectedItems](wxCommandEvent&) -> void {
+            // Disable patching meshes for all selected items
+            for (const long item : selectedItems) {
+                ignoreMeshes(item, true);
+            }
+        },
+        ID_DISABLE_MESHES);
 
     PopupMenu(&menu);
 }
@@ -436,7 +489,8 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
         cols.push_back(GetItemText(fromIndex, c));
     }
     const wxColour bgColor = GetItemBackgroundColour(fromIndex);
-    const bool checked = isChecked(fromIndex);
+    const bool curChecked = isChecked(fromIndex);
+    const bool curIgnoreMeshes = areMeshesIgnored(fromIndex);
 
     // Remove the item
     DeleteItem(fromIndex);
@@ -454,7 +508,8 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
 
     // Restore properties
     SetItemBackgroundColour(newIndex, bgColor);
-    check(newIndex, checked);
+    check(newIndex, curChecked);
+    ignoreMeshes(newIndex, curIgnoreMeshes);
 
     return newIndex;
 }

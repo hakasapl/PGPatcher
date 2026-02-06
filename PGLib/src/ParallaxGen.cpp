@@ -358,6 +358,16 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, const bool& pat
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
+    // Get mod of nif
+    const auto mod = PGGlobals::getMMD()->getModByFile(nifPath);
+    if (mod != nullptr) {
+        const std::shared_lock<std::shared_mutex> modLock(mod->mutex);
+        if (mod != nullptr && mod->areMeshesIgnored) {
+            Logger::trace(L"Skipping NIF patching for mod with ignored meshes: {}", mod->name);
+            return ParallaxGenTask::PGResult::SUCCESS;
+        }
+    }
+
     // Create mesh tracker for this NIF
     auto meshTracker = MeshTracker(nifPath);
 

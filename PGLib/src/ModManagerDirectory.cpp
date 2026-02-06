@@ -111,15 +111,32 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
             throw runtime_error("JSON mod properties is not an object");
         }
 
-        if (!properties.contains("priority") || !properties["priority"].is_number_integer()) {
-            throw runtime_error("JSON mod priority is not an integer");
-        }
-        const auto priority = properties["priority"].get<int>();
+        int priority = -1;
+        if (properties.contains("priority")) {
+            if (!properties["priority"].is_number_integer()) {
+                throw runtime_error("JSON mod priority is not an integer");
+            }
 
-        if (!properties.contains("enabled") || !properties["enabled"].is_boolean()) {
-            throw runtime_error("JSON mod enabled is not a boolean");
+            priority = properties["priority"].get<int>();
         }
-        const auto isEnabled = properties["enabled"].get<bool>();
+
+        bool isEnabled = false;
+        if (properties.contains("enabled")) {
+            if (!properties["enabled"].is_boolean()) {
+                throw runtime_error("JSON mod enabled is not a boolean");
+            }
+
+            isEnabled = properties["enabled"].get<bool>();
+        }
+
+        bool areMeshesIgnored = false;
+        if (properties.contains("meshesignored")) {
+            if (!properties["meshesignored"].is_boolean()) {
+                throw runtime_error("JSON mod meshesignored is not a boolean");
+            }
+
+            areMeshesIgnored = properties["meshesignored"].get<bool>();
+        }
 
         shared_ptr<Mod> modPtr = nullptr;
         const auto modNameWStr = ParallaxGenUtil::utf8toUTF16(modName);
@@ -128,11 +145,14 @@ void ModManagerDirectory::loadJSON(const nlohmann::json& json)
             modPtr = make_shared<Mod>();
             modPtr->name = modNameWStr;
             m_modMap[modNameWStr] = modPtr;
+        } else {
+            modPtr = m_modMap.at(modNameWStr);
         }
 
         modPtr->isNew = false;
         modPtr->priority = priority;
         modPtr->isEnabled = isEnabled;
+        modPtr->areMeshesIgnored = areMeshesIgnored;
     }
 }
 
@@ -145,6 +165,7 @@ auto ModManagerDirectory::getJSON() -> nlohmann::json
         json[utf8ModName] = nlohmann::json::object();
         json[utf8ModName]["priority"] = mod->priority;
         json[utf8ModName]["enabled"] = mod->isEnabled;
+        json[utf8ModName]["meshesignored"] = mod->areMeshesIgnored;
     }
 
     return json;
@@ -179,7 +200,8 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
 
         // Check if relPath is within s_foldersToMap
         // Get the first path component of relPath
-        if (!PGGlobals::s_foldersToMap.contains(boost::to_lower_copy(relPath.begin()->wstring()))) {
+        const auto relPathStr = boost::to_lower_copy(relPath.begin()->wstring());
+        if (!PGGlobals::s_foldersToMap.contains(relPathStr)) {
             // skip if not mapping from this folder
             continue;
         }
@@ -202,6 +224,10 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
         }
 
         modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
+
+        if (relPathStr == L"meshes") {
+            modPtr->hasMeshes = true;
+        }
 
         // Update file map
         Logger::trace(L"Mapping file to mod: {} -> {}", relPath.wstring(), modName);
@@ -339,6 +365,11 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
                     // skip meta.ini file
                     if (boost::iequals(file.path().filename().wstring(), L"meta.ini")) {
                         continue;
+                    }
+
+                    // found a file in the meshes folder
+                    if (folder == "meshes") {
+                        modPtr->hasMeshes = true;
                     }
 
                     auto relPath = filesystem::relative(file, curModDir);

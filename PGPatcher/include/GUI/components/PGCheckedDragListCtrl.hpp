@@ -74,6 +74,23 @@ public:
     [[nodiscard]] auto isChecked(long item) const -> bool;
 
     /**
+     * @brief Ignore or unignore meshes from a mod (item)
+     *
+     * @param item item index
+     * @param ignore true to ignore, false to unignore
+     */
+    void ignoreMeshes(long item, bool ignore);
+
+    /**
+     * @brief Check if meshes from a mod (item) are ignored
+     *
+     * @param item item index
+     * @return true if ignored
+     * @return false if not ignored
+     */
+    [[nodiscard]] auto areMeshesIgnored(long item) const -> bool;
+
+    /**
      * @brief Set the Cutoff Line object
      *
      * @param index index of the cutoff line (-1 to disable cutoff)

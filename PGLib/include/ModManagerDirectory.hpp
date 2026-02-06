@@ -36,6 +36,8 @@ public:
         std::wstring name;
         bool isNew = false;
         bool isEnabled = false;
+        bool areMeshesIgnored = false;
+        bool hasMeshes = false;
         int modManagerOrder;
         int priority = -1;
         std::set<NIFUtil::ShapeShader> shaders;

@@ -441,6 +441,8 @@ void ModSortDialog::updateMods()
         if (mod->isEnabled) {
             mod->priority = static_cast<int>(itemCount - i);
         }
+
+        mod->areMeshesIgnored = m_listCtrl->areMeshesIgnored(i);
     }
 
     // save configs
@@ -470,10 +472,14 @@ void ModSortDialog::fillListCtrl(
 {
     // get unordered set of currently checked mods if preserveChecks is true from existing list ctrl
     std::unordered_set<std::wstring> currentlyCheckedMods;
+    std::unordered_set<std::wstring> currentlyIgnoredMeshMods;
     if (preserveChecks) {
         for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
             if (m_listCtrl->isChecked(i)) {
                 currentlyCheckedMods.insert(m_listCtrl->GetItemText(i).ToStdWstring());
+            }
+            if (m_listCtrl->areMeshesIgnored(i)) {
+                currentlyIgnoredMeshMods.insert(m_listCtrl->GetItemText(i).ToStdWstring());
             }
         }
     }
@@ -486,8 +492,8 @@ void ModSortDialog::fillListCtrl(
 
     for (const auto& mod : modList) {
         const auto shaders = mod->shaders;
-        if (shaders.empty()) {
-            // no shaders, so no need to include in list
+        if (shaders.empty() && !mod->hasMeshes) {
+            // no shaders or meshes, so no need to include in list
             continue;
         }
 
@@ -537,6 +543,13 @@ void ModSortDialog::fillListCtrl(
         // Enable checkbox
         m_listCtrl->check(index, true);
 
+        // Set ignore meshes checkbox
+        if ((preserveChecks && currentlyIgnoredMeshMods.contains(mod->name))
+            || (!preserveChecks && mod->areMeshesIgnored)) {
+            // if preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes
+            m_listCtrl->ignoreMeshes(index, true);
+        }
+
         // iterate listIdx
         listIdx++;
     }
@@ -561,6 +574,13 @@ void ModSortDialog::fillListCtrl(
 
         // Disable checkbox
         m_listCtrl->check(index, false);
+
+        // Set ignore meshes checkbox
+        if ((preserveChecks && currentlyIgnoredMeshMods.contains(mod->name))
+            || (!preserveChecks && mod->areMeshesIgnored)) {
+            // if preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes
+            m_listCtrl->ignoreMeshes(index, true);
+        }
 
         // iterate listIdx
         listIdx++;
@@ -590,6 +610,11 @@ void ModSortDialog::updateApplyButtonState()
         }
 
         if (mod->isEnabled && mod->priority != static_cast<int>(itemCount - i)) {
+            btnState = true;
+            break;
+        }
+
+        if (mod->areMeshesIgnored != m_listCtrl->areMeshesIgnored(i)) {
             btnState = true;
             break;
         }
