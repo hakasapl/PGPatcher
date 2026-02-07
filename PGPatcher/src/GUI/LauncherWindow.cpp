@@ -32,6 +32,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     : wxDialog(nullptr, wxID_ANY, "PGPatcher " + string(PG_VERSION) + " Launcher", wxDefaultPosition,
           wxSize(MIN_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
     , m_pgc(pgc)
+    , m_gameLocationLocked(false)
 {
     // Calculate the scrollbar width (if visible)
     static const int scrollbarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
@@ -44,7 +45,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     // Left/Right sizers
     auto* leftSizer = new wxBoxSizer(wxVERTICAL);
-    leftSizer->SetMinSize(wxSize(440, -1));
+    leftSizer->SetMinSize(wxSize(LEFTSIZER_MIN_SIZE, -1));
     auto* rightSizer = new wxBoxSizer(wxVERTICAL);
 
     //
@@ -137,7 +138,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
         "Location recommended to be a mod folder. CANNOT be in your data folder. AVOID DELETING OLD OUTPUT BEFORE "
         "RUNNING "
         "if output is set to a mod folder.");
-    outputLocationLabel->Wrap(400);
+    outputLocationLabel->Wrap(LEFTSIZER_WRAP_SIZE);
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_outputLocationTextbox->SetToolTip(
         "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher");
@@ -323,7 +324,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* processingHelpText = new wxStaticText(this, wxID_ANY,
         "These options are used to customize output generation. Avoid changing these unless you know "
         "what you are doing.");
-    processingHelpText->Wrap(400);
+    processingHelpText->Wrap(LEFTSIZER_WRAP_SIZE);
     m_processingOptionsSizer->Add(processingHelpText, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
     auto* processingOptionsHorizontalSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -404,7 +405,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     m_okButton->SetFont(okButtonFont);
-    m_okButton->SetBackgroundColour(wxColour(51, 204, 51));
+    m_okButton->SetBackgroundColour(s_OK_BUTTON_COLOR);
     m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
 
     Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
