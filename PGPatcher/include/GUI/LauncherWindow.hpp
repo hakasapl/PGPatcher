@@ -6,11 +6,13 @@
 #include "GUI/components/PGTextureMapListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenConfig.hpp"
+#include "ParallaxGenPlugin.hpp"
 
 #include <wx/listctrl.h>
 #include <wx/wx.h>
 
 #include <unordered_map>
+#include <unordered_set>
 
 /**
  * @brief wxDialog that allows the user to configure the ParallaxGen parameters.
@@ -162,6 +164,10 @@ private:
 
     PGModifiableListCtrl* m_textureRulesVanillaBSAList;
     void onTextureRulesVanillaBSAListChange(PGCustomListctrlChangedEvent& event);
+
+    // Plugin Rules
+    std::unordered_set<ParallaxGenPlugin::ModelRecordType> m_DialogRecTypeSelectorState;
+    void onSelectPluginTypesBtn(wxCommandEvent& event);
 
     //
     // UI Controls

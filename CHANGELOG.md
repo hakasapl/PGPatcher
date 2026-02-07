@@ -8,6 +8,8 @@
 - Added ability to indicate ignoring a specific record using record flag 22
 - Reworked patching flow to only consider patching what actually exists in plugins
 - Removed plugin patching from advanced options
+- Added ability to ignore certain record types for patching (and their corresponding meshes)
+- Fixed race condition that resulted in CTD at the end of a run under certain conditions
 
 ## [0.9.9] - 2025-12-26
 

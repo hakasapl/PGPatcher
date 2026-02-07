@@ -1,6 +1,7 @@
 #include "GUI/LauncherWindow.hpp"
 
 #include "BethesdaGame.hpp"
+#include "GUI/DialogRecTypeSelector.hpp"
 #include "GUI/components/PGCustomListctrlChangedEvent.hpp"
 #include "GUI/components/PGModifiableListCtrl.hpp"
 #include "GUI/components/PGTextureMapListCtrl.hpp"
@@ -407,6 +408,10 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     m_processingOptionsSizer->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
+    auto* btnOpenDialogRecTypeSelector = new wxButton(this, wxID_ANY, "Allowed Record Types");
+    btnOpenDialogRecTypeSelector->Bind(wxEVT_BUTTON, &LauncherWindow::onSelectPluginTypesBtn, this);
+    m_processingOptionsSizer->Add(btnOpenDialogRecTypeSelector, 0, wxALL, BORDER_SIZE);
+
     m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
     m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
     m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
@@ -637,6 +642,9 @@ void LauncherWindow::loadConfig()
     }
     m_textureRulesVanillaBSAList->InsertItem(m_textureRulesVanillaBSAList->GetItemCount(), ""); // Add empty line
 
+    // Plugin Rules
+    m_DialogRecTypeSelectorState = initParams.PluginRules.allowedModelRecordTypes;
+
     updateAdvanced();
 }
 
@@ -833,6 +841,16 @@ void LauncherWindow::onTextureRulesVanillaBSAListChange([[maybe_unused]] PGCusto
     updateDisabledElements();
 }
 
+void LauncherWindow::onSelectPluginTypesBtn([[maybe_unused]] wxCommandEvent& event)
+{
+    DialogRecTypeSelector selectorDialog(this);
+    selectorDialog.populateList(m_DialogRecTypeSelectorState);
+    if (selectorDialog.ShowModal() == wxID_OK) {
+        m_DialogRecTypeSelectorState = selectorDialog.getSelectedRecordTypes();
+        updateDisabledElements();
+    }
+}
+
 void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
 {
     // Game
@@ -938,6 +956,9 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
             params.TextureRules.vanillaBSAList.push_back(itemText.ToStdWstring());
         }
     }
+
+    // Plugin Rules
+    params.PluginRules.allowedModelRecordTypes = m_DialogRecTypeSelectorState;
 }
 
 void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event)

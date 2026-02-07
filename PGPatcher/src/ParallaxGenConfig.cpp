@@ -268,6 +268,16 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
                 m_params.TextureRules.vanillaBSAList.push_back(utf8toUTF16(item.get<string>()));
             }
         }
+
+        // "pluginrules"
+        if (paramJ.contains("pluginrules") && paramJ["pluginrules"].contains("allowedmodelrecordtypes")) {
+            m_params.PluginRules.allowedModelRecordTypes.clear();
+
+            for (const auto& item : paramJ["pluginrules"]["allowedmodelrecordtypes"]) {
+                m_params.PluginRules.allowedModelRecordTypes.insert(
+                    ParallaxGenPlugin::getRecTypeFromString(item.get<string>()));
+            }
+        }
     }
 }
 
@@ -484,6 +494,12 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
         j["params"]["texturerules"]["texturemaps"][utf16toUTF8(Key)] = NIFUtil::getStrFromTexType(Value);
     }
     j["params"]["texturerules"]["vanillabsalist"] = utf16VectorToUTF8(m_params.TextureRules.vanillaBSAList);
+
+    // "pluginrules"
+    j["params"]["pluginrules"]["allowedmodelrecordtypes"] = nlohmann::json::array();
+    for (const auto& item : m_params.PluginRules.allowedModelRecordTypes) {
+        j["params"]["pluginrules"]["allowedmodelrecordtypes"].push_back(ParallaxGenPlugin::getStringFromRecType(item));
+    }
 
     return j;
 }

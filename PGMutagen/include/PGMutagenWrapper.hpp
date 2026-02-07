@@ -31,6 +31,7 @@ public:
         std::wstring meshFile;
         bool singlepassMATO;
         bool isIgnored;
+        std::string type;
         std::vector<AlternateTexture> alternateTextures;
     };
 

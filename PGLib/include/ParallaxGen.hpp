@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ParallaxGenDirectory.hpp"
+#include "ParallaxGenPlugin.hpp"
 #include "ParallaxGenTask.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/NIFUtil.hpp"
@@ -75,7 +76,8 @@ public:
      * @param multiThread whether to use multithreading
      */
     static void patchMeshes(const bool& multiThread = true, const bool& forceBasePatch = false,
-        const std::function<void(size_t, size_t)>& progressCallback = {});
+        const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
+        const bool& checkAllowedRecTypes = false, const std::function<void(size_t, size_t)>& progressCallback = {});
 
     /**
      * @brief Run texture patcher
@@ -126,7 +128,9 @@ private:
      * @return ParallaxGenTask::PGResult result of the patching process
      */
     static auto patchNIF(const std::filesystem::path& nifPath, TaskQueue& setModelUsesQueue,
-        const bool& forceBasePatch = false) -> ParallaxGenTask::PGResult;
+        const bool& forceBasePatch = false,
+        const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
+        const bool& checkAllowedRecTypes = false) -> ParallaxGenTask::PGResult;
 
     static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
         const ParallaxGenDirectory::NifCache& nifCache) -> ParallaxGenTask::PGResult;

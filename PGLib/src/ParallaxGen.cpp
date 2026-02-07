@@ -75,8 +75,9 @@ void ParallaxGen::loadPatchers(
     s_texPatchers = texPatchers;
 }
 
-void ParallaxGen::patchMeshes(
-    const bool& multiThread, const bool& forceBasePatch, const std::function<void(size_t, size_t)>& progressCallback)
+void ParallaxGen::patchMeshes(const bool& multiThread, const bool& forceBasePatch,
+    const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes,
+    const bool& checkAllowedRecTypes, const std::function<void(size_t, size_t)>& progressCallback)
 {
     auto* const pgd = PGGlobals::getPGD();
     pgd->waitForMeshMapping();
@@ -105,9 +106,11 @@ void ParallaxGen::patchMeshes(
     }
 
     for (auto& [mesh, nifCache] : meshes) {
-        meshRunner.addTask([&taskTracker, &mesh, &setModelUsesQueue, &forceBasePatch] {
-            taskTracker.completeJob(patchNIF(mesh, setModelUsesQueue, forceBasePatch));
-        });
+        meshRunner.addTask(
+            [&taskTracker, &mesh, &setModelUsesQueue, &forceBasePatch, &allowedModelRecTypes, &checkAllowedRecTypes] {
+                taskTracker.completeJob(
+                    patchNIF(mesh, setModelUsesQueue, forceBasePatch, allowedModelRecTypes, checkAllowedRecTypes));
+            });
     }
 
     // Blocks until all tasks are done
@@ -349,7 +352,8 @@ auto ParallaxGen::populateModInfoFromNIF(
 }
 
 auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setModelUsesQueue,
-    const bool& forceBasePatch) -> ParallaxGenTask::PGResult
+    const bool& forceBasePatch, const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes,
+    const bool& checkAllowedRecTypes) -> ParallaxGenTask::PGResult
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -394,6 +398,13 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
         // process mesh patch for each and every occurance of the mesh in plugins
         if (use.second.isIgnored) {
             // This record is ignored, trigger tracker to ignore the base mesh and skip this patch
+            meshTracker.ignoreBaseMesh();
+            continue;
+        }
+
+        if (checkAllowedRecTypes && !allowedModelRecTypes.contains(use.second.recType)) {
+            // This record is not in the allowed record types, trigger tracker to ignore the base mesh and skip this
+            // patch
             meshTracker.ignoreBaseMesh();
             continue;
         }

@@ -791,9 +791,12 @@ public class PGMutagen
 
                 bool is_ignored = (modelRec.MajorRecordFlagsRaw & 0x00400000) != 0;
 
+                string recType = GetXEditTypeFromType(modelRec);
+
                 var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
                 var subModelOffset = builder.CreateString(subModel);
                 var modelNameOffset = builder.CreateString(nifName);
+                var recTypeOffset = builder.CreateString(recType);
 
                 PGMutagenBuffers.ModelUse.StartModelUse(builder);
                 PGMutagenBuffers.ModelUse.AddModName(builder, modNameOffset);
@@ -803,6 +806,7 @@ public class PGMutagen
                 PGMutagenBuffers.ModelUse.AddMeshFile(builder, modelNameOffset);
                 PGMutagenBuffers.ModelUse.AddSinglepassMato(builder, is_singlePass);
                 PGMutagenBuffers.ModelUse.AddIsIgnored(builder, is_ignored);
+                PGMutagenBuffers.ModelUse.AddType(builder, recTypeOffset);
                 PGMutagenBuffers.ModelUse.AddAlternateTextures(builder, altTexVector);
                 var modelUseOffset = PGMutagenBuffers.ModelUse.EndModelUse(builder);
 
@@ -1423,6 +1427,47 @@ public class PGMutagen
         }
 
         throw new Exception("No available FormIDs left in plugin");
+    }
+
+    private static string GetXEditTypeFromType(IMajorRecordGetter rec)
+    {
+        if (rec is IActivatorGetter) return "ACTI";
+        if (rec is IAmmunitionGetter) return "AMMO";
+        if (rec is IAnimatedObjectGetter) return "ANIO";
+        if (rec is IArmorGetter) return "ARMO";
+        if (rec is IArmorAddonGetter) return "ARMA";
+        if (rec is IArtObjectGetter) return "ARTO";
+        if (rec is IBodyPartDataGetter) return "BPTD";
+        if (rec is IBookGetter) return "BOOK";
+        if (rec is ICameraShotGetter) return "CAMS";
+        if (rec is IClimateGetter) return "CLMT";
+        if (rec is IContainerGetter) return "CONT";
+        if (rec is IDoorGetter) return "DOOR";
+        if (rec is IExplosionGetter) return "EXPL";
+        if (rec is IFloraGetter) return "FLOR";
+        if (rec is IFurnitureGetter) return "FURN";
+        if (rec is IGrassGetter) return "GRAS";
+        if (rec is IHazardGetter) return "HAZD";
+        if (rec is IHeadPartGetter) return "HDPT";
+        if (rec is IIdleMarkerGetter) return "IDLM";
+        if (rec is IImpactGetter) return "IPCT";
+        if (rec is IIngestibleGetter) return "ALCH";
+        if (rec is IIngredientGetter) return "INGR";
+        if (rec is IKeyGetter) return "KEYM";
+        if (rec is ILeveledNpcGetter) return "LVLN";
+        if (rec is ILightGetter) return "LIGH";
+        if (rec is IMaterialObjectGetter) return "MATO";
+        if (rec is IMiscItemGetter) return "MISC";
+        if (rec is IMoveableStaticGetter) return "MSTT";
+        if (rec is IProjectileGetter) return "PROJ";
+        if (rec is IScrollGetter) return "SCRL";
+        if (rec is ISoulGemGetter) return "SLGM";
+        if (rec is IStaticGetter) return "STAT";
+        if (rec is ITalkingActivatorGetter) return "TACT";
+        if (rec is ITreeGetter) return "TREE";
+        if (rec is IWeaponGetter) return "WEAP";
+
+        return "";
     }
 }
 
