@@ -1,17 +1,18 @@
 #include "GUI/LauncherWindow.hpp"
 
 #include "BethesdaGame.hpp"
+#include "GUI/DialogModifiableListCtrl.hpp"
 #include "GUI/DialogRecTypeSelector.hpp"
-#include "GUI/components/PGCustomListctrlChangedEvent.hpp"
-#include "GUI/components/PGModifiableListCtrl.hpp"
-#include "GUI/components/PGTextureMapListCtrl.hpp"
+#include "GUI/DialogTextureMapListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
 #include "ParallaxGenPlugin.hpp"
-#include "util/NIFUtil.hpp"
 
 #include <boost/algorithm/string/join.hpp>
+#include <wx/event.h>
+#include <wx/listctrl.h>
+#include <wx/msw/colour.h>
 #include <wx/statline.h>
 #include <wx/toplevel.h>
 #include <wx/wx.h>
@@ -29,19 +30,8 @@ using namespace std;
 // class LauncherWindow
 LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     : wxDialog(nullptr, wxID_ANY, "PGPatcher " + string(PG_VERSION) + " Launcher", wxDefaultPosition,
-          wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
+          wxSize(MIN_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
     , m_pgc(pgc)
-    , m_shaderPatcherComplexMaterialDynCubemapBlocklist(new PGModifiableListCtrl(
-          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
-    , m_meshRulesAllowList(new PGModifiableListCtrl(
-          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
-    , m_meshRulesBlockList(new PGModifiableListCtrl(
-          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
-    , m_textureRulesMaps(new PGTextureMapListCtrl(
-          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
-    , m_textureRulesVanillaBSAList(new PGModifiableListCtrl(
-          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
-    , m_advancedOptionsSizer(new wxBoxSizer(wxVERTICAL))
 {
     // Calculate the scrollbar width (if visible)
     static const int scrollbarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
@@ -54,7 +44,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     // Left/Right sizers
     auto* leftSizer = new wxBoxSizer(wxVERTICAL);
-    leftSizer->SetMinSize(wxSize(DEFAULT_WIDTH, -1));
+    leftSizer->SetMinSize(wxSize(440, -1));
     auto* rightSizer = new wxBoxSizer(wxVERTICAL);
 
     //
@@ -125,11 +115,11 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
         "Path to the MO2 instance folder (Folder Icon > Open Instnace folder in MO2)");
     m_mo2InstanceLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onMO2InstanceLocationChange, this);
 
-    auto* mo2InstanceBrowseButton = new wxButton(this, wxID_ANY, "Browse");
-    mo2InstanceBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseMO2InstanceLocation, this);
+    m_mo2InstanceBrowseButton = new wxButton(this, wxID_ANY, "Browse");
+    m_mo2InstanceBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseMO2InstanceLocation, this);
 
     mo2InstanceLocationSizer->Add(m_mo2InstanceLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
-    mo2InstanceLocationSizer->Add(mo2InstanceBrowseButton, 0, wxALL, BORDER_SIZE);
+    mo2InstanceLocationSizer->Add(m_mo2InstanceBrowseButton, 0, wxALL, BORDER_SIZE);
 
     // Add the label and dropdown to MO2 options sizer
     m_mo2OptionsSizer->Add(mo2InstanceLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
@@ -144,9 +134,10 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* outputSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Output");
 
     auto* outputLocationLabel = new wxStaticText(this, wxID_ANY,
-        "Location recommended to be a mod folder. CANNOT be in your data folder.\nAVOID DELETING OLD OUTPUT BEFORE "
+        "Location recommended to be a mod folder. CANNOT be in your data folder. AVOID DELETING OLD OUTPUT BEFORE "
         "RUNNING "
         "if output is set to a mod folder.");
+    outputLocationLabel->Wrap(400);
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_outputLocationTextbox->SetToolTip(
         "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher");
@@ -167,17 +158,29 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_outputZipCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onOutputZipChange, this);
 
     outputSizer->Add(m_outputZipCheckbox, 0, wxALL, BORDER_SIZE);
+
+    // Create horizontal sizer for label + combo
+    auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    // Add label
+    auto* langLabel = new wxStaticText(this, wxID_ANY, "Plugin Language");
+    langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
+
+    wxArrayString pluginLangs;
+    for (const auto& lang : ParallaxGenPlugin::getAvailablePluginLangStrs()) {
+        pluginLangs.Add(lang);
+    }
+    m_outputPluginLangCombo
+        = new wxComboBox(this, wxID_ANY, "Language", wxDefaultPosition, wxDefaultSize, pluginLangs, wxCB_READONLY);
+    m_outputPluginLangCombo->Bind(wxEVT_COMBOBOX, &LauncherWindow::onOutputPluginLangChange, this);
+    m_outputPluginLangCombo->SetToolTip(
+        "Language of embedded strings in output plugin. If a translation for this language is not available for a "
+        "record, the default will be used which is usually English.");
+    langSizer->Add(m_outputPluginLangCombo, 1, wxEXPAND | wxLEFT, BORDER_SIZE);
+
+    outputSizer->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
     leftSizer->Add(outputSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
-    //
-    // Advanced
-    //
-    auto* advancedSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Advanced");
-    m_advancedOptionsCheckbox = new wxCheckBox(this, wxID_ANY, "Show Advanced Options");
-    m_advancedOptionsCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onAdvancedOptionsChange, this);
-    advancedSizer->Add(m_advancedOptionsCheckbox, 0, wxALL, BORDER_SIZE);
-
-    leftSizer->Add(advancedSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
     // Right Panel
@@ -214,41 +217,9 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
         wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherComplexMaterialChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_shaderPatcherComplexMaterialOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Complex Material Options");
-    auto* shaderPatcherComplexMaterialDynCubemapBlocklistLabel
-        = new wxStaticText(this, wxID_ANY, "Dynamic Cubemap Blocklist");
-    m_shaderPatcherComplexMaterialOptionsSizer->Add(
-        shaderPatcherComplexMaterialDynCubemapBlocklistLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
-
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->AppendColumn("DynCubemap Blocklist", wxLIST_FORMAT_LEFT);
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->SetColumnWidth(
-        0, m_shaderPatcherComplexMaterialDynCubemapBlocklist->GetClientSize().GetWidth() - scrollbarWidth);
-    m_shaderPatcherComplexMaterialOptionsSizer->Add(
-        m_shaderPatcherComplexMaterialDynCubemapBlocklist, 0, wxEXPAND | wxALL, BORDER_SIZE);
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->Bind(
-        pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onShaderPatcherComplexMaterialDynCubemapBlocklistChange, this);
-
-    shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialOptionsSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
     m_shaderPatcherTruePBRCheckbox = new wxCheckBox(this, wxID_ANY, "True PBR (CS Only)");
     m_shaderPatcherTruePBRCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherTruePBRChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherTruePBRCheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_shaderPatcherTruePBROptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "True PBR Options");
-    m_shaderPatcherTruePBRCheckPathsCheckbox = new wxCheckBox(this, wxID_ANY, "Check Paths");
-    m_shaderPatcherTruePBRCheckPathsCheckbox->SetToolTip("Do not patch JSONs that create paths that do not exist");
-    m_shaderPatcherTruePBRCheckPathsCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherTruePBRCheckPathsChange, this);
-    m_shaderPatcherTruePBROptionsSizer->Add(m_shaderPatcherTruePBRCheckPathsCheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_shaderPatcherTruePBRPrintNonExistentPathsCheckbox = new wxCheckBox(this, wxID_ANY, "Print Non-Existent Paths");
-    m_shaderPatcherTruePBRPrintNonExistentPathsCheckbox->SetToolTip(
-        "Print any paths generated from JSONs that do not exist");
-    m_shaderPatcherTruePBRPrintNonExistentPathsCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherTruePBRPrintNonExistentPathsChange, this);
-    m_shaderPatcherTruePBROptionsSizer->Add(m_shaderPatcherTruePBRPrintNonExistentPathsCheckbox, 0, wxALL, BORDER_SIZE);
-
-    shaderPatcherSizer->Add(m_shaderPatcherTruePBROptionsSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     rightSizer->Add(shaderPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
@@ -264,17 +235,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_shaderTransformParallaxToCMCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMChange, this);
     shaderTransformSizer->Add(m_shaderTransformParallaxToCMCheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_shaderTransformParallaxToCMSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Parallax to Complex Material Options");
-    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox = new wxCheckBox(this, wxID_ANY, "Only When Required");
-    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->SetToolTip(
-        "Only upgrade parallax textures to complex material if the mesh will have issues with parallax (recommended)");
-    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMOnlyWhenRequiredChange, this);
-    m_shaderTransformParallaxToCMSizer->Add(
-        m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox, 0, wxALL, BORDER_SIZE);
-
-    shaderTransformSizer->Add(m_shaderTransformParallaxToCMSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     rightSizer->Add(shaderTransformSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
@@ -315,13 +275,16 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
+    //
+    // Processing and RUN buttons
+    //
+
     // Restore defaults button
     auto* restoreDefaultsButton = new wxButton(this, wxID_ANY, "Restore Defaults");
     wxFont restoreDefaultsButtonFont = restoreDefaultsButton->GetFont();
     restoreDefaultsButtonFont.SetPointSize(BUTTON_FONT_SIZE);
     restoreDefaultsButton->SetFont(restoreDefaultsButtonFont);
     restoreDefaultsButton->Bind(wxEVT_BUTTON, &LauncherWindow::onRestoreDefaultsButtonPressed, this);
-
     rightSizer->Add(restoreDefaultsButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Load config button
@@ -330,7 +293,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     loadConfigButtonFont.SetPointSize(BUTTON_FONT_SIZE);
     m_loadConfigButton->SetFont(loadConfigButtonFont);
     m_loadConfigButton->Bind(wxEVT_BUTTON, &LauncherWindow::onLoadConfigButtonPressed, this);
-
     rightSizer->Add(m_loadConfigButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Save config button
@@ -339,7 +301,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     saveConfigButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     m_saveConfigButton->SetFont(saveConfigButtonFont);
     m_saveConfigButton->Bind(wxEVT_BUTTON, &LauncherWindow::onSaveConfigButtonPressed, this);
-
     rightSizer->Add(m_saveConfigButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Add a horizontal line
@@ -348,12 +309,92 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     // cancel button on the right side
     auto* cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
-
     wxFont cancelButtonFont = cancelButton->GetFont();
     cancelButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     cancelButton->SetFont(cancelButtonFont);
     cancelButton->Bind(wxEVT_BUTTON, &LauncherWindow::onCancelButtonPressed, this);
     rightSizer->Add(cancelButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
+    //
+    // Processing
+    //
+    m_processingOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Processing");
+
+    auto* processingHelpText = new wxStaticText(this, wxID_ANY,
+        "These options are used to customize output generation. Avoid changing these unless you know "
+        "what you are doing.");
+    processingHelpText->Wrap(400);
+    m_processingOptionsSizer->Add(processingHelpText, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
+
+    auto* processingOptionsHorizontalSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    auto* processingButtonsSizer = new wxBoxSizer(wxVERTICAL);
+
+    auto* btnOpenDialogRecTypeSelector = new wxButton(this, wxID_ANY, "Allowed Record Types");
+    btnOpenDialogRecTypeSelector->Bind(wxEVT_BUTTON, &LauncherWindow::onSelectPluginTypesBtn, this);
+    processingButtonsSizer->Add(btnOpenDialogRecTypeSelector, 0, wxALL | wxEXPAND, BORDER_SIZE);
+
+    auto* btnOpenDialogMeshAllowlist = new wxButton(this, wxID_ANY, "Mesh Allowlist");
+    btnOpenDialogMeshAllowlist->Bind(wxEVT_BUTTON, &LauncherWindow::onMeshRulesAllowBtn, this);
+    processingButtonsSizer->Add(btnOpenDialogMeshAllowlist, 0, wxALL | wxEXPAND, BORDER_SIZE);
+
+    auto* btnOpenDialogMeshBlocklist = new wxButton(this, wxID_ANY, "Mesh Blocklist");
+    btnOpenDialogMeshBlocklist->Bind(wxEVT_BUTTON, &LauncherWindow::onMeshRulesBlockBtn, this);
+    processingButtonsSizer->Add(btnOpenDialogMeshBlocklist, 0, wxALL | wxEXPAND, BORDER_SIZE);
+
+    auto* btnOpenDialogTextureMaps = new wxButton(this, wxID_ANY, "Texture Rules");
+    btnOpenDialogTextureMaps->Bind(wxEVT_BUTTON, &LauncherWindow::onTextureRulesTextureMapsBtn, this);
+    processingButtonsSizer->Add(btnOpenDialogTextureMaps, 0, wxALL | wxEXPAND, BORDER_SIZE);
+
+    processingOptionsHorizontalSizer->Add(processingButtonsSizer, 0, wxALL, 0);
+
+    auto* processingCheckboxSizer = new wxBoxSizer(wxVERTICAL);
+
+    m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin (Not Recommended)");
+    m_processingPluginPatchingOptionsESMifyCheckbox->SetToolTip(
+        "ESM flags all the output plugins, not just PGPatcher.esp (don't check this if you don't know what you're "
+        "doing)");
+    m_processingPluginPatchingOptionsESMifyCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
+    processingCheckboxSizer->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
+
+    m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
+    m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
+    m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
+    processingCheckboxSizer->Add(m_processingMultithreadingCheckbox, 0, wxALL, BORDER_SIZE);
+
+    m_processingEnableDevModeCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Mod Dev Mode");
+    m_processingEnableDevModeCheckbox->SetToolTip(
+        "Enables certain warnings to help those developing mods to work with PGPatcher");
+    m_processingEnableDevModeCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDevModeChange, this);
+    processingCheckboxSizer->Add(m_processingEnableDevModeCheckbox, 0, wxALL, BORDER_SIZE);
+
+    m_processingEnableDebugLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Debug Logging");
+    m_processingEnableDebugLoggingCheckbox->SetToolTip("Enables debug logging in the output log");
+    m_processingEnableDebugLoggingCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDebugLoggingChange, this);
+    processingCheckboxSizer->Add(m_processingEnableDebugLoggingCheckbox, 0, wxALL, BORDER_SIZE);
+
+    m_processingEnableTraceLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Trace Logging");
+    m_processingEnableTraceLoggingCheckbox->SetToolTip("Enables trace logging in the output log (very verbose)");
+    m_processingEnableTraceLoggingCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableTraceLoggingChange, this);
+    processingCheckboxSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, BORDER_SIZE);
+
+    processingOptionsHorizontalSizer->Add(processingCheckboxSizer, 0, wxALL, BORDER_SIZE);
+
+    m_processingOptionsSizer->Add(processingOptionsHorizontalSizer, 0, wxALL, 0);
+
+    leftSizer->Add(m_processingOptionsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
+
+    //
+    // Finalize
+    //
+
+    columnsSizer->Add(leftSizer, 1, wxEXPAND | wxALL, 0);
+    columnsSizer->Add(rightSizer, 0, wxEXPAND | wxALL, 0);
+
+    mainSizer->Add(columnsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Start Patching button on the right side
     m_okButton = new wxButton(this, wxID_ANY, "Start Patching");
@@ -363,155 +404,17 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     m_okButton->SetFont(okButtonFont);
+    m_okButton->SetBackgroundColour(wxColour(51, 204, 51));
     m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
 
     Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
 
-    rightSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
-    //
-    // Advanced
-    //
-
-    //
-    // Processing
-    //
-    m_processingOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Processing Options");
-
-    m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin (Not Recommended)");
-    m_processingPluginPatchingOptionsESMifyCheckbox->SetToolTip(
-        "ESM flags all the output plugins, not just PGPatcher.esp (don't check this if you don't know what you're "
-        "doing)");
-    m_processingPluginPatchingOptionsESMifyCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
-    m_processingOptionsSizer->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
-
-    // Create horizontal sizer for label + combo
-    auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
-
-    // Add label
-    auto* langLabel = new wxStaticText(this, wxID_ANY, "Plugin Language");
-    langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
-
-    wxArrayString pluginLangs;
-    for (const auto& lang : ParallaxGenPlugin::getAvailablePluginLangStrs()) {
-        pluginLangs.Add(lang);
-    }
-    m_processingPluginPatchingOptionsLangCombo
-        = new wxComboBox(this, wxID_ANY, "Language", wxDefaultPosition, wxDefaultSize, pluginLangs, wxCB_READONLY);
-    m_processingPluginPatchingOptionsLangCombo->Bind(
-        wxEVT_COMBOBOX, &LauncherWindow::onProcessingPluginPatchingOptionsLangChange, this);
-    m_processingPluginPatchingOptionsLangCombo->SetToolTip(
-        "Language of embedded strings in output plugin. If a translation for this language is not available for a "
-        "record, the default will be used which is usually English.");
-    langSizer->Add(m_processingPluginPatchingOptionsLangCombo, 1, wxEXPAND | wxLEFT, BORDER_SIZE);
-
-    m_processingOptionsSizer->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
-    auto* btnOpenDialogRecTypeSelector = new wxButton(this, wxID_ANY, "Allowed Record Types");
-    btnOpenDialogRecTypeSelector->Bind(wxEVT_BUTTON, &LauncherWindow::onSelectPluginTypesBtn, this);
-    m_processingOptionsSizer->Add(btnOpenDialogRecTypeSelector, 0, wxALL, BORDER_SIZE);
-
-    m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
-    m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
-    m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
-    m_processingOptionsSizer->Add(m_processingMultithreadingCheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_processingBSACheckbox = new wxCheckBox(this, wxID_ANY, "Read BSAs");
-    m_processingBSACheckbox->SetToolTip("Read meshes/textures from BSAs in addition to loose files");
-    m_processingBSACheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingBSAChange, this);
-    m_processingOptionsSizer->Add(m_processingBSACheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_processingEnableDebugLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Debug Logging");
-    m_processingEnableDebugLoggingCheckbox->SetToolTip("Enables debug logging in the output log");
-    m_processingEnableDebugLoggingCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDebugLoggingChange, this);
-    m_processingOptionsSizer->Add(m_processingEnableDebugLoggingCheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_processingEnableTraceLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Trace Logging");
-    m_processingEnableTraceLoggingCheckbox->SetToolTip("Enables trace logging in the output log (very verbose)");
-    m_processingEnableTraceLoggingCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableTraceLoggingChange, this);
-    m_processingOptionsSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, BORDER_SIZE);
-
-    leftSizer->Add(m_processingOptionsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
-
-    //
-    // Mesh Rules
-    //
-    auto* meshRulesSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Mesh Rules");
-
-    auto* meshRulesAllowListLabel = new wxStaticText(this, wxID_ANY, "Mesh Allow List");
-    meshRulesSizer->Add(meshRulesAllowListLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
-
-    m_meshRulesAllowList->AppendColumn("Mesh Allow List", wxLIST_FORMAT_LEFT);
-    m_meshRulesAllowList->SetColumnWidth(0, m_meshRulesAllowList->GetClientSize().GetWidth() - scrollbarWidth);
-    m_meshRulesAllowList->SetToolTip("If anything is in this list, only meshes matching items in this list will be "
-                                     "patched. Wildcards are supported.");
-    meshRulesSizer->Add(m_meshRulesAllowList, 0, wxEXPAND | wxALL, BORDER_SIZE);
-    m_meshRulesAllowList->Bind(pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onMeshRulesAllowListChange, this);
-
-    auto* meshRulesBlockListLabel = new wxStaticText(this, wxID_ANY, "Mesh Block List");
-    meshRulesSizer->Add(meshRulesBlockListLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
-
-    m_meshRulesBlockList->AppendColumn("Mesh Block List", wxLIST_FORMAT_LEFT);
-    m_meshRulesBlockList->SetColumnWidth(0, m_meshRulesBlockList->GetClientSize().GetWidth() - scrollbarWidth);
-    m_meshRulesBlockList->SetToolTip(
-        "Any matches in this list will not be patched. This is checked after allowlist. Wildcards are supported.");
-    meshRulesSizer->Add(m_meshRulesBlockList, 0, wxEXPAND | wxALL, BORDER_SIZE);
-    m_meshRulesBlockList->Bind(pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onMeshRulesBlockListChange, this);
-
-    m_advancedOptionsSizer->Add(meshRulesSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
-    //
-    // Texture Rules
-    //
-    auto* textureRulesSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Texture Rules");
-
-    auto* textureRulesMapsLabel = new wxStaticText(this, wxID_ANY, "Manual Texture Maps");
-    textureRulesSizer->Add(textureRulesMapsLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
-
-    m_textureRulesMaps->AppendColumn("Texture Maps", wxLIST_FORMAT_LEFT);
-    m_textureRulesMaps->AppendColumn("Type", wxLIST_FORMAT_LEFT);
-    m_textureRulesMaps->SetColumnWidth(0, (m_textureRulesMaps->GetClientSize().GetWidth() - scrollbarWidth) / 2);
-    m_textureRulesMaps->SetColumnWidth(1, (m_textureRulesMaps->GetClientSize().GetWidth() - scrollbarWidth) / 2);
-    m_textureRulesMaps->SetToolTip(
-        "Use this to manually specify what type of texture a texture is. This is useful for textures that don't follow "
-        "the standard naming conventions. Path should start with \"textures/\". Set to unknown for it to be skipped.");
-    textureRulesSizer->Add(m_textureRulesMaps, 0, wxEXPAND | wxALL, BORDER_SIZE);
-    m_textureRulesMaps->Bind(pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onTextureRulesMapsChange, this);
-
-    auto* textureRulesVanillaBSAListLabel = new wxStaticText(this, wxID_ANY, "Vanilla BSA List");
-    textureRulesSizer->Add(textureRulesVanillaBSAListLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
-
-    m_textureRulesVanillaBSAList->AppendColumn("Vanilla BSA List", wxLIST_FORMAT_LEFT);
-    m_textureRulesVanillaBSAList->SetColumnWidth(
-        0, m_textureRulesVanillaBSAList->GetClientSize().GetWidth() - scrollbarWidth);
-    m_textureRulesVanillaBSAList->SetToolTip(
-        "Define vanilla or vanilla-like BSAs. Files from these BSAs will only be considered vanilla types.");
-    textureRulesSizer->Add(m_textureRulesVanillaBSAList, 0, wxEXPAND | wxALL, BORDER_SIZE);
-    m_textureRulesVanillaBSAList->Bind(
-        pgEVT_LISTCTRL_CHANGED, &LauncherWindow::onTextureRulesVanillaBSAListChange, this);
-
-    m_advancedOptionsSizer->Add(textureRulesSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
-    //
-    // Finalize
-    //
-    m_advancedOptionsSizer->Show(false); // Initially hidden
-    m_shaderPatcherComplexMaterialOptionsSizer->Show(false); // Initially hidden
-    m_shaderPatcherTruePBROptionsSizer->Show(false); // Initially hidden
-    m_shaderTransformParallaxToCMSizer->Show(false); // Initially hidden
-    m_processingOptionsSizer->Show(false); // Initially hidden
-
-    columnsSizer->Add(m_advancedOptionsSizer, 0, wxEXPAND | wxALL, 0);
-    columnsSizer->Add(leftSizer, 1, wxEXPAND | wxALL, 0);
-    columnsSizer->Add(rightSizer, 0, wxEXPAND | wxALL, 0);
-
-    mainSizer->Add(columnsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
+    mainSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     SetSizerAndFit(mainSizer);
-    SetSizeHints(this->GetSize());
+    const auto curSize = GetSize();
+    SetSize(MIN_WIDTH, curSize.GetY());
+    SetSizeHints(wxSize(MIN_WIDTH, curSize.GetY()), wxSize(-1, curSize.GetY()));
 
     Bind(wxEVT_INIT_DIALOG, &LauncherWindow::onInitDialog, this);
 }
@@ -534,7 +437,9 @@ void LauncherWindow::loadConfig()
     const auto initParams = m_pgc.getParams();
 
     // Game
-    m_gameLocationTextbox->SetValue(initParams.Game.dir.wstring());
+    if (!m_gameLocationLocked) {
+        m_gameLocationTextbox->SetValue(initParams.Game.dir.wstring());
+    }
     for (const auto& gameType : BethesdaGame::getGameTypes()) {
         if (gameType == initParams.Game.type) {
             m_gameTypeRadios[gameType]->SetValue(true);
@@ -548,9 +453,11 @@ void LauncherWindow::loadConfig()
 
             // Show MO2 options only if MO2 is selected
             if (mmType == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
-                m_mo2OptionsSizer->Show(true);
+                m_mo2InstanceLocationTextbox->Enable(true);
+                m_mo2InstanceBrowseButton->Enable(true);
             } else {
-                m_mo2OptionsSizer->Show(false);
+                m_mo2InstanceLocationTextbox->Enable(false);
+                m_mo2InstanceBrowseButton->Enable(false);
             }
         }
     }
@@ -565,18 +472,19 @@ void LauncherWindow::loadConfig()
     // Output
     m_outputLocationTextbox->SetValue(initParams.Output.dir.wstring());
     m_outputZipCheckbox->SetValue(initParams.Output.zip);
-
-    // Advanced
-    m_advancedOptionsCheckbox->SetValue(initParams.advanced);
+    m_outputPluginLangCombo->SetStringSelection(
+        ParallaxGenPlugin::getStringFromPluginLang(initParams.Output.pluginLang));
 
     // Processing
     m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
-    m_processingPluginPatchingOptionsLangCombo->SetStringSelection(
-        ParallaxGenPlugin::getStringFromPluginLang(initParams.Processing.pluginLang));
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
-    m_processingBSACheckbox->SetValue(initParams.Processing.bsa);
+    m_processingEnableDevModeCheckbox->SetValue(initParams.Processing.enableModDevMode);
     m_processingEnableDebugLoggingCheckbox->SetValue(initParams.Processing.enableDebugLogging);
     m_processingEnableTraceLoggingCheckbox->SetValue(initParams.Processing.enableTraceLogging);
+    m_meshRulesAllowListState = initParams.Processing.allowList;
+    m_meshRulesBlockListState = initParams.Processing.blockList;
+    m_textureRulesTextureMapsState = initParams.Processing.textureMaps;
+    m_DialogRecTypeSelectorState = initParams.Processing.allowedModelRecordTypes;
 
     // Pre-Patchers
     m_prePatcherDisableMLPCheckbox->SetValue(initParams.PrePatcher.disableMLP);
@@ -585,27 +493,10 @@ void LauncherWindow::loadConfig()
     // Shader Patchers
     m_shaderPatcherParallaxCheckbox->SetValue(initParams.ShaderPatcher.parallax);
     m_shaderPatcherComplexMaterialCheckbox->SetValue(initParams.ShaderPatcher.complexMaterial);
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->DeleteAllItems();
-    for (const auto& dynCubemap : initParams.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist) {
-        m_shaderPatcherComplexMaterialDynCubemapBlocklist->InsertItem(
-            m_shaderPatcherComplexMaterialDynCubemapBlocklist->GetItemCount(), dynCubemap);
-    }
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->InsertItem(
-        m_shaderPatcherComplexMaterialDynCubemapBlocklist->GetItemCount(), ""); // Add empty line
-    m_shaderPatcherComplexMaterialDynCubemapBlocklist->SetToolTip(
-        "Textures or meshes matching elements of this list will not have dynamic cubemap applied with complex "
-        "material. "
-        "Wildcards are supported.");
-
     m_shaderPatcherTruePBRCheckbox->SetValue(initParams.ShaderPatcher.truePBR);
-    m_shaderPatcherTruePBRCheckPathsCheckbox->SetValue(initParams.ShaderPatcher.ShaderPatcherTruePBR.checkPaths);
-    m_shaderPatcherTruePBRPrintNonExistentPathsCheckbox->SetValue(
-        initParams.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths);
 
     // Shader Transforms
     m_shaderTransformParallaxToCMCheckbox->SetValue(initParams.ShaderTransforms.parallaxToCM);
-    m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->SetValue(
-        initParams.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
 
     // Post-Patchers
     m_postPatcherRestoreDefaultShadersCheckbox->SetValue(initParams.PostPatcher.disablePrePatchedMaterials);
@@ -614,38 +505,6 @@ void LauncherWindow::loadConfig()
 
     // Global Patchers
     m_globalPatcherFixEffectLightingCSCheckbox->SetValue(initParams.GlobalPatcher.fixEffectLightingCS);
-
-    // Mesh Rules
-    m_meshRulesAllowList->DeleteAllItems();
-    for (const auto& meshRule : initParams.MeshRules.allowList) {
-        m_meshRulesAllowList->InsertItem(m_meshRulesAllowList->GetItemCount(), meshRule);
-    }
-    m_meshRulesAllowList->InsertItem(m_meshRulesAllowList->GetItemCount(), ""); // Add empty line
-
-    m_meshRulesBlockList->DeleteAllItems();
-    for (const auto& meshRule : initParams.MeshRules.blockList) {
-        m_meshRulesBlockList->InsertItem(m_meshRulesBlockList->GetItemCount(), meshRule);
-    }
-    m_meshRulesBlockList->InsertItem(m_meshRulesBlockList->GetItemCount(), ""); // Add empty line
-
-    // Texture Rules
-    m_textureRulesMaps->DeleteAllItems();
-    for (const auto& textureRule : initParams.TextureRules.textureMaps) {
-        const auto newIndex = m_textureRulesMaps->InsertItem(m_textureRulesMaps->GetItemCount(), textureRule.first);
-        m_textureRulesMaps->SetItem(newIndex, 1, NIFUtil::getStrFromTexType(textureRule.second));
-    }
-    m_textureRulesMaps->InsertItem(m_textureRulesMaps->GetItemCount(), ""); // Add empty line
-
-    m_textureRulesVanillaBSAList->DeleteAllItems();
-    for (const auto& vanillaBSA : initParams.TextureRules.vanillaBSAList) {
-        m_textureRulesVanillaBSAList->InsertItem(m_textureRulesVanillaBSAList->GetItemCount(), vanillaBSA);
-    }
-    m_textureRulesVanillaBSAList->InsertItem(m_textureRulesVanillaBSAList->GetItemCount(), ""); // Add empty line
-
-    // Plugin Rules
-    m_DialogRecTypeSelectorState = initParams.PluginRules.allowedModelRecordTypes;
-
-    updateAdvanced();
 }
 
 // Component event handlers
@@ -654,6 +513,11 @@ void LauncherWindow::onGameLocationChange([[maybe_unused]] wxCommandEvent& event
 
 void LauncherWindow::onGameTypeChange([[maybe_unused]] wxCommandEvent& event)
 {
+    if (m_gameLocationLocked) {
+        updateDisabledElements();
+        return;
+    }
+
     const auto initParams = m_pgc.getParams();
 
     // update the game location textbox from bethesdagame
@@ -678,7 +542,8 @@ void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
     // Show MO2 options only if the MO2 radio button is selected
     const bool isMO2Selected
         = (event.GetEventObject() == m_modManagerRadios[ModManagerDirectory::ModManagerType::MODORGANIZER2]);
-    m_mo2OptionsSizer->Show(isMO2Selected);
+    m_mo2InstanceLocationTextbox->Enable(isMO2Selected);
+    m_mo2InstanceBrowseButton->Enable(isMO2Selected);
 
     updateMO2Items();
 
@@ -693,58 +558,22 @@ void LauncherWindow::onOutputLocationChange([[maybe_unused]] wxCommandEvent& eve
 
 void LauncherWindow::onOutputZipChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
-void LauncherWindow::onAdvancedOptionsChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateAdvanced();
-
-    updateDisabledElements();
-}
-
-void LauncherWindow::updateAdvanced()
-{
-    const bool advancedVisible = m_advancedOptionsCheckbox->GetValue();
-
-    m_advancedOptionsSizer->Show(advancedVisible);
-    m_processingOptionsSizer->Show(advancedVisible);
-
-    if (m_shaderPatcherComplexMaterialCheckbox->GetValue() && advancedVisible) {
-        m_shaderPatcherComplexMaterialOptionsSizer->Show(true);
-    } else {
-        m_shaderPatcherComplexMaterialOptionsSizer->Show(false);
-    }
-
-    if (m_shaderPatcherTruePBRCheckbox->GetValue() && advancedVisible) {
-        m_shaderPatcherTruePBROptionsSizer->Show(true);
-    } else {
-        m_shaderPatcherTruePBROptionsSizer->Show(false);
-    }
-
-    if (m_shaderTransformParallaxToCMCheckbox->GetValue() && advancedVisible) {
-        m_shaderTransformParallaxToCMSizer->Show(true);
-    } else {
-        m_shaderTransformParallaxToCMSizer->Show(false);
-    }
-
-    Layout(); // Refresh layout to apply visibility changes
-    Fit();
-}
-
 void LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
 
-void LauncherWindow::onProcessingPluginPatchingOptionsLangChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateDisabledElements();
-}
+void LauncherWindow::onOutputPluginLangChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onProcessingMultithreadingChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
 
-void LauncherWindow::onProcessingBSAChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
+void LauncherWindow::onProcessingEnableDevModeChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
 
 void LauncherWindow::onProcessingEnableDebugLoggingChange([[maybe_unused]] wxCommandEvent& event)
 {
@@ -772,39 +601,12 @@ void LauncherWindow::onShaderPatcherParallaxChange([[maybe_unused]] wxCommandEve
 
 void LauncherWindow::onShaderPatcherComplexMaterialChange([[maybe_unused]] wxCommandEvent& event)
 {
-    updateAdvanced();
     updateDisabledElements();
 }
 
-void LauncherWindow::onShaderPatcherComplexMaterialDynCubemapBlocklistChange(
-    [[maybe_unused]] PGCustomListctrlChangedEvent& event)
-{
-    updateDisabledElements();
-}
-
-void LauncherWindow::onShaderPatcherTruePBRChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateAdvanced();
-    updateDisabledElements();
-}
-
-void LauncherWindow::onShaderPatcherTruePBRCheckPathsChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateDisabledElements();
-}
-
-void LauncherWindow::onShaderPatcherTruePBRPrintNonExistentPathsChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateDisabledElements();
-}
+void LauncherWindow::onShaderPatcherTruePBRChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onShaderTransformParallaxToCMChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateAdvanced();
-    updateDisabledElements();
-}
-
-void LauncherWindow::onShaderTransformParallaxToCMOnlyWhenRequiredChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
@@ -821,24 +623,43 @@ void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEv
     updateDisabledElements();
 }
 
-void LauncherWindow::onMeshRulesAllowListChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
+void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
 {
-    updateDisabledElements();
+    DialogModifiableListCtrl dialog(this, "Mesh Rules Allowlist",
+        "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like "
+        "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire "
+        "folders/files.");
+    dialog.populateList(m_meshRulesAllowListState);
+    if (dialog.ShowModal() == wxID_OK) {
+        m_meshRulesAllowListState = dialog.getList();
+        updateDisabledElements();
+    }
 }
 
-void LauncherWindow::onMeshRulesBlockListChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
+void LauncherWindow::onMeshRulesBlockBtn([[maybe_unused]] wxCommandEvent& event)
 {
-    updateDisabledElements();
+    DialogModifiableListCtrl dialog(this, "Mesh Rules Blocklist",
+        "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or "
+        "use wildcards (* is the wildcard) to blocklist entire "
+        "folders/files.");
+    dialog.populateList(m_meshRulesBlockListState);
+    if (dialog.ShowModal() == wxID_OK) {
+        m_meshRulesBlockListState = dialog.getList();
+        updateDisabledElements();
+    }
 }
 
-void LauncherWindow::onTextureRulesMapsChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
+void LauncherWindow::onTextureRulesTextureMapsBtn([[maybe_unused]] wxCommandEvent& event)
 {
-    updateDisabledElements();
-}
-
-void LauncherWindow::onTextureRulesVanillaBSAListChange([[maybe_unused]] PGCustomListctrlChangedEvent& event)
-{
-    updateDisabledElements();
+    DialogTextureMapListCtrl dialog(this, "Texture Rules",
+        "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). "
+        "Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. "
+        "Wilcards are NOT supported here. A texture can be ignored by setting it to \"unknown\"");
+    dialog.populateList(m_textureRulesTextureMapsState);
+    if (dialog.ShowModal() == wxID_OK) {
+        m_textureRulesTextureMapsState = dialog.getList();
+        updateDisabledElements();
+    }
 }
 
 void LauncherWindow::onSelectPluginTypesBtn([[maybe_unused]] wxCommandEvent& event)
@@ -874,18 +695,19 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     // Output
     params.Output.dir = m_outputLocationTextbox->GetValue().ToStdWstring();
     params.Output.zip = m_outputZipCheckbox->GetValue();
-
-    // Advanced
-    params.advanced = m_advancedOptionsCheckbox->GetValue();
+    params.Output.pluginLang
+        = ParallaxGenPlugin::getPluginLangFromString(m_outputPluginLangCombo->GetStringSelection().ToStdString());
 
     // Processing
     params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
-    params.Processing.pluginLang = ParallaxGenPlugin::getPluginLangFromString(
-        m_processingPluginPatchingOptionsLangCombo->GetStringSelection().ToStdString());
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
-    params.Processing.bsa = m_processingBSACheckbox->GetValue();
+    params.Processing.enableModDevMode = m_processingEnableDevModeCheckbox->GetValue();
     params.Processing.enableDebugLogging = m_processingEnableDebugLoggingCheckbox->GetValue();
     params.Processing.enableTraceLogging = m_processingEnableTraceLoggingCheckbox->GetValue();
+    params.Processing.allowList = m_meshRulesAllowListState;
+    params.Processing.blockList = m_meshRulesBlockListState;
+    params.Processing.textureMaps = m_textureRulesTextureMapsState;
+    params.Processing.allowedModelRecordTypes = m_DialogRecTypeSelectorState;
 
     // Pre-Patchers
     params.PrePatcher.disableMLP = m_prePatcherDisableMLPCheckbox->GetValue();
@@ -894,25 +716,10 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     // Shader Patchers
     params.ShaderPatcher.parallax = m_shaderPatcherParallaxCheckbox->GetValue();
     params.ShaderPatcher.complexMaterial = m_shaderPatcherComplexMaterialCheckbox->GetValue();
-
-    params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist.clear();
-    for (int i = 0; i < m_shaderPatcherComplexMaterialDynCubemapBlocklist->GetItemCount(); i++) {
-        const auto itemText = m_shaderPatcherComplexMaterialDynCubemapBlocklist->GetItemText(i);
-        if (!itemText.IsEmpty()) {
-            params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist.push_back(
-                itemText.ToStdWstring());
-        }
-    }
-
     params.ShaderPatcher.truePBR = m_shaderPatcherTruePBRCheckbox->GetValue();
-    params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths = m_shaderPatcherTruePBRCheckPathsCheckbox->GetValue();
-    params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths
-        = m_shaderPatcherTruePBRPrintNonExistentPathsCheckbox->GetValue();
 
     // Shader Transforms
     params.ShaderTransforms.parallaxToCM = m_shaderTransformParallaxToCMCheckbox->GetValue();
-    params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired
-        = m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox->GetValue();
 
     // Post-Patchers
     params.PostPatcher.disablePrePatchedMaterials = m_postPatcherRestoreDefaultShadersCheckbox->GetValue();
@@ -921,48 +728,14 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
 
     // Global Patchers
     params.GlobalPatcher.fixEffectLightingCS = m_globalPatcherFixEffectLightingCSCheckbox->GetValue();
-
-    // Mesh Rules
-    params.MeshRules.allowList.clear();
-    for (int i = 0; i < m_meshRulesAllowList->GetItemCount(); i++) {
-        const auto itemText = m_meshRulesAllowList->GetItemText(i);
-        if (!itemText.IsEmpty()) {
-            params.MeshRules.allowList.push_back(itemText.ToStdWstring());
-        }
-    }
-
-    params.MeshRules.blockList.clear();
-    for (int i = 0; i < m_meshRulesBlockList->GetItemCount(); i++) {
-        const auto itemText = m_meshRulesBlockList->GetItemText(i);
-        if (!itemText.IsEmpty()) {
-            params.MeshRules.blockList.push_back(itemText.ToStdWstring());
-        }
-    }
-
-    // Texture Rules
-    params.TextureRules.textureMaps.clear();
-    for (int i = 0; i < m_textureRulesMaps->GetItemCount(); i++) {
-        const auto itemText = m_textureRulesMaps->GetItemText(i, 0);
-        if (!itemText.IsEmpty()) {
-            const auto texType = NIFUtil::getTexTypeFromStr(m_textureRulesMaps->GetItemText(i, 1).ToStdString());
-            params.TextureRules.textureMaps.emplace_back(itemText.ToStdWstring(), texType);
-        }
-    }
-
-    params.TextureRules.vanillaBSAList.clear();
-    for (int i = 0; i < m_textureRulesVanillaBSAList->GetItemCount(); i++) {
-        const auto itemText = m_textureRulesVanillaBSAList->GetItemText(i);
-        if (!itemText.IsEmpty()) {
-            params.TextureRules.vanillaBSAList.push_back(itemText.ToStdWstring());
-        }
-    }
-
-    // Plugin Rules
-    params.PluginRules.allowedModelRecordTypes = m_DialogRecTypeSelectorState;
 }
 
 void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event)
 {
+    if (m_gameLocationLocked) {
+        return;
+    }
+
     wxDirDialog dialog(this, "Select Game Location", m_gameLocationTextbox->GetValue());
     if (dialog.ShowModal() == wxID_OK) {
         m_gameLocationTextbox->SetValue(dialog.GetPath());
@@ -988,6 +761,7 @@ void LauncherWindow::updateMO2Items()
         // If MO2 is not selected, clear the instance location textbox and return
         m_gameLocationTextbox->Enable(true);
         m_gameLocationBrowseButton->Enable(true);
+        m_gameLocationLocked = false;
         for (const auto& gameType : BethesdaGame::getGameTypes()) {
             m_gameTypeRadios[gameType]->Enable(true);
         }
@@ -1014,10 +788,12 @@ void LauncherWindow::updateMO2Items()
         // disable the game location textbox
         m_gameLocationTextbox->Enable(false);
         m_gameLocationBrowseButton->Enable(false);
+        m_gameLocationLocked = true;
     } else {
         // not found, enable the game location textbox
         m_gameLocationTextbox->Enable(true);
         m_gameLocationBrowseButton->Enable(true);
+        m_gameLocationLocked = false;
     }
 
     // Get game type
@@ -1175,10 +951,12 @@ void LauncherWindow::setGamePathBasedOnExe()
         // disable textbox and browse button
         m_gameLocationTextbox->Enable(false);
         m_gameLocationBrowseButton->Enable(false);
+        m_gameLocationLocked = true;
     } else {
         // enable textbox and browse button
         m_gameLocationTextbox->Enable(true);
         m_gameLocationBrowseButton->Enable(true);
+        m_gameLocationLocked = false;
     }
 }
 

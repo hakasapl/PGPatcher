@@ -337,11 +337,11 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     Logger::info("Initializing plugin patching");
     if (params.Processing.multithread) {
         pluginInit.queueTask([&bg, &exePath, &params]() -> void {
-            ParallaxGenPlugin::initialize(*bg, exePath, params.Processing.pluginLang);
+            ParallaxGenPlugin::initialize(*bg, exePath, params.Output.pluginLang);
             ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
         });
     } else {
-        ParallaxGenPlugin::initialize(*bg, exePath, params.Processing.pluginLang);
+        ParallaxGenPlugin::initialize(*bg, exePath, params.Output.pluginLang);
         ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
     }
 
@@ -413,7 +413,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Populating file map"); });
 
     // Init file map
-    pgd->populateFileMap(params.Processing.bsa);
+    pgd->populateFileMap(true);
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(7, NUM_PREPARING_STEPS); });
     //
@@ -477,23 +477,19 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         Logger::debug("Adding Complex Material shader patcher");
         meshPatchers.shaderPatchers.emplace(
             PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
-        PatcherMeshShaderComplexMaterial::loadStatics(
-            params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist);
     }
     if (params.ShaderPatcher.truePBR) {
         Logger::debug("Adding True PBR shader patcher");
         meshPatchers.shaderPatchers.emplace(
             PatcherMeshShaderTruePBR::getShaderType(), PatcherMeshShaderTruePBR::getFactory());
-        PatcherMeshShaderTruePBR::loadOptions(params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths,
-            params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths);
+        PatcherMeshShaderTruePBR::loadOptions(true, params.Processing.enableModDevMode);
     }
     if (params.ShaderTransforms.parallaxToCM) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
         meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
             = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
                   PatcherMeshShaderTransformParallaxToCM::getFactory() };
-        PatcherMeshShaderTransformParallaxToCM::loadOptions(
-            params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
+        PatcherMeshShaderTransformParallaxToCM::loadOptions(true);
 
         // initialize patcher hooks
         if (!PatcherTextureHookConvertToCM::initShader()) {
@@ -547,8 +543,8 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Reading NIFs"); });
 
     // Map files
-    pgd->mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
-        params.TextureRules.vanillaBSAList, params.Processing.multithread, args.highmem, progressCallback);
+    pgd->mapFiles(params.Processing.blockList, params.Processing.allowList, params.Processing.textureMaps,
+        params.Processing.vanillaBSAList, params.Processing.multithread, args.highmem, progressCallback);
 
     // Any patcher initialization that requires PGD
     if (params.ShaderPatcher.truePBR) {
@@ -591,7 +587,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Processing NIFs"); });
 
     ParallaxGen::patchMeshes(
-        params.Processing.multithread, false, params.PluginRules.allowedModelRecordTypes, true, progressCallback);
+        params.Processing.multithread, false, params.Processing.allowedModelRecordTypes, true, progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Patching textures");

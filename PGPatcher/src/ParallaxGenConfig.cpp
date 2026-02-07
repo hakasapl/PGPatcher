@@ -43,7 +43,7 @@ auto ParallaxGenConfig::getUserConfigFile() -> filesystem::path
     }
 
     // Get user config file
-    static const filesystem::path userConfigFile = s_exePath / "cfg" / "user.json";
+    static const filesystem::path userConfigFile = s_exePath / "cfg" / "settings.json";
     return userConfigFile;
 }
 
@@ -79,7 +79,7 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
     // Mesh Rules
     static const vector<wstring> defaultMeshBlocklist
         = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*_lod_*", L"*_lod.*", L"*\\markers\\*" };
-    outParams.MeshRules.blockList = defaultMeshBlocklist;
+    outParams.Processing.blockList = defaultMeshBlocklist;
 
     // Texture Rules
     static const vector<wstring> defaultVanillaBSAList = { L"Skyrim - Textures0.bsa", L"Skyrim - Textures1.bsa",
@@ -90,7 +90,7 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
         L"Project Clarity AIO Half Res Packed2 - Textures.bsa", L"Project Clarity AIO Half Res Packed3 - Textures.bsa",
         L"Project Clarity AIO Half Res Packed4 - Textures.bsa", L"Project Clarity AIO Half Res Packed5 - Textures.bsa",
         L"Project Clarity AIO Half Res Packed6 - Textures.bsa" };
-    outParams.TextureRules.vanillaBSAList = defaultVanillaBSAList;
+    outParams.Processing.vanillaBSAList = defaultVanillaBSAList;
 
     return outParams;
 }
@@ -151,34 +151,55 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("output") && paramJ["output"].contains("zip")) {
             paramJ["output"]["zip"].get_to<bool>(m_params.Output.zip);
         }
-
-        // "advanced"
-        if (paramJ.contains("advanced")) {
-            paramJ["advanced"].get_to<bool>(m_params.advanced);
+        if (paramJ.contains("output") && paramJ["output"].contains("pluginlang")) {
+            m_params.Output.pluginLang
+                = ParallaxGenPlugin::getPluginLangFromString(paramJ["output"]["pluginlang"].get<string>());
         }
 
         // "processing"
         if (paramJ.contains("processing") && paramJ["processing"].contains("multithread")) {
             paramJ["processing"]["multithread"].get_to<bool>(m_params.Processing.multithread);
         }
-        if (paramJ.contains("processing") && paramJ["processing"].contains("highmem")) {
-            paramJ["processing"]["highmem"].get_to<bool>(m_params.Processing.highMem);
-        }
-        if (paramJ.contains("processing") && paramJ["processing"].contains("bsa")) {
-            paramJ["processing"]["bsa"].get_to<bool>(m_params.Processing.bsa);
-        }
         if (paramJ.contains("processing") && paramJ["processing"].contains("pluginesmify")) {
             paramJ["processing"]["pluginesmify"].get_to<bool>(m_params.Processing.pluginESMify);
         }
-        if (paramJ.contains("processing") && paramJ["processing"].contains("pluginlang")) {
-            m_params.Processing.pluginLang
-                = ParallaxGenPlugin::getPluginLangFromString(paramJ["processing"]["pluginlang"].get<string>());
+        if (paramJ.contains("processing") && paramJ["processing"].contains("devmode")) {
+            paramJ["processing"]["devmode"].get_to<bool>(m_params.Processing.enableModDevMode);
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("enabledebuglogging")) {
             paramJ["processing"]["enabledebuglogging"].get_to<bool>(m_params.Processing.enableDebugLogging);
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("enabletracelogging")) {
             paramJ["processing"]["enabletracelogging"].get_to<bool>(m_params.Processing.enableTraceLogging);
+        }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("allowlist")) {
+            for (const auto& item : paramJ["processing"]["allowlist"]) {
+                m_params.Processing.allowList.push_back(utf8toUTF16(item.get<string>()));
+            }
+        }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("blocklist")) {
+            for (const auto& item : paramJ["processing"]["blocklist"]) {
+                m_params.Processing.blockList.push_back(utf8toUTF16(item.get<string>()));
+            }
+        }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("texturemaps")) {
+            for (const auto& item : paramJ["processing"]["texturemaps"].items()) {
+                m_params.Processing.textureMaps.emplace_back(
+                    utf8toUTF16(item.key()), NIFUtil::getTexTypeFromStr(item.value().get<string>()));
+            }
+        }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("vanillabsalist")) {
+            for (const auto& item : paramJ["processing"]["vanillabsalist"]) {
+                m_params.Processing.vanillaBSAList.push_back(utf8toUTF16(item.get<string>()));
+            }
+        }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("allowedmodelrecordtypes")) {
+            m_params.Processing.allowedModelRecordTypes.clear();
+
+            for (const auto& item : paramJ["processing"]["allowedmodelrecordtypes"]) {
+                m_params.Processing.allowedModelRecordTypes.insert(
+                    ParallaxGenPlugin::getRecTypeFromString(item.get<string>()));
+            }
         }
 
         // "prepatcher"
@@ -196,33 +217,13 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("complexmaterial")) {
             paramJ["shaderpatcher"]["complexmaterial"].get_to<bool>(m_params.ShaderPatcher.complexMaterial);
         }
-        if (paramJ.contains("shaderpatcher")
-            && paramJ["shaderpatcher"].contains("complexmaterialdyncubemapblocklist")) {
-            for (const auto& item : paramJ["shaderpatcher"]["complexmaterialdyncubemapblocklist"]) {
-                m_params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist.push_back(
-                    utf8toUTF16(item.get<string>()));
-            }
-        }
         if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("truepbr")) {
             paramJ["shaderpatcher"]["truepbr"].get_to<bool>(m_params.ShaderPatcher.truePBR);
-        }
-        if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("truepbr_checkpaths")) {
-            paramJ["shaderpatcher"]["truepbr_checkpaths"].get_to<bool>(
-                m_params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths);
-        }
-        if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("truepbr_printnonexistentpaths")) {
-            paramJ["shaderpatcher"]["truepbr_printnonexistentpaths"].get_to<bool>(
-                m_params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths);
         }
 
         // "shadertransforms"
         if (paramJ.contains("shadertransforms") && paramJ["shadertransforms"].contains("parallaxtocm")) {
             paramJ["shadertransforms"]["parallaxtocm"].get_to<bool>(m_params.ShaderTransforms.parallaxToCM);
-        }
-        if (paramJ.contains("shadertransforms")
-            && paramJ["shadertransforms"].contains("parallaxtocm_onlywhenrequired")) {
-            paramJ["shadertransforms"]["parallaxtocm_onlywhenrequired"].get_to<bool>(
-                m_params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired);
         }
 
         // "postpatcher"
@@ -240,43 +241,6 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         // "globalpatcher"
         if (paramJ.contains("globalpatcher") && paramJ["globalpatcher"].contains("fixeffectlightingcs")) {
             paramJ["globalpatcher"]["fixeffectlightingcs"].get_to<bool>(m_params.GlobalPatcher.fixEffectLightingCS);
-        }
-
-        // "meshrules"
-        if (paramJ.contains("meshrules") && paramJ["meshrules"].contains("allowlist")) {
-            for (const auto& item : paramJ["meshrules"]["allowlist"]) {
-                m_params.MeshRules.allowList.push_back(utf8toUTF16(item.get<string>()));
-            }
-        }
-
-        if (paramJ.contains("meshrules") && paramJ["meshrules"].contains("blocklist")) {
-            for (const auto& item : paramJ["meshrules"]["blocklist"]) {
-                m_params.MeshRules.blockList.push_back(utf8toUTF16(item.get<string>()));
-            }
-        }
-
-        // "texturerules"
-        if (paramJ.contains("texturerules") && paramJ["texturerules"].contains("texturemaps")) {
-            for (const auto& item : paramJ["texturerules"]["texturemaps"].items()) {
-                m_params.TextureRules.textureMaps.emplace_back(
-                    utf8toUTF16(item.key()), NIFUtil::getTexTypeFromStr(item.value().get<string>()));
-            }
-        }
-
-        if (paramJ.contains("texturerules") && paramJ["texturerules"].contains("vanillabsalist")) {
-            for (const auto& item : paramJ["texturerules"]["vanillabsalist"]) {
-                m_params.TextureRules.vanillaBSAList.push_back(utf8toUTF16(item.get<string>()));
-            }
-        }
-
-        // "pluginrules"
-        if (paramJ.contains("pluginrules") && paramJ["pluginrules"].contains("allowedmodelrecordtypes")) {
-            m_params.PluginRules.allowedModelRecordTypes.clear();
-
-            for (const auto& item : paramJ["pluginrules"]["allowedmodelrecordtypes"]) {
-                m_params.PluginRules.allowedModelRecordTypes.insert(
-                    ParallaxGenPlugin::getRecTypeFromString(item.get<string>()));
-            }
         }
     }
 }
@@ -358,13 +322,6 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
 
     // Shader Patchers
 
-    checkSet.clear();
-    for (const auto& item : params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist) {
-        if (!checkSet.insert(item).second) {
-            errors.emplace_back("Duplicate entry in Complex Material Dyncubemap Block List: " + utf16toUTF8(item));
-        }
-    }
-
     // Shader Transforms
     if (params.ShaderTransforms.parallaxToCM
         && (!params.ShaderPatcher.parallax || !params.ShaderPatcher.complexMaterial)) {
@@ -376,7 +333,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
 
     // Mesh Rules
     checkSet.clear();
-    for (const auto& item : params.MeshRules.allowList) {
+    for (const auto& item : params.Processing.allowList) {
         if (item.empty()) {
             errors.emplace_back("Empty entry in Mesh Allow List");
         }
@@ -387,7 +344,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
     }
 
     checkSet.clear();
-    for (const auto& item : params.MeshRules.blockList) {
+    for (const auto& item : params.Processing.blockList) {
         if (item.empty()) {
             errors.emplace_back("Empty entry in Mesh Block List");
         }
@@ -400,7 +357,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
     // Texture Rules
 
     checkSet.clear();
-    for (const auto& [key, value] : params.TextureRules.textureMaps) {
+    for (const auto& [key, value] : params.Processing.textureMaps) {
         if (key.empty()) {
             errors.emplace_back("Empty key in Texture Rules");
         }
@@ -411,7 +368,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
     }
 
     checkSet.clear();
-    for (const auto& item : params.TextureRules.vanillaBSAList) {
+    for (const auto& item : params.Processing.vanillaBSAList) {
         if (item.empty()) {
             errors.emplace_back("Empty entry in Vanilla BSA List");
         }
@@ -443,19 +400,25 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "output"
     j["params"]["output"]["dir"] = utf16toUTF8(m_params.Output.dir.wstring());
     j["params"]["output"]["zip"] = m_params.Output.zip;
-
-    // "advanced"
-    j["params"]["advanced"] = m_params.advanced;
+    j["params"]["output"]["pluginlang"] = ParallaxGenPlugin::getStringFromPluginLang(m_params.Output.pluginLang);
 
     // "processing"
     j["params"]["processing"]["multithread"] = m_params.Processing.multithread;
-    j["params"]["processing"]["highmem"] = m_params.Processing.highMem;
-    j["params"]["processing"]["bsa"] = m_params.Processing.bsa;
     j["params"]["processing"]["pluginesmify"] = m_params.Processing.pluginESMify;
-    j["params"]["processing"]["pluginlang"]
-        = ParallaxGenPlugin::getStringFromPluginLang(m_params.Processing.pluginLang);
+    j["params"]["processing"]["devmode"] = m_params.Processing.enableModDevMode;
     j["params"]["processing"]["enabledebuglogging"] = m_params.Processing.enableDebugLogging;
     j["params"]["processing"]["enabletracelogging"] = m_params.Processing.enableTraceLogging;
+    j["params"]["processing"]["allowlist"] = utf16VectorToUTF8(m_params.Processing.allowList);
+    j["params"]["processing"]["blocklist"] = utf16VectorToUTF8(m_params.Processing.blockList);
+    j["params"]["processing"]["texturemaps"] = nlohmann::json::object();
+    for (const auto& [Key, Value] : m_params.Processing.textureMaps) {
+        j["params"]["processing"]["texturemaps"][utf16toUTF8(Key)] = NIFUtil::getStrFromTexType(Value);
+    }
+    j["params"]["processing"]["vanillabsalist"] = utf16VectorToUTF8(m_params.Processing.vanillaBSAList);
+    j["params"]["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
+    for (const auto& item : m_params.Processing.allowedModelRecordTypes) {
+        j["params"]["processing"]["allowedmodelrecordtypes"].push_back(ParallaxGenPlugin::getStringFromRecType(item));
+    }
 
     // "prepatcher"
     j["params"]["prepatcher"]["disablemlp"] = m_params.PrePatcher.disableMLP;
@@ -464,17 +427,10 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "shaderpatcher"
     j["params"]["shaderpatcher"]["parallax"] = m_params.ShaderPatcher.parallax;
     j["params"]["shaderpatcher"]["complexmaterial"] = m_params.ShaderPatcher.complexMaterial;
-    j["params"]["shaderpatcher"]["complexmaterialdyncubemapblocklist"]
-        = utf16VectorToUTF8(m_params.ShaderPatcher.ShaderPatcherComplexMaterial.listsDyncubemapBlocklist);
-    j["params"]["shaderpatcher"]["truepbr_checkpaths"] = m_params.ShaderPatcher.ShaderPatcherTruePBR.checkPaths;
-    j["params"]["shaderpatcher"]["truepbr_printnonexistentpaths"]
-        = m_params.ShaderPatcher.ShaderPatcherTruePBR.printNonExistentPaths;
     j["params"]["shaderpatcher"]["truepbr"] = m_params.ShaderPatcher.truePBR;
 
     // "shadertransforms"
     j["params"]["shadertransforms"]["parallaxtocm"] = m_params.ShaderTransforms.parallaxToCM;
-    j["params"]["shadertransforms"]["parallaxtocm_onlywhenrequired"]
-        = m_params.ShaderTransforms.ShaderTransformParallaxToCM.onlyWhenRequired;
 
     // "postpatcher"
     j["params"]["postpatcher"]["disableprepatchedmaterials"] = m_params.PostPatcher.disablePrePatchedMaterials;
@@ -483,23 +439,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
 
     // "globalpatcher"
     j["params"]["globalpatcher"]["fixeffectlightingcs"] = m_params.GlobalPatcher.fixEffectLightingCS;
-
-    // "meshrules"
-    j["params"]["meshrules"]["allowlist"] = utf16VectorToUTF8(m_params.MeshRules.allowList);
-    j["params"]["meshrules"]["blocklist"] = utf16VectorToUTF8(m_params.MeshRules.blockList);
-
-    // "texturerules"
-    j["params"]["texturerules"]["texturemaps"] = nlohmann::json::object();
-    for (const auto& [Key, Value] : m_params.TextureRules.textureMaps) {
-        j["params"]["texturerules"]["texturemaps"][utf16toUTF8(Key)] = NIFUtil::getStrFromTexType(Value);
-    }
-    j["params"]["texturerules"]["vanillabsalist"] = utf16VectorToUTF8(m_params.TextureRules.vanillaBSAList);
-
-    // "pluginrules"
-    j["params"]["pluginrules"]["allowedmodelrecordtypes"] = nlohmann::json::array();
-    for (const auto& item : m_params.PluginRules.allowedModelRecordTypes) {
-        j["params"]["pluginrules"]["allowedmodelrecordtypes"].push_back(ParallaxGenPlugin::getStringFromRecType(item));
-    }
 
     return j;
 }

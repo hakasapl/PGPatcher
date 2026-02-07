@@ -1,18 +1,19 @@
 #pragma once
 
 #include "BethesdaGame.hpp"
-#include "GUI/components/PGCustomListctrlChangedEvent.hpp"
-#include "GUI/components/PGModifiableListCtrl.hpp"
-#include "GUI/components/PGTextureMapListCtrl.hpp"
 #include "ModManagerDirectory.hpp"
 #include "ParallaxGenConfig.hpp"
 #include "ParallaxGenPlugin.hpp"
+#include "util/NIFUtil.hpp"
 
 #include <wx/listctrl.h>
 #include <wx/wx.h>
 
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 /**
  * @brief wxDialog that allows the user to configure the ParallaxGen parameters.
@@ -34,7 +35,7 @@ public:
     void getParams(ParallaxGenConfig::PGParams& params) const;
 
 private:
-    constexpr static int DEFAULT_WIDTH = 600;
+    constexpr static int MIN_WIDTH = 750;
     constexpr static int DEFAULT_HEIGHT = 800;
     constexpr static int BORDER_SIZE = 5;
     constexpr static int BUTTON_FONT_SIZE = 12;
@@ -59,6 +60,7 @@ private:
     //
 
     // Game
+    bool m_gameLocationLocked;
     wxTextCtrl* m_gameLocationTextbox;
     void onGameLocationChange(wxCommandEvent& event);
     wxButton* m_gameLocationBrowseButton;
@@ -70,6 +72,7 @@ private:
     std::unordered_map<ModManagerDirectory::ModManagerType, wxRadioButton*> m_modManagerRadios;
     void onModManagerChange(wxCommandEvent& event);
 
+    wxButton* m_mo2InstanceBrowseButton;
     wxTextCtrl* m_mo2InstanceLocationTextbox;
     void onMO2InstanceLocationChange(wxCommandEvent& event);
 
@@ -80,21 +83,18 @@ private:
     wxCheckBox* m_outputZipCheckbox;
     void onOutputZipChange(wxCommandEvent& event);
 
-    // Advanced
-    wxCheckBox* m_advancedOptionsCheckbox;
-    void onAdvancedOptionsChange(wxCommandEvent& event);
+    wxComboBox* m_outputPluginLangCombo;
+    void onOutputPluginLangChange(wxCommandEvent& event);
 
     // Processing
     wxCheckBox* m_processingPluginPatchingOptionsESMifyCheckbox;
     void onProcessingPluginPatchingOptionsESMifyChange(wxCommandEvent& event);
-    wxComboBox* m_processingPluginPatchingOptionsLangCombo;
-    void onProcessingPluginPatchingOptionsLangChange(wxCommandEvent& event);
 
     wxCheckBox* m_processingMultithreadingCheckbox;
     void onProcessingMultithreadingChange(wxCommandEvent& event);
 
-    wxCheckBox* m_processingBSACheckbox;
-    void onProcessingBSAChange(wxCommandEvent& event);
+    wxCheckBox* m_processingEnableDevModeCheckbox;
+    void onProcessingEnableDevModeChange(wxCommandEvent& event);
 
     wxCheckBox* m_processingEnableDebugLoggingCheckbox;
     void onProcessingEnableDebugLoggingChange(wxCommandEvent& event);
@@ -116,27 +116,12 @@ private:
     wxCheckBox* m_shaderPatcherComplexMaterialCheckbox;
     void onShaderPatcherComplexMaterialChange(wxCommandEvent& event);
 
-    wxStaticBoxSizer* m_shaderPatcherComplexMaterialOptionsSizer; /** Stores the complex material options */
-    PGModifiableListCtrl* m_shaderPatcherComplexMaterialDynCubemapBlocklist;
-    void onShaderPatcherComplexMaterialDynCubemapBlocklistChange(PGCustomListctrlChangedEvent& event);
-
     wxCheckBox* m_shaderPatcherTruePBRCheckbox;
     void onShaderPatcherTruePBRChange(wxCommandEvent& event);
 
-    wxStaticBoxSizer* m_shaderPatcherTruePBROptionsSizer;
-    wxCheckBox* m_shaderPatcherTruePBRCheckPathsCheckbox;
-    void onShaderPatcherTruePBRCheckPathsChange(wxCommandEvent& event);
-
-    wxCheckBox* m_shaderPatcherTruePBRPrintNonExistentPathsCheckbox;
-    void onShaderPatcherTruePBRPrintNonExistentPathsChange(wxCommandEvent& event);
-
     // Shader Transforms
-    wxStaticBoxSizer* m_shaderTransformParallaxToCMSizer;
     wxCheckBox* m_shaderTransformParallaxToCMCheckbox;
     void onShaderTransformParallaxToCMChange(wxCommandEvent& event);
-
-    wxCheckBox* m_shaderTransformParallaxToCMOnlyWhenRequiredCheckbox;
-    void onShaderTransformParallaxToCMOnlyWhenRequiredChange(wxCommandEvent& event);
 
     // Post-Patchers
     wxCheckBox* m_postPatcherRestoreDefaultShadersCheckbox;
@@ -153,17 +138,15 @@ private:
     void onGlobalPatcherFixEffectLightingCSChange(wxCommandEvent& event);
 
     // Mesh Rules
-    PGModifiableListCtrl* m_meshRulesAllowList;
-    void onMeshRulesAllowListChange(PGCustomListctrlChangedEvent& event);
+    std::vector<std::wstring> m_meshRulesAllowListState;
+    void onMeshRulesAllowBtn(wxCommandEvent& event);
 
-    PGModifiableListCtrl* m_meshRulesBlockList;
-    void onMeshRulesBlockListChange(PGCustomListctrlChangedEvent& event);
+    std::vector<std::wstring> m_meshRulesBlockListState;
+    void onMeshRulesBlockBtn(wxCommandEvent& event);
 
     // Texture Rules
-    PGTextureMapListCtrl* m_textureRulesMaps;
-
-    PGModifiableListCtrl* m_textureRulesVanillaBSAList;
-    void onTextureRulesVanillaBSAListChange(PGCustomListctrlChangedEvent& event);
+    std::vector<std::pair<std::wstring, NIFUtil::TextureType>> m_textureRulesTextureMapsState;
+    void onTextureRulesTextureMapsBtn(wxCommandEvent& event);
 
     // Plugin Rules
     std::unordered_set<ParallaxGenPlugin::ModelRecordType> m_DialogRecTypeSelectorState;
@@ -174,8 +157,6 @@ private:
     //
     wxStaticBoxSizer* m_mo2OptionsSizer; /** Stores the MO2-specific options since these are only sometimes shown */
     wxStaticBoxSizer* m_processingOptionsSizer; /** Stores the processing options */
-
-    void onTextureRulesMapsChange(PGCustomListctrlChangedEvent& event);
 
     /**
      * @brief Event handler responsible for showing the brose dialog when the user clicks on the browse button - for
@@ -207,9 +188,6 @@ private:
     void updateDisabledElements();
 
     void updateMO2Items();
-
-    wxBoxSizer* m_advancedOptionsSizer; /** Container that stores advanced options */
-    void updateAdvanced();
 
     //
     // Validation

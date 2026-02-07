@@ -7,9 +7,17 @@
 - UX improvements to Mod dialog
 - Added ability to indicate ignoring a specific record using record flag 22
 - Reworked patching flow to only consider patching what actually exists in plugins
-- Removed plugin patching from advanced options
 - Added ability to ignore certain record types for patching (and their corresponding meshes)
+- Overhauled launcher GUI for usability (your configs here will be lost in this update, mod rules are preserved)
+- Moved all list objects from launcher into their own dialogs
+- Added Mod Dev Mode Toggle
+- Removed Plugin Patching option (Now always on)
+- Removed Read BSAs option (Now always on)
+- Removed TruePBR settings (use Mod Dev Mode toggle)
+- Removed Complex Material dynamic cubemap blocklist (use CM metadata spec instead)
+- Removed Upgrade Parallax to CM Only when Required toggle (Now always on)
 - Fixed race condition that resulted in CTD at the end of a run under certain conditions
+- Fixed game location changing while locked by install location in launcher GUI
 
 ## [0.9.9] - 2025-12-26
 

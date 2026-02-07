@@ -14,6 +14,15 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent, const wxString& t
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
+    // Add static text for instructions
+    auto* instructionText = new wxStaticText(this, wxID_ANY,
+        "Unchecking a record type will exclude it and its associated meshes from being patched. Only record types with "
+        "models are shown.");
+    // wrap text around 300 px
+    instructionText->Wrap(260);
+    instructionText->SetMinSize(wxSize(-1, 50));
+    mainSizer->Add(instructionText, 0, wxALL, 10);
+
     m_listCtrl = new wxListCtrl(
         this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_ALIGN_LEFT | wxLC_NO_HEADER);
     m_listCtrl->EnableCheckBoxes(true);
@@ -76,6 +85,8 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent, const wxString& t
 
     SetSizeHints(wxSize(300, 300), wxSize(300, -1));
     SetSizer(mainSizer);
+    Layout();
+    Fit();
 }
 
 void DialogRecTypeSelector::populateList(const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& selectedRecTypes)
@@ -95,8 +106,8 @@ void DialogRecTypeSelector::populateList(const std::unordered_set<ParallaxGenPlu
     m_listCtrl->GetItemRect(0, rect, wxLIST_RECT_BOUNDS);
     const int itemHeight = rect.GetHeight(); // add some padding
     const int desiredHeight
-        = static_cast<int>(m_listCtrl->GetItemCount() * itemHeight) + 100; // 100 for padding and buttons
-    SetSize(wxSize(GetSize().x, std::min(desiredHeight, 800))); // cap height at 600 to avoid excessively large dialog
+        = static_cast<int>(m_listCtrl->GetItemCount() * itemHeight) + 180; // 100 for padding and buttons
+    SetSize(wxSize(GetSize().x, std::min(desiredHeight, 1000))); // cap height at 600 to avoid excessively large dialog
 }
 
 auto DialogRecTypeSelector::getSelectedRecordTypes() const -> std::unordered_set<ParallaxGenPlugin::ModelRecordType>
