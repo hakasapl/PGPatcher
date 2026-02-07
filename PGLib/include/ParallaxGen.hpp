@@ -73,16 +73,14 @@ public:
      * @brief Run mesh patcher
      *
      * @param multiThread whether to use multithreading
-     * @param patchPlugin whether to generate plugin patches
      */
-    static void patchMeshes(const bool& multiThread = true, const bool& patchPlugin = true,
+    static void patchMeshes(const bool& multiThread = true, const bool& forceBasePatch = false,
         const std::function<void(size_t, size_t)>& progressCallback = {});
 
     /**
      * @brief Run texture patcher
      *
      * @param multiThread whether to use multithreading
-     * @param patchPlugin whether to generate plugin patches
      */
     static void patchTextures(
         const bool& multiThread = true, const std::function<void(size_t, size_t)>& progressCallback = {});
@@ -96,10 +94,9 @@ public:
      * @brief Populates the mod conflicts in MMD as well as shader types for each mod
      *
      * @param multiThread whether to use multithreading
-     * @param patchPlugin whether to generate plugin patches
      */
-    static void populateModData(const bool& multiThread = true, const bool& patchPlugin = true,
-        const std::function<void(size_t, size_t)>& progressCallback = {});
+    static void populateModData(
+        const bool& multiThread = true, const std::function<void(size_t, size_t)>& progressCallback = {});
 
     /**
      * @brief Delets output directory in a smart way
@@ -125,15 +122,14 @@ private:
      * @brief Patch a single NIF file
      *
      * @param nifPath relative path to the NIF file
-     * @param patchPlugin whether to generate plugin patches
      * @param dryRun whether to run in dry run mode (no changes made)
      * @return ParallaxGenTask::PGResult result of the patching process
      */
-    static auto patchNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, TaskQueue& setModelUsesQueue)
-        -> ParallaxGenTask::PGResult;
+    static auto patchNIF(const std::filesystem::path& nifPath, TaskQueue& setModelUsesQueue,
+        const bool& forceBasePatch = false) -> ParallaxGenTask::PGResult;
 
     static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
-        const ParallaxGenDirectory::NifCache& nifCache, const bool& patchPlugin) -> ParallaxGenTask::PGResult;
+        const ParallaxGenDirectory::NifCache& nifCache) -> ParallaxGenTask::PGResult;
 
     // NIF Helpers
 
@@ -142,7 +138,6 @@ private:
      *
      * @param nifPath relative path to the NIF file
      * @param nifBytes NIF file bytes (used for CRC calculation)
-     * @param patchPlugin whether to generate plugin patches
      * @param dryRun whether to run in dry run mode (no changes made)
      * @param[in,out] nifCache NIF cache JSON object to populate
      * @param[out] createdNIFs map of created NIFs

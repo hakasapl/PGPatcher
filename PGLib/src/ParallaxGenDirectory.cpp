@@ -145,8 +145,8 @@ void ParallaxGenDirectory::waitForCMClassification()
 
 auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const vector<wstring>& nifAllowlist,
     const vector<pair<wstring, NIFUtil::TextureType>>& manualTextureMaps, const vector<wstring>& parallaxBSAExcludes,
-    const bool& patchPlugin, const bool& multithreading, const bool& highmem,
-    const std::function<void(size_t, size_t)>& progressCallback) -> void
+    const bool& multithreading, const bool& highmem, const std::function<void(size_t, size_t)>& progressCallback)
+    -> void
 {
     findFiles();
 
@@ -181,8 +181,8 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist, const v
             continue;
         }
 
-        runner.addTask([this, &taskTracker, &mesh, &highmem, &patchPlugin, &multithreading] {
-            taskTracker.completeJob(mapTexturesFromNIF(mesh, patchPlugin, highmem, multithreading));
+        runner.addTask([this, &taskTracker, &mesh, &highmem, &multithreading] {
+            taskTracker.completeJob(mapTexturesFromNIF(mesh, highmem, multithreading));
         });
     }
 
@@ -308,8 +308,8 @@ auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check, const ve
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, const bool& patchPlugin,
-    const bool& cachenif, const bool& multithreading) -> ParallaxGenTask::PGResult
+auto ParallaxGenDirectory::mapTexturesFromNIF(
+    const filesystem::path& nifPath, const bool& cachenif, const bool& multithreading) -> ParallaxGenTask::PGResult
 {
     auto result = ParallaxGenTask::PGResult::SUCCESS;
 
@@ -506,18 +506,16 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath, c
         }
     }
 
-    if (patchPlugin) {
-        if (multithreading) {
-            m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
-                // send job to find mesh uses for this mesh
-                const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
-                updateNifCache(nifPath, modelUses);
-            });
-        } else {
+    if (multithreading) {
+        m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
             // send job to find mesh uses for this mesh
             const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
             updateNifCache(nifPath, modelUses);
-        }
+        });
+    } else {
+        // send job to find mesh uses for this mesh
+        const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
+        updateNifCache(nifPath, modelUses);
     }
 
     if (cachenif) {

@@ -79,64 +79,15 @@ auto MeshTracker::stageMesh() -> nifly::NifFile*
     return m_stagedMeshPtr;
 }
 
-auto MeshTracker::commitBaseMesh(bool isWeighted) -> bool
-{
-    if (!m_outputMeshes.empty()) {
-        // Base mesh already committed
-        throw std::runtime_error("Base mesh already committed, cannot commit again");
-    }
+void MeshTracker::ignoreBaseMesh() { m_ignoreBaseMesh = true; }
 
-    if (m_stagedMeshPtr == nullptr) {
-        // No staged mesh to commit
-        throw std::runtime_error("No staged mesh to commit as base mesh");
-    }
-
-    m_baseMeshAttempted = true;
-
-    if (compareMesh(m_stagedMesh, m_origNifFile, {}, true)) {
-        // Mesh was not modified from the base mesh, do nothing
-        // Clear staged mesh
-        m_stagedMeshPtr = nullptr;
-        m_stagedMesh.Clear();
-
-        return false;
-    }
-
-    if (isWeighted) {
-        // Process weighted variant
-        processWeightVariant();
-    }
-
-    const MeshResult meshResult = { .meshPath = {}, .altTexResults = {}, .idxCorrections = {} };
-
-    nifly::NifFile newMesh;
-    newMesh.CopyFrom(*m_stagedMeshPtr);
-
-    if (m_outputMeshes.empty()) {
-        m_outputMeshes.emplace_back(meshResult, newMesh);
-    } else {
-        m_outputMeshes.at(0) = { meshResult, newMesh };
-    }
-
-    // Clear staged mesh
-    m_stagedMeshPtr = nullptr;
-    m_stagedMesh.Clear();
-    m_baseMeshExists = true;
-
-    return true;
-}
-
-auto MeshTracker::commitDupMesh(const FormKey& formKey, bool isWeighted,
+auto MeshTracker::commitMesh(const FormKey& formKey, bool isWeighted,
     const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
     const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
     if (m_stagedMeshPtr == nullptr) {
         // No staged mesh to commit
-        throw std::runtime_error("No staged mesh to commit as duplicate mesh");
-    }
-
-    if (!m_baseMeshAttempted) {
-        throw std::runtime_error("Base mesh must be committed before committing duplicate meshes");
+        throw std::runtime_error("No staged mesh to commit");
     }
 
     // Check if this form key already exists
@@ -162,11 +113,8 @@ auto MeshTracker::commitDupMesh(const FormKey& formKey, bool isWeighted,
         }
     }
 
-    if (!m_baseMeshExists && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
-        // Mesh was not modified from the base mesh, do nothing
-        // We only do nothing IF a base mesh doesn't exist, because otherwise it will use the base mesh incorrectly
-        // IF a base mesh does exist, then a new mesh that is a duplicate of the original will be created regardless
-        // Clear staged mesh
+    if (m_outputMeshes.empty() && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
+        // compare with base mesh to make sure we actually made changes
         m_stagedMeshPtr = nullptr;
         m_stagedMesh.Clear();
 
@@ -185,11 +133,6 @@ auto MeshTracker::commitDupMesh(const FormKey& formKey, bool isWeighted,
     const MeshResult meshResult
         = { .meshPath = {}, .altTexResults = { { formKey, altTexResults } }, .idxCorrections = {} };
 
-    if (m_outputMeshes.empty()) {
-        // fill base mesh with blank
-        m_outputMeshes.emplace_back(MeshResult {}, m_origNifFile);
-    }
-
     m_outputMeshes.emplace_back(meshResult, newMesh);
 
     // Clear staged mesh
@@ -197,18 +140,6 @@ auto MeshTracker::commitDupMesh(const FormKey& formKey, bool isWeighted,
     m_stagedMesh.Clear();
 
     return true;
-}
-
-void MeshTracker::addFormKeyForBaseMesh(const FormKey& formKey)
-{
-    if (!m_baseMeshExists) {
-        // We don't care about tracking this if and only if no base mesh exists
-        return;
-    }
-
-    // Add form key for base mesh
-    m_outputMeshes.at(0).first.altTexResults.emplace_back(
-        formKey, std::unordered_map<unsigned int, NIFUtil::TextureSet> {});
 }
 
 auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long long, unsigned long long>>
@@ -220,9 +151,9 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
 
     // loop through output meshes
     for (size_t i = 0; i < m_outputMeshes.size(); i++) {
-        // Skip base mesh if it doesn't exist
-        if (i == 0 && !m_baseMeshExists) {
-            continue;
+        size_t curIndex = i;
+        if (m_ignoreBaseMesh) {
+            curIndex++;
         }
 
         // Get mesh object
@@ -245,7 +176,7 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         }
 
         // Get filename of mesh
-        const auto meshRelPath = getMeshPath(m_origMeshPath, i);
+        const auto meshRelPath = getMeshPath(m_origMeshPath, curIndex);
         meshResult.meshPath = meshRelPath;
         const auto meshFilename = pgd->getGeneratedPath() / meshRelPath;
         if (filesystem::exists(meshFilename)) {
@@ -280,10 +211,10 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         });
 
         if (saveSuccess) {
-            if (i == 0) {
+            if (curIndex == 0) {
                 Logger::debug("Saved patched base mesh");
             } else {
-                Logger::debug("Saved patched duplicate mesh {}", to_string(i));
+                Logger::debug("Saved patched duplicate mesh {}", to_string(curIndex));
             }
         } else {
             // A mesh that we were able to open but cannot save will cause issues in-game because it might have
@@ -298,11 +229,11 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         output.push_back(meshResult);
     }
 
-    if (m_baseMeshExists) {
-        return { output, { m_origCrc32, baseCrc32 } };
+    if (m_ignoreBaseMesh) {
+        return { output, { m_origCrc32, 0 } };
     }
 
-    return { output, { m_origCrc32, 0 } };
+    return { output, { m_origCrc32, baseCrc32 } };
 }
 
 void MeshTracker::validateWeightedVariants()

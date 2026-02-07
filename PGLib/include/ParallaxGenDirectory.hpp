@@ -90,9 +90,8 @@ public:
     /// @param cacheNIFs Faster but higher memory consumption
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist, const std::vector<std::wstring>& nifAllowlist,
         const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
-        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& patchPlugin,
-        const bool& multithreading = true, const bool& highmem = false,
-        const std::function<void(size_t, size_t)>& progressCallback = {}) -> void;
+        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true,
+        const bool& highmem = false, const std::function<void(size_t, size_t)>& progressCallback = {}) -> void;
 
     void waitForMeshMapping();
 
@@ -101,7 +100,7 @@ public:
 private:
     auto findFiles() -> void;
 
-    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& patchPlugin, const bool& cachenif = false,
+    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& cachenif = false,
         const bool& multithreading = true) -> ParallaxGenTask::PGResult;
 
     auto updateUnconfirmedTexturesMap(

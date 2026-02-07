@@ -789,6 +789,8 @@ public class PGMutagen
                     }
                 }
 
+                bool is_ignored = (modelRec.MajorRecordFlagsRaw & 0x00400000) != 0;
+
                 var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
                 var subModelOffset = builder.CreateString(subModel);
                 var modelNameOffset = builder.CreateString(nifName);
@@ -800,6 +802,7 @@ public class PGMutagen
                 PGMutagenBuffers.ModelUse.AddIsWeighted(builder, is_weighted);
                 PGMutagenBuffers.ModelUse.AddMeshFile(builder, modelNameOffset);
                 PGMutagenBuffers.ModelUse.AddSinglepassMato(builder, is_singlePass);
+                PGMutagenBuffers.ModelUse.AddIsIgnored(builder, is_ignored);
                 PGMutagenBuffers.ModelUse.AddAlternateTextures(builder, altTexVector);
                 var modelUseOffset = PGMutagenBuffers.ModelUse.EndModelUse(builder);
 
