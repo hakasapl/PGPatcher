@@ -167,9 +167,6 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("processing") && paramJ["processing"].contains("bsa")) {
             paramJ["processing"]["bsa"].get_to<bool>(m_params.Processing.bsa);
         }
-        if (paramJ.contains("processing") && paramJ["processing"].contains("pluginpatching")) {
-            paramJ["processing"]["pluginpatching"].get_to<bool>(m_params.Processing.pluginPatching);
-        }
         if (paramJ.contains("processing") && paramJ["processing"].contains("pluginesmify")) {
             paramJ["processing"]["pluginesmify"].get_to<bool>(m_params.Processing.pluginESMify);
         }
@@ -444,7 +441,6 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["processing"]["multithread"] = m_params.Processing.multithread;
     j["params"]["processing"]["highmem"] = m_params.Processing.highMem;
     j["params"]["processing"]["bsa"] = m_params.Processing.bsa;
-    j["params"]["processing"]["pluginpatching"] = m_params.Processing.pluginPatching;
     j["params"]["processing"]["pluginesmify"] = m_params.Processing.pluginESMify;
     j["params"]["processing"]["pluginlang"]
         = ParallaxGenPlugin::getStringFromPluginLang(m_params.Processing.pluginLang);

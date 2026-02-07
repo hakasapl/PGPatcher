@@ -334,17 +334,15 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     TaskQueue pluginInit;
 
     // Init PGP library
-    if (params.Processing.pluginPatching) {
-        Logger::info("Initializing plugin patching");
-        if (params.Processing.multithread) {
-            pluginInit.queueTask([&bg, &exePath, &params]() -> void {
-                ParallaxGenPlugin::initialize(*bg, exePath, params.Processing.pluginLang);
-                ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
-            });
-        } else {
+    Logger::info("Initializing plugin patching");
+    if (params.Processing.multithread) {
+        pluginInit.queueTask([&bg, &exePath, &params]() -> void {
             ParallaxGenPlugin::initialize(*bg, exePath, params.Processing.pluginLang);
             ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
-        }
+        });
+    } else {
+        ParallaxGenPlugin::initialize(*bg, exePath, params.Processing.pluginLang);
+        ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
     }
 
     progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_PREPARING_STEPS); });
@@ -552,8 +550,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
 
     // Map files
     pgd->mapFiles(params.MeshRules.blockList, params.MeshRules.allowList, params.TextureRules.textureMaps,
-        params.TextureRules.vanillaBSAList, params.Processing.pluginPatching, params.Processing.multithread,
-        args.highmem, progressCallback);
+        params.TextureRules.vanillaBSAList, params.Processing.multithread, args.highmem, progressCallback);
 
     // Any patcher initialization that requires PGD
     if (params.ShaderPatcher.truePBR) {
@@ -576,7 +573,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepLabel("Finding conflicts"); });
 
         // Find conflicts
-        ParallaxGen::populateModData(params.Processing.multithread, params.Processing.pluginPatching, progressCallback);
+        ParallaxGen::populateModData(params.Processing.multithread, progressCallback);
 
         // Assign new mod priorities for new mods
         mmd->assignNewModPriorities();
@@ -595,7 +592,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
 
     progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepLabel("Processing NIFs"); });
 
-    ParallaxGen::patchMeshes(params.Processing.multithread, params.Processing.pluginPatching, progressCallback);
+    ParallaxGen::patchMeshes(params.Processing.multithread, false, progressCallback);
 
     progressWindow->CallAfter([&progressWindow]() -> void {
         progressWindow->setMainLabel("Patching textures");
@@ -637,22 +634,20 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
         return;
     }
 
-    if (params.Processing.pluginPatching) {
-        //
-        // SAVING PLUGINS
-        //
-        progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepLabel("Saving Plugins"); });
+    //
+    // SAVING PLUGINS
+    //
+    progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->setStepLabel("Saving Plugins"); });
 
-        Logger::info("Saving Plugins");
-        ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
+    Logger::info("Saving Plugins");
+    ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
 
-        progressWindow->CallAfter(
-            [&progressWindow]() -> void { progressWindow->setStepProgress(2, NUM_FINALIZING_STEPS); });
+    progressWindow->CallAfter(
+        [&progressWindow]() -> void { progressWindow->setStepProgress(2, NUM_FINALIZING_STEPS); });
 
-        //
-        // END SAVING PLUGINS
-        //
-    }
+    //
+    // END SAVING PLUGINS
+    //
 
     //
     // DEPLOY ASSETS

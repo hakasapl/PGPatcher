@@ -5,6 +5,9 @@
 - Added ability to ignore patching meshes by mod in the mod dialog
 - Mods that contain just meshes will also be in the mod dialog now
 - UX improvements to Mod dialog
+- Added ability to indicate ignoring a specific record using record flag 22
+- Reworked patching flow to only consider patching what actually exists in plugins
+- Removed plugin patching from advanced options
 
 ## [0.9.9] - 2025-12-26
 

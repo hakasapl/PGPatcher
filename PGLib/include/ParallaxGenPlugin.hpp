@@ -16,6 +16,9 @@
 #include <windows.h>
 
 class ParallaxGenPlugin {
+private:
+    static inline bool s_initialized = false;
+
 public:
     enum class PluginLang : uint8_t {
         ENGLISH,
@@ -46,6 +49,7 @@ public:
     struct MeshUseAttributes {
         bool isWeighted;
         bool singlepassMATO;
+        bool isIgnored;
         std::unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures;
     };
 

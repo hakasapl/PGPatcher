@@ -30,6 +30,7 @@ public:
         bool isWeighted;
         std::wstring meshFile;
         bool singlepassMATO;
+        bool isIgnored;
         std::vector<AlternateTexture> alternateTextures;
     };
 

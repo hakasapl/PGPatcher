@@ -54,8 +54,7 @@ private:
     std::filesystem::path m_origMeshPath;
     nifly::NifFile m_origNifFile;
     unsigned long long m_origCrc32;
-    bool m_baseMeshExists = false;
-    bool m_baseMeshAttempted = false;
+    bool m_ignoreBaseMesh = false;
 
     std::vector<std::pair<MeshResult, nifly::NifFile>> m_outputMeshes;
     std::unordered_set<FormKey, FormKeyHash> m_processedFormKeys;
@@ -87,13 +86,10 @@ public:
     void load();
     void load(const std::shared_ptr<nifly::NifFile>& origNifFile, const unsigned long long& origCrc32);
     auto stageMesh() -> nifly::NifFile*;
-    auto commitBaseMesh(bool isWeighted) -> bool;
-    auto commitDupMesh(const FormKey& formKey, bool isWeighted,
+    void ignoreBaseMesh();
+    auto commitMesh(const FormKey& formKey, bool isWeighted,
         const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
         const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
-
-    // Used in cases where no alternate textures exist but the form key should still be tracked
-    void addFormKeyForBaseMesh(const FormKey& formKey);
 
     auto saveMeshes() -> std::pair<std::vector<MeshResult>, std::pair<unsigned long long, unsigned long long>>;
 

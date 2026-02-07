@@ -83,9 +83,6 @@ private:
     void onAdvancedOptionsChange(wxCommandEvent& event);
 
     // Processing
-    wxCheckBox* m_processingPluginPatchingCheckbox;
-    void onProcessingPluginPatchingChange(wxCommandEvent& event);
-    wxStaticBoxSizer* m_processingPluginPatchingOptions;
     wxCheckBox* m_processingPluginPatchingOptionsESMifyCheckbox;
     void onProcessingPluginPatchingOptionsESMifyChange(wxCommandEvent& event);
     wxComboBox* m_processingPluginPatchingOptionsLangCombo;

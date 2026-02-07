@@ -137,7 +137,7 @@ void mainRunner(PGToolsCLIArgs& args)
         pgd.populateFileMap(false);
 
         // Map files
-        pgd.mapFiles({}, {}, {}, {}, false, args.multithreading, false);
+        pgd.mapFiles({}, {}, {}, {}, args.multithreading, false);
 
         // Split patchers into names and options
         unordered_map<string, unordered_map<string, string>> patcherDefs;
@@ -230,7 +230,7 @@ void mainRunner(PGToolsCLIArgs& args)
         }
 
         ParallaxGen::loadPatchers(meshPatchers, texPatchers);
-        ParallaxGen::patchMeshes(args.multithreading, false);
+        ParallaxGen::patchMeshes(args.multithreading, true);
         ParallaxGen::patchTextures(args.multithreading);
 
         // Finalize step

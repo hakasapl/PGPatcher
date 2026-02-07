@@ -75,6 +75,8 @@ void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::p
 
     PGMutagenWrapper::libInitialize(mutagenGameTypeMap.at(game.getGameType()), exePath,
         game.getGameDataPath().wstring(), game.getActivePlugins(), static_cast<unsigned int>(lang));
+
+    s_initialized = true;
 }
 
 void ParallaxGenPlugin::populateObjs(const filesystem::path& existingModPath)
@@ -86,6 +88,10 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
     -> std::vector<std::pair<MeshTracker::FormKey, MeshUseAttributes>>
 {
     vector<pair<MeshTracker::FormKey, MeshUseAttributes>> result;
+
+    if (!s_initialized) {
+        return {};
+    }
 
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
     // sort modelUses by putting weighted ones first, then by mod name, then by formid, then by submodel
@@ -109,6 +115,7 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
         MeshUseAttributes attributes;
         attributes.isWeighted = modelUse.isWeighted;
         attributes.singlepassMATO = modelUse.singlepassMATO;
+        attributes.isIgnored = modelUse.isIgnored;
 
         for (const auto& altTex : modelUse.alternateTextures) {
             // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
@@ -125,6 +132,10 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
 
 void ParallaxGenPlugin::setModelUses(const std::vector<MeshTracker::MeshResult>& meshResults)
 {
+    if (!s_initialized) {
+        return;
+    }
+
     vector<PGMutagenWrapper::ModelUse> modelUses;
 
     for (const auto& meshResult : meshResults) {

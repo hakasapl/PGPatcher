@@ -377,20 +377,13 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     //
     m_processingOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Processing Options");
 
-    m_processingPluginPatchingCheckbox = new wxCheckBox(this, wxID_ANY, "Plugin Patching");
-    m_processingPluginPatchingCheckbox->SetToolTip("Creates plugins in the output that patches TXST "
-                                                   "records according to how NIFs were patched");
-    m_processingPluginPatchingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingChange, this);
-    m_processingOptionsSizer->Add(m_processingPluginPatchingCheckbox, 0, wxALL, BORDER_SIZE);
-
-    m_processingPluginPatchingOptions = new wxStaticBoxSizer(wxVERTICAL, this, "Plugin Patching Options");
     m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin (Not Recommended)");
     m_processingPluginPatchingOptionsESMifyCheckbox->SetToolTip(
         "ESM flags all the output plugins, not just PGPatcher.esp (don't check this if you don't know what you're "
         "doing)");
     m_processingPluginPatchingOptionsESMifyCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
-    m_processingPluginPatchingOptions->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
+    m_processingOptionsSizer->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
 
     // Create horizontal sizer for label + combo
     auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -412,9 +405,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
         "record, the default will be used which is usually English.");
     langSizer->Add(m_processingPluginPatchingOptionsLangCombo, 1, wxEXPAND | wxLEFT, BORDER_SIZE);
 
-    m_processingPluginPatchingOptions->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
-
-    m_processingOptionsSizer->Add(m_processingPluginPatchingOptions, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    m_processingOptionsSizer->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
     m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
@@ -507,7 +498,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     m_shaderPatcherTruePBROptionsSizer->Show(false); // Initially hidden
     m_shaderTransformParallaxToCMSizer->Show(false); // Initially hidden
     m_processingOptionsSizer->Show(false); // Initially hidden
-    m_processingPluginPatchingOptions->Show(false); // Initially hidden
 
     columnsSizer->Add(m_advancedOptionsSizer, 0, wxEXPAND | wxALL, 0);
     columnsSizer->Add(leftSizer, 1, wxEXPAND | wxALL, 0);
@@ -575,7 +565,6 @@ void LauncherWindow::loadConfig()
     m_advancedOptionsCheckbox->SetValue(initParams.advanced);
 
     // Processing
-    m_processingPluginPatchingCheckbox->SetValue(initParams.Processing.pluginPatching);
     m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
     m_processingPluginPatchingOptionsLangCombo->SetStringSelection(
         ParallaxGenPlugin::getStringFromPluginLang(initParams.Processing.pluginLang));
@@ -710,12 +699,6 @@ void LauncherWindow::updateAdvanced()
     m_advancedOptionsSizer->Show(advancedVisible);
     m_processingOptionsSizer->Show(advancedVisible);
 
-    if (m_processingPluginPatchingCheckbox->GetValue() && advancedVisible) {
-        m_processingPluginPatchingOptions->Show(true);
-    } else {
-        m_processingPluginPatchingOptions->Show(false);
-    }
-
     if (m_shaderPatcherComplexMaterialCheckbox->GetValue() && advancedVisible) {
         m_shaderPatcherComplexMaterialOptionsSizer->Show(true);
     } else {
@@ -736,12 +719,6 @@ void LauncherWindow::updateAdvanced()
 
     Layout(); // Refresh layout to apply visibility changes
     Fit();
-}
-
-void LauncherWindow::onProcessingPluginPatchingChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateAdvanced();
-    updateDisabledElements();
 }
 
 void LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange([[maybe_unused]] wxCommandEvent& event)
@@ -884,7 +861,6 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     params.advanced = m_advancedOptionsCheckbox->GetValue();
 
     // Processing
-    params.Processing.pluginPatching = m_processingPluginPatchingCheckbox->GetValue();
     params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
     params.Processing.pluginLang = ParallaxGenPlugin::getPluginLangFromString(
         m_processingPluginPatchingOptionsLangCombo->GetStringSelection().ToStdString());

@@ -65,7 +65,6 @@ public:
             bool multithread = true;
             bool highMem = false;
             bool bsa = true;
-            bool pluginPatching = true;
             bool pluginESMify = false;
             ParallaxGenPlugin::PluginLang pluginLang = ParallaxGenPlugin::PluginLang::ENGLISH;
             bool enableDebugLogging = false;
@@ -74,9 +73,8 @@ public:
             auto operator==(const Processing& other) const -> bool
             {
                 return multithread == other.multithread && highMem == other.highMem && bsa == other.bsa
-                    && pluginPatching == other.pluginPatching && pluginESMify == other.pluginESMify
-                    && pluginLang == other.pluginLang && enableDebugLogging == other.enableDebugLogging
-                    && enableTraceLogging == other.enableTraceLogging;
+                    && pluginESMify == other.pluginESMify && pluginLang == other.pluginLang
+                    && enableDebugLogging == other.enableDebugLogging && enableTraceLogging == other.enableTraceLogging;
             }
         } Processing;
 
