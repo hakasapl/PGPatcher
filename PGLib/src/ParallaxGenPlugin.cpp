@@ -119,7 +119,7 @@ auto ParallaxGenPlugin::getStringFromRecType(const ModelRecordType& recType) -> 
         return it->second;
     }
 
-    return typeStringMap.at(ModelRecordType::ACTIVATOR); // Default
+    return ""; // Default
 }
 
 auto ParallaxGenPlugin::getAvailableRecTypeStrs() -> std::vector<std::string>

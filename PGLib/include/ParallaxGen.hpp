@@ -77,7 +77,7 @@ public:
      */
     static void patchMeshes(const bool& multiThread = true, const bool& forceBasePatch = false,
         const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
-        const std::function<void(size_t, size_t)>& progressCallback = {});
+        const bool& checkAllowedRecTypes = false, const std::function<void(size_t, size_t)>& progressCallback = {});
 
     /**
      * @brief Run texture patcher
@@ -129,8 +129,8 @@ private:
      */
     static auto patchNIF(const std::filesystem::path& nifPath, TaskQueue& setModelUsesQueue,
         const bool& forceBasePatch = false,
-        const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {})
-        -> ParallaxGenTask::PGResult;
+        const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
+        const bool& checkAllowedRecTypes = false) -> ParallaxGenTask::PGResult;
 
     static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
         const ParallaxGenDirectory::NifCache& nifCache) -> ParallaxGenTask::PGResult;

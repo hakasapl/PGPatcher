@@ -591,7 +591,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Processing NIFs"); });
 
     ParallaxGen::patchMeshes(
-        params.Processing.multithread, false, params.PluginRules.allowedModelRecordTypes, progressCallback);
+        params.Processing.multithread, false, params.PluginRules.allowedModelRecordTypes, true, progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Patching textures");
