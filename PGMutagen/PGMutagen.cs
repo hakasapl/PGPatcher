@@ -791,7 +791,7 @@ public class PGMutagen
 
                 bool is_ignored = (modelRec.MajorRecordFlagsRaw & 0x00400000) != 0;
 
-                string recType = getXEditTypeFromType(modelRec);
+                string recType = GetXEditTypeFromType(modelRec);
 
                 var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
                 var subModelOffset = builder.CreateString(subModel);
@@ -1429,148 +1429,43 @@ public class PGMutagen
         throw new Exception("No available FormIDs left in plugin");
     }
 
-    private static string getXEditTypeFromType(IMajorRecordGetter rec)
+    private static string GetXEditTypeFromType(IMajorRecordGetter rec)
     {
-        if (rec is Mutagen.Bethesda.Skyrim.Activator)
-        {
-            return "ACTI";
-        }
-        else if (rec is Ammunition)
-        {
-            return "AMMO";
-        }
-        else if (rec is AnimatedObject)
-        {
-            return "ANIO";
-        }
-        else if (rec is Armor)
-        {
-            return "ARMO";
-        }
-        else if (rec is ArmorAddon)
-        {
-            return "ARMA";
-        }
-        else if (rec is ArtObject)
-        {
-            return "ARTO";
-        }
-        else if (rec is BodyPartData)
-        {
-            return "BPTD";
-        }
-        else if (rec is Book)
-        {
-            return "BOOK";
-        }
-        else if (rec is CameraShot)
-        {
-            return "CAMS";
-        }
-        else if (rec is Climate)
-        {
-            return "CLMT";
-        }
-        else if (rec is Container)
-        {
-            return "CONT";
-        }
-        else if (rec is Door)
-        {
-            return "DOOR";
-        }
-        else if (rec is Explosion)
-        {
-            return "EXPL";
-        }
-        else if (rec is Flora)
-        {
-            return "FLOR";
-        }
-        else if (rec is Furniture)
-        {
-            return "FURN";
-        }
-        else if (rec is Grass)
-        {
-            return "GRAS";
-        }
-        else if (rec is Hazard)
-        {
-            return "HAZD";
-        }
-        else if (rec is HeadPart)
-        {
-            return "HDPT";
-        }
-        else if (rec is IdleMarker)
-        {
-            return "IDLM";
-        }
-        else if (rec is Impact)
-        {
-            return "IPCT";
-        }
-        else if (rec is Ingestible)
-        {
-            return "ALCH";
-        }
-        else if (rec is Ingredient)
-        {
-            return "INGR";
-        }
-        else if (rec is Key)
-        {
-            return "KEYM";
-        }
-        else if (rec is LeveledNpc)
-        {
-            return "LVLN";
-        }
-        else if (rec is Light)
-        {
-            return "LIGH";
-        }
-        else if (rec is MaterialObject)
-        {
-            return "MATO";
-        }
-        else if (rec is MiscItem)
-        {
-            return "MISC";
-        }
-        else if (rec is MoveableStatic)
-        {
-            return "MSTT";
-        }
-        else if (rec is Projectile)
-        {
-            return "PROJ";
-        }
-        else if (rec is Scroll)
-        {
-            return "SCRL";
-        }
-        else if (rec is SoulGem)
-        {
-            return "SLGM";
-        }
-        else if (rec is Static)
-        {
-            return "STAT";
-        }
-        else if (rec is TalkingActivator)
-        {
-            return "TACT";
-        }
-        else if (rec is Tree)
-        {
-            return "TREE";
-        }
-        else if (rec is Weapon)
-        {
-            return "WEAP";
-        }
+        if (rec is IActivatorGetter) return "ACTI";
+        if (rec is IAmmunitionGetter) return "AMMO";
+        if (rec is IAnimatedObjectGetter) return "ANIO";
+        if (rec is IArmorGetter) return "ARMO";
+        if (rec is IArmorAddonGetter) return "ARMA";
+        if (rec is IArtObjectGetter) return "ARTO";
+        if (rec is IBodyPartDataGetter) return "BPTD";
+        if (rec is IBookGetter) return "BOOK";
+        if (rec is ICameraShotGetter) return "CAMS";
+        if (rec is IClimateGetter) return "CLMT";
+        if (rec is IContainerGetter) return "CONT";
+        if (rec is IDoorGetter) return "DOOR";
+        if (rec is IExplosionGetter) return "EXPL";
+        if (rec is IFloraGetter) return "FLOR";
+        if (rec is IFurnitureGetter) return "FURN";
+        if (rec is IGrassGetter) return "GRAS";
+        if (rec is IHazardGetter) return "HAZD";
+        if (rec is IHeadPartGetter) return "HDPT";
+        if (rec is IIdleMarkerGetter) return "IDLM";
+        if (rec is IImpactGetter) return "IPCT";
+        if (rec is IIngestibleGetter) return "ALCH";
+        if (rec is IIngredientGetter) return "INGR";
+        if (rec is IKeyGetter) return "KEYM";
+        if (rec is ILeveledNpcGetter) return "LVLN";
+        if (rec is ILightGetter) return "LIGH";
+        if (rec is IMaterialObjectGetter) return "MATO";
+        if (rec is IMiscItemGetter) return "MISC";
+        if (rec is IMoveableStaticGetter) return "MSTT";
+        if (rec is IProjectileGetter) return "PROJ";
+        if (rec is IScrollGetter) return "SCRL";
+        if (rec is ISoulGemGetter) return "SLGM";
+        if (rec is IStaticGetter) return "STAT";
+        if (rec is ITalkingActivatorGetter) return "TACT";
+        if (rec is ITreeGetter) return "TREE";
+        if (rec is IWeaponGetter) return "WEAP";
 
         return "";
     }

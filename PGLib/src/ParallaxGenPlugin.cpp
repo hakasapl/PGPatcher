@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -66,6 +67,87 @@ auto ParallaxGenPlugin::getAvailablePluginLangStrs() -> vector<string>
     return langStrs;
 }
 
+auto ParallaxGenPlugin::getRecTypeFromString(const std::string& recTypeStr) -> ModelRecordType
+{
+    static const std::unordered_map<std::string, ModelRecordType> typeMap = { { "ACTI", ModelRecordType::ACTIVATOR },
+        { "AMMO", ModelRecordType::AMMUNITION }, { "ANIO", ModelRecordType::ANIMATED_OBJECT },
+        { "ARMO", ModelRecordType::ARMOR }, { "ARMA", ModelRecordType::ARMOR_ADDON },
+        { "ARTO", ModelRecordType::ART_OBJECT }, { "BPTD", ModelRecordType::BODY_PART_DATA },
+        { "BOOK", ModelRecordType::BOOK }, { "CAMS", ModelRecordType::CAMERA_SHOT },
+        { "CLMT", ModelRecordType::CLIMATE }, { "CONT", ModelRecordType::CONTAINER }, { "DOOR", ModelRecordType::DOOR },
+        { "EXPL", ModelRecordType::EXPLOSION }, { "FLOR", ModelRecordType::FLORA },
+        { "FURN", ModelRecordType::FURNITURE }, { "GRAS", ModelRecordType::GRASS }, { "HAZD", ModelRecordType::HAZARD },
+        { "HDPT", ModelRecordType::HEAD_PART }, { "IDLM", ModelRecordType::IDLE_MARKER },
+        { "IPCT", ModelRecordType::IMPACT }, { "ALCH", ModelRecordType::INGESTIBLE },
+        { "INGR", ModelRecordType::INGREDIENT }, { "KEYM", ModelRecordType::KEY },
+        { "LVLN", ModelRecordType::LEVELED_NPC }, { "LIGH", ModelRecordType::LIGHT },
+        { "MATO", ModelRecordType::MATERIAL_OBJECT }, { "MISC", ModelRecordType::MISC_ITEM },
+        { "MSTT", ModelRecordType::MOVEABLE_STATIC }, { "PROJ", ModelRecordType::PROJECTILE },
+        { "SCRL", ModelRecordType::SCROLL }, { "SLGM", ModelRecordType::SOUL_GEM },
+        { "STAT", ModelRecordType::STATIC_OBJECT }, { "TACT", ModelRecordType::TALKING_ACTIVATOR },
+        { "TREE", ModelRecordType::TREE }, { "WEAP", ModelRecordType::WEAPON } };
+
+    if (auto it = typeMap.find(recTypeStr); it != typeMap.end()) {
+        return it->second;
+    }
+
+    return ModelRecordType::UNKNOWN; // Default
+}
+
+auto ParallaxGenPlugin::getStringFromRecType(const ModelRecordType& recType) -> std::string
+{
+    static const std::unordered_map<ModelRecordType, std::string> typeStringMap = { { ModelRecordType::ACTIVATOR,
+                                                                                        "ACTI" },
+        { ModelRecordType::AMMUNITION, "AMMO" }, { ModelRecordType::ANIMATED_OBJECT, "ANIO" },
+        { ModelRecordType::ARMOR, "ARMO" }, { ModelRecordType::ARMOR_ADDON, "ARMA" },
+        { ModelRecordType::ART_OBJECT, "ARTO" }, { ModelRecordType::BODY_PART_DATA, "BPTD" },
+        { ModelRecordType::BOOK, "BOOK" }, { ModelRecordType::CAMERA_SHOT, "CAMS" },
+        { ModelRecordType::CLIMATE, "CLMT" }, { ModelRecordType::CONTAINER, "CONT" }, { ModelRecordType::DOOR, "DOOR" },
+        { ModelRecordType::EXPLOSION, "EXPL" }, { ModelRecordType::FLORA, "FLOR" },
+        { ModelRecordType::FURNITURE, "FURN" }, { ModelRecordType::GRASS, "GRAS" }, { ModelRecordType::HAZARD, "HAZD" },
+        { ModelRecordType::HEAD_PART, "HDPT" }, { ModelRecordType::IDLE_MARKER, "IDLM" },
+        { ModelRecordType::IMPACT, "IPCT" }, { ModelRecordType::INGESTIBLE, "ALCH" },
+        { ModelRecordType::INGREDIENT, "INGR" }, { ModelRecordType::KEY, "KEYM" },
+        { ModelRecordType::LEVELED_NPC, "LVLN" }, { ModelRecordType::LIGHT, "LIGH" },
+        { ModelRecordType::MATERIAL_OBJECT, "MATO" }, { ModelRecordType::MISC_ITEM, "MISC" },
+        { ModelRecordType::MOVEABLE_STATIC, "MSTT" }, { ModelRecordType::PROJECTILE, "PROJ" },
+        { ModelRecordType::SCROLL, "SCRL" }, { ModelRecordType::SOUL_GEM, "SLGM" },
+        { ModelRecordType::STATIC_OBJECT, "STAT" }, { ModelRecordType::TALKING_ACTIVATOR, "TACT" },
+        { ModelRecordType::TREE, "TREE" }, { ModelRecordType::WEAPON, "WEAP" } };
+
+    if (auto it = typeStringMap.find(recType); it != typeStringMap.end()) {
+        return it->second;
+    }
+
+    return typeStringMap.at(ModelRecordType::ACTIVATOR); // Default
+}
+
+auto ParallaxGenPlugin::getAvailableRecTypeStrs() -> std::vector<std::string>
+{
+    static const std::vector<std::string> typeStrs = { "ACTI", "ALCH", "AMMO", "ANIO", "ARMA", "ARMO", "ARTO", "BOOK",
+        "BPTD", "CAMS", "CLMT", "CONT", "DOOR", "EXPL", "FLOR", "FURN", "GRAS", "HAZD", "HDPT", "IDLM", "INGR", "IPCT",
+        "KEYM", "LIGH", "LVLN", "MATO", "MISC", "MSTT", "PROJ", "SCRL", "SLGM", "STAT", "TACT", "TREE", "WEAP" };
+
+    return typeStrs;
+}
+
+auto ParallaxGenPlugin::getDefaultRecTypeSet() -> std::unordered_set<ModelRecordType>
+{
+    static const std::unordered_set<ModelRecordType> defaultSet = { ModelRecordType::ACTIVATOR,
+        ModelRecordType::AMMUNITION, ModelRecordType::ANIMATED_OBJECT, ModelRecordType::ARMOR,
+        ModelRecordType::ARMOR_ADDON, ModelRecordType::ART_OBJECT, ModelRecordType::BODY_PART_DATA,
+        ModelRecordType::BOOK, ModelRecordType::CAMERA_SHOT, ModelRecordType::CLIMATE, ModelRecordType::CONTAINER,
+        ModelRecordType::DOOR, ModelRecordType::EXPLOSION, ModelRecordType::FLORA, ModelRecordType::FURNITURE,
+        ModelRecordType::GRASS, ModelRecordType::HAZARD, ModelRecordType::HEAD_PART, ModelRecordType::IDLE_MARKER,
+        ModelRecordType::IMPACT, ModelRecordType::INGESTIBLE, ModelRecordType::INGREDIENT, ModelRecordType::KEY,
+        ModelRecordType::LEVELED_NPC, ModelRecordType::LIGHT, ModelRecordType::MATERIAL_OBJECT,
+        ModelRecordType::MISC_ITEM, ModelRecordType::MOVEABLE_STATIC, ModelRecordType::PROJECTILE,
+        ModelRecordType::SCROLL, ModelRecordType::SOUL_GEM, ModelRecordType::STATIC_OBJECT,
+        ModelRecordType::TALKING_ACTIVATOR, ModelRecordType::TREE, ModelRecordType::WEAPON };
+
+    return defaultSet;
+}
+
 void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::path& exePath, const PluginLang& lang)
 {
     // Maps BethesdaGame::GameType to Mutagen game type
@@ -116,7 +198,7 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
         attributes.isWeighted = modelUse.isWeighted;
         attributes.singlepassMATO = modelUse.singlepassMATO;
         attributes.isIgnored = modelUse.isIgnored;
-        attributes.recType = modelUse.type;
+        attributes.recType = getRecTypeFromString(modelUse.type);
 
         for (const auto& altTex : modelUse.alternateTextures) {
             // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)

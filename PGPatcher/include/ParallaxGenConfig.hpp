@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -185,13 +186,24 @@ public:
             }
         } TextureRules;
 
+        struct PluginRules {
+            std::unordered_set<ParallaxGenPlugin::ModelRecordType> allowedModelRecordTypes
+                = ParallaxGenPlugin::getDefaultRecTypeSet();
+
+            auto operator==(const PluginRules& other) const -> bool
+            {
+                return allowedModelRecordTypes == other.allowedModelRecordTypes;
+            }
+        } PluginRules;
+
         auto operator==(const PGParams& other) const -> bool
         {
             return Game == other.Game && ModManager == other.ModManager && Output == other.Output
                 && Processing == other.Processing && PrePatcher == other.PrePatcher
                 && ShaderPatcher == other.ShaderPatcher && ShaderTransforms == other.ShaderTransforms
                 && PostPatcher == other.PostPatcher && GlobalPatcher == other.GlobalPatcher
-                && MeshRules == other.MeshRules && TextureRules == other.TextureRules && advanced == other.advanced;
+                && MeshRules == other.MeshRules && TextureRules == other.TextureRules
+                && PluginRules == other.PluginRules && advanced == other.advanced;
         }
 
         auto operator!=(const PGParams& other) const -> bool { return !(*this == other); }

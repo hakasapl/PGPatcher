@@ -2,32 +2,32 @@ namespace PGMutagenBuffers;
 
 // A single texture set
 table TextureSet {
-  textures:[string];
+  textures:[string] (required);
 }
 
 // A single alternate texture within the model usage
 table AlternateTexture {
   slot_id:int;
   slot_id_new:int;
-  slots:TextureSet;
+  slots:TextureSet (required);
 }
 
 // A single model usage
 table ModelUse {
-  mod_name:string;
+  mod_name:string (required);
   form_id:uint;
-  sub_model:string;
-  is_weighted:bool;
-  mesh_file:string;
+  sub_model:string (required);
+  is_weighted:bool; // This is readonly
+  mesh_file:string (required);
   singlepass_mato:bool;  // This is readonly
   is_ignored:bool; // This is readonly
-  type:string;
-  alternate_textures:[AlternateTexture];
+  type:string (required); // This is readonly
+  alternate_textures:[AlternateTexture] (required);
 }
 
 // Container for multiple ModelUse entries
 table ModelUses {
-  uses:[ModelUse];
+  uses:[ModelUse] (required);
 }
 
 root_type ModelUses;
