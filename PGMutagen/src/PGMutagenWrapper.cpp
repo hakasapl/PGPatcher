@@ -173,6 +173,7 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
         curUse.isWeighted = mu->is_weighted();
         curUse.singlepassMATO = mu->singlepass_mato();
         curUse.isIgnored = mu->is_ignored();
+        curUse.type = string(mu->type()->begin(), mu->type()->end());
 
         for (const auto* const altTex : *mu->alternate_textures()) {
             auto curAltTex = AlternateTexture();
@@ -237,8 +238,8 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
 
         const auto altTexVectorOffset = builder.CreateVector(altTexOffsets);
 
-        const auto modelUseOffset = PGMutagenBuffers::CreateModelUse(
-            builder, modNameOffset, mu.formID, subModelOffset, false, meshFileOffset, false, false, altTexVectorOffset);
+        const auto modelUseOffset = PGMutagenBuffers::CreateModelUse(builder, modNameOffset, mu.formID, subModelOffset,
+            false, meshFileOffset, false, false, {}, altTexVectorOffset);
         modelUsesOffsets.push_back(modelUseOffset);
     }
 

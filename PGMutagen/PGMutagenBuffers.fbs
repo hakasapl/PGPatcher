@@ -21,6 +21,7 @@ table ModelUse {
   mesh_file:string;
   singlepass_mato:bool;  // This is readonly
   is_ignored:bool; // This is readonly
+  type:string;
   alternate_textures:[AlternateTexture];
 }
 

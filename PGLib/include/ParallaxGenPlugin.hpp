@@ -50,6 +50,7 @@ public:
         bool isWeighted;
         bool singlepassMATO;
         bool isIgnored;
+        std::string recType;
         std::unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures;
     };
 

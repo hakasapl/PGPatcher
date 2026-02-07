@@ -791,9 +791,12 @@ public class PGMutagen
 
                 bool is_ignored = (modelRec.MajorRecordFlagsRaw & 0x00400000) != 0;
 
+                string recType = getXEditTypeFromType(modelRec);
+
                 var modNameOffset = builder.CreateString(formKey.ModKey.FileName);
                 var subModelOffset = builder.CreateString(subModel);
                 var modelNameOffset = builder.CreateString(nifName);
+                var recTypeOffset = builder.CreateString(recType);
 
                 PGMutagenBuffers.ModelUse.StartModelUse(builder);
                 PGMutagenBuffers.ModelUse.AddModName(builder, modNameOffset);
@@ -803,6 +806,7 @@ public class PGMutagen
                 PGMutagenBuffers.ModelUse.AddMeshFile(builder, modelNameOffset);
                 PGMutagenBuffers.ModelUse.AddSinglepassMato(builder, is_singlePass);
                 PGMutagenBuffers.ModelUse.AddIsIgnored(builder, is_ignored);
+                PGMutagenBuffers.ModelUse.AddType(builder, recTypeOffset);
                 PGMutagenBuffers.ModelUse.AddAlternateTextures(builder, altTexVector);
                 var modelUseOffset = PGMutagenBuffers.ModelUse.EndModelUse(builder);
 
@@ -1423,6 +1427,152 @@ public class PGMutagen
         }
 
         throw new Exception("No available FormIDs left in plugin");
+    }
+
+    private static string getXEditTypeFromType(IMajorRecordGetter rec)
+    {
+        if (rec is Mutagen.Bethesda.Skyrim.Activator)
+        {
+            return "ACTI";
+        }
+        else if (rec is Ammunition)
+        {
+            return "AMMO";
+        }
+        else if (rec is AnimatedObject)
+        {
+            return "ANIO";
+        }
+        else if (rec is Armor)
+        {
+            return "ARMO";
+        }
+        else if (rec is ArmorAddon)
+        {
+            return "ARMA";
+        }
+        else if (rec is ArtObject)
+        {
+            return "ARTO";
+        }
+        else if (rec is BodyPartData)
+        {
+            return "BPTD";
+        }
+        else if (rec is Book)
+        {
+            return "BOOK";
+        }
+        else if (rec is CameraShot)
+        {
+            return "CAMS";
+        }
+        else if (rec is Climate)
+        {
+            return "CLMT";
+        }
+        else if (rec is Container)
+        {
+            return "CONT";
+        }
+        else if (rec is Door)
+        {
+            return "DOOR";
+        }
+        else if (rec is Explosion)
+        {
+            return "EXPL";
+        }
+        else if (rec is Flora)
+        {
+            return "FLOR";
+        }
+        else if (rec is Furniture)
+        {
+            return "FURN";
+        }
+        else if (rec is Grass)
+        {
+            return "GRAS";
+        }
+        else if (rec is Hazard)
+        {
+            return "HAZD";
+        }
+        else if (rec is HeadPart)
+        {
+            return "HDPT";
+        }
+        else if (rec is IdleMarker)
+        {
+            return "IDLM";
+        }
+        else if (rec is Impact)
+        {
+            return "IPCT";
+        }
+        else if (rec is Ingestible)
+        {
+            return "ALCH";
+        }
+        else if (rec is Ingredient)
+        {
+            return "INGR";
+        }
+        else if (rec is Key)
+        {
+            return "KEYM";
+        }
+        else if (rec is LeveledNpc)
+        {
+            return "LVLN";
+        }
+        else if (rec is Light)
+        {
+            return "LIGH";
+        }
+        else if (rec is MaterialObject)
+        {
+            return "MATO";
+        }
+        else if (rec is MiscItem)
+        {
+            return "MISC";
+        }
+        else if (rec is MoveableStatic)
+        {
+            return "MSTT";
+        }
+        else if (rec is Projectile)
+        {
+            return "PROJ";
+        }
+        else if (rec is Scroll)
+        {
+            return "SCRL";
+        }
+        else if (rec is SoulGem)
+        {
+            return "SLGM";
+        }
+        else if (rec is Static)
+        {
+            return "STAT";
+        }
+        else if (rec is TalkingActivator)
+        {
+            return "TACT";
+        }
+        else if (rec is Tree)
+        {
+            return "TREE";
+        }
+        else if (rec is Weapon)
+        {
+            return "WEAP";
+        }
+
+        return "";
     }
 }
 

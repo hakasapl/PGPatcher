@@ -116,6 +116,7 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
         attributes.isWeighted = modelUse.isWeighted;
         attributes.singlepassMATO = modelUse.singlepassMATO;
         attributes.isIgnored = modelUse.isIgnored;
+        attributes.recType = modelUse.type;
 
         for (const auto& altTex : modelUse.alternateTextures) {
             // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
