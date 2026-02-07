@@ -12,7 +12,7 @@ private:
     wxListCtrl* m_listCtrl;
 
 public:
-    DialogRecTypeSelector(wxWindow* parent, const wxString& title = "Record Types to Patch");
+    DialogRecTypeSelector(wxWindow* parent, const wxString& title = "Allowed Record Types");
 
     [[nodiscard]] auto getSelectedRecordTypes() const -> std::unordered_set<ParallaxGenPlugin::ModelRecordType>;
 
