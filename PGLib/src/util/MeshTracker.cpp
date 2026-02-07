@@ -87,7 +87,7 @@ auto MeshTracker::commitMesh(const FormKey& formKey, bool isWeighted,
 {
     if (m_stagedMeshPtr == nullptr) {
         // No staged mesh to commit
-        throw std::runtime_error("No staged mesh to commit as duplicate mesh");
+        throw std::runtime_error("No staged mesh to commit");
     }
 
     // Check if this form key already exists
