@@ -481,7 +481,7 @@ auto BethesdaDirectory::getBSAFilesInDirectory() const -> vector<wstring>
 
     for (const auto& entry : filesystem::directory_iterator(this->m_dataDir)) {
         if (entry.is_regular_file()) {
-            const auto fileExtension = entry.path().extension().string();
+            const auto fileExtension = entry.path().extension().wstring();
             // only interested in BSA files
             if (!boost::iequals(fileExtension, ".bsa")) {
                 continue;

@@ -21,6 +21,7 @@
 - Fixed pgtools crash during mesh patching
 - Fixed wrong default arguments for truepbr patcher with pgtools
 - Fixed wrong height resizing of completion dialog
+- Fixed critical error relating to files in the data folder with non-ASCII extensions
 
 ## [0.9.9] - 2025-12-26
 
