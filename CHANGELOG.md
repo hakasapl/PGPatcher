@@ -2,14 +2,12 @@
 
 ## [0.9.10] - UNRELEASED
 
-- Added ability to ignore patching meshes by mod in the mod dialog
-- Mods that contain just meshes will also be in the mod dialog now
-- UX improvements to Mod dialog
-- Added ability to indicate ignoring a specific record using record flag 22
-- Reworked patching flow to only consider patching what actually exists in plugins
-- Added ability to ignore certain record types for patching (and their corresponding meshes)
 - Overhauled launcher GUI for usability (your configs here will be lost in this update, mod rules are preserved)
-- Moved all list objects from launcher into their own dialogs
+- Added ability to ignore patching meshes by mod in the mod dialog
+- Added ability to indicate ignoring a specific record using record flag 22
+- Added ability to ignore certain modeled record types for patching (and their corresponding meshes)
+- Mod dialog will have mods that contain just meshes too
+- Improved mesh patching performance by only considering what actually exists in plugins
 - Added Mod Dev Mode Toggle
 - Removed Plugin Patching option (Now always on)
 - Removed Read BSAs option (Now always on)
