@@ -9,6 +9,7 @@
 - Mod dialog will have mods that contain just meshes too
 - Improved mesh patching performance by only considering what actually exists in plugins
 - Added Mod Dev Mode Toggle
+- TruePBR patcher is now disabled by default since it is CS only
 - Removed Disable Multi-Layer Parallax Patcher
 - Removed Plugin Patching option (Now always on)
 - Removed Read BSAs option (Now always on)
