@@ -98,7 +98,7 @@ public:
         struct ShaderPatcher {
             bool parallax = true;
             bool complexMaterial = true;
-            bool truePBR = true;
+            bool truePBR = false;
 
             auto operator==(const ShaderPatcher& other) const -> bool
             {
