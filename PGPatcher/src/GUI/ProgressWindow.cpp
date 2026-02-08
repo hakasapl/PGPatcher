@@ -28,8 +28,8 @@ ProgressWindow::ProgressWindow()
 
     // Animated GIF on the left (part of the main sizer)
     wxAnimation anim;
-    if (anim.LoadFile(
-            PGPatcherGlobals::getEXEPath().wstring() + L"\\resources\\runningparallaxgen.gif", wxANIMATION_TYPE_GIF)) {
+    const auto gifPath = PGPatcherGlobals::getEXEPath() / "resources" / "runningparallaxgen.gif";
+    if (anim.LoadFile(gifPath.wstring(), wxANIMATION_TYPE_GIF)) {
         auto* animCtrl = new wxAnimationCtrl(this, wxID_ANY, anim);
         animCtrl->Play(); // start playing
         mainSizer->Add(animCtrl, 0, wxALL | wxALIGN_CENTER_VERTICAL, 10);

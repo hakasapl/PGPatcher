@@ -225,7 +225,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* shaderTransformSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Shader Transforms");
 
     m_shaderTransformParallaxToCMCheckbox = new wxCheckBox(this, wxID_ANY, "Upgrade Parallax to Complex Material");
-    m_shaderTransformParallaxToCMCheckbox->SetToolTip("Upgrages parallax textures and meshes to complex material when "
+    m_shaderTransformParallaxToCMCheckbox->SetToolTip("Upgrades parallax textures and meshes to complex material when "
                                                       "required for compatibility (highly recommended)");
     m_shaderTransformParallaxToCMCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMChange, this);

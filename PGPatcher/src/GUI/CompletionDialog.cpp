@@ -1,7 +1,6 @@
 #include "GUI/CompletionDialog.hpp"
 
 #include "GUI/components/PGLogMessageListCtrl.hpp"
-#include "PGGlobals.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
 
