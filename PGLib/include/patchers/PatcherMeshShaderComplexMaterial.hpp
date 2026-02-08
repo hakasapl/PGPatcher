@@ -10,7 +10,6 @@
 #include <filesystem>
 #include <shared_mutex>
 #include <shlwapi.h>
-#include <string>
 #include <unordered_map>
 #include <vector>
 #include <winnt.h>
@@ -20,8 +19,6 @@
  */
 class PatcherMeshShaderComplexMaterial : public PatcherMeshShader {
 private:
-    static std::vector<std::wstring> s_dynCubemapBlocklist; /** Stores the dynamic cubemap blocklist set */
-
     static std::shared_mutex s_metaCacheMutex; /** Mutex for material meta cache */
     static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
 
@@ -34,13 +31,6 @@ public:
      * @return PatcherShader::PatcherShaderFactory factory object for this patcher
      */
     static auto getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory;
-
-    /**
-     * @brief Load required statics for CM patcher
-     *
-     * @param dynCubemapBlocklist Set of blocklisted dynamic cubemaps
-     */
-    static void loadStatics(const std::vector<std::wstring>& dynCubemapBlocklist);
 
     /**
      * @brief Get the shader type for this patcher (CM)

@@ -316,6 +316,17 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     cancelButton->Bind(wxEVT_BUTTON, &LauncherWindow::onCancelButtonPressed, this);
     rightSizer->Add(cancelButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
+    // Start Patching button on the right side
+    m_okButton = new wxButton(this, wxID_ANY, "Start Patching");
+    wxFont okButtonFont = m_okButton->GetFont();
+    okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
+    okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
+    m_okButton->SetFont(okButtonFont);
+    m_okButton->SetBackgroundColour(s_OK_BUTTON_COLOR);
+    m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
+    Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
+    rightSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
     //
     // Processing
     //
@@ -396,21 +407,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     columnsSizer->Add(rightSizer, 0, wxEXPAND | wxALL, 0);
 
     mainSizer->Add(columnsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
-
-    // Start Patching button on the right side
-    m_okButton = new wxButton(this, wxID_ANY, "Start Patching");
-
-    // Set font size for the "start patching" button
-    wxFont okButtonFont = m_okButton->GetFont();
-    okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
-    okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
-    m_okButton->SetFont(okButtonFont);
-    m_okButton->SetBackgroundColour(s_OK_BUTTON_COLOR);
-    m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
-
-    Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
-
-    mainSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     SetSizerAndFit(mainSizer);
     const auto curSize = GetSize();

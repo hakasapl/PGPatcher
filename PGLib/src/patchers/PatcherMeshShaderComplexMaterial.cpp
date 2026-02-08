@@ -27,15 +27,8 @@
 using namespace std;
 
 // Statics
-std::vector<wstring> PatcherMeshShaderComplexMaterial::s_dynCubemapBlocklist;
-
 std::shared_mutex PatcherMeshShaderComplexMaterial::s_metaCacheMutex;
 std::unordered_map<filesystem::path, nlohmann::json> PatcherMeshShaderComplexMaterial::s_metaCache;
-
-auto PatcherMeshShaderComplexMaterial::loadStatics(const std::vector<std::wstring>& dynCubemapBlocklist) -> void
-{
-    PatcherMeshShaderComplexMaterial::s_dynCubemapBlocklist = dynCubemapBlocklist;
-}
 
 auto PatcherMeshShaderComplexMaterial::getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory
 {
@@ -222,10 +215,7 @@ void PatcherMeshShaderComplexMaterial::applyPatchSlots(NIFUtil::TextureSet& slot
     slots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)] = matchedPath;
 
     // Apply any extra meta overrides
-    bool enableDynCubemaps
-        = !(ParallaxGenDirectory::checkGlobMatchInVector(getNIFPath().wstring(), s_dynCubemapBlocklist)
-            || ParallaxGenDirectory::checkGlobMatchInVector(matchedPath, s_dynCubemapBlocklist));
-
+    bool enableDynCubemaps = true;
     if (match.extraData != nullptr) {
         auto meta = *static_pointer_cast<decltype(nlohmann::json())>(match.extraData);
 

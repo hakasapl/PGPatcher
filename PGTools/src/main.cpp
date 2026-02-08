@@ -187,7 +187,6 @@ void mainRunner(PGToolsCLIArgs& args)
         if (patcherDefs.contains("complexmaterial")) {
             meshPatchers.shaderPatchers.emplace(
                 PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
-            PatcherMeshShaderComplexMaterial::loadStatics({});
         }
         if (patcherDefs.contains("truepbr")) {
             meshPatchers.shaderPatchers.emplace(

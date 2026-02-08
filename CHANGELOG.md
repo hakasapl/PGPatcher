@@ -18,6 +18,8 @@
 - Removed Upgrade Parallax to CM Only when Required toggle (Now always on)
 - Fixed race condition that resulted in CTD at the end of a run under certain conditions
 - Fixed game location changing while locked by install location in launcher GUI
+- Fixed pgtools crash during mesh patching
+- Fixed wrong default arguments for truepbr patcher with pgtools
 
 ## [0.9.9] - 2025-12-26
 
