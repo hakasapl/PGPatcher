@@ -106,9 +106,6 @@ private:
     void onProcessingEnableTraceLoggingChange(wxCommandEvent& event);
 
     // Pre-Patchers
-    wxCheckBox* m_prePatcherDisableMLPCheckbox;
-    void onPrePatcherDisableMLPChange(wxCommandEvent& event);
-
     wxCheckBox* m_prePatcherFixMeshLightingCheckbox;
     void onPrePatcherFixMeshLightingChange(wxCommandEvent& event);
 

@@ -7,7 +7,6 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
-#include "patchers/PatcherMeshPreDisableMLP.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -171,9 +170,6 @@ void mainRunner(PGToolsCLIArgs& args)
 
         // Create patcher factory
         PatcherUtil::PatcherMeshSet meshPatchers;
-        if (patcherDefs.contains("disablemlp")) {
-            meshPatchers.prePatchers.emplace_back(PatcherMeshPreDisableMLP::getFactory());
-        }
         if (patcherDefs.contains("fixmeshlighting")) {
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
         }

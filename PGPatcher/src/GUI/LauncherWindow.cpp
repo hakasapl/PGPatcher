@@ -113,7 +113,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     m_mo2InstanceLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_mo2InstanceLocationTextbox->SetToolTip(
-        "Path to the MO2 instance folder (Folder Icon > Open Instnace folder in MO2)");
+        "Path to the MO2 instance folder (Folder Icon > Open Instance folder in MO2)");
     m_mo2InstanceLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onMO2InstanceLocationChange, this);
 
     m_mo2InstanceBrowseButton = new wxButton(this, wxID_ANY, "Browse");
@@ -192,11 +192,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     //
     auto* prePatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Pre-Patchers");
 
-    m_prePatcherDisableMLPCheckbox = new wxCheckBox(this, wxID_ANY, "Disable Multi-Layer Parallax");
-    m_prePatcherDisableMLPCheckbox->SetToolTip("Disables Multi-Layer Parallax in all meshes (Usually not recommended)");
-    m_prePatcherDisableMLPCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPrePatcherDisableMLPChange, this);
-    prePatcherSizer->Add(m_prePatcherDisableMLPCheckbox, 0, wxALL, BORDER_SIZE);
-
     m_prePatcherFixMeshLightingCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Mesh Lighting (ENB Only)");
     m_prePatcherFixMeshLightingCheckbox->SetToolTip("Fixes glowing meshes (For ENB users only!)");
     m_prePatcherFixMeshLightingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPrePatcherFixMeshLightingChange, this);
@@ -218,7 +213,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
         wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherComplexMaterialChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_shaderPatcherTruePBRCheckbox = new wxCheckBox(this, wxID_ANY, "True PBR (CS Only)");
+    m_shaderPatcherTruePBRCheckbox = new wxCheckBox(this, wxID_ANY, "TruePBR (CS Only)");
     m_shaderPatcherTruePBRCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherTruePBRChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherTruePBRCheckbox, 0, wxALL, BORDER_SIZE);
 
@@ -230,9 +225,8 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* shaderTransformSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Shader Transforms");
 
     m_shaderTransformParallaxToCMCheckbox = new wxCheckBox(this, wxID_ANY, "Upgrade Parallax to Complex Material");
-    m_shaderTransformParallaxToCMCheckbox->SetToolTip("Upgrages any parallax textures and meshes to complex material "
-                                                      "by moving the height map to the alpha channel of "
-                                                      "the environment mask (highly recommended)");
+    m_shaderTransformParallaxToCMCheckbox->SetToolTip("Upgrades parallax textures and meshes to complex material when "
+                                                      "required for compatibility (highly recommended)");
     m_shaderTransformParallaxToCMCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMChange, this);
     shaderTransformSizer->Add(m_shaderTransformParallaxToCMCheckbox, 0, wxALL, BORDER_SIZE);
@@ -253,12 +247,13 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     postPatcherSizer->Add(m_postPatcherRestoreDefaultShadersCheckbox, 0, wxALL, BORDER_SIZE);
 
     m_postPatcherFixSSSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Vanilla Subsurface Scattering");
-    m_postPatcherFixSSSCheckbox->SetToolTip("Fixes subsurface scattering in meshes");
+    m_postPatcherFixSSSCheckbox->SetToolTip("Fixes subsurface scattering in meshes, especially foliage");
     m_postPatcherFixSSSCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherFixSSSChange, this);
     postPatcherSizer->Add(m_postPatcherFixSSSCheckbox, 0, wxALL, BORDER_SIZE);
 
     m_postPatcherHairFlowMapCheckbox = new wxCheckBox(this, wxID_ANY, "Add Hair Flow Map (CS Only)");
-    m_postPatcherHairFlowMapCheckbox->SetToolTip("Adds a hair flow map to shapes with a matching normal");
+    m_postPatcherHairFlowMapCheckbox->SetToolTip(
+        "Adds flow maps to texture sets for those that match the normal texture");
     m_postPatcherHairFlowMapCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherHairFlowMapChange, this);
     postPatcherSizer->Add(m_postPatcherHairFlowMapCheckbox, 0, wxALL, BORDER_SIZE);
 
@@ -268,8 +263,9 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     // Global Patchers
     //
     auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
-    m_globalPatcherFixEffectLightingCSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Effect Lighting (CS Only)");
-    m_globalPatcherFixEffectLightingCSCheckbox->SetToolTip("Fixes effect lighting in meshes (For CS users only!)");
+    m_globalPatcherFixEffectLightingCSCheckbox
+        = new wxCheckBox(this, wxID_ANY, "Fix Effect Lighting (CS Only) (Experimental)");
+    m_globalPatcherFixEffectLightingCSCheckbox->SetToolTip("Makes ambient light react to some effect shaders better");
     m_globalPatcherFixEffectLightingCSCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onGlobalPatcherFixEffectLightingCSChange, this);
     globalPatcherSizer->Add(m_globalPatcherFixEffectLightingCSCheckbox, 0, wxALL, BORDER_SIZE);
@@ -484,7 +480,6 @@ void LauncherWindow::loadConfig()
     m_DialogRecTypeSelectorState = initParams.Processing.allowedModelRecordTypes;
 
     // Pre-Patchers
-    m_prePatcherDisableMLPCheckbox->SetValue(initParams.PrePatcher.disableMLP);
     m_prePatcherFixMeshLightingCheckbox->SetValue(initParams.PrePatcher.fixMeshLighting);
 
     // Shader Patchers
@@ -581,8 +576,6 @@ void LauncherWindow::onProcessingEnableTraceLoggingChange([[maybe_unused]] wxCom
 {
     updateDisabledElements();
 }
-
-void LauncherWindow::onPrePatcherDisableMLPChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onPrePatcherFixMeshLightingChange([[maybe_unused]] wxCommandEvent& event)
 {
@@ -707,7 +700,6 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     params.Processing.allowedModelRecordTypes = m_DialogRecTypeSelectorState;
 
     // Pre-Patchers
-    params.PrePatcher.disableMLP = m_prePatcherDisableMLPCheckbox->GetValue();
     params.PrePatcher.fixMeshLighting = m_prePatcherFixMeshLightingCheckbox->GetValue();
 
     // Shader Patchers

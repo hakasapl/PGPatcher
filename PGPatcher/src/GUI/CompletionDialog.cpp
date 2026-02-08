@@ -1,7 +1,6 @@
 #include "GUI/CompletionDialog.hpp"
 
 #include "GUI/components/PGLogMessageListCtrl.hpp"
-#include "PGGlobals.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "ParallaxGenConfig.hpp"
 
@@ -131,7 +130,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     // Set min/max size based on fitted size
     const wxSize fittedSize = GetSize();
-    SetMinSize(fittedSize);
+    SetSizeHints(fittedSize, wxSize(-1, fittedSize.GetHeight()));
 
     Centre(); // Center the dialog on screen
 }
@@ -185,7 +184,7 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane, PGLogMessage
             dlgSize.SetHeight(dlgSize.GetHeight() - expandDelta);
             dlgMinSize.SetHeight(dlgMinSize.GetHeight() - expandDelta);
         }
-        this->SetMinSize(dlgMinSize);
+        this->SetSizeHints(dlgMinSize, wxSize(-1, dlgMinSize.GetHeight()));
         this->SetSize(dlgSize);
         this->Layout();
     });

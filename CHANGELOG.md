@@ -9,15 +9,18 @@
 - Mod dialog will have mods that contain just meshes too
 - Improved mesh patching performance by only considering what actually exists in plugins
 - Added Mod Dev Mode Toggle
+- Removed Disable Multi-Layer Parallax Patcher
 - Removed Plugin Patching option (Now always on)
 - Removed Read BSAs option (Now always on)
 - Removed TruePBR settings (use Mod Dev Mode toggle)
 - Removed Complex Material dynamic cubemap blocklist (use CM metadata spec instead)
 - Removed Upgrade Parallax to CM Only when Required toggle (Now always on)
+- Fixed unable to open gif error
 - Fixed race condition that resulted in CTD at the end of a run under certain conditions
 - Fixed game location changing while locked by install location in launcher GUI
 - Fixed pgtools crash during mesh patching
 - Fixed wrong default arguments for truepbr patcher with pgtools
+- Fixed wrong height resizing of completion dialog
 
 ## [0.9.9] - 2025-12-26
 
