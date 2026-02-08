@@ -358,12 +358,14 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
     // Get mod of nif
-    const auto mod = PGGlobals::getMMD()->getModByFile(nifPath);
-    if (mod != nullptr) {
-        const std::shared_lock<std::shared_mutex> modLock(mod->mutex);
-        if (mod != nullptr && mod->areMeshesIgnored) {
-            Logger::trace(L"Skipping NIF patching for mod with ignored meshes: {}", mod->name);
-            return ParallaxGenTask::PGResult::SUCCESS;
+    if (PGGlobals::getMMD() != nullptr) {
+        const auto mod = PGGlobals::getMMD()->getModByFile(nifPath);
+        if (mod != nullptr) {
+            const std::shared_lock<std::shared_mutex> modLock(mod->mutex);
+            if (mod != nullptr && mod->areMeshesIgnored) {
+                Logger::trace(L"Skipping NIF patching for mod with ignored meshes: {}", mod->name);
+                return ParallaxGenTask::PGResult::SUCCESS;
+            }
         }
     }
 
@@ -568,13 +570,16 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
                 ->applyPatch(slots, *nifShape, winningShaderMatch.match);
 
             // Post warnings if any
-            for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
-                const auto modMatchFrom = PGGlobals::getMMD()->getModByFile(slots.at(static_cast<int>(curMatchedFrom)));
-                const auto modMatchPath = PGGlobals::getMMD()->getModByFile(winningShaderMatch.match.matchedPath);
+            if (PGGlobals::getMMD() != nullptr) {
+                for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
+                    const auto modMatchFrom
+                        = PGGlobals::getMMD()->getModByFile(slots.at(static_cast<int>(curMatchedFrom)));
+                    const auto modMatchPath = PGGlobals::getMMD()->getModByFile(winningShaderMatch.match.matchedPath);
 
-                if (modMatchFrom != nullptr && modMatchPath != nullptr && modMatchFrom != modMatchPath) {
-                    Logger::warn(L"Mod {} assets are matching assets from {}. Verify this is intended behavior.",
-                        modMatchPath->name, modMatchFrom->name);
+                    if (modMatchFrom != nullptr && modMatchPath != nullptr && modMatchFrom != modMatchPath) {
+                        Logger::warn(L"Mod {} assets are matching assets from {}. Verify this is intended behavior.",
+                            modMatchPath->name, modMatchFrom->name);
+                    }
                 }
             }
 
@@ -646,7 +651,10 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             }
 
             PatcherUtil::ShaderPatcherMatch curMatch;
-            curMatch.mod = PGGlobals::getMMD()->getModByFile(PGGlobals::getPGD()->getModLookupFile(match.matchedPath));
+            if (PGGlobals::getMMD() != nullptr) {
+                curMatch.mod
+                    = PGGlobals::getMMD()->getModByFile(PGGlobals::getPGD()->getModLookupFile(match.matchedPath));
+            }
 
             if (!dryRun && curMatch.mod != nullptr) {
                 const std::shared_lock lk(curMatch.mod->mutex);

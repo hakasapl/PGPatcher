@@ -45,8 +45,8 @@ private:
     };
 
     // Options
-    inline static bool s_checkPaths;
-    inline static bool s_printNonExistentPaths;
+    inline static bool s_checkPaths = true;
+    inline static bool s_printNonExistentPaths = false;
 
 public:
     /**
