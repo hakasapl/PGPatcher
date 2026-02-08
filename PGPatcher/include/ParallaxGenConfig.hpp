@@ -89,13 +89,9 @@ public:
 
         // Pre-Patchers
         struct PrePatcher {
-            bool disableMLP = false;
             bool fixMeshLighting = false;
 
-            auto operator==(const PrePatcher& other) const -> bool
-            {
-                return disableMLP == other.disableMLP && fixMeshLighting == other.fixMeshLighting;
-            }
+            auto operator==(const PrePatcher& other) const -> bool { return fixMeshLighting == other.fixMeshLighting; }
         } PrePatcher;
 
         // Shader Patchers

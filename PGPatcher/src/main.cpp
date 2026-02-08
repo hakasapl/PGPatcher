@@ -17,7 +17,6 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
-#include "patchers/PatcherMeshPreDisableMLP.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -452,10 +451,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
 
     // Create patcher factory
     PatcherUtil::PatcherMeshSet meshPatchers;
-    if (params.PrePatcher.disableMLP) {
-        Logger::debug("Adding Disable MLP pre-patcher");
-        meshPatchers.prePatchers.emplace_back(PatcherMeshPreDisableMLP::getFactory());
-    }
     if (params.PrePatcher.fixMeshLighting) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
