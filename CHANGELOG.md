@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.10] - UNRELEASED
+## [0.9.10] - 2026-02-09
 
 - Overhauled launcher GUI for usability (your configs here will be lost in this update, mod rules are preserved)
 - Added ability to ignore patching meshes by mod in the mod dialog
