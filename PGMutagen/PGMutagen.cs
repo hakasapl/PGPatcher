@@ -57,8 +57,8 @@ public static class MessageHandler
     private static Queue<Tuple<string, int>> LogQueue = [];
 
     // structures to keep track of warning and error messages to avoid duplicates
-    private static HashSet<string> WarningMessages = new();
-    private static HashSet<string> ErrorMessages = new();
+    private static readonly HashSet<string> WarningMessages = [];
+    private static readonly HashSet<string> ErrorMessages = [];
 
     public static void Log(string message, int level = 0)
     {
@@ -351,7 +351,7 @@ public class PGMutagen
                     }
                     catch (Exception)
                     {
-                        MessageHandler.Log("Unable to read model path (skipping): " + GetRecordDesc(modelMajorRec), 4);
+                        MessageHandler.Log("Unable to read model path (skipping): " + GetRecordDesc(modelMajorRec), 3);
                         continue;
                     }
 
@@ -382,7 +382,7 @@ public class PGMutagen
                         }
                         else
                         {
-                            MessageHandler.Log("Weight slider enabled but mesh name doesn't end with _0.nif or _1.nif (skipping): " + GetRecordDesc(modelMajorRec), 4);
+                            MessageHandler.Log("Weight slider enabled but mesh name doesn't end with _0.nif or _1.nif (skipping): " + GetRecordDesc(modelMajorRec), 3);
                             continue;
                         }
 
@@ -847,8 +847,7 @@ public class PGMutagen
             var usesVector = PGMutagenBuffers.ModelUses.CreateUsesVector(builder, [.. modelUseOffsets]);
             PGMutagenBuffers.ModelUses.StartModelUses(builder);
             PGMutagenBuffers.ModelUses.AddUses(builder, usesVector);
-            var rootOffset = PGMutagenBuffers.ModelUses.EndModelUses(builder); // returns Offset<ModelUses>
-                                                                               //MessageHandler.Log("Serialized model uses count: " + rootOffset.Value, 4);
+            var rootOffset = PGMutagenBuffers.ModelUses.EndModelUses(builder);
             builder.Finish(rootOffset.Value);
 
             var byteArray = builder.SizedByteArray(); // fully serialized FlatBuffer
@@ -1411,7 +1410,7 @@ public class PGMutagen
         }
         catch (Exception)
         {
-            MessageHandler.Log("Unable to read texture set: " + GetRecordDesc(textureSet), 4);
+            MessageHandler.Log("Unable to read texture set: " + GetRecordDesc(textureSet), 3);
             return [.. Enumerable.Repeat(string.Empty, 8)];
         }
     }
