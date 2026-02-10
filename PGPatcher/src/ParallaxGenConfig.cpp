@@ -286,11 +286,11 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
 
     // Game
     if (params.Game.dir.empty()) {
-        errors.emplace_back("Game Location is required.");
+        errors.emplace_back("Game Location is required");
     }
 
     if (!BethesdaGame::isGamePathValid(params.Game.dir, params.Game.type)) {
-        errors.emplace_back("Game Location is not valid.");
+        errors.emplace_back("Game Location is not valid. Verify your game type and location are correct.");
     }
 
     // Mod Manager
@@ -304,7 +304,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& e
         }
 
         if (!ModManagerDirectory::isValidMO2InstanceDir(params.ModManager.mo2InstanceDir)) {
-            errors.emplace_back("MO2 Instance Location is not valid");
+            errors.emplace_back("MO2 Instance Location is not valid. Verify modorganizer.ini exists in the directory.");
         }
     }
 

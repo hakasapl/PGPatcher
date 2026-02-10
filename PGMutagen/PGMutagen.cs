@@ -56,6 +56,10 @@ public static class MessageHandler
 {
     private static Queue<Tuple<string, int>> LogQueue = [];
 
+    // structures to keep track of warning and error messages to avoid duplicates
+    private static HashSet<string> WarningMessages = new();
+    private static HashSet<string> ErrorMessages = new();
+
     public static void Log(string message, int level = 0)
     {
         // Level values
@@ -65,6 +69,26 @@ public static class MessageHandler
         // 3: Warning
         // 4: Error
         // 5: Critical
+
+        if (level == 3)
+        {
+            // Warning level, check for duplicates
+            if (WarningMessages.Contains(message))
+            {
+                return;
+            }
+            WarningMessages.Add(message);
+        }
+        else if (level == 4)
+        {
+            // Error level, check for duplicates
+            if (ErrorMessages.Contains(message))
+            {
+                return;
+            }
+            ErrorMessages.Add(message);
+        }
+
         LogQueue.Enqueue(new Tuple<string, int>(message, level));
     }
 
@@ -108,7 +132,6 @@ public class PGMutagen
     private static Dictionary<FormKey, IMajorRecord?> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
     private static SortedSet<uint> allocatedFormIDs = [];
-    private static HashSet<FormKey> formKeyErrorsPosted = [];
     private static uint lastUsedFormID = 1;
 
 
@@ -299,6 +322,12 @@ public class PGMutagen
 
             foreach (var modelMajorRec in EnumerateModelRecordsSafe())
             {
+                if (modelMajorRec.FormKey.ModKey == ModKey.Null)
+                {
+                    // null modkey, this is invalid and we should skip
+                    continue;
+                }
+
                 // Will store models to check later
                 var ModelRecs = GetModelElems(modelMajorRec);
 
@@ -322,20 +351,11 @@ public class PGMutagen
                     }
                     catch (Exception)
                     {
-                        if (formKeyErrorsPosted.Add(modelMajorRec.FormKey))
-                        {
-                            MessageHandler.Log("Unable to read model path. This should be reported to the plugin author: " + GetRecordDesc(modelMajorRec), 4);
-                        }
+                        MessageHandler.Log("Unable to read model path (skipping): " + GetRecordDesc(modelMajorRec), 4);
                         continue;
                     }
 
-                    if (!ModelUses.ContainsKey(meshName))
-                    {
-                        ModelUses[meshName] = [];
-                    }
-
                     var curTuple = new Tuple<FormKey, string>(modelMajorRec.FormKey, modelRec.Item2);
-                    ModelUses[meshName].Add(curTuple);
 
                     // Check if we need to also add the weight counterpart
                     bool isWeighted = false;
@@ -360,9 +380,15 @@ public class PGMutagen
                             // replace _1.nif with _0.nif
                             weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
                         }
+                        else
+                        {
+                            MessageHandler.Log("Weight slider enabled but mesh name doesn't end with _0.nif or _1.nif (skipping): " + GetRecordDesc(modelMajorRec), 4);
+                            continue;
+                        }
 
                         if (!weightMeshName.IsNullOrEmpty())
                         {
+                            // Add weighted model use
                             if (!ModelUses.ContainsKey(weightMeshName))
                             {
                                 ModelUses[weightMeshName] = [];
@@ -371,6 +397,14 @@ public class PGMutagen
                             ModelUses[weightMeshName].Add(curTuple);
                         }
                     }
+
+                    // Add regular model use
+                    if (!ModelUses.ContainsKey(meshName))
+                    {
+                        ModelUses[meshName] = [];
+                    }
+
+                    ModelUses[meshName].Add(curTuple);
                 }
             }
         }
@@ -704,10 +738,7 @@ public class PGMutagen
                 if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var modelRec) ||
                     GetModelElemBySubModel(modelRec, subModel) is not { } matchedModel)
                 {
-                    if (formKeyErrorsPosted.Add(formKey))
-                    {
-                        MessageHandler.Log($"Failed to resolve model record. A plugin has likely overridden the FormID with a different record (This is bad): {GetRecordDesc(formKey)}", 4);
-                    }
+                    MessageHandler.Log($"Failed to resolve model record. A plugin has likely overridden the FormID with a different record (not fixing this will cause CTDs): {GetRecordDesc(formKey)}", 4);
                     continue;
                 }
 
@@ -1380,10 +1411,7 @@ public class PGMutagen
         }
         catch (Exception)
         {
-            if (formKeyErrorsPosted.Add(textureSet.FormKey))
-            {
-                MessageHandler.Log("Unable to read texture set. This should be reported to the plugin author: " + GetRecordDesc(textureSet), 4);
-            }
+            MessageHandler.Log("Unable to read texture set: " + GetRecordDesc(textureSet), 4);
             return [.. Enumerable.Repeat(string.Empty, 8)];
         }
     }
