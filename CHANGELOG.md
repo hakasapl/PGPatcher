@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.11] - UNRELEASED
+
+- Added warning message for weighted ARMA records that have mesh names not ending in _0 or _1
+- Reworded some error messages to make them clearer
+
 ## [0.9.10] - 2026-02-09
 
 - Overhauled launcher GUI for usability (your configs here will be lost in this update, mod rules are preserved)
