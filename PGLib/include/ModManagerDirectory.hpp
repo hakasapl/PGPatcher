@@ -67,6 +67,7 @@ public:
 
     [[nodiscard]] auto getModFileMap() const -> const std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>>&;
     [[nodiscard]] auto getModByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
+    [[nodiscard]] auto getModByFileSmart(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
     [[nodiscard]] auto getMods() const -> std::vector<std::shared_ptr<Mod>>;
     [[nodiscard]] auto getModsByPriority() const -> std::vector<std::shared_ptr<Mod>>;
     [[nodiscard]] auto getModsByDefaultOrder() const -> std::vector<std::shared_ptr<Mod>>;
