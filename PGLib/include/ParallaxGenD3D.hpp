@@ -48,7 +48,7 @@ public:
      * @brief Get the error message from a HRESULT
      *
      * @param hr HRESULT
-     * @return std::string error message
+     * @return std::wstring error message
      */
     static auto getHRESULTErrorMessage(HRESULT hr) -> std::wstring;
 

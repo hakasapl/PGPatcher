@@ -499,6 +499,7 @@ void ModSortDialog::fillListCtrl(
         }
     }
 
+    m_newMods.clear();
     m_listCtrl->DeleteAllItems();
 
     std::vector<std::shared_ptr<ModManagerDirectory::Mod>> disabledMods;

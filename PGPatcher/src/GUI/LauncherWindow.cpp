@@ -643,7 +643,7 @@ void LauncherWindow::onTextureRulesTextureMapsBtn([[maybe_unused]] wxCommandEven
     DialogTextureMapListCtrl dialog(this, "Texture Rules",
         "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). "
         "Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. "
-        "Wilcards are NOT supported here. A texture can be ignored by setting it to \"unknown\". Right click to "
+        "Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\". Right click to "
         "add/remove entries.");
     dialog.populateList(m_textureRulesTextureMapsState);
     if (dialog.ShowModal() == wxID_OK) {
