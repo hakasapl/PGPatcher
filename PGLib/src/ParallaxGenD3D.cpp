@@ -1022,7 +1022,7 @@ auto ParallaxGenD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& ra
     return image;
 }
 
-auto ParallaxGenD3D::getHRESULTErrorMessage(HRESULT hr) -> string
+auto ParallaxGenD3D::getHRESULTErrorMessage(HRESULT hr) -> wstring
 {
     // Get error message
     const _com_error err(hr);

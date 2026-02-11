@@ -318,7 +318,6 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     m_okButton->SetFont(okButtonFont);
-    m_okButton->SetBackgroundColour(s_OK_BUTTON_COLOR);
     m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
     Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
     rightSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
@@ -618,7 +617,7 @@ void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
     DialogModifiableListCtrl dialog(this, "Mesh Rules Allowlist",
         "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like "
         "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire "
-        "folders/files.");
+        "folders/files. Right click to add/remove entries.");
     dialog.populateList(m_meshRulesAllowListState);
     if (dialog.ShowModal() == wxID_OK) {
         m_meshRulesAllowListState = dialog.getList();
@@ -631,7 +630,7 @@ void LauncherWindow::onMeshRulesBlockBtn([[maybe_unused]] wxCommandEvent& event)
     DialogModifiableListCtrl dialog(this, "Mesh Rules Blocklist",
         "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or "
         "use wildcards (* is the wildcard) to blocklist entire "
-        "folders/files.");
+        "folders/files. Right click to add/remove entries.");
     dialog.populateList(m_meshRulesBlockListState);
     if (dialog.ShowModal() == wxID_OK) {
         m_meshRulesBlockListState = dialog.getList();
@@ -644,7 +643,8 @@ void LauncherWindow::onTextureRulesTextureMapsBtn([[maybe_unused]] wxCommandEven
     DialogTextureMapListCtrl dialog(this, "Texture Rules",
         "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). "
         "Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. "
-        "Wilcards are NOT supported here. A texture can be ignored by setting it to \"unknown\"");
+        "Wilcards are NOT supported here. A texture can be ignored by setting it to \"unknown\". Right click to "
+        "add/remove entries.");
     dialog.populateList(m_textureRulesTextureMapsState);
     if (dialog.ShowModal() == wxID_OK) {
         m_textureRulesTextureMapsState = dialog.getList();
@@ -758,16 +758,6 @@ void LauncherWindow::updateMO2Items()
     }
 
     const auto instanceDir = m_mo2InstanceLocationTextbox->GetValue().ToStdWstring();
-
-    // Check if modorganizer.ini exists
-    if (!ModManagerDirectory::isValidMO2InstanceDir(instanceDir)) {
-        // set instance directory text to red
-        m_mo2InstanceLocationTextbox->SetForegroundColour(*wxRED);
-        return;
-    }
-
-    // set instance directory text to black
-    m_mo2InstanceLocationTextbox->SetForegroundColour(*wxBLACK);
 
     // Get game path
     const auto gamePathMO2 = ModManagerDirectory::getGamePathFromInstanceDir(instanceDir);

@@ -14,6 +14,8 @@ private:
 
     static std::filesystem::path s_EXE_PATH;
 
+    static bool s_isDarkMode;
+
 public:
     PGPatcherGlobals() = delete;
     ~PGPatcherGlobals() = delete;
@@ -30,4 +32,7 @@ public:
 
     static auto getWXLoggerSink() -> std::shared_ptr<WXLoggerSink<std::mutex>>;
     static void setWXLoggerSink(std::shared_ptr<WXLoggerSink<std::mutex>> sink);
+
+    static auto isDarkMode() -> bool;
+    static void setIsDarkMode(bool isDarkMode);
 };

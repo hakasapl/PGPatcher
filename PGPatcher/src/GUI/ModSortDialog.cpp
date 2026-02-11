@@ -9,6 +9,8 @@
 #include "ParallaxGenConfig.hpp"
 #include "util/NIFUtil.hpp"
 
+#include <wx/gdicmn.h>
+#include <wx/settings.h>
 #include <wx/toplevel.h>
 #include <wx/wx.h>
 
@@ -54,12 +56,20 @@ ModSortDialog::ModSortDialog()
 
     m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
 
+    // define base item BG color, which should always be the background color of the listbox (theme agnostic)
+    s_BASE_ITEM_BG_COLOR = m_listCtrl->GetBackgroundColour();
+    s_BASE_ITEM_FG_COLOR = m_listCtrl->GetForegroundColour();
+
     // Global events
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
     // Add message at the top
-    const wxString message = "Please sort your mods to determine what mod PG uses to patch meshes where.";
+    const wxString message
+        = "Please sort your mods to determine what mod PGPatcher uses to patch meshes where. Selecting mods will show "
+          "conflicts. The mod you have selected wins over mods that are green, and loses over mods that are red. New "
+          "mods PGPatcher hasn't seen before are highlighted in purple.";
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    messageText->Wrap(DEFAULT_WIDTH - (2 * DEFAULT_PADDING)); // Wrap text based on dialog width with some padding
     mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
 
     // Add "Use MO2 Loose File Order" checkbox
@@ -82,7 +92,8 @@ ModSortDialog::ModSortDialog()
 
     // TOP RECTANGLE
     auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-    topPanel->SetBackgroundColour(*wxGREEN);
+    topPanel->SetForegroundColour(*wxBLACK);
+    topPanel->SetBackgroundColour(s_WINNING_MOD_COLOR);
     auto* topLabel
         = new wxStaticText(topPanel, wxID_ANY, "Winning Mods on Top", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
     topLabel->SetFont(rectFont);
@@ -100,7 +111,8 @@ ModSortDialog::ModSortDialog()
 
     // BOTTOM RECTANGLE
     auto* bottomPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-    bottomPanel->SetBackgroundColour(*wxRED);
+    bottomPanel->SetForegroundColour(*wxBLACK);
+    bottomPanel->SetBackgroundColour(s_LOSING_MOD_COLOR);
     auto* bottomLabel = new wxStaticText(
         bottomPanel, wxID_ANY, "Losing Mods on Bottom", wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
 
@@ -349,16 +361,8 @@ auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
 
 void ModSortDialog::highlightConflictingItems()
 {
-    // Clear previous highlights and restore original colors
-    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        auto it = m_originalBackgroundColors.find(itemText);
-        if (it != m_originalBackgroundColors.end()) {
-            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
-        } else {
-            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white if not found
-        }
-    }
+    // clear previous highlights
+    clearAllHighlights();
 
     // Find all selected items
     std::vector<std::wstring> selectedMods;
@@ -401,6 +405,7 @@ void ModSortDialog::highlightConflictingItems()
             }
 
             if (std::ranges::find(selectedMods, itemText) == selectedMods.end()) {
+                m_listCtrl->SetItemTextColour(i, *wxBLACK);
                 if (i < selectionIdx) {
                     m_listCtrl->SetItemBackgroundColour(i, s_LOSING_MOD_COLOR); // Red-ish for conflicts above
                 } else {
@@ -415,11 +420,12 @@ void ModSortDialog::clearAllHighlights()
 {
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        auto it = m_originalBackgroundColors.find(itemText);
-        if (it != m_originalBackgroundColors.end()) {
-            m_listCtrl->SetItemBackgroundColour(i, it->second); // Restore original color
+        if (m_newMods.contains(itemText)) {
+            m_listCtrl->SetItemBackgroundColour(i, s_NEW_MOD_COLOR); // Restore original color
+            m_listCtrl->SetItemTextColour(i, *wxBLACK); // Ensure text is black for readability
         } else {
-            m_listCtrl->SetItemBackgroundColour(i, *wxWHITE); // Fallback to white
+            m_listCtrl->SetItemBackgroundColour(i, s_BASE_ITEM_BG_COLOR); // Fallback to base item color
+            m_listCtrl->SetItemTextColour(i, s_BASE_ITEM_FG_COLOR);
         }
     }
 }
@@ -484,6 +490,15 @@ void ModSortDialog::fillListCtrl(
         }
     }
 
+    // Check if all items in modList are new
+    bool disableIsNew = true;
+    for (const auto& mod : modList) {
+        if (!mod->isNew) {
+            disableIsNew = false;
+            break;
+        }
+    }
+
     m_listCtrl->DeleteAllItems();
 
     std::vector<std::shared_ptr<ModManagerDirectory::Mod>> disabledMods;
@@ -533,11 +548,10 @@ void ModSortDialog::fillListCtrl(
         m_listCtrl->SetItem(index, 1, constructShaderString(shaders));
 
         // Set highlight if new
-        if (mod->isNew) {
+        if (!disableIsNew && mod->isNew) {
             m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
-            m_originalBackgroundColors[mod->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
-        } else {
-            m_originalBackgroundColors[mod->name] = *wxWHITE; // Store the original color using the mod name
+            m_listCtrl->SetItemTextColour(index, *wxBLACK); // Ensure text is black for readability
+            m_newMods.insert(mod->name); // Store the original color using the mod name
         }
 
         // Enable checkbox
@@ -565,11 +579,10 @@ void ModSortDialog::fillListCtrl(
         m_listCtrl->SetItem(index, 1, constructShaderString(mod->shaders));
 
         // Set highlight if new
-        if (mod->isNew) {
+        if (!disableIsNew && mod->isNew) {
             m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
-            m_originalBackgroundColors[mod->name] = s_NEW_MOD_COLOR; // Store the original color using the mod name
-        } else {
-            m_originalBackgroundColors[mod->name] = *wxWHITE; // Store the original color using the mod name
+            m_listCtrl->SetItemTextColour(index, *wxBLACK); // Ensure text is black for readability
+            m_newMods.insert(mod->name); // Store the original color using the mod name
         }
 
         // Disable checkbox

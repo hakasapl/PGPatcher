@@ -50,7 +50,7 @@ public:
      * @param hr HRESULT
      * @return std::string error message
      */
-    static auto getHRESULTErrorMessage(HRESULT hr) -> std::string;
+    static auto getHRESULTErrorMessage(HRESULT hr) -> std::wstring;
 
     /**
      * @brief Get the DXGI_FORMAT from a string

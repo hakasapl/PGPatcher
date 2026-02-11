@@ -11,7 +11,7 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 /**
@@ -26,8 +26,8 @@ private:
     wxButton* m_restoreButton = nullptr; /** Restore default order button */
     wxCheckBox* m_checkBoxMO2 = nullptr; /** Checkbox to use MO2 loose file order */
 
-    std::unordered_map<std::wstring, wxColour>
-        m_originalBackgroundColors; /** Stores the original highlight of elements to be able to restore it later */
+    std::unordered_set<std::wstring>
+        m_newMods; /** Stores the original highlight of elements to be able to restore it later */
 
     constexpr static int DEFAULT_WIDTH = 600;
     constexpr static int DEFAULT_HEIGHT = 600;
@@ -36,9 +36,12 @@ private:
     constexpr static int DEFAULT_PADDING = 20;
     constexpr static int DEFAULT_BORDER = 10;
 
-    static inline const wxColour s_NEW_MOD_COLOR { 243, 230, 255 };
+    static inline const wxColour s_NEW_MOD_COLOR { 213, 128, 255 };
     static inline const wxColour s_LOSING_MOD_COLOR { 255, 102, 102 };
     static inline const wxColour s_WINNING_MOD_COLOR { 204, 255, 102 };
+
+    static inline wxColour s_BASE_ITEM_BG_COLOR = *wxWHITE;
+    static inline wxColour s_BASE_ITEM_FG_COLOR = *wxBLACK;
 
 public:
     /**

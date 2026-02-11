@@ -891,8 +891,8 @@ auto ParallaxGen::patchDDS(const filesystem::path& ddsPath) -> ParallaxGenTask::
         const HRESULT hr = DirectX::SaveToDDSFile(ddsImage.GetImages(), ddsImage.GetImageCount(),
             ddsImage.GetMetadata(), DirectX::DDS_FLAGS_NONE, outputFile.c_str());
         if (FAILED(hr)) {
-            Logger::error(L"Unable to save DDS {}: {}", outputFile.wstring(),
-                ParallaxGenUtil::utf8toUTF16(ParallaxGenD3D::getHRESULTErrorMessage(hr)));
+            Logger::error(
+                L"Unable to save DDS {}: {}", outputFile.wstring(), ParallaxGenD3D::getHRESULTErrorMessage(hr));
             return ParallaxGenTask::PGResult::FAILURE;
         }
 

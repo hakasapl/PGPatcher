@@ -27,6 +27,7 @@ add_compile_definitions(WIN32_LEAN_AND_MEAN)
 add_compile_definitions(NOSOCKETTYPE)
 add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 add_compile_definitions(_WIN32_WINNT=0x0A00)
+add_compile_definitions(UNICODE _UNICODE)
 
 # Version
 set(PG_VERSION_MAJOR 0)

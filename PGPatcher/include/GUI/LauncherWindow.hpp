@@ -41,7 +41,6 @@ private:
     constexpr static int LEFTSIZER_WRAP_SIZE = 400;
     constexpr static int BORDER_SIZE = 5;
     constexpr static int BUTTON_FONT_SIZE = 12;
-    static inline const wxColour s_OK_BUTTON_COLOR = wxColour(51, 204, 51);
 
     ParallaxGenConfig& m_pgc; /** Reference to the ParallaxGenConfig object */
 
