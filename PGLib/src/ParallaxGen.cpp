@@ -359,7 +359,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
 
     // Get mod of nif
     if (PGGlobals::getMMD() != nullptr) {
-        const auto mod = PGGlobals::getMMD()->getModByFile(nifPath);
+        const auto mod = PGGlobals::getMMD()->getModByFileSmart(nifPath);
         if (mod != nullptr) {
             const std::shared_lock<std::shared_mutex> modLock(mod->mutex);
             if (mod != nullptr && mod->areMeshesIgnored) {
@@ -573,8 +573,9 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
             if (PGGlobals::getMMD() != nullptr) {
                 for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
                     const auto modMatchFrom
-                        = PGGlobals::getMMD()->getModByFile(slots.at(static_cast<int>(curMatchedFrom)));
-                    const auto modMatchPath = PGGlobals::getMMD()->getModByFile(winningShaderMatch.match.matchedPath);
+                        = PGGlobals::getMMD()->getModByFileSmart(slots.at(static_cast<int>(curMatchedFrom)));
+                    const auto modMatchPath
+                        = PGGlobals::getMMD()->getModByFileSmart(winningShaderMatch.match.matchedPath);
 
                     if (modMatchFrom != nullptr && modMatchPath != nullptr && modMatchFrom != modMatchPath) {
                         Logger::warn(L"Mod {} assets are matching assets from {}. Verify this is intended behavior.",
@@ -652,8 +653,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
 
             PatcherUtil::ShaderPatcherMatch curMatch;
             if (PGGlobals::getMMD() != nullptr) {
-                curMatch.mod
-                    = PGGlobals::getMMD()->getModByFile(PGGlobals::getPGD()->getModLookupFile(match.matchedPath));
+                curMatch.mod = PGGlobals::getMMD()->getModByFileSmart(match.matchedPath);
             }
 
             if (!dryRun && curMatch.mod != nullptr) {

@@ -240,8 +240,9 @@ void MeshTracker::validateWeightedVariants()
 {
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
     for (const auto& [key, nifFile] : s_otherWeightVariants) {
-        Logger::error(L"Weighted mesh variant for '{}' was not created. This is an issue with the original plugins and "
-                      L"can cause CTDs.",
+        Logger::error(
+            L"Weighted mesh variant for '{}' not created. Weight variants (_0 and _1) do not match. This is a "
+            "bug with the original meshes.",
             key.first.wstring());
     }
     s_otherWeightVariants.clear();
@@ -257,8 +258,7 @@ void MeshTracker::processWeightVariant()
     if (s_otherWeightVariants.contains({ otherVariantPath, dupIdx })) {
         if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{ otherVariantPath, dupIdx }], {}, true, true)) {
             // different from each other, post error
-            Logger::error(L"Weighted mesh variant for '{}' differs from other weight variant '{}'. This is an "
-                          L"issue with the original models.",
+            Logger::error(L"Weighted mesh variants '{}' and '{}' do not match. This is a bug with the original meshes.",
                 m_origMeshPath.wstring(), otherVariantPath.wstring());
         }
 

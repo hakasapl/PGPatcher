@@ -51,6 +51,21 @@ auto ModManagerDirectory::getModByFile(const filesystem::path& relPath) const ->
     return nullptr;
 }
 
+auto ModManagerDirectory::getModByFileSmart(const filesystem::path& relPath) const -> shared_ptr<Mod>
+{
+    // accounts for files in BSAs
+
+    // get mod searchable file from PGD
+    auto* pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+
+    const auto modSearchableFile = pgd->getModLookupFile(relPath);
+
+    return getModByFile(modSearchableFile);
+}
+
 auto ModManagerDirectory::getMods() const -> vector<shared_ptr<Mod>>
 {
     vector<shared_ptr<Mod>> mods;
@@ -225,10 +240,6 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
 
         modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
 
-        if (relPathStr == L"meshes") {
-            modPtr->hasMeshes = true;
-        }
-
         // Update file map
         Logger::trace(L"Mapping file to mod: {} -> {}", relPath.wstring(), modName);
 
@@ -365,11 +376,6 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
                     // skip meta.ini file
                     if (boost::iequals(file.path().filename().wstring(), L"meta.ini")) {
                         continue;
-                    }
-
-                    // found a file in the meshes folder
-                    if (folder == "meshes") {
-                        modPtr->hasMeshes = true;
                     }
 
                     auto relPath = filesystem::relative(file, curModDir);
