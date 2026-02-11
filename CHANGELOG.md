@@ -4,6 +4,9 @@
 
 - Added warning message for weighted ARMA records that have mesh names not ending in _0 or _1
 - Reworded some error messages to make them clearer
+- Added secret experimental dark mode GUI (--force-dark CLI argument)
+- New mods will no longer be highlighted if all mods are new (initial PGPatcher run)
+- GUI color and help text adjustments
 
 ## [0.9.10] - 2026-02-09
 

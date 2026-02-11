@@ -22,3 +22,7 @@ void PGPatcherGlobals::setWXLoggerSink(std::shared_ptr<WXLoggerSink<std::mutex>>
 {
     s_WXLoggerSink = std::move(sink);
 }
+
+bool PGPatcherGlobals::s_isDarkMode = false;
+auto PGPatcherGlobals::isDarkMode() -> bool { return s_isDarkMode; }
+void PGPatcherGlobals::setIsDarkMode(bool isDarkMode) { s_isDarkMode = isDarkMode; }

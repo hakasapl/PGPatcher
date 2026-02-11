@@ -73,6 +73,8 @@ struct ParallaxGenCLIArgs {
     bool autostart = false;
     bool highmem = false;
     bool console = false;
+    bool forceLight = false;
+    bool forceDark = false;
 };
 
 namespace {
@@ -291,7 +293,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     }
 
     // If output dir is a subdirectory of data dir vfs issues can occur
-    if (boost::istarts_with(params.Output.dir.wstring(), bg->getGameDataPath().wstring() + "\\")) {
+    if (boost::istarts_with(params.Output.dir.wstring(), bg->getGameDataPath().wstring() + L"\\")) {
         Logger::critical("Output directory cannot be a subdirectory of your data folder. Exiting.");
         return;
     }
@@ -715,7 +717,7 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     PGPatcherGlobals::setPGC(&pgc);
 
     // Initialize UI
-    ParallaxGenUI::init();
+    ParallaxGenUI::init(args.forceDark, args.forceLight);
 
     auto params = pgc.getParams();
 
@@ -854,6 +856,10 @@ void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
     app.add_flag("--highmem", args.highmem, "Enable high memory mode");
     app.add_flag("--console", args.console, "Show console in the background");
+    auto* const forceLightFlag = app.add_flag("--force-light", args.forceLight, "Force light theme");
+    auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");
+    forceLightFlag->excludes(forceDarkFlag);
+    forceDarkFlag->excludes(forceLightFlag);
 }
 }
 

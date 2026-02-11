@@ -11,6 +11,11 @@ private:
     static constexpr wxByte ALPHA = 200;
     static constexpr int PADDING = 8;
 
+    static constexpr unsigned char DARK_GHOST_BOOST = 50;
+    static constexpr int MAX_RGB_VALUE = 255;
+    static inline wxColour s_GhostBackground = *wxWHITE; /** Base ghost background color for light mode */
+    static inline wxColour s_GhostForeground = *wxBLACK;
+
 public:
     PGCheckedDragListCtrlGhostWindow(wxWindow* parent, const std::vector<wxString>& lines);
 

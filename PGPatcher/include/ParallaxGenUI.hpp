@@ -7,7 +7,7 @@ public:
     /**
      * @brief Initialize the wxWidgets UI framwork
      */
-    static void init();
+    static void init(bool forceDarkMode = false, bool forceLightMode = false);
 
     /**
      * @brief Shows the launcher dialog to the user (Hangs thread until user presses okay)

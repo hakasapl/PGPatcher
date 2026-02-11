@@ -1,7 +1,5 @@
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
-
-#include <wx/dcbuffer.h>
-#include <wx/gdicmn.h>
+#include "PGPatcherGlobals.hpp"
 
 #include <algorithm>
 #include <vector>
@@ -11,6 +9,20 @@ PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* par
           wxFRAME_SHAPED | wxBORDER_NONE | wxSTAY_ON_TOP)
     , m_lines(lines)
 {
+    //
+    // DARK MODE Adjustments
+    //
+    if (PGPatcherGlobals::isDarkMode()) {
+        const static auto selfColor = GetBackgroundColour();
+        s_GhostBackground = wxColour(std::min(selfColor.Red() + DARK_GHOST_BOOST, MAX_RGB_VALUE),
+            std::min(selfColor.Green() + DARK_GHOST_BOOST, MAX_RGB_VALUE),
+            std::min(selfColor.Blue() + DARK_GHOST_BOOST, MAX_RGB_VALUE));
+        s_GhostForeground = *wxWHITE;
+    } else {
+        s_GhostBackground = *wxWHITE;
+        s_GhostForeground = *wxBLACK;
+    }
+
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetTransparent(ALPHA); // semi-transparent
 
@@ -34,9 +46,11 @@ PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* par
 
 void PGCheckedDragListCtrlGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& event)
 {
+
     wxPaintDC dc(this);
     dc.SetPen(*wxTRANSPARENT_PEN); // Disables black border
-    dc.SetBrush(*wxWHITE_BRUSH);
+    dc.SetBrush(s_GhostBackground);
+    dc.SetTextForeground(s_GhostForeground);
 
     const wxSize sz = GetClientSize();
     dc.DrawRectangle(0, 0, sz.x, sz.y);

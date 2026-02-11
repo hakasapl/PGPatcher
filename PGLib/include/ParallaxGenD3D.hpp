@@ -48,9 +48,9 @@ public:
      * @brief Get the error message from a HRESULT
      *
      * @param hr HRESULT
-     * @return std::string error message
+     * @return std::wstring error message
      */
-    static auto getHRESULTErrorMessage(HRESULT hr) -> std::string;
+    static auto getHRESULTErrorMessage(HRESULT hr) -> std::wstring;
 
     /**
      * @brief Get the DXGI_FORMAT from a string

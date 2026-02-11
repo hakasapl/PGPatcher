@@ -47,8 +47,8 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     // Text
     auto* text = new wxStaticText(this, wxID_ANY,
-        "PGPatcher has completed generating output.\n\nProcessing Time: " + std::to_string(timeTaken)
-            + " seconds\nOutput Location:\n" + outputPath.wstring());
+        L"PGPatcher has completed generating output.\n\nProcessing Time: " + std::to_wstring(timeTaken)
+            + L" seconds\nOutput Location:\n" + outputPath.wstring());
     text->Wrap(requiredWidth - 80); // Wrap based on calculated width
     contentSizer->Add(text, 1, wxALL | wxALIGN_CENTER_VERTICAL, 15);
 
