@@ -450,7 +450,11 @@ void PatcherMeshGlobalParticleLightsToLP::finalize()
         mergedOutput.push_back(groupObj);
     }
 
-    const auto outputJSON = getPGD()->getGeneratedPath() / "LightPlacer/parallaxgen.json";
+    auto* const pgd = getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    const auto outputJSON = pgd->getGeneratedPath() / "LightPlacer/parallaxgen.json";
 
     // Create directories for parent path
     filesystem::create_directories(outputJSON.parent_path());

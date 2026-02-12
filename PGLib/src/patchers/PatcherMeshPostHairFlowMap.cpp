@@ -47,7 +47,11 @@ auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots, nifly::N
 
     // Search prefixes
     const auto& normalMap = slots.at(static_cast<int>(NIFUtil::TextureSlots::NORMAL));
-    if (normalMap.empty() || !getPGD()->isFile(normalMap)) {
+    auto* const pgd = getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    if (normalMap.empty() || !pgd->isFile(normalMap)) {
         // no normal map, nothing to do
         return false;
     }

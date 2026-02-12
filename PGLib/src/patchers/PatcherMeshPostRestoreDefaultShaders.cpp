@@ -86,9 +86,13 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
     const auto& envMaskTex
         = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
 
-    const bool envValid = envTex.empty() || getPGD()->isFile(envTex)
+    auto* const pgd = getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    const bool envValid = envTex.empty() || pgd->isFile(envTex)
         || ParallaxGenUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
-    const bool envMaskValid = envMaskTex.empty() || getPGD()->isFile(envMaskTex);
+    const bool envMaskValid = envMaskTex.empty() || pgd->isFile(envMaskTex);
     if (envValid && envMaskValid) {
         // cubemap and env mask valid, no need to disable
         return false;
