@@ -89,7 +89,11 @@ void addFileToZip(mz_zip_archive& zip, const filesystem::path& filePath, const f
 
     vector<std::byte> buffer = ParallaxGenUtil::getFileBytes(filePath);
 
-    const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
+    auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    const filesystem::path relativePath = filePath.lexically_relative(pgd->getGeneratedPath());
 
     // Build ZIP path directly with forward slashes
     string relativeFilePathUTF8;

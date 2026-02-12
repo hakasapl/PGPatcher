@@ -22,7 +22,11 @@ auto PatcherTextureHookConvertToCM::addToProcessList(const filesystem::path& tex
     const unique_lock lock(s_texToProcessMutex);
     if (s_texToProcess.insert(texPath).second) {
         // only add if not present before
-        getPGD()->addGeneratedFile(getOutputFilename(texPath));
+        auto* const pgd = getPGD();
+        if (pgd == nullptr) {
+            throw runtime_error("PGD is null");
+        }
+        pgd->addGeneratedFile(getOutputFilename(texPath));
     }
 }
 
@@ -44,7 +48,11 @@ auto PatcherTextureHookConvertToCM::initShader() -> bool
         return true;
     }
 
-    return getPGD3D()->initShader(SHADER_NAME, s_shader);
+    auto* const pgd3d = getPGD3D();
+    if (pgd3d == nullptr) {
+        throw runtime_error("PGD3D is null");
+    }
+    return pgd3d->initShader(SHADER_NAME, s_shader);
 }
 
 PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::path ddsPath, DirectX::ScratchImage* dds)
@@ -58,11 +66,20 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
         throw runtime_error("DDS not initialized");
     }
 
+    auto* const pgd = getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    auto* const pgd3d = getPGD3D();
+    if (pgd3d == nullptr) {
+        throw runtime_error("PGD3D is null");
+    }
+
     const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::PARALLAX);
     const auto newPath = texBase + L"_m.dds";
 
     DirectX::ScratchImage newDDS;
-    if (!getPGD3D()->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM)) {
+    if (!pgd3d->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM)) {
         return false;
     }
 
@@ -72,7 +89,7 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
 
     const lock_guard<mutex> lock(s_generatedFileTrackerMutex);
 
-    const auto outPath = getPGD()->getGeneratedPath() / newPath;
+    const auto outPath = pgd->getGeneratedPath() / newPath;
     filesystem::create_directories(outPath.parent_path());
 
     DirectX::ScratchImage compressedImage;
@@ -91,9 +108,9 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
     }
 
     // add newly created file to complexMaterialMaps for later processing
-    getPGD()->getTextureMap(NIFUtil::TextureSlots::ENVMASK)[texBase].insert(
+    pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK)[texBase].insert(
         { newPath, NIFUtil::TextureType::COMPLEXMATERIAL });
-    getPGD()->setTextureType(newPath, NIFUtil::TextureType::COMPLEXMATERIAL);
+    pgd->setTextureType(newPath, NIFUtil::TextureType::COMPLEXMATERIAL);
 
     return true;
 }

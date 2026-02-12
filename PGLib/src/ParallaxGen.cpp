@@ -80,6 +80,9 @@ void ParallaxGen::patchMeshes(const bool& multiThread, const bool& forceBasePatc
     const bool& checkAllowedRecTypes, const std::function<void(size_t, size_t)>& progressCallback)
 {
     auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
 
@@ -133,6 +136,9 @@ void ParallaxGen::patchMeshes(const bool& multiThread, const bool& forceBasePatc
 void ParallaxGen::patchTextures(const bool& multiThread, const std::function<void(size_t, size_t)>& progressCallback)
 {
     auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
 
@@ -172,6 +178,9 @@ void ParallaxGen::populateModData(const bool& multiThread, const std::function<v
     }
 
     auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
 
@@ -205,7 +214,11 @@ void ParallaxGen::deleteOutputDir(const bool& preOutput)
     static const unordered_set<filesystem::path> filesToIgnore = { "meta.ini" };
     static const unordered_set<filesystem::path> filesToDeletePreOutput = { "pgpatcher_output.zip" };
 
-    const auto outputDir = PGGlobals::getPGD()->getGeneratedPath();
+    auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    const auto outputDir = pgd->getGeneratedPath();
     if (!filesystem::exists(outputDir) || !filesystem::is_directory(outputDir)) {
         return;
     }
@@ -281,7 +294,11 @@ auto ParallaxGen::isOutputEmpty() -> bool
     static const unordered_set<filesystem::path> filesToIgnore = { "meta.ini" };
 
     // recursive output dir
-    const auto outputDir = PGGlobals::getPGD()->getGeneratedPath();
+    auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    const auto outputDir = pgd->getGeneratedPath();
     if (!filesystem::exists(outputDir) || !filesystem::is_directory(outputDir)) {
         return true;
     }
@@ -376,6 +393,9 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
 
     // check if we have the nif in cache
     auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
     const auto& meshes = pgd->getMeshes();
     if (!meshes.contains(nifPath)) {
         throw runtime_error("NIF not found in cache: " + nifPath.string());
@@ -840,6 +860,13 @@ auto ParallaxGen::patchDDS(const filesystem::path& ddsPath) -> ParallaxGenTask::
     auto result = ParallaxGenTask::PGResult::SUCCESS;
 
     auto* const pgd = PGGlobals::getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    auto* const pgd3d = PGGlobals::getPGD3D();
+    if (pgd3d == nullptr) {
+        throw runtime_error("PGD3D is null");
+    }
 
     // Check if this texture needs to be processed
     if (s_texPatchers.globalPatchers.empty() && !PatcherTextureHookConvertToCM::isInProcessList(ddsPath)
@@ -860,7 +887,7 @@ auto ParallaxGen::patchDDS(const filesystem::path& ddsPath) -> ParallaxGenTask::
     }
 
     DirectX::ScratchImage ddsImage;
-    if (!PGGlobals::getPGD3D()->getDDS(ddsPath, ddsImage)) {
+    if (!pgd3d->getDDS(ddsPath, ddsImage)) {
         Logger::error(L"Unable to load DDS file: {}", ddsPath.wstring());
         return ParallaxGenTask::PGResult::FAILURE;
     }
