@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 
+#include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
@@ -180,9 +181,14 @@ auto PatcherMeshShaderTruePBR::getFactory() -> PatcherMeshShader::PatcherMeshSha
 
 auto PatcherMeshShaderTruePBR::getShaderType() -> NIFUtil::ShapeShader { return NIFUtil::ShapeShader::TRUEPBR; }
 
-auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape, [[maybe_unused]] bool singlepassMATO)
-    -> bool
+auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape, [[maybe_unused]] bool singlepassMATO,
+    const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
 {
+    if (modelRecordType == ParallaxGenPlugin::ModelRecordType::GRASS) {
+        // grass is not supported
+        return false;
+    }
+
     auto* const nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 

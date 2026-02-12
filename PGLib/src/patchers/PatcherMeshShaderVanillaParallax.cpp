@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
 
+#include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -46,8 +47,14 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::p
     }
 }
 
-auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape, bool singlepassMATO) -> bool
+auto PatcherMeshShaderVanillaParallax::canApply(
+    NiShape& nifShape, bool singlepassMATO, const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
 {
+    if (modelRecordType == ParallaxGenPlugin::ModelRecordType::GRASS) {
+        // grass is not supported
+        return false;
+    }
+
     if (singlepassMATO) {
         return false;
     }

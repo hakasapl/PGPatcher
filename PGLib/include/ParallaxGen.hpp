@@ -151,6 +151,7 @@ private:
      * @return false if the NIF file was not processed successfully
      */
     static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
+        const ParallaxGenPlugin::ModelRecordType& modelRecordType,
         std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures,
         std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
 
@@ -171,11 +172,13 @@ private:
      */
     static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
         const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO,
-        NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
+        const ParallaxGenPlugin::ModelRecordType& modelRecordType, NIFUtil::TextureSet* alternateTexture = nullptr)
+        -> bool;
 
     static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-        const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
-        nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+        const bool& dryRun, bool singlepassMATO, const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+        const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr, nifly::NiShape* shape = nullptr)
+        -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 
     /**
      * @brief Get the Winning Match object (checks mod priority)

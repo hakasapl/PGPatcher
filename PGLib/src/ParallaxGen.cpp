@@ -311,7 +311,7 @@ auto ParallaxGen::populateModInfoFromNIF(
     // loop through each texture set in cache
     for (const auto& textureSet : nifCache.textureSets) {
         // find matches
-        auto matches = getMatches(textureSet.second, patcherObjects, true, false);
+        vector<PatcherUtil::ShaderPatcherMatch> matches;
 
         // get mesh uses from nif cache
         for (const auto& use : nifCache.meshUses) {
@@ -323,8 +323,7 @@ auto ParallaxGen::populateModInfoFromNIF(
             // loop through each alternate texture set
             for (const auto& [altTexIndex, altTexSet] : use.second.alternateTextures) {
                 // find matches
-                const auto curMatches = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO);
-                matches.insert(matches.end(), curMatches.begin(), curMatches.end());
+                matches = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO, use.second.recType);
             }
         }
 
@@ -390,8 +389,11 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
     if (forceBasePatch) {
         // add a dummy mesh use to trigger base patching (pgtools uses this since no plugins)
         const MeshTracker::FormKey dummyFormKey = { .modKey = L"", .formID = 0, .subMODL = "" };
-        const ParallaxGenPlugin::MeshUseAttributes dummyUse
-            = { .isWeighted = false, .singlepassMATO = false, .isIgnored = false, .alternateTextures = {} };
+        const ParallaxGenPlugin::MeshUseAttributes dummyUse = { .isWeighted = false,
+            .singlepassMATO = false,
+            .isIgnored = false,
+            .recType = ParallaxGenPlugin::ModelRecordType::UNKNOWN,
+            .alternateTextures = {} };
         nifCache.meshUses.insert(nifCache.meshUses.begin(), make_pair(dummyFormKey, dummyUse));
     }
 
@@ -420,8 +422,8 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
         // stage a new mesh
         auto* stagedNIF = meshTracker.stageMesh();
         unordered_set<unsigned int> enforceCheckBlocks;
-        if (!processNIF(
-                nifPath, stagedNIF, use.second.singlepassMATO, use.second.alternateTextures, enforceCheckBlocks)) {
+        if (!processNIF(nifPath, stagedNIF, use.second.singlepassMATO, use.second.recType, use.second.alternateTextures,
+                enforceCheckBlocks)) {
             return ParallaxGenTask::PGResult::FAILURE;
         }
         if (meshTracker.commitMesh(formKey, use.second.isWeighted, use.second.alternateTextures, enforceCheckBlocks)) {
@@ -456,6 +458,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
 }
 
 auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
+    const ParallaxGenPlugin::ModelRecordType& modelRecordType,
     std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures,
     std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
@@ -489,7 +492,7 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
             // we want to include any texture sets that do not have alternate textures defined to be compared
             nonAltTexShapes.insert(shapeBlockID);
         }
-        if (!processNIFShape(nifPath, nif, nifShape, patcherObjects, singlepassMATO, ptrAltTex)) {
+        if (!processNIFShape(nifPath, nif, nifShape, patcherObjects, singlepassMATO, modelRecordType, ptrAltTex)) {
             return false;
         }
     }
@@ -507,8 +510,8 @@ auto ParallaxGen::processNIF(const std::filesystem::path& nifPath, nifly::NifFil
 }
 
 auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
-    const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO, NIFUtil::TextureSet* alternateTexture)
-    -> bool
+    const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO,
+    const ParallaxGenPlugin::ModelRecordType& modelRecordType, NIFUtil::TextureSet* alternateTexture) -> bool
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
@@ -543,7 +546,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 
     if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         // Allowed shaders from result of patchers
-        auto matches = getMatches(slots, patchers, false, singlepassMATO, &patchers, nifShape);
+        auto matches = getMatches(slots, patchers, false, singlepassMATO, modelRecordType, &patchers, nifShape);
         // log each match
         for (const auto& match : matches) {
             Logger::trace(L"Match: {} / {} / {}", utf8toUTF16(NIFUtil::getStrFromShader(match.shader)),
@@ -616,8 +619,9 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 }
 
 auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-    const bool& dryRun, bool singlepassMATO, const PatcherUtil::PatcherMeshObjectSet* patcherObjects,
-    nifly::NiShape* shape) -> std::vector<PatcherUtil::ShaderPatcherMatch>
+    const bool& dryRun, bool singlepassMATO, const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+    const PatcherUtil::PatcherMeshObjectSet* patcherObjects, nifly::NiShape* shape)
+    -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
     if (PGGlobals::getPGD() == nullptr) {
         throw runtime_error("PGD is null");
@@ -708,7 +712,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             bool canApplyBaseShader = false;
             {
                 const auto& curPatcher = patcherObjects->shaderPatchers.at(curMatch.shader);
-                canApplyBaseShader = curPatcher->canApply(*shape, singlepassMATO);
+                canApplyBaseShader = curPatcher->canApply(*shape, singlepassMATO, modelRecordType);
             }
             bool canApplyTransformShader = false;
 
@@ -725,7 +729,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                     const auto transformToShader = transformPatcherPair.first;
                     {
                         const auto& curPatcher = patcherObjects->shaderPatchers.at(transformToShader);
-                        canApplyTransformShader = curPatcher->canApply(*shape, singlepassMATO);
+                        canApplyTransformShader = curPatcher->canApply(*shape, singlepassMATO, modelRecordType);
                     }
 
                     if (canApplyTransformShader) {

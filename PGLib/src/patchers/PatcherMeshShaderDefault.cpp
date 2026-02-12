@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderDefault.hpp"
 
+#include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -29,8 +30,8 @@ PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath, nif
 {
 }
 
-auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape, [[maybe_unused]] bool singlepassMATO)
-    -> bool
+auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape, [[maybe_unused]] bool singlepassMATO,
+    [[maybe_unused]] const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
 {
     return true;
 }
