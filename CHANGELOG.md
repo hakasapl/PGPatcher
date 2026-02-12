@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.13] - UNRELEASED
+
+- Added "--force-always-cm" CLI argument to force upgrade to CM in every case for upgrade patcher instead of only when required
+
 ## [0.9.12] - 2026-02-12
 
 - Added dummy ini file to package archive for mod manager purposes
