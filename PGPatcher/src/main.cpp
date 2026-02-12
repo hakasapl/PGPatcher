@@ -75,6 +75,7 @@ struct ParallaxGenCLIArgs {
     bool console = false;
     bool forceLight = false;
     bool forceDark = false;
+    bool forceAlwaysCM = false;
 };
 
 namespace {
@@ -486,7 +487,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
             = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
                   PatcherMeshShaderTransformParallaxToCM::getFactory() };
-        PatcherMeshShaderTransformParallaxToCM::loadOptions(true);
+        PatcherMeshShaderTransformParallaxToCM::loadOptions(!args.forceAlwaysCM);
 
         // initialize patcher hooks
         if (!PatcherTextureHookConvertToCM::initShader()) {
@@ -860,6 +861,9 @@ void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
     auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");
     forceLightFlag->excludes(forceDarkFlag);
     forceDarkFlag->excludes(forceLightFlag);
+    app.add_flag("--force-always-cm", args.forceAlwaysCM,
+        "If upgrade to CM patcher is enabled, everything will be upgraded to CM no matter what (no parallax will be "
+        "used)");
 }
 }
 
