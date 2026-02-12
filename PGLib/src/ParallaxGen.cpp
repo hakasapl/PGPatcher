@@ -311,7 +311,8 @@ auto ParallaxGen::populateModInfoFromNIF(
     // loop through each texture set in cache
     for (const auto& textureSet : nifCache.textureSets) {
         // find matches
-        vector<PatcherUtil::ShaderPatcherMatch> matches;
+        auto matches
+            = getMatches(textureSet.second, patcherObjects, true, false, ParallaxGenPlugin::ModelRecordType::UNKNOWN);
 
         // get mesh uses from nif cache
         for (const auto& use : nifCache.meshUses) {
