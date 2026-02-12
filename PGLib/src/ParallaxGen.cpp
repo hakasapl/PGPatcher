@@ -593,9 +593,8 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 
             // loop through patchers
             if (!patchers.shaderPatchers.contains(winningShaderMatch.shader)) {
-                Logger::error("Shader patcher not found for winning match shader type: {}",
-                    NIFUtil::getStrFromShader(winningShaderMatch.shader));
-                return false;
+                throw runtime_error("Shader patcher not found for winning match shader type: "
+                    + NIFUtil::getStrFromShader(winningShaderMatch.shader));
             }
             patchers.shaderPatchers.at(winningShaderMatch.shader)
                 ->applyPatch(slots, *nifShape, winningShaderMatch.match);
@@ -606,8 +605,8 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
                     const int slotIndex = static_cast<int>(curMatchedFrom);
                     // Validate slot index is within bounds (TextureSlots enum starts at 0)
                     if (slotIndex < 0 || slotIndex >= static_cast<int>(slots.size())) {
-                        Logger::warn("Invalid slot index {} in matchedFrom (slots size: {})", slotIndex, slots.size());
-                        continue;
+                        throw runtime_error("Invalid slot index " + to_string(slotIndex) 
+                            + " in matchedFrom (slots size: " + to_string(slots.size()) + ")");
                     }
                     const auto modMatchFrom = PGGlobals::getMMD()->getModByFileSmart(slots.at(slotIndex));
                     const auto modMatchPath
@@ -745,10 +744,8 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             bool canApplyBaseShader = false;
             {
                 if (!patcherObjects->shaderPatchers.contains(curMatch.shader)) {
-                    Logger::warn("Shader patcher not found for shader type {}, removing match",
-                        NIFUtil::getStrFromShader(curMatch.shader));
-                    it = matches.erase(it);
-                    continue;
+                    throw runtime_error("Shader patcher not found for shader type: "
+                        + NIFUtil::getStrFromShader(curMatch.shader));
                 }
                 const auto& curPatcher = patcherObjects->shaderPatchers.at(curMatch.shader);
                 canApplyBaseShader = curPatcher->canApply(*shape, singlepassMATO, modelRecordType);
@@ -762,9 +759,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                 const auto& transformPatcherPair = patcherObjects->shaderTransformPatchers.at(curMatch.shader);
                 auto* const transformPatcher = transformPatcherPair.second.get();
                 if (transformPatcher == nullptr) {
-                    Logger::warn("Transform patcher is null, skipping transform");
-                    it = matches.erase(it);
-                    continue;
+                    throw runtime_error("Transform patcher is null");
                 }
 
                 // check if transform should be applied
@@ -773,10 +768,8 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                     const auto transformToShader = transformPatcherPair.first;
                     {
                         if (!patcherObjects->shaderPatchers.contains(transformToShader)) {
-                            Logger::warn("Transform shader patcher not found for shader type {}, skipping transform",
-                                NIFUtil::getStrFromShader(transformToShader));
-                            it = matches.erase(it);
-                            continue;
+                            throw runtime_error("Transform shader patcher not found for shader type: "
+                                + NIFUtil::getStrFromShader(transformToShader));
                         }
                         const auto& curPatcher = patcherObjects->shaderPatchers.at(transformToShader);
                         canApplyTransformShader = curPatcher->canApply(*shape, singlepassMATO, modelRecordType);
@@ -841,14 +834,12 @@ auto ParallaxGen::applyTransformIfNeeded(
     if (match.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
         // Find transform object
         if (!patchers.shaderTransformPatchers.contains(match.shader)) {
-            Logger::error("Transform patcher not found for shader type: {}",
-                NIFUtil::getStrFromShader(match.shader));
-            return false;
+            throw runtime_error("Transform patcher not found for shader type: "
+                + NIFUtil::getStrFromShader(match.shader));
         }
         auto* const transform = patchers.shaderTransformPatchers.at(match.shader).second.get();
         if (transform == nullptr) {
-            Logger::error("Transform patcher is null");
-            return false;
+            throw runtime_error("Transform patcher is null");
         }
 
         // Transform Shader
