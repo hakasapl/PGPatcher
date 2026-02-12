@@ -1,10 +1,10 @@
 # Changelog
 
-## [0.9.11] - UNRELEASED
+## [0.9.11] - 2026-02-11
 
+- Added secret experimental dark mode GUI (--force-dark CLI argument)
 - Added warning message for weighted ARMA records that have mesh names not ending in _0 or _1
 - Reworded several error messages to make them clearer
-- Added secret experimental dark mode GUI (--force-dark CLI argument)
 - New mods will no longer be highlighted if all mods are new (initial PGPatcher run)
 - GUI color and help text adjustments
 - Grass will now explicitly not be patched for all shader types should a grass Parallax/CM map exist for some reason
