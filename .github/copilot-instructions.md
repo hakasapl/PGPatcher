@@ -412,3 +412,38 @@ pre-commit run --all-files
 # Clean build
 rm -rf build buildRelease dist
 ```
+
+---
+
+## Notes on Instructions Creation
+
+This file was created by exploring the repository structure, build system, and existing documentation. During the creation process:
+
+### Challenges Encountered
+
+1. **Platform-Specific Project**: This is a Windows-only project requiring MSVC, DirectX, and Windows SDK. Full build testing could not be performed in a Linux environment.
+
+2. **FlatBuffers Dependency**: The project requires `flatc` version 25.2.10 in PATH, which is not commonly available in standard development environments. This is documented in the "Common Issues" section.
+
+3. **No Automated Tests**: The project lacks automated unit or integration tests, making it harder to validate changes programmatically. Manual testing workflows are documented instead.
+
+4. **Multiple Build Systems**: The project uses both CMake (for C++) and MSBuild (for C# components), requiring coordination between them via custom CMake commands.
+
+### Verification Performed
+
+- ✅ Reviewed all CMakeLists.txt files to understand build process
+- ✅ Analyzed `.clang-format` and `.clang-tidy` for code standards
+- ✅ Examined `.pre-commit-config.yaml` for automated checks
+- ✅ Reviewed `vcpkg.json` and `vcpkg-configuration.json` for dependencies
+- ✅ Analyzed `buildRelease.ps1` for release build process
+- ✅ Examined GitHub Actions workflow for CI/CD
+- ✅ Reviewed README.md and CHANGELOG.md for context
+- ✅ Explored source code structure across all modules
+
+### Recommendations for Future Updates
+
+1. Consider adding automated unit tests for core PGLib functionality
+2. Document examples of common patching operations in the wiki
+3. Add troubleshooting section to README.md for common setup issues
+4. Consider containerizing the build environment for reproducibility
+5. Add architecture diagrams to help new contributors understand data flow
