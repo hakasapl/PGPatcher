@@ -5,6 +5,7 @@
 - Added dummy ini file to package archive for mod manager purposes
 - Fixed rare case where base mesh information is lost due to combination of patchable and non-patchable alternate textures
 - Fixed ParallaxGen_Diff.json getting extra entries for ignored base meshes
+- Fixed certain mods not appearing in conflict view
 
 ## [0.9.11] - 2026-02-11
 
