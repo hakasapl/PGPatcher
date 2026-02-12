@@ -115,6 +115,9 @@ auto MeshTracker::commitMesh(const FormKey& formKey, bool isWeighted,
 
     if (m_outputMeshes.empty() && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
         // compare with base mesh to make sure we actually made changes
+        // If we are here there is a case where a record requires an unpatched base mesh. To avoid breaking this in the
+        // future, we ignore base mesh which enforces that the base mesh is not patched
+        m_ignoreBaseMesh = true;
         m_stagedMeshPtr = nullptr;
         m_stagedMesh.Clear();
 
@@ -194,7 +197,7 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         saveSuccess = (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) == 0);
         const string& data = buffer.str();
 
-        if (i == 0) {
+        if (curIndex == 0) {
             // get CRC32
             boost::crc_32_type crc;
             crc.process_bytes(data.data(), data.size());

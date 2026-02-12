@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.12] - UNRELEASED
+
+- Added dummy ini file to package archive for mod manager purposes
+- Fixed rare case where base mesh information is lost due to combination of patchable and non-patchable alternate textures
+- Fixed ParallaxGen_Diff.json getting extra entries for ignored base meshes
+
 ## [0.9.11] - UNRELEASED
 
 - Added warning message for weighted ARMA records that have mesh names not ending in _0 or _1

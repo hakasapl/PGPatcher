@@ -118,10 +118,16 @@ try {
         }
     }
 
-    # Create blank meshes folder at root of zip
-    $meshesDir = Join-Path -Path $tempDir -ChildPath "meshes"
-    Write-Host "Creating blank meshes folder: $meshesDir"
-    New-Item -Path $meshesDir -ItemType Directory -Force | Out-Null
+    # Copy all contents of the local "pkg" folder to the root of the zip structure
+    $pkgDir = Join-Path -Path $scriptDir -ChildPath "package"
+    if (-not (Test-Path -Path $pkgDir -PathType Container)) {
+        Write-Error "package directory does not exist: $pkgDir"
+        exit 1
+    }
+
+    Write-Host "Copying contents of $pkgDir to $tempDir..."
+
+    Copy-Item -Path (Join-Path $pkgDir '*') -Destination $tempDir -Recurse -Force
 
     if (-not $NoZip) {
         # Create the zip file
