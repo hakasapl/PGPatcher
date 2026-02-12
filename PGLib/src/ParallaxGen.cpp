@@ -593,7 +593,8 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
 
             // loop through patchers
             if (!patchers.shaderPatchers.contains(winningShaderMatch.shader)) {
-                Logger::error("Shader patcher not found for winning match shader type");
+                Logger::error("Shader patcher not found for winning match shader type: {}",
+                    NIFUtil::getStrFromShader(winningShaderMatch.shader));
                 return false;
             }
             patchers.shaderPatchers.at(winningShaderMatch.shader)
@@ -603,8 +604,9 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
             if (PGGlobals::getMMD() != nullptr) {
                 for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
                     const int slotIndex = static_cast<int>(curMatchedFrom);
+                    // Validate slot index is within bounds (TextureSlots enum starts at 0)
                     if (slotIndex < 0 || slotIndex >= static_cast<int>(slots.size())) {
-                        Logger::warn("Invalid slot index {} in matchedFrom", slotIndex);
+                        Logger::warn("Invalid slot index {} in matchedFrom (slots size: {})", slotIndex, slots.size());
                         continue;
                     }
                     const auto modMatchFrom = PGGlobals::getMMD()->getModByFileSmart(slots.at(slotIndex));
@@ -743,7 +745,8 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             bool canApplyBaseShader = false;
             {
                 if (!patcherObjects->shaderPatchers.contains(curMatch.shader)) {
-                    Logger::warn("Shader patcher not found for shader type, removing match");
+                    Logger::warn("Shader patcher not found for shader type {}, removing match",
+                        NIFUtil::getStrFromShader(curMatch.shader));
                     it = matches.erase(it);
                     continue;
                 }
@@ -770,7 +773,8 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
                     const auto transformToShader = transformPatcherPair.first;
                     {
                         if (!patcherObjects->shaderPatchers.contains(transformToShader)) {
-                            Logger::warn("Transform shader patcher not found, skipping transform");
+                            Logger::warn("Transform shader patcher not found for shader type {}, skipping transform",
+                                NIFUtil::getStrFromShader(transformToShader));
                             it = matches.erase(it);
                             continue;
                         }
@@ -837,7 +841,8 @@ auto ParallaxGen::applyTransformIfNeeded(
     if (match.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
         // Find transform object
         if (!patchers.shaderTransformPatchers.contains(match.shader)) {
-            Logger::error("Transform patcher not found for shader type");
+            Logger::error("Transform patcher not found for shader type: {}",
+                NIFUtil::getStrFromShader(match.shader));
             return false;
         }
         auto* const transform = patchers.shaderTransformPatchers.at(match.shader).second.get();
