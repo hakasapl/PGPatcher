@@ -83,9 +83,13 @@ auto PatcherMeshShaderTruePBR::getTruePBRConfigFilenameFields() -> vector<string
 void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::path>& pbrJSONs)
 {
     size_t configOrder = 0;
+    auto* const pgd = getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
     for (const auto& config : pbrJSONs) {
         // check if Config is valid
-        auto configFileBytes = getPGD()->getFile(config);
+        auto configFileBytes = pgd->getFile(config);
         std::string configFileStr;
         std::ranges::transform(
             configFileBytes, std::back_inserter(configFileStr), [](std::byte b) { return static_cast<char>(b); });

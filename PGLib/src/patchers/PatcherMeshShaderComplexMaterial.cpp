@@ -273,7 +273,11 @@ auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& e
 
     // metadata file exists
     nlohmann::json meta;
-    const auto jsonBytes = getPGD()->getFile(metaPath);
+    auto* const pgd = getPGD();
+    if (pgd == nullptr) {
+        throw runtime_error("PGD is null");
+    }
+    const auto jsonBytes = pgd->getFile(metaPath);
     if (!ParallaxGenUtil::getJSONFromBytes(jsonBytes, meta)) {
         Logger::error(L"Failed to parse CM metadata JSON: {}", metaPath.wstring());
         return {};
