@@ -117,7 +117,7 @@ auto MeshTracker::commitMesh(const FormKey& formKey, bool isWeighted,
         // compare with base mesh to make sure we actually made changes
         // If we are here there is a case where a record requires an unpatched base mesh. To avoid breaking this in the
         // future, we ignore base mesh which enforces that the base mesh is not patched
-        m_ignoreBaseMesh = true;
+        ignoreBaseMesh();
         m_stagedMeshPtr = nullptr;
         m_stagedMesh.Clear();
 
