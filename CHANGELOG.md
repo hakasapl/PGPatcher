@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.12] - UNRELEASED
+## [0.9.12] - 2026-02-12
 
 - Added dummy ini file to package archive for mod manager purposes
 - Fixed rare case where base mesh information is lost due to combination of patchable and non-patchable alternate textures
