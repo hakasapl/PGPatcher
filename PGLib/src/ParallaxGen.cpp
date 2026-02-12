@@ -323,7 +323,9 @@ auto ParallaxGen::populateModInfoFromNIF(
             // loop through each alternate texture set
             for (const auto& [altTexIndex, altTexSet] : use.second.alternateTextures) {
                 // find matches
-                matches = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO, use.second.recType);
+                const auto curMatches
+                    = getMatches(altTexSet, patcherObjects, true, use.second.singlepassMATO, use.second.recType);
+                matches.insert(matches.end(), curMatches.begin(), curMatches.end());
             }
         }
 
