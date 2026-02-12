@@ -605,7 +605,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
                     const int slotIndex = static_cast<int>(curMatchedFrom);
                     // Validate slot index is within bounds (TextureSlots enum starts at 0)
                     if (slotIndex < 0 || slotIndex >= static_cast<int>(slots.size())) {
-                        throw runtime_error("Invalid slot index " + to_string(slotIndex) 
+                        throw runtime_error("Invalid slot index " + to_string(slotIndex)
                             + " in matchedFrom (slots size: " + to_string(slots.size()) + ")");
                     }
                     const auto modMatchFrom = PGGlobals::getMMD()->getModByFileSmart(slots.at(slotIndex));
