@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -128,7 +129,8 @@ public:
      * @return true Can accomodate
      * @return false Cannot accomodate
      */
-    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO) -> bool override;
+    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO,
+        const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool override;
 
     /**
      * @brief Check if shape can accomodate truepbr (with slots)

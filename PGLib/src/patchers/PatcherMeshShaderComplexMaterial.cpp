@@ -1,6 +1,7 @@
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 
 #include "ParallaxGenDirectory.hpp"
+#include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
@@ -47,8 +48,14 @@ PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::p
 {
 }
 
-auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unused]] bool singlepassMATO) -> bool
+auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unused]] bool singlepassMATO,
+    const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
 {
+    if (modelRecordType == ParallaxGenPlugin::ModelRecordType::GRASS) {
+        // grass is not supported
+        return false;
+    }
+
     // Prep
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
