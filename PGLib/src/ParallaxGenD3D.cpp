@@ -229,7 +229,12 @@ auto ParallaxGenD3D::checkIfAspectRatioMatches(
 
     // Validate dimensions before calculating aspect ratios
     if (ddsImageMeta1.height == 0 || ddsImageMeta2.height == 0) {
-        Logger::error(L"Invalid texture dimensions (height is zero)");
+        if (ddsImageMeta1.height == 0) {
+            Logger::error(L"Invalid texture dimensions (height is zero) for: {}", ddsPath1.wstring());
+        }
+        if (ddsImageMeta2.height == 0) {
+            Logger::error(L"Invalid texture dimensions (height is zero) for: {}", ddsPath2.wstring());
+        }
         return false;
     }
 

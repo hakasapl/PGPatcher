@@ -528,6 +528,7 @@ auto ModManagerDirectory::getMO2INIField(
                 if (fieldValue.size() > prefixLen + suffixLen) {
                     parsedVal = fieldValue.substr(prefixLen, fieldValue.size() - prefixLen - suffixLen);
                 } else {
+                    Logger::warn(L"Malformed byte array field value (too short): {}", fieldValue);
                     parsedVal = fieldValue;
                 }
             } else {
