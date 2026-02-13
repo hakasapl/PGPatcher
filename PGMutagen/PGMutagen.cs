@@ -820,7 +820,8 @@ public class PGMutagen
                     }
                 }
 
-                bool is_ignored = (modelRec.MajorRecordFlagsRaw & 0x00400000) != 0;
+                // Record flag 24
+                bool is_ignored = (modelRec.MajorRecordFlagsRaw & 0x01000000) != 0;
 
                 string recType = GetXEditTypeFromType(modelRec);
 
