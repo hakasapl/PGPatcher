@@ -3,6 +3,10 @@
 ## [0.9.13] - UNRELEASED
 
 - Added "--force-always-cm" CLI argument to force upgrade to CM in every case for upgrade patcher instead of only when required
+- Changed record header flag for ignored records from 22 to 24
+- Fixed potential race condition for PBR `path_contains` caching
+- Fixed undefined case for aspect ratio check of textures when height is 0 (corrupt texture)
+- Improved resiliency of some string callers
 
 ## [0.9.12] - 2026-02-12
 
