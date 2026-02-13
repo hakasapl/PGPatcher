@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -71,6 +72,13 @@ public:
      * lookups
      */
     static auto getPathLookupCache() -> std::unordered_map<std::tuple<std::wstring, std::wstring>, bool, TupleStrHash>&;
+
+    /**
+     * @brief Get the mutex for protecting the Path Lookup Cache
+     *
+     * @return std::mutex& Mutex for cache protection
+     */
+    static auto getPathLookupCacheMutex() -> std::mutex&;
 
     /**
      * @brief Get the True PBR Diffuse Inverse lookup table

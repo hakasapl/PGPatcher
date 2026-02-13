@@ -73,6 +73,12 @@ auto PatcherMeshShaderTruePBR::getPathLookupCache() -> unordered_map<tuple<wstri
     return pathLookupCache;
 }
 
+auto PatcherMeshShaderTruePBR::getPathLookupCacheMutex() -> std::mutex&
+{
+    static std::mutex cacheMutex;
+    return cacheMutex;
+}
+
 auto PatcherMeshShaderTruePBR::getTruePBRConfigFilenameFields() -> vector<string>
 {
     static const vector<string> pgConfigFilenameFields = { "match_normal", "match_diffuse", "rename" };
@@ -403,6 +409,7 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(
 {
     // "patch_contains" attribute: Linear search for path_contains
     auto& cache = getPathLookupCache();
+    auto& cacheMutex = getPathLookupCacheMutex();
 
     // Check for path_contains only if no name match because it's a O(n) operation
     for (const auto& config : getPathLookupJSONs()) {
@@ -410,12 +417,15 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(
         auto cacheKey = make_tuple(ParallaxGenUtil::utf8toUTF16(config.second["path_contains"].get<string>()), diffuse);
 
         bool pathMatch = false;
-        if (cache.find(cacheKey) == cache.end()) {
-            // Not in cache, update it
-            cache[cacheKey] = boost::icontains(diffuse, get<0>(cacheKey));
+        {
+            std::lock_guard<std::mutex> lock(cacheMutex);
+            if (cache.find(cacheKey) == cache.end()) {
+                // Not in cache, update it
+                cache[cacheKey] = boost::icontains(diffuse, get<0>(cacheKey));
+            }
+            pathMatch = cache[cacheKey];
         }
 
-        pathMatch = cache[cacheKey];
         if (pathMatch) {
             insertTruePBRData(truePBRData, diffuse, config.first, nifPath);
         }
