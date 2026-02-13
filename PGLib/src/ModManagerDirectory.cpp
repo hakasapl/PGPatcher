@@ -522,8 +522,14 @@ auto ModManagerDirectory::getMO2INIField(
             // remove @ByteArray( and ) from the string if isByteArray is true
             if (isByteArray && boost::starts_with(fieldValue, MO2INI_BYTEARRAYPREFIX)
                 && boost::ends_with(fieldValue, MO2INI_BYTEARRAYSUFFIX)) {
-                parsedVal = fieldValue.substr(strlen(MO2INI_BYTEARRAYPREFIX),
-                    fieldValue.size() - strlen(MO2INI_BYTEARRAYPREFIX) - strlen(MO2INI_BYTEARRAYSUFFIX));
+                const size_t prefixLen = strlen(MO2INI_BYTEARRAYPREFIX);
+                const size_t suffixLen = strlen(MO2INI_BYTEARRAYSUFFIX);
+                // Validate that the string is long enough to contain both prefix and suffix
+                if (fieldValue.size() > prefixLen + suffixLen) {
+                    parsedVal = fieldValue.substr(prefixLen, fieldValue.size() - prefixLen - suffixLen);
+                } else {
+                    parsedVal = fieldValue;
+                }
             } else {
                 parsedVal = fieldValue;
             }

@@ -227,6 +227,12 @@ auto ParallaxGenD3D::checkIfAspectRatioMatches(
         return false;
     }
 
+    // Validate dimensions before calculating aspect ratios
+    if (ddsImageMeta1.height == 0 || ddsImageMeta2.height == 0) {
+        Logger::error(L"Invalid texture dimensions (height is zero)");
+        return false;
+    }
+
     // calculate aspect ratios
     const float aspectRatio1 = static_cast<float>(ddsImageMeta1.width) / static_cast<float>(ddsImageMeta1.height);
     const float aspectRatio2 = static_cast<float>(ddsImageMeta2.width) / static_cast<float>(ddsImageMeta2.height);
