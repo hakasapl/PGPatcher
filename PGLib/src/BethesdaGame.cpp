@@ -346,7 +346,10 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
     if (trimExtension) {
         // Trim the extension from the plugin name
         for (wstring& plugin : outputLO) {
-            plugin = plugin.substr(0, plugin.find_last_of(L'.'));
+            const auto dotPos = plugin.find_last_of(L'.');
+            if (dotPos != wstring::npos) {
+                plugin = plugin.substr(0, dotPos);
+            }
         }
     }
 
