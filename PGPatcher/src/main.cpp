@@ -534,9 +534,13 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         progressWindow->setStepProgress(0, 1);
     });
 
-    // Plugins requires for map files
+    // Plugins required for map files
     pluginInit.waitForCompletion();
     pluginInit.shutdown();
+
+    // Mods required for map files
+    modManagerInit.waitForCompletion();
+    modManagerInit.shutdown();
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Reading NIFs"); });
 
@@ -557,10 +561,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
             progressWindow->setMainProgress(2, NUM_TOTAL_STEPS, true);
             progressWindow->setStepProgress(0, 1);
         });
-
-        // Wait for threads
-        modManagerInit.waitForCompletion();
-        modManagerInit.shutdown();
 
         progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Finding conflicts"); });
 
