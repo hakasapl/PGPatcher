@@ -178,6 +178,11 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
     // sort modelUses by putting weighted ones first, then by mod name, then by formid, then by submodel
     std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) -> bool {
+        const bool aHasAltTex = !a.alternateTextures.empty();
+        const bool bHasAltTex = !b.alternateTextures.empty();
+        if (aHasAltTex != bHasAltTex) {
+            return !aHasAltTex; // no alternate textures first
+        }
         if (a.isWeighted != b.isWeighted) {
             return a.isWeighted > b.isWeighted; // weighted first
         }
