@@ -1194,6 +1194,13 @@ public class PGMutagen
             {
                 ModelRecs.Add(new Tuple<IModelGetter, string>(armorObj.WorldModel.Female.Model, "FEMALE"));
             }
+
+            if (armorObj.Destructible is not null && armorObj.Destructible.Stages is not null)
+            {
+                AddDestructibleStages(armorObj.Destructible.Stages, ModelRecs);
+            }
+
+            return ModelRecs;
         }
         else if (Rec is IArmorAddonGetter armorAddonObj)
         {
@@ -1222,13 +1229,102 @@ public class PGMutagen
                     ModelRecs.Add(new Tuple<IModelGetter, string>(armorAddonObj.FirstPersonModel.Female, "1STFEMALE"));
                 }
             }
+
+            return ModelRecs;
         }
-        else if (Rec is IModeledGetter modeledObj && modeledObj.Model is not null)
+
+        if (Rec is IModeledGetter modeledObj && modeledObj.Model is not null)
         {
             ModelRecs.Add(new Tuple<IModelGetter, string>(modeledObj.Model, "MODL"));
         }
 
+        // Deal with destructibles
+        if (Rec is IAmmunitionGetter ammoObj && ammoObj.Destructible is not null && ammoObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(ammoObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IActivatorGetter activatorObj && activatorObj.Destructible is not null && activatorObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(activatorObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IBookGetter bookObj && bookObj.Destructible is not null && bookObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(bookObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IContainerGetter containerObj && containerObj.Destructible is not null && containerObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(containerObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IDoorGetter doorObj && doorObj.Destructible is not null && doorObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(doorObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IFloraGetter floraObj && floraObj.Destructible is not null && floraObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(floraObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IFurnitureGetter furnitureObj && furnitureObj.Destructible is not null && furnitureObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(furnitureObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IIngestibleGetter ingestibleObj && ingestibleObj.Destructible is not null && ingestibleObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(ingestibleObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IIngredientGetter ingredientObj && ingredientObj.Destructible is not null && ingredientObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(ingredientObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IKeyGetter keyObj && keyObj.Destructible is not null && keyObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(keyObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is ILightGetter lightObj && lightObj.Destructible is not null && lightObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(lightObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IMiscItemGetter miscObj && miscObj.Destructible is not null && miscObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(miscObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IMoveableStaticGetter moveableStaticObj && moveableStaticObj.Destructible is not null && moveableStaticObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(moveableStaticObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IProjectileGetter projectileObj && projectileObj.Destructible is not null && projectileObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(projectileObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IScrollGetter scrollObj && scrollObj.Destructible is not null && scrollObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(scrollObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is ISoulGemGetter soulGemObj && soulGemObj.Destructible is not null && soulGemObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(soulGemObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is ITalkingActivatorGetter talkingActivatorObj && talkingActivatorObj.Destructible is not null && talkingActivatorObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(talkingActivatorObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IWeaponGetter weaponObj && weaponObj.Destructible is not null && weaponObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(weaponObj.Destructible.Stages, ModelRecs);
+        }
+
         return ModelRecs;
+    }
+
+    private static void AddDestructibleStages(IReadOnlyList<IDestructionStageGetter> stages, List<Tuple<IModelGetter, string>> ModelRecs)
+    {
+        for (int i = 0; i < stages.Count; i++)
+        {
+            var stage = stages[i];
+            if (stage.Model is not null)
+            {
+                ModelRecs.Add(new Tuple<IModelGetter, string>(stage.Model, $"DMDL{i}"));
+            }
+        }
     }
 
     private static List<Tuple<IModel, string>> GetModelElems(IMajorRecord Rec)
@@ -1248,8 +1344,16 @@ public class PGMutagen
             {
                 ModelRecs.Add(new Tuple<IModel, string>(armorObj.WorldModel.Female.Model, "FEMALE"));
             }
+
+            if (armorObj.Destructible is not null && armorObj.Destructible.Stages is not null)
+            {
+                AddDestructibleStages(armorObj.Destructible.Stages, ModelRecs);
+            }
+
+            return ModelRecs;
         }
-        else if (Rec is IArmorAddon armorAddonObj)
+
+        if (Rec is IArmorAddon armorAddonObj)
         {
             if (armorAddonObj.WorldModel is not null)
             {
@@ -1276,13 +1380,102 @@ public class PGMutagen
                     ModelRecs.Add(new Tuple<IModel, string>(armorAddonObj.FirstPersonModel.Female, "1STFEMALE"));
                 }
             }
+
+            return ModelRecs;
         }
-        else if (Rec is IModeled modeledObj && modeledObj.Model is not null)
+
+        if (Rec is IModeled modeledObj && modeledObj.Model is not null)
         {
             ModelRecs.Add(new Tuple<IModel, string>(modeledObj.Model, "MODL"));
         }
 
+        // Deal with destructibles
+        if (Rec is IAmmunition ammoObj && ammoObj.Destructible is not null && ammoObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(ammoObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IActivator activatorObj && activatorObj.Destructible is not null && activatorObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(activatorObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IBook bookObj && bookObj.Destructible is not null && bookObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(bookObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IContainer containerObj && containerObj.Destructible is not null && containerObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(containerObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IDoor doorObj && doorObj.Destructible is not null && doorObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(doorObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IFlora floraObj && floraObj.Destructible is not null && floraObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(floraObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IFurniture furnitureObj && furnitureObj.Destructible is not null && furnitureObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(furnitureObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IIngestible ingestibleObj && ingestibleObj.Destructible is not null && ingestibleObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(ingestibleObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IIngredient ingredientObj && ingredientObj.Destructible is not null && ingredientObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(ingredientObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IKey keyObj && keyObj.Destructible is not null && keyObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(keyObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is ILight lightObj && lightObj.Destructible is not null && lightObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(lightObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IMiscItem miscObj && miscObj.Destructible is not null && miscObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(miscObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IMoveableStatic moveableStaticObj && moveableStaticObj.Destructible is not null && moveableStaticObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(moveableStaticObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IProjectile projectileObj && projectileObj.Destructible is not null && projectileObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(projectileObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IScroll scrollObj && scrollObj.Destructible is not null && scrollObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(scrollObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is ISoulGem soulGemObj && soulGemObj.Destructible is not null && soulGemObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(soulGemObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is ITalkingActivator talkingActivatorObj && talkingActivatorObj.Destructible is not null && talkingActivatorObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(talkingActivatorObj.Destructible.Stages, ModelRecs);
+        }
+        else if (Rec is IWeapon weaponObj && weaponObj.Destructible is not null && weaponObj.Destructible.Stages is not null)
+        {
+            AddDestructibleStages(weaponObj.Destructible.Stages, ModelRecs);
+        }
+
         return ModelRecs;
+    }
+
+    private static void AddDestructibleStages(ExtendedList<DestructionStage> stages, List<Tuple<IModel, string>> ModelRecs)
+    {
+        for (int i = 0; i < stages.Count; i++)
+        {
+            var stage = stages[i];
+            if (stage.Model is not null)
+            {
+                ModelRecs.Add(new Tuple<IModel, string>(stage.Model, $"DMDL{i}"));
+            }
+        }
     }
 
     private static IModel? GetModelElemBySubModel(IMajorRecord Rec, string SubModel)
