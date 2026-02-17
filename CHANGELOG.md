@@ -8,6 +8,7 @@
 - Fixed race condition where mod manager initialization may not be complete before reading NIFs, leading to a CTD
 - Fixed potential race condition for PBR `path_contains` caching
 - Fixed undefined case for aspect ratio check of textures when height is 0 (corrupt texture)
+- Fixed destructible meshes not getting patched for their destruction stages
 - Improved resiliency of some string callers
 
 ## [0.9.12] - 2026-02-12
