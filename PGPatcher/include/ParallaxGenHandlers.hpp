@@ -46,7 +46,7 @@ public:
         std::filesystem::create_directories(CRASHDUMP_DIR);
 
         // Post message to standard console
-        std::cerr << "Uh oh! Really bad things happened. ParallaxGen has crashed. Please wait while the crash dump \""
+        std::cerr << "Uh oh! Really bad things happened. PGPatcher has crashed. Please wait while the crash dump \""
                   << dumpFilePath << "\" is generated. Please include this dump in your bug report.\n";
 
         // Open the file for writing the dump

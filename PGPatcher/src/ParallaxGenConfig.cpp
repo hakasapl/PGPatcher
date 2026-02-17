@@ -100,7 +100,7 @@ void ParallaxGenConfig::loadConfig()
     bool loadedConfig = false;
     if (filesystem::exists(getUserConfigFile())) {
         // don't load a config that doesn't exist
-        Logger::debug(L"Loading ParallaxGen Config: {}", getUserConfigFile().wstring());
+        Logger::debug(L"Loading PGPatcher Config: {}", getUserConfigFile().wstring());
 
         nlohmann::json j;
         if (parseJSON(getFileBytes(getUserConfigFile()), j)) {
