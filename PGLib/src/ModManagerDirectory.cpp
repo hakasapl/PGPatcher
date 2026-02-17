@@ -569,7 +569,13 @@ auto ModManagerDirectory::getGameTypeFromInstanceDir(const std::filesystem::path
     }
 
     if (gameName == L"Enderal Special Edition") {
-        return BethesdaGame::GameType::ENDERAL_SE;
+        if (gameEdition == L"Steam") {
+            return BethesdaGame::GameType::ENDERAL_SE;
+        }
+
+        if (gameEdition == L"GOG") {
+            return BethesdaGame::GameType::ENDERAL_GOG;
+        }
     }
 
     if (gameName == L"Skyrim VR") {

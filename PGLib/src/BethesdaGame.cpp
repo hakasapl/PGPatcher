@@ -111,6 +111,10 @@ auto BethesdaGame::getINILocations() const -> ININame
         return ININame { .ini = "enderal.ini", .iniPrefs = "enderalprefs.ini", .iniCustom = "enderalcustom.ini" };
     }
 
+    if (m_objGameType == BethesdaGame::GameType::ENDERAL_GOG) {
+        return ININame { .ini = "enderal.ini", .iniPrefs = "enderalprefs.ini", .iniCustom = "enderalcustom.ini" };
+    }
+
     return {};
 }
 
@@ -132,6 +136,10 @@ auto BethesdaGame::getDocumentLocation() const -> filesystem::path
         return "My Games/Enderal Special Edition";
     }
 
+    if (m_objGameType == BethesdaGame::GameType::ENDERAL_GOG) {
+        return "My Games/Enderal Special Edition GOG";
+    }
+
     return {};
 }
 
@@ -151,6 +159,10 @@ auto BethesdaGame::getAppDataLocation(const GameType& type) -> filesystem::path
 
     if (type == BethesdaGame::GameType::ENDERAL_SE) {
         return "Enderal Special Edition";
+    }
+
+    if (type == BethesdaGame::GameType::ENDERAL_GOG) {
+        return "Enderal Special Edition GOG";
     }
 
     return {};
@@ -188,6 +200,10 @@ auto BethesdaGame::getDataCheckFile(const GameType& type) -> filesystem::path
     }
 
     if (type == BethesdaGame::GameType::ENDERAL_SE) {
+        return "Enderal - Forgotten Stories.esm";
+    }
+
+    if (type == BethesdaGame::GameType::ENDERAL_GOG) {
         return "Enderal - Forgotten Stories.esm";
     }
 
@@ -402,8 +418,8 @@ auto BethesdaGame::getSystemPath(const GUID& folderID) -> filesystem::path
 
 auto BethesdaGame::getGameTypes() -> vector<GameType>
 {
-    const static auto gameTypes
-        = vector<GameType> { GameType::SKYRIM_SE, GameType::SKYRIM_GOG, GameType::SKYRIM_VR, GameType::ENDERAL_SE };
+    const static auto gameTypes = vector<GameType> { GameType::SKYRIM_SE, GameType::SKYRIM_GOG, GameType::SKYRIM_VR,
+        GameType::ENDERAL_SE, GameType::ENDERAL_GOG };
     return gameTypes;
 }
 
@@ -411,7 +427,7 @@ auto BethesdaGame::getStrFromGameType(const GameType& type) -> string
 {
     const static auto gameTypeToStrMap = unordered_map<GameType, string> { { GameType::SKYRIM_SE, "Skyrim SE" },
         { GameType::SKYRIM_GOG, "Skyrim GOG" }, { GameType::SKYRIM_VR, "Skyrim VR" },
-        { GameType::ENDERAL_SE, "Enderal SE" } };
+        { GameType::ENDERAL_SE, "Enderal SE" }, { GameType::ENDERAL_GOG, "Enderal GOG" } };
 
     if (gameTypeToStrMap.contains(type)) {
         return gameTypeToStrMap.at(type);
@@ -424,7 +440,7 @@ auto BethesdaGame::getGameTypeFromStr(const string& type) -> GameType
 {
     const static auto strToGameTypeMap = unordered_map<string, GameType> { { "Skyrim SE", GameType::SKYRIM_SE },
         { "Skyrim GOG", GameType::SKYRIM_GOG }, { "Skyrim VR", GameType::SKYRIM_VR },
-        { "Enderal SE", GameType::ENDERAL_SE } };
+        { "Enderal SE", GameType::ENDERAL_SE }, { "Enderal GOG", GameType::ENDERAL_GOG } };
 
     if (strToGameTypeMap.contains(type)) {
         return strToGameTypeMap.at(type);
