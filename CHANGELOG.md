@@ -1,15 +1,15 @@
 # Changelog
 
-## [0.9.13] - UNRELEASED
+## [0.9.13] - 2026-02-16
 
 - Added "--force-always-cm" CLI argument to force upgrade to CM in every case for upgrade patcher instead of only when required
-- Changed record header flag for ignored records from 22 to 24
+- Changed record header flag for ignored records from 22 to 24 (this is a breaking change if you've been using this)
 - Optimized order of model use operations to minimize amount of duplicate meshes where possible
 - Fixed race condition where mod manager initialization may not be complete before reading NIFs, leading to a CTD
 - Fixed potential race condition for PBR `path_contains` caching
 - Fixed undefined case for aspect ratio check of textures when height is 0 (corrupt texture)
 - Fixed destructible meshes not getting patched for their destruction stages
-- Improved resiliency of some string callers
+- Fixed some undefined cases in string callers
 
 ## [0.9.12] - 2026-02-12
 
