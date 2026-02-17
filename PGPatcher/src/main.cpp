@@ -431,7 +431,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     // TODO check using PGD instead
     const filesystem::path pgStateFilePath = bg->getGameDataPath() / "ParallaxGen_Diff.json";
     if (filesystem::exists(pgStateFilePath)) {
-        Logger::critical("ParallaxGen meshes exist in your data directory, please delete before "
+        Logger::critical("PGPatcher meshes exist in your data directory, please delete before "
                          "re-running.");
         return;
     }

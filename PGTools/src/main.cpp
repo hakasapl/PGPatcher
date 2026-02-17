@@ -254,7 +254,7 @@ void mainRunner(PGToolsCLIArgs& args)
         const auto endTime = chrono::high_resolution_clock::now();
         timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
 
-        spdlog::info("ParallaxGen took {} seconds to complete", timeTaken);
+        spdlog::info("PGPatcher took {} seconds to complete", timeTaken);
     }
 }
 
