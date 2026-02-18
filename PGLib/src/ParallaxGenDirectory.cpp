@@ -529,7 +529,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(
     updateNifCache(nifPath, textureSets);
 
     // find mod of this mesh
-    if (PGGlobals::getMMD() != nullptr) {
+    if (PGGlobals::isMMDSet()) {
         auto mod = PGGlobals::getMMD()->getModByFileSmart(nifPath);
         if (mod != nullptr) {
             const unique_lock<shared_mutex> lock(mod->mutex);
