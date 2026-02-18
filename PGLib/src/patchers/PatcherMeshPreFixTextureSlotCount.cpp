@@ -20,7 +20,7 @@ auto PatcherMeshPreFixTextureSlotCount::getFactory() -> PatcherMeshPre::PatcherM
 }
 
 PatcherMeshPreFixTextureSlotCount::PatcherMeshPreFixTextureSlotCount(std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshPre(std::move(nifPath), nif, "FixTextureSlotCount", false)
+    : PatcherMeshPre(std::move(nifPath), nif, "FixTextureSlotCount")
 {
 }
 

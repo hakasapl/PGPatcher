@@ -243,7 +243,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     auto* pgd = PGGlobals::getPGD();
     auto* pgd3d = PGGlobals::getPGD3D();
     auto* mmd = PGGlobals::getMMD();
-    Patcher::loadStatics(*pgd, *pgd3d);
 
     //
     // GPU INITIALIZATION

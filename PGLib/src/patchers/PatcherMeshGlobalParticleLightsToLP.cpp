@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 
+#include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshGlobal.hpp"
 
 #include "Animation.hpp"
@@ -390,6 +391,8 @@ auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeControl
 
 void PatcherMeshGlobalParticleLightsToLP::finalize()
 {
+    auto* pgd = PGGlobals::getPGD();
+
     const lock_guard<mutex> lock(s_lpJsonDataMutex);
 
     // Check if output JSON is empty
@@ -450,7 +453,7 @@ void PatcherMeshGlobalParticleLightsToLP::finalize()
         mergedOutput.push_back(groupObj);
     }
 
-    const auto outputJSON = getPGD()->getGeneratedPath() / "LightPlacer/parallaxgen.json";
+    const auto outputJSON = pgd->getGeneratedPath() / "LightPlacer/parallaxgen.json";
 
     // Create directories for parent path
     filesystem::create_directories(outputJSON.parent_path());

@@ -23,8 +23,7 @@ public:
     using PatcherMeshPreObject = std::unique_ptr<PatcherMeshPre>;
 
     // Constructors
-    PatcherMeshPre(
-        std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName, const bool& triggerSave = true);
+    PatcherMeshPre(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName);
     virtual ~PatcherMeshPre() = default;
     PatcherMeshPre(const PatcherMeshPre& other) = default;
     auto operator=(const PatcherMeshPre& other) -> PatcherMeshPre& = default;

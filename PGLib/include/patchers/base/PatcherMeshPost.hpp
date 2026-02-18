@@ -23,8 +23,7 @@ public:
     using PatcherMeshPostObject = std::unique_ptr<PatcherMeshPost>;
 
     // Constructors
-    PatcherMeshPost(
-        std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName, const bool& triggerSave = true);
+    PatcherMeshPost(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName);
     virtual ~PatcherMeshPost() = default;
     PatcherMeshPost(const PatcherMeshPost& other) = default;
     auto operator=(const PatcherMeshPost& other) -> PatcherMeshPost& = default;

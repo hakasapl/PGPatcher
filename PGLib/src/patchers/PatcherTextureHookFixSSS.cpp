@@ -1,5 +1,6 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 
+#include "PGGlobals.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -21,10 +22,12 @@ using namespace Microsoft::WRL;
 
 auto PatcherTextureHookFixSSS::addToProcessList(const filesystem::path& texPath) -> void
 {
+    auto* pgd = PGGlobals::getPGD();
+
     const unique_lock lock(s_texToProcessMutex);
     if (s_texToProcess.insert(texPath).second) {
         // only add if not present before
-        getPGD()->addGeneratedFile(getOutputFilename(texPath));
+        pgd->addGeneratedFile(getOutputFilename(texPath));
     }
 }
 
@@ -42,11 +45,13 @@ auto PatcherTextureHookFixSSS::getOutputFilename(const filesystem::path& texPath
 
 auto PatcherTextureHookFixSSS::initShader() -> bool
 {
+    auto* pgd3d = PGGlobals::getPGD3D();
+
     if (s_shader != nullptr) {
         return true;
     }
 
-    return getPGD3D()->initShader(SHADER_NAME, s_shader);
+    return pgd3d->initShader(SHADER_NAME, s_shader);
 }
 
 PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(std::filesystem::path ddsPath, DirectX::ScratchImage* dds)
@@ -56,6 +61,9 @@ PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(std::filesystem::path ddsPath
 
 auto PatcherTextureHookFixSSS::applyPatch() -> bool
 {
+    auto* pgd = PGGlobals::getPGD();
+    auto* pgd3d = PGGlobals::getPGD3D();
+
     if (getDDS() == nullptr) {
         throw runtime_error("DDS not initialized");
     }
@@ -69,7 +77,7 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     const auto newHeight = static_cast<UINT>(getDDS()->GetMetadata().height / SCALE_FACTOR);
     // the shader delights and also reduces size by 4 for efficiency
     ShaderParams params = { .fAlbedoSatPower = SHADER_ALBEDO_SAT_POWER, .fAlbedoNorm = SHADER_ALBEDO_NORM };
-    if (!getPGD3D()->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM, newWidth, newHeight,
+    if (!pgd3d->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM, newWidth, newHeight,
             &params, sizeof(ShaderParams))) {
         return false;
     }
@@ -80,7 +88,7 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
 
     const lock_guard<mutex> lock(s_generatedFileTrackerMutex);
 
-    const auto outPath = getPGD()->getGeneratedPath() / newPath;
+    const auto outPath = pgd->getGeneratedPath() / newPath;
     filesystem::create_directories(outPath.parent_path());
 
     DirectX::ScratchImage compressedImage;
@@ -99,9 +107,8 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     }
 
     // add newly created file to complexMaterialMaps for later processing
-    getPGD()->getTextureMap(NIFUtil::TextureSlots::GLOW)[texBase].insert(
-        { newPath, NIFUtil::TextureType::SUBSURFACECOLOR });
-    getPGD()->setTextureType(newPath, NIFUtil::TextureType::SUBSURFACECOLOR);
+    pgd->getTextureMap(NIFUtil::TextureSlots::GLOW)[texBase].insert({ newPath, NIFUtil::TextureType::SUBSURFACECOLOR });
+    pgd->setTextureType(newPath, NIFUtil::TextureType::SUBSURFACECOLOR);
 
     return true;
 }

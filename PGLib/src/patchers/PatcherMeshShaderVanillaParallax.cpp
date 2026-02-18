@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
 
+#include "PGGlobals.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/NIFUtil.hpp"
@@ -107,7 +108,10 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape, std
 auto PatcherMeshShaderVanillaParallax::shouldApply(
     const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool
 {
-    static const auto heightBaseMap = getPGD()->getTextureMapConst(NIFUtil::TextureSlots::PARALLAX);
+    auto* pgd = PGGlobals::getPGD();
+    auto* pgd3d = PGGlobals::getPGD3D();
+
+    static const auto heightBaseMap = pgd->getTextureMapConst(NIFUtil::TextureSlots::PARALLAX);
 
     matches.clear();
 
@@ -121,7 +125,7 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(
     NIFUtil::TextureSlots matchedFromSlot = NIFUtil::TextureSlots::NORMAL;
     for (const int& slot : slotSearch) {
         baseMap = oldSlots.at(slot);
-        if (baseMap.empty() || !getPGD()->isFile(baseMap)) {
+        if (baseMap.empty() || !pgd->isFile(baseMap)) {
             continue;
         }
 
@@ -138,7 +142,7 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(
     // Check aspect ratio matches
     PatcherMatch lastMatch; // Variable to store the match that equals OldSlots[Slot], if found
     for (const auto& match : foundMatches) {
-        if (getPGD3D()->checkIfAspectRatioMatches(baseMap, match.path)) {
+        if (pgd3d->checkIfAspectRatioMatches(baseMap, match.path)) {
             PatcherMatch curMatch;
             curMatch.matchedPath = match.path;
             curMatch.matchedFrom.insert(matchedFromSlot);

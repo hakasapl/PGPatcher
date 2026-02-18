@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 
+#include "PGGlobals.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/Logger.hpp"
@@ -88,10 +89,12 @@ auto PatcherMeshShaderTruePBR::getTruePBRConfigFilenameFields() -> vector<string
 // Statics
 void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::path>& pbrJSONs)
 {
+    auto* pgd = PGGlobals::getPGD();
+
     size_t configOrder = 0;
     for (const auto& config : pbrJSONs) {
         // check if Config is valid
-        auto configFileBytes = getPGD()->getFile(config);
+        auto configFileBytes = pgd->getFile(config);
         std::string configFileStr;
         std::ranges::transform(
             configFileBytes, std::back_inserter(configFileStr), [](std::byte b) { return static_cast<char>(b); });
@@ -203,6 +206,8 @@ auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShap
 
 auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
 {
+    auto* pgd = PGGlobals::getPGD();
+
     // Prep
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
@@ -217,7 +222,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape, std::vector
     if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01)) {
         // Check if RMAOS exists
         const auto& rmaosPath = oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)];
-        if (!rmaosPath.empty() && getPGD()->isFile(rmaosPath)) {
+        if (!rmaosPath.empty() && pgd->isFile(rmaosPath)) {
             PatcherMatch match;
             match.matchedPath = getNIFPath().wstring();
             matches.insert(matches.begin(), match);
@@ -230,6 +235,8 @@ auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape, std::vector
 auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches)
     -> bool
 {
+    auto* pgd = PGGlobals::getPGD();
+
     // get search prefixes
     auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots, false);
     // only normal map gets _n part removed to match properly
@@ -298,7 +305,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
             NIFUtil::TextureSet newSlots = oldSlots;
             applyPatchSlots(newSlots, match);
             for (size_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
-                if (!newSlots.at(i).empty() && !getPGD()->isFile(newSlots.at(i))) {
+                if (!newSlots.at(i).empty() && !pgd->isFile(newSlots.at(i))) {
                     // Slot does not exist
                     if (s_printNonExistentPaths) {
                         Logger::warn(
@@ -332,7 +339,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     if (truePBRData.empty()) {
         const auto& rmaosPath = oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)];
         // if not start with PBR add it for the check
-        if (getPGD()->getTextureType(rmaosPath) == NIFUtil::TextureType::RMAOS) {
+        if (pgd->getTextureType(rmaosPath) == NIFUtil::TextureType::RMAOS) {
             // found RMAOS without json
             PatcherMatch match;
             match.matchedPath = rmaosPath;

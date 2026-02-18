@@ -103,8 +103,6 @@ void mainRunner(PGToolsCLIArgs& args)
         auto pgd3D = ParallaxGenD3D(exePath / "cshaders");
         PGGlobals::setPGD3D(&pgd3D);
 
-        Patcher::loadStatics(pgd, pgd3D);
-
         // Check if GPU needs to be initialized
         if (!pgd3D.initGPU()) {
             spdlog::critical("Failed to initialize GPU. Exiting.");

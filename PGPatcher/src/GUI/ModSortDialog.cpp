@@ -172,9 +172,6 @@ ModSortDialog::ModSortDialog()
 
     // Fill contents
     auto* mmd = PGGlobals::getMMD();
-    if (mmd == nullptr) {
-        throw runtime_error("Mod Manager Directory is null");
-    }
     fillListCtrl(mmd->getModsByPriority(), false);
 
     // Set checkbox state based on current config
@@ -269,9 +266,6 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
 
     if (response == wxYES) {
         auto* mmd = PGGlobals::getMMD();
-        if (mmd == nullptr) {
-            throw runtime_error("Mod Manager Directory is null");
-        }
         fillListCtrl(mmd->getModsByDefaultOrder(), true);
     }
 }
@@ -294,9 +288,6 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
         }
 
         auto* mmd = PGGlobals::getMMD();
-        if (mmd == nullptr) {
-            throw runtime_error("Mod Manager Directory is null");
-        }
 
         if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
             // If MO2 loose file order is checked, reset to that
@@ -327,9 +318,6 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
     const bool isChecked = m_checkBoxMO2->IsChecked();
     if (isChecked) {
         auto* mmd = PGGlobals::getMMD();
-        if (mmd == nullptr) {
-            throw runtime_error("Mod Manager Directory is null");
-        }
         const auto modListByLooseOrder = mmd->getModsByDefaultOrder();
         fillListCtrl(modListByLooseOrder, false, true);
 

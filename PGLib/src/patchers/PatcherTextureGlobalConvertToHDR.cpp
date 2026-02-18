@@ -1,5 +1,6 @@
 #include "patchers/PatcherTextureGlobalConvertToHDR.hpp"
 
+#include "PGGlobals.hpp"
 #include "ParallaxGenD3D.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
 #include <DirectXTex.h>
@@ -14,11 +15,13 @@ using namespace std;
 
 auto PatcherTextureGlobalConvertToHDR::initShader() -> bool
 {
+    auto* pgd3d = PGGlobals::getPGD3D();
+
     if (s_shader != nullptr) {
         return true;
     }
 
-    return getPGD3D()->initShader(SHADER_NAME, s_shader);
+    return pgd3d->initShader(SHADER_NAME, s_shader);
 }
 
 auto PatcherTextureGlobalConvertToHDR::getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory
@@ -49,9 +52,11 @@ PatcherTextureGlobalConvertToHDR::PatcherTextureGlobalConvertToHDR(
 
 void PatcherTextureGlobalConvertToHDR::applyPatch(bool& ddsModified)
 {
+    auto* pgd3d = PGGlobals::getPGD3D();
+
     DirectX::ScratchImage newDDS;
     ShaderParams params = { .luminanceMult = s_luminanceMult };
-    if (!getPGD3D()->applyShaderToTexture(
+    if (!pgd3d->applyShaderToTexture(
             *getDDS(), newDDS, s_shader, s_outputFormat, 0, 0, &params, sizeof(ShaderParams))) {
         return;
     }

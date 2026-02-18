@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderDefault.hpp"
 
+#include "PGGlobals.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/NIFUtil.hpp"
@@ -44,6 +45,8 @@ auto PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape, std::vector
 auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches)
     -> bool
 {
+    auto* pgd = PGGlobals::getPGD();
+
     matches.clear();
 
     // Loop through slots (only diffuse and normal)
@@ -53,7 +56,7 @@ auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots, 
         }
 
         // Check if file exists
-        if (!getPGD()->isFile(oldSlots.at(slot))) {
+        if (!pgd->isFile(oldSlots.at(slot))) {
             continue;
         }
 

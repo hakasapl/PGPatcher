@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 
+#include "PGGlobals.hpp"
 #include "ParallaxGenDirectory.hpp"
 #include "ParallaxGenPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
@@ -98,7 +99,10 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape, std
 auto PatcherMeshShaderComplexMaterial::shouldApply(
     const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool
 {
-    static const auto cmBaseMap = getPGD()->getTextureMapConst(NIFUtil::TextureSlots::ENVMASK);
+    auto* pgd = PGGlobals::getPGD();
+    auto* pgd3d = PGGlobals::getPGD3D();
+
+    static const auto cmBaseMap = pgd->getTextureMapConst(NIFUtil::TextureSlots::ENVMASK);
 
     matches.clear();
 
@@ -112,7 +116,7 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
     NIFUtil::TextureSlots matchedFromSlot = NIFUtil::TextureSlots::NORMAL;
     for (const int& slot : slotSearch) {
         baseMap = oldSlots.at(slot);
-        if (baseMap.empty() || !getPGD()->isFile(baseMap)) {
+        if (baseMap.empty() || !pgd->isFile(baseMap)) {
             continue;
         }
 
@@ -127,7 +131,7 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
 
     PatcherMatch lastMatch; // Variable to store the match that equals OldSlots[Slot], if found
     for (const auto& match : foundMatches) {
-        if (getPGD3D()->checkIfAspectRatioMatches(baseMap, match.path)) {
+        if (pgd3d->checkIfAspectRatioMatches(baseMap, match.path)) {
             PatcherMatch curMatch;
             curMatch.matchedPath = match.path;
             curMatch.matchedFrom.insert(matchedFromSlot);
@@ -156,19 +160,21 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
 void PatcherMeshShaderComplexMaterial::applyPatch(
     NIFUtil::TextureSet& slots, NiShape& nifShape, const PatcherMatch& match)
 {
+    auto* pgd = PGGlobals::getPGD();
+
     // Apply shader
     applyShader(nifShape);
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Check if specular should be white
-    if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_METALNESS)) {
+    if (pgd->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_METALNESS)) {
         NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, 1.0F);
         NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, 1.0F);
         NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, 1.0F);
     }
 
-    if (getPGD()->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_GLOSSINESS)) {
+    if (pgd->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_GLOSSINESS)) {
         NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
     }
 
@@ -256,6 +262,8 @@ void PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape)
 
 auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& envMaskPath) -> nlohmann::json
 {
+    auto* pgd = PGGlobals::getPGD();
+
     {
         const shared_lock lk(s_metaCacheMutex);
         if (s_metaCache.contains(envMaskPath)) {
@@ -267,13 +275,13 @@ auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& e
     auto metaPath = envMaskPath;
     metaPath.replace_extension(".json");
 
-    if (!getPGD()->isFile(metaPath)) {
+    if (!pgd->isFile(metaPath)) {
         return {};
     }
 
     // metadata file exists
     nlohmann::json meta;
-    const auto jsonBytes = getPGD()->getFile(metaPath);
+    const auto jsonBytes = pgd->getFile(metaPath);
     if (!ParallaxGenUtil::getJSONFromBytes(jsonBytes, meta)) {
         Logger::error(L"Failed to parse CM metadata JSON: {}", metaPath.wstring());
         return {};
