@@ -1,12 +1,12 @@
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 
+#include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
 #include "util/NIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
-#include <spdlog/spdlog.h>
 
 #include <filesystem>
 #include <memory>
@@ -28,6 +28,8 @@ PatcherMeshPostHairFlowMap::PatcherMeshPostHairFlowMap(std::filesystem::path nif
 
 auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool
 {
+    auto* pgd = PGGlobals::getPGD();
+
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr) {
@@ -47,12 +49,12 @@ auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots, nifly::N
 
     // Search prefixes
     const auto& normalMap = slots.at(static_cast<int>(NIFUtil::TextureSlots::NORMAL));
-    if (normalMap.empty() || !getPGD()->isFile(normalMap)) {
+    if (normalMap.empty() || !pgd->isFile(normalMap)) {
         // no normal map, nothing to do
         return false;
     }
 
-    static const auto flowMapBase = getPGD()->getTextureMapConst(NIFUtil::TextureSlots::BACKLIGHT);
+    static const auto flowMapBase = pgd->getTextureMapConst(NIFUtil::TextureSlots::BACKLIGHT);
 
     const auto normalMapBase = NIFUtil::getTexBase(normalMap, NIFUtil::TextureSlots::NORMAL);
     const auto foundMatches = NIFUtil::getTexMatch(normalMapBase, NIFUtil::TextureType::HAIR_FLOWMAP, flowMapBase);

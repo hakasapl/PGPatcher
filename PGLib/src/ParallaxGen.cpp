@@ -360,7 +360,7 @@ auto ParallaxGen::patchNIF(const std::filesystem::path& nifPath, TaskQueue& setM
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
     // Get mod of nif
-    if (PGGlobals::getMMD() != nullptr) {
+    if (PGGlobals::isMMDSet()) {
         const auto mod = PGGlobals::getMMD()->getModByFileSmart(nifPath);
         if (mod != nullptr) {
             const std::shared_lock<std::shared_mutex> modLock(mod->mutex);
@@ -576,7 +576,7 @@ auto ParallaxGen::processNIFShape(const std::filesystem::path& nifPath, nifly::N
                 ->applyPatch(slots, *nifShape, winningShaderMatch.match);
 
             // Post warnings if any
-            if (PGGlobals::getMMD() != nullptr) {
+            if (PGGlobals::isMMDSet()) {
                 for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
                     const auto modMatchFrom
                         = PGGlobals::getMMD()->getModByFileSmart(slots.at(static_cast<int>(curMatchedFrom)));
@@ -626,10 +626,6 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
     const PatcherUtil::PatcherMeshObjectSet* patcherObjects, nifly::NiShape* shape)
     -> std::vector<PatcherUtil::ShaderPatcherMatch>
 {
-    if (PGGlobals::getPGD() == nullptr) {
-        throw runtime_error("PGD is null");
-    }
-
     vector<PatcherUtil::ShaderPatcherMatch> matches;
 
     unordered_set<shared_ptr<ModManagerDirectory::Mod>, ModManagerDirectory::Mod::ModHash> modSet;
@@ -659,7 +655,7 @@ auto ParallaxGen::getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil
             }
 
             PatcherUtil::ShaderPatcherMatch curMatch;
-            if (PGGlobals::getMMD() != nullptr) {
+            if (PGGlobals::isMMDSet()) {
                 curMatch.mod = PGGlobals::getMMD()->getModByFileSmart(match.matchedPath);
             }
 

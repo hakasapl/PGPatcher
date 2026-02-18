@@ -64,6 +64,5 @@ public:
      * @param nif NIF object
      * @param patcherName Name of patcher
      */
-    PatcherMesh(
-        std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName, const bool& triggerSave = true);
+    PatcherMesh(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName);
 };

@@ -126,8 +126,8 @@ void PatcherMesh::clearTextureSets(const filesystem::path& nifPath)
     }
 }
 
-PatcherMesh::PatcherMesh(filesystem::path nifPath, nifly::NifFile* nif, string patcherName, const bool& triggerSave)
-    : Patcher(std::move(patcherName), triggerSave)
+PatcherMesh::PatcherMesh(filesystem::path nifPath, nifly::NifFile* nif, string patcherName)
+    : Patcher(std::move(patcherName))
     , m_nifPath(std::move(nifPath))
     , m_nif(nif)
 {

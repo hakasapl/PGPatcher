@@ -1,5 +1,6 @@
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 
+#include "PGGlobals.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
 #include "util/NIFUtil.hpp"
@@ -52,6 +53,8 @@ auto PatcherMeshPostRestoreDefaultShaders::applyPatch(NIFUtil::TextureSet& slots
 auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(
     NIFUtil::TextureSet& slots, nifly::BSLightingShaderProperty& shaderProp) -> bool
 {
+    auto* pgd = PGGlobals::getPGD();
+
     if (shaderProp.GetShaderType() != BSLSP_PARALLAX) {
         return false;
     }
@@ -59,7 +62,8 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(
     // this is parallax type, check the _p texture to see if it exists
     const auto& parallaxTex
         = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::PARALLAX)));
-    if (getPGD()->isFile(parallaxTex)) {
+
+    if (pgd->isFile(parallaxTex)) {
         // definitely a parallax map, no need to disable
         return false;
     }
@@ -77,6 +81,8 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(
 auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMaterial(
     NIFUtil::TextureSet& slots, nifly::BSLightingShaderProperty& shaderProp) -> bool
 {
+    auto* pgd = PGGlobals::getPGD();
+
     if (shaderProp.GetShaderType() != BSLSP_ENVMAP) {
         return false;
     }
@@ -86,9 +92,9 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
     const auto& envMaskTex
         = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
 
-    const bool envValid = envTex.empty() || getPGD()->isFile(envTex)
+    const bool envValid = envTex.empty() || pgd->isFile(envTex)
         || ParallaxGenUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
-    const bool envMaskValid = envMaskTex.empty() || getPGD()->isFile(envMaskTex);
+    const bool envMaskValid = envMaskTex.empty() || pgd->isFile(envMaskTex);
     if (envValid && envMaskValid) {
         // cubemap and env mask valid, no need to disable
         return false;
