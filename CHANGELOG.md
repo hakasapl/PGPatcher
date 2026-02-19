@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.14] - UNRELEASED
+
+- Fixed 1st person model ARMA patching when 1st person model and real model are the same
+
 ## [0.9.13] - 2026-02-16
 
 - Added "--force-always-cm" CLI argument to force upgrade to CM in every case for upgrade patcher instead of only when required
