@@ -90,6 +90,7 @@ static constexpr std::array<EnumStringHelper::EnumStringEntry<TextureType>, 21> 
     {.value = TextureType::SPECULAR, .name = "specular"},
     {.value = TextureType::HAIR_FLOWMAP, .name = "hair flowmap"},
     {.value = TextureType::SUBSURFACEPBR, .name = "subsurface pbr"},
+    {.value = TextureType::UNKNOWN, .name = "unknown"},
 }};
 
 auto getStrFromTexType(const TextureType& type) -> std::string;
