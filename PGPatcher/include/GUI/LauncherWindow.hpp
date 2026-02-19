@@ -1,9 +1,9 @@
 #pragma once
 
-#include "BethesdaGame.hpp"
-#include "ModManagerDirectory.hpp"
-#include "ParallaxGenConfig.hpp"
-#include "ParallaxGenPlugin.hpp"
+#include "PGConfig.hpp"
+#include "PGModManager.hpp"
+#include "PGPlugin.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/NIFUtil.hpp"
 
 #include <wx/listctrl.h>
@@ -16,7 +16,7 @@
 #include <vector>
 
 /**
- * @brief wxDialog that allows the user to configure the ParallaxGen parameters.
+ * @brief wxDialog that allows the user to configure the PGPatcherparameters.
  */
 class LauncherWindow : public wxDialog {
 public:
@@ -25,14 +25,14 @@ public:
      *
      * @param pgc PGC object for UI to use
      */
-    LauncherWindow(ParallaxGenConfig& pgc);
+    LauncherWindow(PGConfig& pgc);
 
     /**
      * @brief Get the Params object (meant to be called after the user presses okay)
      *
      * @param params Reference to PGParams object to fill
      */
-    void getParams(ParallaxGenConfig::PGParams& params) const;
+    void getParams(PGConfig::PGParams& params) const;
 
 private:
     constexpr static int MIN_WIDTH = 750;
@@ -42,7 +42,7 @@ private:
     constexpr static int BORDER_SIZE = 5;
     constexpr static int BUTTON_FONT_SIZE = 12;
 
-    ParallaxGenConfig& m_pgc; /** Reference to the ParallaxGenConfig object */
+    PGConfig& m_pgc; /** Reference to the PGConfig object */
 
     /**
      * @brief Runs immediately after the wxDialog gets constructed, intended to set the UI elements to the initial
@@ -71,7 +71,7 @@ private:
     void onGameTypeChange(wxCommandEvent& event);
 
     // Mod Manager
-    std::unordered_map<ModManagerDirectory::ModManagerType, wxRadioButton*> m_modManagerRadios;
+    std::unordered_map<PGModManager::ModManagerType, wxRadioButton*> m_modManagerRadios;
     void onModManagerChange(wxCommandEvent& event);
 
     wxButton* m_mo2InstanceBrowseButton;
@@ -148,7 +148,7 @@ private:
     void onTextureRulesTextureMapsBtn(wxCommandEvent& event);
 
     // Plugin Rules
-    std::unordered_set<ParallaxGenPlugin::ModelRecordType> m_DialogRecTypeSelectorState;
+    std::unordered_set<PGPlugin::ModelRecordType> m_DialogRecTypeSelectorState;
     void onSelectPluginTypesBtn(wxCommandEvent& event);
 
     //

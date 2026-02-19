@@ -1,18 +1,17 @@
-#include "BethesdaGame.hpp"
 #include "GUI/CompletionDialog.hpp"
 #include "GUI/ProgressWindow.hpp"
 #include "GUI/WXLoggerSink.hpp"
-#include "ModManagerDirectory.hpp"
+#include "PGConfig.hpp"
+#include "PGD3D.hpp"
+#include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "PGHandlers.hpp"
+#include "PGModManager.hpp"
+#include "PGPatcher.hpp"
 #include "PGPatcherGlobals.hpp"
-#include "ParallaxGen.hpp"
-#include "ParallaxGenConfig.hpp"
-#include "ParallaxGenD3D.hpp"
-#include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenHandlers.hpp"
-#include "ParallaxGenPlugin.hpp"
-#include "ParallaxGenRunner.hpp"
-#include "ParallaxGenUI.hpp"
+#include "PGPlugin.hpp"
+#include "PGUI.hpp"
+#include "common/BethesdaGame.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
@@ -30,7 +29,8 @@
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
+#include "util/TaskPoolRunner.hpp"
 #include "util/TaskQueue.hpp"
 
 #include <CLI/CLI.hpp>
@@ -89,7 +89,7 @@ void addFileToZip(mz_zip_archive& zip,
         return;
     }
 
-    vector<std::byte> buffer = ParallaxGenUtil::getFileBytes(filePath);
+    vector<std::byte> buffer = StringUtil::getFileBytes(filePath);
 
     const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
 
@@ -101,7 +101,7 @@ void addFileToZip(mz_zip_archive& zip,
             relativeFilePathUTF8 += '/';
         }
         first = false;
-        relativeFilePathUTF8 += ParallaxGenUtil::utf16toUTF8(part.wstring());
+        relativeFilePathUTF8 += StringUtil::utf16toUTF8(part.wstring());
     }
 
     // add file to Zip
@@ -127,7 +127,7 @@ void zipDirectory(const filesystem::path& dirPath,
     }
 
     // initialize file
-    const string zipPathString = ParallaxGenUtil::utf16toUTF8(zipPath);
+    const string zipPathString = StringUtil::utf16toUTF8(zipPath);
     if (mz_zip_writer_init_file(&zip, zipPathString.c_str(), 0) == 0) {
         Logger::critical(L"Error creating Zip file: {}", zipPath.wstring());
         return;
@@ -234,7 +234,7 @@ constexpr auto NUM_TOTAL_STEPS = 6;
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
 void mainRunnerPre(const ParallaxGenCLIArgs& args,
-                   const ParallaxGenConfig::PGParams& params,
+                   const PGConfig::PGParams& params,
                    const filesystem::path& exePath,
                    bool needModSortDialog,
                    const std::filesystem::path& cfgDir,
@@ -253,7 +253,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     auto* bg = PGGlobals::getBG();
     auto* pgd = PGGlobals::getPGD();
     auto* pgd3d = PGGlobals::getPGD3D();
-    auto* mmd = PGGlobals::getMMD();
+    auto* pgmm = PGGlobals::getPGMM();
 
     //
     // GPU INITIALIZATION
@@ -349,12 +349,12 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     Logger::info("Initializing plugin patching");
     if (params.Processing.multithread) {
         pluginInit.queueTask([&bg, &exePath, &params]() -> void {
-            ParallaxGenPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-            ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+            PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
+            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
         });
     } else {
-        ParallaxGenPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-        ParallaxGenPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
+        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
     }
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_PREPARING_STEPS); });
@@ -370,34 +370,34 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     // Populate mod info
     nlohmann::json modJSON;
     const auto modListFile = cfgDir / "modrules.json";
-    if (ParallaxGenUtil::getJSON(modListFile, modJSON)) {
-        mmd->loadJSON(modJSON);
+    if (StringUtil::getJSON(modListFile, modJSON)) {
+        pgmm->loadJSON(modJSON);
     }
 
     TaskQueue modManagerInit;
 
-    if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2
+    if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty()) {
         // Make sure running is USVFS
-        if (!ParallaxGenHandlers::isUnderUSVFS()) {
+        if (!PGHandlers::isUnderUSVFS()) {
             Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
             return;
         }
 
         // MO2
         if (params.Processing.multithread) {
-            modManagerInit.queueTask([&mmd, &params]() -> void {
-                mmd->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+            modManagerInit.queueTask([&pgmm, &params]() -> void {
+                pgmm->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
             });
         } else {
-            mmd->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+            pgmm->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
         }
-    } else if (params.ModManager.type == ModManagerDirectory::ModManagerType::VORTEX) {
+    } else if (params.ModManager.type == PGModManager::ModManagerType::VORTEX) {
         // Vortex
         if (params.Processing.multithread) {
-            modManagerInit.queueTask([&mmd, &bg]() -> void { mmd->populateModFileMapVortex(bg->getGameDataPath()); });
+            modManagerInit.queueTask([&pgmm, &bg]() -> void { pgmm->populateModFileMapVortex(bg->getGameDataPath()); });
         } else {
-            mmd->populateModFileMapVortex(bg->getGameDataPath());
+            pgmm->populateModFileMapVortex(bg->getGameDataPath());
         }
     }
 
@@ -412,7 +412,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Deleting existing output"); });
 
     // delete existing output
-    ParallaxGen::deleteOutputDir();
+    PGPatcher::deleteOutputDir();
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_PREPARING_STEPS); });
     //
@@ -437,7 +437,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     //
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Validating data files"); });
 
-    // Check if ParallaxGen output already exists in data directory
+    // Check if PGPatcheroutput already exists in data directory
     // TODO check using PGD instead
     const filesystem::path pgStateFilePath = bg->getGameDataPath() / "ParallaxGen_Diff.json";
     if (filesystem::exists(pgStateFilePath)) {
@@ -447,7 +447,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     }
 
     // Check if VRAMR Output is enabled
-    if (params.ModManager.type != ModManagerDirectory::ModManagerType::NONE && pgd->isFile("vramroutput.tmp")) {
+    if (params.ModManager.type != PGModManager::ModManagerType::NONE && pgd->isFile("vramroutput.tmp")) {
         Logger::critical("Please disable VRAMr output mod before running PGPatcher.");
         return;
     }
@@ -529,7 +529,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     }
 
     const PatcherUtil::PatcherTextureSet texPatchers;
-    ParallaxGen::loadPatchers(meshPatchers, texPatchers);
+    PGPatcher::loadPatchers(meshPatchers, texPatchers);
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, NUM_PREPARING_STEPS); });
     //
@@ -580,14 +580,14 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
         progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Finding conflicts"); });
 
         // Find conflicts
-        ParallaxGen::populateModData(params.Processing.multithread, progressCallback);
+        PGPatcher::populateModData(params.Processing.multithread, progressCallback);
 
         // Assign new mod priorities for new mods
-        mmd->assignNewModPriorities();
+        pgmm->assignNewModPriorities();
     }
 }
 
-void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
+void mainRunnerPost(const PGConfig::PGParams& params,
                     const filesystem::path& exePath,
                     ProgressWindow* progressWindow,
                     const function<void(size_t,
@@ -602,7 +602,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Processing NIFs"); });
 
-    ParallaxGen::patchMeshes(
+    PGPatcher::patchMeshes(
         params.Processing.multithread, false, params.Processing.allowedModelRecordTypes, true, progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
@@ -612,7 +612,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
         progressWindow->setStepProgress(0, 1);
     });
 
-    ParallaxGen::patchTextures(params.Processing.multithread, progressCallback);
+    PGPatcher::patchTextures(params.Processing.multithread, progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Finalizing");
@@ -638,7 +638,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
     //
 
     // Check for empty output
-    if (ParallaxGen::isOutputEmpty()) {
+    if (PGPatcher::isOutputEmpty()) {
         // output is empty
         Logger::warn("Output directory is empty. No files were generated. Is your game path set correctly?");
         return;
@@ -650,7 +650,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Saving Plugins"); });
 
     Logger::info("Saving Plugins");
-    ParallaxGenPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
+    PGPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, NUM_FINALIZING_STEPS); });
 
@@ -677,10 +677,10 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Saving Diff Json"); });
 
     // Save diff json
-    const auto diffJSON = ParallaxGen::getDiffJSON();
+    const auto diffJSON = PGPatcher::getDiffJSON();
     if (!diffJSON.empty()) {
         const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_Diff.json";
-        ParallaxGenUtil::saveJSON(diffJSONPath, diffJSON, true);
+        StringUtil::saveJSON(diffJSONPath, diffJSON, true);
 
         PGGlobals::getPGD()->addGeneratedFile("ParallaxGen_Diff.json");
     }
@@ -700,7 +700,7 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
         Logger::info("Creating output Zip archive");
         const auto zipPath = params.Output.dir / "PGPatcher_Output.zip";
         zipDirectory(params.Output.dir, zipPath);
-        ParallaxGen::deleteOutputDir(false);
+        PGPatcher::deleteOutputDir(false);
 
         progressWindow->CallAfter(
             [progressWindow]() -> void { progressWindow->setStepProgress(5, NUM_FINALIZING_STEPS); });
@@ -729,26 +729,26 @@ void mainRunner(ParallaxGenCLIArgs& args,
         filesystem::create_directories(cfgDir);
     }
 
-    // Initialize ParallaxGenConfig
-    ParallaxGenConfig::loadStatics(exePath);
-    auto pgc = ParallaxGenConfig();
+    // Initialize PGConfig
+    PGConfig::loadStatics(exePath);
+    auto pgc = PGConfig();
     pgc.loadConfig();
 
     PGPatcherGlobals::setPGC(&pgc);
 
     // Initialize UI
-    ParallaxGenUI::init(args.forceDark, args.forceLight);
+    PGUI::init(args.forceDark, args.forceLight);
 
     auto params = pgc.getParams();
 
     // Show launcher UI
     if (!args.autostart) {
-        ParallaxGenUI::showLauncher(pgc, params);
+        PGUI::showLauncher(pgc, params);
     }
 
     // Validate config
     vector<string> errors;
-    if (!ParallaxGenConfig::validateParams(params, errors)) {
+    if (!PGConfig::validateParams(params, errors)) {
         // This should never happen because there is a frontend validation that would have to be bypassed
         string errorList;
         for (const auto& error : errors) {
@@ -777,11 +777,11 @@ void mainRunner(ParallaxGenCLIArgs& args,
     // TODO control the lifetime of these in PGLib
     auto bg = BethesdaGame(params.Game.type, params.Game.dir);
     PGGlobals::setBG(&bg);
-    auto mmd = ModManagerDirectory(params.ModManager.type);
-    PGGlobals::setMMD(&mmd);
-    auto pgd = ParallaxGenDirectory(&bg, params.Output.dir);
+    auto pgmm = PGModManager(params.ModManager.type);
+    PGGlobals::setPGMM(&pgmm);
+    auto pgd = PGDirectory(&bg, params.Output.dir);
     PGGlobals::setPGD(&pgd);
-    auto pgd3d = ParallaxGenD3D(exePath / "cshaders");
+    auto pgd3d = PGD3D(exePath / "cshaders");
     PGGlobals::setPGD3D(&pgd3d);
 
     // Create progress dialog object
@@ -799,7 +799,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
         progressWindow->CallAfter([=]() -> void { progressWindow->EndModal(wxID_OK); });
     };
 
-    ParallaxGenRunner::setExceptionCallback(exceptionCallback);
+    TaskPoolRunner::setExceptionCallback(exceptionCallback);
     TaskQueue::setExceptionCallback(exceptionCallback);
 
     // Get current time to compare later
@@ -808,7 +808,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     const bool needModSortDialog
         = (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR)
-        && params.ModManager.type != ModManagerDirectory::ModManagerType::NONE;
+        && params.ModManager.type != PGModManager::ModManagerType::NONE;
 
     // Dispatch the pre-generation task
     TaskQueue backgroundRunners;
@@ -842,7 +842,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
         // Select mod order
         Logger::info("Showing mod priority order dialog");
-        ParallaxGenUI::selectModOrder();
+        PGUI::selectModOrder();
         startTime = chrono::high_resolution_clock::now();
 
         // dispatch post task
@@ -900,12 +900,12 @@ auto WINAPI WinMain(HINSTANCE /*hInstance*/,
     cin.get();
 #endif
 
-    SetUnhandledExceptionFilter(ParallaxGenHandlers::customExceptionHandler);
+    SetUnhandledExceptionFilter(PGHandlers::customExceptionHandler);
 
     SetConsoleOutputCP(CP_UTF8);
 
     // Find location of ParallaxGen.exe
-    const filesystem::path exePath = ParallaxGenHandlers::getExePath().parent_path();
+    const filesystem::path exePath = PGHandlers::getExePath().parent_path();
 
     // CLI Arguments
     ParallaxGenCLIArgs args;

@@ -1,4 +1,4 @@
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include <DirectXTex.h>
 #include <boost/algorithm/string.hpp>
@@ -27,7 +27,7 @@
 #include <winnt.h>
 
 using namespace std;
-namespace ParallaxGenUtil {
+namespace StringUtil {
 
 constexpr unsigned ASCII_UPPER_BOUND = 127;
 
@@ -178,8 +178,8 @@ auto getFileBytes(const filesystem::path& filePath) -> vector<std::byte>
 
     // Make a buffer of the exact size of the file and read the data into it.
     vector<std::byte> buffer(length);
-    inputFile.read(reinterpret_cast<char*>(buffer.data()),
-                   length); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    inputFile.read(reinterpret_cast<char*>(buffer.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                   length);
 
     inputFile.close();
 
@@ -336,4 +336,4 @@ auto toLowerASCIIFastInPlace(std::wstring& str) -> void
     }
 }
 
-} // namespace ParallaxGenUtil
+} // namespace StringUtil

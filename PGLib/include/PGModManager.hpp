@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BethesdaGame.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/NIFUtil.hpp"
 
 #include <nlohmann/json_fwd.hpp>
@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-class ModManagerDirectory {
+class PGModManager {
 
 public:
     enum class ModManagerType : uint8_t { NONE, VORTEX, MODORGANIZER2 };
@@ -63,7 +63,7 @@ private:
     static constexpr const char* MO2INI_BYTEARRAYSUFFIX = ")";
 
 public:
-    ModManagerDirectory(const ModManagerType& mmType);
+    PGModManager(const ModManagerType& mmType);
 
     [[nodiscard]] auto getModFileMap() const -> const std::unordered_map<std::filesystem::path,
                                                                          std::shared_ptr<Mod>>&;

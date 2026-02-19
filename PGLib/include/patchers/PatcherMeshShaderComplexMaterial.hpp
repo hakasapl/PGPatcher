@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -58,7 +58,7 @@ public:
      */
     auto canApply(nifly::NiShape& nifShape,
                   bool singlepassMATO,
-                  const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool override;
+                  const PGPlugin::ModelRecordType& modelRecordType) -> bool override;
 
     /**
      * @brief Check if shape can accomodate CM shader based on texture slots only

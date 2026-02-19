@@ -1,7 +1,7 @@
 #include "patchers/PatcherMeshShaderDefault.hpp"
 
 #include "PGGlobals.hpp"
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -36,8 +36,7 @@ PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath,
 
 auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape,
                                         [[maybe_unused]] bool singlepassMATO,
-                                        [[maybe_unused]] const ParallaxGenPlugin::ModelRecordType& modelRecordType)
-    -> bool
+                                        [[maybe_unused]] const PGPlugin::ModelRecordType& modelRecordType) -> bool
 {
     return true;
 }

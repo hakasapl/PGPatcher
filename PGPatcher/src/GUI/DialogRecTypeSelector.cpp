@@ -1,6 +1,6 @@
 #include "GUI/DialogRecTypeSelector.hpp"
 
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
 
 #include <algorithm>
 #include <unordered_set>
@@ -98,13 +98,13 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
     Fit();
 }
 
-void DialogRecTypeSelector::populateList(const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& selectedRecTypes)
+void DialogRecTypeSelector::populateList(const std::unordered_set<PGPlugin::ModelRecordType>& selectedRecTypes)
 {
     long index = 0;
-    for (const auto& entry : ParallaxGenPlugin::getAvailableRecTypeStrs()) {
+    for (const auto& entry : PGPlugin::getAvailableRecTypeStrs()) {
         index = m_listCtrl->InsertItem(index, wxString(entry));
         const bool isChecked = selectedRecTypes.contains(
-            ParallaxGenPlugin::getRecTypeFromString(entry)); // check if this rec type is in the selected set
+            PGPlugin::getRecTypeFromString(entry)); // check if this rec type is in the selected set
 
         m_listCtrl->CheckItem(index, isChecked);
         ++index;
@@ -119,15 +119,15 @@ void DialogRecTypeSelector::populateList(const std::unordered_set<ParallaxGenPlu
     SetSize(wxSize(GetSize().x, std::min(desiredHeight, 1000))); // cap height at 600 to avoid excessively large dialog
 }
 
-auto DialogRecTypeSelector::getSelectedRecordTypes() const -> std::unordered_set<ParallaxGenPlugin::ModelRecordType>
+auto DialogRecTypeSelector::getSelectedRecordTypes() const -> std::unordered_set<PGPlugin::ModelRecordType>
 {
-    std::unordered_set<ParallaxGenPlugin::ModelRecordType> result;
+    std::unordered_set<PGPlugin::ModelRecordType> result;
 
     long item = -1;
     while ((item = m_listCtrl->GetNextItem(item)) != -1) {
         if (m_listCtrl->IsItemChecked(item)) {
             const wxString code = m_listCtrl->GetItemText(item);
-            const auto recType = ParallaxGenPlugin::getRecTypeFromString(code.ToStdString());
+            const auto recType = PGPlugin::getRecTypeFromString(code.ToStdString());
             result.insert(recType);
         }
     }

@@ -1,12 +1,12 @@
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 
+#include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
-#include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -54,9 +54,9 @@ PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::p
 
 auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape,
                                                 [[maybe_unused]] bool singlepassMATO,
-                                                const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
+                                                const PGPlugin::ModelRecordType& modelRecordType) -> bool
 {
-    if (modelRecordType == ParallaxGenPlugin::ModelRecordType::GRASS) {
+    if (modelRecordType == PGPlugin::ModelRecordType::GRASS) {
         // grass is not supported
         return false;
     }
@@ -289,7 +289,7 @@ auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& e
     // metadata file exists
     nlohmann::json meta;
     const auto jsonBytes = pgd->getFile(metaPath);
-    if (!ParallaxGenUtil::getJSONFromBytes(jsonBytes, meta)) {
+    if (!StringUtil::getJSONFromBytes(jsonBytes, meta)) {
         Logger::error(L"Failed to parse CM metadata JSON: {}", metaPath.wstring());
         return {};
     }

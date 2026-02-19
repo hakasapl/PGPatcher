@@ -1,13 +1,13 @@
 #pragma once
 
-#include "BethesdaDirectory.hpp"
-#include "BethesdaGame.hpp"
 #include "NifFile.hpp"
-#include "ParallaxGenPlugin.hpp"
-#include "ParallaxGenTask.hpp"
-#include "util/MeshTracker.hpp"
+#include "PGMeshPermutationTracker.hpp"
+#include "PGPlugin.hpp"
+#include "common/BethesdaDirectory.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/NIFUtil.hpp"
 #include "util/TaskQueue.hpp"
+#include "util/TaskTracker.hpp"
 
 #include <DirectXTex.h>
 #include <nlohmann/json.hpp>
@@ -27,15 +27,15 @@
 #include <vector>
 #include <winnt.h>
 
-class ModManagerDirectory;
+class PGModManager;
 
-class ParallaxGenDirectory : public BethesdaDirectory {
+class PGDirectory : public BethesdaDirectory {
 public:
     struct NifCache {
         std::vector<std::pair<int, NIFUtil::TextureSet>> textureSets;
         std::shared_ptr<nifly::NifFile> nif; // keep nif in cache to avoid reloading it multiple times
         unsigned long long origCRC32 = 0; // CRC32 of the NIF file
-        std::vector<std::pair<MeshTracker::FormKey, ParallaxGenPlugin::MeshUseAttributes>>
+        std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>
             meshUses; // list of mesh uses
     };
 
@@ -76,10 +76,10 @@ private:
 
 public:
     // constructor - calls the BethesdaDirectory constructor
-    ParallaxGenDirectory(BethesdaGame* bg,
-                         std::filesystem::path outputPath = "");
-    ParallaxGenDirectory(std::filesystem::path dataPath,
-                         std::filesystem::path outputPath = "");
+    PGDirectory(BethesdaGame* bg,
+                std::filesystem::path outputPath = "");
+    PGDirectory(std::filesystem::path dataPath,
+                std::filesystem::path outputPath = "");
 
     /// @brief Map all files in the load order to their type
     ///
@@ -110,7 +110,7 @@ private:
 
     auto mapTexturesFromNIF(const std::filesystem::path& nifPath,
                             const bool& cachenif = false,
-                            const bool& multithreading = true) -> ParallaxGenTask::PGResult;
+                            const bool& multithreading = true) -> TaskTracker::Result;
 
     auto updateUnconfirmedTexturesMap(const std::filesystem::path& path,
                                       const NIFUtil::TextureSlots& slot,
@@ -125,8 +125,8 @@ private:
                         const std::vector<std::pair<int,
                                                     NIFUtil::TextureSet>>& txstSets);
     void updateNifCache(const std::filesystem::path& path,
-                        const std::vector<std::pair<MeshTracker::FormKey,
-                                                    ParallaxGenPlugin::MeshUseAttributes>>& meshUses);
+                        const std::vector<std::pair<PGMeshPermutationTracker::FormKey,
+                                                    PGPlugin::MeshUseAttributes>>& meshUses);
     void updateNifCache(const std::filesystem::path& path,
                         const std::shared_ptr<nifly::NifFile>& nif,
                         const unsigned long long& crc32);

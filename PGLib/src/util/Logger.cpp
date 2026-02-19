@@ -1,6 +1,6 @@
 #include "util/Logger.hpp"
 
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
@@ -27,7 +27,7 @@ auto Logger::buildPrefixWString() -> wstring
     return fullPrefix.str();
 }
 
-auto Logger::buildPrefixString() -> string { return ParallaxGenUtil::utf16toUTF8(buildPrefixWString()); }
+auto Logger::buildPrefixString() -> string { return StringUtil::utf16toUTF8(buildPrefixWString()); }
 
 // ScopedPrefix class implementation
 Logger::Prefix::Prefix(const wstring& prefix)
@@ -39,7 +39,7 @@ Logger::Prefix::Prefix(const wstring& prefix)
 Logger::Prefix::Prefix(const string& prefix)
 {
     // Add the new prefix block to the stack
-    s_prefixStack.push_back(ParallaxGenUtil::utf8toUTF16(prefix));
+    s_prefixStack.push_back(StringUtil::utf8toUTF16(prefix));
 }
 
 Logger::Prefix::~Prefix()

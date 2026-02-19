@@ -1,4 +1,4 @@
-#include "ParallaxGenRunner.hpp"
+#include "util/TaskPoolRunner.hpp"
 
 #include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
@@ -17,9 +17,9 @@
 using namespace std;
 
 // STATICS
-std::function<void()> ParallaxGenRunner::s_exceptionCallback = nullptr;
+std::function<void()> TaskPoolRunner::s_exceptionCallback = nullptr;
 
-ParallaxGenRunner::ParallaxGenRunner(const bool& multithread)
+TaskPoolRunner::TaskPoolRunner(const bool& multithread)
     : m_threadPool([]() -> unsigned int {
         auto availableThreads = std::thread::hardware_concurrency();
         if (availableThreads == 0) {
@@ -32,9 +32,9 @@ ParallaxGenRunner::ParallaxGenRunner(const bool& multithread)
 {
 }
 
-void ParallaxGenRunner::addTask(const function<void()>& task) { m_tasks.push_back(task); }
+void TaskPoolRunner::addTask(const function<void()>& task) { m_tasks.push_back(task); }
 
-void ParallaxGenRunner::runTasks()
+void TaskPoolRunner::runTasks()
 {
     if (!m_multithread) {
         CPPTRACE_TRY
@@ -101,4 +101,4 @@ void ParallaxGenRunner::runTasks()
     }
 }
 
-void ParallaxGenRunner::setExceptionCallback(const std::function<void()>& callback) { s_exceptionCallback = callback; }
+void TaskPoolRunner::setExceptionCallback(const std::function<void()>& callback) { s_exceptionCallback = callback; }

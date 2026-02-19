@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
 #include "patchers/base/PatcherMesh.hpp"
 #include "util/NIFUtil.hpp"
 
@@ -54,7 +54,7 @@ public:
      */
     virtual auto canApply(nifly::NiShape& nifShape,
                           bool singlepassMATO,
-                          const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
+                          const PGPlugin::ModelRecordType& modelRecordType) -> bool
         = 0;
 
     /// @brief  Methods that determine whether the patcher should apply to a shape

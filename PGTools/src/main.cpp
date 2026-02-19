@@ -1,7 +1,7 @@
+#include "PGD3D.hpp"
+#include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
-#include "ParallaxGen.hpp"
-#include "ParallaxGenD3D.hpp"
-#include "ParallaxGenDirectory.hpp"
+#include "PGPatcher.hpp"
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
@@ -98,9 +98,9 @@ void mainRunner(PGToolsCLIArgs& args)
         args.Patch.source = filesystem::absolute(args.Patch.source);
         args.Patch.output = filesystem::absolute(args.Patch.output);
 
-        auto pgd = ParallaxGenDirectory(args.Patch.source, args.Patch.output);
+        auto pgd = PGDirectory(args.Patch.source, args.Patch.output);
         PGGlobals::setPGD(&pgd);
-        auto pgd3D = ParallaxGenD3D(exePath / "cshaders");
+        auto pgd3D = PGD3D(exePath / "cshaders");
         PGGlobals::setPGD3D(&pgd3D);
 
         // Check if GPU needs to be initialized
@@ -128,7 +128,7 @@ void mainRunner(PGToolsCLIArgs& args)
         }
 
         // delete existing output
-        ParallaxGen::deleteOutputDir();
+        PGPatcher::deleteOutputDir();
 
         // Init file map
         pgd.populateFileMap(false);
@@ -222,9 +222,9 @@ void mainRunner(PGToolsCLIArgs& args)
             PatcherTextureGlobalConvertToHDR::loadOptions(patcherDefs["converttohdr"]);
         }
 
-        ParallaxGen::loadPatchers(meshPatchers, texPatchers);
-        ParallaxGen::patchMeshes(args.multithreading, true);
-        ParallaxGen::patchTextures(args.multithreading);
+        PGPatcher::loadPatchers(meshPatchers, texPatchers);
+        PGPatcher::patchMeshes(args.multithreading, true);
+        PGPatcher::patchTextures(args.multithreading);
 
         // Finalize step
         if (patcherDefs.contains("particlelightstolp")) {

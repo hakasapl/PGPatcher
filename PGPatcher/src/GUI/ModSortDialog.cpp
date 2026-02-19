@@ -3,11 +3,12 @@
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
-#include "ModManagerDirectory.hpp"
+#include "PGConfig.hpp"
 #include "PGGlobals.hpp"
+#include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
-#include "ParallaxGenConfig.hpp"
 #include "util/NIFUtil.hpp"
+
 
 #include <wx/gdicmn.h>
 #include <wx/settings.h>
@@ -40,7 +41,7 @@ ModSortDialog::ModSortDialog()
 {
     auto* pgc = PGPatcherGlobals::getPGC();
     if (pgc == nullptr) {
-        throw runtime_error("ParallaxGenConfig is null");
+        throw runtime_error("PGConfig is null");
     }
 
     // Main sizer for the window
@@ -78,7 +79,7 @@ ModSortDialog::ModSortDialog()
     mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
 
     // Add "Use MO2 Loose File Order" checkbox
-    if (pgc->getParams().ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+    if (pgc->getParams().ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
         // Only show checkbox for MO2 users
         m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, "Lock to MO2 Loose File Order", wxDefaultPosition);
         m_checkBoxMO2->SetToolTip("Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts "
@@ -176,8 +177,8 @@ ModSortDialog::ModSortDialog()
     mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 0);
 
     // Fill contents
-    auto* mmd = PGGlobals::getMMD();
-    fillListCtrl(mmd->getModsByPriority(), false);
+    auto* pgmm = PGGlobals::getPGMM();
+    fillListCtrl(pgmm->getModsByPriority(), false);
 
     // Set checkbox state based on current config
     if (m_checkBoxMO2 != nullptr) {
@@ -272,8 +273,8 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
                        this);
 
     if (response == wxYES) {
-        auto* mmd = PGGlobals::getMMD();
-        fillListCtrl(mmd->getModsByDefaultOrder(), true);
+        auto* pgmm = PGGlobals::getPGMM();
+        fillListCtrl(pgmm->getModsByDefaultOrder(), true);
     }
 }
 
@@ -286,7 +287,7 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
         // restore checkbox state
         auto* pgc = PGPatcherGlobals::getPGC();
         if (pgc == nullptr) {
-            throw runtime_error("ParallaxGenConfig is null");
+            throw runtime_error("PGConfig is null");
         }
 
         const auto currentParams = pgc->getParams();
@@ -294,14 +295,14 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
             m_checkBoxMO2->SetValue(currentParams.ModManager.mo2UseLooseFileOrder);
         }
 
-        auto* mmd = PGGlobals::getMMD();
+        auto* pgmm = PGGlobals::getPGMM();
 
         if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
             // If MO2 loose file order is checked, reset to that
-            fillListCtrl(mmd->getModsByDefaultOrder(), false);
+            fillListCtrl(pgmm->getModsByDefaultOrder(), false);
         } else {
             // Otherwise reset to current priority order
-            fillListCtrl(mmd->getModsByPriority(), false);
+            fillListCtrl(pgmm->getModsByPriority(), false);
         }
     }
 }
@@ -324,8 +325,8 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
 
     const bool isChecked = m_checkBoxMO2->IsChecked();
     if (isChecked) {
-        auto* mmd = PGGlobals::getMMD();
-        const auto modListByLooseOrder = mmd->getModsByDefaultOrder();
+        auto* pgmm = PGGlobals::getPGMM();
+        const auto modListByLooseOrder = pgmm->getModsByDefaultOrder();
         fillListCtrl(modListByLooseOrder, false, true);
 
         // disable restore order button
@@ -376,10 +377,10 @@ void ModSortDialog::highlightConflictingItems()
         return;
     }
 
-    auto* mmd = PGGlobals::getMMD();
+    auto* pgmm = PGGlobals::getPGMM();
     for (const auto& selectedMod : selectedMods) {
         // Highlight selected item and its conflicts
-        auto mod = mmd->getMod(selectedMod);
+        auto mod = pgmm->getMod(selectedMod);
         if (mod == nullptr) {
             continue;
         }
@@ -428,11 +429,11 @@ void ModSortDialog::clearAllHighlights()
 void ModSortDialog::updateMods()
 {
     // loop through each element in the list ctrl and update the mod manager directory
-    auto* mmd = PGGlobals::getMMD();
+    auto* pgmm = PGGlobals::getPGMM();
     const long itemCount = m_listCtrl->GetItemCount();
     for (long i = 0; i < itemCount; ++i) {
         const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
-        auto mod = mmd->getMod(modName);
+        auto mod = pgmm->getMod(modName);
         if (mod == nullptr) {
             continue;
         }
@@ -449,10 +450,10 @@ void ModSortDialog::updateMods()
     // save configs
     auto* pgc = PGPatcherGlobals::getPGC();
     if (pgc == nullptr) {
-        throw runtime_error("ParallaxGenConfig is null");
+        throw runtime_error("PGConfig is null");
     }
 
-    if (!ParallaxGenConfig::saveModConfig()) {
+    if (!PGConfig::saveModConfig()) {
         // critical dialog
         wxMessageBox("Failed to save mod configuration to modrules.json", "Error", wxOK | wxICON_ERROR, this);
     }
@@ -468,7 +469,7 @@ void ModSortDialog::updateMods()
     updateApplyButtonState();
 }
 
-void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList,
+void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager::Mod>>& modList,
                                  bool autoEnable,
                                  bool preserveChecks)
 {
@@ -498,7 +499,7 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<ModManagerDir
     m_newMods.clear();
     m_listCtrl->DeleteAllItems();
 
-    std::vector<std::shared_ptr<ModManagerDirectory::Mod>> disabledMods;
+    std::vector<std::shared_ptr<PGModManager::Mod>> disabledMods;
 
     long listIdx = 0;
 
@@ -604,11 +605,11 @@ void ModSortDialog::updateApplyButtonState()
     bool btnState = false;
 
     // loop through each element in the list ctrl and update the mod manager directory
-    auto* mmd = PGGlobals::getMMD();
+    auto* pgmm = PGGlobals::getPGMM();
     const long itemCount = m_listCtrl->GetItemCount();
     for (long i = 0; i < itemCount; ++i) {
         const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
-        auto mod = mmd->getMod(modName);
+        auto mod = pgmm->getMod(modName);
         if (mod == nullptr) {
             btnState = true;
             break;
@@ -633,7 +634,7 @@ void ModSortDialog::updateApplyButtonState()
     // Check any pgc settings
     auto* pgc = PGPatcherGlobals::getPGC();
     if (pgc == nullptr) {
-        throw runtime_error("ParallaxGenConfig is null");
+        throw runtime_error("PGConfig is null");
     }
 
     const auto currentParams = pgc->getParams();

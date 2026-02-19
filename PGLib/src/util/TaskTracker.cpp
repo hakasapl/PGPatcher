@@ -1,4 +1,4 @@
-#include "ParallaxGenTask.hpp"
+#include "util/TaskTracker.hpp"
 
 #include "util/Logger.hpp"
 
@@ -12,9 +12,9 @@
 
 using namespace std;
 
-ParallaxGenTask::ParallaxGenTask(string taskName,
-                                 const size_t& totalJobs,
-                                 const int& progressPrintModulo)
+TaskTracker::TaskTracker(string taskName,
+                         const size_t& totalJobs,
+                         const int& progressPrintModulo)
     : m_progressPrintModulo(progressPrintModulo)
     , m_taskName(std::move(taskName))
     , m_totalJobs(totalJobs)
@@ -23,13 +23,13 @@ ParallaxGenTask::ParallaxGenTask(string taskName,
     initJobStatus();
 }
 
-void ParallaxGenTask::setCallbackFunc(std::function<void(size_t,
-                                                         size_t)> callbackFunc)
+void TaskTracker::setCallbackFunc(std::function<void(size_t,
+                                                     size_t)> callbackFunc)
 {
     m_callbackFunc = std::move(callbackFunc);
 }
 
-void ParallaxGenTask::completeJob(const PGResult& result)
+void TaskTracker::completeJob(const Result& result)
 {
     // Use lock_guard to make this method thread-safe
     const lock_guard<mutex> lock(m_numJobsCompletedMutex);
@@ -39,19 +39,19 @@ void ParallaxGenTask::completeJob(const PGResult& result)
     printJobStatus();
 }
 
-void ParallaxGenTask::initJobStatus()
+void TaskTracker::initJobStatus()
 {
     m_lastPerc = 0;
 
-    // Initialize all known PGResult values
-    m_numJobsCompleted[PGResult::FAILURE] = 0;
-    m_numJobsCompleted[PGResult::SUCCESS] = 0;
-    m_numJobsCompleted[PGResult::SUCCESS_WITH_WARNINGS] = 0;
+    // Initialize all known Result values
+    m_numJobsCompleted[Result::FAILURE] = 0;
+    m_numJobsCompleted[Result::SUCCESS] = 0;
+    m_numJobsCompleted[Result::SUCCESS_WITH_WARNINGS] = 0;
 
     Logger::info("{} Starting...", m_taskName);
 }
 
-void ParallaxGenTask::printJobStatus(bool force)
+void TaskTracker::printJobStatus(bool force)
 {
     size_t combinedJobs = getCompletedJobs();
     size_t perc = combinedJobs * FULL_PERCENTAGE / m_totalJobs;
@@ -73,13 +73,13 @@ void ParallaxGenTask::printJobStatus(bool force)
     }
 }
 
-void ParallaxGenTask::printJobSummary()
+void TaskTracker::printJobSummary()
 {
     // Print each job status Result
     string outputLog = m_taskName + " Summary: ";
     for (const auto& pair : m_numJobsCompleted) {
         if (pair.second > 0) {
-            const string stateStr = m_pgResultStr[pair.first];
+            const string stateStr = m_ResultStr[pair.first];
             outputLog += "[ " + stateStr + " : " + to_string(pair.second) + " ] ";
         }
     }
@@ -87,7 +87,7 @@ void ParallaxGenTask::printJobSummary()
     Logger::info(outputLog);
 }
 
-auto ParallaxGenTask::getCompletedJobs() -> size_t
+auto TaskTracker::getCompletedJobs() -> size_t
 {
     // Initialize the Sum variable
     size_t sum = 0;
@@ -100,16 +100,16 @@ auto ParallaxGenTask::getCompletedJobs() -> size_t
     return sum;
 }
 
-auto ParallaxGenTask::isCompleted() -> bool
+auto TaskTracker::isCompleted() -> bool
 {
     const lock_guard<mutex> lock(m_numJobsCompletedMutex);
 
     return getCompletedJobs() == m_totalJobs;
 }
 
-void ParallaxGenTask::updatePGResult(PGResult& result,
-                                     const PGResult& currentResult,
-                                     const PGResult& threshold)
+void TaskTracker::updateResult(Result& result,
+                               const Result& currentResult,
+                               const Result& threshold)
 {
     if (currentResult > result) {
         if (currentResult > threshold) {

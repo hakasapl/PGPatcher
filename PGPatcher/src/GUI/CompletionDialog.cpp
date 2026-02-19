@@ -1,8 +1,9 @@
 #include "GUI/CompletionDialog.hpp"
 
 #include "GUI/components/PGLogMessageListCtrl.hpp"
+#include "PGConfig.hpp"
 #include "PGPatcherGlobals.hpp"
-#include "ParallaxGenConfig.hpp"
+
 
 #include <wx/artprov.h>
 #include <wx/collpane.h>
@@ -74,7 +75,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     });
 
     // get existing ignore messages
-    const auto ignoreMap = ParallaxGenConfig::getIgnoredMessagesConfig();
+    const auto ignoreMap = PGConfig::getIgnoredMessagesConfig();
     m_warnListCtrl->setIgnoreMap(ignoreMap);
     m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
     setupLogMessagePane(warningsCtrl, m_warnListCtrl);
@@ -225,7 +226,7 @@ void CompletionDialog::saveIgnoredMessagesToConfig()
     // Combine ignore maps from both lists
     const auto ignoreMap = m_warnListCtrl->getIgnoreMap();
     // Save to config
-    ParallaxGenConfig::saveIgnoredMessagesConfig(ignoreMap);
+    PGConfig::saveIgnoredMessagesConfig(ignoreMap);
 }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)

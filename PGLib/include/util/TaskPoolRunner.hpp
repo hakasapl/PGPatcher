@@ -8,7 +8,7 @@
 #include <functional>
 #include <vector>
 
-class ParallaxGenRunner {
+class TaskPoolRunner {
 private:
     boost::asio::thread_pool m_threadPool; /** Thread pool responsible for queueing tasks for multithreaded */
 
@@ -29,7 +29,7 @@ public:
      *
      * @param multithread if true, use multithreading
      */
-    ParallaxGenRunner(const bool& multithread = true);
+    TaskPoolRunner(const bool& multithread = true);
 
     /**
      * @brief Add a task to the task list

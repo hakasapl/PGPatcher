@@ -2,9 +2,9 @@
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
-#include "NIFUtil.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
+#include "util/NIFUtil.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -20,7 +20,7 @@
 /**
  * @brief Class responsible for tracking all output mesh permutations from a given input mesh
  */
-class MeshTracker {
+class PGMeshPermutationTracker {
 public:
     struct FormKey {
         std::wstring modKey;
@@ -81,7 +81,7 @@ private:
         s_otherWeightVariants;
 
 public:
-    MeshTracker(const std::filesystem::path& origMeshPath);
+    PGMeshPermutationTracker(const std::filesystem::path& origMeshPath);
 
     // Plugin mesh staging
     void load();

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GUI/WXLoggerSink.hpp"
-#include "ParallaxGenConfig.hpp"
+#include "PGConfig.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -9,7 +9,7 @@
 
 class PGPatcherGlobals {
 private:
-    static ParallaxGenConfig* s_PGC;
+    static PGConfig* s_PGC;
     static std::shared_ptr<WXLoggerSink<std::mutex>> s_WXLoggerSink;
 
     static std::filesystem::path s_EXE_PATH;
@@ -24,8 +24,8 @@ public:
     PGPatcherGlobals(PGPatcherGlobals&&) = delete;
     auto operator=(PGPatcherGlobals&&) -> PGPatcherGlobals& = delete;
 
-    static auto getPGC() -> ParallaxGenConfig*;
-    static void setPGC(ParallaxGenConfig* pgc);
+    static auto getPGC() -> PGConfig*;
+    static void setPGC(PGConfig* pgc);
 
     static auto getEXEPath() -> std::filesystem::path;
     static void setEXEPath(const std::filesystem::path& exePath);
