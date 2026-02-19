@@ -1,8 +1,8 @@
 #include "PGGlobals.hpp"
 
-#include "BethesdaGame.hpp"
-#include "ParallaxGenD3D.hpp"
-#include "ParallaxGenDirectory.hpp"
+#include "PGD3D.hpp"
+#include "PGDirectory.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/TaskQueue.hpp"
 #include <stdexcept>
 
@@ -17,8 +17,8 @@ auto PGGlobals::getBG() -> BethesdaGame*
 auto PGGlobals::isBGSet() -> bool { return s_BG != nullptr; }
 void PGGlobals::setBG(BethesdaGame* bg) { s_BG = bg; }
 
-ParallaxGenDirectory* PGGlobals::s_PGD = nullptr;
-auto PGGlobals::getPGD() -> ParallaxGenDirectory*
+PGDirectory* PGGlobals::s_PGD = nullptr;
+auto PGGlobals::getPGD() -> PGDirectory*
 {
     if (!isPGDSet()) {
         throw std::runtime_error("PGD is not set");
@@ -26,10 +26,10 @@ auto PGGlobals::getPGD() -> ParallaxGenDirectory*
     return s_PGD;
 }
 auto PGGlobals::isPGDSet() -> bool { return s_PGD != nullptr; }
-void PGGlobals::setPGD(ParallaxGenDirectory* pgd) { s_PGD = pgd; }
+void PGGlobals::setPGD(PGDirectory* pgd) { s_PGD = pgd; }
 
-ParallaxGenD3D* PGGlobals::s_PGD3D = nullptr;
-auto PGGlobals::getPGD3D() -> ParallaxGenD3D*
+PGD3D* PGGlobals::s_PGD3D = nullptr;
+auto PGGlobals::getPGD3D() -> PGD3D*
 {
     if (!isPGD3DSet()) {
         throw std::runtime_error("PGD3D is not set");
@@ -37,18 +37,18 @@ auto PGGlobals::getPGD3D() -> ParallaxGenD3D*
     return s_PGD3D;
 }
 auto PGGlobals::isPGD3DSet() -> bool { return s_PGD3D != nullptr; }
-void PGGlobals::setPGD3D(ParallaxGenD3D* pgd3d) { s_PGD3D = pgd3d; }
+void PGGlobals::setPGD3D(PGD3D* pgd3d) { s_PGD3D = pgd3d; }
 
-ModManagerDirectory* PGGlobals::s_MMD = nullptr;
-auto PGGlobals::getMMD() -> ModManagerDirectory*
+PGModManager* PGGlobals::s_PGMM = nullptr;
+auto PGGlobals::getPGMM() -> PGModManager*
 {
-    if (!isMMDSet()) {
-        throw std::runtime_error("MMD is not set");
+    if (!isPGMMSet()) {
+        throw std::runtime_error("PGMM is not set");
     }
-    return s_MMD;
+    return s_PGMM;
 }
-auto PGGlobals::isMMDSet() -> bool { return s_MMD != nullptr; }
-void PGGlobals::setMMD(ModManagerDirectory* mmd) { s_MMD = mmd; }
+auto PGGlobals::isPGMMSet() -> bool { return s_PGMM != nullptr; }
+void PGGlobals::setPGMM(PGModManager* pgmm) { s_PGMM = pgmm; }
 
 auto PGGlobals::getFileSaver() -> TaskQueue&
 {

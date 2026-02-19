@@ -2,7 +2,7 @@
 
 #include "patchers/base/Patcher.hpp"
 #include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
@@ -89,7 +89,7 @@ auto PatcherMesh::setTextureSet(const filesystem::path& nifPath,
             auto newTextureSet = std::make_unique<nifly::BSShaderTextureSet>();
             newTextureSet->textures.resize(NUM_TEXTURE_SLOTS);
             for (uint32_t i = 0; i < textures.size(); i++) {
-                newTextureSet->textures[i] = ParallaxGenUtil::utf16toASCII(textures.at(i));
+                newTextureSet->textures[i] = StringUtil::utf16toASCII(textures.at(i));
             }
 
             // Set shader reference

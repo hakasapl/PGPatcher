@@ -1,9 +1,9 @@
-#include "ParallaxGenUI.hpp"
+#include "PGUI.hpp"
 
 #include "GUI/LauncherWindow.hpp"
 #include "GUI/ModSortDialog.hpp"
+#include "PGConfig.hpp"
 #include "PGPatcherGlobals.hpp"
-#include "ParallaxGenConfig.hpp"
 
 #include <boost/algorithm/string/join.hpp>
 #include <wx/settings.h>
@@ -13,10 +13,10 @@
 
 using namespace std;
 
-// ParallaxGenUI class
+// PGUI class
 
-void ParallaxGenUI::init(bool forceDarkMode,
-                         bool forceLightMode)
+void PGUI::init(bool forceDarkMode,
+                bool forceLightMode)
 {
     wxApp::SetInstance(new wxApp()); // NOLINT(cppcoreguidelines-owning-memory)
     if (!wxEntryStart(nullptr, nullptr)) {
@@ -32,8 +32,8 @@ void ParallaxGenUI::init(bool forceDarkMode,
     }
 }
 
-void ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc,
-                                 ParallaxGenConfig::PGParams& params)
+void PGUI::showLauncher(PGConfig& pgc,
+                        PGConfig::PGParams& params)
 {
     auto* launcher = new LauncherWindow(pgc); // NOLINT(cppcoreguidelines-owning-memory)
     if (launcher->ShowModal() == wxID_OK) {
@@ -41,7 +41,7 @@ void ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc,
     }
 }
 
-void ParallaxGenUI::selectModOrder()
+void PGUI::selectModOrder()
 {
     ModSortDialog dialog;
     dialog.ShowModal();

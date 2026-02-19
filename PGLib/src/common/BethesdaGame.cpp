@@ -1,6 +1,6 @@
-#include "BethesdaGame.hpp"
+#include "common/BethesdaGame.hpp"
 
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -306,11 +306,11 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension,
                 // check if already exists in outputLO
                 if (std::ranges::find_if(
                         outputLO,
-                        [&](const std::wstring& s) { return boost::iequals(s, ParallaxGenUtil::utf8toUTF16(line)); })
+                        [&](const std::wstring& s) { return boost::iequals(s, StringUtil::utf8toUTF16(line)); })
                         == outputLO.end()
                     && filesystem::exists(m_gameDataPath / line)) {
 
-                    outputLO.push_back(ParallaxGenUtil::utf8toUTF16(line));
+                    outputLO.push_back(StringUtil::utf8toUTF16(line));
                 }
             }
         }
@@ -336,12 +336,11 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension,
             line = line.substr(1);
 
             if (std::ranges::find_if(
-                    outputLO,
-                    [&](const std::wstring& s) { return boost::iequals(s, ParallaxGenUtil::utf8toUTF16(line)); })
+                    outputLO, [&](const std::wstring& s) { return boost::iequals(s, StringUtil::utf8toUTF16(line)); })
                     == outputLO.end()
-                && filesystem::exists(m_gameDataPath / ParallaxGenUtil::utf8toUTF16(line))) {
+                && filesystem::exists(m_gameDataPath / StringUtil::utf8toUTF16(line))) {
 
-                outputLO.push_back(ParallaxGenUtil::utf8toUTF16(line));
+                outputLO.push_back(StringUtil::utf8toUTF16(line));
             }
         }
     }

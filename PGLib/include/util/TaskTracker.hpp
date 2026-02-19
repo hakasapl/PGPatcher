@@ -7,9 +7,9 @@
 #include <string>
 #include <unordered_map>
 
-class ParallaxGenTask {
+class TaskTracker {
 public:
-    enum class PGResult : uint8_t { SUCCESS, SUCCESS_WITH_WARNINGS, FAILURE };
+    enum class Result : uint8_t { SUCCESS, SUCCESS_WITH_WARNINGS, FAILURE };
 
 private:
     static constexpr int FULL_PERCENTAGE = 100;
@@ -24,27 +24,28 @@ private:
     size_t m_totalRanJobs;
     std::function<void(size_t, size_t)> m_callbackFunc;
 
-    std::unordered_map<PGResult, size_t> m_numJobsCompleted;
+    std::unordered_map<Result, size_t> m_numJobsCompleted;
 
-    std::unordered_map<PGResult, std::string> m_pgResultStr
-        = {{PGResult::SUCCESS, "COMPLETED"},
-           {PGResult::SUCCESS_WITH_WARNINGS, "COMPLETED WITH WARNINGS"},
-           {PGResult::FAILURE, "FAILED"}};
+    std::unordered_map<Result, std::string> m_ResultStr = {
+        {Result::SUCCESS, "COMPLETED"},
+        {Result::SUCCESS_WITH_WARNINGS, "COMPLETED WITH WARNINGS"},
+        {Result::FAILURE, "FAILED"},
+    };
 
 public:
-    ParallaxGenTask(std::string taskName,
-                    const size_t& totalJobs,
-                    const int& progressPrintModulo = 1);
+    TaskTracker(std::string taskName,
+                const size_t& totalJobs,
+                const int& progressPrintModulo = 1);
 
     void setCallbackFunc(std::function<void(size_t,
                                             size_t)> callbackFunc);
 
-    void completeJob(const PGResult& result);
+    void completeJob(const Result& result);
     [[nodiscard]] auto isCompleted() -> bool;
 
-    static void updatePGResult(PGResult& result,
-                               const PGResult& currentResult,
-                               const PGResult& threshold = PGResult::FAILURE);
+    static void updateResult(Result& result,
+                             const Result& currentResult,
+                             const Result& threshold = Result::FAILURE);
 
 private:
     void initJobStatus();

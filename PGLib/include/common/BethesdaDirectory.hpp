@@ -1,6 +1,6 @@
 #pragma once
-#include "BethesdaGame.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "common/BethesdaGame.hpp"
+#include "util/StringUtil.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <bsa/tes4.hpp>
@@ -65,7 +65,7 @@ private:
             auto j = nlohmann::json::object();
 
             if (bsaFile != nullptr) {
-                j["bsa"] = ParallaxGenUtil::utf16toUTF8(bsaFile->path.wstring());
+                j["bsa"] = StringUtil::utf16toUTF8(bsaFile->path.wstring());
             }
 
             return j;
@@ -111,7 +111,7 @@ public:
      *
      * @param dataPath Data path
      * @param generatedPath Generated path
-     * @param mmd ModManagerDirectory object
+     * @param pgmm PGModManager object
      * @param logging Whether to enable CLI logging
      */
     BethesdaDirectory(std::filesystem::path dataPath,

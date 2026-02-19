@@ -1,7 +1,7 @@
 #include "handlers/HandlerLightPlacerTracker.hpp"
 
 #include "PGGlobals.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <nlohmann/json_fwd.hpp>
@@ -32,7 +32,7 @@ void HandlerLightPlacerTracker::init(const vector<filesystem::path>& lpJSONs)
     for (const auto& jsonPath : lpJSONs) {
         // Load JSON data
         nlohmann::json jsonData;
-        if (!ParallaxGenUtil::getJSON(pgd->getLooseFileFullPath(jsonPath), jsonData)) {
+        if (!StringUtil::getJSON(pgd->getLooseFileFullPath(jsonPath), jsonData)) {
             // unable to load
             continue;
         }
@@ -73,8 +73,8 @@ void HandlerLightPlacerTracker::handleNIFCreated(const filesystem::path& baseNIF
     }
 
     // Remove "meshes" from from the first part of both paths
-    const auto baseNIFPathLP = ParallaxGenUtil::getPluginPathFromDataPath(baseNIFPath);
-    const auto createdNIFPathLP = ParallaxGenUtil::getPluginPathFromDataPath(createdNIFPath);
+    const auto baseNIFPathLP = StringUtil::getPluginPathFromDataPath(baseNIFPath);
+    const auto createdNIFPathLP = StringUtil::getPluginPathFromDataPath(createdNIFPath);
 
     // check if s_lightPlacerJSONMap contains the baseNIFPath
     auto it = s_lightPlacerJSONMap.find(baseNIFPathLP);
@@ -92,8 +92,8 @@ void HandlerLightPlacerTracker::handleNIFCreated(const filesystem::path& baseNIF
         const lock_guard<mutex> lock(lpJsonPtr->jsonMutex);
 
         // Add to models if not already present (models is already a json array)
-        const auto createdNIFPathStr = ParallaxGenUtil::utf16toUTF8(createdNIFPathLP.wstring());
-        if (!ParallaxGenUtil::checkIfStringInJSONArray(*models, createdNIFPathStr)) {
+        const auto createdNIFPathStr = StringUtil::utf16toUTF8(createdNIFPathLP.wstring());
+        if (!StringUtil::checkIfStringInJSONArray(*models, createdNIFPathStr)) {
             models->push_back(createdNIFPathStr);
             lpJsonPtr->changed = true; // mark as changed
         }
@@ -115,7 +115,7 @@ void HandlerLightPlacerTracker::finalize()
                 filesystem::create_directories(outputPath.parent_path());
             }
 
-            ParallaxGenUtil::saveJSON(outputPath, lpJsonPtr->jsonData, true);
+            StringUtil::saveJSON(outputPath, lpJsonPtr->jsonData, true);
         }
     }
 

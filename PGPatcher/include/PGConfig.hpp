@@ -1,8 +1,8 @@
 #pragma once
 
-#include "BethesdaGame.hpp"
-#include "ModManagerDirectory.hpp"
-#include "ParallaxGenPlugin.hpp"
+#include "PGModManager.hpp"
+#include "PGPlugin.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/NIFUtil.hpp"
 
 #include <nlohmann/json-schema.hpp>
@@ -19,10 +19,10 @@
 #include <vector>
 
 /**
- * @class ParallaxGenConfig
- * @brief Class responsible for ParallaxGen runtime configuration and JSON file interaction
+ * @class PGConfig
+ * @brief Class responsible for PGPatcherruntime configuration and JSON file interaction
  */
-class ParallaxGenConfig {
+class PGConfig {
 public:
     /**
      * @struct PGParams
@@ -39,7 +39,7 @@ public:
 
         // Mod Manager
         struct ModManager {
-            ModManagerDirectory::ModManagerType type = ModManagerDirectory::ModManagerType::NONE;
+            PGModManager::ModManagerType type = PGModManager::ModManagerType::NONE;
             std::filesystem::path mo2InstanceDir;
             bool mo2UseLooseFileOrder = true;
 
@@ -54,7 +54,7 @@ public:
         struct Output {
             std::filesystem::path dir;
             bool zip = false;
-            ParallaxGenPlugin::PluginLang pluginLang = ParallaxGenPlugin::PluginLang::ENGLISH;
+            PGPlugin::PluginLang pluginLang = PGPlugin::PluginLang::ENGLISH;
 
             auto operator==(const Output& other) const -> bool
             {
@@ -69,8 +69,7 @@ public:
             bool enableModDevMode = false;
             bool enableDebugLogging = false;
             bool enableTraceLogging = false;
-            std::unordered_set<ParallaxGenPlugin::ModelRecordType> allowedModelRecordTypes
-                = ParallaxGenPlugin::getDefaultRecTypeSet();
+            std::unordered_set<PGPlugin::ModelRecordType> allowedModelRecordTypes = PGPlugin::getDefaultRecTypeSet();
             std::vector<std::wstring> vanillaBSAList;
             std::vector<std::pair<std::wstring, NIFUtil::TextureType>> textureMaps;
             std::vector<std::wstring> allowList;

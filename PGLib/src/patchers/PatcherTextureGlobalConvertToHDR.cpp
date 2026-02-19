@@ -1,9 +1,10 @@
 #include "patchers/PatcherTextureGlobalConvertToHDR.hpp"
 
+#include "PGD3D.hpp"
 #include "PGGlobals.hpp"
-#include "ParallaxGenD3D.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
 #include <DirectXTex.h>
+
 
 #include <filesystem>
 #include <memory>
@@ -40,7 +41,7 @@ void PatcherTextureGlobalConvertToHDR::loadOptions(const unordered_map<string,
         }
 
         if (option == "output_format") {
-            s_outputFormat = ParallaxGenD3D::getDXGIFormatFromString(value);
+            s_outputFormat = PGD3D::getDXGIFormatFromString(value);
         }
     }
 }

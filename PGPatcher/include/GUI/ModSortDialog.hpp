@@ -3,7 +3,7 @@
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
-#include "ModManagerDirectory.hpp"
+#include "PGModManager.hpp"
 #include "util/NIFUtil.hpp"
 
 #include <wx/wx.h>
@@ -162,7 +162,7 @@ private:
     void clearAllHighlights();
 
     /**
-     * @brief Updates the mods in the ModManagerDirectory based on the current state of the list control
+     * @brief Updates the mods in the PGModManager based on the current state of the list control
      */
     void updateMods();
 
@@ -172,7 +172,7 @@ private:
      * @param modList List of mods to fill the list control with
      * @param autoEnable If true, will autoenable any disabled mods that have shaders other than NONE
      */
-    void fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList,
+    void fillListCtrl(const std::vector<std::shared_ptr<PGModManager::Mod>>& modList,
                       bool autoEnable = false,
                       bool preserveChecks = false);
 

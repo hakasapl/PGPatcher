@@ -1,6 +1,6 @@
 #pragma once
 
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 
@@ -54,7 +54,7 @@ private:
 
     template <typename... Args> static auto shouldLogString(const std::string& fmt) -> bool
     {
-        return processMessage(ParallaxGenUtil::utf8toUTF16(fmt));
+        return processMessage(StringUtil::utf8toUTF16(fmt));
     }
 
 public:

@@ -1,12 +1,12 @@
-#include "ParallaxGenConfig.hpp"
+#include "PGConfig.hpp"
 
-#include "BethesdaGame.hpp"
-#include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
-#include "ParallaxGenPlugin.hpp"
+#include "PGModManager.hpp"
+#include "PGPlugin.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -25,18 +25,18 @@
 #include <vector>
 
 using namespace std;
-using namespace ParallaxGenUtil;
+using namespace StringUtil;
 
 // Statics
-filesystem::path ParallaxGenConfig::s_exePath;
+filesystem::path PGConfig::s_exePath;
 
-void ParallaxGenConfig::loadStatics(const filesystem::path& exePath)
+void PGConfig::loadStatics(const filesystem::path& exePath)
 {
     // Set ExePath
-    ParallaxGenConfig::s_exePath = exePath;
+    PGConfig::s_exePath = exePath;
 }
 
-auto ParallaxGenConfig::getUserConfigFile() -> filesystem::path
+auto PGConfig::getUserConfigFile() -> filesystem::path
 {
     if (s_exePath.empty()) {
         throw runtime_error("ExePath not set");
@@ -47,7 +47,7 @@ auto ParallaxGenConfig::getUserConfigFile() -> filesystem::path
     return userConfigFile;
 }
 
-auto ParallaxGenConfig::getModConfigFile() -> filesystem::path
+auto PGConfig::getModConfigFile() -> filesystem::path
 {
     if (s_exePath.empty()) {
         throw runtime_error("ExePath not set");
@@ -58,7 +58,7 @@ auto ParallaxGenConfig::getModConfigFile() -> filesystem::path
     return modConfigFile;
 }
 
-auto ParallaxGenConfig::getIgnoredMessagesConfigFile() -> filesystem::path
+auto PGConfig::getIgnoredMessagesConfigFile() -> filesystem::path
 {
     if (s_exePath.empty()) {
         throw runtime_error("ExePath not set");
@@ -69,7 +69,7 @@ auto ParallaxGenConfig::getIgnoredMessagesConfigFile() -> filesystem::path
     return ignoredMessagesConfigFile;
 }
 
-auto ParallaxGenConfig::getDefaultParams() -> PGParams
+auto PGConfig::getDefaultParams() -> PGParams
 {
     PGParams outParams;
 
@@ -105,7 +105,7 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
     return outParams;
 }
 
-void ParallaxGenConfig::loadConfig()
+void PGConfig::loadConfig()
 {
     bool loadedConfig = false;
     if (filesystem::exists(getUserConfigFile())) {
@@ -129,7 +129,7 @@ void ParallaxGenConfig::loadConfig()
     }
 }
 
-auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
+auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
 {
     // "params" field
     if (j.contains("params")) {
@@ -145,7 +145,7 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
 
         // "modmanager"
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("type")) {
-            paramJ["modmanager"]["type"].get_to<ModManagerDirectory::ModManagerType>(m_params.ModManager.type);
+            paramJ["modmanager"]["type"].get_to<PGModManager::ModManagerType>(m_params.ModManager.type);
         }
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir")) {
             paramJ["modmanager"]["mo2instancedir"].get_to<filesystem::path>(m_params.ModManager.mo2InstanceDir);
@@ -163,7 +163,7 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
         if (paramJ.contains("output") && paramJ["output"].contains("pluginlang")) {
             m_params.Output.pluginLang
-                = ParallaxGenPlugin::getPluginLangFromString(paramJ["output"]["pluginlang"].get<string>());
+                = PGPlugin::getPluginLangFromString(paramJ["output"]["pluginlang"].get<string>());
         }
 
         // "processing"
@@ -207,8 +207,7 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
             m_params.Processing.allowedModelRecordTypes.clear();
 
             for (const auto& item : paramJ["processing"]["allowedmodelrecordtypes"]) {
-                m_params.Processing.allowedModelRecordTypes.insert(
-                    ParallaxGenPlugin::getRecTypeFromString(item.get<string>()));
+                m_params.Processing.allowedModelRecordTypes.insert(PGPlugin::getRecTypeFromString(item.get<string>()));
             }
         }
 
@@ -252,8 +251,8 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
     }
 }
 
-auto ParallaxGenConfig::parseJSON(const vector<std::byte>& bytes,
-                                  nlohmann::json& j) -> bool
+auto PGConfig::parseJSON(const vector<std::byte>& bytes,
+                         nlohmann::json& j) -> bool
 {
     // Parse JSON
     try {
@@ -266,7 +265,7 @@ auto ParallaxGenConfig::parseJSON(const vector<std::byte>& bytes,
     return true;
 }
 
-void ParallaxGenConfig::replaceForwardSlashes(nlohmann::json& json)
+void PGConfig::replaceForwardSlashes(nlohmann::json& json)
 {
     if (json.is_string()) {
         auto& str = json.get_ref<string&>();
@@ -286,12 +285,12 @@ void ParallaxGenConfig::replaceForwardSlashes(nlohmann::json& json)
     }
 }
 
-auto ParallaxGenConfig::getParams() const -> PGParams { return m_params; }
+auto PGConfig::getParams() const -> PGParams { return m_params; }
 
-void ParallaxGenConfig::setParams(const PGParams& params) { this->m_params = params; }
+void PGConfig::setParams(const PGParams& params) { this->m_params = params; }
 
-auto ParallaxGenConfig::validateParams(const PGParams& params,
-                                       vector<string>& errors) -> bool
+auto PGConfig::validateParams(const PGParams& params,
+                              vector<string>& errors) -> bool
 {
     // Helpers
     unordered_set<wstring> checkSet;
@@ -306,7 +305,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params,
     }
 
     // Mod Manager
-    if (params.ModManager.type == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+    if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
         if (params.ModManager.mo2InstanceDir.empty()) {
             errors.emplace_back("MO2 Instance Location is required");
         }
@@ -315,7 +314,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params,
             errors.emplace_back("MO2 Instance Location does not exist");
         }
 
-        if (!ModManagerDirectory::isValidMO2InstanceDir(params.ModManager.mo2InstanceDir)) {
+        if (!PGModManager::isValidMO2InstanceDir(params.ModManager.mo2InstanceDir)) {
             errors.emplace_back("MO2 Instance Location is not valid. Verify modorganizer.ini exists in the directory.");
         }
     }
@@ -390,7 +389,7 @@ auto ParallaxGenConfig::validateParams(const PGParams& params,
     return errors.empty();
 }
 
-auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
+auto PGConfig::getUserConfigJSON() const -> nlohmann::json
 {
     // build output json
     nlohmann::json j = m_userConfig;
@@ -409,7 +408,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     // "output"
     j["params"]["output"]["dir"] = utf16toUTF8(m_params.Output.dir.wstring());
     j["params"]["output"]["zip"] = m_params.Output.zip;
-    j["params"]["output"]["pluginlang"] = ParallaxGenPlugin::getStringFromPluginLang(m_params.Output.pluginLang);
+    j["params"]["output"]["pluginlang"] = PGPlugin::getStringFromPluginLang(m_params.Output.pluginLang);
 
     // "processing"
     j["params"]["processing"]["multithread"] = m_params.Processing.multithread;
@@ -426,7 +425,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["processing"]["vanillabsalist"] = utf16VectorToUTF8(m_params.Processing.vanillaBSAList);
     j["params"]["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
     for (const auto& item : m_params.Processing.allowedModelRecordTypes) {
-        j["params"]["processing"]["allowedmodelrecordtypes"].push_back(ParallaxGenPlugin::getStringFromRecType(item));
+        j["params"]["processing"]["allowedmodelrecordtypes"].push_back(PGPlugin::getStringFromRecType(item));
     }
 
     // "prepatcher"
@@ -451,7 +450,7 @@ auto ParallaxGenConfig::getUserConfigJSON() const -> nlohmann::json
     return j;
 }
 
-auto ParallaxGenConfig::saveUserConfig() -> bool
+auto PGConfig::saveUserConfig() -> bool
 {
     const auto j = getUserConfigJSON();
 
@@ -461,7 +460,7 @@ auto ParallaxGenConfig::saveUserConfig() -> bool
     // write to file
     try {
         filesystem::create_directories(getUserConfigFile().parent_path());
-        ParallaxGenUtil::saveJSON(getUserConfigFile(), j, true);
+        StringUtil::saveJSON(getUserConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save user config: {}", e.what());
         return false;
@@ -470,20 +469,20 @@ auto ParallaxGenConfig::saveUserConfig() -> bool
     return true;
 }
 
-auto ParallaxGenConfig::saveModConfig() -> bool
+auto PGConfig::saveModConfig() -> bool
 {
     // Mods
-    auto* mmd = PGGlobals::getMMD();
-    if (mmd == nullptr) {
+    auto* pgmm = PGGlobals::getPGMM();
+    if (pgmm == nullptr) {
         throw runtime_error("Mod Manager Directory not set");
     }
 
-    const auto j = mmd->getJSON();
+    const auto j = pgmm->getJSON();
 
     // write to file
     try {
         filesystem::create_directories(getModConfigFile().parent_path());
-        ParallaxGenUtil::saveJSON(getModConfigFile(), j, true);
+        StringUtil::saveJSON(getModConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save mod config: {}", e.what());
         return false;
@@ -492,8 +491,8 @@ auto ParallaxGenConfig::saveModConfig() -> bool
     return true;
 }
 
-auto ParallaxGenConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString,
-                                                                         bool>
+auto PGConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString,
+                                                                bool>
 {
     std::unordered_map<wxString, bool> ignoredItems;
 
@@ -517,8 +516,8 @@ auto ParallaxGenConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxStrin
     return ignoredItems;
 }
 
-auto ParallaxGenConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
-                                                                           bool>& ignoredItems) -> bool
+auto PGConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
+                                                                  bool>& ignoredItems) -> bool
 {
     nlohmann::json j;
     j["ignored_messages"] = nlohmann::json::object();
@@ -530,7 +529,7 @@ auto ParallaxGenConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxStr
     // write to file
     try {
         filesystem::create_directories(getIgnoredMessagesConfigFile().parent_path());
-        ParallaxGenUtil::saveJSON(getIgnoredMessagesConfigFile(), j, true);
+        StringUtil::saveJSON(getIgnoredMessagesConfigFile(), j, true);
     } catch (const std::exception& e) {
         spdlog::error("Failed to save ignored messages config: {}", e.what());
         return false;

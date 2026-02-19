@@ -2,7 +2,7 @@
 
 #include "BasicTypes.hpp"
 #include "ExtraData.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -56,7 +56,7 @@ auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
            {"Complex Material", ShapeShader::COMPLEXMATERIAL},
            {"Parallax", ShapeShader::VANILLAPARALLAX}};
 
-    const auto searchKey = ParallaxGenUtil::toLowerASCIIFast(shader);
+    const auto searchKey = StringUtil::toLowerASCIIFast(shader);
     if (shaderFromStrMap.find(searchKey) != shaderFromStrMap.end()) {
         return shaderFromStrMap.at(searchKey);
     }
@@ -71,7 +71,7 @@ auto NIFUtil::getTextureSlotsFromStr(const string& slots) -> TextureSet
     boost::split(splitSlots, slots, boost::is_any_of(","));
     for (size_t i = 0; i < splitSlots.size(); ++i) {
         if (i < NUM_TEXTURE_SLOTS) {
-            textureSlots.at(i) = ParallaxGenUtil::utf8toUTF16(splitSlots[i]);
+            textureSlots.at(i) = StringUtil::utf8toUTF16(splitSlots[i]);
         }
     }
     return textureSlots;
@@ -84,7 +84,7 @@ auto NIFUtil::getStrFromTextureSlots(const TextureSet& slots) -> string
         if (!strSlots.empty()) {
             strSlots += ",";
         }
-        strSlots += ParallaxGenUtil::utf16toUTF8(slot);
+        strSlots += StringUtil::utf16toUTF8(slot);
     }
     return strSlots;
 }
@@ -223,7 +223,7 @@ auto NIFUtil::getTexTypeFromStr(const string& type) -> TextureType
            {"subsurface pbr", TextureType::SUBSURFACEPBR},
            {"unknown", TextureType::UNKNOWN}};
 
-    const auto searchKey = ParallaxGenUtil::toLowerASCIIFast(type);
+    const auto searchKey = StringUtil::toLowerASCIIFast(type);
     if (texFromStrMap.find(type) != texFromStrMap.end()) {
         return texFromStrMap[type];
     }
@@ -376,7 +376,7 @@ auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
             string texture;
             nif.GetTextureSlot(shape, texture, slot);
 
-            if (!ParallaxGenUtil::containsOnlyAscii(texture)) {
+            if (!StringUtil::containsOnlyAscii(texture)) {
                 // NIFs cannot have non-ascii chars in their texture slots
                 throw runtime_error("NIF contains non-ascii characters in texture slot(s)");
             }
@@ -510,7 +510,7 @@ auto NIFUtil::setTextureSlot(nifly::NifFile* nif,
                              const TextureSlots& slot,
                              const std::wstring& texturePath) -> bool
 {
-    auto texturePathStr = ParallaxGenUtil::utf16toASCII(texturePath);
+    auto texturePathStr = StringUtil::utf16toASCII(texturePath);
     return setTextureSlot(nif, nifShape, slot, texturePathStr);
 }
 
@@ -521,7 +521,7 @@ auto NIFUtil::setTextureSlot(nifly::NifFile* nif,
 {
     string existingTex;
     nif->GetTextureSlot(nifShape, existingTex, static_cast<unsigned int>(slot));
-    if (!ParallaxGenUtil::asciiFastIEquals(existingTex, texturePath)) {
+    if (!StringUtil::asciiFastIEquals(existingTex, texturePath)) {
         auto newTex = texturePath;
         nif->SetTextureSlot(nifShape, newTex, static_cast<unsigned int>(slot));
         return true;
@@ -549,7 +549,7 @@ auto NIFUtil::getTextureSlot(nifly::NifFile* nif,
 {
     string texture;
     nif->GetTextureSlot(nifShape, texture, static_cast<unsigned int>(slot));
-    ParallaxGenUtil::toLowerASCIIFastInPlace(texture);
+    StringUtil::toLowerASCIIFastInPlace(texture);
     return texture;
 }
 
@@ -561,14 +561,14 @@ auto NIFUtil::getTextureSlots(nifly::NifFile* nif,
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
         string texture;
         const uint32_t result = nif->GetTextureSlot(nifShape, texture, i);
-        ParallaxGenUtil::toLowerASCIIFastInPlace(texture);
+        StringUtil::toLowerASCIIFastInPlace(texture);
 
         if (result == 0 || texture.empty()) {
             // no texture in Slot
             continue;
         }
 
-        outSlots.at(i) = ParallaxGenUtil::asciitoUTF16(texture);
+        outSlots.at(i) = StringUtil::asciitoUTF16(texture);
     }
 
     return outSlots;
@@ -579,7 +579,7 @@ auto NIFUtil::textureSetToStr(const TextureSet& set) -> TextureSetStr
     TextureSetStr outSet;
 
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
-        outSet.at(i) = ParallaxGenUtil::utf16toUTF8(set.at(i));
+        outSet.at(i) = StringUtil::utf16toUTF8(set.at(i));
     }
 
     return outSet;
@@ -594,7 +594,7 @@ auto NIFUtil::getTexBase(const std::filesystem::path& path,
     const auto pathWithoutExtension = path.parent_path() / path.stem();
     auto pathStr = pathWithoutExtension.wstring();
     // faster ascii lower is okay here because ALL textures must be purely ascii by the time they reach here
-    ParallaxGenUtil::toLowerASCIIFastInPlace(pathStr);
+    StringUtil::toLowerASCIIFastInPlace(pathStr);
 
     if (slot == TextureSlots::UNKNOWN) {
         // just return path without extension
@@ -621,7 +621,7 @@ auto NIFUtil::getTexMatch(const wstring& base,
                                                   PGTextureHasher>>& searchMap) -> vector<PGTexture>
 {
     // Binary search on base list
-    const wstring baseLower = ParallaxGenUtil::toLowerASCIIFast(base);
+    const wstring baseLower = StringUtil::toLowerASCIIFast(base);
     const auto it = searchMap.find(baseLower);
 
     if (it != searchMap.end()) {
@@ -672,10 +672,10 @@ auto NIFUtil::getSearchPrefixes(NifFile const& nif,
         wstring texBase;
         if (findBaseSlots) {
             // Get the base texture name without suffix
-            texBase = getTexBase(ParallaxGenUtil::asciitoUTF16(texture), static_cast<TextureSlots>(i));
+            texBase = getTexBase(StringUtil::asciitoUTF16(texture), static_cast<TextureSlots>(i));
         } else {
             // Get the full texture name
-            texBase = getTexBase(ParallaxGenUtil::asciitoUTF16(texture));
+            texBase = getTexBase(StringUtil::asciitoUTF16(texture));
         }
 
         outPrefixes.at(i) = texBase;

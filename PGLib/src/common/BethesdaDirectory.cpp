@@ -1,9 +1,10 @@
-#include "BethesdaDirectory.hpp"
+#include "common/BethesdaDirectory.hpp"
 
-#include "BethesdaGame.hpp"
 #include "PGGlobals.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/Logger.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
+
 
 #include <binary_io/any_stream.hpp>
 #include <binary_io/memory_stream.hpp>
@@ -38,7 +39,7 @@
 #include <winnt.h>
 
 using namespace std;
-using namespace ParallaxGenUtil;
+using namespace StringUtil;
 
 BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg,
                                      filesystem::path generatedPath)
@@ -705,7 +706,7 @@ auto BethesdaDirectory::readINIValue(const filesystem::path& iniPath,
             if (boost::iequals(curKey, key)) {
                 string curValue = curLine.substr(pos + 1);
                 boost::trim(curValue);
-                return ParallaxGenUtil::utf8toUTF16(curValue);
+                return StringUtil::utf8toUTF16(curValue);
             }
         }
     }

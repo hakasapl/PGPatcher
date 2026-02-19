@@ -1,11 +1,11 @@
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 
 #include "PGGlobals.hpp"
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "util/Logger.hpp"
 #include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -141,7 +141,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
                     element["match_diffuse"] = element["texture"];
                 }
 
-                element["json"] = ParallaxGenUtil::utf16toUTF8(config.wstring());
+                element["json"] = StringUtil::utf16toUTF8(config.wstring());
 
                 // loop through filename Fields
                 for (const auto& field : getTruePBRConfigFilenameFields()) {
@@ -150,14 +150,12 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
                     }
                 }
 
-                Logger::trace(
-                    L"TruePBR Config {} Loaded: {}", configOrder, ParallaxGenUtil::utf8toUTF16(element.dump()));
+                Logger::trace(L"TruePBR Config {} Loaded: {}", configOrder, StringUtil::utf8toUTF16(element.dump()));
                 getTruePBRConfigs()[configOrder++] = element;
             }
         } catch (nlohmann::json::parse_error& e) {
-            Logger::error(L"Unable to parse TruePBR Config file {}: {}",
-                          config.wstring(),
-                          ParallaxGenUtil::utf8toUTF16(e.what()));
+            Logger::error(
+                L"Unable to parse TruePBR Config file {}: {}", config.wstring(), StringUtil::utf8toUTF16(e.what()));
             continue;
         }
     }
@@ -168,21 +166,21 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
     for (const auto& config : getTruePBRConfigs()) {
         // "match_normal" attribute
         if (config.second.contains("match_normal")) {
-            auto revNormal = ParallaxGenUtil::utf8toUTF16(config.second["match_normal"].get<string>());
+            auto revNormal = StringUtil::utf8toUTF16(config.second["match_normal"].get<string>());
             revNormal = NIFUtil::getTexBase(revNormal);
             std::ranges::reverse(revNormal);
 
-            getTruePBRNormalInverse()[ParallaxGenUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
+            getTruePBRNormalInverse()[StringUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
             continue;
         }
 
         // "match_diffuse" attribute
         if (config.second.contains("match_diffuse")) {
-            auto revDiffuse = ParallaxGenUtil::utf8toUTF16(config.second["match_diffuse"].get<string>());
+            auto revDiffuse = StringUtil::utf8toUTF16(config.second["match_diffuse"].get<string>());
             revDiffuse = NIFUtil::getTexBase(revDiffuse);
             std::ranges::reverse(revDiffuse);
 
-            getTruePBRDiffuseInverse()[ParallaxGenUtil::toLowerASCIIFast(revDiffuse)].push_back(config.first);
+            getTruePBRDiffuseInverse()[StringUtil::toLowerASCIIFast(revDiffuse)].push_back(config.first);
         }
 
         // "path_contains" attribute
@@ -203,9 +201,9 @@ auto PatcherMeshShaderTruePBR::getShaderType() -> NIFUtil::ShapeShader { return 
 
 auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape,
                                         [[maybe_unused]] bool singlepassMATO,
-                                        const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
+                                        const PGPlugin::ModelRecordType& modelRecordType) -> bool
 {
-    if (modelRecordType == ParallaxGenPlugin::ModelRecordType::GRASS) {
+    if (modelRecordType == PGPlugin::ModelRecordType::GRASS) {
         // grass is not supported
         return false;
     }
@@ -258,7 +256,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots,
     // Remove "pbr" part if starts with "textures\\pbr" for each search prefix
     static constexpr size_t TEXTURE_PBR_STR_LENGTH = 13; // length of "textures\pbr\"
     for (auto& prefix : searchPrefixes) {
-        if (ParallaxGenUtil::toLowerASCIIFast(prefix).starts_with(L"textures\\pbr\\")) {
+        if (StringUtil::toLowerASCIIFast(prefix).starts_with(L"textures\\pbr\\")) {
             prefix.replace(0, TEXTURE_PBR_STR_LENGTH, L"textures\\");
         }
     }
@@ -278,7 +276,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots,
     unordered_map<wstring, unordered_set<NIFUtil::TextureSlots>> truePBRMatchedFrom;
     for (const auto& [sequence, data] : truePBRData) {
         // get current JSON
-        auto matchedPath = ParallaxGenUtil::utf8toUTF16(get<0>(data)["json"].get<string>());
+        auto matchedPath = StringUtil::utf8toUTF16(get<0>(data)["json"].get<string>());
 
         // Add to output
         if (!truePBROutputData.contains(matchedPath)) {
@@ -375,7 +373,7 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t,
                                             const wstring& nifPath)
 {
     // binary search for map
-    auto mapReverse = ParallaxGenUtil::toLowerASCIIFast(texName);
+    auto mapReverse = StringUtil::toLowerASCIIFast(texName);
     std::ranges::reverse(mapReverse);
     auto it = lookup.lower_bound(mapReverse);
 
@@ -443,7 +441,7 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
     // Check for path_contains only if no name match because it's a O(n) operation
     for (const auto& config : getPathLookupJSONs()) {
         // Check if in cache
-        auto cacheKey = make_tuple(ParallaxGenUtil::utf8toUTF16(config.second["path_contains"].get<string>()), diffuse);
+        auto cacheKey = make_tuple(StringUtil::utf8toUTF16(config.second["path_contains"].get<string>()), diffuse);
 
         bool pathMatch = false;
         {
@@ -478,7 +476,7 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
     // Find and check prefix value
     // Add the PBR part to the texture path
     auto texPath = texName;
-    const auto texPathLower = ParallaxGenUtil::toLowerASCIIFast(texPath);
+    const auto texPathLower = StringUtil::toLowerASCIIFast(texPath);
     if (texPathLower.starts_with(L"textures\\") && !texPathLower.starts_with(L"textures\\pbr\\")) {
         texPath.replace(0, TEXTURE_STR_LENGTH, L"textures\\pbr\\");
     }
@@ -491,13 +489,13 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
     // "rename" attribute
     if (curCfg.contains("rename")) {
         auto renameField = curCfg["rename"].get<string>();
-        if (!ParallaxGenUtil::asciiFastIEquals(renameField, matchedField)) {
-            matchedField = ParallaxGenUtil::utf8toUTF16(renameField);
+        if (!StringUtil::asciiFastIEquals(renameField, matchedField)) {
+            matchedField = StringUtil::utf8toUTF16(renameField);
         }
     }
 
     // Check if named_field is a directory
-    wstring matchedPath = ParallaxGenUtil::toLowerASCIIFast(texPath + matchedField);
+    wstring matchedPath = StringUtil::toLowerASCIIFast(texPath + matchedField);
     const bool enableTruePBR = (!curCfg.contains("pbr") || curCfg["pbr"]) && !matchedPath.empty();
     if (!enableTruePBR) {
         matchedPath = L"";
@@ -824,7 +822,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
 
     // "cubemap" attribute
     if (truePBRData.contains("cubemap") && !flag(truePBRData, "lock_cubemap")) {
-        auto newCubemap = ParallaxGenUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
+        auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
         slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = newCubemap;
     } else {
         slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = L"";
@@ -872,14 +870,14 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
 
         if (truePBRData.contains(slotName)) {
             std::string newSlot = truePBRData[slotName].get<std::string>();
-            ParallaxGenUtil::toLowerASCIIFastInPlace(newSlot);
+            StringUtil::toLowerASCIIFastInPlace(newSlot);
 
             // Prepend "textures\\" if it's not already there
             if (!newSlot.empty() && !newSlot.starts_with("textures\\")) {
                 newSlot.insert(0, "textures\\");
             }
 
-            slots.at(i) = ParallaxGenUtil::utf8toUTF16(newSlot);
+            slots.at(i) = StringUtil::utf8toUTF16(newSlot);
         }
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ModManagerDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "PGModManager.hpp"
 #include "patchers/base/PatcherMeshGlobal.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
 #include "patchers/base/PatcherMeshPre.hpp"
@@ -9,7 +9,7 @@
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
 #include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -68,7 +68,7 @@ public:
      * @brief Describes a match with transform properties
      */
     struct ShaderPatcherMatch {
-        std::shared_ptr<ModManagerDirectory::Mod> mod;
+        std::shared_ptr<PGModManager::Mod> mod;
         NIFUtil::ShapeShader shader {};
         PatcherMeshShader::PatcherMatch match {};
         NIFUtil::ShapeShader shaderTransformTo {};
@@ -77,11 +77,11 @@ public:
         {
             nlohmann::json json = nlohmann::json::object();
             if (mod != nullptr) {
-                json["mod"] = ParallaxGenUtil::utf16toUTF8(mod->name);
+                json["mod"] = StringUtil::utf16toUTF8(mod->name);
             }
             json["shader"] = NIFUtil::getStrFromShader(shader);
             json["shaderTransformTo"] = NIFUtil::getStrFromShader(shaderTransformTo);
-            json["matchedPath"] = ParallaxGenUtil::utf16toUTF8(match.matchedPath);
+            json["matchedPath"] = StringUtil::utf16toUTF8(match.matchedPath);
             json["matchedFrom"] = nlohmann::json::array();
             for (const auto& matchedFrom : match.matchedFrom) {
                 json["matchedFrom"].push_back(static_cast<int>(matchedFrom));
@@ -94,13 +94,13 @@ public:
         {
             ShaderPatcherMatch match;
             if (json.contains("mod") && json["mod"].is_string()) {
-                match.mod = PGGlobals::getMMD()->getMod(ParallaxGenUtil::utf8toUTF16(json["mod"].get<std::string>()));
+                match.mod = PGGlobals::getPGMM()->getMod(StringUtil::utf8toUTF16(json["mod"].get<std::string>()));
             } else {
                 match.mod = nullptr;
             }
             match.shader = NIFUtil::getShaderFromStr(json["shader"].get<std::string>());
             match.shaderTransformTo = NIFUtil::getShaderFromStr(json["shaderTransformTo"].get<std::string>());
-            match.match.matchedPath = ParallaxGenUtil::utf8toUTF16(json["matchedPath"].get<std::string>());
+            match.match.matchedPath = StringUtil::utf8toUTF16(json["matchedPath"].get<std::string>());
             for (const auto& matchedFrom : json["matchedFrom"]) {
                 match.match.matchedFrom.insert(static_cast<NIFUtil::TextureSlots>(matchedFrom.get<int>()));
             }

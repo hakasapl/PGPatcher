@@ -17,7 +17,7 @@
 #include <winnt.h>
 #include <wrl/client.h>
 
-class ParallaxGenD3D {
+class PGD3D {
 private:
     std::mutex m_d3dMutex;
 
@@ -65,12 +65,12 @@ public:
     //
 
     /**
-     * @brief Construct a new ParallaxGenD3D object
+     * @brief Construct a new PGD3D object
      *
-     * @param pgd Pointer to the ParallaxGenDirectory object
+     * @param pgd Pointer to the PGDirectory object
      * @param shaderPath Path to shader folder
      */
-    ParallaxGenD3D(std::filesystem::path shaderPath);
+    PGD3D(std::filesystem::path shaderPath);
 
     /**
      * @brief Initialize GPU. This must be called before any other GPU functions

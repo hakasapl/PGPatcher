@@ -8,7 +8,7 @@
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
 #include <boost/algorithm/string/case_conv.hpp>
 #include <spdlog/spdlog.h>
 
@@ -64,8 +64,7 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(NIFU
     }
 
     // this is parallax type, check the _p texture to see if it exists
-    const auto& parallaxTex
-        = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::PARALLAX)));
+    const auto& parallaxTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::PARALLAX)));
 
     if (pgd->isFile(parallaxTex)) {
         // definitely a parallax map, no need to disable
@@ -93,12 +92,11 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
     }
 
     // this is complex material type, check the _cm texture to see if it exists
-    const auto& envTex = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)));
-    const auto& envMaskTex
-        = ParallaxGenUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
+    const auto& envTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)));
+    const auto& envMaskTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
 
     const bool envValid = envTex.empty() || pgd->isFile(envTex)
-        || ParallaxGenUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
+        || StringUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
     const bool envMaskValid = envMaskTex.empty() || pgd->isFile(envMaskTex);
     if (envValid && envMaskValid) {
         // cubemap and env mask valid, no need to disable

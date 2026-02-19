@@ -1,9 +1,10 @@
 #pragma once
 
-#include "BethesdaGame.hpp"
+#include "PGMeshPermutationTracker.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/EnumStringHelper.hpp"
-#include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
+
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <nlohmann/json.hpp>
@@ -18,7 +19,7 @@
 #include <vector>
 #include <windows.h>
 
-class ParallaxGenPlugin {
+class PGPlugin {
 private:
     static inline bool s_initialized = false;
 
@@ -175,10 +176,10 @@ public:
 
     static void populateObjs(const std::filesystem::path& existingModPath = {});
 
-    static auto getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<MeshTracker::FormKey,
+    static auto getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                                                      MeshUseAttributes>>;
 
-    static void setModelUses(const std::vector<MeshTracker::MeshResult>& meshResults);
+    static void setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
 
     static void savePlugin(const std::filesystem::path& outputDir,
                            bool esmify);

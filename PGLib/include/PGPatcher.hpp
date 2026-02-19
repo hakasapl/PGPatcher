@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ParallaxGenDirectory.hpp"
-#include "ParallaxGenPlugin.hpp"
-#include "ParallaxGenTask.hpp"
+#include "PGDirectory.hpp"
+#include "PGPlugin.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/NIFUtil.hpp"
+#include "util/TaskTracker.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -26,7 +26,7 @@
 #include <unordered_set>
 #include <vector>
 
-class ParallaxGen {
+class PGPatcher {
 private:
     // Registered Patchers
     static PatcherUtil::PatcherTextureSet s_texPatchers;
@@ -77,7 +77,7 @@ public:
      */
     static void patchMeshes(const bool& multiThread = true,
                             const bool& forceBasePatch = false,
-                            const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
+                            const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
                             const bool& checkAllowedRecTypes = false,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback
@@ -99,7 +99,7 @@ public:
     static void finalize();
 
     /**
-     * @brief Populates the mod conflicts in MMD as well as shader types for each mod
+     * @brief Populates the mod conflicts in pgmm as well as shader types for each mod
      *
      * @param multiThread whether to use multithreading
      */
@@ -133,16 +133,16 @@ private:
      *
      * @param nifPath relative path to the NIF file
      * @param dryRun whether to run in dry run mode (no changes made)
-     * @return ParallaxGenTask::PGResult result of the patching process
+     * @return TaskTracker::Result result of the patching process
      */
     static auto patchNIF(const std::filesystem::path& nifPath,
                          TaskQueue& setModelUsesQueue,
                          const bool& forceBasePatch = false,
-                         const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
-                         const bool& checkAllowedRecTypes = false) -> ParallaxGenTask::PGResult;
+                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
+                         const bool& checkAllowedRecTypes = false) -> TaskTracker::Result;
 
     static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
-                                       const ParallaxGenDirectory::NifCache& nifCache) -> ParallaxGenTask::PGResult;
+                                       const PGDirectory::NifCache& nifCache) -> TaskTracker::Result;
 
     // NIF Helpers
 
@@ -162,7 +162,7 @@ private:
     static auto processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
                            bool singlepassMATO,
-                           const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+                           const PGPlugin::ModelRecordType& modelRecordType,
                            std::unordered_map<unsigned int,
                                               NIFUtil::TextureSet>& alternateTextures,
                            std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
@@ -187,14 +187,14 @@ private:
                                 nifly::NiShape* nifShape,
                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
                                 bool singlepassMATO,
-                                const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+                                const PGPlugin::ModelRecordType& modelRecordType,
                                 NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
 
     static auto getMatches(const NIFUtil::TextureSet& slots,
                            const PatcherUtil::PatcherMeshObjectSet& patchers,
                            const bool& dryRun,
                            bool singlepassMATO,
-                           const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+                           const PGPlugin::ModelRecordType& modelRecordType,
                            const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
                            nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 
@@ -223,7 +223,7 @@ private:
                                         nifly::NifFile* nif) -> PatcherUtil::PatcherMeshObjectSet;
 
     // DDS Runners
-    static auto patchDDS(const std::filesystem::path& ddsPath) -> ParallaxGenTask::PGResult;
+    static auto patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::Result;
 
     static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath,
                                         DirectX::ScratchImage* dds) -> PatcherUtil::PatcherTextureObjectSet;

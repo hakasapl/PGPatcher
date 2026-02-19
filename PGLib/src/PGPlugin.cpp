@@ -1,10 +1,11 @@
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
 
-#include "BethesdaGame.hpp"
+#include "PGMeshPermutationTracker.hpp"
 #include "PGMutagenWrapper.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/EnumStringHelper.hpp"
-#include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
+
 
 #include <spdlog/spdlog.h>
 
@@ -18,37 +19,37 @@
 
 using namespace std;
 
-auto ParallaxGenPlugin::getPluginLangFromString(const std::string& lang) -> PluginLang
+auto PGPlugin::getPluginLangFromString(const std::string& lang) -> PluginLang
 {
     return EnumStringHelper::enumFromString(lang, PLUGINLANG_TABLE, PluginLang::ENGLISH);
 }
 
-auto ParallaxGenPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::string
+auto PGPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::string
 {
     return std::string(EnumStringHelper::stringFromEnum(lang, PLUGINLANG_TABLE, "English"));
 }
 
-auto ParallaxGenPlugin::getAvailablePluginLangStrs() -> vector<string>
+auto PGPlugin::getAvailablePluginLangStrs() -> vector<string>
 {
     return EnumStringHelper::allEnumStrings(PLUGINLANG_TABLE);
 }
 
-auto ParallaxGenPlugin::getRecTypeFromString(const std::string& recTypeStr) -> ModelRecordType
+auto PGPlugin::getRecTypeFromString(const std::string& recTypeStr) -> ModelRecordType
 {
     return EnumStringHelper::enumFromString(recTypeStr, MODEL_RECORD_TYPE_TABLE, ModelRecordType::UNKNOWN);
 }
 
-auto ParallaxGenPlugin::getStringFromRecType(const ModelRecordType& recType) -> std::string
+auto PGPlugin::getStringFromRecType(const ModelRecordType& recType) -> std::string
 {
     return std::string(EnumStringHelper::stringFromEnum(recType, MODEL_RECORD_TYPE_TABLE, ""));
 }
 
-auto ParallaxGenPlugin::getAvailableRecTypeStrs() -> std::vector<std::string>
+auto PGPlugin::getAvailableRecTypeStrs() -> std::vector<std::string>
 {
     return EnumStringHelper::allEnumStrings(MODEL_RECORD_TYPE_TABLE);
 }
 
-auto ParallaxGenPlugin::getDefaultRecTypeSet() -> std::unordered_set<ModelRecordType>
+auto PGPlugin::getDefaultRecTypeSet() -> std::unordered_set<ModelRecordType>
 {
     // these are enabled by default in the initial config
     static const std::unordered_set<ModelRecordType> defaultSet = {
@@ -92,9 +93,9 @@ auto ParallaxGenPlugin::getDefaultRecTypeSet() -> std::unordered_set<ModelRecord
     return defaultSet;
 }
 
-void ParallaxGenPlugin::initialize(const BethesdaGame& game,
-                                   const filesystem::path& exePath,
-                                   const PluginLang& lang)
+void PGPlugin::initialize(const BethesdaGame& game,
+                          const filesystem::path& exePath,
+                          const PluginLang& lang)
 {
     // Maps BethesdaGame::GameType to Mutagen game type
     static const unordered_map<BethesdaGame::GameType, int> mutagenGameTypeMap
@@ -112,15 +113,15 @@ void ParallaxGenPlugin::initialize(const BethesdaGame& game,
     s_initialized = true;
 }
 
-void ParallaxGenPlugin::populateObjs(const filesystem::path& existingModPath)
+void PGPlugin::populateObjs(const filesystem::path& existingModPath)
 {
     PGMutagenWrapper::libPopulateObjs(existingModPath);
 }
 
-auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<MeshTracker::FormKey,
-                                                                                             MeshUseAttributes>>
+auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
+                                                                                    MeshUseAttributes>>
 {
-    vector<pair<MeshTracker::FormKey, MeshUseAttributes>> result;
+    vector<pair<PGMeshPermutationTracker::FormKey, MeshUseAttributes>> result;
 
     if (!s_initialized) {
         return {};
@@ -148,7 +149,7 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath) -> std::vect
     });
 
     for (const auto& modelUse : modelUses) {
-        const MeshTracker::FormKey formKey {
+        const PGMeshPermutationTracker::FormKey formKey {
             .modKey = modelUse.modName,
             .formID = modelUse.formID,
             .subMODL = modelUse.subModel,
@@ -180,7 +181,7 @@ auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath) -> std::vect
     return result;
 }
 
-void ParallaxGenPlugin::setModelUses(const std::vector<MeshTracker::MeshResult>& meshResults)
+void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults)
 {
     if (!s_initialized) {
         return;
@@ -228,8 +229,8 @@ void ParallaxGenPlugin::setModelUses(const std::vector<MeshTracker::MeshResult>&
     PGMutagenWrapper::libSetModelUses(modelUses);
 }
 
-void ParallaxGenPlugin::savePlugin(const filesystem::path& outputDir,
-                                   bool esmify)
+void PGPlugin::savePlugin(const filesystem::path& outputDir,
+                          bool esmify)
 {
     PGMutagenWrapper::libFinalize(outputDir, esmify);
     // TODO add to generated files

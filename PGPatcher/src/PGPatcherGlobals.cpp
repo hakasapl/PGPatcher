@@ -1,16 +1,16 @@
 #include "PGPatcherGlobals.hpp"
 
 #include "GUI/WXLoggerSink.hpp"
-#include "ParallaxGenConfig.hpp"
+#include "PGConfig.hpp"
 
 #include <filesystem>
 #include <memory>
 #include <mutex>
 #include <utility>
 
-ParallaxGenConfig* PGPatcherGlobals::s_PGC = nullptr;
-auto PGPatcherGlobals::getPGC() -> ParallaxGenConfig* { return s_PGC; }
-void PGPatcherGlobals::setPGC(ParallaxGenConfig* pgc) { s_PGC = pgc; }
+PGConfig* PGPatcherGlobals::s_PGC = nullptr;
+auto PGPatcherGlobals::getPGC() -> PGConfig* { return s_PGC; }
+void PGPatcherGlobals::setPGC(PGConfig* pgc) { s_PGC = pgc; }
 
 std::filesystem::path PGPatcherGlobals::s_EXE_PATH = "";
 auto PGPatcherGlobals::getEXEPath() -> std::filesystem::path { return s_EXE_PATH; }

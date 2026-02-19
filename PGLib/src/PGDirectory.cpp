@@ -1,16 +1,16 @@
-#include "ParallaxGenDirectory.hpp"
+#include "PGDirectory.hpp"
 
-#include "BethesdaDirectory.hpp"
-#include "BethesdaGame.hpp"
+#include "PGD3D.hpp"
 #include "PGGlobals.hpp"
-#include "ParallaxGenD3D.hpp"
-#include "ParallaxGenPlugin.hpp"
-#include "ParallaxGenRunner.hpp"
-#include "ParallaxGenTask.hpp"
+#include "PGMeshPermutationTracker.hpp"
+#include "PGPlugin.hpp"
+#include "common/BethesdaDirectory.hpp"
+#include "common/BethesdaGame.hpp"
 #include "util/Logger.hpp"
-#include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
-#include "util/ParallaxGenUtil.hpp"
+#include "util/StringUtil.hpp"
+#include "util/TaskPoolRunner.hpp"
+#include "util/TaskTracker.hpp"
 
 #include "NifFile.hpp"
 #include "Shaders.hpp"
@@ -43,23 +43,23 @@
 #include <winnt.h>
 
 using namespace std;
-using namespace ParallaxGenUtil;
+using namespace StringUtil;
 
-ParallaxGenDirectory::ParallaxGenDirectory(BethesdaGame* bg,
-                                           filesystem::path outputPath)
+PGDirectory::PGDirectory(BethesdaGame* bg,
+                         filesystem::path outputPath)
     : BethesdaDirectory(bg,
                         std::move(outputPath))
 {
 }
 
-ParallaxGenDirectory::ParallaxGenDirectory(filesystem::path dataPath,
-                                           filesystem::path outputPath)
+PGDirectory::PGDirectory(filesystem::path dataPath,
+                         filesystem::path outputPath)
     : BethesdaDirectory(std::move(dataPath),
                         std::move(outputPath))
 {
 }
 
-auto ParallaxGenDirectory::findFiles() -> void
+auto PGDirectory::findFiles() -> void
 {
     // Clear existing unconfirmedtextures
     m_unconfirmedTextures.clear();
@@ -118,7 +118,7 @@ auto ParallaxGenDirectory::findFiles() -> void
     }
 }
 
-void ParallaxGenDirectory::waitForMeshMapping()
+void PGDirectory::waitForMeshMapping()
 {
     if (m_meshUseMappingQueue.isShutdown()) {
         // already done
@@ -134,7 +134,7 @@ void ParallaxGenDirectory::waitForMeshMapping()
     m_meshUseMappingQueue.shutdown();
 }
 
-void ParallaxGenDirectory::waitForCMClassification()
+void PGDirectory::waitForCMClassification()
 {
     if (m_CMClassificationQueue.isShutdown()) {
         // already done
@@ -150,15 +150,15 @@ void ParallaxGenDirectory::waitForCMClassification()
     m_CMClassificationQueue.shutdown();
 }
 
-auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist,
-                                    const vector<wstring>& nifAllowlist,
-                                    const vector<pair<wstring,
-                                                      NIFUtil::TextureType>>& manualTextureMaps,
-                                    const vector<wstring>& parallaxBSAExcludes,
-                                    const bool& multithreading,
-                                    const bool& highmem,
-                                    const std::function<void(size_t,
-                                                             size_t)>& progressCallback) -> void
+auto PGDirectory::mapFiles(const vector<wstring>& nifBlocklist,
+                           const vector<wstring>& nifAllowlist,
+                           const vector<pair<wstring,
+                                             NIFUtil::TextureType>>& manualTextureMaps,
+                           const vector<wstring>& parallaxBSAExcludes,
+                           const bool& multithreading,
+                           const bool& highmem,
+                           const std::function<void(size_t,
+                                                    size_t)>& progressCallback) -> void
 {
     findFiles();
 
@@ -169,27 +169,27 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist,
     Logger::info("Starting to build texture mappings");
 
     // Create task tracker
-    ParallaxGenTask taskTracker("Loading NIFs", m_unconfirmedMeshes.size());
+    TaskTracker taskTracker("Loading NIFs", m_unconfirmedMeshes.size());
     if (progressCallback) {
         taskTracker.setCallbackFunc(progressCallback);
     }
 
     // Create runner
-    ParallaxGenRunner runner(multithreading);
+    TaskPoolRunner runner(multithreading);
 
     // Loop through each mesh to confirm textures
     for (const auto& mesh : m_unconfirmedMeshes) {
         if (!nifAllowlist.empty() && !checkGlobMatchInVector(mesh.wstring(), nifAllowlist)) {
             // Skip mesh because it is not on allowlist
             Logger::debug(L"Skipping mesh due to allowlist: {}", mesh.wstring());
-            taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
+            taskTracker.completeJob(TaskTracker::Result::SUCCESS);
             continue;
         }
 
         if (!nifBlocklist.empty() && checkGlobMatchInVector(mesh.wstring(), nifBlocklist)) {
             // Skip mesh because it is on blocklist
             Logger::debug(L"Skipping mesh due to blocklist: {}", mesh.wstring());
-            taskTracker.completeJob(ParallaxGenTask::PGResult::SUCCESS);
+            taskTracker.completeJob(TaskTracker::Result::SUCCESS);
             continue;
         }
 
@@ -270,8 +270,8 @@ auto ParallaxGenDirectory::mapFiles(const vector<wstring>& nifBlocklist,
     m_unconfirmedMeshes.clear();
 }
 
-void ParallaxGenDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
-                                             const NIFUtil::TextureSlots& winningSlot)
+void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
+                                    const NIFUtil::TextureSlots& winningSlot)
 {
     // classify as CM or not
     bool hasMetalness = false;
@@ -311,8 +311,8 @@ void ParallaxGenDirectory::checkIfCMAddToMap(const std::filesystem::path& textur
     addToTextureMaps(texture, winningSlot, NIFUtil::TextureType::COMPLEXMATERIAL, attributes);
 }
 
-auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check,
-                                                  const vector<std::wstring>& list) -> bool
+auto PGDirectory::checkGlobMatchInVector(const wstring& check,
+                                         const vector<std::wstring>& list) -> bool
 {
     // convert wstring to LPCWSTR
     LPCWSTR checkCstr = check.c_str();
@@ -321,11 +321,11 @@ auto ParallaxGenDirectory::checkGlobMatchInVector(const wstring& check,
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
-                                              const bool& cachenif,
-                                              const bool& multithreading) -> ParallaxGenTask::PGResult
+auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
+                                     const bool& cachenif,
+                                     const bool& multithreading) -> TaskTracker::Result
 {
-    auto result = ParallaxGenTask::PGResult::SUCCESS;
+    auto result = TaskTracker::Result::SUCCESS;
 
     // Load NIF
     shared_ptr<nifly::NifFile> nif = nullptr;
@@ -335,7 +335,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
             nifBytes = getFile(nifPath);
         } catch (...) {
             Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
-            return ParallaxGenTask::PGResult::FAILURE;
+            return TaskTracker::Result::FAILURE;
         }
 
         try {
@@ -344,7 +344,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
         } catch (...) {
             // Unable to read NIF, delete from Meshes set
             Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
-            return ParallaxGenTask::PGResult::FAILURE;
+            return TaskTracker::Result::FAILURE;
         }
     }
 
@@ -378,7 +378,7 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
 
             if (!containsOnlyAscii(texture)) {
                 Logger::error(L"NIF {} has texture slot(s) with invalid non-ASCII chars (skipping)", nifPath.wstring());
-                return ParallaxGenTask::PGResult::FAILURE;
+                return TaskTracker::Result::FAILURE;
             }
 
             if (texture.empty()) {
@@ -523,12 +523,12 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
     if (multithreading) {
         m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
             // send job to find mesh uses for this mesh
-            const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
+            const auto modelUses = PGPlugin::getModelUses(nifPath);
             updateNifCache(nifPath, modelUses);
         });
     } else {
         // send job to find mesh uses for this mesh
-        const auto modelUses = ParallaxGenPlugin::getModelUses(nifPath);
+        const auto modelUses = PGPlugin::getModelUses(nifPath);
         updateNifCache(nifPath, modelUses);
     }
 
@@ -543,8 +543,8 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
     updateNifCache(nifPath, textureSets);
 
     // find mod of this mesh
-    if (PGGlobals::isMMDSet()) {
-        auto mod = PGGlobals::getMMD()->getModByFileSmart(nifPath);
+    if (PGGlobals::isPGMMSet()) {
+        auto mod = PGGlobals::getPGMM()->getModByFileSmart(nifPath);
         if (mod != nullptr) {
             const unique_lock<shared_mutex> lock(mod->mutex);
             mod->hasMeshes = true;
@@ -554,9 +554,9 @@ auto ParallaxGenDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
     return result;
 }
 
-auto ParallaxGenDirectory::updateUnconfirmedTexturesMap(const filesystem::path& path,
-                                                        const NIFUtil::TextureSlots& slot,
-                                                        const NIFUtil::TextureType& type) -> void
+auto PGDirectory::updateUnconfirmedTexturesMap(const filesystem::path& path,
+                                               const NIFUtil::TextureSlots& slot,
+                                               const NIFUtil::TextureType& type) -> void
 {
     // Use mutex to make this thread safe
     const lock_guard<mutex> lock(m_unconfirmedTexturesMutex);
@@ -569,10 +569,10 @@ auto ParallaxGenDirectory::updateUnconfirmedTexturesMap(const filesystem::path& 
     }
 }
 
-auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path,
-                                            const NIFUtil::TextureSlots& slot,
-                                            const NIFUtil::TextureType& type,
-                                            const unordered_set<NIFUtil::TextureAttribute>& attributes) -> void
+auto PGDirectory::addToTextureMaps(const filesystem::path& path,
+                                   const NIFUtil::TextureSlots& slot,
+                                   const NIFUtil::TextureType& type,
+                                   const unordered_set<NIFUtil::TextureAttribute>& attributes) -> void
 {
     // Log result
     Logger::trace(L"Mapping Texture: {} / Slot: {} / Type: {}",
@@ -599,9 +599,9 @@ auto ParallaxGenDirectory::addToTextureMaps(const filesystem::path& path,
     }
 }
 
-void ParallaxGenDirectory::updateNifCache(const filesystem::path& path,
-                                          const vector<pair<int,
-                                                            NIFUtil::TextureSet>>& txstSets)
+void PGDirectory::updateNifCache(const filesystem::path& path,
+                                 const vector<pair<int,
+                                                   NIFUtil::TextureSet>>& txstSets)
 {
     const unique_lock lock(m_meshesMutex);
 
@@ -612,9 +612,9 @@ void ParallaxGenDirectory::updateNifCache(const filesystem::path& path,
     m_meshes.at(path).textureSets = txstSets;
 }
 
-void ParallaxGenDirectory::updateNifCache(const filesystem::path& path,
-                                          const vector<pair<MeshTracker::FormKey,
-                                                            ParallaxGenPlugin::MeshUseAttributes>>& meshUses)
+void PGDirectory::updateNifCache(const filesystem::path& path,
+                                 const vector<pair<PGMeshPermutationTracker::FormKey,
+                                                   PGPlugin::MeshUseAttributes>>& meshUses)
 {
     const unique_lock lock(m_meshesMutex);
 
@@ -625,9 +625,9 @@ void ParallaxGenDirectory::updateNifCache(const filesystem::path& path,
     m_meshes.at(path).meshUses = meshUses;
 }
 
-void ParallaxGenDirectory::updateNifCache(const filesystem::path& path,
-                                          const shared_ptr<nifly::NifFile>& nif,
-                                          const unsigned long long& crc32)
+void PGDirectory::updateNifCache(const filesystem::path& path,
+                                 const shared_ptr<nifly::NifFile>& nif,
+                                 const unsigned long long& crc32)
 {
     const unique_lock lock(m_meshesMutex);
 
@@ -639,15 +639,14 @@ void ParallaxGenDirectory::updateNifCache(const filesystem::path& path,
     m_meshes.at(path).origCRC32 = crc32;
 }
 
-auto ParallaxGenDirectory::getTextureMap(const NIFUtil::TextureSlots& slot)
-    -> map<wstring,
-           unordered_set<NIFUtil::PGTexture,
-                         NIFUtil::PGTextureHasher>>&
+auto PGDirectory::getTextureMap(const NIFUtil::TextureSlots& slot) -> map<wstring,
+                                                                          unordered_set<NIFUtil::PGTexture,
+                                                                                        NIFUtil::PGTextureHasher>>&
 {
     return m_textureMaps.at(static_cast<size_t>(slot));
 }
 
-auto ParallaxGenDirectory::getTextureMapConst(const NIFUtil::TextureSlots& slot) const
+auto PGDirectory::getTextureMapConst(const NIFUtil::TextureSlots& slot) const
     -> const map<wstring,
                  unordered_set<NIFUtil::PGTexture,
                                NIFUtil::PGTextureHasher>>&
@@ -655,20 +654,20 @@ auto ParallaxGenDirectory::getTextureMapConst(const NIFUtil::TextureSlots& slot)
     return m_textureMaps.at(static_cast<size_t>(slot));
 }
 
-auto ParallaxGenDirectory::getMeshes() const -> const unordered_map<filesystem::path,
-                                                                    NifCache>&
+auto PGDirectory::getMeshes() const -> const unordered_map<filesystem::path,
+                                                           NifCache>&
 {
     return m_meshes;
 }
 
-auto ParallaxGenDirectory::getTextures() const -> const unordered_set<filesystem::path>& { return m_textures; }
+auto PGDirectory::getTextures() const -> const unordered_set<filesystem::path>& { return m_textures; }
 
-auto ParallaxGenDirectory::getPBRJSONs() const -> const vector<filesystem::path>& { return m_pbrJSONs; }
+auto PGDirectory::getPBRJSONs() const -> const vector<filesystem::path>& { return m_pbrJSONs; }
 
-auto ParallaxGenDirectory::getLightPlacerJSONs() const -> const vector<filesystem::path>& { return m_lightPlacerJSONs; }
+auto PGDirectory::getLightPlacerJSONs() const -> const vector<filesystem::path>& { return m_lightPlacerJSONs; }
 
-auto ParallaxGenDirectory::addTextureAttribute(const filesystem::path& path,
-                                               const NIFUtil::TextureAttribute& attribute) -> bool
+auto PGDirectory::addTextureAttribute(const filesystem::path& path,
+                                      const NIFUtil::TextureAttribute& attribute) -> bool
 {
     const unique_lock lock(m_textureTypesMutex);
 
@@ -679,8 +678,8 @@ auto ParallaxGenDirectory::addTextureAttribute(const filesystem::path& path,
     return false;
 }
 
-auto ParallaxGenDirectory::removeTextureAttribute(const filesystem::path& path,
-                                                  const NIFUtil::TextureAttribute& attribute) -> bool
+auto PGDirectory::removeTextureAttribute(const filesystem::path& path,
+                                         const NIFUtil::TextureAttribute& attribute) -> bool
 {
     const unique_lock lock(m_textureTypesMutex);
 
@@ -691,8 +690,8 @@ auto ParallaxGenDirectory::removeTextureAttribute(const filesystem::path& path,
     return false;
 }
 
-auto ParallaxGenDirectory::hasTextureAttribute(const filesystem::path& path,
-                                               const NIFUtil::TextureAttribute& attribute) -> bool
+auto PGDirectory::hasTextureAttribute(const filesystem::path& path,
+                                      const NIFUtil::TextureAttribute& attribute) -> bool
 {
     const shared_lock lock(m_textureTypesMutex);
 
@@ -703,8 +702,7 @@ auto ParallaxGenDirectory::hasTextureAttribute(const filesystem::path& path,
     return false;
 }
 
-auto ParallaxGenDirectory::getTextureAttributes(const filesystem::path& path)
-    -> unordered_set<NIFUtil::TextureAttribute>
+auto PGDirectory::getTextureAttributes(const filesystem::path& path) -> unordered_set<NIFUtil::TextureAttribute>
 {
     const shared_lock lock(m_textureTypesMutex);
 
@@ -715,14 +713,14 @@ auto ParallaxGenDirectory::getTextureAttributes(const filesystem::path& path)
     return {};
 }
 
-void ParallaxGenDirectory::setTextureType(const filesystem::path& path,
-                                          const NIFUtil::TextureType& type)
+void PGDirectory::setTextureType(const filesystem::path& path,
+                                 const NIFUtil::TextureType& type)
 {
     const unique_lock lock(m_textureTypesMutex);
     m_textureTypes[path].type = type;
 }
 
-auto ParallaxGenDirectory::getTextureType(const filesystem::path& path) -> NIFUtil::TextureType
+auto PGDirectory::getTextureType(const filesystem::path& path) -> NIFUtil::TextureType
 {
     const shared_lock lock(m_textureTypesMutex);
 

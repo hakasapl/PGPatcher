@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace ParallaxGenUtil {
+namespace StringUtil {
 
 // narrow and wide string conversion functions
 auto utf8toUTF16(const std::string& str) -> std::wstring;
@@ -105,4 +105,4 @@ auto asciiFastIEquals(const StringType1& str1,
     return boost::equals(toLowerASCIIFast(str1), toLowerASCIIFast(str2));
 }
 
-} // namespace ParallaxGenUtil
+} // namespace StringUtil

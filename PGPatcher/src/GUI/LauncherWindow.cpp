@@ -1,13 +1,14 @@
 #include "GUI/LauncherWindow.hpp"
 
-#include "BethesdaGame.hpp"
 #include "GUI/DialogModifiableListCtrl.hpp"
 #include "GUI/DialogRecTypeSelector.hpp"
 #include "GUI/DialogTextureMapListCtrl.hpp"
-#include "ModManagerDirectory.hpp"
+#include "PGConfig.hpp"
+#include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
-#include "ParallaxGenConfig.hpp"
-#include "ParallaxGenPlugin.hpp"
+#include "PGPlugin.hpp"
+#include "common/BethesdaGame.hpp"
+
 
 #include <boost/algorithm/string/join.hpp>
 #include <wx/event.h>
@@ -28,7 +29,7 @@ using namespace std;
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 // class LauncherWindow
-LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
+LauncherWindow::LauncherWindow(PGConfig& pgc)
     : wxDialog(nullptr,
                wxID_ANY,
                "PGPatcher " + string(PG_VERSION) + " Launcher",
@@ -103,10 +104,10 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     auto* modManagerSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Conflict Resolution Mod Manager");
 
     isFirst = true;
-    for (const auto& mmType : ModManagerDirectory::getModManagerTypes()) {
+    for (const auto& mmType : PGModManager::getModManagerTypes()) {
         auto* radio = new wxRadioButton(this,
                                         wxID_ANY,
-                                        ModManagerDirectory::getStrFromModManagerType(mmType),
+                                        PGModManager::getStrFromModManagerType(mmType),
                                         wxDefaultPosition,
                                         wxDefaultSize,
                                         isFirst ? wxRB_GROUP : 0);
@@ -183,7 +184,7 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
 
     wxArrayString pluginLangs;
-    for (const auto& lang : ParallaxGenPlugin::getAvailablePluginLangStrs()) {
+    for (const auto& lang : PGPlugin::getAvailablePluginLangStrs()) {
         pluginLangs.Add(lang);
     }
     m_outputPluginLangCombo
@@ -456,12 +457,12 @@ void LauncherWindow::loadConfig()
     }
 
     // Mod Manager
-    for (const auto& mmType : ModManagerDirectory::getModManagerTypes()) {
+    for (const auto& mmType : PGModManager::getModManagerTypes()) {
         if (mmType == initParams.ModManager.type) {
             m_modManagerRadios[mmType]->SetValue(true);
 
             // Show MO2 options only if MO2 is selected
-            if (mmType == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+            if (mmType == PGModManager::ModManagerType::MODORGANIZER2) {
                 m_mo2InstanceLocationTextbox->Enable(true);
                 m_mo2InstanceBrowseButton->Enable(true);
             } else {
@@ -481,8 +482,7 @@ void LauncherWindow::loadConfig()
     // Output
     m_outputLocationTextbox->SetValue(initParams.Output.dir.wstring());
     m_outputZipCheckbox->SetValue(initParams.Output.zip);
-    m_outputPluginLangCombo->SetStringSelection(
-        ParallaxGenPlugin::getStringFromPluginLang(initParams.Output.pluginLang));
+    m_outputPluginLangCombo->SetStringSelection(PGPlugin::getStringFromPluginLang(initParams.Output.pluginLang));
 
     // Processing
     m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
@@ -549,7 +549,7 @@ void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
 {
     // Show MO2 options only if the MO2 radio button is selected
     const bool isMO2Selected
-        = (event.GetEventObject() == m_modManagerRadios[ModManagerDirectory::ModManagerType::MODORGANIZER2]);
+        = (event.GetEventObject() == m_modManagerRadios[PGModManager::ModManagerType::MODORGANIZER2]);
     m_mo2InstanceLocationTextbox->Enable(isMO2Selected);
     m_mo2InstanceBrowseButton->Enable(isMO2Selected);
 
@@ -685,7 +685,7 @@ void LauncherWindow::onSelectPluginTypesBtn([[maybe_unused]] wxCommandEvent& eve
     }
 }
 
-void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
+void LauncherWindow::getParams(PGConfig::PGParams& params) const
 {
     // Game
     for (const auto& gameType : BethesdaGame::getGameTypes()) {
@@ -697,7 +697,7 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     params.Game.dir = m_gameLocationTextbox->GetValue().ToStdWstring();
 
     // Mod Manager
-    for (const auto& mmType : ModManagerDirectory::getModManagerTypes()) {
+    for (const auto& mmType : PGModManager::getModManagerTypes()) {
         if (m_modManagerRadios.at(mmType)->GetValue()) {
             params.ModManager.type = mmType;
             break;
@@ -709,7 +709,7 @@ void LauncherWindow::getParams(ParallaxGenConfig::PGParams& params) const
     params.Output.dir = m_outputLocationTextbox->GetValue().ToStdWstring();
     params.Output.zip = m_outputZipCheckbox->GetValue();
     params.Output.pluginLang
-        = ParallaxGenPlugin::getPluginLangFromString(m_outputPluginLangCombo->GetStringSelection().ToStdString());
+        = PGPlugin::getPluginLangFromString(m_outputPluginLangCombo->GetStringSelection().ToStdString());
 
     // Processing
     params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
@@ -769,7 +769,7 @@ void LauncherWindow::onBrowseMO2InstanceLocation([[maybe_unused]] wxCommandEvent
 void LauncherWindow::updateMO2Items()
 {
     // check if MO2 is selected
-    if (!m_modManagerRadios[ModManagerDirectory::ModManagerType::MODORGANIZER2]->GetValue()) {
+    if (!m_modManagerRadios[PGModManager::ModManagerType::MODORGANIZER2]->GetValue()) {
         // If MO2 is not selected, clear the instance location textbox and return
         m_gameLocationTextbox->Enable(true);
         m_gameLocationBrowseButton->Enable(true);
@@ -783,7 +783,7 @@ void LauncherWindow::updateMO2Items()
     const auto instanceDir = m_mo2InstanceLocationTextbox->GetValue().ToStdWstring();
 
     // Get game path
-    const auto gamePathMO2 = ModManagerDirectory::getGamePathFromInstanceDir(instanceDir);
+    const auto gamePathMO2 = PGModManager::getGamePathFromInstanceDir(instanceDir);
     if (!gamePathMO2.empty()) {
         // found the game path, set it to the game location textbox
         m_gameLocationTextbox->SetValue(gamePathMO2.wstring());
@@ -799,7 +799,7 @@ void LauncherWindow::updateMO2Items()
     }
 
     // Get game type
-    const auto gameTypeMO2 = ModManagerDirectory::getGameTypeFromInstanceDir(instanceDir);
+    const auto gameTypeMO2 = PGModManager::getGameTypeFromInstanceDir(instanceDir);
     if (gameTypeMO2 != BethesdaGame::GameType::UNKNOWN) {
         m_gameTypeRadios[gameTypeMO2]->SetValue(true);
         // disable all radio buttons
@@ -826,7 +826,7 @@ void LauncherWindow::onBrowseOutputLocation([[maybe_unused]] wxCommandEvent& eve
 
 void LauncherWindow::updateDisabledElements()
 {
-    ParallaxGenConfig::PGParams curParams = m_pgc.getParams();
+    PGConfig::PGParams curParams = m_pgc.getParams();
     getParams(curParams);
 
     // Upgrade parallax to CM rules
@@ -906,7 +906,7 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
     }
 
     // Reset the config to the default
-    m_pgc.setParams(ParallaxGenConfig::getDefaultParams());
+    m_pgc.setParams(PGConfig::getDefaultParams());
 
     loadConfig();
 
@@ -916,11 +916,11 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
 auto LauncherWindow::saveConfig() -> bool
 {
     vector<string> errors;
-    ParallaxGenConfig::PGParams params = m_pgc.getParams();
+    PGConfig::PGParams params = m_pgc.getParams();
     getParams(params);
 
     // Validate the parameters
-    if (!ParallaxGenConfig::validateParams(params, errors)) {
+    if (!PGConfig::validateParams(params, errors)) {
         wxMessageDialog errorDialog(this, boost::algorithm::join(errors, "\n"), "Errors", wxOK | wxICON_ERROR);
         errorDialog.ShowModal();
         return false;
@@ -945,7 +945,7 @@ void LauncherWindow::setGamePathBasedOnExe()
     const auto curGameType = curParams.Game.type;
 
     const auto curModManagerType = curParams.ModManager.type;
-    if (curModManagerType == ModManagerDirectory::ModManagerType::MODORGANIZER2) {
+    if (curModManagerType == PGModManager::ModManagerType::MODORGANIZER2) {
         // don't change the game path if MO2 is selected since that's enforced by MO2 instead
         return;
     }

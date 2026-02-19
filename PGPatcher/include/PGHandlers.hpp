@@ -14,7 +14,7 @@
 #include <minidumpapiset.h>
 #include <tlhelp32.h>
 
-class ParallaxGenHandlers {
+class PGHandlers {
 private:
     // Global variables for crash handling
     static inline std::atomic<bool> s_crashLogged {false};
