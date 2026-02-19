@@ -3,7 +3,8 @@
 #include <wx/event.h>
 
 class PGCheckedDragListCtrlEvtItemDragged;
-wxDECLARE_EVENT(pgEVT_CDLC_ITEM_DRAGGED, PGCheckedDragListCtrlEvtItemDragged); // NOLINT(readability-identifier-naming)
+wxDECLARE_EVENT(pgEVT_CDLC_ITEM_DRAGGED, // NOLINT(readability-identifier-naming)
+                PGCheckedDragListCtrlEvtItemDragged);
 
 class PGCheckedDragListCtrlEvtItemDragged : public wxCommandEvent {
 private:
@@ -11,8 +12,11 @@ private:
     long m_newPosition;
 
 public:
-    PGCheckedDragListCtrlEvtItemDragged(long id = wxID_ANY, long item = -1, long pos = -1)
-        : wxCommandEvent(pgEVT_CDLC_ITEM_DRAGGED, id)
+    PGCheckedDragListCtrlEvtItemDragged(long id = wxID_ANY,
+                                        long item = -1,
+                                        long pos = -1)
+        : wxCommandEvent(pgEVT_CDLC_ITEM_DRAGGED,
+                         id)
         , m_itemIndex(item)
         , m_newPosition(pos)
     {

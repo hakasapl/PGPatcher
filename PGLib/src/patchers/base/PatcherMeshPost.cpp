@@ -10,7 +10,11 @@
 
 using namespace std;
 
-PatcherMeshPost::PatcherMeshPost(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName)
-    : PatcherMesh(std::move(nifPath), nif, std::move(patcherName))
+PatcherMeshPost::PatcherMeshPost(std::filesystem::path nifPath,
+                                 nifly::NifFile* nif,
+                                 std::string patcherName)
+    : PatcherMesh(std::move(nifPath),
+                  nif,
+                  std::move(patcherName))
 {
 }

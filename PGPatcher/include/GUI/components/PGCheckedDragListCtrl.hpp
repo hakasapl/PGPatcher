@@ -40,8 +40,11 @@ public:
      * @param sz size
      * @param style window style (default wxLC_REPORT)
      */
-    PGCheckedDragListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pt = wxDefaultPosition,
-        const wxSize& sz = wxDefaultSize, long style = wxLC_REPORT);
+    PGCheckedDragListCtrl(wxWindow* parent,
+                          wxWindowID id,
+                          const wxPoint& pt = wxDefaultPosition,
+                          const wxSize& sz = wxDefaultSize,
+                          long style = wxLC_REPORT);
 
     /**
      * @brief Destroy the PGCheckedDragListCtrl object
@@ -60,7 +63,8 @@ public:
      * @param item item index
      * @param checked true to check, false to uncheck
      */
-    void check(long item, bool checked);
+    void check(long item,
+               bool checked);
 
     /**
      * @brief Check if an item is checked
@@ -77,7 +81,8 @@ public:
      * @param item item index
      * @param ignore true to ignore, false to unignore
      */
-    void ignoreMeshes(long item, bool ignore);
+    void ignoreMeshes(long item,
+                      bool ignore);
 
     /**
      * @brief Check if meshes from a mod (item) are ignored
@@ -163,7 +168,8 @@ private:
      * @param item item index
      * @param checked true if checked, false if unchecked
      */
-    void processCheckItem(long item, bool checked);
+    void processCheckItem(long item,
+                          bool checked);
 
     /**
      * @brief Process multiple items being checked (movement about the cutoff line)
@@ -171,7 +177,8 @@ private:
      * @param items vector of item indices
      * @param checked true if checked, false if unchecked
      */
-    void processCheckItems(const std::vector<long>& items, bool checked);
+    void processCheckItems(const std::vector<long>& items,
+                           bool checked);
 
     /**
      * @brief Move an item from one index to another
@@ -180,7 +187,8 @@ private:
      * @param toIndex index to move to
      * @return long new index of the moved item
      */
-    auto moveItem(long fromIndex, long toIndex) -> long;
+    auto moveItem(long fromIndex,
+                  long toIndex) -> long;
 
     /**
      * @brief Move multiple items from one set of indices to a target index
@@ -189,7 +197,8 @@ private:
      * @param toIndex target index to move to
      * @return std::vector<long> new indices of the moved items (in same order as fromIndices)
      */
-    auto moveItems(const std::vector<long>& fromIndices, long toIndex) -> std::vector<long>;
+    auto moveItems(const std::vector<long>& fromIndices,
+                   long toIndex) -> std::vector<long>;
 
     /**
      * @brief Get currently selected items in the list

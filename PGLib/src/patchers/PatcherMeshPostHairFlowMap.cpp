@@ -21,12 +21,16 @@ auto PatcherMeshPostHairFlowMap::getFactory() -> PatcherMeshPost::PatcherMeshPos
     };
 }
 
-PatcherMeshPostHairFlowMap::PatcherMeshPostHairFlowMap(std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshPost(std::move(nifPath), nif, "HairFlowMap")
+PatcherMeshPostHairFlowMap::PatcherMeshPostHairFlowMap(std::filesystem::path nifPath,
+                                                       nifly::NifFile* nif)
+    : PatcherMeshPost(std::move(nifPath),
+                      nif,
+                      "HairFlowMap")
 {
 }
 
-auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool
+auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots,
+                                            nifly::NiShape& nifShape) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
 

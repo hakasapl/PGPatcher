@@ -175,10 +175,11 @@ public:
 
     static void populateObjs(const std::filesystem::path& existingModPath = {});
 
-    static auto getModelUses(const std::wstring& modelPath)
-        -> std::vector<std::pair<MeshTracker::FormKey, MeshUseAttributes>>;
+    static auto getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<MeshTracker::FormKey,
+                                                                                     MeshUseAttributes>>;
 
     static void setModelUses(const std::vector<MeshTracker::MeshResult>& meshResults);
 
-    static void savePlugin(const std::filesystem::path& outputDir, bool esmify);
+    static void savePlugin(const std::filesystem::path& outputDir,
+                           bool esmify);
 };

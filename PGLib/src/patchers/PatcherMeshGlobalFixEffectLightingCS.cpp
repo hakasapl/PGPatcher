@@ -15,9 +15,11 @@
 
 using namespace std;
 
-PatcherMeshGlobalFixEffectLightingCS::PatcherMeshGlobalFixEffectLightingCS(
-    std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshGlobal(std::move(nifPath), nif, "FixEffectLightingCS")
+PatcherMeshGlobalFixEffectLightingCS::PatcherMeshGlobalFixEffectLightingCS(std::filesystem::path nifPath,
+                                                                           nifly::NifFile* nif)
+    : PatcherMeshGlobal(std::move(nifPath),
+                        nif,
+                        "FixEffectLightingCS")
 {
 }
 

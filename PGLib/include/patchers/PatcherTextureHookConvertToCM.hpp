@@ -26,7 +26,8 @@ public:
 
     static auto initShader() -> bool;
 
-    PatcherTextureHookConvertToCM(std::filesystem::path ddsPath, DirectX::ScratchImage* dds);
+    PatcherTextureHookConvertToCM(std::filesystem::path ddsPath,
+                                  DirectX::ScratchImage* dds);
 
     auto applyPatch() -> bool override;
 };

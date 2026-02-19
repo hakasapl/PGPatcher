@@ -21,7 +21,9 @@ public:
     using PatcherGlobalObject = std::unique_ptr<PatcherTextureGlobal>;
 
     // Constructors
-    PatcherTextureGlobal(std::filesystem::path texPath, DirectX::ScratchImage* tex, std::string patcherName);
+    PatcherTextureGlobal(std::filesystem::path texPath,
+                         DirectX::ScratchImage* tex,
+                         std::string patcherName);
     virtual ~PatcherTextureGlobal() = default;
     PatcherTextureGlobal(const PatcherTextureGlobal& other) = default;
     auto operator=(const PatcherTextureGlobal& other) -> PatcherTextureGlobal& = default;

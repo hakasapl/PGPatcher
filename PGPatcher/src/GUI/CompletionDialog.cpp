@@ -21,8 +21,12 @@
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
 CompletionDialog::CompletionDialog(const long long& timeTaken)
-    : wxDialog(nullptr, wxID_ANY, "PGPatcher Generation Complete", wxDefaultPosition, wxDefaultSize,
-          wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
+    : wxDialog(nullptr,
+               wxID_ANY,
+               "PGPatcher Generation Complete",
+               wxDefaultPosition,
+               wxDefaultSize,
+               wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     // Play system information sound
     wxBell();
@@ -46,9 +50,11 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     contentSizer->Add(icon, 0, wxTOP | wxLEFT | wxBOTTOM | wxALIGN_CENTER_VERTICAL, 10);
 
     // Text
-    auto* text = new wxStaticText(this, wxID_ANY,
-        L"PGPatcher has completed generating output.\n\nProcessing Time: " + std::to_wstring(timeTaken)
-            + L" seconds\nOutput Location:\n" + outputPath.wstring());
+    auto* text
+        = new wxStaticText(this,
+                           wxID_ANY,
+                           L"PGPatcher has completed generating output.\n\nProcessing Time: "
+                               + std::to_wstring(timeTaken) + L" seconds\nOutput Location:\n" + outputPath.wstring());
     text->Wrap(requiredWidth - 80); // Wrap based on calculated width
     contentSizer->Add(text, 1, wxALL | wxALIGN_CENTER_VERTICAL, 15);
 
@@ -135,7 +141,9 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     Centre(); // Center the dialog on screen
 }
 
-void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane, PGLogMessageListCtrl* listCtrl, bool ignoreCheckbox)
+void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
+                                           PGLogMessageListCtrl* listCtrl,
+                                           bool ignoreCheckbox)
 {
     if (pane == nullptr || listCtrl == nullptr) {
         throw std::invalid_argument("pane and listCtrl cannot be null");

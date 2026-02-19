@@ -10,8 +10,11 @@
 
 using namespace std;
 
-PatcherTextureGlobal::PatcherTextureGlobal(
-    std::filesystem::path texPath, DirectX::ScratchImage* tex, std::string patcherName)
-    : PatcherTexture(std::move(texPath), tex, std::move(patcherName))
+PatcherTextureGlobal::PatcherTextureGlobal(std::filesystem::path texPath,
+                                           DirectX::ScratchImage* tex,
+                                           std::string patcherName)
+    : PatcherTexture(std::move(texPath),
+                     tex,
+                     std::move(patcherName))
 {
 }

@@ -4,10 +4,17 @@
 #include <unordered_map>
 #include <vector>
 
-wxDEFINE_EVENT(s_EVT_PG_LOG_IGNORE_CHANGED, wxCommandEvent);
+wxDEFINE_EVENT(s_EVT_PG_LOG_IGNORE_CHANGED,
+               wxCommandEvent);
 
-PGLogMessageListCtrl::PGLogMessageListCtrl(wxWindow* parent, wxWindowID id, bool allowIgnore)
-    : wxListCtrl(parent, id, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_HRULES | wxLC_VRULES | wxLC_NO_HEADER)
+PGLogMessageListCtrl::PGLogMessageListCtrl(wxWindow* parent,
+                                           wxWindowID id,
+                                           bool allowIgnore)
+    : wxListCtrl(parent,
+                 id,
+                 wxDefaultPosition,
+                 wxDefaultSize,
+                 wxLC_REPORT | wxLC_HRULES | wxLC_VRULES | wxLC_NO_HEADER)
     , m_allowIgnore(allowIgnore)
     , m_showIgnored(false)
 {
@@ -36,13 +43,18 @@ void PGLogMessageListCtrl::setLogMessages(const std::vector<wxString>& messages)
     repopulateList();
 }
 
-void PGLogMessageListCtrl::setIgnoreMap(const std::unordered_map<wxString, bool>& ignoredItems)
+void PGLogMessageListCtrl::setIgnoreMap(const std::unordered_map<wxString,
+                                                                 bool>& ignoredItems)
 {
     m_ignoredItems = ignoredItems;
     repopulateList();
 }
 
-auto PGLogMessageListCtrl::getIgnoreMap() const -> const std::unordered_map<wxString, bool>& { return m_ignoredItems; }
+auto PGLogMessageListCtrl::getIgnoreMap() const -> const std::unordered_map<wxString,
+                                                                            bool>&
+{
+    return m_ignoredItems;
+}
 
 auto PGLogMessageListCtrl::getNumUnignoredMessages() const -> size_t
 {

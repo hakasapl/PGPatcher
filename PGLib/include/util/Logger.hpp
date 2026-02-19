@@ -75,7 +75,9 @@ public:
     static void flushThreadedBuffer();
 
     // WString Log functions
-    template <typename... Args> static void critical(const std::wstring& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void critical(const std::wstring& fmt,
+                         Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -92,7 +94,9 @@ public:
         spdlog::critical(L"{}", resolvedStr);
     }
 
-    template <typename... Args> static void error(const std::wstring& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void error(const std::wstring& fmt,
+                      Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -109,7 +113,9 @@ public:
         spdlog::error(L"{}", resolvedStr);
     }
 
-    template <typename... Args> static void warn(const std::wstring& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void warn(const std::wstring& fmt,
+                     Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -126,7 +132,9 @@ public:
         spdlog::warn(L"{}", resolvedStr);
     }
 
-    template <typename... Args> static void info(const std::wstring& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void info(const std::wstring& fmt,
+                     Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -139,7 +147,9 @@ public:
         spdlog::info(L"{}", resolvedStr);
     }
 
-    template <typename... Args> static void debug(const std::wstring& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void debug(const std::wstring& fmt,
+                      Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -152,7 +162,9 @@ public:
         spdlog::debug(L"{}", resolvedStr);
     }
 
-    template <typename... Args> static void trace(const std::wstring& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void trace(const std::wstring& fmt,
+                      Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -166,7 +178,9 @@ public:
     }
 
     // String Log functions
-    template <typename... Args> static void critical(const std::string& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void critical(const std::string& fmt,
+                         Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -183,7 +197,9 @@ public:
         spdlog::critical("{}", resolvedStr);
     }
 
-    template <typename... Args> static void error(const std::string& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void error(const std::string& fmt,
+                      Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -200,7 +216,9 @@ public:
         spdlog::error("{}", resolvedStr);
     }
 
-    template <typename... Args> static void warn(const std::string& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void warn(const std::string& fmt,
+                     Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -217,7 +235,9 @@ public:
         spdlog::warn("{}", resolvedStr);
     }
 
-    template <typename... Args> static void info(const std::string& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void info(const std::string& fmt,
+                     Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -230,7 +250,9 @@ public:
         spdlog::info("{}", resolvedStr);
     }
 
-    template <typename... Args> static void debug(const std::string& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void debug(const std::string& fmt,
+                      Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 
@@ -243,7 +265,9 @@ public:
         spdlog::debug("{}", resolvedStr);
     }
 
-    template <typename... Args> static void trace(const std::string& fmt, Args&&... moreArgs)
+    template <typename... Args>
+    static void trace(const std::string& fmt,
+                      Args&&... moreArgs)
     {
         const std::shared_lock lock(s_mtLogLock);
 

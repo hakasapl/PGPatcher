@@ -35,9 +35,11 @@ using namespace std;
 nlohmann::json PatcherMeshGlobalParticleLightsToLP::s_lpJsonData;
 mutex PatcherMeshGlobalParticleLightsToLP::s_lpJsonDataMutex;
 
-PatcherMeshGlobalParticleLightsToLP::PatcherMeshGlobalParticleLightsToLP(
-    std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshGlobal(std::move(nifPath), nif, "ParticleLightsToLP")
+PatcherMeshGlobalParticleLightsToLP::PatcherMeshGlobalParticleLightsToLP(std::filesystem::path nifPath,
+                                                                         nifly::NifFile* nif)
+    : PatcherMeshGlobal(std::move(nifPath),
+                        nif,
+                        "ParticleLightsToLP")
 {
 }
 
@@ -153,8 +155,9 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
     return appliedPatch;
 }
 
-auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(
-    nifly::NiBillboardNode* node, nifly::NiShape* shape, nifly::BSEffectShaderProperty* effectShader) -> bool
+auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNode* node,
+                                                           nifly::NiShape* shape,
+                                                           nifly::BSEffectShaderProperty* effectShader) -> bool
 {
     // Start generating LP JSON
     nlohmann::json lpJson;
@@ -179,8 +182,9 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(
 
     // Setup points array
     lightEntry["points"] = nlohmann::json::array();
-    lightEntry["points"].push_back(nlohmann::json::array({ round(globalPosition.translation.x * 100.0) / 100.0,
-        round(globalPosition.translation.y * 100.0) / 100.0, round(globalPosition.translation.z * 100.0) / 100.0 }));
+    lightEntry["points"].push_back(nlohmann::json::array({round(globalPosition.translation.x * 100.0) / 100.0,
+                                                          round(globalPosition.translation.y * 100.0) / 100.0,
+                                                          round(globalPosition.translation.z * 100.0) / 100.0}));
 
     // Set Light
     lightEntry["data"]["light"] = "MagicLightWhite01"; // Placeholder light that will be overridden
@@ -202,7 +206,7 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(
         && abs(baseColor.b - 1.0) < MIN_VALUE && shape->HasVertexColors();
     if (getColorFromVertex) {
         // Reset basecolor
-        baseColor = { 0, 0, 0, 0 };
+        baseColor = {0, 0, 0, 0};
 
         // Get color from vertex
         for (const auto& vertex : vertData) {
@@ -220,7 +224,7 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(
     }
 
     lightEntry["data"]["color"] = nlohmann::json::array(
-        { static_cast<int>(baseColor.r), static_cast<int>(baseColor.g), static_cast<int>(baseColor.b) });
+        {static_cast<int>(baseColor.r), static_cast<int>(baseColor.g), static_cast<int>(baseColor.b)});
 
     // Calculate radius from average of vertex distances
     double radius = 0.0;
@@ -265,8 +269,8 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(
     return true;
 }
 
-auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeController* controller, string& jsonField)
-    -> nlohmann::json
+auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeController* controller,
+                                                            string& jsonField) -> nlohmann::json
 {
     nlohmann::json controllerJson = nlohmann::json::object();
 
@@ -365,24 +369,27 @@ auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeControl
             const auto curKey = fadeDataBlock->data.GetKey(static_cast<int>(i));
 
             controllerJson["keys"].push_back(
-                nlohmann::json::object({ { "time", round(curKey.time * ROUNDING_VALUE) / ROUNDING_VALUE },
-                    { "value", round(curKey.value * ROUNDING_VALUE) / ROUNDING_VALUE },
-                    { "forward", round(curKey.forward * ROUNDING_VALUE) / ROUNDING_VALUE },
-                    { "backward", round(curKey.backward * ROUNDING_VALUE) / ROUNDING_VALUE } }));
+                nlohmann::json::object({{"time", round(curKey.time * ROUNDING_VALUE) / ROUNDING_VALUE},
+                                        {"value", round(curKey.value * ROUNDING_VALUE) / ROUNDING_VALUE},
+                                        {"forward", round(curKey.forward * ROUNDING_VALUE) / ROUNDING_VALUE},
+                                        {"backward", round(curKey.backward * ROUNDING_VALUE) / ROUNDING_VALUE}}));
         } else if (colorController != nullptr) {
             const auto curKey = colorDataBlock->data.GetKey(static_cast<int>(i));
 
             controllerJson["keys"].push_back(
-                nlohmann::json::object({ { "time", round(curKey.time * ROUNDING_VALUE) / ROUNDING_VALUE },
-                    { "color",
-                        nlohmann::json::array({ static_cast<int>(curKey.value.x), static_cast<int>(curKey.value.y),
-                            static_cast<int>(curKey.value.z) }) },
-                    { "forward",
-                        nlohmann::json::array({ static_cast<int>(curKey.forward.x), static_cast<int>(curKey.forward.y),
-                            static_cast<int>(curKey.forward.z) }) },
-                    { "backward",
-                        nlohmann::json::array({ static_cast<int>(curKey.backward.x),
-                            static_cast<int>(curKey.backward.y), static_cast<int>(curKey.backward.z) }) } }));
+                nlohmann::json::object({{"time", round(curKey.time * ROUNDING_VALUE) / ROUNDING_VALUE},
+                                        {"color",
+                                         nlohmann::json::array({static_cast<int>(curKey.value.x),
+                                                                static_cast<int>(curKey.value.y),
+                                                                static_cast<int>(curKey.value.z)})},
+                                        {"forward",
+                                         nlohmann::json::array({static_cast<int>(curKey.forward.x),
+                                                                static_cast<int>(curKey.forward.y),
+                                                                static_cast<int>(curKey.forward.z)})},
+                                        {"backward",
+                                         nlohmann::json::array({static_cast<int>(curKey.backward.x),
+                                                                static_cast<int>(curKey.backward.y),
+                                                                static_cast<int>(curKey.backward.z)})}}));
         }
     }
 

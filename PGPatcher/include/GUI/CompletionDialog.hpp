@@ -22,7 +22,9 @@ public:
     CompletionDialog(const long long& timeTaken);
 
 private:
-    void setupLogMessagePane(wxCollapsiblePane* pane, PGLogMessageListCtrl* listCtrl, bool ignoreCheckbox = true);
+    void setupLogMessagePane(wxCollapsiblePane* pane,
+                             PGLogMessageListCtrl* listCtrl,
+                             bool ignoreCheckbox = true);
 
     /**
      * @brief Event handler that triggers when the open file location button is pressed

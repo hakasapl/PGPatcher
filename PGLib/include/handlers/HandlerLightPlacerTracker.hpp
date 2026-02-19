@@ -18,7 +18,8 @@ private:
         nlohmann::json jsonData;
         bool changed = false;
 
-        LPJSON(std::filesystem::path path, nlohmann::json data = {})
+        LPJSON(std::filesystem::path path,
+               nlohmann::json data = {})
             : jsonPath(std::move(path))
             , jsonData(std::move(data))
         {
@@ -44,7 +45,8 @@ public:
      * @param baseNIFPath base NIF path
      * @param createdNIFPath created NIF path (which may be the same)
      */
-    static void handleNIFCreated(const std::filesystem::path& baseNIFPath, const std::filesystem::path& createdNIFPath);
+    static void handleNIFCreated(const std::filesystem::path& baseNIFPath,
+                                 const std::filesystem::path& createdNIFPath);
 
     /**
      * @brief Finalizes the light placer tracker, releasing any resources and cleaning up. NOT THREAD SAFE

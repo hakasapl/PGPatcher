@@ -17,8 +17,13 @@
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
 ProgressWindow::ProgressWindow()
-    : wxDialog(nullptr, wxID_ANY, "PGPatcher Generation Progress", wxDefaultPosition, wxSize(300, 150),
-          wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
+    : wxDialog(nullptr,
+               wxID_ANY,
+               "PGPatcher Generation Progress",
+               wxDefaultPosition,
+               wxSize(300,
+                      150),
+               wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
 {
     const wxIcon icon(wxICON(IDI_ICON1));
     SetIcon(icon);
@@ -64,7 +69,9 @@ ProgressWindow::ProgressWindow()
     Centre();
 }
 
-void ProgressWindow::setMainProgress(int done, int total, bool addToLabel)
+void ProgressWindow::setMainProgress(int done,
+                                     int total,
+                                     bool addToLabel)
 {
     int perc = 0;
     if (total > 0) {
@@ -87,7 +94,9 @@ void ProgressWindow::setMainLabel(const std::string& label)
     m_mainStatusText->Update();
 }
 
-void ProgressWindow::setStepProgress(int done, int total, bool addToLabel)
+void ProgressWindow::setStepProgress(int done,
+                                     int total,
+                                     bool addToLabel)
 {
     int perc = 0;
     if (total > 0) {

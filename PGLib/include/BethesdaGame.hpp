@@ -48,8 +48,10 @@ private:
 
 public:
     // constructor
-    BethesdaGame(GameType gameType, const std::filesystem::path& gamePath = "",
-        const std::filesystem::path& appDataPath = "", const std::filesystem::path& documentPath = "");
+    BethesdaGame(GameType gameType,
+                 const std::filesystem::path& gamePath = "",
+                 const std::filesystem::path& appDataPath = "",
+                 const std::filesystem::path& documentPath = "");
 
     // get functions
     [[nodiscard]] auto getGameType() const -> GameType;
@@ -60,14 +62,15 @@ public:
     [[nodiscard]] auto getPluginsFile() const -> std::filesystem::path;
 
     // Get number of active plugins including Bethesda master files
-    [[nodiscard]] auto getActivePlugins(const bool& trimExtension = false, const bool& lowercase = false) const
-        -> std::vector<std::wstring>;
+    [[nodiscard]] auto getActivePlugins(const bool& trimExtension = false,
+                                        const bool& lowercase = false) const -> std::vector<std::wstring>;
 
     // Helpers
     [[nodiscard]] static auto getGameTypes() -> std::vector<GameType>;
     [[nodiscard]] static auto getStrFromGameType(const GameType& type) -> std::string;
     [[nodiscard]] static auto getGameTypeFromStr(const std::string& type) -> GameType;
-    [[nodiscard]] static auto isGamePathValid(const std::filesystem::path& gamePath, const GameType& type) -> bool;
+    [[nodiscard]] static auto isGamePathValid(const std::filesystem::path& gamePath,
+                                              const GameType& type) -> bool;
 
     // locates the steam install locatino of steam
     [[nodiscard]] static auto findGamePathFromSteam(const GameType& type) -> std::filesystem::path;

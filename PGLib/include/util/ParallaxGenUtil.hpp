@@ -37,11 +37,16 @@ auto toLowerASCII(const std::wstring& str) -> std::wstring;
 // Get the file bytes of a file
 auto getFileBytes(const std::filesystem::path& filePath) -> std::vector<std::byte>;
 
-auto getJSON(const std::filesystem::path& filePath, nlohmann::json& json) -> bool;
-auto getJSONFromBytes(const std::vector<std::byte>& bytes, nlohmann::json& json) -> bool;
-auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json, const bool& readable) -> bool;
+auto getJSON(const std::filesystem::path& filePath,
+             nlohmann::json& json) -> bool;
+auto getJSONFromBytes(const std::vector<std::byte>& bytes,
+                      nlohmann::json& json) -> bool;
+auto saveJSON(const std::filesystem::path& filePath,
+              const nlohmann::json& json,
+              const bool& readable) -> bool;
 
-auto checkIfStringInJSONArray(const nlohmann::json& json, const std::string& str) -> bool;
+auto checkIfStringInJSONArray(const nlohmann::json& json,
+                              const std::string& str) -> bool;
 
 /**
  * @brief Get the Plugin Path From Data Path object (removes textures or meshes from beginning of path)
@@ -53,13 +58,17 @@ auto checkIfStringInJSONArray(const nlohmann::json& json, const std::string& str
 auto getPluginPathFromDataPath(const std::filesystem::path& dataPath) -> std::filesystem::path;
 
 // Template Functions
-template <typename T> auto isInVector(const std::vector<T>& vec, const T& test) -> bool
+template <typename T>
+auto isInVector(const std::vector<T>& vec,
+                const T& test) -> bool
 {
     return std::find(vec.begin(), vec.end(), test) != vec.end();
 }
 
 // concatenates two vectors without duplicates
-template <typename T> void concatenateVectorsWithoutDuplicates(std::vector<T>& vec1, const std::vector<T>& vec2)
+template <typename T>
+void concatenateVectorsWithoutDuplicates(std::vector<T>& vec1,
+                                         const std::vector<T>& vec2)
 {
     std::unordered_set<T> set(vec1.begin(), vec1.end());
 
@@ -72,7 +81,9 @@ template <typename T> void concatenateVectorsWithoutDuplicates(std::vector<T>& v
 };
 
 // adds an element to a vector if it is not already present
-template <typename T> void addUniqueElement(std::vector<T>& vec, const T& element)
+template <typename T>
+void addUniqueElement(std::vector<T>& vec,
+                      const T& element)
 {
     if (std::find(vec.begin(), vec.end(), element) == vec.end()) {
         vec.push_back(element);
@@ -86,8 +97,10 @@ auto toLowerASCIIFast(const std::wstring& str) -> std::wstring;
 auto toLowerASCIIFastInPlace(std::string& str) -> void;
 auto toLowerASCIIFastInPlace(std::wstring& str) -> void;
 
-template <typename StringType1, typename StringType2>
-auto asciiFastIEquals(const StringType1& str1, const StringType2& str2) -> bool
+template <typename StringType1,
+          typename StringType2>
+auto asciiFastIEquals(const StringType1& str1,
+                      const StringType2& str2) -> bool
 {
     return boost::equals(toLowerASCIIFast(str1), toLowerASCIIFast(str2));
 }

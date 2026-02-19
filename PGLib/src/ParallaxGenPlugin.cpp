@@ -92,7 +92,9 @@ auto ParallaxGenPlugin::getDefaultRecTypeSet() -> std::unordered_set<ModelRecord
     return defaultSet;
 }
 
-void ParallaxGenPlugin::initialize(const BethesdaGame& game, const filesystem::path& exePath, const PluginLang& lang)
+void ParallaxGenPlugin::initialize(const BethesdaGame& game,
+                                   const filesystem::path& exePath,
+                                   const PluginLang& lang)
 {
     // Maps BethesdaGame::GameType to Mutagen game type
     static const unordered_map<BethesdaGame::GameType, int> mutagenGameTypeMap
@@ -115,8 +117,8 @@ void ParallaxGenPlugin::populateObjs(const filesystem::path& existingModPath)
     PGMutagenWrapper::libPopulateObjs(existingModPath);
 }
 
-auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath)
-    -> std::vector<std::pair<MeshTracker::FormKey, MeshUseAttributes>>
+auto ParallaxGenPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<MeshTracker::FormKey,
+                                                                                             MeshUseAttributes>>
 {
     vector<pair<MeshTracker::FormKey, MeshUseAttributes>> result;
 
@@ -226,7 +228,8 @@ void ParallaxGenPlugin::setModelUses(const std::vector<MeshTracker::MeshResult>&
     PGMutagenWrapper::libSetModelUses(modelUses);
 }
 
-void ParallaxGenPlugin::savePlugin(const filesystem::path& outputDir, bool esmify)
+void ParallaxGenPlugin::savePlugin(const filesystem::path& outputDir,
+                                   bool esmify)
 {
     PGMutagenWrapper::libFinalize(outputDir, esmify);
     // TODO add to generated files

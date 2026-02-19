@@ -19,13 +19,16 @@ auto PatcherMeshPreFixTextureSlotCount::getFactory() -> PatcherMeshPre::PatcherM
     };
 }
 
-PatcherMeshPreFixTextureSlotCount::PatcherMeshPreFixTextureSlotCount(std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshPre(std::move(nifPath), nif, "FixTextureSlotCount")
+PatcherMeshPreFixTextureSlotCount::PatcherMeshPreFixTextureSlotCount(std::filesystem::path nifPath,
+                                                                     nifly::NifFile* nif)
+    : PatcherMeshPre(std::move(nifPath),
+                     nif,
+                     "FixTextureSlotCount")
 {
 }
 
-auto PatcherMeshPreFixTextureSlotCount::applyPatch(
-    [[maybe_unused]] NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool
+auto PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] NIFUtil::TextureSet& slots,
+                                                   nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
 

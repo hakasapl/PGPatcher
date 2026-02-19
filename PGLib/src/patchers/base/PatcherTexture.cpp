@@ -10,7 +10,9 @@
 
 using namespace std;
 
-PatcherTexture::PatcherTexture(filesystem::path ddsPath, DirectX::ScratchImage* dds, string patcherName)
+PatcherTexture::PatcherTexture(filesystem::path ddsPath,
+                               DirectX::ScratchImage* dds,
+                               string patcherName)
     : Patcher(std::move(patcherName))
     , m_ddsPath(std::move(ddsPath))
     , m_dds(dds)

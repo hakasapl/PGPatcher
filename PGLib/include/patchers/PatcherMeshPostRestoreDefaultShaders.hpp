@@ -24,7 +24,8 @@ public:
      * @param nifPath NIF path to be patched
      * @param nif NIF object to be patched
      */
-    PatcherMeshPostRestoreDefaultShaders(std::filesystem::path nifPath, nifly::NifFile* nif);
+    PatcherMeshPostRestoreDefaultShaders(std::filesystem::path nifPath,
+                                         nifly::NifFile* nif);
 
     /**
      * @brief Apply this patcher to shape
@@ -33,11 +34,12 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool override;
+    auto applyPatch(NIFUtil::TextureSet& slots,
+                    nifly::NiShape& nifShape) -> bool override;
 
 private:
-    static auto restoreDefaultShaderFromParallax(
-        NIFUtil::TextureSet& slots, nifly::BSLightingShaderProperty& shaderProp) -> bool;
-    static auto restoreDefaultShaderFromComplexMaterial(
-        NIFUtil::TextureSet& slots, nifly::BSLightingShaderProperty& shaderProp) -> bool;
+    static auto restoreDefaultShaderFromParallax(NIFUtil::TextureSet& slots,
+                                                 nifly::BSLightingShaderProperty& shaderProp) -> bool;
+    static auto restoreDefaultShaderFromComplexMaterial(NIFUtil::TextureSet& slots,
+                                                        nifly::BSLightingShaderProperty& shaderProp) -> bool;
 };

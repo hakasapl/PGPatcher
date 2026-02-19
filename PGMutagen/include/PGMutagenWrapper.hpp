@@ -35,10 +35,14 @@ public:
         std::vector<AlternateTexture> alternateTextures;
     };
 
-    static void libInitialize(const int& gameType, const std::wstring& exePath, const std::wstring& dataPath,
-        const std::vector<std::wstring>& loadOrder = {}, const unsigned int& lang = 0);
+    static void libInitialize(const int& gameType,
+                              const std::wstring& exePath,
+                              const std::wstring& dataPath,
+                              const std::vector<std::wstring>& loadOrder = {},
+                              const unsigned int& lang = 0);
     static void libPopulateObjs(const std::filesystem::path& existingModPath = {});
-    static void libFinalize(const std::filesystem::path& outputPath, const bool& esmify);
+    static void libFinalize(const std::filesystem::path& outputPath,
+                            const bool& esmify);
 
     static auto libGetModelUses(const std::wstring& modelPath) -> std::vector<ModelUse>;
     static void libSetModelUses(const std::vector<ModelUse>& modelUses);

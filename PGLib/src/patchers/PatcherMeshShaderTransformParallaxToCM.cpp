@@ -35,21 +35,25 @@ auto PatcherMeshShaderTransformParallaxToCM::getToShader() -> NIFUtil::ShapeShad
     return NIFUtil::ShapeShader::COMPLEXMATERIAL;
 }
 
-PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(
-    std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshShaderTransform(std::move(nifPath), nif, "UpgradeParallaxToCM", NIFUtil::ShapeShader::VANILLAPARALLAX,
-          NIFUtil::ShapeShader::COMPLEXMATERIAL)
+PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(std::filesystem::path nifPath,
+                                                                               nifly::NifFile* nif)
+    : PatcherMeshShaderTransform(std::move(nifPath),
+                                 nif,
+                                 "UpgradeParallaxToCM",
+                                 NIFUtil::ShapeShader::VANILLAPARALLAX,
+                                 NIFUtil::ShapeShader::COMPLEXMATERIAL)
 {
 }
 
 auto PatcherMeshShaderTransformParallaxToCM::shouldTransform(
-    [[maybe_unused]] const PatcherMeshShader::PatcherMatch& baseMatch, bool canApplyBaseShader) -> bool
+    [[maybe_unused]] const PatcherMeshShader::PatcherMatch& baseMatch,
+    bool canApplyBaseShader) -> bool
 {
     return !canApplyBaseShader || !s_onlyWhenRequired;
 }
 
-auto PatcherMeshShaderTransformParallaxToCM::transform(
-    const PatcherMeshShader::PatcherMatch& fromMatch, PatcherMeshShader::PatcherMatch& result) -> bool
+auto PatcherMeshShaderTransformParallaxToCM::transform(const PatcherMeshShader::PatcherMatch& fromMatch,
+                                                       PatcherMeshShader::PatcherMatch& result) -> bool
 {
     const auto heightMap = fromMatch.matchedPath;
 

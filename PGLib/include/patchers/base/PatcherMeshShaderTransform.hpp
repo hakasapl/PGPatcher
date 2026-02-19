@@ -27,15 +27,20 @@ public:
     using PatcherMeshShaderTransformObject = std::unique_ptr<PatcherMeshShaderTransform>;
 
     // Constructors
-    PatcherMeshShaderTransform(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName,
-        const NIFUtil::ShapeShader& from, const NIFUtil::ShapeShader& to);
+    PatcherMeshShaderTransform(std::filesystem::path nifPath,
+                               nifly::NifFile* nif,
+                               std::string patcherName,
+                               const NIFUtil::ShapeShader& from,
+                               const NIFUtil::ShapeShader& to);
     virtual ~PatcherMeshShaderTransform() = default;
     PatcherMeshShaderTransform(const PatcherMeshShaderTransform& other) = default;
     auto operator=(const PatcherMeshShaderTransform& other) -> PatcherMeshShaderTransform& = default;
     PatcherMeshShaderTransform(PatcherMeshShaderTransform&& other) noexcept = default;
     auto operator=(PatcherMeshShaderTransform&& other) noexcept -> PatcherMeshShaderTransform& = default;
 
-    virtual auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch, bool canApplyBaseShader) -> bool = 0;
+    virtual auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch,
+                                 bool canApplyBaseShader) -> bool
+        = 0;
 
     /**
      * @brief Transform shader match to new shader match
@@ -43,7 +48,7 @@ public:
      * @param FromMatch shader match to transform
      * @return PatcherShader::PatcherMatch transformed match
      */
-    virtual auto transform(const PatcherMeshShader::PatcherMatch& fromMatch, PatcherMeshShader::PatcherMatch& result)
-        -> bool
+    virtual auto transform(const PatcherMeshShader::PatcherMatch& fromMatch,
+                           PatcherMeshShader::PatcherMatch& result) -> bool
         = 0;
 };

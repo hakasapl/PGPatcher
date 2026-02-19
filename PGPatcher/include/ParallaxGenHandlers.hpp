@@ -17,7 +17,7 @@
 class ParallaxGenHandlers {
 private:
     // Global variables for crash handling
-    static inline std::atomic<bool> s_crashLogged { false };
+    static inline std::atomic<bool> s_crashLogged {false};
 
     static constexpr const char* CRASHDUMP_DIR = "log";
 

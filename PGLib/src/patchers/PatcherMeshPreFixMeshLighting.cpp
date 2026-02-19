@@ -20,13 +20,16 @@ auto PatcherMeshPreFixMeshLighting::getFactory() -> PatcherMeshPre::PatcherMeshP
     };
 }
 
-PatcherMeshPreFixMeshLighting::PatcherMeshPreFixMeshLighting(std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshPre(std::move(nifPath), nif, "FixMeshLighting")
+PatcherMeshPreFixMeshLighting::PatcherMeshPreFixMeshLighting(std::filesystem::path nifPath,
+                                                             nifly::NifFile* nif)
+    : PatcherMeshPre(std::move(nifPath),
+                     nif,
+                     "FixMeshLighting")
 {
 }
 
-auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] NIFUtil::TextureSet& slots, nifly::NiShape& nifShape)
-    -> bool
+auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] NIFUtil::TextureSet& slots,
+                                               nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);

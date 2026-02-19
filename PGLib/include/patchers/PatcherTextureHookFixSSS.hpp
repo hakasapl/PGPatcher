@@ -33,7 +33,8 @@ public:
 
     static auto initShader() -> bool;
 
-    PatcherTextureHookFixSSS(std::filesystem::path ddsPath, DirectX::ScratchImage* dds);
+    PatcherTextureHookFixSSS(std::filesystem::path ddsPath,
+                             DirectX::ScratchImage* dds);
 
     auto applyPatch() -> bool override;
 };

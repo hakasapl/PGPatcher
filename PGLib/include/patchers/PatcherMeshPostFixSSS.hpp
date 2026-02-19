@@ -23,7 +23,8 @@ public:
      * @param nifPath NIF path to be patched
      * @param nif NIF object to be patched
      */
-    PatcherMeshPostFixSSS(std::filesystem::path nifPath, nifly::NifFile* nif);
+    PatcherMeshPostFixSSS(std::filesystem::path nifPath,
+                          nifly::NifFile* nif);
 
     /**
      * @brief Apply this patcher to shape
@@ -32,5 +33,6 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool override;
+    auto applyPatch(NIFUtil::TextureSet& slots,
+                    nifly::NiShape& nifShape) -> bool override;
 };

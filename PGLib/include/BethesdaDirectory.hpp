@@ -29,7 +29,10 @@ private:
      * archive object, which is where files can be accessed
      */
     struct BSAFile {
-        BSAFile(std::filesystem::path p, std::filesystem::path rp, bsa::tes4::version v, bsa::tes4::archive a)
+        BSAFile(std::filesystem::path p,
+                std::filesystem::path rp,
+                bsa::tes4::version v,
+                bsa::tes4::archive a)
             : path(std::move(p))
             , relPath(std::move(rp))
             , version(v)
@@ -100,7 +103,8 @@ public:
      * @param bg BethesdaGame object corresponding to load order
      * @param logging Whether to enable CLI logging
      */
-    BethesdaDirectory(BethesdaGame* bg, std::filesystem::path generatedPath = "");
+    BethesdaDirectory(BethesdaGame* bg,
+                      std::filesystem::path generatedPath = "");
 
     /**
      * @brief Construct a new Bethesda Directory object without a game type, for generic folders only
@@ -110,7 +114,8 @@ public:
      * @param mmd ModManagerDirectory object
      * @param logging Whether to enable CLI logging
      */
-    BethesdaDirectory(std::filesystem::path dataPath, std::filesystem::path generatedPath = "");
+    BethesdaDirectory(std::filesystem::path dataPath,
+                      std::filesystem::path generatedPath = "");
 
     /**
      * @brief Populate file map with all files in the load order
@@ -122,7 +127,8 @@ public:
      *
      * @return std::map<std::filesystem::path, BethesdaFile>
      */
-    [[nodiscard]] auto getFileMap() const -> const std::map<std::filesystem::path, BethesdaFile>&;
+    [[nodiscard]] auto getFileMap() const -> const std::map<std::filesystem::path,
+                                                            BethesdaFile>&;
 
     /**
      * @brief Get the data directory path
@@ -234,8 +240,8 @@ public:
      * @param file File to check
      * @param bsaFiles List of BSA files to check against
      */
-    [[nodiscard]] auto isFileInBSA(const std::filesystem::path& file, const std::vector<std::wstring>& bsaFiles)
-        -> bool;
+    [[nodiscard]] auto isFileInBSA(const std::filesystem::path& file,
+                                   const std::vector<std::wstring>& bsaFiles) -> bool;
 
     /**
      * @brief Check if any component on a path is in a list of components
@@ -245,8 +251,8 @@ public:
      * @return true if any component is in the path
      * @return false if no component is in the path
      */
-    static auto checkIfAnyComponentIs(const std::filesystem::path& path, const std::vector<std::wstring>& components)
-        -> bool;
+    static auto checkIfAnyComponentIs(const std::filesystem::path& path,
+                                      const std::vector<std::wstring>& components) -> bool;
 
     /**
      * @brief Check if any glob in list matches string. Globs are basic MS-DOS wildcards, a * represents any number of
@@ -257,7 +263,8 @@ public:
      * @return true if any match
      * @return false if none match
      */
-    static auto checkGlob(const std::wstring& str, const std::vector<std::wstring>& globList) -> bool;
+    static auto checkGlob(const std::wstring& str,
+                          const std::vector<std::wstring>& globList) -> bool;
 
     /**
      * @brief Check if file or folder is hidden
@@ -318,8 +325,8 @@ private:
      * @param pluginPrefix Plugin to check without extension
      * @return std::vector<std::wstring> list of BSAs loaded with plugin
      */
-    [[nodiscard]] static auto findBSAFilesFromPluginName(
-        const std::vector<std::wstring>& bsaFileList, const std::wstring& pluginPrefix) -> std::vector<std::wstring>;
+    [[nodiscard]] static auto findBSAFilesFromPluginName(const std::vector<std::wstring>& bsaFileList,
+                                                         const std::wstring& pluginPrefix) -> std::vector<std::wstring>;
 
     /**
      * @brief Get a file object from the file map
@@ -335,8 +342,9 @@ private:
      * @param filePath path to update or add
      * @param bsaFile BSA file or nullptr if it doesn't exist
      */
-    void updateFileMap(
-        const std::filesystem::path& filePath, std::shared_ptr<BSAFile> bsaFile, const bool& generated = false);
+    void updateFileMap(const std::filesystem::path& filePath,
+                       std::shared_ptr<BSAFile> bsaFile,
+                       const bool& generated = false);
 
     /**
      * @brief Convert a list of wstrings to a LPCWSTRs
@@ -356,8 +364,12 @@ private:
      * @return true Any glob is the list mated
      * @return false No globs in the list matched
      */
-    static auto checkGlob(const LPCWSTR& str, LPCWSTR& winningGlob, const std::vector<LPCWSTR>& globList) -> bool;
+    static auto checkGlob(const LPCWSTR& str,
+                          LPCWSTR& winningGlob,
+                          const std::vector<LPCWSTR>& globList) -> bool;
 
-    static auto readINIValue(const std::filesystem::path& iniPath, const std::wstring& section, const std::wstring& key,
-        const bool& firstINIRead) -> std::wstring;
+    static auto readINIValue(const std::filesystem::path& iniPath,
+                             const std::wstring& section,
+                             const std::wstring& key,
+                             const bool& firstINIRead) -> std::wstring;
 };

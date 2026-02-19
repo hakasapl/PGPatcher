@@ -34,8 +34,11 @@ using namespace std;
 auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
 {
     const static unordered_map<NIFUtil::ShapeShader, string> strFromShaderMap
-        = { { ShapeShader::NONE, "Default" }, { ShapeShader::UNKNOWN, "Unknown" }, { ShapeShader::TRUEPBR, "PBR" },
-              { ShapeShader::COMPLEXMATERIAL, "Complex Material" }, { ShapeShader::VANILLAPARALLAX, "Parallax" } };
+        = {{ShapeShader::NONE, "Default"},
+           {ShapeShader::UNKNOWN, "Unknown"},
+           {ShapeShader::TRUEPBR, "PBR"},
+           {ShapeShader::COMPLEXMATERIAL, "Complex Material"},
+           {ShapeShader::VANILLAPARALLAX, "Parallax"}};
 
     if (strFromShaderMap.find(shader) != strFromShaderMap.end()) {
         return strFromShaderMap.at(shader);
@@ -47,8 +50,11 @@ auto NIFUtil::getStrFromShader(const ShapeShader& shader) -> string
 auto NIFUtil::getShaderFromStr(const string& shader) -> ShapeShader
 {
     const static unordered_map<string, ShapeShader> shaderFromStrMap
-        = { { "Default", ShapeShader::NONE }, { "Unknown", ShapeShader::UNKNOWN }, { "PBR", ShapeShader::TRUEPBR },
-              { "Complex Material", ShapeShader::COMPLEXMATERIAL }, { "Parallax", ShapeShader::VANILLAPARALLAX } };
+        = {{"Default", ShapeShader::NONE},
+           {"Unknown", ShapeShader::UNKNOWN},
+           {"PBR", ShapeShader::TRUEPBR},
+           {"Complex Material", ShapeShader::COMPLEXMATERIAL},
+           {"Parallax", ShapeShader::VANILLAPARALLAX}};
 
     const auto searchKey = ParallaxGenUtil::toLowerASCIIFast(shader);
     if (shaderFromStrMap.find(searchKey) != shaderFromStrMap.end()) {
@@ -86,8 +92,10 @@ auto NIFUtil::getStrFromTextureSlots(const TextureSet& slots) -> string
 auto NIFUtil::getStrFromTexAttribute(const TextureAttribute& attribute) -> std::string
 {
     static unordered_map<TextureAttribute, string> strFromTexAttributeMap
-        = { { TextureAttribute::CM_ENVMASK, "CM_ENVMASK" }, { TextureAttribute::CM_GLOSSINESS, "CM_GLOSSINESS" },
-              { TextureAttribute::CM_METALNESS, "CM_METALNESS" }, { TextureAttribute::CM_HEIGHT, "CM_HEIGHT" } };
+        = {{TextureAttribute::CM_ENVMASK, "CM_ENVMASK"},
+           {TextureAttribute::CM_GLOSSINESS, "CM_GLOSSINESS"},
+           {TextureAttribute::CM_METALNESS, "CM_METALNESS"},
+           {TextureAttribute::CM_HEIGHT, "CM_HEIGHT"}};
 
     if (strFromTexAttributeMap.find(attribute) != strFromTexAttributeMap.end()) {
         return strFromTexAttributeMap[attribute];
@@ -130,45 +138,58 @@ auto NIFUtil::getDefaultTextureType(const TextureSlots& slot) -> TextureType
     }
 }
 
-auto NIFUtil::getTexSuffixMap() -> map<wstring, tuple<NIFUtil::TextureSlots, NIFUtil::TextureType>>
+auto NIFUtil::getTexSuffixMap() -> map<wstring,
+                                       tuple<NIFUtil::TextureSlots,
+                                             NIFUtil::TextureType>>
 {
     static const map<wstring, tuple<NIFUtil::TextureSlots, NIFUtil::TextureType>> textureSuffixMap
-        = { { L"_bl", { NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::BACKLIGHT } },
-              { L"_b", { NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::BACKLIGHT } },
-              { L"_flow", { NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::HAIR_FLOWMAP } },
-              { L"_cnr", { NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::COATNORMALROUGHNESS } },
-              { L"_s", { NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::SUBSURFACETINT } },
-              { L"_i", { NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::INNERLAYER } },
-              { L"_f", { NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::FUZZPBR } },
-              { L"_rmaos", { NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::RMAOS } },
-              { L"_envmask", { NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::ENVIRONMENTMASK } },
-              { L"_em", { NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::ENVIRONMENTMASK } },
-              { L"_m", { NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::ENVIRONMENTMASK } },
-              { L"_e", { NIFUtil::TextureSlots::CUBEMAP, NIFUtil::TextureType::CUBEMAP } },
-              { L"_p", { NIFUtil::TextureSlots::PARALLAX, NIFUtil::TextureType::HEIGHT } },
-              { L"_sk", { NIFUtil::TextureSlots::GLOW, NIFUtil::TextureType::SKINTINT } },
-              { L"_g", { NIFUtil::TextureSlots::GLOW, NIFUtil::TextureType::EMISSIVE } },
-              { L"_msn", { NIFUtil::TextureSlots::NORMAL, NIFUtil::TextureType::NORMAL } },
-              { L"_n", { NIFUtil::TextureSlots::NORMAL, NIFUtil::TextureType::NORMAL } },
-              { L"_d", { NIFUtil::TextureSlots::DIFFUSE, NIFUtil::TextureType::DIFFUSE } },
-              { L"mask", { NIFUtil::TextureSlots::DIFFUSE, NIFUtil::TextureType::DIFFUSE } } };
+        = {{L"_bl", {NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::BACKLIGHT}},
+           {L"_b", {NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::BACKLIGHT}},
+           {L"_flow", {NIFUtil::TextureSlots::BACKLIGHT, NIFUtil::TextureType::HAIR_FLOWMAP}},
+           {L"_cnr", {NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::COATNORMALROUGHNESS}},
+           {L"_s", {NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::SUBSURFACETINT}},
+           {L"_i", {NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::INNERLAYER}},
+           {L"_f", {NIFUtil::TextureSlots::MULTILAYER, NIFUtil::TextureType::FUZZPBR}},
+           {L"_rmaos", {NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::RMAOS}},
+           {L"_envmask", {NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::ENVIRONMENTMASK}},
+           {L"_em", {NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::ENVIRONMENTMASK}},
+           {L"_m", {NIFUtil::TextureSlots::ENVMASK, NIFUtil::TextureType::ENVIRONMENTMASK}},
+           {L"_e", {NIFUtil::TextureSlots::CUBEMAP, NIFUtil::TextureType::CUBEMAP}},
+           {L"_p", {NIFUtil::TextureSlots::PARALLAX, NIFUtil::TextureType::HEIGHT}},
+           {L"_sk", {NIFUtil::TextureSlots::GLOW, NIFUtil::TextureType::SKINTINT}},
+           {L"_g", {NIFUtil::TextureSlots::GLOW, NIFUtil::TextureType::EMISSIVE}},
+           {L"_msn", {NIFUtil::TextureSlots::NORMAL, NIFUtil::TextureType::NORMAL}},
+           {L"_n", {NIFUtil::TextureSlots::NORMAL, NIFUtil::TextureType::NORMAL}},
+           {L"_d", {NIFUtil::TextureSlots::DIFFUSE, NIFUtil::TextureType::DIFFUSE}},
+           {L"mask", {NIFUtil::TextureSlots::DIFFUSE, NIFUtil::TextureType::DIFFUSE}}};
 
     return textureSuffixMap;
 }
 
 auto NIFUtil::getStrFromTexType(const TextureType& type) -> string
 {
-    static unordered_map<TextureType, string> strFromTexMap = { { TextureType::DIFFUSE, "diffuse" },
-        { TextureType::NORMAL, "normal" }, { TextureType::MODELSPACENORMAL, "model space normal" },
-        { TextureType::EMISSIVE, "emissive" }, { TextureType::SKINTINT, "skin tint" },
-        { TextureType::SUBSURFACECOLOR, "subsurface color" }, { TextureType::HEIGHT, "height" },
-        { TextureType::HEIGHTPBR, "height pbr" }, { TextureType::CUBEMAP, "cubemap" },
-        { TextureType::ENVIRONMENTMASK, "environment mask" }, { TextureType::COMPLEXMATERIAL, "complex material" },
-        { TextureType::RMAOS, "rmaos" }, { TextureType::SUBSURFACETINT, "subsurface tint" },
-        { TextureType::INNERLAYER, "inner layer" }, { TextureType::FUZZPBR, "fuzz pbr" },
-        { TextureType::COATNORMALROUGHNESS, "coat normal roughness" }, { TextureType::BACKLIGHT, "backlight" },
-        { TextureType::SPECULAR, "specular" }, { TextureType::HAIR_FLOWMAP, "hair flowmap" },
-        { TextureType::SUBSURFACEPBR, "subsurface pbr" }, { TextureType::UNKNOWN, "unknown" } };
+    static unordered_map<TextureType, string> strFromTexMap
+        = {{TextureType::DIFFUSE, "diffuse"},
+           {TextureType::NORMAL, "normal"},
+           {TextureType::MODELSPACENORMAL, "model space normal"},
+           {TextureType::EMISSIVE, "emissive"},
+           {TextureType::SKINTINT, "skin tint"},
+           {TextureType::SUBSURFACECOLOR, "subsurface color"},
+           {TextureType::HEIGHT, "height"},
+           {TextureType::HEIGHTPBR, "height pbr"},
+           {TextureType::CUBEMAP, "cubemap"},
+           {TextureType::ENVIRONMENTMASK, "environment mask"},
+           {TextureType::COMPLEXMATERIAL, "complex material"},
+           {TextureType::RMAOS, "rmaos"},
+           {TextureType::SUBSURFACETINT, "subsurface tint"},
+           {TextureType::INNERLAYER, "inner layer"},
+           {TextureType::FUZZPBR, "fuzz pbr"},
+           {TextureType::COATNORMALROUGHNESS, "coat normal roughness"},
+           {TextureType::BACKLIGHT, "backlight"},
+           {TextureType::SPECULAR, "specular"},
+           {TextureType::HAIR_FLOWMAP, "hair flowmap"},
+           {TextureType::SUBSURFACEPBR, "subsurface pbr"},
+           {TextureType::UNKNOWN, "unknown"}};
 
     if (strFromTexMap.find(type) != strFromTexMap.end()) {
         return strFromTexMap[type];
@@ -179,17 +200,28 @@ auto NIFUtil::getStrFromTexType(const TextureType& type) -> string
 
 auto NIFUtil::getTexTypeFromStr(const string& type) -> TextureType
 {
-    static unordered_map<string, TextureType> texFromStrMap = { { "diffuse", TextureType::DIFFUSE },
-        { "normal", TextureType::NORMAL }, { "model space normal", TextureType::MODELSPACENORMAL },
-        { "emissive", TextureType::EMISSIVE }, { "skin tint", TextureType::SKINTINT },
-        { "subsurface color", TextureType::SUBSURFACECOLOR }, { "height", TextureType::HEIGHT },
-        { "height pbr", TextureType::HEIGHTPBR }, { "cubemap", TextureType::CUBEMAP },
-        { "environment mask", TextureType::ENVIRONMENTMASK }, { "complex material", TextureType::COMPLEXMATERIAL },
-        { "rmaos", TextureType::RMAOS }, { "subsurface tint", TextureType::SUBSURFACETINT },
-        { "inner layer", TextureType::INNERLAYER }, { "fuzz pbr", TextureType::FUZZPBR },
-        { "coat normal roughness", TextureType::COATNORMALROUGHNESS }, { "backlight", TextureType::BACKLIGHT },
-        { "specular", TextureType::SPECULAR }, { "hair flowmap", TextureType::HAIR_FLOWMAP },
-        { "subsurface pbr", TextureType::SUBSURFACEPBR }, { "unknown", TextureType::UNKNOWN } };
+    static unordered_map<string, TextureType> texFromStrMap
+        = {{"diffuse", TextureType::DIFFUSE},
+           {"normal", TextureType::NORMAL},
+           {"model space normal", TextureType::MODELSPACENORMAL},
+           {"emissive", TextureType::EMISSIVE},
+           {"skin tint", TextureType::SKINTINT},
+           {"subsurface color", TextureType::SUBSURFACECOLOR},
+           {"height", TextureType::HEIGHT},
+           {"height pbr", TextureType::HEIGHTPBR},
+           {"cubemap", TextureType::CUBEMAP},
+           {"environment mask", TextureType::ENVIRONMENTMASK},
+           {"complex material", TextureType::COMPLEXMATERIAL},
+           {"rmaos", TextureType::RMAOS},
+           {"subsurface tint", TextureType::SUBSURFACETINT},
+           {"inner layer", TextureType::INNERLAYER},
+           {"fuzz pbr", TextureType::FUZZPBR},
+           {"coat normal roughness", TextureType::COATNORMALROUGHNESS},
+           {"backlight", TextureType::BACKLIGHT},
+           {"specular", TextureType::SPECULAR},
+           {"hair flowmap", TextureType::HAIR_FLOWMAP},
+           {"subsurface pbr", TextureType::SUBSURFACEPBR},
+           {"unknown", TextureType::UNKNOWN}};
 
     const auto searchKey = ParallaxGenUtil::toLowerASCIIFast(type);
     if (texFromStrMap.find(type) != texFromStrMap.end()) {
@@ -202,19 +234,27 @@ auto NIFUtil::getTexTypeFromStr(const string& type) -> TextureType
 auto NIFUtil::getSlotFromTexType(const TextureType& type) -> TextureSlots
 {
     static unordered_map<TextureType, TextureSlots> texTypeToSlotMap
-        = { { TextureType::DIFFUSE, TextureSlots::DIFFUSE }, { TextureType::NORMAL, TextureSlots::NORMAL },
-              { TextureType::MODELSPACENORMAL, TextureSlots::NORMAL }, { TextureType::EMISSIVE, TextureSlots::GLOW },
-              { TextureType::SKINTINT, TextureSlots::GLOW }, { TextureType::SUBSURFACECOLOR, TextureSlots::GLOW },
-              { TextureType::HEIGHT, TextureSlots::PARALLAX }, { TextureType::HEIGHTPBR, TextureSlots::PARALLAX },
-              { TextureType::CUBEMAP, TextureSlots::CUBEMAP }, { TextureType::ENVIRONMENTMASK, TextureSlots::ENVMASK },
-              { TextureType::COMPLEXMATERIAL, TextureSlots::ENVMASK }, { TextureType::RMAOS, TextureSlots::ENVMASK },
-              { TextureType::SUBSURFACETINT, TextureSlots::MULTILAYER },
-              { TextureType::INNERLAYER, TextureSlots::MULTILAYER }, { TextureType::FUZZPBR, TextureSlots::MULTILAYER },
-              { TextureType::COATNORMALROUGHNESS, TextureSlots::MULTILAYER },
-              { TextureType::BACKLIGHT, TextureSlots::BACKLIGHT }, { TextureType::SPECULAR, TextureSlots::BACKLIGHT },
-              { TextureType::HAIR_FLOWMAP, TextureSlots::BACKLIGHT },
-              { TextureType::SUBSURFACEPBR, TextureSlots::BACKLIGHT },
-              { TextureType::UNKNOWN, TextureSlots::UNKNOWN } };
+        = {{TextureType::DIFFUSE, TextureSlots::DIFFUSE},
+           {TextureType::NORMAL, TextureSlots::NORMAL},
+           {TextureType::MODELSPACENORMAL, TextureSlots::NORMAL},
+           {TextureType::EMISSIVE, TextureSlots::GLOW},
+           {TextureType::SKINTINT, TextureSlots::GLOW},
+           {TextureType::SUBSURFACECOLOR, TextureSlots::GLOW},
+           {TextureType::HEIGHT, TextureSlots::PARALLAX},
+           {TextureType::HEIGHTPBR, TextureSlots::PARALLAX},
+           {TextureType::CUBEMAP, TextureSlots::CUBEMAP},
+           {TextureType::ENVIRONMENTMASK, TextureSlots::ENVMASK},
+           {TextureType::COMPLEXMATERIAL, TextureSlots::ENVMASK},
+           {TextureType::RMAOS, TextureSlots::ENVMASK},
+           {TextureType::SUBSURFACETINT, TextureSlots::MULTILAYER},
+           {TextureType::INNERLAYER, TextureSlots::MULTILAYER},
+           {TextureType::FUZZPBR, TextureSlots::MULTILAYER},
+           {TextureType::COATNORMALROUGHNESS, TextureSlots::MULTILAYER},
+           {TextureType::BACKLIGHT, TextureSlots::BACKLIGHT},
+           {TextureType::SPECULAR, TextureSlots::BACKLIGHT},
+           {TextureType::HAIR_FLOWMAP, TextureSlots::BACKLIGHT},
+           {TextureType::SUBSURFACEPBR, TextureSlots::BACKLIGHT},
+           {TextureType::UNKNOWN, TextureSlots::UNKNOWN}};
 
     if (texTypeToSlotMap.find(type) != texTypeToSlotMap.end()) {
         return texTypeToSlotMap[type];
@@ -223,8 +263,8 @@ auto NIFUtil::getSlotFromTexType(const TextureType& type) -> TextureSlots
     return texTypeToSlotMap[TextureType::UNKNOWN];
 }
 
-auto NIFUtil::getDefaultsFromSuffix(const std::filesystem::path& path)
-    -> tuple<NIFUtil::TextureSlots, NIFUtil::TextureType>
+auto NIFUtil::getDefaultsFromSuffix(const std::filesystem::path& path) -> tuple<NIFUtil::TextureSlots,
+                                                                                NIFUtil::TextureType>
 {
     const auto& suffixMap = getTexSuffixMap();
 
@@ -237,7 +277,7 @@ auto NIFUtil::getDefaultsFromSuffix(const std::filesystem::path& path)
             // check if PBR in prefix
             if (get<1>(slot) == TextureType::HEIGHT && boost::istarts_with(pathStr, L"textures\\pbr")) {
                 // This is a PBR heightmap so it gets a different texture type
-                return { TextureSlots::PARALLAX, TextureType::HEIGHTPBR };
+                return {TextureSlots::PARALLAX, TextureType::HEIGHTPBR};
             }
 
             return slot;
@@ -245,20 +285,37 @@ auto NIFUtil::getDefaultsFromSuffix(const std::filesystem::path& path)
     }
 
     // Default return diffuse
-    return { TextureSlots::UNKNOWN, TextureType::UNKNOWN };
+    return {TextureSlots::UNKNOWN, TextureType::UNKNOWN};
 }
 
 auto NIFUtil::getTexTypesStr() -> vector<string>
 {
-    static const vector<string> texTypesStr = { "diffuse", "normal", "model space normal", "emissive", "skin tint",
-        "subsurface color", "height", "height pbr", "cubemap", "environment mask", "complex material", "rmaos",
-        "subsurface tint", "inner layer", "fuzz pbr", "coat normal roughness", "backlight", "specular",
-        "subsurface pbr", "unknown" };
+    static const vector<string> texTypesStr = {"diffuse",
+                                               "normal",
+                                               "model space normal",
+                                               "emissive",
+                                               "skin tint",
+                                               "subsurface color",
+                                               "height",
+                                               "height pbr",
+                                               "cubemap",
+                                               "environment mask",
+                                               "complex material",
+                                               "rmaos",
+                                               "subsurface tint",
+                                               "inner layer",
+                                               "fuzz pbr",
+                                               "coat normal roughness",
+                                               "backlight",
+                                               "specular",
+                                               "subsurface pbr",
+                                               "unknown"};
 
     return texTypesStr;
 }
 
-extern "C" auto loadNifWithSEH(nifly::NifFile* pNif, std::istream* pStream) -> bool
+extern "C" auto loadNifWithSEH(nifly::NifFile* pNif,
+                               std::istream* pStream) -> bool
 {
     __try {
         pNif->Load(*pStream);
@@ -269,7 +326,8 @@ extern "C" auto loadNifWithSEH(nifly::NifFile* pNif, std::istream* pStream) -> b
     }
 }
 
-auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes, const bool& runChecks) -> nifly::NifFile
+auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
+                               const bool& runChecks) -> nifly::NifFile
 {
     // NIF file object
     NifFile nif;
@@ -328,7 +386,8 @@ auto NIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes, const boo
     return nif;
 }
 
-auto NIFUtil::setShaderType(nifly::NiShader* nifShader, const nifly::BSLightingShaderPropertyShaderType& type) -> bool
+auto NIFUtil::setShaderType(nifly::NiShader* nifShader,
+                            const nifly::BSLightingShaderPropertyShaderType& type) -> bool
 {
     if (nifShader->GetShaderType() != type) {
         nifShader->SetShaderType(type);
@@ -338,7 +397,8 @@ auto NIFUtil::setShaderType(nifly::NiShader* nifShader, const nifly::BSLightingS
     return false;
 }
 
-auto NIFUtil::setShaderFloat(float& value, const float& newValue) -> bool
+auto NIFUtil::setShaderFloat(float& value,
+                             const float& newValue) -> bool
 {
     if (fabs(value - newValue) > MIN_FLOAT_COMPARISON) {
         value = newValue;
@@ -348,7 +408,8 @@ auto NIFUtil::setShaderFloat(float& value, const float& newValue) -> bool
     return false;
 }
 
-auto NIFUtil::setShaderVec2(nifly::Vector2& value, const nifly::Vector2& newValue) -> bool
+auto NIFUtil::setShaderVec2(nifly::Vector2& value,
+                            const nifly::Vector2& newValue) -> bool
 {
     if (value != newValue) {
         value = newValue;
@@ -359,20 +420,20 @@ auto NIFUtil::setShaderVec2(nifly::Vector2& value, const nifly::Vector2& newValu
 }
 
 // Shader flag helpers
-auto NIFUtil::hasShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags1& flag)
-    -> bool
+auto NIFUtil::hasShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                            const nifly::SkyrimShaderPropertyFlags1& flag) -> bool
 {
     return (nifShaderBSLSP->shaderFlags1 & flag) != 0U;
 }
 
-auto NIFUtil::hasShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags2& flag)
-    -> bool
+auto NIFUtil::hasShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                            const nifly::SkyrimShaderPropertyFlags2& flag) -> bool
 {
     return (nifShaderBSLSP->shaderFlags2 & flag) != 0U;
 }
 
-auto NIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags1& flag)
-    -> bool
+auto NIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                            const nifly::SkyrimShaderPropertyFlags1& flag) -> bool
 {
     if (!hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags1 |= flag;
@@ -382,8 +443,8 @@ auto NIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly
     return false;
 }
 
-auto NIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags2& flag)
-    -> bool
+auto NIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                            const nifly::SkyrimShaderPropertyFlags2& flag) -> bool
 {
     if (!hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags2 |= flag;
@@ -393,8 +454,8 @@ auto NIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly
     return false;
 }
 
-auto NIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags1& flag)
-    -> bool
+auto NIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                              const nifly::SkyrimShaderPropertyFlags1& flag) -> bool
 {
     if (hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags1 &= ~flag;
@@ -404,8 +465,8 @@ auto NIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nif
     return false;
 }
 
-auto NIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags2& flag)
-    -> bool
+auto NIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                              const nifly::SkyrimShaderPropertyFlags2& flag) -> bool
 {
     if (hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags2 &= ~flag;
@@ -415,8 +476,9 @@ auto NIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP, const nif
     return false;
 }
 
-auto NIFUtil::configureShaderFlag(
-    nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags1& flag, const bool& enable) -> bool
+auto NIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                                  const nifly::SkyrimShaderPropertyFlags1& flag,
+                                  const bool& enable) -> bool
 {
     bool changed = false;
     if (enable) {
@@ -428,8 +490,9 @@ auto NIFUtil::configureShaderFlag(
     return changed;
 }
 
-auto NIFUtil::configureShaderFlag(
-    nifly::BSShaderProperty* nifShaderBSLSP, const nifly::SkyrimShaderPropertyFlags2& flag, const bool& enable) -> bool
+auto NIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                                  const nifly::SkyrimShaderPropertyFlags2& flag,
+                                  const bool& enable) -> bool
 {
     bool changed = false;
     if (enable) {
@@ -442,15 +505,19 @@ auto NIFUtil::configureShaderFlag(
 }
 
 // Texture slot helpers
-auto NIFUtil::setTextureSlot(
-    nifly::NifFile* nif, nifly::NiShape* nifShape, const TextureSlots& slot, const std::wstring& texturePath) -> bool
+auto NIFUtil::setTextureSlot(nifly::NifFile* nif,
+                             nifly::NiShape* nifShape,
+                             const TextureSlots& slot,
+                             const std::wstring& texturePath) -> bool
 {
     auto texturePathStr = ParallaxGenUtil::utf16toASCII(texturePath);
     return setTextureSlot(nif, nifShape, slot, texturePathStr);
 }
 
-auto NIFUtil::setTextureSlot(
-    nifly::NifFile* nif, nifly::NiShape* nifShape, const TextureSlots& slot, const string& texturePath) -> bool
+auto NIFUtil::setTextureSlot(nifly::NifFile* nif,
+                             nifly::NiShape* nifShape,
+                             const TextureSlots& slot,
+                             const string& texturePath) -> bool
 {
     string existingTex;
     nif->GetTextureSlot(nifShape, existingTex, static_cast<unsigned int>(slot));
@@ -463,8 +530,10 @@ auto NIFUtil::setTextureSlot(
     return false;
 }
 
-auto NIFUtil::setTextureSlots(
-    nifly::NifFile* nif, nifly::NiShape* nifShape, const std::array<std::wstring, NUM_TEXTURE_SLOTS>& newSlots) -> bool
+auto NIFUtil::setTextureSlots(nifly::NifFile* nif,
+                              nifly::NiShape* nifShape,
+                              const std::array<std::wstring,
+                                               NUM_TEXTURE_SLOTS>& newSlots) -> bool
 {
     bool changed = false;
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
@@ -474,7 +543,9 @@ auto NIFUtil::setTextureSlots(
     return changed;
 }
 
-auto NIFUtil::getTextureSlot(nifly::NifFile* nif, nifly::NiShape* nifShape, const TextureSlots& slot) -> string
+auto NIFUtil::getTextureSlot(nifly::NifFile* nif,
+                             nifly::NiShape* nifShape,
+                             const TextureSlots& slot) -> string
 {
     string texture;
     nif->GetTextureSlot(nifShape, texture, static_cast<unsigned int>(slot));
@@ -482,7 +553,8 @@ auto NIFUtil::getTextureSlot(nifly::NifFile* nif, nifly::NiShape* nifShape, cons
     return texture;
 }
 
-auto NIFUtil::getTextureSlots(nifly::NifFile* nif, nifly::NiShape* nifShape) -> TextureSet
+auto NIFUtil::getTextureSlots(nifly::NifFile* nif,
+                              nifly::NiShape* nifShape) -> TextureSet
 {
     array<wstring, NUM_TEXTURE_SLOTS> outSlots;
 
@@ -513,7 +585,8 @@ auto NIFUtil::textureSetToStr(const TextureSet& set) -> TextureSetStr
     return outSet;
 }
 
-auto NIFUtil::getTexBase(const std::filesystem::path& path, const TextureSlots& slot) -> std::wstring
+auto NIFUtil::getTexBase(const std::filesystem::path& path,
+                         const TextureSlots& slot) -> std::wstring
 {
     const auto& suffixMap = getTexSuffixMap();
 
@@ -541,8 +614,11 @@ auto NIFUtil::getTexBase(const std::filesystem::path& path, const TextureSlots& 
     return pathStr;
 }
 
-auto NIFUtil::getTexMatch(const wstring& base, const TextureType& desiredType,
-    const map<wstring, unordered_set<PGTexture, PGTextureHasher>>& searchMap) -> vector<PGTexture>
+auto NIFUtil::getTexMatch(const wstring& base,
+                          const TextureType& desiredType,
+                          const map<wstring,
+                                    unordered_set<PGTexture,
+                                                  PGTextureHasher>>& searchMap) -> vector<PGTexture>
 {
     // Binary search on base list
     const wstring baseLower = ParallaxGenUtil::toLowerASCIIFast(base);
@@ -575,8 +651,10 @@ auto NIFUtil::getTexMatch(const wstring& base, const TextureType& desiredType,
     return {};
 }
 
-auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape, const bool& findBaseSlots)
-    -> array<wstring, NUM_TEXTURE_SLOTS>
+auto NIFUtil::getSearchPrefixes(NifFile const& nif,
+                                nifly::NiShape* nifShape,
+                                const bool& findBaseSlots) -> array<wstring,
+                                                                    NUM_TEXTURE_SLOTS>
 {
     array<wstring, NUM_TEXTURE_SLOTS> outPrefixes;
 
@@ -606,8 +684,10 @@ auto NIFUtil::getSearchPrefixes(NifFile const& nif, nifly::NiShape* nifShape, co
     return outPrefixes;
 }
 
-auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlots, const bool& findBaseSlots)
-    -> array<wstring, NUM_TEXTURE_SLOTS>
+auto NIFUtil::getSearchPrefixes(const array<wstring,
+                                            NUM_TEXTURE_SLOTS>& oldSlots,
+                                const bool& findBaseSlots) -> array<wstring,
+                                                                    NUM_TEXTURE_SLOTS>
 {
     array<wstring, NUM_TEXTURE_SLOTS> outSlots;
 
@@ -630,7 +710,8 @@ auto NIFUtil::getSearchPrefixes(const array<wstring, NUM_TEXTURE_SLOTS>& oldSlot
     return outSlots;
 }
 
-auto NIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<nifly::NiShape*, int>
+auto NIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<nifly::NiShape*,
+                                                                                int>
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
@@ -657,7 +738,8 @@ auto NIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<
     return shapes;
 }
 
-auto NIFUtil::isPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) -> bool
+auto NIFUtil::isPatchableShape(nifly::NifFile& nif,
+                               nifly::NiShape& nifShape) -> bool
 {
     const string shapeBlockName = nifShape.GetBlockName();
 
@@ -677,7 +759,8 @@ auto NIFUtil::isPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) ->
     return nifShader != nullptr;
 }
 
-auto NIFUtil::isShaderPatchableShape(nifly::NifFile& nif, nifly::NiShape& nifShape) -> bool
+auto NIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
+                                     nifly::NiShape& nifShape) -> bool
 {
     const string shapeBlockName = nifShape.GetBlockName();
 

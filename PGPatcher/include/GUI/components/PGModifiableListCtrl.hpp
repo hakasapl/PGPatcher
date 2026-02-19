@@ -15,8 +15,11 @@ public:
      * @param sz size
      * @param style window style (default wxLC_REPORT)
      */
-    PGModifiableListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pt = wxDefaultPosition,
-        const wxSize& sz = wxDefaultSize, long style = wxLC_REPORT);
+    PGModifiableListCtrl(wxWindow* parent,
+                         wxWindowID id,
+                         const wxPoint& pt = wxDefaultPosition,
+                         const wxSize& sz = wxDefaultSize,
+                         long style = wxLC_REPORT);
 
 private:
     enum class ContextMenu : uint16_t { ID_PG_ADD_ITEM = wxID_HIGHEST + 1, ID_PG_REMOVE_ITEM };

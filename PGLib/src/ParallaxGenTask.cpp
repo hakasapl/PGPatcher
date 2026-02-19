@@ -12,7 +12,9 @@
 
 using namespace std;
 
-ParallaxGenTask::ParallaxGenTask(string taskName, const size_t& totalJobs, const int& progressPrintModulo)
+ParallaxGenTask::ParallaxGenTask(string taskName,
+                                 const size_t& totalJobs,
+                                 const int& progressPrintModulo)
     : m_progressPrintModulo(progressPrintModulo)
     , m_taskName(std::move(taskName))
     , m_totalJobs(totalJobs)
@@ -21,7 +23,8 @@ ParallaxGenTask::ParallaxGenTask(string taskName, const size_t& totalJobs, const
     initJobStatus();
 }
 
-void ParallaxGenTask::setCallbackFunc(std::function<void(size_t, size_t)> callbackFunc)
+void ParallaxGenTask::setCallbackFunc(std::function<void(size_t,
+                                                         size_t)> callbackFunc)
 {
     m_callbackFunc = std::move(callbackFunc);
 }
@@ -104,7 +107,9 @@ auto ParallaxGenTask::isCompleted() -> bool
     return getCompletedJobs() == m_totalJobs;
 }
 
-void ParallaxGenTask::updatePGResult(PGResult& result, const PGResult& currentResult, const PGResult& threshold)
+void ParallaxGenTask::updatePGResult(PGResult& result,
+                                     const PGResult& currentResult,
+                                     const PGResult& threshold)
 {
     if (currentResult > result) {
         if (currentResult > threshold) {

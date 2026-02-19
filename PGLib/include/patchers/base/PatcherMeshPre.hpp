@@ -23,7 +23,9 @@ public:
     using PatcherMeshPreObject = std::unique_ptr<PatcherMeshPre>;
 
     // Constructors
-    PatcherMeshPre(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName);
+    PatcherMeshPre(std::filesystem::path nifPath,
+                   nifly::NifFile* nif,
+                   std::string patcherName);
     virtual ~PatcherMeshPre() = default;
     PatcherMeshPre(const PatcherMeshPre& other) = default;
     auto operator=(const PatcherMeshPre& other) -> PatcherMeshPre& = default;
@@ -37,5 +39,7 @@ public:
      * @return true Patch was applied
      * @return false Patch was not applied
      */
-    virtual auto applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool = 0;
+    virtual auto applyPatch(NIFUtil::TextureSet& slots,
+                            nifly::NiShape& nifShape) -> bool
+        = 0;
 };

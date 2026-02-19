@@ -37,7 +37,8 @@ ModManagerDirectory::ModManagerDirectory(const ModManagerType& mmType)
 {
 }
 
-auto ModManagerDirectory::getModFileMap() const -> const unordered_map<filesystem::path, shared_ptr<Mod>>&
+auto ModManagerDirectory::getModFileMap() const -> const unordered_map<filesystem::path,
+                                                                       shared_ptr<Mod>>&
 {
     return m_modFileMap;
 }
@@ -194,8 +195,8 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     const auto deploymentFile = deploymentDir / "vortex.deployment.json";
 
     if (!filesystem::exists(deploymentFile)) {
-        throw runtime_error(
-            "Vortex deployment file does not exist: " + ParallaxGenUtil::utf16toUTF8(deploymentFile.wstring()));
+        throw runtime_error("Vortex deployment file does not exist: "
+                            + ParallaxGenUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
     ifstream vortexDepFileF(deploymentFile);
@@ -205,7 +206,7 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     // Check that files field exists
     if (!vortexDeployment.contains("files")) {
         throw runtime_error("Vortex deployment file does not contain 'files' field: "
-            + ParallaxGenUtil::utf16toUTF8(deploymentFile.wstring()));
+                            + ParallaxGenUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
     // loop through files
@@ -258,7 +259,8 @@ void ModManagerDirectory::populateModFileMapVortex(const filesystem::path& deplo
     }
 }
 
-void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instanceDir, const filesystem::path& outputDir)
+void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instanceDir,
+                                                const filesystem::path& outputDir)
 {
     // required file is modlist.txt in the profile folder
 
@@ -267,8 +269,8 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
     // First read modorganizer.ini in the instance folder to get the profiles and mods folders
     const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
     if (!filesystem::exists(mo2IniFile)) {
-        throw runtime_error(
-            "Mod Organizer 2 ini file does not exist: " + ParallaxGenUtil::utf16toUTF8(mo2IniFile.wstring()));
+        throw runtime_error("Mod Organizer 2 ini file does not exist: "
+                            + ParallaxGenUtil::utf16toUTF8(mo2IniFile.wstring()));
     }
 
     auto mo2Paths = getMO2FilePaths(instanceDir);
@@ -279,8 +281,8 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
     const auto curProfile = getSelectedProfileFromInstanceDir(instanceDir);
     const auto modListFile = profileDir / curProfile / "modlist.txt";
     if (!filesystem::exists(modListFile)) {
-        throw runtime_error(
-            "Mod Organizer 2 modlist.txt file does not exist: " + ParallaxGenUtil::utf16toUTF8(modListFile.wstring()));
+        throw runtime_error("Mod Organizer 2 modlist.txt file does not exist: "
+                            + ParallaxGenUtil::utf16toUTF8(modListFile.wstring()));
     }
 
     ifstream modListFileF(modListFile);
@@ -324,8 +326,8 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
 
         // check if mod dir is output dir
         if (filesystem::equivalent(curModDir, outputDir)) {
-            Logger::critical(
-                L"If outputting to MO2 you must disable the mod {} first to prevent issues with MO2 VFS", mod);
+            Logger::critical(L"If outputting to MO2 you must disable the mod {} first to prevent issues with MO2 VFS",
+                             mod);
             return;
         }
 
@@ -358,7 +360,8 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
             try {
                 for (auto it = filesystem::recursive_directory_iterator(
                          curSearchDir, filesystem::directory_options::skip_permission_denied);
-                    it != filesystem::recursive_directory_iterator(); ++it) {
+                     it != filesystem::recursive_directory_iterator();
+                     ++it) {
                     const auto file = *it;
 
                     if (BethesdaDirectory::isHidden(file.path())) {
@@ -431,13 +434,15 @@ void ModManagerDirectory::populateModFileMapMO2(const filesystem::path& instance
 
 auto ModManagerDirectory::getModManagerTypes() -> vector<ModManagerType>
 {
-    return { ModManagerType::NONE, ModManagerType::VORTEX, ModManagerType::MODORGANIZER2 };
+    return {ModManagerType::NONE, ModManagerType::VORTEX, ModManagerType::MODORGANIZER2};
 }
 
 auto ModManagerDirectory::getStrFromModManagerType(const ModManagerType& type) -> string
 {
-    const static auto modManagerTypeToStrMap = unordered_map<ModManagerType, string> { { ModManagerType::NONE, "None" },
-        { ModManagerType::VORTEX, "Vortex" }, { ModManagerType::MODORGANIZER2, "Mod Organizer 2" } };
+    const static auto modManagerTypeToStrMap
+        = unordered_map<ModManagerType, string> {{ModManagerType::NONE, "None"},
+                                                 {ModManagerType::VORTEX, "Vortex"},
+                                                 {ModManagerType::MODORGANIZER2, "Mod Organizer 2"}};
 
     if (modManagerTypeToStrMap.contains(type)) {
         return modManagerTypeToStrMap.at(type);
@@ -448,8 +453,10 @@ auto ModManagerDirectory::getStrFromModManagerType(const ModManagerType& type) -
 
 auto ModManagerDirectory::getModManagerTypeFromStr(const string& type) -> ModManagerType
 {
-    const static auto modManagerStrToTypeMap = unordered_map<string, ModManagerType> { { "None", ModManagerType::NONE },
-        { "Vortex", ModManagerType::VORTEX }, { "Mod Organizer 2", ModManagerType::MODORGANIZER2 } };
+    const static auto modManagerStrToTypeMap
+        = unordered_map<string, ModManagerType> {{"None", ModManagerType::NONE},
+                                                 {"Vortex", ModManagerType::VORTEX},
+                                                 {"Mod Organizer 2", ModManagerType::MODORGANIZER2}};
 
     if (modManagerStrToTypeMap.contains(type)) {
         return modManagerStrToTypeMap.at(type);
@@ -496,8 +503,9 @@ auto ModManagerDirectory::isValidMO2InstanceDir(const filesystem::path& instance
     return filesystem::exists(modOrganizerIni);
 }
 
-auto ModManagerDirectory::getMO2INIField(
-    const std::filesystem::path& instanceDir, const std::string& fieldName, const bool& isByteArray) -> std::wstring
+auto ModManagerDirectory::getMO2INIField(const std::filesystem::path& instanceDir,
+                                         const std::string& fieldName,
+                                         const bool& isByteArray) -> std::wstring
 {
     // Find MO2 paths from ModOrganizer.ini
     const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
@@ -523,7 +531,8 @@ auto ModManagerDirectory::getMO2INIField(
             if (isByteArray && boost::starts_with(fieldValue, MO2INI_BYTEARRAYPREFIX)
                 && boost::ends_with(fieldValue, MO2INI_BYTEARRAYSUFFIX)) {
                 parsedVal = fieldValue.substr(strlen(MO2INI_BYTEARRAYPREFIX),
-                    fieldValue.size() - strlen(MO2INI_BYTEARRAYPREFIX) - strlen(MO2INI_BYTEARRAYSUFFIX));
+                                              fieldValue.size() - strlen(MO2INI_BYTEARRAYPREFIX)
+                                                  - strlen(MO2INI_BYTEARRAYSUFFIX));
             } else {
                 parsedVal = fieldValue;
             }
@@ -579,8 +588,8 @@ auto ModManagerDirectory::getGameTypeFromInstanceDir(const std::filesystem::path
     return BethesdaGame::GameType::UNKNOWN; // default to unknown if not found
 }
 
-auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceDir)
-    -> std::pair<std::filesystem::path, std::filesystem::path>
+auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceDir) -> std::pair<std::filesystem::path,
+                                                                                                 std::filesystem::path>
 {
     // Find MO2 paths from ModOrganizer.ini
     wstring profileDirField;
@@ -589,7 +598,7 @@ auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceD
 
     const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
     if (!filesystem::exists(mo2IniFile)) {
-        return { {}, {} };
+        return {{}, {}};
     }
 
     ifstream mo2IniFileF(mo2IniFile);
@@ -628,11 +637,12 @@ auto ModManagerDirectory::getMO2FilePaths(const std::filesystem::path& instanceD
         modDir = baseDir / "mods";
     }
 
-    return { profileDir, modDir };
+    return {profileDir, modDir};
 }
 
-auto ModManagerDirectory::compareMods(const std::shared_ptr<Mod>& a, const std::shared_ptr<Mod>& b, bool checkPriority)
-    -> bool
+auto ModManagerDirectory::compareMods(const std::shared_ptr<Mod>& a,
+                                      const std::shared_ptr<Mod>& b,
+                                      bool checkPriority) -> bool
 {
     // first by priority
     if (checkPriority && a->priority != b->priority) {

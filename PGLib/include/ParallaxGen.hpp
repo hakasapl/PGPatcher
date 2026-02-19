@@ -67,25 +67,31 @@ public:
      * @param meshPatchers mesh patchers
      * @param texPatchers texture patchers
      */
-    static void loadPatchers(
-        const PatcherUtil::PatcherMeshSet& meshPatchers, const PatcherUtil::PatcherTextureSet& texPatchers);
+    static void loadPatchers(const PatcherUtil::PatcherMeshSet& meshPatchers,
+                             const PatcherUtil::PatcherTextureSet& texPatchers);
 
     /**
      * @brief Run mesh patcher
      *
      * @param multiThread whether to use multithreading
      */
-    static void patchMeshes(const bool& multiThread = true, const bool& forceBasePatch = false,
-        const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
-        const bool& checkAllowedRecTypes = false, const std::function<void(size_t, size_t)>& progressCallback = {});
+    static void patchMeshes(const bool& multiThread = true,
+                            const bool& forceBasePatch = false,
+                            const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
+                            const bool& checkAllowedRecTypes = false,
+                            const std::function<void(size_t,
+                                                     size_t)>& progressCallback
+                            = {});
 
     /**
      * @brief Run texture patcher
      *
      * @param multiThread whether to use multithreading
      */
-    static void patchTextures(
-        const bool& multiThread = true, const std::function<void(size_t, size_t)>& progressCallback = {});
+    static void patchTextures(const bool& multiThread = true,
+                              const std::function<void(size_t,
+                                                       size_t)>& progressCallback
+                              = {});
 
     /**
      * @brief Finalize any other requires output files
@@ -97,8 +103,10 @@ public:
      *
      * @param multiThread whether to use multithreading
      */
-    static void populateModData(
-        const bool& multiThread = true, const std::function<void(size_t, size_t)>& progressCallback = {});
+    static void populateModData(const bool& multiThread = true,
+                                const std::function<void(size_t,
+                                                         size_t)>& progressCallback
+                                = {});
 
     /**
      * @brief Delets output directory in a smart way
@@ -127,13 +135,14 @@ private:
      * @param dryRun whether to run in dry run mode (no changes made)
      * @return ParallaxGenTask::PGResult result of the patching process
      */
-    static auto patchNIF(const std::filesystem::path& nifPath, TaskQueue& setModelUsesQueue,
-        const bool& forceBasePatch = false,
-        const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
-        const bool& checkAllowedRecTypes = false) -> ParallaxGenTask::PGResult;
+    static auto patchNIF(const std::filesystem::path& nifPath,
+                         TaskQueue& setModelUsesQueue,
+                         const bool& forceBasePatch = false,
+                         const std::unordered_set<ParallaxGenPlugin::ModelRecordType>& allowedModelRecTypes = {},
+                         const bool& checkAllowedRecTypes = false) -> ParallaxGenTask::PGResult;
 
     static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
-        const ParallaxGenDirectory::NifCache& nifCache) -> ParallaxGenTask::PGResult;
+                                       const ParallaxGenDirectory::NifCache& nifCache) -> ParallaxGenTask::PGResult;
 
     // NIF Helpers
 
@@ -150,10 +159,13 @@ private:
      * @return true if the NIF file was processed successfully
      * @return false if the NIF file was not processed successfully
      */
-    static auto processNIF(const std::filesystem::path& nifPath, nifly::NifFile* nif, bool singlepassMATO,
-        const ParallaxGenPlugin::ModelRecordType& modelRecordType,
-        std::unordered_map<unsigned int, NIFUtil::TextureSet>& alternateTextures,
-        std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
+    static auto processNIF(const std::filesystem::path& nifPath,
+                           nifly::NifFile* nif,
+                           bool singlepassMATO,
+                           const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+                           std::unordered_map<unsigned int,
+                                              NIFUtil::TextureSet>& alternateTextures,
+                           std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
 
     /**
      * @brief Process a single NIF shape
@@ -170,15 +182,21 @@ private:
      * @return true if the NIF shape was processed successfully
      * @return false if the NIF shape was not processed successfully
      */
-    static auto processNIFShape(const std::filesystem::path& nifPath, nifly::NifFile* nif, nifly::NiShape* nifShape,
-        const PatcherUtil::PatcherMeshObjectSet& patchers, bool singlepassMATO,
-        const ParallaxGenPlugin::ModelRecordType& modelRecordType, NIFUtil::TextureSet* alternateTexture = nullptr)
-        -> bool;
+    static auto processNIFShape(const std::filesystem::path& nifPath,
+                                nifly::NifFile* nif,
+                                nifly::NiShape* nifShape,
+                                const PatcherUtil::PatcherMeshObjectSet& patchers,
+                                bool singlepassMATO,
+                                const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+                                NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
 
-    static auto getMatches(const NIFUtil::TextureSet& slots, const PatcherUtil::PatcherMeshObjectSet& patchers,
-        const bool& dryRun, bool singlepassMATO, const ParallaxGenPlugin::ModelRecordType& modelRecordType,
-        const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr, nifly::NiShape* shape = nullptr)
-        -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+    static auto getMatches(const NIFUtil::TextureSet& slots,
+                           const PatcherUtil::PatcherMeshObjectSet& patchers,
+                           const bool& dryRun,
+                           bool singlepassMATO,
+                           const ParallaxGenPlugin::ModelRecordType& modelRecordType,
+                           const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
+                           nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
 
     /**
      * @brief Get the Winning Match object (checks mod priority)
@@ -198,15 +216,15 @@ private:
      * @param Patchers Patcher set to use
      * @return ShaderPatcherMatch Transformed match
      */
-    static auto applyTransformIfNeeded(
-        PatcherUtil::ShaderPatcherMatch& match, const PatcherUtil::PatcherMeshObjectSet& patchers) -> bool;
+    static auto applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
+                                       const PatcherUtil::PatcherMeshObjectSet& patchers) -> bool;
 
-    static auto createNIFPatcherObjects(const std::filesystem::path& nifPath, nifly::NifFile* nif)
-        -> PatcherUtil::PatcherMeshObjectSet;
+    static auto createNIFPatcherObjects(const std::filesystem::path& nifPath,
+                                        nifly::NifFile* nif) -> PatcherUtil::PatcherMeshObjectSet;
 
     // DDS Runners
     static auto patchDDS(const std::filesystem::path& ddsPath) -> ParallaxGenTask::PGResult;
 
-    static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath, DirectX::ScratchImage* dds)
-        -> PatcherUtil::PatcherTextureObjectSet;
+    static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath,
+                                        DirectX::ScratchImage* dds) -> PatcherUtil::PatcherTextureObjectSet;
 };

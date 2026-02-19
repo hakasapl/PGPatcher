@@ -19,6 +19,7 @@ public:
     static void setMainThread();
     static void throwExceptionOnMainThread();
 
-    static void setException(const std::exception& e, const std::string& stackTrace);
+    static void setException(const std::exception& e,
+                             const std::string& stackTrace);
     static auto hasException() -> bool;
 };

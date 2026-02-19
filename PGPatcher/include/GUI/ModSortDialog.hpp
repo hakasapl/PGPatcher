@@ -36,9 +36,9 @@ private:
     constexpr static int DEFAULT_PADDING = 20;
     constexpr static int DEFAULT_BORDER = 10;
 
-    static inline const wxColour s_NEW_MOD_COLOR { 213, 128, 255 };
-    static inline const wxColour s_LOSING_MOD_COLOR { 255, 102, 102 };
-    static inline const wxColour s_WINNING_MOD_COLOR { 204, 255, 102 };
+    static inline const wxColour s_NEW_MOD_COLOR {213, 128, 255};
+    static inline const wxColour s_LOSING_MOD_COLOR {255, 102, 102};
+    static inline const wxColour s_WINNING_MOD_COLOR {204, 255, 102};
 
     static inline wxColour s_BASE_ITEM_BG_COLOR = *wxWHITE;
     static inline wxColour s_BASE_ITEM_FG_COLOR = *wxBLACK;
@@ -172,8 +172,9 @@ private:
      * @param modList List of mods to fill the list control with
      * @param autoEnable If true, will autoenable any disabled mods that have shaders other than NONE
      */
-    void fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable = false,
-        bool preserveChecks = false);
+    void fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList,
+                      bool autoEnable = false,
+                      bool preserveChecks = false);
 
     /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes

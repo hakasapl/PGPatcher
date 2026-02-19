@@ -10,10 +10,21 @@
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
-DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent, const wxString& title, const wxString& text)
-    : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxSize(300, 400), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
-    , m_listCtrl(new PGModifiableListCtrl(
-          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
+                                                   const wxString& title,
+                                                   const wxString& text)
+    : wxDialog(parent,
+               wxID_ANY,
+               title,
+               wxDefaultPosition,
+               wxSize(300,
+                      400),
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+    , m_listCtrl(new PGModifiableListCtrl(this,
+                                          wxID_ANY,
+                                          wxDefaultPosition,
+                                          wxDefaultSize,
+                                          wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 

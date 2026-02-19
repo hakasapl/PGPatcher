@@ -24,7 +24,8 @@ public:
      * @param nifPath NIF path to be patched
      * @param nif NIF object to be patched
      */
-    PatcherMeshGlobalFixEffectLightingCS(std::filesystem::path nifPath, nifly::NifFile* nif);
+    PatcherMeshGlobalFixEffectLightingCS(std::filesystem::path nifPath,
+                                         nifly::NifFile* nif);
 
     /**
      * @brief Apply this patcher to shape

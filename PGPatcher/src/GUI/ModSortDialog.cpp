@@ -30,8 +30,13 @@ using namespace std;
 
 // class ModSortDialog
 ModSortDialog::ModSortDialog()
-    : wxDialog(nullptr, wxID_ANY, "Set Mods", wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT),
-          wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
+    : wxDialog(nullptr,
+               wxID_ANY,
+               "Set Mods",
+               wxDefaultPosition,
+               wxSize(DEFAULT_WIDTH,
+                      DEFAULT_HEIGHT),
+               wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     auto* pgc = PGPatcherGlobals::getPGC();
     if (pgc == nullptr) {
@@ -262,7 +267,9 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
     // confirm with modal
     const int response
         = wxMessageBox("Are you sure you want to restore default mod order and enable any manually disabled mods?",
-            "Confirm Restore Default Order", wxYES_NO | wxICON_QUESTION, this);
+                       "Confirm Restore Default Order",
+                       wxYES_NO | wxICON_QUESTION,
+                       this);
 
     if (response == wxYES) {
         auto* mmd = PGGlobals::getMMD();
@@ -461,8 +468,9 @@ void ModSortDialog::updateMods()
     updateApplyButtonState();
 }
 
-void ModSortDialog::fillListCtrl(
-    const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList, bool autoEnable, bool preserveChecks)
+void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<ModManagerDirectory::Mod>>& modList,
+                                 bool autoEnable,
+                                 bool preserveChecks)
 {
     // get unordered set of currently checked mods if preserveChecks is true from existing list ctrl
     std::unordered_set<std::wstring> currentlyCheckedMods;

@@ -52,8 +52,11 @@ auto PatcherTextureHookConvertToCM::initShader() -> bool
     return pgd3d->initShader(SHADER_NAME, s_shader);
 }
 
-PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::path ddsPath, DirectX::ScratchImage* dds)
-    : PatcherTextureHook(std::move(ddsPath), dds, "ParallaxToCM")
+PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::path ddsPath,
+                                                             DirectX::ScratchImage* dds)
+    : PatcherTextureHook(std::move(ddsPath),
+                         dds,
+                         "ParallaxToCM")
 {
 }
 
@@ -84,15 +87,23 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
     filesystem::create_directories(outPath.parent_path());
 
     DirectX::ScratchImage compressedImage;
-    HRESULT hr = DirectX::Compress(newDDS.GetImages(), newDDS.GetImageCount(), newDDS.GetMetadata(),
-        DXGI_FORMAT_BC3_UNORM, DirectX::TEX_COMPRESS_DEFAULT, 1.0F, compressedImage);
+    HRESULT hr = DirectX::Compress(newDDS.GetImages(),
+                                   newDDS.GetImageCount(),
+                                   newDDS.GetMetadata(),
+                                   DXGI_FORMAT_BC3_UNORM,
+                                   DirectX::TEX_COMPRESS_DEFAULT,
+                                   1.0F,
+                                   compressedImage);
 
     if (FAILED(hr)) {
         return false;
     }
 
-    hr = DirectX::SaveToDDSFile(compressedImage.GetImages(), compressedImage.GetImageCount(),
-        compressedImage.GetMetadata(), DirectX::DDS_FLAGS_NONE, outPath.c_str());
+    hr = DirectX::SaveToDDSFile(compressedImage.GetImages(),
+                                compressedImage.GetImageCount(),
+                                compressedImage.GetMetadata(),
+                                DirectX::DDS_FLAGS_NONE,
+                                outPath.c_str());
 
     if (FAILED(hr)) {
         return false;
@@ -100,7 +111,7 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
 
     // add newly created file to complexMaterialMaps for later processing
     pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK)[texBase].insert(
-        { newPath, NIFUtil::TextureType::COMPLEXMATERIAL });
+        {newPath, NIFUtil::TextureType::COMPLEXMATERIAL});
     pgd->setTextureType(newPath, NIFUtil::TextureType::COMPLEXMATERIAL);
 
     return true;

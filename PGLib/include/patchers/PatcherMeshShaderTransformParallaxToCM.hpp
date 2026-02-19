@@ -46,9 +46,11 @@ public:
      * @param nifPath NIF path to be patched
      * @param nif NIF object to be patched
      */
-    PatcherMeshShaderTransformParallaxToCM(std::filesystem::path nifPath, nifly::NifFile* nif);
+    PatcherMeshShaderTransformParallaxToCM(std::filesystem::path nifPath,
+                                           nifly::NifFile* nif);
 
-    auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch, bool canApplyBaseShader) -> bool override;
+    auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch,
+                         bool canApplyBaseShader) -> bool override;
 
     /**
      * @brief Transform shader match to new shader match
@@ -56,6 +58,6 @@ public:
      * @param fromMatch Match to transform
      * @return PatcherShader::PatcherMatch Transformed match
      */
-    auto transform(const PatcherMeshShader::PatcherMatch& fromMatch, PatcherMeshShader::PatcherMatch& result)
-        -> bool override;
+    auto transform(const PatcherMeshShader::PatcherMatch& fromMatch,
+                   PatcherMeshShader::PatcherMatch& result) -> bool override;
 };

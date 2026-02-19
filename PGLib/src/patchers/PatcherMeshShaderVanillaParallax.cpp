@@ -32,8 +32,11 @@ auto PatcherMeshShaderVanillaParallax::getShaderType() -> NIFUtil::ShapeShader
     return NIFUtil::ShapeShader::VANILLAPARALLAX;
 }
 
-PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshShader(std::move(nifPath), nif, "VanillaParallax")
+PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::path nifPath,
+                                                                   nifly::NifFile* nif)
+    : PatcherMeshShader(std::move(nifPath),
+                        nif,
+                        "VanillaParallax")
 {
     if (nif != nullptr) {
         // Determine if NIF has attached havok animations
@@ -48,8 +51,9 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::p
     }
 }
 
-auto PatcherMeshShaderVanillaParallax::canApply(
-    NiShape& nifShape, bool singlepassMATO, const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
+auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape,
+                                                bool singlepassMATO,
+                                                const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
 {
     if (modelRecordType == ParallaxGenPlugin::ModelRecordType::GRASS) {
         // grass is not supported
@@ -100,13 +104,14 @@ auto PatcherMeshShaderVanillaParallax::canApply(
     return true;
 }
 
-auto PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
+auto PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape,
+                                                   std::vector<PatcherMatch>& matches) -> bool
 {
     return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
-auto PatcherMeshShaderVanillaParallax::shouldApply(
-    const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool
+auto PatcherMeshShaderVanillaParallax::shouldApply(const NIFUtil::TextureSet& oldSlots,
+                                                   std::vector<PatcherMatch>& matches) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
     auto* pgd3d = PGGlobals::getPGD3D();
@@ -119,7 +124,7 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(
     const auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots);
 
     // Check if parallax file exists
-    static const vector<int> slotSearch = { 1, 0 }; // Diffuse first, then normal
+    static const vector<int> slotSearch = {1, 0}; // Diffuse first, then normal
     filesystem::path baseMap;
     vector<NIFUtil::PGTexture> foundMatches;
     NIFUtil::TextureSlots matchedFromSlot = NIFUtil::TextureSlots::NORMAL;
@@ -161,8 +166,9 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(
     return !matches.empty();
 }
 
-void PatcherMeshShaderVanillaParallax::applyPatch(
-    NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match)
+void PatcherMeshShaderVanillaParallax::applyPatch(NIFUtil::TextureSet& slots,
+                                                  nifly::NiShape& nifShape,
+                                                  const PatcherMatch& match)
 {
     // Apply shader
     applyShader(nifShape);
@@ -171,7 +177,8 @@ void PatcherMeshShaderVanillaParallax::applyPatch(
     applyPatchSlots(slots, match);
 }
 
-void PatcherMeshShaderVanillaParallax::applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match)
+void PatcherMeshShaderVanillaParallax::applyPatchSlots(NIFUtil::TextureSet& slots,
+                                                       const PatcherMatch& match)
 {
     slots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = match.matchedPath;
 }

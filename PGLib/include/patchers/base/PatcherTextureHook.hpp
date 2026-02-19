@@ -25,7 +25,9 @@ public:
     using PatcherGlobalObject = std::unique_ptr<PatcherTextureHook>;
 
     // Constructors
-    PatcherTextureHook(std::filesystem::path texPath, DirectX::ScratchImage* tex, std::string patcherName);
+    PatcherTextureHook(std::filesystem::path texPath,
+                       DirectX::ScratchImage* tex,
+                       std::string patcherName);
     virtual ~PatcherTextureHook() = default;
     PatcherTextureHook(const PatcherTextureHook& other) = delete;
     auto operator=(const PatcherTextureHook& other) -> PatcherTextureHook& = delete;
