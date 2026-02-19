@@ -6,7 +6,6 @@
 #include "util/TaskQueue.hpp"
 #include <stdexcept>
 
-
 BethesdaGame* PGGlobals::s_BG = nullptr;
 auto PGGlobals::getBG() -> BethesdaGame*
 {
