@@ -513,6 +513,7 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
             nonAltTexShapes.insert(shapeBlockID);
         }
         if (!processNIFShape(nifPath, nif, nifShape, patcherObjects, singlepassMATO, modelRecordType, ptrAltTex)) {
+            PatcherMeshShader::clearTextureSets(nifPath);
             return false;
         }
     }

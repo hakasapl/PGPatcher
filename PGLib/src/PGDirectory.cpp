@@ -330,13 +330,24 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
 
     // Load NIF
     shared_ptr<nifly::NifFile> nif = nullptr;
-    vector<std::byte> nifBytes;
+    unsigned long long crc32 = 0;
     {
+        // Scope nifBytes so raw bytes are freed immediately after NIF parsing,
+        // reducing peak memory during parallel processing (avoids holding both
+        // raw bytes and parsed NIF simultaneously)
+        vector<std::byte> nifBytes;
         try {
             nifBytes = getFile(nifPath);
         } catch (...) {
             Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
             return TaskTracker::Result::FAILURE;
+        }
+
+        if (cachenif) {
+            // Calculate CRC32 while nifBytes is still in scope
+            boost::crc_32_type crcResult {};
+            crcResult.process_bytes(nifBytes.data(), nifBytes.size());
+            crc32 = crcResult.checksum();
         }
 
         try {
@@ -347,7 +358,7 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
             Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
             return TaskTracker::Result::FAILURE;
         }
-    }
+    } // nifBytes freed here
 
     // Loop through each shape
     const auto shapes = PGNIFUtil::getShapesWithBlockIDs(nif.get());
@@ -534,10 +545,11 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
     }
 
     if (cachenif) {
-        // Calculate original CRC32
-        boost::crc_32_type crcBeforeResult {};
-        crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
-        updateNifCache(nifPath, nif, crcBeforeResult.checksum());
+        updateNifCache(nifPath, nif, crc32);
+    } else {
+        // Shapes have been extracted and processed; NIF won't be cached, so
+        // release the parsed NIF memory now rather than waiting for function exit
+        nif.reset();
     }
 
     // update nif cache
