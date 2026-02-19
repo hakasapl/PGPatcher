@@ -40,7 +40,7 @@ auto ParallaxGenPlugin::getRecTypeFromString(const std::string& recTypeStr) -> M
 
 auto ParallaxGenPlugin::getStringFromRecType(const ModelRecordType& recType) -> std::string
 {
-    return std::string(EnumStringHelper::stringFromEnum(recType, MODEL_RECORD_TYPE_TABLE, "UNKNOWN"));
+    return std::string(EnumStringHelper::stringFromEnum(recType, MODEL_RECORD_TYPE_TABLE, ""));
 }
 
 auto ParallaxGenPlugin::getAvailableRecTypeStrs() -> std::vector<std::string>
