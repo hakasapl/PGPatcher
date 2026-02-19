@@ -11,7 +11,7 @@ namespace PGEnums {
 // These need to be in the order of worst shader to best shader
 enum class ShapeShader : uint8_t { UNKNOWN, NONE, VANILLAPARALLAX, COMPLEXMATERIAL, TRUEPBR };
 
-static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 23> SHAPESHADER_TABLE {{
+static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 5> SHAPESHADER_TABLE {{
     {.value = ShapeShader::NONE, .name = "Default"},
     {.value = ShapeShader::UNKNOWN, .name = "Unknown"},
     {.value = ShapeShader::TRUEPBR, .name = "PBR"},
