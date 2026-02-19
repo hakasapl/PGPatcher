@@ -2,7 +2,8 @@
 
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+
 
 #include "NifFile.hpp"
 
@@ -29,16 +30,16 @@ public:
     /**
      * @brief Get the From Shader (Parallax)
      *
-     * @return NIFUtil::ShapeShader Parallax
+     * @return PGEnums::ShapeShader Parallax
      */
-    static auto getFromShader() -> NIFUtil::ShapeShader;
+    static auto getFromShader() -> PGEnums::ShapeShader;
 
     /**
      * @brief Get the To Shader object (CM)
      *
-     * @return NIFUtil::ShapeShader (CM)
+     * @return PGEnums::ShapeShader (CM)
      */
-    static auto getToShader() -> NIFUtil::ShapeShader;
+    static auto getToShader() -> PGEnums::ShapeShader;
 
     /**
      * @brief Construct a new Patcher Upgrade Parallax To CM patcher

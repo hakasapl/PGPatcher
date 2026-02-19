@@ -4,7 +4,7 @@
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include <wx/listctrl.h>
 #include <wx/wx.h>
@@ -144,7 +144,7 @@ private:
     void onMeshRulesBlockBtn(wxCommandEvent& event);
 
     // Texture Rules
-    std::vector<std::pair<std::wstring, NIFUtil::TextureType>> m_textureRulesTextureMapsState;
+    std::vector<std::pair<std::wstring, PGEnums::TextureType>> m_textureRulesTextureMapsState;
     void onTextureRulesTextureMapsBtn(wxCommandEvent& event);
 
     // Plugin Rules

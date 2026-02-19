@@ -2,7 +2,7 @@
 
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include <DirectXTex.h>
 #include <dxgiformat.h>
@@ -37,7 +37,7 @@ auto PatcherTextureHookConvertToCM::isInProcessList(const filesystem::path& texP
 
 auto PatcherTextureHookConvertToCM::getOutputFilename(const filesystem::path& texPath) -> filesystem::path
 {
-    const auto texBase = NIFUtil::getTexBase(texPath, NIFUtil::TextureSlots::PARALLAX);
+    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::PARALLAX);
     return texBase + L"_m.dds";
 }
 
@@ -69,7 +69,7 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
         throw runtime_error("DDS not initialized");
     }
 
-    const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::PARALLAX);
+    const auto texBase = PGNIFUtil::getTexBase(getDDSPath(), PGEnums::TextureSlots::PARALLAX);
     const auto newPath = texBase + L"_m.dds";
 
     DirectX::ScratchImage newDDS;
@@ -110,9 +110,9 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
     }
 
     // add newly created file to complexMaterialMaps for later processing
-    pgd->getTextureMap(NIFUtil::TextureSlots::ENVMASK)[texBase].insert(
-        {newPath, NIFUtil::TextureType::COMPLEXMATERIAL});
-    pgd->setTextureType(newPath, NIFUtil::TextureType::COMPLEXMATERIAL);
+    pgd->getTextureMap(PGEnums::TextureSlots::ENVMASK)[texBase].insert(
+        {newPath, PGEnums::TextureType::COMPLEXMATERIAL});
+    pgd->setTextureType(newPath, PGEnums::TextureType::COMPLEXMATERIAL);
 
     return true;
 }

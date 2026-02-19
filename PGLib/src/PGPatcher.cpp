@@ -3,7 +3,6 @@
 #include "PGD3D.hpp"
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
-#include "PGMeshPermutationTracker.hpp"
 #include "PGPlugin.hpp"
 #include "handlers/HandlerLightPlacerTracker.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
@@ -11,8 +10,10 @@
 #include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
 #include "util/StringUtil.hpp"
 #include "util/TaskPoolRunner.hpp"
 #include "util/TaskTracker.hpp"
@@ -343,7 +344,7 @@ auto PGPatcher::populateModInfoFromNIF(const std::filesystem::path& nifPath,
                 continue;
             }
 
-            if (match.shader == NIFUtil::ShapeShader::NONE) {
+            if (match.shader == PGEnums::ShapeShader::NONE) {
                 // this is a default match, so we don't auto enable
                 continue;
             }
@@ -478,14 +479,14 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
                            bool singlepassMATO,
                            const PGPlugin::ModelRecordType& modelRecordType,
                            std::unordered_map<unsigned int,
-                                              NIFUtil::TextureSet>& alternateTextures,
+                                              PGTypes::TextureSet>& alternateTextures,
                            std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
     // Create patcher objects
     const auto patcherObjects = createNIFPatcherObjects(nifPath, nif);
 
     // Get shapes and index 3ds (this is in the order as they would show up as 3d indices in plugins)
-    const auto shapes = NIFUtil::getShapesWithBlockIDs(nif);
+    const auto shapes = PGNIFUtil::getShapesWithBlockIDs(nif);
 
     for (const auto& [nifShape, oldIndex3D] : shapes) {
         const auto shapeBlockID = nif->GetBlockID(nifShape);
@@ -498,13 +499,13 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
             continue;
         }
 
-        if (!NIFUtil::isPatchableShape(*nif, *nifShape)) {
+        if (!PGNIFUtil::isPatchableShape(*nif, *nifShape)) {
             // Skip if not patchable shape
             Logger::trace(L"Skipping: Shape is not patchable");
             continue;
         }
 
-        NIFUtil::TextureSet* ptrAltTex = nullptr;
+        PGTypes::TextureSet* ptrAltTex = nullptr;
         if (alternateTextures.contains(oldIndex3D)) {
             ptrAltTex = &alternateTextures.at(oldIndex3D);
         } else {
@@ -534,7 +535,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
                                 bool singlepassMATO,
                                 const PGPlugin::ModelRecordType& modelRecordType,
-                                NIFUtil::TextureSet* alternateTexture) -> bool
+                                PGTypes::TextureSet* alternateTexture) -> bool
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
@@ -545,7 +546,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
     }
 
     // Prep
-    NIFUtil::TextureSet slots;
+    PGTypes::TextureSet slots;
     if (alternateTexture == nullptr) {
         slots = PatcherMesh::getTextureSet(nifPath, *nif, *nifShape);
     } else {
@@ -554,7 +555,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
     }
 
     // log slots
-    Logger::trace("Texture Slots: {}", NIFUtil::getStrFromTextureSlots(slots));
+    Logger::trace("Texture Slots: {}", PGTypes::getStrFromTextureSlots(slots));
 
     // apply prepatchers
     for (const auto& prePatcher : patchers.prePatchers) {
@@ -567,13 +568,13 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
         }
     }
 
-    if (NIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
+    if (PGNIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         // Allowed shaders from result of patchers
         auto matches = getMatches(slots, patchers, false, singlepassMATO, modelRecordType, &patchers, nifShape);
         // log each match
         for (const auto& match : matches) {
             Logger::trace(L"Match: {} / {} / {}",
-                          utf8toUTF16(NIFUtil::getStrFromShader(match.shader)),
+                          utf8toUTF16(PGEnums::getStrFromShader(match.shader)),
                           match.mod == nullptr ? L"" : match.mod->name,
                           match.match.matchedPath);
         }
@@ -589,7 +590,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
             }
 
             Logger::trace(L"Winning Match: {} / {} / {}",
-                          utf8toUTF16(NIFUtil::getStrFromShader(winningShaderMatch.shader)),
+                          utf8toUTF16(PGEnums::getStrFromShader(winningShaderMatch.shader)),
                           winningShaderMatch.mod == nullptr ? L"" : winningShaderMatch.mod->name,
                           winningShaderMatch.match.matchedPath);
 
@@ -639,12 +640,12 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
         *alternateTexture = slots;
     }
 
-    Logger::trace("Texture Slots Modified: {}", NIFUtil::getStrFromTextureSlots(slots));
+    Logger::trace("Texture Slots Modified: {}", PGTypes::getStrFromTextureSlots(slots));
 
     return true;
 }
 
-auto PGPatcher::getMatches(const NIFUtil::TextureSet& slots,
+auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
                            const PatcherUtil::PatcherMeshObjectSet& patchers,
                            const bool& dryRun,
                            bool singlepassMATO,
@@ -696,7 +697,7 @@ auto PGPatcher::getMatches(const NIFUtil::TextureSet& slots,
 
             curMatch.shader = shader;
             curMatch.match = match;
-            curMatch.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
+            curMatch.shaderTransformTo = PGEnums::ShapeShader::UNKNOWN;
 
             matches.push_back(curMatch);
             if (curMatch.mod != nullptr) {
@@ -765,7 +766,7 @@ auto PGPatcher::getMatches(const NIFUtil::TextureSet& slots,
 
             if (!canApplyBaseShader) {
                 // base shaders can't do it, lets check transforms
-                if (curMatch.shaderTransformTo == NIFUtil::ShapeShader::UNKNOWN) {
+                if (curMatch.shaderTransformTo == PGEnums::ShapeShader::UNKNOWN) {
                     it = matches.erase(it);
                     continue;
                 }
@@ -813,7 +814,7 @@ auto PGPatcher::applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
                                        const PatcherUtil::PatcherMeshObjectSet& patchers) -> bool
 {
     // Transform if required
-    if (match.shaderTransformTo != NIFUtil::ShapeShader::UNKNOWN) {
+    if (match.shaderTransformTo != PGEnums::ShapeShader::UNKNOWN) {
         // Find transform object
         auto* const transform = patchers.shaderTransformPatchers.at(match.shader).second.get();
 
@@ -821,7 +822,7 @@ auto PGPatcher::applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
         transform->transform(match.match, match.match);
 
         match.shader = match.shaderTransformTo;
-        match.shaderTransformTo = NIFUtil::ShapeShader::UNKNOWN;
+        match.shaderTransformTo = PGEnums::ShapeShader::UNKNOWN;
 
         return true;
     }

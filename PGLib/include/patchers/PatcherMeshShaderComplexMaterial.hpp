@@ -2,7 +2,8 @@
 
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -36,9 +37,9 @@ public:
     /**
      * @brief Get the shader type for this patcher (CM)
      *
-     * @return NIFUtil::ShapeShader CM shader type
+     * @return PGEnums::ShapeShader CM shader type
      */
-    static auto getShaderType() -> NIFUtil::ShapeShader;
+    static auto getShaderType() -> PGEnums::ShapeShader;
 
     /**
      * @brief Construct a new complex material patcher object
@@ -79,7 +80,7 @@ public:
      * @return true Match found
      * @return false No match found
      */
-    auto shouldApply(const NIFUtil::TextureSet& oldSlots,
+    auto shouldApply(const PGTypes::TextureSet& oldSlots,
                      std::vector<PatcherMatch>& matches) -> bool override;
 
     /**
@@ -87,9 +88,9 @@ public:
      *
      * @param[in] nifShape Shape to apply to
      * @param[in] match Match to apply
-     * @return NIFUtil::TextureSet New slots after patching
+     * @return PGTypes::TextureSet New slots after patching
      */
-    void applyPatch(NIFUtil::TextureSet& slots,
+    void applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape,
                     const PatcherMatch& match) override;
 
@@ -98,9 +99,9 @@ public:
      *
      * @param oldSlots Slots to apply to
      * @param match Match to apply
-     * @return NIFUtil::TextureSet New slots after patching
+     * @return PGTypes::TextureSet New slots after patching
      */
-    void applyPatchSlots(NIFUtil::TextureSet& slots,
+    void applyPatchSlots(PGTypes::TextureSet& slots,
                          const PatcherMatch& match) override;
 
     /**

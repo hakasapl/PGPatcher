@@ -2,7 +2,7 @@
 
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -29,7 +29,7 @@ PatcherMeshPostHairFlowMap::PatcherMeshPostHairFlowMap(std::filesystem::path nif
 {
 }
 
-auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots,
+auto PatcherMeshPostHairFlowMap::applyPatch(PGTypes::TextureSet& slots,
                                             nifly::NiShape& nifShape) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
@@ -46,22 +46,22 @@ auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots,
         return false;
     }
 
-    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
         // already has back lighting flag, don't touch it
         return false;
     }
 
     // Search prefixes
-    const auto& normalMap = slots.at(static_cast<int>(NIFUtil::TextureSlots::NORMAL));
+    const auto& normalMap = slots.at(static_cast<int>(PGEnums::TextureSlots::NORMAL));
     if (normalMap.empty() || !pgd->isFile(normalMap)) {
         // no normal map, nothing to do
         return false;
     }
 
-    static const auto flowMapBase = pgd->getTextureMapConst(NIFUtil::TextureSlots::BACKLIGHT);
+    static const auto flowMapBase = pgd->getTextureMapConst(PGEnums::TextureSlots::BACKLIGHT);
 
-    const auto normalMapBase = NIFUtil::getTexBase(normalMap, NIFUtil::TextureSlots::NORMAL);
-    const auto foundMatches = NIFUtil::getTexMatch(normalMapBase, NIFUtil::TextureType::HAIR_FLOWMAP, flowMapBase);
+    const auto normalMapBase = PGNIFUtil::getTexBase(normalMap, PGEnums::TextureSlots::NORMAL);
+    const auto foundMatches = PGNIFUtil::getTexMatch(normalMapBase, PGEnums::TextureType::HAIR_FLOWMAP, flowMapBase);
     if (foundMatches.empty()) {
         // no flow map found, nothing to do
         return false;
@@ -70,10 +70,10 @@ auto PatcherMeshPostHairFlowMap::applyPatch(NIFUtil::TextureSet& slots,
     // use first match, there shouldn't be more than 1 for this case anyway
     const auto& foundMatch = foundMatches[0];
     // Set the flow map texture slot
-    slots[static_cast<int>(NIFUtil::TextureSlots::BACKLIGHT)] = foundMatch.path;
+    slots[static_cast<int>(PGEnums::TextureSlots::BACKLIGHT)] = foundMatch.path;
 
     // Set the back lighting flag
-    NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
+    PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
 
     return true;
 }

@@ -2,7 +2,7 @@
 
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include <DirectXTex.h>
 #include <dxgiformat.h>
@@ -39,7 +39,7 @@ auto PatcherTextureHookFixSSS::isInProcessList(const filesystem::path& texPath) 
 
 auto PatcherTextureHookFixSSS::getOutputFilename(const filesystem::path& texPath) -> filesystem::path
 {
-    const auto texBase = NIFUtil::getTexBase(texPath, NIFUtil::TextureSlots::DIFFUSE);
+    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::DIFFUSE);
     return texBase + L"_s.dds";
 }
 
@@ -71,7 +71,7 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
         throw runtime_error("DDS not initialized");
     }
 
-    const auto texBase = NIFUtil::getTexBase(getDDSPath(), NIFUtil::TextureSlots::DIFFUSE);
+    const auto texBase = PGNIFUtil::getTexBase(getDDSPath(), PGEnums::TextureSlots::DIFFUSE);
     const auto newPath = texBase + L"_s.dds";
 
     DirectX::ScratchImage newDDS;
@@ -124,8 +124,8 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     }
 
     // add newly created file to complexMaterialMaps for later processing
-    pgd->getTextureMap(NIFUtil::TextureSlots::GLOW)[texBase].insert({newPath, NIFUtil::TextureType::SUBSURFACECOLOR});
-    pgd->setTextureType(newPath, NIFUtil::TextureType::SUBSURFACECOLOR);
+    pgd->getTextureMap(PGEnums::TextureSlots::GLOW)[texBase].insert({newPath, PGEnums::TextureType::SUBSURFACECOLOR});
+    pgd->setTextureType(newPath, PGEnums::TextureType::SUBSURFACECOLOR);
 
     return true;
 }

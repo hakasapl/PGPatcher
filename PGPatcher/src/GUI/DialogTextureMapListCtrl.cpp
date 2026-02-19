@@ -2,7 +2,7 @@
 
 #include "GUI/components/PGCustomListctrlChangedEvent.hpp"
 #include "GUI/components/PGTextureMapListCtrl.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
 
 #include <algorithm>
 #include <string>
@@ -68,9 +68,9 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
 }
 
 auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wstring,
-                                                                        NIFUtil::TextureType>>
+                                                                        PGEnums::TextureType>>
 {
-    std::vector<std::pair<std::wstring, NIFUtil::TextureType>> result;
+    std::vector<std::pair<std::wstring, PGEnums::TextureType>> result;
 
     long item = -1;
     while ((item = m_listCtrl->GetNextItem(item)) != -1) {
@@ -80,7 +80,7 @@ auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wst
         }
 
         const wxString textureTypeStr = m_listCtrl->GetItemText(item, 1);
-        const auto textureType = NIFUtil::getTexTypeFromStr(textureTypeStr.ToStdString());
+        const auto textureType = PGEnums::getTexTypeFromStr(textureTypeStr.ToStdString());
         result.emplace_back(texturePath.ToStdWstring(), textureType);
     }
 
@@ -88,12 +88,12 @@ auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wst
 }
 
 void DialogTextureMapListCtrl::populateList(const std::vector<std::pair<std::wstring,
-                                                                        NIFUtil::TextureType>>& items)
+                                                                        PGEnums::TextureType>>& items)
 {
     m_listCtrl->DeleteAllItems();
     for (const auto& textureRule : items) {
         const auto newIndex = m_listCtrl->InsertItem(m_listCtrl->GetItemCount(), textureRule.first);
-        m_listCtrl->SetItem(newIndex, 1, NIFUtil::getStrFromTexType(textureRule.second));
+        m_listCtrl->SetItem(newIndex, 1, PGEnums::getStrFromTexType(textureRule.second));
     }
 
     m_listCtrl->InsertItem(m_listCtrl->GetItemCount(), ""); // Add empty line

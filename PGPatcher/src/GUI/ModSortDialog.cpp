@@ -7,8 +7,7 @@
 #include "PGGlobals.hpp"
 #include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
-#include "util/NIFUtil.hpp"
-
+#include "pgutil/PGEnums.hpp"
 
 #include <wx/gdicmn.h>
 #include <wx/settings.h>
@@ -521,7 +520,7 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
             // see if we need to autoenable (max variant is greater than 1 which is NONE shader)
             if (autoEnable) {
                 const bool hasNonNone = std::ranges::any_of(
-                    shaders, [](NIFUtil::ShapeShader s) -> bool { return s != NIFUtil::ShapeShader::NONE; });
+                    shaders, [](PGEnums::ShapeShader s) -> bool { return s != PGEnums::ShapeShader::NONE; });
                 if (hasNonNone) {
                     modEnabled = true;
                 }
@@ -646,18 +645,18 @@ void ModSortDialog::updateApplyButtonState()
     m_discardButton->Enable(btnState);
 }
 
-auto ModSortDialog::constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString
+auto ModSortDialog::constructShaderString(const std::set<PGEnums::ShapeShader>& shaders) -> wxString
 {
     wxString shaderStr;
     for (const auto& shader : shaders) {
-        if (shader == NIFUtil::ShapeShader::NONE) {
+        if (shader == PGEnums::ShapeShader::NONE) {
             continue;
         }
 
         if (!shaderStr.empty()) {
             shaderStr += ", ";
         }
-        shaderStr += NIFUtil::getStrFromShader(shader);
+        shaderStr += PGEnums::getStrFromShader(shader);
     }
     return shaderStr;
 }

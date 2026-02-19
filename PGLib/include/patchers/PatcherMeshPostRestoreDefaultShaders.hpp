@@ -1,7 +1,7 @@
 #pragma once
 
 #include "patchers/base/PatcherMeshPost.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -34,12 +34,12 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(NIFUtil::TextureSet& slots,
+    auto applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape) -> bool override;
 
 private:
-    static auto restoreDefaultShaderFromParallax(NIFUtil::TextureSet& slots,
+    static auto restoreDefaultShaderFromParallax(PGTypes::TextureSet& slots,
                                                  nifly::BSLightingShaderProperty& shaderProp) -> bool;
-    static auto restoreDefaultShaderFromComplexMaterial(NIFUtil::TextureSet& slots,
+    static auto restoreDefaultShaderFromComplexMaterial(PGTypes::TextureSet& slots,
                                                         nifly::BSLightingShaderProperty& shaderProp) -> bool;
 };

@@ -2,7 +2,7 @@
 
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -30,7 +30,7 @@ PatcherMeshPostFixSSS::PatcherMeshPostFixSSS(std::filesystem::path nifPath,
 {
 }
 
-auto PatcherMeshPostFixSSS::applyPatch(NIFUtil::TextureSet& slots,
+auto PatcherMeshPostFixSSS::applyPatch(PGTypes::TextureSet& slots,
                                        nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
@@ -46,14 +46,14 @@ auto PatcherMeshPostFixSSS::applyPatch(NIFUtil::TextureSet& slots,
         return false;
     }
 
-    if (!NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)) {
+    if (!PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)) {
         // we don't care if it doesn't have soft lighting
         return false;
     }
 
     // check if diffuse and glow are the same
-    const auto& diffuseMap = slots.at(static_cast<int>(NIFUtil::TextureSlots::DIFFUSE));
-    auto& glowMap = slots.at(static_cast<int>(NIFUtil::TextureSlots::GLOW));
+    const auto& diffuseMap = slots.at(static_cast<int>(PGEnums::TextureSlots::DIFFUSE));
+    auto& glowMap = slots.at(static_cast<int>(PGEnums::TextureSlots::GLOW));
 
     if (!boost::iequals(diffuseMap, glowMap)) {
         return false;

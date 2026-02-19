@@ -1,13 +1,14 @@
 #pragma once
 
 #include "NifFile.hpp"
-#include "PGMeshPermutationTracker.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/TaskQueue.hpp"
 #include "util/TaskTracker.hpp"
+
 
 #include <DirectXTex.h>
 #include <nlohmann/json.hpp>
@@ -32,7 +33,7 @@ class PGModManager;
 class PGDirectory : public BethesdaDirectory {
 public:
     struct NifCache {
-        std::vector<std::pair<int, NIFUtil::TextureSet>> textureSets;
+        std::vector<std::pair<int, PGTypes::TextureSet>> textureSets;
         std::shared_ptr<nifly::NifFile> nif; // keep nif in cache to avoid reloading it multiple times
         unsigned long long origCRC32 = 0; // CRC32 of the NIF file
         std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>
@@ -41,8 +42,8 @@ public:
 
 private:
     struct UnconfirmedTextureProperty {
-        std::unordered_map<NIFUtil::TextureSlots, size_t> slots;
-        std::unordered_map<NIFUtil::TextureType, size_t> types;
+        std::unordered_map<PGEnums::TextureSlots, size_t> slots;
+        std::unordered_map<PGEnums::TextureType, size_t> types;
     };
 
     // Temp Structures
@@ -51,12 +52,12 @@ private:
     std::unordered_set<std::filesystem::path> m_unconfirmedMeshes;
 
     struct TextureDetails {
-        NIFUtil::TextureType type;
-        std::unordered_set<NIFUtil::TextureAttribute> attributes;
+        PGEnums::TextureType type;
+        std::unordered_set<PGEnums::TextureAttribute> attributes;
     };
 
     // Structures to store relevant files (sometimes their contents)
-    std::array<std::map<std::wstring, std::unordered_set<NIFUtil::PGTexture, NIFUtil::PGTextureHasher>>,
+    std::array<std::map<std::wstring, std::unordered_set<PGTypes::PGTexture, PGTypes::PGTextureHasher>>,
                NUM_TEXTURE_SLOTS>
         m_textureMaps;
     std::unordered_map<std::filesystem::path, TextureDetails> m_textureTypes;
@@ -93,7 +94,7 @@ public:
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist,
                   const std::vector<std::wstring>& nifAllowlist,
                   const std::vector<std::pair<std::wstring,
-                                              NIFUtil::TextureType>>& manualTextureMaps,
+                                              PGEnums::TextureType>>& manualTextureMaps,
                   const std::vector<std::wstring>& parallaxBSAExcludes,
                   const bool& multithreading = true,
                   const bool& highmem = false,
@@ -113,17 +114,17 @@ private:
                             const bool& multithreading = true) -> TaskTracker::Result;
 
     auto updateUnconfirmedTexturesMap(const std::filesystem::path& path,
-                                      const NIFUtil::TextureSlots& slot,
-                                      const NIFUtil::TextureType& type) -> void;
+                                      const PGEnums::TextureSlots& slot,
+                                      const PGEnums::TextureType& type) -> void;
 
     auto addToTextureMaps(const std::filesystem::path& path,
-                          const NIFUtil::TextureSlots& slot,
-                          const NIFUtil::TextureType& type,
-                          const std::unordered_set<NIFUtil::TextureAttribute>& attributes) -> void;
+                          const PGEnums::TextureSlots& slot,
+                          const PGEnums::TextureType& type,
+                          const std::unordered_set<PGEnums::TextureAttribute>& attributes) -> void;
 
     void updateNifCache(const std::filesystem::path& path,
                         const std::vector<std::pair<int,
-                                                    NIFUtil::TextureSet>>& txstSets);
+                                                    PGTypes::TextureSet>>& txstSets);
     void updateNifCache(const std::filesystem::path& path,
                         const std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                     PGPlugin::MeshUseAttributes>>& meshUses);
@@ -132,7 +133,7 @@ private:
                         const unsigned long long& crc32);
 
     void checkIfCMAddToMap(const std::filesystem::path& texture,
-                           const NIFUtil::TextureSlots& winningSlot);
+                           const PGEnums::TextureSlots& winningSlot);
 
 public:
     static auto checkGlobMatchInVector(const std::wstring& check,
@@ -156,19 +157,19 @@ public:
     ///
     /// @param Slot texture slot of BSShaderTextureSet in the shapes
     /// @return The mutable map
-    [[nodiscard]] auto getTextureMap(const NIFUtil::TextureSlots& slot)
+    [[nodiscard]] auto getTextureMap(const PGEnums::TextureSlots& slot)
         -> std::map<std::wstring,
-                    std::unordered_set<NIFUtil::PGTexture,
-                                       NIFUtil::PGTextureHasher>>&;
+                    std::unordered_set<PGTypes::PGTexture,
+                                       PGTypes::PGTextureHasher>>&;
 
     /// @brief Get the immutable texture map for a given texture slot
     /// @see getTextureMap
     /// @param Slot texture slot of BSShaderTextureSet in the shapes
     /// @return The immutable map
-    [[nodiscard]] auto getTextureMapConst(const NIFUtil::TextureSlots& slot) const
+    [[nodiscard]] auto getTextureMapConst(const PGEnums::TextureSlots& slot) const
         -> const std::map<std::wstring,
-                          std::unordered_set<NIFUtil::PGTexture,
-                                             NIFUtil::PGTextureHasher>>&;
+                          std::unordered_set<PGTypes::PGTexture,
+                                             PGTypes::PGTextureHasher>>&;
 
     [[nodiscard]] auto getMeshes() const -> const std::unordered_map<std::filesystem::path,
                                                                      NifCache>&;
@@ -180,19 +181,19 @@ public:
     [[nodiscard]] auto getLightPlacerJSONs() const -> const std::vector<std::filesystem::path>&;
 
     auto addTextureAttribute(const std::filesystem::path& path,
-                             const NIFUtil::TextureAttribute& attribute) -> bool;
+                             const PGEnums::TextureAttribute& attribute) -> bool;
 
     auto removeTextureAttribute(const std::filesystem::path& path,
-                                const NIFUtil::TextureAttribute& attribute) -> bool;
+                                const PGEnums::TextureAttribute& attribute) -> bool;
 
     [[nodiscard]] auto hasTextureAttribute(const std::filesystem::path& path,
-                                           const NIFUtil::TextureAttribute& attribute) -> bool;
+                                           const PGEnums::TextureAttribute& attribute) -> bool;
 
     [[nodiscard]] auto getTextureAttributes(const std::filesystem::path& path)
-        -> std::unordered_set<NIFUtil::TextureAttribute>;
+        -> std::unordered_set<PGEnums::TextureAttribute>;
 
     void setTextureType(const std::filesystem::path& path,
-                        const NIFUtil::TextureType& type);
+                        const PGEnums::TextureType& type);
 
-    auto getTextureType(const std::filesystem::path& path) -> NIFUtil::TextureType;
+    auto getTextureType(const std::filesystem::path& path) -> PGEnums::TextureType;
 };

@@ -1,7 +1,7 @@
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 
 #include "patchers/base/PatcherMeshPre.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -28,7 +28,7 @@ PatcherMeshPreFixMeshLighting::PatcherMeshPreFixMeshLighting(std::filesystem::pa
 {
 }
 
-auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] NIFUtil::TextureSet& slots,
+auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
                                                nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
@@ -48,7 +48,7 @@ auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] NIFUtil::Texture
         return false;
     }
 
-    NIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, SOFTLIGHTING_MAX);
+    PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, SOFTLIGHTING_MAX);
 
     return true;
 }

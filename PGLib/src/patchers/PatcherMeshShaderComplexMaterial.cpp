@@ -4,9 +4,11 @@
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
+#include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
-#include "util/StringUtil.hpp"
+
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -39,9 +41,9 @@ auto PatcherMeshShaderComplexMaterial::getFactory() -> PatcherMeshShader::Patche
     };
 }
 
-auto PatcherMeshShaderComplexMaterial::getShaderType() -> NIFUtil::ShapeShader
+auto PatcherMeshShaderComplexMaterial::getShaderType() -> PGEnums::ShapeShader
 {
-    return NIFUtil::ShapeShader::COMPLEXMATERIAL;
+    return PGEnums::ShapeShader::COMPLEXMATERIAL;
 }
 
 PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::path nifPath,
@@ -71,23 +73,23 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape,
         return false;
     }
 
-    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_ANISOTROPIC_LIGHTING)
-        && (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
-            || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
-            || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_ANISOTROPIC_LIGHTING)
+        && (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
+            || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
+            || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
         return false;
     }
 
-    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
-        && NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
-        && NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
+        && PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
+        && PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
         return false;
     }
 
     if (singlepassMATO
-        && (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
-            || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
-            || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
+        && (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
+            || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
+            || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING))) {
         return false;
     }
 
@@ -101,24 +103,24 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape,
     return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
-auto PatcherMeshShaderComplexMaterial::shouldApply(const NIFUtil::TextureSet& oldSlots,
+auto PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& oldSlots,
                                                    std::vector<PatcherMatch>& matches) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
     auto* pgd3d = PGGlobals::getPGD3D();
 
-    static const auto cmBaseMap = pgd->getTextureMapConst(NIFUtil::TextureSlots::ENVMASK);
+    static const auto cmBaseMap = pgd->getTextureMapConst(PGEnums::TextureSlots::ENVMASK);
 
     matches.clear();
 
     // Search prefixes
-    const auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots);
+    const auto searchPrefixes = PGNIFUtil::getSearchPrefixes(oldSlots);
 
     // Check if complex material file exists
     static const vector<int> slotSearch = {1, 0}; // Diffuse first, then normal
     filesystem::path baseMap;
-    vector<NIFUtil::PGTexture> foundMatches;
-    NIFUtil::TextureSlots matchedFromSlot = NIFUtil::TextureSlots::NORMAL;
+    vector<PGTypes::PGTexture> foundMatches;
+    PGEnums::TextureSlots matchedFromSlot = PGEnums::TextureSlots::NORMAL;
     for (const int& slot : slotSearch) {
         baseMap = oldSlots.at(slot);
         if (baseMap.empty() || !pgd->isFile(baseMap)) {
@@ -126,10 +128,11 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const NIFUtil::TextureSet& ol
         }
 
         foundMatches.clear();
-        foundMatches = NIFUtil::getTexMatch(searchPrefixes.at(slot), NIFUtil::TextureType::COMPLEXMATERIAL, cmBaseMap);
+        foundMatches
+            = PGNIFUtil::getTexMatch(searchPrefixes.at(slot), PGEnums::TextureType::COMPLEXMATERIAL, cmBaseMap);
 
         if (!foundMatches.empty()) {
-            matchedFromSlot = static_cast<NIFUtil::TextureSlots>(slot);
+            matchedFromSlot = static_cast<PGEnums::TextureSlots>(slot);
             break;
         }
     }
@@ -147,7 +150,7 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const NIFUtil::TextureSet& ol
                 curMatch.extraData = make_shared<decltype(nlohmann::json())>(meta);
             }
 
-            if (match.path == oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)]) {
+            if (match.path == oldSlots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)]) {
                 lastMatch = curMatch; // Save the match that equals OldSlots[Slot]
             } else {
                 matches.push_back(curMatch); // Add other matches
@@ -162,7 +165,7 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const NIFUtil::TextureSet& ol
     return !matches.empty();
 }
 
-void PatcherMeshShaderComplexMaterial::applyPatch(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderComplexMaterial::applyPatch(PGTypes::TextureSet& slots,
                                                   NiShape& nifShape,
                                                   const PatcherMatch& match)
 {
@@ -174,14 +177,14 @@ void PatcherMeshShaderComplexMaterial::applyPatch(NIFUtil::TextureSet& slots,
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Check if specular should be white
-    if (pgd->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_METALNESS)) {
-        NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, 1.0F);
-        NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, 1.0F);
-        NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, 1.0F);
+    if (pgd->hasTextureAttribute(match.matchedPath, PGEnums::TextureAttribute::CM_METALNESS)) {
+        PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, 1.0F);
+        PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, 1.0F);
+        PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, 1.0F);
     }
 
-    if (pgd->hasTextureAttribute(match.matchedPath, NIFUtil::TextureAttribute::CM_GLOSSINESS)) {
-        NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+    if (pgd->hasTextureAttribute(match.matchedPath, PGEnums::TextureAttribute::CM_GLOSSINESS)) {
+        PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
     }
 
     // Apply any extra meta overrides
@@ -191,9 +194,9 @@ void PatcherMeshShaderComplexMaterial::applyPatch(NIFUtil::TextureSet& slots,
         // "specular_enabled" attribute
         if (meta.contains("specular_enabled") && meta["specular_enabled"].is_boolean()) {
             if (meta["specular_enabled"].get<bool>()) {
-                NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+                PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
             } else {
-                NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
+                PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_SPECULAR);
             }
         }
 
@@ -201,24 +204,24 @@ void PatcherMeshShaderComplexMaterial::applyPatch(NIFUtil::TextureSet& slots,
         if (meta.contains("specular_color") && meta["specular_color"].is_array()
             && meta["specular_color"].size() == 3) {
             const auto specColor = meta["specular_color"];
-            NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, specColor[0].get<float>());
-            NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, specColor[1].get<float>());
-            NIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, specColor[2].get<float>());
+            PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, specColor[0].get<float>());
+            PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, specColor[1].get<float>());
+            PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.z, specColor[2].get<float>());
         }
 
         // "specular_strength" attribute
         if (meta.contains("specular_strength") && meta["specular_strength"].is_number()) {
-            NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, meta["specular_strength"].get<float>());
+            PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, meta["specular_strength"].get<float>());
         }
 
         // "glosiness" attribute
         if (meta.contains("glossiness") && meta["glossiness"].is_number()) {
-            NIFUtil::setShaderFloat(nifShaderBSLSP->glossiness, meta["glossiness"].get<float>());
+            PGNIFUtil::setShaderFloat(nifShaderBSLSP->glossiness, meta["glossiness"].get<float>());
         }
 
         // "environment_map_scale" attribute
         if (meta.contains("environment_map_scale") && meta["environment_map_scale"].is_number()) {
-            NIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, meta["environment_map_scale"].get<float>());
+            PGNIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, meta["environment_map_scale"].get<float>());
         }
     }
 
@@ -226,13 +229,13 @@ void PatcherMeshShaderComplexMaterial::applyPatch(NIFUtil::TextureSet& slots,
     applyPatchSlots(slots, match);
 }
 
-void PatcherMeshShaderComplexMaterial::applyPatchSlots(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderComplexMaterial::applyPatchSlots(PGTypes::TextureSet& slots,
                                                        const PatcherMatch& match)
 {
     const auto matchedPath = match.matchedPath;
 
-    slots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = L"";
-    slots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)] = matchedPath;
+    slots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)] = L"";
+    slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = matchedPath;
 
     // Apply any extra meta overrides
     bool enableDynCubemaps = true;
@@ -246,7 +249,7 @@ void PatcherMeshShaderComplexMaterial::applyPatchSlots(NIFUtil::TextureSet& slot
     }
 
     if (enableDynCubemaps) {
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = s_DYNCUBEMAPPATH.wstring();
+        slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = s_DYNCUBEMAPPATH.wstring();
     }
 }
 
@@ -256,15 +259,15 @@ void PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape)
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Set NIFShader type to env map
-    NIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);
-    NIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, 1.0F);
-    NIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, 1.0F);
+    PGNIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);
+    PGNIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, 1.0F);
+    PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularStrength, 1.0F);
 
     // Set NIFShader flags
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+    PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
 }
 
 auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& envMaskPath) -> nlohmann::json
@@ -289,7 +292,7 @@ auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& e
     // metadata file exists
     nlohmann::json meta;
     const auto jsonBytes = pgd->getFile(metaPath);
-    if (!StringUtil::getJSONFromBytes(jsonBytes, meta)) {
+    if (!FileUtil::getJSONFromBytes(jsonBytes, meta)) {
         Logger::error(L"Failed to parse CM metadata JSON: {}", metaPath.wstring());
         return {};
     }

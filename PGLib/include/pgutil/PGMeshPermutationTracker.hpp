@@ -4,7 +4,7 @@
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -45,7 +45,7 @@ public:
 
     struct MeshResult {
         std::filesystem::path meshPath; // Path of output mesh for this particular file
-        std::vector<std::pair<FormKey, std::unordered_map<unsigned int, NIFUtil::TextureSet>>>
+        std::vector<std::pair<FormKey, std::unordered_map<unsigned int, PGTypes::TextureSet>>>
             altTexResults; // Alternate texture results for this mesh
         std::unordered_map<int, int> idxCorrections; // List of index corrections (old, new, shape name)
     };
@@ -92,7 +92,7 @@ public:
     auto commitMesh(const FormKey& formKey,
                     bool isWeighted,
                     const std::unordered_map<unsigned int,
-                                             NIFUtil::TextureSet>& altTexResults,
+                                             PGTypes::TextureSet>& altTexResults,
                     const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
 
     auto saveMeshes() -> std::pair<std::vector<MeshResult>,

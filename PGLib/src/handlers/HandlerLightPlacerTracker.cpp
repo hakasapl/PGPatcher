@@ -1,6 +1,8 @@
 #include "handlers/HandlerLightPlacerTracker.hpp"
 
 #include "PGGlobals.hpp"
+#include "PGPlugin.hpp"
+#include "util/FileUtil.hpp"
 #include "util/StringUtil.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -32,7 +34,7 @@ void HandlerLightPlacerTracker::init(const vector<filesystem::path>& lpJSONs)
     for (const auto& jsonPath : lpJSONs) {
         // Load JSON data
         nlohmann::json jsonData;
-        if (!StringUtil::getJSON(pgd->getLooseFileFullPath(jsonPath), jsonData)) {
+        if (!FileUtil::getJSON(pgd->getLooseFileFullPath(jsonPath), jsonData)) {
             // unable to load
             continue;
         }
@@ -73,8 +75,8 @@ void HandlerLightPlacerTracker::handleNIFCreated(const filesystem::path& baseNIF
     }
 
     // Remove "meshes" from from the first part of both paths
-    const auto baseNIFPathLP = StringUtil::getPluginPathFromDataPath(baseNIFPath);
-    const auto createdNIFPathLP = StringUtil::getPluginPathFromDataPath(createdNIFPath);
+    const auto baseNIFPathLP = PGPlugin::getPluginPathFromDataPath(baseNIFPath);
+    const auto createdNIFPathLP = PGPlugin::getPluginPathFromDataPath(createdNIFPath);
 
     // check if s_lightPlacerJSONMap contains the baseNIFPath
     auto it = s_lightPlacerJSONMap.find(baseNIFPathLP);
@@ -115,7 +117,7 @@ void HandlerLightPlacerTracker::finalize()
                 filesystem::create_directories(outputPath.parent_path());
             }
 
-            StringUtil::saveJSON(outputPath, lpJsonPtr->jsonData, true);
+            FileUtil::saveJSON(outputPath, lpJsonPtr->jsonData, true);
         }
     }
 

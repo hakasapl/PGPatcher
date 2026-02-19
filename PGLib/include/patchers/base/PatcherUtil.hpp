@@ -8,7 +8,8 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/StringUtil.hpp"
 
 #include <nlohmann/json_fwd.hpp>
@@ -32,10 +33,10 @@ public:
     struct PatcherMeshObjectSet {
         std::vector<PatcherMeshGlobal::PatcherMeshGlobalObject> globalPatchers;
         std::vector<PatcherMeshPre::PatcherMeshPreObject> prePatchers;
-        std::unordered_map<NIFUtil::ShapeShader, PatcherMeshShader::PatcherMeshShaderObject> shaderPatchers;
+        std::unordered_map<PGEnums::ShapeShader, PatcherMeshShader::PatcherMeshShaderObject> shaderPatchers;
         std::unordered_map<
-            NIFUtil::ShapeShader,
-            std::pair<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformObject>>
+            PGEnums::ShapeShader,
+            std::pair<PGEnums::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformObject>>
             shaderTransformPatchers;
         std::vector<PatcherMeshPost::PatcherMeshPostObject> postPatchers;
     };
@@ -47,10 +48,10 @@ public:
     struct PatcherMeshSet {
         std::vector<PatcherMeshGlobal::PatcherMeshGlobalFactory> globalPatchers;
         std::vector<PatcherMeshPre::PatcherMeshPreFactory> prePatchers;
-        std::unordered_map<NIFUtil::ShapeShader, PatcherMeshShader::PatcherMeshShaderFactory> shaderPatchers;
+        std::unordered_map<PGEnums::ShapeShader, PatcherMeshShader::PatcherMeshShaderFactory> shaderPatchers;
         std::unordered_map<
-            NIFUtil::ShapeShader,
-            std::pair<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory>>
+            PGEnums::ShapeShader,
+            std::pair<PGEnums::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory>>
             shaderTransformPatchers;
         std::vector<PatcherMeshPost::PatcherMeshPostFactory> postPatchers;
     };
@@ -69,9 +70,9 @@ public:
      */
     struct ShaderPatcherMatch {
         std::shared_ptr<PGModManager::Mod> mod;
-        NIFUtil::ShapeShader shader {};
+        PGEnums::ShapeShader shader {};
         PatcherMeshShader::PatcherMatch match {};
-        NIFUtil::ShapeShader shaderTransformTo {};
+        PGEnums::ShapeShader shaderTransformTo {};
 
         [[nodiscard]] auto getJSON() const -> nlohmann::json
         {
@@ -79,8 +80,8 @@ public:
             if (mod != nullptr) {
                 json["mod"] = StringUtil::utf16toUTF8(mod->name);
             }
-            json["shader"] = NIFUtil::getStrFromShader(shader);
-            json["shaderTransformTo"] = NIFUtil::getStrFromShader(shaderTransformTo);
+            json["shader"] = PGEnums::getStrFromShader(shader);
+            json["shaderTransformTo"] = PGEnums::getStrFromShader(shaderTransformTo);
             json["matchedPath"] = StringUtil::utf16toUTF8(match.matchedPath);
             json["matchedFrom"] = nlohmann::json::array();
             for (const auto& matchedFrom : match.matchedFrom) {
@@ -98,11 +99,11 @@ public:
             } else {
                 match.mod = nullptr;
             }
-            match.shader = NIFUtil::getShaderFromStr(json["shader"].get<std::string>());
-            match.shaderTransformTo = NIFUtil::getShaderFromStr(json["shaderTransformTo"].get<std::string>());
+            match.shader = PGEnums::getShaderFromStr(json["shader"].get<std::string>());
+            match.shaderTransformTo = PGEnums::getShaderFromStr(json["shaderTransformTo"].get<std::string>());
             match.match.matchedPath = StringUtil::utf8toUTF16(json["matchedPath"].get<std::string>());
             for (const auto& matchedFrom : json["matchedFrom"]) {
-                match.match.matchedFrom.insert(static_cast<NIFUtil::TextureSlots>(matchedFrom.get<int>()));
+                match.match.matchedFrom.insert(static_cast<PGEnums::TextureSlots>(matchedFrom.get<int>()));
             }
 
             return match;

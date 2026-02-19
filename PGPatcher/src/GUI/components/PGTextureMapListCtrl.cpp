@@ -2,7 +2,7 @@
 
 #include "GUI/components/PGCustomListctrlChangedEvent.hpp"
 #include "GUI/components/PGModifiableListCtrl.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
 
 using namespace std;
 
@@ -28,7 +28,7 @@ PGTextureMapListCtrl::PGTextureMapListCtrl(wxWindow* parent,
 
 void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
 {
-    static const auto possibleTexTypes = NIFUtil::getTexTypesStr();
+    static const auto possibleTexTypes = PGEnums::getTexTypesStr();
     // convert to wxArrayStr
     wxArrayString wxPossibleTexTypes;
     for (const auto& texType : possibleTexTypes) {

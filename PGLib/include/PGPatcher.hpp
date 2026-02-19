@@ -3,7 +3,7 @@
 #include "PGDirectory.hpp"
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherUtil.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/TaskTracker.hpp"
 
 #include "Geometry.hpp"
@@ -37,7 +37,7 @@ private:
 
     struct MatchCacheKey {
         std::wstring nifPath;
-        NIFUtil::TextureSet slots;
+        PGTypes::TextureSet slots;
         bool singlepassMATO = false;
 
         auto operator==(const MatchCacheKey& other) const -> bool
@@ -164,7 +164,7 @@ private:
                            bool singlepassMATO,
                            const PGPlugin::ModelRecordType& modelRecordType,
                            std::unordered_map<unsigned int,
-                                              NIFUtil::TextureSet>& alternateTextures,
+                                              PGTypes::TextureSet>& alternateTextures,
                            std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
 
     /**
@@ -188,9 +188,9 @@ private:
                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
                                 bool singlepassMATO,
                                 const PGPlugin::ModelRecordType& modelRecordType,
-                                NIFUtil::TextureSet* alternateTexture = nullptr) -> bool;
+                                PGTypes::TextureSet* alternateTexture = nullptr) -> bool;
 
-    static auto getMatches(const NIFUtil::TextureSet& slots,
+    static auto getMatches(const PGTypes::TextureSet& slots,
                            const PatcherUtil::PatcherMeshObjectSet& patchers,
                            const bool& dryRun,
                            bool singlepassMATO,

@@ -3,7 +3,8 @@
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
@@ -27,9 +28,9 @@ auto PatcherMeshShaderVanillaParallax::getFactory() -> PatcherMeshShader::Patche
     };
 }
 
-auto PatcherMeshShaderVanillaParallax::getShaderType() -> NIFUtil::ShapeShader
+auto PatcherMeshShaderVanillaParallax::getShaderType() -> PGEnums::ShapeShader
 {
-    return NIFUtil::ShapeShader::VANILLAPARALLAX;
+    return PGEnums::ShapeShader::VANILLAPARALLAX;
 }
 
 PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(filesystem::path nifPath,
@@ -89,15 +90,15 @@ auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape,
     }
 
     // decals don't work with regular Parallax
-    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_DECAL)
-        || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_DYNAMIC_DECAL)) {
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_DECAL)
+        || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_DYNAMIC_DECAL)) {
         return false;
     }
 
     // Mesh lighting doesn't work with regular Parallax
-    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
-        || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
-        || NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)
+        || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING)
+        || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
         return false;
     }
 
@@ -110,24 +111,24 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape,
     return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
-auto PatcherMeshShaderVanillaParallax::shouldApply(const NIFUtil::TextureSet& oldSlots,
+auto PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& oldSlots,
                                                    std::vector<PatcherMatch>& matches) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
     auto* pgd3d = PGGlobals::getPGD3D();
 
-    static const auto heightBaseMap = pgd->getTextureMapConst(NIFUtil::TextureSlots::PARALLAX);
+    static const auto heightBaseMap = pgd->getTextureMapConst(PGEnums::TextureSlots::PARALLAX);
 
     matches.clear();
 
     // Search prefixes
-    const auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots);
+    const auto searchPrefixes = PGNIFUtil::getSearchPrefixes(oldSlots);
 
     // Check if parallax file exists
     static const vector<int> slotSearch = {1, 0}; // Diffuse first, then normal
     filesystem::path baseMap;
-    vector<NIFUtil::PGTexture> foundMatches;
-    NIFUtil::TextureSlots matchedFromSlot = NIFUtil::TextureSlots::NORMAL;
+    vector<PGTypes::PGTexture> foundMatches;
+    PGEnums::TextureSlots matchedFromSlot = PGEnums::TextureSlots::NORMAL;
     for (const int& slot : slotSearch) {
         baseMap = oldSlots.at(slot);
         if (baseMap.empty() || !pgd->isFile(baseMap)) {
@@ -135,11 +136,11 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(const NIFUtil::TextureSet& ol
         }
 
         foundMatches.clear();
-        foundMatches = NIFUtil::getTexMatch(searchPrefixes.at(slot), NIFUtil::TextureType::HEIGHT, heightBaseMap);
+        foundMatches = PGNIFUtil::getTexMatch(searchPrefixes.at(slot), PGEnums::TextureType::HEIGHT, heightBaseMap);
 
         if (!foundMatches.empty()) {
             // TODO should we be trying diffuse after normal too and present all options?
-            matchedFromSlot = static_cast<NIFUtil::TextureSlots>(slot);
+            matchedFromSlot = static_cast<PGEnums::TextureSlots>(slot);
             break;
         }
     }
@@ -151,7 +152,7 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(const NIFUtil::TextureSet& ol
             PatcherMatch curMatch;
             curMatch.matchedPath = match.path;
             curMatch.matchedFrom.insert(matchedFromSlot);
-            if (match.path == oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)]) {
+            if (match.path == oldSlots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)]) {
                 lastMatch = curMatch; // Save the match that equals OldSlots[Slot]
             } else {
                 matches.push_back(curMatch); // Add other matches
@@ -166,7 +167,7 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(const NIFUtil::TextureSet& ol
     return !matches.empty();
 }
 
-void PatcherMeshShaderVanillaParallax::applyPatch(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderVanillaParallax::applyPatch(PGTypes::TextureSet& slots,
                                                   nifly::NiShape& nifShape,
                                                   const PatcherMatch& match)
 {
@@ -177,10 +178,10 @@ void PatcherMeshShaderVanillaParallax::applyPatch(NIFUtil::TextureSet& slots,
     applyPatchSlots(slots, match);
 }
 
-void PatcherMeshShaderVanillaParallax::applyPatchSlots(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderVanillaParallax::applyPatchSlots(PGTypes::TextureSet& slots,
                                                        const PatcherMatch& match)
 {
-    slots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = match.matchedPath;
+    slots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)] = match.matchedPath;
 }
 
 void PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape)
@@ -189,12 +190,12 @@ void PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape)
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Set NIFShader type to Parallax
-    NIFUtil::setShaderType(nifShader, BSLSP_PARALLAX);
+    PGNIFUtil::setShaderType(nifShader, BSLSP_PARALLAX);
     // Set NIFShader flags
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
-    NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
     // Set vertex colors for shape
     if (!nifShape.HasVertexColors()) {
         nifShape.SetVertexColors(true);

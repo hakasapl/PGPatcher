@@ -1,7 +1,7 @@
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 
 #include "patchers/base/PatcherMeshPre.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -27,7 +27,7 @@ PatcherMeshPreFixTextureSlotCount::PatcherMeshPreFixTextureSlotCount(std::filesy
 {
 }
 
-auto PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] NIFUtil::TextureSet& slots,
+auto PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
                                                    nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);

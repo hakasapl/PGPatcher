@@ -1,7 +1,8 @@
 #pragma once
 
 #include "common/BethesdaGame.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -40,7 +41,7 @@ public:
         bool hasMeshes = false;
         int modManagerOrder;
         int priority = -1;
-        std::set<NIFUtil::ShapeShader> shaders;
+        std::set<PGEnums::ShapeShader> shaders;
         std::unordered_set<std::shared_ptr<Mod>, ModHash> conflicts;
     };
 

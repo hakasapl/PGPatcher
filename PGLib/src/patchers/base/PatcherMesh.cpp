@@ -1,7 +1,7 @@
 #include "patchers/base/PatcherMesh.hpp"
 
 #include "patchers/base/Patcher.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/StringUtil.hpp"
 
 #include "BasicTypes.hpp"
@@ -43,7 +43,7 @@ auto PatcherMesh::getTextureSet(const filesystem::path& nifPath,
     }
 
     // get the texture slots
-    return NIFUtil::getTextureSlots(&nif, &nifShape);
+    return PGNIFUtil::getTextureSlots(&nif, &nifShape);
 }
 
 auto PatcherMesh::setTextureSet(const filesystem::path& nifPath,
@@ -110,11 +110,11 @@ auto PatcherMesh::setTextureSet(const filesystem::path& nifPath,
     const unique_lock lockWrite(s_patchedTextureSetsMutex);
 
     // set original for future use
-    const auto slots = NIFUtil::getTextureSlots(&nif, &nifShape);
+    const auto slots = PGNIFUtil::getTextureSlots(&nif, &nifShape);
     s_patchedTextureSets[nifPath][textureSetBlockID].original = slots;
 
     // set the texture slots for the shape like normal
-    const bool changed = NIFUtil::setTextureSlots(&nif, &nifShape, textures);
+    const bool changed = PGNIFUtil::setTextureSlots(&nif, &nifShape, textures);
 
     // update the patchedtexturesets
     s_patchedTextureSets[nifPath][textureSetBlockID].patchResults[textureSetBlockID] = textures;

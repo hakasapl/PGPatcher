@@ -3,7 +3,8 @@
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -24,7 +25,7 @@ auto PatcherMeshShaderDefault::getFactory() -> PatcherMeshShader::PatcherMeshSha
     };
 }
 
-auto PatcherMeshShaderDefault::getShaderType() -> NIFUtil::ShapeShader { return NIFUtil::ShapeShader::NONE; }
+auto PatcherMeshShaderDefault::getShaderType() -> PGEnums::ShapeShader { return PGEnums::ShapeShader::NONE; }
 
 PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath,
                                                    nifly::NifFile* nif)
@@ -47,7 +48,7 @@ auto PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape,
     return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
-auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots,
+auto PatcherMeshShaderDefault::shouldApply(const PGTypes::TextureSet& oldSlots,
                                            std::vector<PatcherMatch>& matches) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
@@ -68,20 +69,20 @@ auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots,
         // Add match
         PatcherMatch curMatch;
         curMatch.matchedPath = oldSlots.at(slot);
-        curMatch.matchedFrom.insert(static_cast<NIFUtil::TextureSlots>(slot));
+        curMatch.matchedFrom.insert(static_cast<PGEnums::TextureSlots>(slot));
         matches.push_back(curMatch);
     }
 
     return !matches.empty();
 }
 
-void PatcherMeshShaderDefault::applyPatch(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderDefault::applyPatch(PGTypes::TextureSet& slots,
                                           [[maybe_unused]] nifly::NiShape& nifShape,
                                           [[maybe_unused]] const PatcherMatch& match)
 {
 }
 
-void PatcherMeshShaderDefault::applyPatchSlots([[maybe_unused]] NIFUtil::TextureSet& slots,
+void PatcherMeshShaderDefault::applyPatchSlots([[maybe_unused]] PGTypes::TextureSet& slots,
                                                [[maybe_unused]] const PatcherMatch& match)
 {
 }

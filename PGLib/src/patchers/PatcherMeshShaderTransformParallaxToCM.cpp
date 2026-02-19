@@ -3,7 +3,7 @@
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "NifFile.hpp"
 
@@ -26,13 +26,13 @@ auto PatcherMeshShaderTransformParallaxToCM::getFactory()
     };
 }
 
-auto PatcherMeshShaderTransformParallaxToCM::getFromShader() -> NIFUtil::ShapeShader
+auto PatcherMeshShaderTransformParallaxToCM::getFromShader() -> PGEnums::ShapeShader
 {
-    return NIFUtil::ShapeShader::VANILLAPARALLAX;
+    return PGEnums::ShapeShader::VANILLAPARALLAX;
 }
-auto PatcherMeshShaderTransformParallaxToCM::getToShader() -> NIFUtil::ShapeShader
+auto PatcherMeshShaderTransformParallaxToCM::getToShader() -> PGEnums::ShapeShader
 {
-    return NIFUtil::ShapeShader::COMPLEXMATERIAL;
+    return PGEnums::ShapeShader::COMPLEXMATERIAL;
 }
 
 PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(std::filesystem::path nifPath,
@@ -40,8 +40,8 @@ PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(s
     : PatcherMeshShaderTransform(std::move(nifPath),
                                  nif,
                                  "UpgradeParallaxToCM",
-                                 NIFUtil::ShapeShader::VANILLAPARALLAX,
-                                 NIFUtil::ShapeShader::COMPLEXMATERIAL)
+                                 PGEnums::ShapeShader::VANILLAPARALLAX,
+                                 PGEnums::ShapeShader::COMPLEXMATERIAL)
 {
 }
 
