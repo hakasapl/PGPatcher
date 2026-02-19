@@ -62,7 +62,6 @@ auto PGD3D::checkIfCM(const filesystem::path& ddsPath,
         return true;
     }
 
-    // bool bcCompressed = false;
     //  Only check DDS with alpha channels
     switch (ddsImageMeta.format) {
     case DXGI_FORMAT_BC2_UNORM:
@@ -74,7 +73,6 @@ auto PGD3D::checkIfCM(const filesystem::path& ddsPath,
     case DXGI_FORMAT_BC7_UNORM:
     case DXGI_FORMAT_BC7_UNORM_SRGB:
     case DXGI_FORMAT_BC7_TYPELESS:
-        // bcCompressed = true;
         [[fallthrough]];
     case DXGI_FORMAT_R32G32B32A32_TYPELESS:
     case DXGI_FORMAT_R32G32B32A32_FLOAT:

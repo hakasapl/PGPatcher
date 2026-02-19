@@ -558,8 +558,6 @@ auto BethesdaDirectory::isPathAscii(const filesystem::path& path) -> bool
 
 auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> BethesdaDirectory::BethesdaFile
 {
-    // const filesystem::path lowerPath = getAsciiPathLower(filePath);
-
     const shared_lock lock(m_fileMapMutex);
     if (!m_fileMap.contains(filePath)) {
         return BethesdaFile {.path = filesystem::path(), .bsaFile = nullptr};
@@ -572,8 +570,6 @@ void BethesdaDirectory::updateFileMap(const filesystem::path& filePath,
                                       shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
                                       const bool& generated)
 {
-    // const filesystem::path lowerPath = getAsciiPathLower(filePath);
-
     const unique_lock lock(m_fileMapMutex);
 
     const BethesdaFile newBFile = {.path = filePath, .bsaFile = std::move(bsaFile), .generated = generated};
