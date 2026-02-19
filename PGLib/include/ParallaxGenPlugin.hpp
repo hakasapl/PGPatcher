@@ -1,12 +1,14 @@
 #pragma once
 
 #include "BethesdaGame.hpp"
+#include "util/EnumStringHelper.hpp"
 #include "util/MeshTracker.hpp"
 #include "util/NIFUtil.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <nlohmann/json.hpp>
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -47,6 +49,32 @@ public:
         CHINESE_SIMPLIFIED
     };
 
+    static constexpr std::array<EnumStringHelper::EnumStringEntry<PluginLang>, 23> PLUGINLANG_TABLE {{
+        {.value = PluginLang::ARABIC, .name = "Arabic"},
+        {.value = PluginLang::CHINESE, .name = "Chinese"},
+        {.value = PluginLang::CHINESE_SIMPLIFIED, .name = "Chinese Simplified"},
+        {.value = PluginLang::CZECH, .name = "Czech"},
+        {.value = PluginLang::DANISH, .name = "Danish"},
+        {.value = PluginLang::ENGLISH, .name = "English"},
+        {.value = PluginLang::FINNISH, .name = "Finnish"},
+        {.value = PluginLang::FRENCH, .name = "French"},
+        {.value = PluginLang::GERMAN, .name = "German"},
+        {.value = PluginLang::GREEK, .name = "Greek"},
+        {.value = PluginLang::HUNGARIAN, .name = "Hungarian"},
+        {.value = PluginLang::ITALIAN, .name = "Italian"},
+        {.value = PluginLang::JAPANESE, .name = "Japanese"},
+        {.value = PluginLang::KOREAN, .name = "Korean"},
+        {.value = PluginLang::NORWEGIAN, .name = "Norwegian"},
+        {.value = PluginLang::POLISH, .name = "Polish"},
+        {.value = PluginLang::PORTUGUESE_BRAZIL, .name = "Portuguese Brazil"},
+        {.value = PluginLang::RUSSIAN, .name = "Russian"},
+        {.value = PluginLang::SPANISH, .name = "Spanish"},
+        {.value = PluginLang::SPANISH_MEXICO, .name = "Spanish Mexico"},
+        {.value = PluginLang::SWEDISH, .name = "Swedish"},
+        {.value = PluginLang::THAI, .name = "Thai"},
+        {.value = PluginLang::TURKISH, .name = "Turkish"},
+    }};
+
     enum class ModelRecordType : uint8_t {
         ACTIVATOR, // ACTI
         AMMUNITION, // AMMO
@@ -86,6 +114,44 @@ public:
         UNKNOWN
     };
 
+    static constexpr std::array<EnumStringHelper::EnumStringEntry<ModelRecordType>, 35> MODEL_RECORD_TYPE_TABLE {{
+        {.value = ModelRecordType::ACTIVATOR, .name = "ACTI"},
+        {.value = ModelRecordType::INGESTIBLE, .name = "ALCH"},
+        {.value = ModelRecordType::AMMUNITION, .name = "AMMO"},
+        {.value = ModelRecordType::ANIMATED_OBJECT, .name = "ANIO"},
+        {.value = ModelRecordType::ARMOR, .name = "ARMO"},
+        {.value = ModelRecordType::ARMOR_ADDON, .name = "ARMA"},
+        {.value = ModelRecordType::ART_OBJECT, .name = "ARTO"},
+        {.value = ModelRecordType::BODY_PART_DATA, .name = "BPTD"},
+        {.value = ModelRecordType::BOOK, .name = "BOOK"},
+        {.value = ModelRecordType::CAMERA_SHOT, .name = "CAMS"},
+        {.value = ModelRecordType::CLIMATE, .name = "CLMT"},
+        {.value = ModelRecordType::CONTAINER, .name = "CONT"},
+        {.value = ModelRecordType::DOOR, .name = "DOOR"},
+        {.value = ModelRecordType::EXPLOSION, .name = "EXPL"},
+        {.value = ModelRecordType::FLORA, .name = "FLOR"},
+        {.value = ModelRecordType::FURNITURE, .name = "FURN"},
+        {.value = ModelRecordType::GRASS, .name = "GRAS"},
+        {.value = ModelRecordType::HAZARD, .name = "HAZD"},
+        {.value = ModelRecordType::HEAD_PART, .name = "HDPT"},
+        {.value = ModelRecordType::IDLE_MARKER, .name = "IDLM"},
+        {.value = ModelRecordType::IMPACT, .name = "IPCT"},
+        {.value = ModelRecordType::INGREDIENT, .name = "INGR"},
+        {.value = ModelRecordType::KEY, .name = "KEYM"},
+        {.value = ModelRecordType::LEVELED_NPC, .name = "LVLN"},
+        {.value = ModelRecordType::LIGHT, .name = "LIGH"},
+        {.value = ModelRecordType::MATERIAL_OBJECT, .name = "MATO"},
+        {.value = ModelRecordType::MISC_ITEM, .name = "MISC"},
+        {.value = ModelRecordType::MOVEABLE_STATIC, .name = "MSTT"},
+        {.value = ModelRecordType::PROJECTILE, .name = "PROJ"},
+        {.value = ModelRecordType::SCROLL, .name = "SCRL"},
+        {.value = ModelRecordType::SOUL_GEM, .name = "SLGM"},
+        {.value = ModelRecordType::STATIC_OBJECT, .name = "STAT"},
+        {.value = ModelRecordType::TALKING_ACTIVATOR, .name = "TACT"},
+        {.value = ModelRecordType::TREE, .name = "TREE"},
+        {.value = ModelRecordType::WEAPON, .name = "WEAP"},
+    }};
+
     struct MeshUseAttributes {
         bool isWeighted;
         bool singlepassMATO;
@@ -103,8 +169,9 @@ public:
     static auto getAvailableRecTypeStrs() -> std::vector<std::string>;
     static auto getDefaultRecTypeSet() -> std::unordered_set<ModelRecordType>;
 
-    static void initialize(
-        const BethesdaGame& game, const std::filesystem::path& exePath, const PluginLang& lang = PluginLang::ENGLISH);
+    static void initialize(const BethesdaGame& game,
+                           const std::filesystem::path& exePath,
+                           const PluginLang& lang = PluginLang::ENGLISH);
 
     static void populateObjs(const std::filesystem::path& existingModPath = {});
 
