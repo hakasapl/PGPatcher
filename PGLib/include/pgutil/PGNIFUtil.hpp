@@ -144,23 +144,12 @@ auto setTextureSlots(nifly::NifFile* nif,
                      const std::array<std::wstring,
                                       NUM_TEXTURE_SLOTS>& newSlots) -> bool;
 
-/// @brief get the set texture for a slot
-/// @param nif nif
-/// @param nifShape the shape
-/// @param[in] slot the slot
-/// @return texture set in the slot
-auto getTextureSlot(nifly::NifFile* nif,
-                    nifly::NiShape* nifShape,
-                    const PGEnums::TextureSlots& slot) -> std::string;
-
 /// @brief get all set texture slots from a shape
 /// @param nif nif
 /// @param nifShape shape
 /// @return array of textures set in the slots
 auto getTextureSlots(nifly::NifFile* nif,
                      nifly::NiShape* nifShape) -> PGTypes::TextureSet;
-
-auto textureSetToStr(const PGTypes::TextureSet& set) -> PGTypes::TextureSetStr;
 
 /// @brief get the texture name without suffix, i.e. without _n.dds
 /// @param[in] texPath the path to get the base for

@@ -347,16 +347,6 @@ auto PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
     return changed;
 }
 
-auto PGNIFUtil::getTextureSlot(nifly::NifFile* nif,
-                               nifly::NiShape* nifShape,
-                               const PGEnums::TextureSlots& slot) -> std::string
-{
-    string texture;
-    nif->GetTextureSlot(nifShape, texture, static_cast<unsigned int>(slot));
-    StringUtil::toLowerASCIIFastInPlace(texture);
-    return texture;
-}
-
 auto PGNIFUtil::getTextureSlots(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape) -> PGTypes::TextureSet
 {
@@ -376,17 +366,6 @@ auto PGNIFUtil::getTextureSlots(nifly::NifFile* nif,
     }
 
     return outSlots;
-}
-
-auto PGNIFUtil::textureSetToStr(const PGTypes::TextureSet& set) -> PGTypes::TextureSetStr
-{
-    PGTypes::TextureSetStr outSet;
-
-    for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
-        outSet.at(i) = StringUtil::utf16toUTF8(set.at(i));
-    }
-
-    return outSet;
 }
 
 auto PGNIFUtil::getTexBase(const std::filesystem::path& path,
