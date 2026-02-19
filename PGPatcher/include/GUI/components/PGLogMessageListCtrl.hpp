@@ -10,7 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
-wxDECLARE_EVENT(s_EVT_PG_LOG_IGNORE_CHANGED, wxCommandEvent);
+wxDECLARE_EVENT(s_EVT_PG_LOG_IGNORE_CHANGED,
+                wxCommandEvent);
 
 class PGLogMessageListCtrl : public wxListCtrl {
 private:
@@ -33,12 +34,16 @@ public:
      * @param sz size
      * @param style window style (default wxLC_REPORT)
      */
-    PGLogMessageListCtrl(wxWindow* parent, wxWindowID id, bool allowIgnore = true);
+    PGLogMessageListCtrl(wxWindow* parent,
+                         wxWindowID id,
+                         bool allowIgnore = true);
 
     void setShowIgnored(bool showIgnored);
     void setLogMessages(const std::vector<wxString>& messages);
-    void setIgnoreMap(const std::unordered_map<wxString, bool>& ignoredItems);
-    [[nodiscard]] auto getIgnoreMap() const -> const std::unordered_map<wxString, bool>&;
+    void setIgnoreMap(const std::unordered_map<wxString,
+                                               bool>& ignoredItems);
+    [[nodiscard]] auto getIgnoreMap() const -> const std::unordered_map<wxString,
+                                                                        bool>&;
     [[nodiscard]] auto getNumUnignoredMessages() const -> size_t;
 
 private:

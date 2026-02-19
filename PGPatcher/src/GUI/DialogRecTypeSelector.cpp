@@ -9,13 +9,22 @@
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
-DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent, const wxString& title)
-    : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxSize(300, 400), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
+                                             const wxString& title)
+    : wxDialog(parent,
+               wxID_ANY,
+               title,
+               wxDefaultPosition,
+               wxSize(300,
+                      400),
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
     // Add static text for instructions
-    auto* instructionText = new wxStaticText(this, wxID_ANY,
+    auto* instructionText = new wxStaticText(
+        this,
+        wxID_ANY,
         "Unchecking a record type will exclude it and its associated meshes from being patched. Only record types with "
         "models are shown.");
     // wrap text around 300 px

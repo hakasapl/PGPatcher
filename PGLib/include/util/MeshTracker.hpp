@@ -65,7 +65,8 @@ private:
     using AltTex3DIndices = std::unordered_set<unsigned int>;
 
     struct PathSizeHash {
-        auto operator()(const std::pair<std::filesystem::path, size_t>& key) const noexcept -> size_t
+        auto operator()(const std::pair<std::filesystem::path,
+                                        size_t>& key) const noexcept -> size_t
         {
             const size_t h1 = std::hash<std::wstring> {}(key.first.wstring());
             const size_t h2 = std::hash<size_t> {}(key.second);
@@ -84,14 +85,19 @@ public:
 
     // Plugin mesh staging
     void load();
-    void load(const std::shared_ptr<nifly::NifFile>& origNifFile, const unsigned long long& origCrc32);
+    void load(const std::shared_ptr<nifly::NifFile>& origNifFile,
+              const unsigned long long& origCrc32);
     auto stageMesh() -> nifly::NifFile*;
     void ignoreBaseMesh();
-    auto commitMesh(const FormKey& formKey, bool isWeighted,
-        const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
-        const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
+    auto commitMesh(const FormKey& formKey,
+                    bool isWeighted,
+                    const std::unordered_map<unsigned int,
+                                             NIFUtil::TextureSet>& altTexResults,
+                    const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
 
-    auto saveMeshes() -> std::pair<std::vector<MeshResult>, std::pair<unsigned long long, unsigned long long>>;
+    auto saveMeshes() -> std::pair<std::vector<MeshResult>,
+                                   std::pair<unsigned long long,
+                                             unsigned long long>>;
 
     static void validateWeightedVariants();
 
@@ -99,31 +105,37 @@ private:
     void processWeightVariant();
 
     // Helpers
-    static auto compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
-        const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST = false,
-        bool checkOnlyWeighted = false) -> bool;
+    static auto compareMesh(const nifly::NifFile& meshA,
+                            const nifly::NifFile& meshB,
+                            const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA,
+                            bool compareAllTXST = false,
+                            bool checkOnlyWeighted = false) -> bool;
 
-    static auto compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly::BSTriShape& shapeB) -> bool;
+    static auto compareBSTriShape(const nifly::BSTriShape& shapeA,
+                                  const nifly::BSTriShape& shapeB) -> bool;
 
-    static auto compareNiShape(const nifly::NiShape& shapeA, const nifly::NiShape& shapeB) -> bool;
+    static auto compareNiShape(const nifly::NiShape& shapeA,
+                               const nifly::NiShape& shapeB) -> bool;
 
-    static auto compareBSLightingShaderProperty(
-        const nifly::BSLightingShaderProperty& shaderA, const nifly::BSLightingShaderProperty& shaderB) -> bool;
+    static auto compareBSLightingShaderProperty(const nifly::BSLightingShaderProperty& shaderA,
+                                                const nifly::BSLightingShaderProperty& shaderB) -> bool;
 
-    static auto compareBSEffectShaderProperty(
-        const nifly::BSEffectShaderProperty& shaderA, const nifly::BSEffectShaderProperty& shaderB) -> bool;
+    static auto compareBSEffectShaderProperty(const nifly::BSEffectShaderProperty& shaderA,
+                                              const nifly::BSEffectShaderProperty& shaderB) -> bool;
 
-    static auto compareBSShaderProperty(const nifly::BSShaderProperty& shaderA, const nifly::BSShaderProperty& shaderB)
-        -> bool;
+    static auto compareBSShaderProperty(const nifly::BSShaderProperty& shaderA,
+                                        const nifly::BSShaderProperty& shaderB) -> bool;
 
-    static auto compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, nifly::BSShaderTextureSet& texSetB)
-        -> bool;
+    static auto compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA,
+                                          nifly::BSShaderTextureSet& texSetB) -> bool;
 
-    static auto getMeshPath(const std::filesystem::path& nifPath, const size_t& index) -> std::filesystem::path;
+    static auto getMeshPath(const std::filesystem::path& nifPath,
+                            const size_t& index) -> std::filesystem::path;
 
     static auto getComparableBlocks(const nifly::NifFile* nif) -> std::vector<nifly::NiObject*>;
 
-    static auto get3dIndices(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiObject*, int>;
+    static auto get3dIndices(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiObject*,
+                                                                              int>;
 
     static auto getOtherWeightVariant(const std::filesystem::path& nifPath) -> std::filesystem::path;
 };

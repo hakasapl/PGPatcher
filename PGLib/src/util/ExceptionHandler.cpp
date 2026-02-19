@@ -11,7 +11,7 @@
 
 // Statics
 std::thread::id ExceptionHandler::s_mainThreadId;
-std::atomic<bool> ExceptionHandler::s_exceptionThrown { false };
+std::atomic<bool> ExceptionHandler::s_exceptionThrown {false};
 std::mutex ExceptionHandler::s_exceptionMutex;
 std::exception ExceptionHandler::s_exception;
 std::string ExceptionHandler::s_exceptionStackTrace;
@@ -30,11 +30,14 @@ void ExceptionHandler::throwExceptionOnMainThread()
         Logger::critical(
             "An unhandled exception occurred. Please provide your full log in the bug report.\nException type: "
             "\"{}\" / Message: \"{}\"\n{}",
-            typeid(s_exception).name(), s_exception.what(), s_exceptionStackTrace);
+            typeid(s_exception).name(),
+            s_exception.what(),
+            s_exceptionStackTrace);
     }
 }
 
-void ExceptionHandler::setException(const std::exception& e, const std::string& stackTrace)
+void ExceptionHandler::setException(const std::exception& e,
+                                    const std::string& stackTrace)
 {
     const std::scoped_lock lock(s_exceptionMutex);
     if (!s_exceptionThrown.load()) {

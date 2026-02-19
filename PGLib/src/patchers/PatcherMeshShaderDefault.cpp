@@ -26,24 +26,30 @@ auto PatcherMeshShaderDefault::getFactory() -> PatcherMeshShader::PatcherMeshSha
 
 auto PatcherMeshShaderDefault::getShaderType() -> NIFUtil::ShapeShader { return NIFUtil::ShapeShader::NONE; }
 
-PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshShader(std::move(nifPath), nif, "Default")
+PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath,
+                                                   nifly::NifFile* nif)
+    : PatcherMeshShader(std::move(nifPath),
+                        nif,
+                        "Default")
 {
 }
 
-auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape, [[maybe_unused]] bool singlepassMATO,
-    [[maybe_unused]] const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
+auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape,
+                                        [[maybe_unused]] bool singlepassMATO,
+                                        [[maybe_unused]] const ParallaxGenPlugin::ModelRecordType& modelRecordType)
+    -> bool
 {
     return true;
 }
 
-auto PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
+auto PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape,
+                                           std::vector<PatcherMatch>& matches) -> bool
 {
     return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
-auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches)
-    -> bool
+auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots,
+                                           std::vector<PatcherMatch>& matches) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
 
@@ -70,13 +76,14 @@ auto PatcherMeshShaderDefault::shouldApply(const NIFUtil::TextureSet& oldSlots, 
     return !matches.empty();
 }
 
-void PatcherMeshShaderDefault::applyPatch(
-    NIFUtil::TextureSet& slots, [[maybe_unused]] nifly::NiShape& nifShape, [[maybe_unused]] const PatcherMatch& match)
+void PatcherMeshShaderDefault::applyPatch(NIFUtil::TextureSet& slots,
+                                          [[maybe_unused]] nifly::NiShape& nifShape,
+                                          [[maybe_unused]] const PatcherMatch& match)
 {
 }
 
-void PatcherMeshShaderDefault::applyPatchSlots(
-    [[maybe_unused]] NIFUtil::TextureSet& slots, [[maybe_unused]] const PatcherMatch& match)
+void PatcherMeshShaderDefault::applyPatchSlots([[maybe_unused]] NIFUtil::TextureSet& slots,
+                                               [[maybe_unused]] const PatcherMatch& match)
 {
 }
 

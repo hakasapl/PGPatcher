@@ -18,7 +18,7 @@ private:
 
 public:
     static inline std::unordered_set<std::filesystem::path> s_foldersToMap
-        = { "meshes", "textures", "pbrnifpatcher", "lightplacer" };
+        = {"meshes", "textures", "pbrnifpatcher", "lightplacer"};
 
     static auto getBG() -> BethesdaGame*;
     static auto isBGSet() -> bool;

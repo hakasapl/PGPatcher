@@ -178,8 +178,8 @@ auto getFileBytes(const filesystem::path& filePath) -> vector<std::byte>
 
     // Make a buffer of the exact size of the file and read the data into it.
     vector<std::byte> buffer(length);
-    inputFile.read(
-        reinterpret_cast<char*>(buffer.data()), length); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    inputFile.read(reinterpret_cast<char*>(buffer.data()),
+                   length); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
     inputFile.close();
 
@@ -194,7 +194,8 @@ auto getThreadID() -> string
     return oss.str();
 }
 
-auto getJSON(const std::filesystem::path& filePath, nlohmann::json& json) -> bool
+auto getJSON(const std::filesystem::path& filePath,
+             nlohmann::json& json) -> bool
 {
     ifstream inputFile(filePath);
     if (!inputFile.is_open()) {
@@ -213,7 +214,8 @@ auto getJSON(const std::filesystem::path& filePath, nlohmann::json& json) -> boo
     return true;
 }
 
-auto getJSONFromBytes(const vector<std::byte>& bytes, nlohmann::json& json) -> bool
+auto getJSONFromBytes(const vector<std::byte>& bytes,
+                      nlohmann::json& json) -> bool
 {
     try {
         // Convert vector of bytes to string
@@ -230,7 +232,9 @@ auto getJSONFromBytes(const vector<std::byte>& bytes, nlohmann::json& json) -> b
     return true;
 }
 
-auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json, const bool& readable) -> bool
+auto saveJSON(const std::filesystem::path& filePath,
+              const nlohmann::json& json,
+              const bool& readable) -> bool
 {
     ofstream outputFile;
     outputFile.exceptions(std::ios::failbit | std::ios::badbit);
@@ -250,7 +254,8 @@ auto saveJSON(const std::filesystem::path& filePath, const nlohmann::json& json,
     return true;
 }
 
-auto checkIfStringInJSONArray(const nlohmann::json& json, const string& str) -> bool
+auto checkIfStringInJSONArray(const nlohmann::json& json,
+                              const string& str) -> bool
 {
     if (json.is_array()) {
         for (const auto& item : json) {

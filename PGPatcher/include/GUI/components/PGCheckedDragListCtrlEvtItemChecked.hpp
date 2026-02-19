@@ -3,7 +3,8 @@
 #include <wx/event.h>
 
 class PGCheckedDragListCtrlEvtItemChecked;
-wxDECLARE_EVENT(pgEVT_CDLC_ITEM_CHECKED, PGCheckedDragListCtrlEvtItemChecked); // NOLINT(readability-identifier-naming)
+wxDECLARE_EVENT(pgEVT_CDLC_ITEM_CHECKED, // NOLINT(readability-identifier-naming)
+                PGCheckedDragListCtrlEvtItemChecked);
 
 class PGCheckedDragListCtrlEvtItemChecked : public wxCommandEvent {
 private:
@@ -11,8 +12,11 @@ private:
     bool m_checked;
 
 public:
-    PGCheckedDragListCtrlEvtItemChecked(long id = wxID_ANY, long item = -1, bool checked = false)
-        : wxCommandEvent(pgEVT_CDLC_ITEM_CHECKED, id)
+    PGCheckedDragListCtrlEvtItemChecked(long id = wxID_ANY,
+                                        long item = -1,
+                                        bool checked = false)
+        : wxCommandEvent(pgEVT_CDLC_ITEM_CHECKED,
+                         id)
         , m_itemIndex(item)
         , m_checked(checked)
     {

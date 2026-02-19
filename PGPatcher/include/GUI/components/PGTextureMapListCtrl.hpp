@@ -19,11 +19,15 @@ public:
      * @param sz size
      * @param style window style (default wxLC_REPORT)
      */
-    PGTextureMapListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pt = wxDefaultPosition,
-        const wxSize& sz = wxDefaultSize, long style = wxLC_REPORT);
+    PGTextureMapListCtrl(wxWindow* parent,
+                         wxWindowID id,
+                         const wxPoint& pt = wxDefaultPosition,
+                         const wxSize& sz = wxDefaultSize,
+                         long style = wxLC_REPORT);
 
 private:
     void onTextureRulesMapsChangeStart(wxMouseEvent& event);
 
-    auto getColumnAtPosition(const wxPoint& pos, long item) -> int;
+    auto getColumnAtPosition(const wxPoint& pos,
+                             long item) -> int;
 };

@@ -33,7 +33,8 @@ public:
         std::vector<PatcherMeshGlobal::PatcherMeshGlobalObject> globalPatchers;
         std::vector<PatcherMeshPre::PatcherMeshPreObject> prePatchers;
         std::unordered_map<NIFUtil::ShapeShader, PatcherMeshShader::PatcherMeshShaderObject> shaderPatchers;
-        std::unordered_map<NIFUtil::ShapeShader,
+        std::unordered_map<
+            NIFUtil::ShapeShader,
             std::pair<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformObject>>
             shaderTransformPatchers;
         std::vector<PatcherMeshPost::PatcherMeshPostObject> postPatchers;
@@ -47,7 +48,8 @@ public:
         std::vector<PatcherMeshGlobal::PatcherMeshGlobalFactory> globalPatchers;
         std::vector<PatcherMeshPre::PatcherMeshPreFactory> prePatchers;
         std::unordered_map<NIFUtil::ShapeShader, PatcherMeshShader::PatcherMeshShaderFactory> shaderPatchers;
-        std::unordered_map<NIFUtil::ShapeShader,
+        std::unordered_map<
+            NIFUtil::ShapeShader,
             std::pair<NIFUtil::ShapeShader, PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory>>
             shaderTransformPatchers;
         std::vector<PatcherMeshPost::PatcherMeshPostFactory> postPatchers;

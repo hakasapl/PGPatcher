@@ -14,7 +14,9 @@ private:
     wxStaticText* m_helpText;
 
 public:
-    DialogModifiableListCtrl(wxWindow* parent, const wxString& title, const wxString& text);
+    DialogModifiableListCtrl(wxWindow* parent,
+                             const wxString& title,
+                             const wxString& text);
 
     [[nodiscard]] auto getList() const -> std::vector<std::wstring>;
     void populateList(const std::vector<std::wstring>& items);

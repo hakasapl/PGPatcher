@@ -29,8 +29,13 @@ using namespace std;
 
 // class LauncherWindow
 LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
-    : wxDialog(nullptr, wxID_ANY, "PGPatcher " + string(PG_VERSION) + " Launcher", wxDefaultPosition,
-          wxSize(MIN_WIDTH, DEFAULT_HEIGHT), wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
+    : wxDialog(nullptr,
+               wxID_ANY,
+               "PGPatcher " + string(PG_VERSION) + " Launcher",
+               wxDefaultPosition,
+               wxSize(MIN_WIDTH,
+                      DEFAULT_HEIGHT),
+               wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
     , m_pgc(pgc)
     , m_gameLocationLocked(false)
 {
@@ -78,8 +83,12 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     bool isFirst = true;
     for (const auto& gameType : BethesdaGame::getGameTypes()) {
-        auto* radio = new wxRadioButton(this, wxID_ANY, BethesdaGame::getStrFromGameType(gameType), wxDefaultPosition,
-            wxDefaultSize, isFirst ? wxRB_GROUP : 0);
+        auto* radio = new wxRadioButton(this,
+                                        wxID_ANY,
+                                        BethesdaGame::getStrFromGameType(gameType),
+                                        wxDefaultPosition,
+                                        wxDefaultSize,
+                                        isFirst ? wxRB_GROUP : 0);
         radio->Bind(wxEVT_RADIOBUTTON, &LauncherWindow::onGameTypeChange, this);
         isFirst = false;
         m_gameTypeRadios[gameType] = radio;
@@ -95,8 +104,12 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
 
     isFirst = true;
     for (const auto& mmType : ModManagerDirectory::getModManagerTypes()) {
-        auto* radio = new wxRadioButton(this, wxID_ANY, ModManagerDirectory::getStrFromModManagerType(mmType),
-            wxDefaultPosition, wxDefaultSize, isFirst ? wxRB_GROUP : 0);
+        auto* radio = new wxRadioButton(this,
+                                        wxID_ANY,
+                                        ModManagerDirectory::getStrFromModManagerType(mmType),
+                                        wxDefaultPosition,
+                                        wxDefaultSize,
+                                        isFirst ? wxRB_GROUP : 0);
         isFirst = false;
         m_modManagerRadios[mmType] = radio;
         modManagerSizer->Add(radio, 0, wxALL, BORDER_SIZE);
@@ -134,7 +147,9 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     //
     auto* outputSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Output");
 
-    auto* outputLocationLabel = new wxStaticText(this, wxID_ANY,
+    auto* outputLocationLabel = new wxStaticText(
+        this,
+        wxID_ANY,
         "Location recommended to be a mod folder. CANNOT be in your data folder. AVOID DELETING OLD OUTPUT BEFORE "
         "RUNNING "
         "if output is set to a mod folder.");
@@ -327,7 +342,9 @@ LauncherWindow::LauncherWindow(ParallaxGenConfig& pgc)
     //
     m_processingOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Processing");
 
-    auto* processingHelpText = new wxStaticText(this, wxID_ANY,
+    auto* processingHelpText = new wxStaticText(
+        this,
+        wxID_ANY,
         "These options are used to customize output generation. Avoid changing these unless you know "
         "what you are doing.");
     processingHelpText->Wrap(LEFTSIZER_WRAP_SIZE);
@@ -614,7 +631,9 @@ void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEv
 
 void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
 {
-    DialogModifiableListCtrl dialog(this, "Mesh Rules Allowlist",
+    DialogModifiableListCtrl dialog(
+        this,
+        "Mesh Rules Allowlist",
         "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like "
         "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire "
         "folders/files. Right click to add/remove entries.");
@@ -627,7 +646,9 @@ void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
 
 void LauncherWindow::onMeshRulesBlockBtn([[maybe_unused]] wxCommandEvent& event)
 {
-    DialogModifiableListCtrl dialog(this, "Mesh Rules Blocklist",
+    DialogModifiableListCtrl dialog(
+        this,
+        "Mesh Rules Blocklist",
         "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or "
         "use wildcards (* is the wildcard) to blocklist entire "
         "folders/files. Right click to add/remove entries.");
@@ -640,7 +661,9 @@ void LauncherWindow::onMeshRulesBlockBtn([[maybe_unused]] wxCommandEvent& event)
 
 void LauncherWindow::onTextureRulesTextureMapsBtn([[maybe_unused]] wxCommandEvent& event)
 {
-    DialogTextureMapListCtrl dialog(this, "Texture Rules",
+    DialogTextureMapListCtrl dialog(
+        this,
+        "Texture Rules",
         "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). "
         "Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. "
         "Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\". Right click to "
@@ -855,7 +878,9 @@ void LauncherWindow::onLoadConfigButtonPressed([[maybe_unused]] wxCommandEvent& 
     const int response
         = wxMessageBox("Are you sure you want to load the config from the file? This action will overwrite all "
                        "current unsaved settings.",
-            "Confirm Load Config", wxYES_NO | wxICON_WARNING, this);
+                       "Confirm Load Config",
+                       wxYES_NO | wxICON_WARNING,
+                       this);
 
     if (response != wxYES) {
         return;
@@ -872,7 +897,9 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
     // Show a confirmation dialog
     const int response
         = wxMessageBox("Are you sure you want to restore the default settings? This action cannot be undone.",
-            "Confirm Restore Defaults", wxYES_NO | wxICON_WARNING, this);
+                       "Confirm Restore Defaults",
+                       wxYES_NO | wxICON_WARNING,
+                       this);
 
     if (response != wxYES) {
         return;

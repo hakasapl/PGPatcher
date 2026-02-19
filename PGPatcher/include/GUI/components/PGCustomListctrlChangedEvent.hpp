@@ -3,15 +3,18 @@
 #include <wx/event.h>
 
 class PGCustomListctrlChangedEvent;
-wxDECLARE_EVENT(pgEVT_LISTCTRL_CHANGED, PGCustomListctrlChangedEvent); // NOLINT(readability-identifier-naming)
+wxDECLARE_EVENT(pgEVT_LISTCTRL_CHANGED, // NOLINT(readability-identifier-naming)
+                PGCustomListctrlChangedEvent);
 
 class PGCustomListctrlChangedEvent : public wxCommandEvent {
 private:
     long m_itemIndex;
 
 public:
-    PGCustomListctrlChangedEvent(long id = wxID_ANY, long item = -1)
-        : wxCommandEvent(pgEVT_LISTCTRL_CHANGED, id)
+    PGCustomListctrlChangedEvent(long id = wxID_ANY,
+                                 long item = -1)
+        : wxCommandEvent(pgEVT_LISTCTRL_CHANGED,
+                         id)
         , m_itemIndex(item)
     {
     }

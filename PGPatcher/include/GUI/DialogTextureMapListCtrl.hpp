@@ -17,10 +17,14 @@ private:
     wxStaticText* m_helpText;
 
 public:
-    DialogTextureMapListCtrl(wxWindow* parent, const wxString& title, const wxString& text);
+    DialogTextureMapListCtrl(wxWindow* parent,
+                             const wxString& title,
+                             const wxString& text);
 
-    [[nodiscard]] auto getList() const -> std::vector<std::pair<std::wstring, NIFUtil::TextureType>>;
-    void populateList(const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& items);
+    [[nodiscard]] auto getList() const -> std::vector<std::pair<std::wstring,
+                                                                NIFUtil::TextureType>>;
+    void populateList(const std::vector<std::pair<std::wstring,
+                                                  NIFUtil::TextureType>>& items);
 
 private:
     void updateColumnWidths();

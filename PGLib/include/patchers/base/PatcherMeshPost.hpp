@@ -23,7 +23,9 @@ public:
     using PatcherMeshPostObject = std::unique_ptr<PatcherMeshPost>;
 
     // Constructors
-    PatcherMeshPost(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName);
+    PatcherMeshPost(std::filesystem::path nifPath,
+                    nifly::NifFile* nif,
+                    std::string patcherName);
     virtual ~PatcherMeshPost() = default;
     PatcherMeshPost(const PatcherMeshPost& other) = default;
     auto operator=(const PatcherMeshPost& other) -> PatcherMeshPost& = default;
@@ -37,5 +39,7 @@ public:
      * @return true Patch was applied
      * @return false Patch was not applied
      */
-    virtual auto applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool = 0;
+    virtual auto applyPatch(NIFUtil::TextureSet& slots,
+                            nifly::NiShape& nifShape) -> bool
+        = 0;
 };

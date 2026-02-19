@@ -175,23 +175,23 @@ void mainRunner(PGToolsCLIArgs& args)
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
         }
         if (patcherDefs.contains("parallax")) {
-            meshPatchers.shaderPatchers.emplace(
-                PatcherMeshShaderVanillaParallax::getShaderType(), PatcherMeshShaderVanillaParallax::getFactory());
+            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::getShaderType(),
+                                                PatcherMeshShaderVanillaParallax::getFactory());
         }
         if (patcherDefs.contains("complexmaterial")) {
-            meshPatchers.shaderPatchers.emplace(
-                PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
+            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::getShaderType(),
+                                                PatcherMeshShaderComplexMaterial::getFactory());
         }
         if (patcherDefs.contains("truepbr")) {
-            meshPatchers.shaderPatchers.emplace(
-                PatcherMeshShaderTruePBR::getShaderType(), PatcherMeshShaderTruePBR::getFactory());
+            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::getShaderType(),
+                                                PatcherMeshShaderTruePBR::getFactory());
             PatcherMeshShaderTruePBR::loadStatics(pgd.getPBRJSONs());
             PatcherMeshShaderTruePBR::loadOptions(patcherDefs["truepbr"]);
         }
         if (patcherDefs.contains("parallaxtocm")) {
             meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
-                = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
-                      PatcherMeshShaderTransformParallaxToCM::getFactory() };
+                = {PatcherMeshShaderTransformParallaxToCM::getToShader(),
+                   PatcherMeshShaderTransformParallaxToCM::getFactory()};
 
             PatcherTextureHookConvertToCM::initShader();
         }
@@ -256,12 +256,14 @@ void mainRunner(PGToolsCLIArgs& args)
     }
 }
 
-void addArguments(CLI::App& app, PGToolsCLIArgs& args)
+void addArguments(CLI::App& app,
+                  PGToolsCLIArgs& args)
 {
     // Logging
-    app.add_flag("-v", args.verbosity,
-        "Verbosity level -v for DEBUG data or -vv for TRACE data "
-        "(warning: TRACE data is very verbose)");
+    app.add_flag("-v",
+                 args.verbosity,
+                 "Verbosity level -v for DEBUG data or -vv for TRACE data "
+                 "(warning: TRACE data is very verbose)");
     app.add_flag("--no-multithreading", args.multithreading, "Disable multithreading");
 
     args.Patch.subCommand = app.add_subcommand("patch", "Patch meshes");
@@ -275,7 +277,8 @@ void addArguments(CLI::App& app, PGToolsCLIArgs& args)
 }
 }
 
-auto main(int argC, char** argV) -> int
+auto main(int argC,
+          char** argV) -> int
 {
 // Block until enter only in debug mode
 #ifdef _DEBUG
@@ -287,7 +290,7 @@ auto main(int argC, char** argV) -> int
 
     // CLI Arguments
     PGToolsCLIArgs args;
-    CLI::App app { "PGTools: A collection of tools for ParallaxGen" };
+    CLI::App app {"PGTools: A collection of tools for ParallaxGen"};
     addArguments(app, args);
 
     // Parse CLI Arguments (this is what exits on any validation issues)

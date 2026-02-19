@@ -17,7 +17,8 @@ private:
     static inline wxColour s_GhostForeground = *wxBLACK;
 
 public:
-    PGCheckedDragListCtrlGhostWindow(wxWindow* parent, const std::vector<wxString>& lines);
+    PGCheckedDragListCtrlGhostWindow(wxWindow* parent,
+                                     const std::vector<wxString>& lines);
 
     void OnPaint([[maybe_unused]] wxPaintEvent& event);
 

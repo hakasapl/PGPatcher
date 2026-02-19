@@ -46,7 +46,8 @@ public:
      * @param nifPath Path to NIF file
      * @param nif NIF object to patch
      */
-    PatcherMeshShaderComplexMaterial(std::filesystem::path nifPath, nifly::NifFile* nif);
+    PatcherMeshShaderComplexMaterial(std::filesystem::path nifPath,
+                                     nifly::NifFile* nif);
 
     /**
      * @brief Check if the shape can accomodate the CM shader (without looking at texture slots)
@@ -55,8 +56,9 @@ public:
      * @return true Shape can accomodate CM
      * @return false Shape cannot accomodate CM
      */
-    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO,
-        const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool override;
+    auto canApply(nifly::NiShape& nifShape,
+                  bool singlepassMATO,
+                  const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool override;
 
     /**
      * @brief Check if shape can accomodate CM shader based on texture slots only
@@ -66,7 +68,8 @@ public:
      * @return true Match found
      * @return false No match found
      */
-    auto shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool override;
+    auto shouldApply(nifly::NiShape& nifShape,
+                     std::vector<PatcherMatch>& matches) -> bool override;
 
     /**
      * @brief Check if slots can accomodate CM shader
@@ -76,7 +79,8 @@ public:
      * @return true Match found
      * @return false No match found
      */
-    auto shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool override;
+    auto shouldApply(const NIFUtil::TextureSet& oldSlots,
+                     std::vector<PatcherMatch>& matches) -> bool override;
 
     /**
      * @brief Apply the CM shader to the shape
@@ -85,7 +89,9 @@ public:
      * @param[in] match Match to apply
      * @return NIFUtil::TextureSet New slots after patching
      */
-    void applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match) override;
+    void applyPatch(NIFUtil::TextureSet& slots,
+                    nifly::NiShape& nifShape,
+                    const PatcherMatch& match) override;
 
     /**
      * @brief Apply the CM shader to the slots
@@ -94,7 +100,8 @@ public:
      * @param match Match to apply
      * @return NIFUtil::TextureSet New slots after patching
      */
-    void applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match) override;
+    void applyPatchSlots(NIFUtil::TextureSet& slots,
+                         const PatcherMatch& match) override;
 
     /**
      * @brief Apply CM shader to a shape

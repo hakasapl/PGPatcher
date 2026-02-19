@@ -26,19 +26,25 @@ private:
 
     std::unordered_map<PGResult, size_t> m_numJobsCompleted;
 
-    std::unordered_map<PGResult, std::string> m_pgResultStr = { { PGResult::SUCCESS, "COMPLETED" },
-        { PGResult::SUCCESS_WITH_WARNINGS, "COMPLETED WITH WARNINGS" }, { PGResult::FAILURE, "FAILED" } };
+    std::unordered_map<PGResult, std::string> m_pgResultStr
+        = {{PGResult::SUCCESS, "COMPLETED"},
+           {PGResult::SUCCESS_WITH_WARNINGS, "COMPLETED WITH WARNINGS"},
+           {PGResult::FAILURE, "FAILED"}};
 
 public:
-    ParallaxGenTask(std::string taskName, const size_t& totalJobs, const int& progressPrintModulo = 1);
+    ParallaxGenTask(std::string taskName,
+                    const size_t& totalJobs,
+                    const int& progressPrintModulo = 1);
 
-    void setCallbackFunc(std::function<void(size_t, size_t)> callbackFunc);
+    void setCallbackFunc(std::function<void(size_t,
+                                            size_t)> callbackFunc);
 
     void completeJob(const PGResult& result);
     [[nodiscard]] auto isCompleted() -> bool;
 
-    static void updatePGResult(
-        PGResult& result, const PGResult& currentResult, const PGResult& threshold = PGResult::FAILURE);
+    static void updatePGResult(PGResult& result,
+                               const PGResult& currentResult,
+                               const PGResult& threshold = PGResult::FAILURE);
 
 private:
     void initJobStatus();

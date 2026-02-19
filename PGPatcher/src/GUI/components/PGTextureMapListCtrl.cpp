@@ -10,9 +10,16 @@ using namespace std;
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
-PGTextureMapListCtrl::PGTextureMapListCtrl(
-    wxWindow* parent, wxWindowID id, const wxPoint& pt, const wxSize& sz, long style)
-    : PGModifiableListCtrl(parent, id, pt, sz, style)
+PGTextureMapListCtrl::PGTextureMapListCtrl(wxWindow* parent,
+                                           wxWindowID id,
+                                           const wxPoint& pt,
+                                           const wxSize& sz,
+                                           long style)
+    : PGModifiableListCtrl(parent,
+                           id,
+                           pt,
+                           sz,
+                           style)
     , m_textureMapTypeCombo(nullptr)
 {
     // Bind events
@@ -42,8 +49,13 @@ void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
             wxRect rect;
             GetSubItemRect(item, column, rect);
 
-            m_textureMapTypeCombo = new wxComboBox(this, wxID_ANY, "", rect.GetTopLeft(), rect.GetSize(),
-                wxPossibleTexTypes, wxCB_DROPDOWN | wxCB_READONLY);
+            m_textureMapTypeCombo = new wxComboBox(this,
+                                                   wxID_ANY,
+                                                   "",
+                                                   rect.GetTopLeft(),
+                                                   rect.GetSize(),
+                                                   wxPossibleTexTypes,
+                                                   wxCB_DROPDOWN | wxCB_READONLY);
             m_textureMapTypeCombo->SetFocus();
             m_textureMapTypeCombo->Popup();
             m_textureMapTypeCombo->Bind(wxEVT_COMBOBOX, [item, column, this](wxCommandEvent&) {
@@ -61,15 +73,16 @@ void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
                 wxPostEvent(this, changeEvt);
             });
 
-            m_textureMapTypeCombo->Bind(
-                wxEVT_KILL_FOCUS, [this](wxFocusEvent&) { m_textureMapTypeCombo->Show(false); });
+            m_textureMapTypeCombo->Bind(wxEVT_KILL_FOCUS,
+                                        [this](wxFocusEvent&) { m_textureMapTypeCombo->Show(false); });
         }
     } else {
         event.Skip();
     }
 }
 
-auto PGTextureMapListCtrl::getColumnAtPosition(const wxPoint& pos, long item) -> int
+auto PGTextureMapListCtrl::getColumnAtPosition(const wxPoint& pos,
+                                               long item) -> int
 {
     wxRect rect;
     for (int col = 0; col < GetColumnCount(); ++col) {

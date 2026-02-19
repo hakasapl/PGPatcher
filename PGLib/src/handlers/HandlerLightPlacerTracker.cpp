@@ -64,8 +64,8 @@ void HandlerLightPlacerTracker::init(const vector<filesystem::path>& lpJSONs)
     }
 }
 
-void HandlerLightPlacerTracker::handleNIFCreated(
-    const filesystem::path& baseNIFPath, const filesystem::path& createdNIFPath)
+void HandlerLightPlacerTracker::handleNIFCreated(const filesystem::path& baseNIFPath,
+                                                 const filesystem::path& createdNIFPath)
 {
     if (baseNIFPath == createdNIFPath) {
         // Not a duplicate nif, no reason to continue

@@ -4,9 +4,16 @@
 
 using namespace std;
 
-PGModifiableListCtrl::PGModifiableListCtrl(
-    wxWindow* parent, wxWindowID id, const wxPoint& pt, const wxSize& sz, long style)
-    : wxListCtrl(parent, id, pt, sz, style)
+PGModifiableListCtrl::PGModifiableListCtrl(wxWindow* parent,
+                                           wxWindowID id,
+                                           const wxPoint& pt,
+                                           const wxSize& sz,
+                                           long style)
+    : wxListCtrl(parent,
+                 id,
+                 pt,
+                 sz,
+                 style)
 {
     // Bind events
     Bind(wxEVT_LIST_END_LABEL_EDIT, &PGModifiableListCtrl::onListEdit, this);

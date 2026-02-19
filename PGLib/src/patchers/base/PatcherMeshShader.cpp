@@ -11,7 +11,11 @@
 using namespace std;
 
 // Constructor
-PatcherMeshShader::PatcherMeshShader(filesystem::path nifPath, nifly::NifFile* nif, string patcherName)
-    : PatcherMesh(std::move(nifPath), nif, std::move(patcherName))
+PatcherMeshShader::PatcherMeshShader(filesystem::path nifPath,
+                                     nifly::NifFile* nif,
+                                     string patcherName)
+    : PatcherMesh(std::move(nifPath),
+                  nif,
+                  std::move(patcherName))
 {
 }

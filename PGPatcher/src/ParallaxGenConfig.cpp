@@ -78,18 +78,28 @@ auto ParallaxGenConfig::getDefaultParams() -> PGParams
 
     // Mesh Rules
     static const vector<wstring> defaultMeshBlocklist
-        = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*_lod_*", L"*_lod.*", L"*\\markers\\*" };
+        = {L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*_lod_*", L"*_lod.*", L"*\\markers\\*"};
     outParams.Processing.blockList = defaultMeshBlocklist;
 
     // Texture Rules
-    static const vector<wstring> defaultVanillaBSAList = { L"Skyrim - Textures0.bsa", L"Skyrim - Textures1.bsa",
-        L"Skyrim - Textures2.bsa", L"Skyrim - Textures3.bsa", L"Skyrim - Textures4.bsa", L"Skyrim - Textures5.bsa",
-        L"Skyrim - Textures6.bsa", L"Skyrim - Textures7.bsa", L"Skyrim - Textures8.bsa",
-        L"Project Clarity AIO Half Res Packed.bsa", L"Project Clarity AIO Half Res Packed - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed0 - Textures.bsa", L"Project Clarity AIO Half Res Packed1 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed2 - Textures.bsa", L"Project Clarity AIO Half Res Packed3 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed4 - Textures.bsa", L"Project Clarity AIO Half Res Packed5 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed6 - Textures.bsa" };
+    static const vector<wstring> defaultVanillaBSAList = {L"Skyrim - Textures0.bsa",
+                                                          L"Skyrim - Textures1.bsa",
+                                                          L"Skyrim - Textures2.bsa",
+                                                          L"Skyrim - Textures3.bsa",
+                                                          L"Skyrim - Textures4.bsa",
+                                                          L"Skyrim - Textures5.bsa",
+                                                          L"Skyrim - Textures6.bsa",
+                                                          L"Skyrim - Textures7.bsa",
+                                                          L"Skyrim - Textures8.bsa",
+                                                          L"Project Clarity AIO Half Res Packed.bsa",
+                                                          L"Project Clarity AIO Half Res Packed - Textures.bsa",
+                                                          L"Project Clarity AIO Half Res Packed0 - Textures.bsa",
+                                                          L"Project Clarity AIO Half Res Packed1 - Textures.bsa",
+                                                          L"Project Clarity AIO Half Res Packed2 - Textures.bsa",
+                                                          L"Project Clarity AIO Half Res Packed3 - Textures.bsa",
+                                                          L"Project Clarity AIO Half Res Packed4 - Textures.bsa",
+                                                          L"Project Clarity AIO Half Res Packed5 - Textures.bsa",
+                                                          L"Project Clarity AIO Half Res Packed6 - Textures.bsa"};
     outParams.Processing.vanillaBSAList = defaultVanillaBSAList;
 
     return outParams;
@@ -184,8 +194,8 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("texturemaps")) {
             for (const auto& item : paramJ["processing"]["texturemaps"].items()) {
-                m_params.Processing.textureMaps.emplace_back(
-                    utf8toUTF16(item.key()), NIFUtil::getTexTypeFromStr(item.value().get<string>()));
+                m_params.Processing.textureMaps.emplace_back(utf8toUTF16(item.key()),
+                                                             NIFUtil::getTexTypeFromStr(item.value().get<string>()));
             }
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("vanillabsalist")) {
@@ -242,7 +252,8 @@ auto ParallaxGenConfig::addConfigJSON(const nlohmann::json& j) -> void
     }
 }
 
-auto ParallaxGenConfig::parseJSON(const vector<std::byte>& bytes, nlohmann::json& j) -> bool
+auto ParallaxGenConfig::parseJSON(const vector<std::byte>& bytes,
+                                  nlohmann::json& j) -> bool
 {
     // Parse JSON
     try {
@@ -279,7 +290,8 @@ auto ParallaxGenConfig::getParams() const -> PGParams { return m_params; }
 
 void ParallaxGenConfig::setParams(const PGParams& params) { this->m_params = params; }
 
-auto ParallaxGenConfig::validateParams(const PGParams& params, vector<string>& errors) -> bool
+auto ParallaxGenConfig::validateParams(const PGParams& params,
+                                       vector<string>& errors) -> bool
 {
     // Helpers
     unordered_set<wstring> checkSet;
@@ -480,7 +492,8 @@ auto ParallaxGenConfig::saveModConfig() -> bool
     return true;
 }
 
-auto ParallaxGenConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString, bool>
+auto ParallaxGenConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString,
+                                                                         bool>
 {
     std::unordered_map<wxString, bool> ignoredItems;
 
@@ -504,7 +517,8 @@ auto ParallaxGenConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxStrin
     return ignoredItems;
 }
 
-auto ParallaxGenConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString, bool>& ignoredItems) -> bool
+auto ParallaxGenConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
+                                                                           bool>& ignoredItems) -> bool
 {
     nlohmann::json j;
     j["ignored_messages"] = nlohmann::json::object();

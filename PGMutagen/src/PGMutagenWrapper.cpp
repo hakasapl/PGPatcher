@@ -28,7 +28,8 @@
 using namespace std;
 
 namespace {
-void dnneFailure([[maybe_unused]] enum failure_type type, [[maybe_unused]] int errorCode)
+void dnneFailure([[maybe_unused]] enum failure_type type,
+                 [[maybe_unused]] int errorCode)
 {
     spdlog::critical("DotNet Wrapper failed to load, verify .NET runtime is installed properly");
 }
@@ -96,8 +97,11 @@ void PGMutagenWrapper::libThrowExceptionIfExists()
     throw runtime_error("PGMutagenWrapper: " + utf16toUTF8(messageOut));
 }
 
-void PGMutagenWrapper::libInitialize(const int& gameType, const std::wstring& exePath, const wstring& dataPath,
-    const vector<wstring>& loadOrder, const unsigned int& lang)
+void PGMutagenWrapper::libInitialize(const int& gameType,
+                                     const std::wstring& exePath,
+                                     const wstring& dataPath,
+                                     const vector<wstring>& loadOrder,
+                                     const unsigned int& lang)
 {
     set_failure_callback(dnneFailure);
 
@@ -131,7 +135,8 @@ void PGMutagenWrapper::libPopulateObjs(const filesystem::path& existingModPath)
     libThrowExceptionIfExists();
 }
 
-void PGMutagenWrapper::libFinalize(const filesystem::path& outputPath, const bool& esmify)
+void PGMutagenWrapper::libFinalize(const filesystem::path& outputPath,
+                                   const bool& esmify)
 {
     const lock_guard<mutex> lock(s_libMutex);
 
@@ -238,8 +243,16 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
 
         const auto altTexVectorOffset = builder.CreateVector(altTexOffsets);
 
-        const auto modelUseOffset = PGMutagenBuffers::CreateModelUse(builder, modNameOffset, mu.formID, subModelOffset,
-            false, meshFileOffset, false, false, {}, altTexVectorOffset);
+        const auto modelUseOffset = PGMutagenBuffers::CreateModelUse(builder,
+                                                                     modNameOffset,
+                                                                     mu.formID,
+                                                                     subModelOffset,
+                                                                     false,
+                                                                     meshFileOffset,
+                                                                     false,
+                                                                     false,
+                                                                     {},
+                                                                     altTexVectorOffset);
         modelUsesOffsets.push_back(modelUseOffset);
     }
 

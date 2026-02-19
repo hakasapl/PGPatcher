@@ -28,10 +28,13 @@ private:
         s_patchedTextureSets;
 
 public:
-    static auto getTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape)
-        -> NIFUtil::TextureSet;
-    static auto setTextureSet(const std::filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape,
-        const NIFUtil::TextureSet& textures) -> bool;
+    static auto getTextureSet(const std::filesystem::path& nifPath,
+                              nifly::NifFile& nif,
+                              nifly::NiShape& nifShape) -> NIFUtil::TextureSet;
+    static auto setTextureSet(const std::filesystem::path& nifPath,
+                              nifly::NifFile& nif,
+                              nifly::NiShape& nifShape,
+                              const NIFUtil::TextureSet& textures) -> bool;
     static void clearTextureSets(const std::filesystem::path& nifPath);
 
 private:
@@ -41,14 +44,16 @@ private:
 
 protected:
     /**
-     * @brief Get the NIF path for the current patcher (used only within child patchers)
+     * @brief Get the NIF path for the current patcher (used only within child
+     * patchers)
      *
      * @return std::filesystem::path Path to NIF
      */
     [[nodiscard]] auto getNIFPath() const -> std::filesystem::path;
 
     /**
-     * @brief Get the NIF object for the current patcher (used only within child patchers)
+     * @brief Get the NIF object for the current patcher (used only within child
+     * patchers)
      *
      * @return nifly::NifFile* pointer to NIF object
      */
@@ -64,5 +69,7 @@ public:
      * @param nif NIF object
      * @param patcherName Name of patcher
      */
-    PatcherMesh(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName);
+    PatcherMesh(std::filesystem::path nifPath,
+                nifly::NifFile* nif,
+                std::string patcherName);
 };

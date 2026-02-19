@@ -19,9 +19,9 @@ private:
     std::queue<std::function<void()>> m_taskQueue;
     std::mutex m_queueMutex;
     std::condition_variable m_cv;
-    std::atomic<bool> m_running { true };
-    std::atomic<bool> m_isBusy { false };
-    std::atomic<size_t> m_queuedTasks { 0 };
+    std::atomic<bool> m_running {true};
+    std::atomic<bool> m_isBusy {false};
+    std::atomic<size_t> m_queuedTasks {0};
     std::thread m_workerThread;
 
     static std::function<void()> s_exceptionCallback;

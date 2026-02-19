@@ -4,9 +4,14 @@
 #include <algorithm>
 #include <vector>
 
-PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* parent, const std::vector<wxString>& lines)
-    : wxFrame(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize,
-          wxFRAME_SHAPED | wxBORDER_NONE | wxSTAY_ON_TOP)
+PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* parent,
+                                                                   const std::vector<wxString>& lines)
+    : wxFrame(parent,
+              wxID_ANY,
+              wxEmptyString,
+              wxDefaultPosition,
+              wxDefaultSize,
+              wxFRAME_SHAPED | wxBORDER_NONE | wxSTAY_ON_TOP)
     , m_lines(lines)
 {
     //
@@ -15,8 +20,8 @@ PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* par
     if (PGPatcherGlobals::isDarkMode()) {
         const static auto selfColor = GetBackgroundColour();
         s_GhostBackground = wxColour(std::min(selfColor.Red() + DARK_GHOST_BOOST, MAX_RGB_VALUE),
-            std::min(selfColor.Green() + DARK_GHOST_BOOST, MAX_RGB_VALUE),
-            std::min(selfColor.Blue() + DARK_GHOST_BOOST, MAX_RGB_VALUE));
+                                     std::min(selfColor.Green() + DARK_GHOST_BOOST, MAX_RGB_VALUE),
+                                     std::min(selfColor.Blue() + DARK_GHOST_BOOST, MAX_RGB_VALUE));
         s_GhostForeground = *wxWHITE;
     } else {
         s_GhostBackground = *wxWHITE;

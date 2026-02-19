@@ -57,7 +57,7 @@ private:
 
     // Structures to store relevant files (sometimes their contents)
     std::array<std::map<std::wstring, std::unordered_set<NIFUtil::PGTexture, NIFUtil::PGTextureHasher>>,
-        NUM_TEXTURE_SLOTS>
+               NUM_TEXTURE_SLOTS>
         m_textureMaps;
     std::unordered_map<std::filesystem::path, TextureDetails> m_textureTypes;
     std::unordered_map<std::filesystem::path, NifCache> m_meshes;
@@ -76,8 +76,10 @@ private:
 
 public:
     // constructor - calls the BethesdaDirectory constructor
-    ParallaxGenDirectory(BethesdaGame* bg, std::filesystem::path outputPath = "");
-    ParallaxGenDirectory(std::filesystem::path dataPath, std::filesystem::path outputPath = "");
+    ParallaxGenDirectory(BethesdaGame* bg,
+                         std::filesystem::path outputPath = "");
+    ParallaxGenDirectory(std::filesystem::path dataPath,
+                         std::filesystem::path outputPath = "");
 
     /// @brief Map all files in the load order to their type
     ///
@@ -88,10 +90,16 @@ public:
     /// only file suffix to determine type
     /// @param multithreading Speedup mapping by multithreading
     /// @param cacheNIFs Faster but higher memory consumption
-    auto mapFiles(const std::vector<std::wstring>& nifBlocklist, const std::vector<std::wstring>& nifAllowlist,
-        const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& manualTextureMaps,
-        const std::vector<std::wstring>& parallaxBSAExcludes, const bool& multithreading = true,
-        const bool& highmem = false, const std::function<void(size_t, size_t)>& progressCallback = {}) -> void;
+    auto mapFiles(const std::vector<std::wstring>& nifBlocklist,
+                  const std::vector<std::wstring>& nifAllowlist,
+                  const std::vector<std::pair<std::wstring,
+                                              NIFUtil::TextureType>>& manualTextureMaps,
+                  const std::vector<std::wstring>& parallaxBSAExcludes,
+                  const bool& multithreading = true,
+                  const bool& highmem = false,
+                  const std::function<void(size_t,
+                                           size_t)>& progressCallback
+                  = {}) -> void;
 
     void waitForMeshMapping();
 
@@ -100,26 +108,35 @@ public:
 private:
     auto findFiles() -> void;
 
-    auto mapTexturesFromNIF(const std::filesystem::path& nifPath, const bool& cachenif = false,
-        const bool& multithreading = true) -> ParallaxGenTask::PGResult;
+    auto mapTexturesFromNIF(const std::filesystem::path& nifPath,
+                            const bool& cachenif = false,
+                            const bool& multithreading = true) -> ParallaxGenTask::PGResult;
 
-    auto updateUnconfirmedTexturesMap(
-        const std::filesystem::path& path, const NIFUtil::TextureSlots& slot, const NIFUtil::TextureType& type) -> void;
+    auto updateUnconfirmedTexturesMap(const std::filesystem::path& path,
+                                      const NIFUtil::TextureSlots& slot,
+                                      const NIFUtil::TextureType& type) -> void;
 
-    auto addToTextureMaps(const std::filesystem::path& path, const NIFUtil::TextureSlots& slot,
-        const NIFUtil::TextureType& type, const std::unordered_set<NIFUtil::TextureAttribute>& attributes) -> void;
+    auto addToTextureMaps(const std::filesystem::path& path,
+                          const NIFUtil::TextureSlots& slot,
+                          const NIFUtil::TextureType& type,
+                          const std::unordered_set<NIFUtil::TextureAttribute>& attributes) -> void;
 
-    void updateNifCache(
-        const std::filesystem::path& path, const std::vector<std::pair<int, NIFUtil::TextureSet>>& txstSets);
     void updateNifCache(const std::filesystem::path& path,
-        const std::vector<std::pair<MeshTracker::FormKey, ParallaxGenPlugin::MeshUseAttributes>>& meshUses);
-    void updateNifCache(
-        const std::filesystem::path& path, const std::shared_ptr<nifly::NifFile>& nif, const unsigned long long& crc32);
+                        const std::vector<std::pair<int,
+                                                    NIFUtil::TextureSet>>& txstSets);
+    void updateNifCache(const std::filesystem::path& path,
+                        const std::vector<std::pair<MeshTracker::FormKey,
+                                                    ParallaxGenPlugin::MeshUseAttributes>>& meshUses);
+    void updateNifCache(const std::filesystem::path& path,
+                        const std::shared_ptr<nifly::NifFile>& nif,
+                        const unsigned long long& crc32);
 
-    void checkIfCMAddToMap(const std::filesystem::path& texture, const NIFUtil::TextureSlots& winningSlot);
+    void checkIfCMAddToMap(const std::filesystem::path& texture,
+                           const NIFUtil::TextureSlots& winningSlot);
 
 public:
-    static auto checkGlobMatchInVector(const std::wstring& check, const std::vector<std::wstring>& list) -> bool;
+    static auto checkGlobMatchInVector(const std::wstring& check,
+                                       const std::vector<std::wstring>& list) -> bool;
 
     /// @brief Get the texture map for a given texture slot
     ///
@@ -140,16 +157,21 @@ public:
     /// @param Slot texture slot of BSShaderTextureSet in the shapes
     /// @return The mutable map
     [[nodiscard]] auto getTextureMap(const NIFUtil::TextureSlots& slot)
-        -> std::map<std::wstring, std::unordered_set<NIFUtil::PGTexture, NIFUtil::PGTextureHasher>>&;
+        -> std::map<std::wstring,
+                    std::unordered_set<NIFUtil::PGTexture,
+                                       NIFUtil::PGTextureHasher>>&;
 
     /// @brief Get the immutable texture map for a given texture slot
     /// @see getTextureMap
     /// @param Slot texture slot of BSShaderTextureSet in the shapes
     /// @return The immutable map
     [[nodiscard]] auto getTextureMapConst(const NIFUtil::TextureSlots& slot) const
-        -> const std::map<std::wstring, std::unordered_set<NIFUtil::PGTexture, NIFUtil::PGTextureHasher>>&;
+        -> const std::map<std::wstring,
+                          std::unordered_set<NIFUtil::PGTexture,
+                                             NIFUtil::PGTextureHasher>>&;
 
-    [[nodiscard]] auto getMeshes() const -> const std::unordered_map<std::filesystem::path, NifCache>&;
+    [[nodiscard]] auto getMeshes() const -> const std::unordered_map<std::filesystem::path,
+                                                                     NifCache>&;
 
     [[nodiscard]] auto getTextures() const -> const std::unordered_set<std::filesystem::path>&;
 
@@ -157,17 +179,20 @@ public:
 
     [[nodiscard]] auto getLightPlacerJSONs() const -> const std::vector<std::filesystem::path>&;
 
-    auto addTextureAttribute(const std::filesystem::path& path, const NIFUtil::TextureAttribute& attribute) -> bool;
+    auto addTextureAttribute(const std::filesystem::path& path,
+                             const NIFUtil::TextureAttribute& attribute) -> bool;
 
-    auto removeTextureAttribute(const std::filesystem::path& path, const NIFUtil::TextureAttribute& attribute) -> bool;
+    auto removeTextureAttribute(const std::filesystem::path& path,
+                                const NIFUtil::TextureAttribute& attribute) -> bool;
 
-    [[nodiscard]] auto hasTextureAttribute(
-        const std::filesystem::path& path, const NIFUtil::TextureAttribute& attribute) -> bool;
+    [[nodiscard]] auto hasTextureAttribute(const std::filesystem::path& path,
+                                           const NIFUtil::TextureAttribute& attribute) -> bool;
 
     [[nodiscard]] auto getTextureAttributes(const std::filesystem::path& path)
         -> std::unordered_set<NIFUtil::TextureAttribute>;
 
-    void setTextureType(const std::filesystem::path& path, const NIFUtil::TextureType& type);
+    void setTextureType(const std::filesystem::path& path,
+                        const NIFUtil::TextureType& type);
 
     auto getTextureType(const std::filesystem::path& path) -> NIFUtil::TextureType;
 };

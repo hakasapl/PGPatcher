@@ -40,7 +40,8 @@
 using namespace std;
 using namespace ParallaxGenUtil;
 
-BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg, filesystem::path generatedPath)
+BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg,
+                                     filesystem::path generatedPath)
     : m_generatedDir(std::move(generatedPath))
     , m_bg(bg)
 {
@@ -51,7 +52,8 @@ BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg, filesystem::path generate
     Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
 }
 
-BethesdaDirectory::BethesdaDirectory(filesystem::path dataPath, filesystem::path generatedPath)
+BethesdaDirectory::BethesdaDirectory(filesystem::path dataPath,
+                                     filesystem::path generatedPath)
     : m_dataDir(std::move(dataPath))
     , m_generatedDir(std::move(generatedPath))
     , m_bg(nullptr)
@@ -68,7 +70,7 @@ auto BethesdaDirectory::getINIBSAFields() -> vector<string>
     // these fields will be searched in ini files for manually specified BSA
     // loading
     const static vector<string> iniBSAFields
-        = { "sResourceArchiveList", "sResourceArchiveList2", "sResourceArchiveListBeta" };
+        = {"sResourceArchiveList", "sResourceArchiveList2", "sResourceArchiveListBeta"};
 
     return iniBSAFields;
 }
@@ -79,12 +81,13 @@ auto BethesdaDirectory::getExtensionBlocklist() -> vector<wstring>
     // allowed BSAs etc. to be hidden from the file map since this object is an
     // abstraction of the data directory that no longer factors BSAs for
     // downstream users
-    const static vector<wstring> extensionBlocklist = { L".bsa", L".esp", L".esl", L".esm" };
+    const static vector<wstring> extensionBlocklist = {L".bsa", L".esp", L".esl", L".esm"};
 
     return extensionBlocklist;
 }
 
-auto BethesdaDirectory::checkGlob(const wstring& str, const vector<wstring>& globList) -> bool
+auto BethesdaDirectory::checkGlob(const wstring& str,
+                                  const vector<wstring>& globList) -> bool
 {
     // convert wstring vector to LPCWSTR vector
     vector<LPCWSTR> globListCstr = convertWStringToLPCWSTRVector(globList);
@@ -113,7 +116,8 @@ void BethesdaDirectory::populateFileMap(bool includeBSAs)
     addLooseFilesToMap();
 }
 
-auto BethesdaDirectory::getFileMap() const -> const map<filesystem::path, BethesdaDirectory::BethesdaFile>&
+auto BethesdaDirectory::getFileMap() const -> const map<filesystem::path,
+                                                        BethesdaDirectory::BethesdaFile>&
 {
     return m_fileMap;
 }
@@ -149,7 +153,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
 
         const auto& file = bsaObj[parentPath][filename];
         if (file) {
-            binary_io::any_ostream aos { std::in_place_type<binary_io::memory_ostream> };
+            binary_io::any_ostream aos {std::in_place_type<binary_io::memory_ostream>};
             // read file from output stream
             try {
                 file->write(aos, bsaVersion);
@@ -261,7 +265,8 @@ void BethesdaDirectory::addLooseFilesToMap()
 
     // Map top level folder (not recursive)
     for (auto it = filesystem::directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied);
-        it != filesystem::directory_iterator(); ++it) {
+         it != filesystem::directory_iterator();
+         ++it) {
         const auto& entry = *it;
 
         if (isHidden(entry.path()) || entry.is_directory()) {
@@ -288,9 +293,10 @@ void BethesdaDirectory::addLooseFilesToMap()
             continue;
         }
 
-        for (auto it = filesystem::recursive_directory_iterator(
-                 curCheckFolder, filesystem::directory_options::skip_permission_denied);
-            it != filesystem::recursive_directory_iterator(); ++it) {
+        for (auto it = filesystem::recursive_directory_iterator(curCheckFolder,
+                                                                filesystem::directory_options::skip_permission_denied);
+             it != filesystem::recursive_directory_iterator();
+             ++it) {
             const auto entry = *it;
 
             if (isHidden(entry.path())) {
@@ -349,8 +355,9 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                     || !containsOnlyAscii(string(entry.first.name()))) {
                     Logger::warn(L"File {}\\{} in BSA {} contains non-ascii characters which is not handled correctly "
                                  L"by Skyrim - skipping",
-                        windows1252toUTF16(string(fileEntry.first.name())),
-                        windows1252toUTF16(string(entry.first.name())), bsaName);
+                                 windows1252toUTF16(string(fileEntry.first.name())),
+                                 windows1252toUTF16(string(entry.first.name())),
+                                 bsaName);
 
                     continue;
                 }
@@ -430,11 +437,11 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
     // find ini paths
     const BethesdaGame::ININame iniLocs = m_bg->getINIPaths();
 
-    vector<filesystem::path> iniFileOrder = { iniLocs.ini, iniLocs.iniCustom };
+    vector<filesystem::path> iniFileOrder = {iniLocs.ini, iniLocs.iniCustom};
 
     // Find INIs in data folder
     for (const auto& entry :
-        filesystem::directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied)) {
+         filesystem::directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied)) {
         if (entry.is_regular_file() && toLowerASCII(entry.path().extension().wstring()) == L".ini") {
             iniFileOrder.push_back(entry.path());
         }
@@ -495,8 +502,8 @@ auto BethesdaDirectory::getBSAFilesInDirectory() const -> vector<wstring>
     return bsaFiles;
 }
 
-auto BethesdaDirectory::findBSAFilesFromPluginName(const vector<wstring>& bsaFileList, const wstring& pluginPrefix)
-    -> vector<wstring>
+auto BethesdaDirectory::findBSAFilesFromPluginName(const vector<wstring>& bsaFileList,
+                                                   const wstring& pluginPrefix) -> vector<wstring>
 {
     vector<wstring> bsaFilesFound;
     const wstring pluginPrefixLower = boost::to_lower_copy(pluginPrefix);
@@ -553,25 +560,27 @@ auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> Beth
 
     const shared_lock lock(m_fileMapMutex);
     if (!m_fileMap.contains(filePath)) {
-        return BethesdaFile { .path = filesystem::path(), .bsaFile = nullptr };
+        return BethesdaFile {.path = filesystem::path(), .bsaFile = nullptr};
     }
 
     return m_fileMap.at(filePath);
 }
 
-void BethesdaDirectory::updateFileMap(
-    const filesystem::path& filePath, shared_ptr<BethesdaDirectory::BSAFile> bsaFile, const bool& generated)
+void BethesdaDirectory::updateFileMap(const filesystem::path& filePath,
+                                      shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
+                                      const bool& generated)
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
     const unique_lock lock(m_fileMapMutex);
 
-    const BethesdaFile newBFile = { .path = filePath, .bsaFile = std::move(bsaFile), .generated = generated };
+    const BethesdaFile newBFile = {.path = filePath, .bsaFile = std::move(bsaFile), .generated = generated};
 
     m_fileMap[filePath] = newBFile;
 }
 
-auto BethesdaDirectory::isFileInBSA(const filesystem::path& file, const std::vector<std::wstring>& bsaFiles) -> bool
+auto BethesdaDirectory::isFileInBSA(const filesystem::path& file,
+                                    const std::vector<std::wstring>& bsaFiles) -> bool
 {
     if (isBSAFile(file)) {
         BethesdaFile const bethFile = getFileFromMap(file);
@@ -596,7 +605,9 @@ auto BethesdaDirectory::convertWStringToLPCWSTRVector(const vector<wstring>& ori
     return output;
 }
 
-auto BethesdaDirectory::checkGlob(const LPCWSTR& str, LPCWSTR& winningGlob, const vector<LPCWSTR>& globList) -> bool
+auto BethesdaDirectory::checkGlob(const LPCWSTR& str,
+                                  LPCWSTR& winningGlob,
+                                  const vector<LPCWSTR>& globList) -> bool
 {
     if (!boost::equals(winningGlob, L"") && (PathMatchSpecW(str, winningGlob) != 0)) {
         // no winning glob, check all globs
@@ -634,8 +645,10 @@ auto BethesdaDirectory::isHidden(const filesystem::path& path) -> bool
     return false;
 }
 
-auto BethesdaDirectory::readINIValue(
-    const filesystem::path& iniPath, const wstring& section, const wstring& key, const bool& firstINIRead) -> wstring
+auto BethesdaDirectory::readINIValue(const filesystem::path& iniPath,
+                                     const wstring& section,
+                                     const wstring& key,
+                                     const bool& firstINIRead) -> wstring
 {
     if (!filesystem::exists(iniPath)) {
         if (firstINIRead) {

@@ -44,13 +44,17 @@ auto PatcherMeshShaderComplexMaterial::getShaderType() -> NIFUtil::ShapeShader
     return NIFUtil::ShapeShader::COMPLEXMATERIAL;
 }
 
-PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshShader(std::move(nifPath), nif, "ComplexMaterial")
+PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::path nifPath,
+                                                                   nifly::NifFile* nif)
+    : PatcherMeshShader(std::move(nifPath),
+                        nif,
+                        "ComplexMaterial")
 {
 }
 
-auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unused]] bool singlepassMATO,
-    const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
+auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape,
+                                                [[maybe_unused]] bool singlepassMATO,
+                                                const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool
 {
     if (modelRecordType == ParallaxGenPlugin::ModelRecordType::GRASS) {
         // grass is not supported
@@ -90,14 +94,15 @@ auto PatcherMeshShaderComplexMaterial::canApply(NiShape& nifShape, [[maybe_unuse
     return true;
 }
 
-auto PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool
+auto PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape,
+                                                   std::vector<PatcherMatch>& matches) -> bool
 {
     // Check for CM matches
     return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
 }
 
-auto PatcherMeshShaderComplexMaterial::shouldApply(
-    const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool
+auto PatcherMeshShaderComplexMaterial::shouldApply(const NIFUtil::TextureSet& oldSlots,
+                                                   std::vector<PatcherMatch>& matches) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
     auto* pgd3d = PGGlobals::getPGD3D();
@@ -110,7 +115,7 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
     const auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots);
 
     // Check if complex material file exists
-    static const vector<int> slotSearch = { 1, 0 }; // Diffuse first, then normal
+    static const vector<int> slotSearch = {1, 0}; // Diffuse first, then normal
     filesystem::path baseMap;
     vector<NIFUtil::PGTexture> foundMatches;
     NIFUtil::TextureSlots matchedFromSlot = NIFUtil::TextureSlots::NORMAL;
@@ -157,8 +162,9 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(
     return !matches.empty();
 }
 
-void PatcherMeshShaderComplexMaterial::applyPatch(
-    NIFUtil::TextureSet& slots, NiShape& nifShape, const PatcherMatch& match)
+void PatcherMeshShaderComplexMaterial::applyPatch(NIFUtil::TextureSet& slots,
+                                                  NiShape& nifShape,
+                                                  const PatcherMatch& match)
 {
     auto* pgd = PGGlobals::getPGD();
 
@@ -220,7 +226,8 @@ void PatcherMeshShaderComplexMaterial::applyPatch(
     applyPatchSlots(slots, match);
 }
 
-void PatcherMeshShaderComplexMaterial::applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match)
+void PatcherMeshShaderComplexMaterial::applyPatchSlots(NIFUtil::TextureSet& slots,
+                                                       const PatcherMatch& match)
 {
     const auto matchedPath = match.matchedPath;
 

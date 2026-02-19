@@ -25,13 +25,16 @@ auto PatcherMeshPostRestoreDefaultShaders::getFactory() -> PatcherMeshPost::Patc
     };
 }
 
-PatcherMeshPostRestoreDefaultShaders::PatcherMeshPostRestoreDefaultShaders(
-    std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshPost(std::move(nifPath), nif, "HairFlowMap")
+PatcherMeshPostRestoreDefaultShaders::PatcherMeshPostRestoreDefaultShaders(std::filesystem::path nifPath,
+                                                                           nifly::NifFile* nif)
+    : PatcherMeshPost(std::move(nifPath),
+                      nif,
+                      "HairFlowMap")
 {
 }
 
-auto PatcherMeshPostRestoreDefaultShaders::applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool
+auto PatcherMeshPostRestoreDefaultShaders::applyPatch(NIFUtil::TextureSet& slots,
+                                                      nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
@@ -50,8 +53,9 @@ auto PatcherMeshPostRestoreDefaultShaders::applyPatch(NIFUtil::TextureSet& slots
     return false;
 }
 
-auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(
-    NIFUtil::TextureSet& slots, nifly::BSLightingShaderProperty& shaderProp) -> bool
+auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(NIFUtil::TextureSet& slots,
+                                                                            nifly::BSLightingShaderProperty& shaderProp)
+    -> bool
 {
     auto* pgd = PGGlobals::getPGD();
 
@@ -79,7 +83,8 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(
 }
 
 auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMaterial(
-    NIFUtil::TextureSet& slots, nifly::BSLightingShaderProperty& shaderProp) -> bool
+    NIFUtil::TextureSet& slots,
+    nifly::BSLightingShaderProperty& shaderProp) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
 

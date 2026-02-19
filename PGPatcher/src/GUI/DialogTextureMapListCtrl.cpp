@@ -14,10 +14,21 @@
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
-DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent, const wxString& title, const wxString& text)
-    : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxSize(500, 400), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
-    , m_listCtrl(new PGTextureMapListCtrl(
-          this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
+                                                   const wxString& title,
+                                                   const wxString& text)
+    : wxDialog(parent,
+               wxID_ANY,
+               title,
+               wxDefaultPosition,
+               wxSize(500,
+                      400),
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+    , m_listCtrl(new PGTextureMapListCtrl(this,
+                                          wxID_ANY,
+                                          wxDefaultPosition,
+                                          wxDefaultSize,
+                                          wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
@@ -56,7 +67,8 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent, const wxStr
     Fit();
 }
 
-auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wstring, NIFUtil::TextureType>>
+auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wstring,
+                                                                        NIFUtil::TextureType>>
 {
     std::vector<std::pair<std::wstring, NIFUtil::TextureType>> result;
 
@@ -75,7 +87,8 @@ auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wst
     return result;
 }
 
-void DialogTextureMapListCtrl::populateList(const std::vector<std::pair<std::wstring, NIFUtil::TextureType>>& items)
+void DialogTextureMapListCtrl::populateList(const std::vector<std::pair<std::wstring,
+                                                                        NIFUtil::TextureType>>& items)
 {
     m_listCtrl->DeleteAllItems();
     for (const auto& textureRule : items) {

@@ -41,7 +41,8 @@ public:
      * @param nifPath NIF path to be patched
      * @param nif NIF object to be patched
      */
-    PatcherMeshGlobalParticleLightsToLP(std::filesystem::path nifPath, nifly::NifFile* nif);
+    PatcherMeshGlobalParticleLightsToLP(std::filesystem::path nifPath,
+                                        nifly::NifFile* nif);
 
     /**
      * @brief Apply this patcher to shape
@@ -67,8 +68,9 @@ private:
      * @return true if patch was applied
      * @return false if patch was not applied
      */
-    auto applySinglePatch(
-        nifly::NiBillboardNode* node, nifly::NiShape* shape, nifly::BSEffectShaderProperty* effectShader) -> bool;
+    auto applySinglePatch(nifly::NiBillboardNode* node,
+                          nifly::NiShape* shape,
+                          nifly::BSEffectShaderProperty* effectShader) -> bool;
 
     /**
      * @brief Get LP JSON for a specific NIF controller
@@ -77,5 +79,6 @@ private:
      * @param jsonField JSON field to store controller JSON in LP
      * @return nlohmann::json JSON for controller
      */
-    auto getControllerJSON(nifly::NiTimeController* controller, std::string& jsonField) -> nlohmann::json;
+    auto getControllerJSON(nifly::NiTimeController* controller,
+                           std::string& jsonField) -> nlohmann::json;
 };

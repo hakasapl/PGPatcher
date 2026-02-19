@@ -38,7 +38,8 @@ public:
      */
     static auto getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory;
 
-    static void loadOptions(const std::unordered_map<std::string, std::string>& optionsStr);
+    static void loadOptions(const std::unordered_map<std::string,
+                                                     std::string>& optionsStr);
 
     /**
      * @brief Construct a new PrePatcher Particle Lights To LP patcher
@@ -46,7 +47,8 @@ public:
      * @param ddsPath dds path to be patched
      * @param dds dds object to be patched
      */
-    PatcherTextureGlobalConvertToHDR(std::filesystem::path ddsPath, DirectX::ScratchImage* dds);
+    PatcherTextureGlobalConvertToHDR(std::filesystem::path ddsPath,
+                                     DirectX::ScratchImage* dds);
 
     /**
      * @brief Apply this patcher to DDS

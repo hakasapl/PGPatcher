@@ -57,7 +57,8 @@ void MeshTracker::load()
     m_origNifFile = NIFUtil::loadNIFFromBytes(nifFileData, false);
 }
 
-void MeshTracker::load(const std::shared_ptr<nifly::NifFile>& origNifFile, const unsigned long long& origCrc32)
+void MeshTracker::load(const std::shared_ptr<nifly::NifFile>& origNifFile,
+                       const unsigned long long& origCrc32)
 {
     if (origNifFile == nullptr) {
         throw std::runtime_error("Original NIF file pointer is null");
@@ -81,9 +82,11 @@ auto MeshTracker::stageMesh() -> nifly::NifFile*
 
 void MeshTracker::ignoreBaseMesh() { m_ignoreBaseMesh = true; }
 
-auto MeshTracker::commitMesh(const FormKey& formKey, bool isWeighted,
-    const std::unordered_map<unsigned int, NIFUtil::TextureSet>& altTexResults,
-    const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
+auto MeshTracker::commitMesh(const FormKey& formKey,
+                             bool isWeighted,
+                             const std::unordered_map<unsigned int,
+                                                      NIFUtil::TextureSet>& altTexResults,
+                             const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
     if (m_stagedMeshPtr == nullptr) {
         // No staged mesh to commit
@@ -133,8 +136,7 @@ auto MeshTracker::commitMesh(const FormKey& formKey, bool isWeighted,
     nifly::NifFile newMesh;
     newMesh.CopyFrom(*m_stagedMeshPtr);
 
-    const MeshResult meshResult
-        = { .meshPath = {}, .altTexResults = { { formKey, altTexResults } }, .idxCorrections = {} };
+    const MeshResult meshResult = {.meshPath = {}, .altTexResults = {{formKey, altTexResults}}, .idxCorrections = {}};
 
     m_outputMeshes.emplace_back(meshResult, newMesh);
 
@@ -145,7 +147,9 @@ auto MeshTracker::commitMesh(const FormKey& formKey, bool isWeighted,
     return true;
 }
 
-auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long long, unsigned long long>>
+auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>,
+                                       pair<unsigned long long,
+                                            unsigned long long>>
 {
     auto* pgd = PGGlobals::getPGD();
 
@@ -194,7 +198,7 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
         // Write to memory buffer
         bool saveSuccess = false;
         ostringstream buffer(std::ios::binary);
-        saveSuccess = (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) == 0);
+        saveSuccess = (mesh.Save(buffer, {.optimize = false, .sortBlocks = false}) == 0);
         const string& data = buffer.str();
 
         if (curIndex == 0) {
@@ -233,10 +237,10 @@ auto MeshTracker::saveMeshes() -> pair<vector<MeshResult>, pair<unsigned long lo
     }
 
     if (m_ignoreBaseMesh) {
-        return { output, { m_origCrc32, 0 } };
+        return {output, {m_origCrc32, 0}};
     }
 
-    return { output, { m_origCrc32, baseCrc32 } };
+    return {output, {m_origCrc32, baseCrc32}};
 }
 
 void MeshTracker::validateWeightedVariants()
@@ -258,19 +262,20 @@ void MeshTracker::processWeightVariant()
     const auto dupIdx = m_outputMeshes.size();
     // check if other variant exists
     const auto otherVariantPath = getOtherWeightVariant(m_origMeshPath);
-    if (s_otherWeightVariants.contains({ otherVariantPath, dupIdx })) {
-        if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{ otherVariantPath, dupIdx }], {}, true, true)) {
+    if (s_otherWeightVariants.contains({otherVariantPath, dupIdx})) {
+        if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{otherVariantPath, dupIdx}], {}, true, true)) {
             // different from each other, post error
             Logger::error(L"Weighted mesh variants '{}' and '{}' do not match. This is a bug with the original meshes.",
-                m_origMeshPath.wstring(), otherVariantPath.wstring());
+                          m_origMeshPath.wstring(),
+                          otherVariantPath.wstring());
         }
 
         // delete from cache to free memory
-        s_otherWeightVariants.erase({ otherVariantPath, dupIdx });
+        s_otherWeightVariants.erase({otherVariantPath, dupIdx});
     } else {
         // add to cache
-        s_otherWeightVariants[{ m_origMeshPath, dupIdx }] = nifly::NifFile();
-        s_otherWeightVariants[{ m_origMeshPath, dupIdx }].CopyFrom(m_stagedMesh);
+        s_otherWeightVariants[{m_origMeshPath, dupIdx}] = nifly::NifFile();
+        s_otherWeightVariants[{m_origMeshPath, dupIdx}].CopyFrom(m_stagedMesh);
     }
 }
 
@@ -278,8 +283,11 @@ void MeshTracker::processWeightVariant()
 // ANY changes in patchers that involve WRITING new properties must be included in the equality operators below
 //
 
-auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile& meshB,
-    const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA, bool compareAllTXST, bool checkOnlyWeighted) -> bool
+auto MeshTracker::compareMesh(const nifly::NifFile& meshA,
+                              const nifly::NifFile& meshB,
+                              const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA,
+                              bool compareAllTXST,
+                              bool checkOnlyWeighted) -> bool
 {
     // This should be compared before sorting blocks (sorting blocks should happen last)
     const auto blocksA = getComparableBlocks(&meshA);
@@ -474,7 +482,8 @@ auto MeshTracker::compareMesh(const nifly::NifFile& meshA, const nifly::NifFile&
     return true;
 }
 
-auto MeshTracker::compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly::BSTriShape& shapeB) -> bool
+auto MeshTracker::compareBSTriShape(const nifly::BSTriShape& shapeA,
+                                    const nifly::BSTriShape& shapeB) -> bool
 {
     if (!shapeA.HasVertexColors() && !shapeB.HasVertexColors()) {
         // nothing to check
@@ -506,13 +515,14 @@ auto MeshTracker::compareBSTriShape(const nifly::BSTriShape& shapeA, const nifly
     return true;
 }
 
-auto MeshTracker::compareNiShape(const nifly::NiShape& shapeA, const nifly::NiShape& shapeB) -> bool
+auto MeshTracker::compareNiShape(const nifly::NiShape& shapeA,
+                                 const nifly::NiShape& shapeB) -> bool
 {
     return shapeA.HasVertexColors() == shapeB.HasVertexColors();
 }
 
-auto MeshTracker::compareBSLightingShaderProperty(
-    const nifly::BSLightingShaderProperty& shaderA, const nifly::BSLightingShaderProperty& shaderB) -> bool
+auto MeshTracker::compareBSLightingShaderProperty(const nifly::BSLightingShaderProperty& shaderA,
+                                                  const nifly::BSLightingShaderProperty& shaderB) -> bool
 {
     if (shaderA.emissiveColor != shaderB.emissiveColor) {
         return false;
@@ -567,14 +577,14 @@ auto MeshTracker::compareBSLightingShaderProperty(
     return true;
 }
 
-auto MeshTracker::compareBSEffectShaderProperty(
-    const nifly::BSEffectShaderProperty& shaderA, const nifly::BSEffectShaderProperty& shaderB) -> bool
+auto MeshTracker::compareBSEffectShaderProperty(const nifly::BSEffectShaderProperty& shaderA,
+                                                const nifly::BSEffectShaderProperty& shaderB) -> bool
 {
     return shaderA.textureClampMode == shaderB.textureClampMode;
 }
 
-auto MeshTracker::compareBSShaderProperty(
-    const nifly::BSShaderProperty& shaderA, const nifly::BSShaderProperty& shaderB) -> bool
+auto MeshTracker::compareBSShaderProperty(const nifly::BSShaderProperty& shaderA,
+                                          const nifly::BSShaderProperty& shaderB) -> bool
 {
     if (shaderA.shaderType != shaderB.shaderType) {
         return false;
@@ -603,8 +613,8 @@ auto MeshTracker::compareBSShaderProperty(
     return true;
 }
 
-auto MeshTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, nifly::BSShaderTextureSet& texSetB)
-    -> bool
+auto MeshTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA,
+                                            nifly::BSShaderTextureSet& texSetB) -> bool
 {
     auto texturesA = texSetA.textures;
     auto texturesB = texSetB.textures;
@@ -631,7 +641,8 @@ auto MeshTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA, 
     return true;
 }
 
-auto MeshTracker::getMeshPath(const std::filesystem::path& nifPath, const size_t& index) -> std::filesystem::path
+auto MeshTracker::getMeshPath(const std::filesystem::path& nifPath,
+                              const size_t& index) -> std::filesystem::path
 {
     if (index == 0) {
         return nifPath;
@@ -675,7 +686,8 @@ auto MeshTracker::getComparableBlocks(const nifly::NifFile* nif) -> vector<nifly
     return outBlocks;
 }
 
-auto MeshTracker::get3dIndices(const nifly::NifFile* nif) -> unordered_map<nifly::NiObject*, int>
+auto MeshTracker::get3dIndices(const nifly::NifFile* nif) -> unordered_map<nifly::NiObject*,
+                                                                           int>
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");

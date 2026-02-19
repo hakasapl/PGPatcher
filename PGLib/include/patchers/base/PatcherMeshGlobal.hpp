@@ -21,7 +21,9 @@ public:
     using PatcherMeshGlobalObject = std::unique_ptr<PatcherMeshGlobal>;
 
     // Constructors
-    PatcherMeshGlobal(std::filesystem::path nifPath, nifly::NifFile* nif, std::string patcherName);
+    PatcherMeshGlobal(std::filesystem::path nifPath,
+                      nifly::NifFile* nif,
+                      std::string patcherName);
     virtual ~PatcherMeshGlobal() = default;
     PatcherMeshGlobal(const PatcherMeshGlobal& other) = default;
     auto operator=(const PatcherMeshGlobal& other) -> PatcherMeshGlobal& = default;

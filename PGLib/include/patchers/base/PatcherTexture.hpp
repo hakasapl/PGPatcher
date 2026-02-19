@@ -40,5 +40,7 @@ public:
      * @param nif NIF object
      * @param patcherName Name of patcher
      */
-    PatcherTexture(std::filesystem::path ddsPath, DirectX::ScratchImage* dds, std::string patcherName);
+    PatcherTexture(std::filesystem::path ddsPath,
+                   DirectX::ScratchImage* dds,
+                   std::string patcherName);
 };

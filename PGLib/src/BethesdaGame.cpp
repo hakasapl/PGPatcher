@@ -29,8 +29,10 @@
 
 using namespace std;
 
-BethesdaGame::BethesdaGame(GameType gameType, const filesystem::path& gamePath, const filesystem::path& appDataPath,
-    const filesystem::path& documentPath)
+BethesdaGame::BethesdaGame(GameType gameType,
+                           const filesystem::path& gamePath,
+                           const filesystem::path& appDataPath,
+                           const filesystem::path& documentPath)
     : m_objGameType(gameType)
 {
     if (gamePath.empty()) {
@@ -74,7 +76,8 @@ BethesdaGame::BethesdaGame(GameType gameType, const filesystem::path& gamePath, 
     }
 }
 
-auto BethesdaGame::isGamePathValid(const std::filesystem::path& gamePath, const GameType& type) -> bool
+auto BethesdaGame::isGamePathValid(const std::filesystem::path& gamePath,
+                                   const GameType& type) -> bool
 {
     // Check if the game path is valid
     const auto gameDataPath = gamePath / "Data";
@@ -96,19 +99,19 @@ auto BethesdaGame::isGamePathValid(const std::filesystem::path& gamePath, const 
 auto BethesdaGame::getINILocations() const -> ININame
 {
     if (m_objGameType == BethesdaGame::GameType::SKYRIM_SE) {
-        return ININame { .ini = "skyrim.ini", .iniPrefs = "skyrimprefs.ini", .iniCustom = "skyrimcustom.ini" };
+        return ININame {.ini = "skyrim.ini", .iniPrefs = "skyrimprefs.ini", .iniCustom = "skyrimcustom.ini"};
     }
 
     if (m_objGameType == BethesdaGame::GameType::SKYRIM_GOG) {
-        return ININame { .ini = "skyrim.ini", .iniPrefs = "skyrimprefs.ini", .iniCustom = "skyrimcustom.ini" };
+        return ININame {.ini = "skyrim.ini", .iniPrefs = "skyrimprefs.ini", .iniCustom = "skyrimcustom.ini"};
     }
 
     if (m_objGameType == BethesdaGame::GameType::SKYRIM_VR) {
-        return ININame { .ini = "skyrim.ini", .iniPrefs = "skyrimprefs.ini", .iniCustom = "skyrimcustom.ini" };
+        return ININame {.ini = "skyrim.ini", .iniPrefs = "skyrimprefs.ini", .iniCustom = "skyrimcustom.ini"};
     }
 
     if (m_objGameType == BethesdaGame::GameType::ENDERAL_SE) {
-        return ININame { .ini = "enderal.ini", .iniPrefs = "enderalprefs.ini", .iniCustom = "enderalcustom.ini" };
+        return ININame {.ini = "enderal.ini", .iniPrefs = "enderalprefs.ini", .iniCustom = "enderalcustom.ini"};
     }
 
     return {};
@@ -208,9 +211,9 @@ auto BethesdaGame::getGameRegistryPath(const GameType& type) -> std::string
     const string basePathSkyrim = R"(SOFTWARE\WOW6432Node\bethesda softworks\)";
     const string basePathEnderal = R"(Software\Sure AI\)";
 
-    const std::map<GameType, string> gameToPathMap { { GameType::SKYRIM_SE, basePathSkyrim + "Skyrim Special Edition" },
-        { GameType::SKYRIM_VR, basePathSkyrim + "Skyrim VR" },
-        { GameType::ENDERAL_SE, basePathEnderal + "EnderalSE" } };
+    const std::map<GameType, string> gameToPathMap {{GameType::SKYRIM_SE, basePathSkyrim + "Skyrim Special Edition"},
+                                                    {GameType::SKYRIM_VR, basePathSkyrim + "Skyrim VR"},
+                                                    {GameType::ENDERAL_SE, basePathEnderal + "EnderalSE"}};
 
     if (gameToPathMap.contains(type)) {
         return gameToPathMap.at(type);
@@ -237,7 +240,7 @@ auto BethesdaGame::findGamePathFromSteam(const GameType& type) -> filesystem::pa
     const LONG result
         = RegGetValueA(baseHKey, regPath.c_str(), "Installed Path", RRF_RT_REG_SZ, nullptr, data.data(), &dataSize);
     if (result == ERROR_SUCCESS) {
-        return { data.data() };
+        return {data.data()};
     }
 
     return {};
@@ -262,7 +265,8 @@ auto BethesdaGame::getPluginsFile() const -> filesystem::path
     return gamePluginsFile;
 }
 
-auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lowercase) const -> vector<wstring>
+auto BethesdaGame::getActivePlugins(const bool& trimExtension,
+                                    const bool& lowercase) const -> vector<wstring>
 {
     vector<wstring> outputLO;
 
@@ -300,7 +304,8 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
                 }
 
                 // check if already exists in outputLO
-                if (std::ranges::find_if(outputLO,
+                if (std::ranges::find_if(
+                        outputLO,
                         [&](const std::wstring& s) { return boost::iequals(s, ParallaxGenUtil::utf8toUTF16(line)); })
                         == outputLO.end()
                     && filesystem::exists(m_gameDataPath / line)) {
@@ -330,7 +335,8 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension, const bool& lower
             // this is an active plugin
             line = line.substr(1);
 
-            if (std::ranges::find_if(outputLO,
+            if (std::ranges::find_if(
+                    outputLO,
                     [&](const std::wstring& s) { return boost::iequals(s, ParallaxGenUtil::utf8toUTF16(line)); })
                     == outputLO.end()
                 && filesystem::exists(m_gameDataPath / ParallaxGenUtil::utf8toUTF16(line))) {
@@ -403,15 +409,16 @@ auto BethesdaGame::getSystemPath(const GUID& folderID) -> filesystem::path
 auto BethesdaGame::getGameTypes() -> vector<GameType>
 {
     const static auto gameTypes
-        = vector<GameType> { GameType::SKYRIM_SE, GameType::SKYRIM_GOG, GameType::SKYRIM_VR, GameType::ENDERAL_SE };
+        = vector<GameType> {GameType::SKYRIM_SE, GameType::SKYRIM_GOG, GameType::SKYRIM_VR, GameType::ENDERAL_SE};
     return gameTypes;
 }
 
 auto BethesdaGame::getStrFromGameType(const GameType& type) -> string
 {
-    const static auto gameTypeToStrMap = unordered_map<GameType, string> { { GameType::SKYRIM_SE, "Skyrim SE" },
-        { GameType::SKYRIM_GOG, "Skyrim GOG" }, { GameType::SKYRIM_VR, "Skyrim VR" },
-        { GameType::ENDERAL_SE, "Enderal SE" } };
+    const static auto gameTypeToStrMap = unordered_map<GameType, string> {{GameType::SKYRIM_SE, "Skyrim SE"},
+                                                                          {GameType::SKYRIM_GOG, "Skyrim GOG"},
+                                                                          {GameType::SKYRIM_VR, "Skyrim VR"},
+                                                                          {GameType::ENDERAL_SE, "Enderal SE"}};
 
     if (gameTypeToStrMap.contains(type)) {
         return gameTypeToStrMap.at(type);
@@ -422,9 +429,10 @@ auto BethesdaGame::getStrFromGameType(const GameType& type) -> string
 
 auto BethesdaGame::getGameTypeFromStr(const string& type) -> GameType
 {
-    const static auto strToGameTypeMap = unordered_map<string, GameType> { { "Skyrim SE", GameType::SKYRIM_SE },
-        { "Skyrim GOG", GameType::SKYRIM_GOG }, { "Skyrim VR", GameType::SKYRIM_VR },
-        { "Enderal SE", GameType::ENDERAL_SE } };
+    const static auto strToGameTypeMap = unordered_map<string, GameType> {{"Skyrim SE", GameType::SKYRIM_SE},
+                                                                          {"Skyrim GOG", GameType::SKYRIM_GOG},
+                                                                          {"Skyrim VR", GameType::SKYRIM_VR},
+                                                                          {"Enderal SE", GameType::ENDERAL_SE}};
 
     if (strToGameTypeMap.contains(type)) {
         return strToGameTypeMap.at(type);

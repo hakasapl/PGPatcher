@@ -1,7 +1,7 @@
 BasedOnStyle: WebKit
 ColumnLimit: 120
 BinPackArguments: false
-BinPackParameters: false
+BinPackParameters: AlwaysOnePerLine
 BinPackLongBracedList: false
 AlignAfterOpenBracket: true
 AllowAllParametersOfDeclarationOnNextLine: false

@@ -80,7 +80,9 @@ struct ParallaxGenCLIArgs {
 
 namespace {
 
-void addFileToZip(mz_zip_archive& zip, const filesystem::path& filePath, const filesystem::path& zipPath)
+void addFileToZip(mz_zip_archive& zip,
+                  const filesystem::path& filePath,
+                  const filesystem::path& zipPath)
 {
     // ignore Zip file itself
     if (filePath == zipPath) {
@@ -110,7 +112,8 @@ void addFileToZip(mz_zip_archive& zip, const filesystem::path& filePath, const f
     }
 }
 
-void zipDirectory(const filesystem::path& dirPath, const filesystem::path& zipPath)
+void zipDirectory(const filesystem::path& dirPath,
+                  const filesystem::path& zipPath)
 {
     mz_zip_archive zip;
 
@@ -146,7 +149,8 @@ void zipDirectory(const filesystem::path& dirPath, const filesystem::path& zipPa
     mz_zip_writer_end(&zip);
 }
 
-auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exePath) -> void
+auto deployAssets(const filesystem::path& outputDir,
+                  const filesystem::path& exePath) -> void
 {
     Logger::info("Installing default dynamic cubemap file");
 
@@ -166,7 +170,9 @@ auto deployAssets(const filesystem::path& outputDir, const filesystem::path& exe
     PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
 }
 
-void initLogger(const filesystem::path& logpath, bool enableDebug = false, bool enableTrace = false)
+void initLogger(const filesystem::path& logpath,
+                bool enableDebug = false,
+                bool enableTrace = false)
 {
     // delete old logs
     if (filesystem::exists(logpath.parent_path())) {
@@ -227,9 +233,14 @@ constexpr auto NUM_TOTAL_STEPS = 6;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
-void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGParams& params,
-    const filesystem::path& exePath, bool needModSortDialog, const std::filesystem::path& cfgDir,
-    ProgressWindow* progressWindow, const function<void(size_t, size_t)>& progressCallback)
+void mainRunnerPre(const ParallaxGenCLIArgs& args,
+                   const ParallaxGenConfig::PGParams& params,
+                   const filesystem::path& exePath,
+                   bool needModSortDialog,
+                   const std::filesystem::path& cfgDir,
+                   ProgressWindow* progressWindow,
+                   const function<void(size_t,
+                                       size_t)>& progressCallback)
 {
     // Initialize "Preparing" Step
     progressWindow->CallAfter([progressWindow]() -> void {
@@ -463,29 +474,29 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
     }
 
-    meshPatchers.shaderPatchers.emplace(
-        PatcherMeshShaderDefault::getShaderType(), PatcherMeshShaderDefault::getFactory());
+    meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::getShaderType(),
+                                        PatcherMeshShaderDefault::getFactory());
     if (params.ShaderPatcher.parallax) {
         Logger::debug("Adding Parallax shader patcher");
-        meshPatchers.shaderPatchers.emplace(
-            PatcherMeshShaderVanillaParallax::getShaderType(), PatcherMeshShaderVanillaParallax::getFactory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::getShaderType(),
+                                            PatcherMeshShaderVanillaParallax::getFactory());
     }
     if (params.ShaderPatcher.complexMaterial) {
         Logger::debug("Adding Complex Material shader patcher");
-        meshPatchers.shaderPatchers.emplace(
-            PatcherMeshShaderComplexMaterial::getShaderType(), PatcherMeshShaderComplexMaterial::getFactory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::getShaderType(),
+                                            PatcherMeshShaderComplexMaterial::getFactory());
     }
     if (params.ShaderPatcher.truePBR) {
         Logger::debug("Adding True PBR shader patcher");
-        meshPatchers.shaderPatchers.emplace(
-            PatcherMeshShaderTruePBR::getShaderType(), PatcherMeshShaderTruePBR::getFactory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::getShaderType(),
+                                            PatcherMeshShaderTruePBR::getFactory());
         PatcherMeshShaderTruePBR::loadOptions(true, params.Processing.enableModDevMode);
     }
     if (params.ShaderTransforms.parallaxToCM) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
         meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
-            = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
-                  PatcherMeshShaderTransformParallaxToCM::getFactory() };
+            = {PatcherMeshShaderTransformParallaxToCM::getToShader(),
+               PatcherMeshShaderTransformParallaxToCM::getFactory()};
         PatcherMeshShaderTransformParallaxToCM::loadOptions(!args.forceAlwaysCM);
 
         // initialize patcher hooks
@@ -544,8 +555,13 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Reading NIFs"); });
 
     // Map files
-    pgd->mapFiles(params.Processing.blockList, params.Processing.allowList, params.Processing.textureMaps,
-        params.Processing.vanillaBSAList, params.Processing.multithread, args.highmem, progressCallback);
+    pgd->mapFiles(params.Processing.blockList,
+                  params.Processing.allowList,
+                  params.Processing.textureMaps,
+                  params.Processing.vanillaBSAList,
+                  params.Processing.multithread,
+                  args.highmem,
+                  progressCallback);
 
     // Any patcher initialization that requires PGD
     if (params.ShaderPatcher.truePBR) {
@@ -571,8 +587,11 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args, const ParallaxGenConfig::PGPa
     }
 }
 
-void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem::path& exePath,
-    ProgressWindow* progressWindow, const function<void(size_t, size_t)>& progressCallback)
+void mainRunnerPost(const ParallaxGenConfig::PGParams& params,
+                    const filesystem::path& exePath,
+                    ProgressWindow* progressWindow,
+                    const function<void(size_t,
+                                        size_t)>& progressCallback)
 {
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Patching meshes");
@@ -696,7 +715,8 @@ void mainRunnerPost(const ParallaxGenConfig::PGParams& params, const filesystem:
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
 
-void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
+void mainRunner(ParallaxGenCLIArgs& args,
+                const filesystem::path& exePath)
 {
     ExceptionHandler::setMainThread();
 
@@ -850,7 +870,8 @@ void mainRunner(ParallaxGenCLIArgs& args, const filesystem::path& exePath)
     dlg.ShowModal();
 }
 
-void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
+void addArguments(CLI::App& app,
+                  ParallaxGenCLIArgs& args)
 {
     // Logging
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
@@ -860,13 +881,18 @@ void addArguments(CLI::App& app, ParallaxGenCLIArgs& args)
     auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");
     forceLightFlag->excludes(forceDarkFlag);
     forceDarkFlag->excludes(forceLightFlag);
-    app.add_flag("--force-always-cm", args.forceAlwaysCM,
+    app.add_flag(
+        "--force-always-cm",
+        args.forceAlwaysCM,
         "If upgrade to CM patcher is enabled, everything will be upgraded to CM no matter what (no parallax will be "
         "used)");
 }
 }
 
-auto WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/) -> int
+auto WINAPI WinMain(HINSTANCE /*hInstance*/,
+                    HINSTANCE /*hPrevInstance*/,
+                    LPSTR /*lpCmdLine*/,
+                    int /*nCmdShow*/) -> int
 {
 // Block until enter only in debug mode
 #ifdef _DEBUG
@@ -883,7 +909,7 @@ auto WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, LPSTR 
 
     // CLI Arguments
     ParallaxGenCLIArgs args;
-    CLI::App app { "PGPatcher" };
+    CLI::App app {"PGPatcher"};
     addArguments(app, args);
 
     // Parse CLI Arguments (this is what exits on any validation issues)

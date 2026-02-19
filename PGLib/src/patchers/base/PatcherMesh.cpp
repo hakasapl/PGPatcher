@@ -28,8 +28,10 @@ unordered_map<filesystem::path, unordered_map<uint32_t, PatcherMesh::PatchedText
     PatcherMesh::s_patchedTextureSets;
 shared_mutex PatcherMesh::s_patchedTextureSetsMutex;
 
-auto PatcherMesh::getTextureSet(const filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape)
-    -> array<wstring, NUM_TEXTURE_SLOTS>
+auto PatcherMesh::getTextureSet(const filesystem::path& nifPath,
+                                nifly::NifFile& nif,
+                                nifly::NiShape& nifShape) -> array<wstring,
+                                                                   NUM_TEXTURE_SLOTS>
 {
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto texturesetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
@@ -44,8 +46,11 @@ auto PatcherMesh::getTextureSet(const filesystem::path& nifPath, nifly::NifFile&
     return NIFUtil::getTextureSlots(&nif, &nifShape);
 }
 
-auto PatcherMesh::setTextureSet(const filesystem::path& nifPath, nifly::NifFile& nif, nifly::NiShape& nifShape,
-    const array<wstring, NUM_TEXTURE_SLOTS>& textures) -> bool
+auto PatcherMesh::setTextureSet(const filesystem::path& nifPath,
+                                nifly::NifFile& nif,
+                                nifly::NiShape& nifShape,
+                                const array<wstring,
+                                            NUM_TEXTURE_SLOTS>& textures) -> bool
 {
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto textureSetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
@@ -126,7 +131,9 @@ void PatcherMesh::clearTextureSets(const filesystem::path& nifPath)
     }
 }
 
-PatcherMesh::PatcherMesh(filesystem::path nifPath, nifly::NifFile* nif, string patcherName)
+PatcherMesh::PatcherMesh(filesystem::path nifPath,
+                         nifly::NifFile* nif,
+                         string patcherName)
     : Patcher(std::move(patcherName))
     , m_nifPath(std::move(nifPath))
     , m_nif(nif)

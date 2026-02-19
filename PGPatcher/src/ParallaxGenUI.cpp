@@ -15,7 +15,8 @@ using namespace std;
 
 // ParallaxGenUI class
 
-void ParallaxGenUI::init(bool forceDarkMode, bool forceLightMode)
+void ParallaxGenUI::init(bool forceDarkMode,
+                         bool forceLightMode)
 {
     wxApp::SetInstance(new wxApp()); // NOLINT(cppcoreguidelines-owning-memory)
     if (!wxEntryStart(nullptr, nullptr)) {
@@ -31,7 +32,8 @@ void ParallaxGenUI::init(bool forceDarkMode, bool forceLightMode)
     }
 }
 
-void ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc, ParallaxGenConfig::PGParams& params)
+void ParallaxGenUI::showLauncher(ParallaxGenConfig& pgc,
+                                 ParallaxGenConfig::PGParams& params)
 {
     auto* launcher = new LauncherWindow(pgc); // NOLINT(cppcoreguidelines-owning-memory)
     if (launcher->ShowModal() == wxID_OK) {

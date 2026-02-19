@@ -22,12 +22,16 @@ auto PatcherMeshPostFixSSS::getFactory() -> PatcherMeshPost::PatcherMeshPostFact
     };
 }
 
-PatcherMeshPostFixSSS::PatcherMeshPostFixSSS(std::filesystem::path nifPath, nifly::NifFile* nif)
-    : PatcherMeshPost(std::move(nifPath), nif, "FixSSS")
+PatcherMeshPostFixSSS::PatcherMeshPostFixSSS(std::filesystem::path nifPath,
+                                             nifly::NifFile* nif)
+    : PatcherMeshPost(std::move(nifPath),
+                      nif,
+                      "FixSSS")
 {
 }
 
-auto PatcherMeshPostFixSSS::applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape) -> bool
+auto PatcherMeshPostFixSSS::applyPatch(NIFUtil::TextureSet& slots,
+                                       nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);

@@ -20,9 +20,13 @@ private:
 public:
     ProgressWindow();
 
-    void setMainProgress(int done, int total, bool addToLabel = false);
+    void setMainProgress(int done,
+                         int total,
+                         bool addToLabel = false);
     void setMainLabel(const std::string& label);
 
-    void setStepProgress(int done, int total, bool addToLabel = false);
+    void setStepProgress(int done,
+                         int total,
+                         bool addToLabel = false);
     void setStepLabel(const std::string& label);
 };

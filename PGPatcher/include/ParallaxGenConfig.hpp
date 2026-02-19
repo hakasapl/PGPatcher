@@ -211,7 +211,8 @@ public:
      * @return true no validation errors
      * @return false validation errors
      */
-    [[nodiscard]] static auto validateParams(const PGParams& params, std::vector<std::string>& errors) -> bool;
+    [[nodiscard]] static auto validateParams(const PGParams& params,
+                                             std::vector<std::string>& errors) -> bool;
 
     /**
      * @brief Get the Default Params object
@@ -241,8 +242,10 @@ public:
      */
     static auto saveModConfig() -> bool;
 
-    static auto getIgnoredMessagesConfig() -> std::unordered_map<wxString, bool>;
-    static auto saveIgnoredMessagesConfig(const std::unordered_map<wxString, bool>& ignoredItems) -> bool;
+    static auto getIgnoredMessagesConfig() -> std::unordered_map<wxString,
+                                                                 bool>;
+    static auto saveIgnoredMessagesConfig(const std::unordered_map<wxString,
+                                                                   bool>& ignoredItems) -> bool;
 
 private:
     /**
@@ -253,7 +256,8 @@ private:
      * @return true no json errors
      * @return false unable to parse
      */
-    static auto parseJSON(const std::vector<std::byte>& bytes, nlohmann::json& j) -> bool;
+    static auto parseJSON(const std::vector<std::byte>& bytes,
+                          nlohmann::json& j) -> bool;
 
     /**
      * @brief Adds a JSON config to the current config

@@ -19,9 +19,16 @@ using namespace std;
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
-PGCheckedDragListCtrl::PGCheckedDragListCtrl(
-    wxWindow* parent, wxWindowID id, const wxPoint& pt, const wxSize& sz, long style)
-    : wxListCtrl(parent, id, pt, sz, style)
+PGCheckedDragListCtrl::PGCheckedDragListCtrl(wxWindow* parent,
+                                             wxWindowID id,
+                                             const wxPoint& pt,
+                                             const wxSize& sz,
+                                             long style)
+    : wxListCtrl(parent,
+                 id,
+                 pt,
+                 sz,
+                 style)
     , m_autoscrollTimer(this)
     , m_ghost(nullptr)
 {
@@ -74,7 +81,8 @@ PGCheckedDragListCtrl::~PGCheckedDragListCtrl()
     }
 }
 
-void PGCheckedDragListCtrl::check(long item, bool checked)
+void PGCheckedDragListCtrl::check(long item,
+                                  bool checked)
 {
     // This is what actually adds the checkmark
     SetItemImage(item, checked ? 1 : 0);
@@ -92,7 +100,8 @@ auto PGCheckedDragListCtrl::isChecked(long item) const -> bool
     return false;
 }
 
-void PGCheckedDragListCtrl::ignoreMeshes(long item, bool ignore)
+void PGCheckedDragListCtrl::ignoreMeshes(long item,
+                                         bool ignore)
 {
     wxFont font = GetItemFont(item);
     font.SetStrikethrough(ignore);
@@ -165,7 +174,7 @@ void PGCheckedDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
         std::erase_if(selectedItems, [this](long idx) -> bool { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
 
         for (const long selectedItem : selectedItems) {
-            m_draggedRows.push_back({ .index = selectedItem, .text = GetItemText(selectedItem, 0) });
+            m_draggedRows.push_back({.index = selectedItem, .text = GetItemText(selectedItem, 0)});
         }
 
         // Create ghost at cursor position
@@ -432,7 +441,8 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
 
 // HELPERS
 
-void PGCheckedDragListCtrl::processCheckItem(long item, bool checked)
+void PGCheckedDragListCtrl::processCheckItem(long item,
+                                             bool checked)
 {
     // when checked, move item to just above cutoff line
     if (m_cutoffLine >= 0) {
@@ -452,7 +462,8 @@ void PGCheckedDragListCtrl::processCheckItem(long item, bool checked)
     wxPostEvent(this, evt);
 }
 
-void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items, bool checked)
+void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items,
+                                              bool checked)
 {
     if (items.empty() || m_cutoffLine < 0) {
         return;
@@ -473,7 +484,8 @@ void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items, bo
     }
 }
 
-auto PGCheckedDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
+auto PGCheckedDragListCtrl::moveItem(long fromIndex,
+                                     long toIndex) -> long
 {
     if (fromIndex == toIndex || fromIndex < 0 || fromIndex >= GetItemCount()) {
         return fromIndex;
@@ -512,7 +524,8 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex, long toIndex) -> long
     return newIndex;
 }
 
-auto PGCheckedDragListCtrl::moveItems(const std::vector<long>& fromIndices, long toIndex) -> vector<long>
+auto PGCheckedDragListCtrl::moveItems(const std::vector<long>& fromIndices,
+                                      long toIndex) -> vector<long>
 {
     if (fromIndices.empty() || toIndex < 0 || toIndex > GetItemCount()) {
         return fromIndices;

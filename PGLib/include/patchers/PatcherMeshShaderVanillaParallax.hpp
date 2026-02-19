@@ -40,7 +40,8 @@ public:
      * @param nifPath NIF path to patch
      * @param nif NIF object to patch
      */
-    PatcherMeshShaderVanillaParallax(std::filesystem::path nifPath, nifly::NifFile* nif);
+    PatcherMeshShaderVanillaParallax(std::filesystem::path nifPath,
+                                     nifly::NifFile* nif);
 
     /**
      * @brief Check if a shape can be patched by this patcher (without looking at slots)
@@ -49,8 +50,9 @@ public:
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
-    auto canApply(nifly::NiShape& nifShape, bool singlepassMATO,
-        const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool override;
+    auto canApply(nifly::NiShape& nifShape,
+                  bool singlepassMATO,
+                  const ParallaxGenPlugin::ModelRecordType& modelRecordType) -> bool override;
 
     /**
      * @brief Check if a shape can be patched by this patcher (with slots)
@@ -60,7 +62,8 @@ public:
      * @return true Found matches
      * @return false No matches found
      */
-    auto shouldApply(nifly::NiShape& nifShape, std::vector<PatcherMatch>& matches) -> bool override;
+    auto shouldApply(nifly::NiShape& nifShape,
+                     std::vector<PatcherMatch>& matches) -> bool override;
 
     /**
      * @brief Check if slots can accomodate parallax
@@ -70,7 +73,8 @@ public:
      * @return true Found matches
      * @return false No matches found
      */
-    auto shouldApply(const NIFUtil::TextureSet& oldSlots, std::vector<PatcherMatch>& matches) -> bool override;
+    auto shouldApply(const NIFUtil::TextureSet& oldSlots,
+                     std::vector<PatcherMatch>& matches) -> bool override;
 
     /**
      * @brief Apply a match to a shape for parallax
@@ -81,7 +85,9 @@ public:
      * @param[out] shapeDeleted Whether the shape was deleted (always false)
      * @return NIFUtil::TextureSet New slots of shape
      */
-    void applyPatch(NIFUtil::TextureSet& slots, nifly::NiShape& nifShape, const PatcherMatch& match) override;
+    void applyPatch(NIFUtil::TextureSet& slots,
+                    nifly::NiShape& nifShape,
+                    const PatcherMatch& match) override;
 
     /**
      * @brief Apply a match to slots for parallax
@@ -90,7 +96,8 @@ public:
      * @param match Match to apply
      * @return NIFUtil::TextureSet New slots
      */
-    void applyPatchSlots(NIFUtil::TextureSet& slots, const PatcherMatch& match) override;
+    void applyPatchSlots(NIFUtil::TextureSet& slots,
+                         const PatcherMatch& match) override;
 
     /**
      * @brief Apply parallax shader to a shape

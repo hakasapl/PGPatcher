@@ -65,7 +65,8 @@ private:
 public:
     ModManagerDirectory(const ModManagerType& mmType);
 
-    [[nodiscard]] auto getModFileMap() const -> const std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>>&;
+    [[nodiscard]] auto getModFileMap() const -> const std::unordered_map<std::filesystem::path,
+                                                                         std::shared_ptr<Mod>>&;
     [[nodiscard]] auto getModByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
     [[nodiscard]] auto getModByFileSmart(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
     [[nodiscard]] auto getMods() const -> std::vector<std::shared_ptr<Mod>>;
@@ -81,7 +82,8 @@ public:
     static auto getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType;
     static auto getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring;
 
-    void populateModFileMapMO2(const std::filesystem::path& instanceDir, const std::filesystem::path& outputDir);
+    void populateModFileMapMO2(const std::filesystem::path& instanceDir,
+                               const std::filesystem::path& outputDir);
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
     // Helpers
@@ -91,12 +93,14 @@ public:
     void assignNewModPriorities() const;
 
 private:
-    [[nodiscard]] static auto compareMods(
-        const std::shared_ptr<Mod>& a, const std::shared_ptr<Mod>& b, bool checkPriority = true) -> bool;
+    [[nodiscard]] static auto compareMods(const std::shared_ptr<Mod>& a,
+                                          const std::shared_ptr<Mod>& b,
+                                          bool checkPriority = true) -> bool;
 
-    static auto getMO2INIField(const std::filesystem::path& instanceDir, const std::string& fieldName,
-        const bool& isByteArray = false) -> std::wstring;
+    static auto getMO2INIField(const std::filesystem::path& instanceDir,
+                               const std::string& fieldName,
+                               const bool& isByteArray = false) -> std::wstring;
 
-    static auto getMO2FilePaths(const std::filesystem::path& instanceDir)
-        -> std::pair<std::filesystem::path, std::filesystem::path>;
+    static auto getMO2FilePaths(const std::filesystem::path& instanceDir) -> std::pair<std::filesystem::path,
+                                                                                       std::filesystem::path>;
 };

@@ -43,8 +43,11 @@ ParallaxGenD3D::ParallaxGenD3D(filesystem::path shaderPath)
 {
 }
 
-auto ParallaxGenD3D::checkIfCM(
-    const filesystem::path& ddsPath, bool& result, bool& hasEnvMask, bool& hasGlosiness, bool& hasMetalness) -> bool
+auto ParallaxGenD3D::checkIfCM(const filesystem::path& ddsPath,
+                               bool& result,
+                               bool& hasEnvMask,
+                               bool& hasGlosiness,
+                               bool& hasMetalness) -> bool
 {
     // get metadata (should only pull headers, which is much faster)
     DirectX::TexMetadata ddsImageMeta {};
@@ -138,7 +141,9 @@ auto ParallaxGenD3D::checkIfCM(
     return true;
 }
 
-auto ParallaxGenD3D::countPixelValues(const DirectX::ScratchImage& image, array<int, 4>& outData) -> bool
+auto ParallaxGenD3D::countPixelValues(const DirectX::ScratchImage& image,
+                                      array<int,
+                                            4>& outData) -> bool
 {
     if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderCountAlphaValues == nullptr)) {
         throw runtime_error("GPU not initialized");
@@ -165,7 +170,7 @@ auto ParallaxGenD3D::countPixelValues(const DirectX::ScratchImage& image, array<
     bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     bufferDesc.StructureByteStride = sizeof(UINT);
 
-    array<unsigned int, 4> outputData = { 0, 0, 0, 0 };
+    array<unsigned int, 4> outputData = {0, 0, 0, 0};
     ComPtr<ID3D11Buffer> outputBuffer;
     if (!createBuffer(outputData.data(), bufferDesc, outputBuffer)) {
         return false;
@@ -185,8 +190,13 @@ auto ParallaxGenD3D::countPixelValues(const DirectX::ScratchImage& image, array<
 
     // Dispatch shader
     const DirectX::TexMetadata imageMeta = image.GetMetadata();
-    if (!blockingDispatch(m_shaderCountAlphaValues, { inputSRV }, { outputBufferUAV }, {},
-            static_cast<UINT>(imageMeta.width), static_cast<UINT>(imageMeta.height), 1)) {
+    if (!blockingDispatch(m_shaderCountAlphaValues,
+                          {inputSRV},
+                          {outputBufferUAV},
+                          {},
+                          static_cast<UINT>(imageMeta.width),
+                          static_cast<UINT>(imageMeta.height),
+                          1)) {
         return false;
     }
 
@@ -211,8 +221,8 @@ auto ParallaxGenD3D::countPixelValues(const DirectX::ScratchImage& image, array<
     return true;
 }
 
-auto ParallaxGenD3D::checkIfAspectRatioMatches(
-    const std::filesystem::path& ddsPath1, const std::filesystem::path& ddsPath2) -> bool
+auto ParallaxGenD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
+                                               const std::filesystem::path& ddsPath2) -> bool
 {
     // get metadata (should only pull headers, which is much faster)
     DirectX::TexMetadata ddsImageMeta1 {};
@@ -263,15 +273,15 @@ auto ParallaxGenD3D::initGPU() -> bool
 
     HRESULT hr {};
     hr = D3D11CreateDevice(nullptr, // Adapter (configured to use default)
-        D3D_DRIVER_TYPE_HARDWARE, // User Hardware
-        nullptr, // Irrelevant for hardware driver type
-        deviceFlags, // Device flags (enables debug if needed)
-        &s_featureLevel, // Feature levels this app can support
-        1, // Just 1 feature level (D3D11)
-        D3D11_SDK_VERSION, // Set to D3D11 SDK version
-        &m_ptrDevice, // Sets the instance device
-        nullptr, // Returns feature level of device created (not needed)
-        &m_ptrContext // Sets the instance device immediate context
+                           D3D_DRIVER_TYPE_HARDWARE, // User Hardware
+                           nullptr, // Irrelevant for hardware driver type
+                           deviceFlags, // Device flags (enables debug if needed)
+                           &s_featureLevel, // Feature levels this app can support
+                           1, // Just 1 feature level (D3D11)
+                           D3D11_SDK_VERSION, // Set to D3D11 SDK version
+                           &m_ptrDevice, // Sets the instance device
+                           nullptr, // Returns feature level of device created (not needed)
+                           &m_ptrContext // Sets the instance device immediate context
     );
 
     return !FAILED(hr);
@@ -283,7 +293,8 @@ auto ParallaxGenD3D::initShaders() -> bool
     return initShader("CountAlphaValues.hlsl", m_shaderCountAlphaValues);
 }
 
-auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID3D11ComputeShader>& outShader) -> bool
+auto ParallaxGenD3D::initShader(const std::filesystem::path& filename,
+                                ComPtr<ID3D11ComputeShader>& outShader) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -302,8 +313,15 @@ auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID
 
     // Compile shader
     ComPtr<ID3DBlob> ptrErrorBlob;
-    hr = D3DCompileFromFile(shaderAbsPath.c_str(), nullptr, nullptr, "main", "cs_5_0", dwShaderFlags, 0,
-        shaderBlob.ReleaseAndGetAddressOf(), ptrErrorBlob.ReleaseAndGetAddressOf());
+    hr = D3DCompileFromFile(shaderAbsPath.c_str(),
+                            nullptr,
+                            nullptr,
+                            "main",
+                            "cs_5_0",
+                            dwShaderFlags,
+                            0,
+                            shaderBlob.ReleaseAndGetAddressOf(),
+                            ptrErrorBlob.ReleaseAndGetAddressOf());
     if (FAILED(hr)) {
         return false;
     }
@@ -322,7 +340,8 @@ auto ParallaxGenD3D::initShader(const std::filesystem::path& filename, ComPtr<ID
 //
 auto ParallaxGenD3D::isPowerOfTwo(unsigned int x) -> bool { return (x != 0U) && ((x & (x - 1)) == 0U); }
 
-auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPtr<ID3D11Texture2D>& dest) -> bool
+auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture,
+                                     ComPtr<ID3D11Texture2D>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -341,14 +360,18 @@ auto ParallaxGenD3D::createTexture2D(const DirectX::ScratchImage& texture, ComPt
     // Create texture
     {
         const std::scoped_lock lock(m_d3dMutex);
-        hr = DirectX::CreateTexture(m_ptrDevice.Get(), texture.GetImages(), texture.GetImageCount(),
-            texture.GetMetadata(), reinterpret_cast<ID3D11Resource**>(dest.ReleaseAndGetAddressOf()));
+        hr = DirectX::CreateTexture(m_ptrDevice.Get(),
+                                    texture.GetImages(),
+                                    texture.GetImageCount(),
+                                    texture.GetMetadata(),
+                                    reinterpret_cast<ID3D11Resource**>(dest.ReleaseAndGetAddressOf()));
     }
 
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, ComPtr<ID3D11Texture2D>& dest) -> bool
+auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
+                                     ComPtr<ID3D11Texture2D>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -371,7 +394,8 @@ auto ParallaxGenD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture, C
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Texture2D>& dest) -> bool
+auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
+                                     ComPtr<ID3D11Texture2D>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -388,8 +412,8 @@ auto ParallaxGenD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc, ComPtr<ID3D11Te
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createShaderResourceView(
-    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11ShaderResourceView>& dest) -> bool
+auto ParallaxGenD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
+                                              ComPtr<ID3D11ShaderResourceView>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -411,8 +435,8 @@ auto ParallaxGenD3D::createShaderResourceView(
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createUnorderedAccessView(
-    const ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
+auto ParallaxGenD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
+                                               ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -435,7 +459,8 @@ auto ParallaxGenD3D::createUnorderedAccessView(
 }
 
 auto ParallaxGenD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
-    const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc, ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
+                                               const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc,
+                                               ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -450,7 +475,9 @@ auto ParallaxGenD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpu
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, ComPtr<ID3D11Buffer>& dest) -> bool
+auto ParallaxGenD3D::createBuffer(const void* data,
+                                  D3D11_BUFFER_DESC& desc,
+                                  ComPtr<ID3D11Buffer>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -467,7 +494,9 @@ auto ParallaxGenD3D::createBuffer(const void* data, D3D11_BUFFER_DESC& desc, Com
     return !FAILED(hr);
 }
 
-auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, ComPtr<ID3D11Buffer>& dest) -> bool
+auto ParallaxGenD3D::createConstantBuffer(const void* data,
+                                          const UINT& size,
+                                          ComPtr<ID3D11Buffer>& dest) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -499,7 +528,8 @@ auto ParallaxGenD3D::createConstantBuffer(const void* data, const UINT& size, Co
     return !FAILED(hr);
 }
 
-void ParallaxGenD3D::copyResource(const ComPtr<ID3D11Resource>& src, const ComPtr<ID3D11Resource>& dest)
+void ParallaxGenD3D::copyResource(const ComPtr<ID3D11Resource>& src,
+                                  const ComPtr<ID3D11Resource>& dest)
 {
     if (m_ptrContext == nullptr) {
         throw runtime_error("Context not initialized");
@@ -530,10 +560,12 @@ void ParallaxGenD3D::flushGPU()
 }
 
 auto ParallaxGenD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
-    const std::vector<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>>& srvs,
-    const std::vector<Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>>& uavs,
-    const std::vector<Microsoft::WRL::ComPtr<ID3D11Buffer>>& constantBuffers, UINT threadGroupCountX,
-    UINT threadGroupCountY, UINT threadGroupCountZ) -> bool
+                                      const std::vector<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>>& srvs,
+                                      const std::vector<Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>>& uavs,
+                                      const std::vector<Microsoft::WRL::ComPtr<ID3D11Buffer>>& constantBuffers,
+                                      UINT threadGroupCountX,
+                                      UINT threadGroupCountY,
+                                      UINT threadGroupCountZ) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
@@ -570,25 +602,27 @@ auto ParallaxGenD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11Compute
 
     // Run the shader
     m_ptrContext->Dispatch((threadGroupCountX + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS,
-        (threadGroupCountY + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS,
-        (threadGroupCountZ + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS);
+                           (threadGroupCountY + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS,
+                           (threadGroupCountZ + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS);
 
     // end query
     m_ptrContext->End(ptrQuery.Get());
 
     // wait for shader to complete
     BOOL queryData = FALSE;
-    hr = m_ptrContext->GetData(ptrQuery.Get(), &queryData, sizeof(queryData),
-        D3D11_ASYNC_GETDATA_DONOTFLUSH); // block until complete
+    hr = m_ptrContext->GetData(ptrQuery.Get(),
+                               &queryData,
+                               sizeof(queryData),
+                               D3D11_ASYNC_GETDATA_DONOTFLUSH); // block until complete
     if (FAILED(hr)) {
         return false;
     }
     ptrQuery.Reset();
 
     // Clean up
-    static const array<ID3D11ShaderResourceView*, 1> nullSRV = { nullptr };
-    static const array<ID3D11UnorderedAccessView*, 1> nullUAV = { nullptr };
-    static const array<ID3D11Buffer*, 1> nullBuffer = { nullptr };
+    static const array<ID3D11ShaderResourceView*, 1> nullSRV = {nullptr};
+    static const array<ID3D11UnorderedAccessView*, 1> nullUAV = {nullptr};
+    static const array<ID3D11Buffer*, 1> nullBuffer = {nullptr};
 
     m_ptrContext->CSSetShader(nullptr, nullptr, 0);
     for (UINT i = 0; i < srvs.size(); i++) {
@@ -605,7 +639,8 @@ auto ParallaxGenD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11Compute
     return true;
 }
 
-auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource, DirectX::ScratchImage& outImage) -> bool
+auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
+                              DirectX::ScratchImage& outImage) -> bool
 {
     if (m_ptrContext == nullptr) {
         throw runtime_error("Context not initialized");
@@ -765,7 +800,9 @@ auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource, Direct
     return true;
 }
 
-template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource, vector<T>& outData) -> bool
+template <typename T>
+auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
+                              vector<T>& outData) -> bool
 {
     if (m_ptrDevice == nullptr) {
         throw runtime_error("Device not initialized");
@@ -811,8 +848,8 @@ template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& 
 
         // Access the texture data from MappedResource.pData
         const size_t numElements = bufferDesc.ByteWidth / sizeof(T);
-        vector<T> outputData(
-            reinterpret_cast<T*>(mappedResource.pData), reinterpret_cast<T*>(mappedResource.pData) + numElements);
+        vector<T> outputData(reinterpret_cast<T*>(mappedResource.pData),
+                             reinterpret_cast<T*>(mappedResource.pData) + numElements);
         outData = std::move(outputData);
 
         // Cleaup
@@ -829,7 +866,7 @@ template <typename T> auto ParallaxGenD3D::readBack(const ComPtr<ID3D11Buffer>& 
 //
 
 auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readability-convert-member-functions-to-static)
-    DirectX::ScratchImage& dds) const -> bool
+                            DirectX::ScratchImage& dds) const -> bool
 {
     auto* const pgd = PGGlobals::getPGD();
 
@@ -856,7 +893,8 @@ auto ParallaxGenD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readabili
     return true;
 }
 
-auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::TexMetadata& ddsMeta) -> bool
+auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath,
+                                    DirectX::TexMetadata& ddsMeta) -> bool
 {
     auto* const pgd = PGGlobals::getPGD();
 
@@ -900,9 +938,14 @@ auto ParallaxGenD3D::getDDSMetadata(const filesystem::path& ddsPath, DirectX::Te
     return true;
 }
 
-auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture, DirectX::ScratchImage& outTexture,
-    const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader, const DXGI_FORMAT& outFormat, const UINT& outWidth,
-    const UINT& outHeight, const void* shaderParams, const UINT& shaderParamsSize) -> bool
+auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
+                                          DirectX::ScratchImage& outTexture,
+                                          const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
+                                          const DXGI_FORMAT& outFormat,
+                                          const UINT& outWidth,
+                                          const UINT& outHeight,
+                                          const void* shaderParams,
+                                          const UINT& shaderParamsSize) -> bool
 {
     if (shader == nullptr) {
         throw runtime_error("Shader was not initialized");
@@ -961,8 +1004,13 @@ auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture
         constantBuffers.push_back(constantBuffer);
     }
 
-    if (!blockingDispatch(shader, { inputDDSSRV }, { outputDDSUAV }, constantBuffers,
-            static_cast<UINT>(inputMeta.width), static_cast<UINT>(inputMeta.height), 1)) {
+    if (!blockingDispatch(shader,
+                          {inputDDSSRV},
+                          {outputDDSUAV},
+                          constantBuffers,
+                          static_cast<UINT>(inputMeta.width),
+                          static_cast<UINT>(inputMeta.height),
+                          1)) {
         return false;
     }
 
@@ -1010,13 +1058,16 @@ auto ParallaxGenD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture
     return true;
 }
 
-auto ParallaxGenD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& rawPixels, const size_t& width,
-    const size_t& height, const size_t& mips, DXGI_FORMAT format) -> DirectX::ScratchImage
+auto ParallaxGenD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& rawPixels,
+                                                 const size_t& width,
+                                                 const size_t& height,
+                                                 const size_t& mips,
+                                                 DXGI_FORMAT format) -> DirectX::ScratchImage
 {
     // Initialize a ScratchImage
     DirectX::ScratchImage image;
     const HRESULT hr = image.Initialize2D(format, width, height, 1,
-        mips); // 1 array slice, 1 mipmap level
+                                          mips); // 1 array slice, 1 mipmap level
     if (FAILED(hr)) {
         return {};
     }
