@@ -117,11 +117,7 @@ auto PGCheckedDragListCtrl::areMeshesIgnored(long item) const -> bool
 
 void PGCheckedDragListCtrl::setCutoffLine(int index) { m_cutoffLine = index; }
 
-auto PGCheckedDragListCtrl::getCutoffLine() const -> int { return m_cutoffLine; }
-
 void PGCheckedDragListCtrl::setDraggingEnabled(bool enabled) { m_draggingEnabled = enabled; }
-
-auto PGCheckedDragListCtrl::isDraggingEnabled() const -> bool { return m_draggingEnabled; }
 
 // EVENT HANDLERS
 

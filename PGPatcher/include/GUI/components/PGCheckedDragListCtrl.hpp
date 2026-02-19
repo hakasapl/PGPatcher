@@ -101,26 +101,11 @@ public:
     void setCutoffLine(int index);
 
     /**
-     * @brief Get the Cutoff Line object
-     *
-     * @return int index of the cutoff line (-1 if disabled)
-     */
-    [[nodiscard]] auto getCutoffLine() const -> int;
-
-    /**
      * @brief Set the Dragging Enabled object
      *
      * @param enabled true to enable dragging, false to disable
      */
     void setDraggingEnabled(bool enabled);
-
-    /**
-     * @brief Get the Dragging Enabled object
-     *
-     * @return true if dragging is enabled
-     * @return false if dragging is disabled
-     */
-    [[nodiscard]] auto isDraggingEnabled() const -> bool;
 
 private:
     // Event Handlers
