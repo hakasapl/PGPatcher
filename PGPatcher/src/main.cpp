@@ -28,6 +28,7 @@
 #include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/ExceptionHandler.hpp"
+#include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 #include "util/TaskPoolRunner.hpp"
@@ -89,7 +90,7 @@ void addFileToZip(mz_zip_archive& zip,
         return;
     }
 
-    vector<std::byte> buffer = StringUtil::getFileBytes(filePath);
+    vector<std::byte> buffer = FileUtil::getFileBytes(filePath);
 
     const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
 
@@ -370,7 +371,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     // Populate mod info
     nlohmann::json modJSON;
     const auto modListFile = cfgDir / "modrules.json";
-    if (StringUtil::getJSON(modListFile, modJSON)) {
+    if (FileUtil::getJSON(modListFile, modJSON)) {
         pgmm->loadJSON(modJSON);
     }
 
@@ -680,7 +681,7 @@ void mainRunnerPost(const PGConfig::PGParams& params,
     const auto diffJSON = PGPatcher::getDiffJSON();
     if (!diffJSON.empty()) {
         const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_Diff.json";
-        StringUtil::saveJSON(diffJSONPath, diffJSON, true);
+        FileUtil::saveJSON(diffJSONPath, diffJSON, true);
 
         PGGlobals::getPGD()->addGeneratedFile("ParallaxGen_Diff.json");
     }

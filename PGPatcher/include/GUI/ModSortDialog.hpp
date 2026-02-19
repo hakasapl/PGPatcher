@@ -4,7 +4,7 @@
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
 #include "PGModManager.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
 
 #include <wx/wx.h>
 
@@ -187,5 +187,5 @@ private:
      * @param shaders Set of ShapeShader enums
      * @return wxString Comma-separated string of shader names
      */
-    static auto constructShaderString(const std::set<NIFUtil::ShapeShader>& shaders) -> wxString;
+    static auto constructShaderString(const std::set<PGEnums::ShapeShader>& shaders) -> wxString;
 };

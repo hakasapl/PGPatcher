@@ -2,9 +2,10 @@
 
 #include "PGGlobals.hpp"
 #include "common/BethesdaGame.hpp"
+#include "util/ContainerUtil.hpp"
+#include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
-
 
 #include <binary_io/any_stream.hpp>
 #include <binary_io/memory_stream.hpp>
@@ -141,7 +142,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
             filePath = m_dataDir / relPath;
         }
 
-        outFileBytes = getFileBytes(filePath);
+        outFileBytes = FileUtil::getFileBytes(filePath);
     } else {
         const filesystem::path bsaPath = bsaStruct->path;
 
@@ -406,12 +407,12 @@ auto BethesdaDirectory::getBSALoadOrder() const -> vector<wstring>
     for (const auto& plugin : loadOrder) {
         // add any BSAs to list
         const vector<wstring> curFoundBSAs = findBSAFilesFromPluginName(allBSAFiles, plugin);
-        concatenateVectorsWithoutDuplicates(outBSAOrder, curFoundBSAs);
+        ContainerUtil::concatenateVectorsWithoutDuplicates(outBSAOrder, curFoundBSAs);
     }
 
     // log output
     for (const auto& bsa : allBSAFiles) {
-        if (!isInVector(outBSAOrder, bsa)) {
+        if (!ContainerUtil::isInVector(outBSAOrder, bsa)) {
             Logger::warn(L"BSA file {} not loaded by any active plugin or INI.", bsa);
         }
     }
@@ -476,7 +477,7 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
             boost::trim(bsa);
 
             // add to output
-            addUniqueElement(bsaFiles, bsa);
+            ContainerUtil::addUniqueElement(bsaFiles, bsa);
         }
     }
 
@@ -545,7 +546,7 @@ auto BethesdaDirectory::isFileAllowed(const filesystem::path& filePath) -> bool
     wstring fileExtension = filePath.extension().wstring();
     boost::algorithm::to_lower(fileExtension);
 
-    return !(isInVector(getExtensionBlocklist(), fileExtension));
+    return !(ContainerUtil::isInVector(getExtensionBlocklist(), fileExtension));
 }
 
 // helpers

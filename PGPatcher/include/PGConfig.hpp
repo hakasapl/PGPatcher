@@ -3,7 +3,7 @@
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
@@ -71,7 +71,7 @@ public:
             bool enableTraceLogging = false;
             std::unordered_set<PGPlugin::ModelRecordType> allowedModelRecordTypes = PGPlugin::getDefaultRecTypeSet();
             std::vector<std::wstring> vanillaBSAList;
-            std::vector<std::pair<std::wstring, NIFUtil::TextureType>> textureMaps;
+            std::vector<std::pair<std::wstring, PGEnums::TextureType>> textureMaps;
             std::vector<std::wstring> allowList;
             std::vector<std::wstring> blockList;
 

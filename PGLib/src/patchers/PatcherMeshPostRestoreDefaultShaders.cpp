@@ -3,7 +3,7 @@
 #include "PGGlobals.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -33,7 +33,7 @@ PatcherMeshPostRestoreDefaultShaders::PatcherMeshPostRestoreDefaultShaders(std::
 {
 }
 
-auto PatcherMeshPostRestoreDefaultShaders::applyPatch(NIFUtil::TextureSet& slots,
+auto PatcherMeshPostRestoreDefaultShaders::applyPatch(PGTypes::TextureSet& slots,
                                                       nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
@@ -53,7 +53,7 @@ auto PatcherMeshPostRestoreDefaultShaders::applyPatch(NIFUtil::TextureSet& slots
     return false;
 }
 
-auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(NIFUtil::TextureSet& slots,
+auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(PGTypes::TextureSet& slots,
                                                                             nifly::BSLightingShaderProperty& shaderProp)
     -> bool
 {
@@ -64,7 +64,7 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(NIFU
     }
 
     // this is parallax type, check the _p texture to see if it exists
-    const auto& parallaxTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::PARALLAX)));
+    const auto& parallaxTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::PARALLAX)));
 
     if (pgd->isFile(parallaxTex)) {
         // definitely a parallax map, no need to disable
@@ -73,16 +73,16 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(NIFU
 
     // not a parallax map, restore to default shader
     shaderProp.SetShaderType(BSLSP_DEFAULT);
-    NIFUtil::clearShaderFlag(&shaderProp, SLSF1_PARALLAX);
+    PGNIFUtil::clearShaderFlag(&shaderProp, SLSF1_PARALLAX);
 
     // clear parallax texture slot
-    slots.at(static_cast<int>(NIFUtil::TextureSlots::PARALLAX)).clear();
+    slots.at(static_cast<int>(PGEnums::TextureSlots::PARALLAX)).clear();
 
     return true;
 }
 
 auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMaterial(
-    NIFUtil::TextureSet& slots,
+    PGTypes::TextureSet& slots,
     nifly::BSLightingShaderProperty& shaderProp) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
@@ -92,8 +92,8 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
     }
 
     // this is complex material type, check the _cm texture to see if it exists
-    const auto& envTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)));
-    const auto& envMaskTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)));
+    const auto& envTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::CUBEMAP)));
+    const auto& envMaskTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::ENVMASK)));
 
     const bool envValid = envTex.empty() || pgd->isFile(envTex)
         || StringUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
@@ -105,11 +105,11 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
 
     // not a complex material map, restore to default shader
     shaderProp.SetShaderType(BSLSP_DEFAULT);
-    NIFUtil::clearShaderFlag(&shaderProp, SLSF1_ENVIRONMENT_MAPPING);
+    PGNIFUtil::clearShaderFlag(&shaderProp, SLSF1_ENVIRONMENT_MAPPING);
 
     // clear complex material texture slot
-    slots.at(static_cast<int>(NIFUtil::TextureSlots::CUBEMAP)).clear();
-    slots.at(static_cast<int>(NIFUtil::TextureSlots::ENVMASK)).clear();
+    slots.at(static_cast<int>(PGEnums::TextureSlots::CUBEMAP)).clear();
+    slots.at(static_cast<int>(PGEnums::TextureSlots::ENVMASK)).clear();
 
     return true;
 }

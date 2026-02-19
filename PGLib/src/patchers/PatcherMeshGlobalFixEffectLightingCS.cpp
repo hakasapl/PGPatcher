@@ -1,7 +1,7 @@
 #include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 
 #include "patchers/base/PatcherMeshGlobal.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "BasicTypes.hpp"
 #include "NifFile.hpp"
@@ -45,19 +45,19 @@ auto PatcherMeshGlobalFixEffectLightingCS::applyPatch() -> bool
             continue;
         }
 
-        if (NIFUtil::hasShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_UNIFORM_SCALE)) {
+        if (PGNIFUtil::hasShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_UNIFORM_SCALE)) {
             // Already has the uniform scale flag set, skip (assumed to be already patched)
             continue;
         }
 
         // Check if the shader has the effect lighting flag set
-        if (NIFUtil::hasShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_EFFECT_LIGHTING)) {
+        if (PGNIFUtil::hasShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_EFFECT_LIGHTING)) {
             // Set uniform scale flag
-            changed |= NIFUtil::setShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_UNIFORM_SCALE);
+            changed |= PGNIFUtil::setShaderFlag(effectShader, nifly::SkyrimShaderPropertyFlags2::SLSF2_UNIFORM_SCALE);
 
             // clear external emmitance flag
             // changed
-            //    |= NIFUtil::clearShaderFlag(effectShader,
+            //    |= PGNIFUtil::clearShaderFlag(effectShader,
             //    nifly::SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE);
 
             // Set lighting influence, which is the second byte (uint8_t) in the uint32_t

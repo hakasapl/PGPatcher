@@ -2,8 +2,9 @@
 
 #include "NifFile.hpp"
 #include "patchers/base/PatcherMesh.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
 #include <spdlog/spdlog.h>
+
 
 #include <filesystem>
 #include <string>
@@ -12,8 +13,8 @@
 PatcherMeshShaderTransform::PatcherMeshShaderTransform(std::filesystem::path nifPath,
                                                        nifly::NifFile* nif,
                                                        std::string patcherName,
-                                                       const NIFUtil::ShapeShader& from,
-                                                       const NIFUtil::ShapeShader& to)
+                                                       const PGEnums::ShapeShader& from,
+                                                       const PGEnums::ShapeShader& to)
     : PatcherMesh(std::move(nifPath),
                   nif,
                   std::move(patcherName))

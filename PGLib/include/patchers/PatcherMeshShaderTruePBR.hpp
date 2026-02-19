@@ -2,7 +2,8 @@
 
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -126,9 +127,9 @@ public:
     /**
      * @brief Get the Shader Type object (TruePBR)
      *
-     * @return NIFUtil::ShapeShader Shader type (TruePBR)
+     * @return PGEnums::ShapeShader Shader type (TruePBR)
      */
-    static auto getShaderType() -> NIFUtil::ShapeShader;
+    static auto getShaderType() -> PGEnums::ShapeShader;
 
     /**
      * @brief Construct a new Patcher True PBR patcher
@@ -169,7 +170,7 @@ public:
      * @return true Found matches
      * @return false Didn't find matches
      */
-    auto shouldApply(const NIFUtil::TextureSet& oldSlots,
+    auto shouldApply(const PGTypes::TextureSet& oldSlots,
                      std::vector<PatcherMatch>& matches) -> bool override;
 
     /**
@@ -177,9 +178,9 @@ public:
      *
      * @param nifShape Shape to patch
      * @param match Match to apply
-     * @return NIFUtil::TextureSet New slots of shape
+     * @return PGTypes::TextureSet New slots of shape
      */
-    void applyPatch(NIFUtil::TextureSet& slots,
+    void applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape,
                     const PatcherMatch& match) override;
 
@@ -188,9 +189,9 @@ public:
      *
      * @param oldSlots Slots to patch
      * @param[out] match Match to apply
-     * @return NIFUtil::TextureSet New slots
+     * @return PGTypes::TextureSet New slots
      */
-    void applyPatchSlots(NIFUtil::TextureSet& slots,
+    void applyPatchSlots(PGTypes::TextureSet& slots,
                          const PatcherMatch& match) override;
 
     /**
@@ -223,7 +224,7 @@ private:
     auto applyOnePatch(nifly::NiShape* nifShape,
                        nlohmann::json& truePBRData,
                        const std::wstring& matchedPath,
-                       NIFUtil::TextureSet& newSlots) -> bool;
+                       PGTypes::TextureSet& newSlots) -> bool;
 
     /**
      * @brief Applies a single JSON config to slots
@@ -231,9 +232,9 @@ private:
      * @param oldSlots Slots to patch
      * @param truePBRData Data to patch
      * @param matchedPath Matched path (PBR prefix)
-     * @return NIFUtil::TextureSet New slots after patch
+     * @return PGTypes::TextureSet New slots after patch
      */
-    static void applyOnePatchSlots(NIFUtil::TextureSet& slots,
+    static void applyOnePatchSlots(PGTypes::TextureSet& slots,
                                    const nlohmann::json& truePBRData,
                                    const std::wstring& matchedPath);
 
@@ -252,7 +253,7 @@ private:
                               nifly::BSLightingShaderProperty* nifShaderBSLSP,
                               nlohmann::json& truePBRData,
                               const std::wstring& matchedPath,
-                              NIFUtil::TextureSet& newSlots) -> bool;
+                              PGTypes::TextureSet& newSlots) -> bool;
 
     // TruePBR Helpers
 

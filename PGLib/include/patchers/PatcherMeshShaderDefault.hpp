@@ -2,7 +2,8 @@
 
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -26,9 +27,9 @@ public:
     /**
      * @brief Get the Shader Type for this patcher (Parallax)
      *
-     * @return NIFUtil::ShapeShader Parallax
+     * @return PGEnums::ShapeShader Parallax
      */
-    static auto getShaderType() -> NIFUtil::ShapeShader;
+    static auto getShaderType() -> PGEnums::ShapeShader;
 
     /**
      * @brief Construct a new Patcher Vanilla Parallax object
@@ -69,7 +70,7 @@ public:
      * @return true Found matches
      * @return false No matches found
      */
-    auto shouldApply(const NIFUtil::TextureSet& oldSlots,
+    auto shouldApply(const PGTypes::TextureSet& oldSlots,
                      std::vector<PatcherMatch>& matches) -> bool override;
 
     /**
@@ -79,9 +80,9 @@ public:
      * @param match Match to apply
      * @param[out] nifModified Whether the NIF was modified
      * @param[out] shapeDeleted Whether the shape was deleted (always false)
-     * @return NIFUtil::TextureSet New slots of shape
+     * @return PGTypes::TextureSet New slots of shape
      */
-    void applyPatch(NIFUtil::TextureSet& slots,
+    void applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape,
                     const PatcherMatch& match) override;
 
@@ -90,9 +91,9 @@ public:
      *
      * @param oldSlots Slots to patch
      * @param match Match to apply
-     * @return NIFUtil::TextureSet New slots
+     * @return PGTypes::TextureSet New slots
      */
-    void applyPatchSlots(NIFUtil::TextureSet& slots,
+    void applyPatchSlots(PGTypes::TextureSet& slots,
                          const PatcherMatch& match) override;
 
     /**

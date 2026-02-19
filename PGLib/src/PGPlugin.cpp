@@ -1,10 +1,10 @@
 #include "PGPlugin.hpp"
 
-#include "PGMeshPermutationTracker.hpp"
 #include "PGMutagenWrapper.hpp"
 #include "common/BethesdaGame.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/EnumStringHelper.hpp"
-#include "util/NIFUtil.hpp"
 
 
 #include <spdlog/spdlog.h>
@@ -162,7 +162,7 @@ auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::p
 
         for (const auto& altTex : modelUse.alternateTextures) {
             // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
-            attributes.alternateTextures[altTex.slotID] = NIFUtil::TextureSet {
+            attributes.alternateTextures[altTex.slotID] = PGTypes::TextureSet {
                 altTex.slots[0],
                 altTex.slots[1],
                 altTex.slots[2],
@@ -234,4 +234,33 @@ void PGPlugin::savePlugin(const filesystem::path& outputDir,
 {
     PGMutagenWrapper::libFinalize(outputDir, esmify);
     // TODO add to generated files
+}
+
+auto PGPlugin::getPluginPathFromDataPath(const filesystem::path& dataPath) -> filesystem::path
+{
+    static const std::filesystem::path meshesPrefix = "meshes";
+    static const std::filesystem::path texturesPrefix = "textures";
+
+    auto relativePath = dataPath;
+
+    // Check if the first component is "meshes" or "textures"
+    if (!dataPath.empty()) {
+        auto iter = dataPath.begin();
+        if (*iter == meshesPrefix) {
+            // Erase the first component
+            relativePath = std::filesystem::path {};
+            for (++iter; iter != dataPath.end(); ++iter) {
+                relativePath /= *iter;
+            }
+        } else if (*iter == texturesPrefix) {
+            relativePath = std::filesystem::path {};
+            for (++iter; iter != dataPath.end(); ++iter) {
+                relativePath /= *iter;
+            }
+        } else {
+            return dataPath;
+        }
+    }
+
+    return relativePath;
 }

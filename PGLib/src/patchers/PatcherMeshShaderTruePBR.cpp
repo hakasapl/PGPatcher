@@ -3,9 +3,11 @@
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
 #include "util/StringUtil.hpp"
+
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -20,6 +22,7 @@
 #include <boost/gil/extension/toolbox/color_converters.hpp>
 #include <boost/gil/extension/toolbox/color_spaces/hsl.hpp>
 #include <boost/gil/typedefs.hpp>
+#include <mutex>
 #include <nlohmann/json_fwd.hpp>
 
 #include <algorithm>
@@ -167,7 +170,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         // "match_normal" attribute
         if (config.second.contains("match_normal")) {
             auto revNormal = StringUtil::utf8toUTF16(config.second["match_normal"].get<string>());
-            revNormal = NIFUtil::getTexBase(revNormal);
+            revNormal = PGNIFUtil::getTexBase(revNormal);
             std::ranges::reverse(revNormal);
 
             getTruePBRNormalInverse()[StringUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
@@ -177,7 +180,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         // "match_diffuse" attribute
         if (config.second.contains("match_diffuse")) {
             auto revDiffuse = StringUtil::utf8toUTF16(config.second["match_diffuse"].get<string>());
-            revDiffuse = NIFUtil::getTexBase(revDiffuse);
+            revDiffuse = PGNIFUtil::getTexBase(revDiffuse);
             std::ranges::reverse(revDiffuse);
 
             getTruePBRDiffuseInverse()[StringUtil::toLowerASCIIFast(revDiffuse)].push_back(config.first);
@@ -197,7 +200,7 @@ auto PatcherMeshShaderTruePBR::getFactory() -> PatcherMeshShader::PatcherMeshSha
     };
 }
 
-auto PatcherMeshShaderTruePBR::getShaderType() -> NIFUtil::ShapeShader { return NIFUtil::ShapeShader::TRUEPBR; }
+auto PatcherMeshShaderTruePBR::getShaderType() -> PGEnums::ShapeShader { return PGEnums::ShapeShader::TRUEPBR; }
 
 auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape,
                                         [[maybe_unused]] bool singlepassMATO,
@@ -211,7 +214,7 @@ auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShap
     auto* const nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
-    return !NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_RGB_TINT);
+    return !PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_RGB_TINT);
 }
 
 auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
@@ -230,9 +233,9 @@ auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
 
     shouldApply(oldSlots, matches);
 
-    if (NIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01)) {
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01)) {
         // Check if RMAOS exists
-        const auto& rmaosPath = oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)];
+        const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)];
         if (!rmaosPath.empty() && pgd->isFile(rmaosPath)) {
             PatcherMatch match;
             match.matchedPath = getNIFPath().wstring();
@@ -243,15 +246,15 @@ auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
     return !matches.empty();
 }
 
-auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots,
+auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
                                            std::vector<PatcherMatch>& matches) -> bool
 {
     auto* pgd = PGGlobals::getPGD();
 
     // get search prefixes
-    auto searchPrefixes = NIFUtil::getSearchPrefixes(oldSlots, false);
+    auto searchPrefixes = PGNIFUtil::getSearchPrefixes(oldSlots, false);
     // only normal map gets _n part removed to match properly
-    searchPrefixes[1] = NIFUtil::getTexBase(oldSlots[1], NIFUtil::TextureSlots::NORMAL);
+    searchPrefixes[1] = PGNIFUtil::getTexBase(oldSlots[1], PGEnums::TextureSlots::NORMAL);
 
     // Remove "pbr" part if starts with "textures\\pbr" for each search prefix
     static constexpr size_t TEXTURE_PBR_STR_LENGTH = 13; // length of "textures\pbr\"
@@ -273,7 +276,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots,
 
     // Split data into individual JSONs
     unordered_map<wstring, map<size_t, tuple<nlohmann::json, wstring>>> truePBROutputData;
-    unordered_map<wstring, unordered_set<NIFUtil::TextureSlots>> truePBRMatchedFrom;
+    unordered_map<wstring, unordered_set<PGEnums::TextureSlots>> truePBRMatchedFrom;
     for (const auto& [sequence, data] : truePBRData) {
         // get current JSON
         auto matchedPath = StringUtil::utf8toUTF16(get<0>(data)["json"].get<string>());
@@ -286,9 +289,9 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots,
         truePBROutputData[matchedPath][sequence] = data;
 
         if (get<0>(data).contains("match_normal")) {
-            truePBRMatchedFrom[matchedPath].insert(NIFUtil::TextureSlots::NORMAL);
+            truePBRMatchedFrom[matchedPath].insert(PGEnums::TextureSlots::NORMAL);
         } else {
-            truePBRMatchedFrom[matchedPath].insert(NIFUtil::TextureSlots::DIFFUSE);
+            truePBRMatchedFrom[matchedPath].insert(PGEnums::TextureSlots::DIFFUSE);
         }
     }
 
@@ -313,7 +316,7 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots,
         bool valid = true;
 
         if (!deleteShape) {
-            NIFUtil::TextureSet newSlots = oldSlots;
+            PGTypes::TextureSet newSlots = oldSlots;
             applyPatchSlots(newSlots, match);
             for (size_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
                 if (!newSlots.at(i).empty() && !pgd->isFile(newSlots.at(i))) {
@@ -350,9 +353,9 @@ auto PatcherMeshShaderTruePBR::shouldApply(const NIFUtil::TextureSet& oldSlots,
 
     // Check for pre-patch case
     if (truePBRData.empty()) {
-        const auto& rmaosPath = oldSlots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)];
+        const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)];
         // if not start with PBR add it for the check
-        if (pgd->getTextureType(rmaosPath) == NIFUtil::TextureType::RMAOS) {
+        if (pgd->getTextureType(rmaosPath) == PGEnums::TextureType::RMAOS) {
             // found RMAOS without json
             PatcherMatch match;
             match.matchedPath = rmaosPath;
@@ -482,8 +485,8 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
     }
 
     // Get PBR path, which is the path without the matched field
-    auto matchedField = curCfg.contains("match_normal") ? NIFUtil::getTexBase(curCfg["match_normal"].get<string>())
-                                                        : NIFUtil::getTexBase(curCfg["match_diffuse"].get<string>());
+    auto matchedField = curCfg.contains("match_normal") ? PGNIFUtil::getTexBase(curCfg["match_normal"].get<string>())
+                                                        : PGNIFUtil::getTexBase(curCfg["match_diffuse"].get<string>());
     texPath.erase(texPath.length() - matchedField.length(), matchedField.length());
 
     // "rename" attribute
@@ -504,7 +507,7 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
     truePBRData.insert({cfg, {curCfg, matchedPath}});
 }
 
-void PatcherMeshShaderTruePBR::applyPatch(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
                                           nifly::NiShape& nifShape,
                                           const PatcherMatch& match)
 {
@@ -522,7 +525,7 @@ void PatcherMeshShaderTruePBR::applyPatch(NIFUtil::TextureSet& slots,
     }
 }
 
-void PatcherMeshShaderTruePBR::applyPatchSlots(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderTruePBR::applyPatchSlots(PGTypes::TextureSet& slots,
                                                const PatcherMatch& match)
 {
     if (match.extraData == nullptr) {
@@ -546,14 +549,14 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
     // Set default PBR shader type
-    NIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
-    NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    PGNIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
+    PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
 
     // Clear unused flags
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
-    NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
 }
 
 void PatcherMeshShaderTruePBR::loadOptions(unordered_map<string,
@@ -580,7 +583,7 @@ void PatcherMeshShaderTruePBR::loadOptions(const bool& checkPaths,
 auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
                                              nlohmann::json& truePBRData,
                                              const std::wstring& matchedPath,
-                                             NIFUtil::TextureSet& newSlots) -> bool
+                                             PGTypes::TextureSet& newSlots) -> bool
 {
     bool changed = false;
 
@@ -610,7 +613,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
         nifShape->GetTriangles(tris);
         auto newUVScale = autoUVScale(getNIF()->GetUvsForShape(nifShape), getNIF()->GetVertsForShape(nifShape), tris)
             / truePBRData["auto_uv"];
-        changed |= NIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
+        changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
     }
 
     // "vertex_colors" attribute
@@ -681,7 +684,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     // "zbuffer_write" attribute
     if (truePBRData.contains("zbuffer_write")) {
         auto newZBufferWrite = truePBRData["zbuffer_write"].get<bool>();
-        changed |= NIFUtil::configureShaderFlag(nifShaderBSLSP, SLSF2_ZBUFFER_WRITE, newZBufferWrite);
+        changed |= PGNIFUtil::configureShaderFlag(nifShaderBSLSP, SLSF2_ZBUFFER_WRITE, newZBufferWrite);
     }
 
     // "specular_level" attribute
@@ -716,26 +719,26 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     // "subsurface_opacity" attribute
     if (truePBRData.contains("subsurface_opacity")) {
         auto newSubsurfaceOpacity = truePBRData["subsurface_opacity"].get<float>();
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newSubsurfaceOpacity);
+        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newSubsurfaceOpacity);
     }
 
     // "displacement_scale" attribute
     if (truePBRData.contains("displacement_scale")) {
         auto newDisplacementScale = truePBRData["displacement_scale"].get<float>();
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
+        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
     }
 
     // "EnvMapping" attribute
     if (enableEnvMapping) {
-        changed |= NIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);
-        changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-        changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
+        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);
+        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
     }
 
     // "EnvMap_scale" attribute
     if (truePBRData.contains("env_map_scale") && enableEnvMapping) {
         auto newEnvMapScale = truePBRData["env_map_scale"].get<float>();
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, newEnvMapScale);
+        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, newEnvMapScale);
     }
 
     // "EnvMap_scale_mult" attribute
@@ -768,7 +771,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     // "uv_scale" attribute
     if (truePBRData.contains("uv_scale")) {
         auto newUVScale = Vector2(truePBRData["uv_scale"].get<float>(), truePBRData["uv_scale"].get<float>());
-        changed |= NIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
+        changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
     }
 
     // "pbr" attribute
@@ -780,7 +783,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     return changed;
 }
 
-void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
+void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
                                                   const nlohmann::json& truePBRData,
                                                   const std::wstring& matchedPath)
 {
@@ -791,13 +794,13 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
     // "lock_diffuse" attribute
     if (!flag(truePBRData, "lock_diffuse")) {
         auto newDiffuse = matchedPath + L".dds";
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::DIFFUSE)] = newDiffuse;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::DIFFUSE)] = newDiffuse;
     }
 
     // "lock_normal" attribute
     if (!flag(truePBRData, "lock_normal")) {
         auto newNormal = matchedPath + L"_n.dds";
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::NORMAL)] = newNormal;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::NORMAL)] = newNormal;
     }
 
     // "emissive" attribute
@@ -807,7 +810,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
             newGlow = matchedPath + L"_g.dds";
         }
 
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::GLOW)] = newGlow;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::GLOW)] = newGlow;
     }
 
     // "parallax" attribute
@@ -817,21 +820,21 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
             newParallax = matchedPath + L"_p.dds";
         }
 
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::PARALLAX)] = newParallax;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)] = newParallax;
     }
 
     // "cubemap" attribute
     if (truePBRData.contains("cubemap") && !flag(truePBRData, "lock_cubemap")) {
         auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = newCubemap;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = newCubemap;
     } else {
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::CUBEMAP)] = L"";
+        slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = L"";
     }
 
     // "lock_rmaos" attribute
     if (!flag(truePBRData, "lock_rmaos")) {
         auto newRMAOS = matchedPath + L"_rmaos.dds";
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::ENVMASK)] = newRMAOS;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = newRMAOS;
     }
 
     // "lock_cnr" attribute
@@ -847,7 +850,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
             newCNR = matchedPath + L"_f.dds";
         }
 
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::MULTILAYER)] = newCNR;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::MULTILAYER)] = newCNR;
     }
 
     // "lock_subsurface" attribute
@@ -860,7 +863,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(NIFUtil::TextureSet& slots,
             newSubsurface = matchedPath + L"_s.dds";
         }
 
-        slots[static_cast<size_t>(NIFUtil::TextureSlots::BACKLIGHT)] = newSubsurface;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::BACKLIGHT)] = newSubsurface;
     }
 
     // "SlotX" attributes
@@ -887,7 +890,7 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
                                                     BSLightingShaderProperty* nifShaderBSLSP,
                                                     nlohmann::json& truePBRData,
                                                     const wstring& matchedPath,
-                                                    NIFUtil::TextureSet& newSlots) -> bool
+                                                    PGTypes::TextureSet& newSlots) -> bool
 {
     bool changed = false;
 
@@ -895,31 +898,31 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
 
     // "emissive" attribute
     if (truePBRData.contains("emissive")) {
-        changed |= NIFUtil::configureShaderFlag(
+        changed |= PGNIFUtil::configureShaderFlag(
             nifShaderBSLSP, SLSF1_EXTERNAL_EMITTANCE, truePBRData["emissive"].get<bool>());
     }
 
     // revert to default NIFShader type, remove flags used in other types
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_GLOW_MAP);
+    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
+    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
+    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_GLOW_MAP);
 
     // Enable PBR flag
-    changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
 
     // Disable any unused flags that might cause issues
-    changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_EYE_ENVIRONMENT_MAPPING);
+    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_EYE_ENVIRONMENT_MAPPING);
 
     // "subsurface" attribute
     if (truePBRData.contains("subsurface")) {
-        changed
-            |= NIFUtil::configureShaderFlag(nifShaderBSLSP, SLSF2_RIM_LIGHTING, truePBRData["subsurface"].get<bool>());
+        changed |= PGNIFUtil::configureShaderFlag(
+            nifShaderBSLSP, SLSF2_RIM_LIGHTING, truePBRData["subsurface"].get<bool>());
     }
 
     // "hair" attribute
     if (flag(truePBRData, "hair")) {
-        changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
+        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
     }
 
     // "multilayer" attribute
@@ -927,8 +930,8 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
     if (truePBRData.contains("multilayer") && truePBRData["multilayer"]) {
         enableMultiLayer = true;
 
-        changed |= NIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
-        changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
+        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
 
         // "coat_color" attribute
         if (truePBRData.contains("coat_color") && truePBRData["coat_color"].size() >= 3) {
@@ -944,36 +947,36 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
         // "coat_specular_level" attribute
         if (truePBRData.contains("coat_specular_level")) {
             auto newCoatSpecularLevel = truePBRData["coat_specular_level"].get<float>();
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, newCoatSpecularLevel);
+            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, newCoatSpecularLevel);
         }
 
         // "coat_roughness" attribute
         if (truePBRData.contains("coat_roughness")) {
             auto newCoatRoughness = truePBRData["coat_roughness"].get<float>();
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, newCoatRoughness);
+            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, newCoatRoughness);
         }
 
         // "coat_strength" attribute
         if (truePBRData.contains("coat_strength")) {
             auto newCoatStrength = truePBRData["coat_strength"].get<float>();
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newCoatStrength);
+            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newCoatStrength);
         }
 
         // "coat_diffuse" attribute
         if (truePBRData.contains("coat_diffuse")) {
-            changed |= NIFUtil::configureShaderFlag(
+            changed |= PGNIFUtil::configureShaderFlag(
                 nifShaderBSLSP, SLSF2_EFFECT_LIGHTING, truePBRData["coat_diffuse"].get<bool>());
         }
 
         // "coat_parallax" attribute
         if (truePBRData.contains("coat_parallax")) {
-            changed |= NIFUtil::configureShaderFlag(
+            changed |= PGNIFUtil::configureShaderFlag(
                 nifShaderBSLSP, SLSF2_SOFT_LIGHTING, truePBRData["coat_parallax"].get<bool>());
         }
 
         // "coat_normal" attribute
         if (truePBRData.contains("coat_normal")) {
-            changed |= NIFUtil::configureShaderFlag(
+            changed |= PGNIFUtil::configureShaderFlag(
                 nifShaderBSLSP, SLSF2_BACK_LIGHTING, truePBRData["coat_normal"].get<bool>());
         }
 
@@ -981,45 +984,45 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
         if (truePBRData.contains("inner_uv_scale")) {
             auto newInnerUVScale
                 = Vector2(truePBRData["inner_uv_scale"].get<float>(), truePBRData["inner_uv_scale"].get<float>());
-            changed |= NIFUtil::setShaderVec2(nifShaderBSLSP->parallaxInnerLayerTextureScale, newInnerUVScale);
+            changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->parallaxInnerLayerTextureScale, newInnerUVScale);
         }
     } else if (truePBRData.contains("glint")) {
         // glint is enabled
         const auto& glintParams = truePBRData["glint"];
 
         // Set shader type to MLP
-        changed |= NIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
+        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
         // Enable Glint with FitSlope flag
-        changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_FIT_SLOPE);
+        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_FIT_SLOPE);
 
         // Glint parameters
         if (glintParams.contains("screen_space_scale")) {
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness,
-                                               glintParams["screen_space_scale"]);
+            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness,
+                                                 glintParams["screen_space_scale"]);
         }
 
         if (glintParams.contains("log_microfacet_density")) {
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale,
-                                               glintParams["log_microfacet_density"]);
+            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale,
+                                                 glintParams["log_microfacet_density"]);
         }
 
         if (glintParams.contains("microfacet_roughness")) {
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u,
-                                               glintParams["microfacet_roughness"]);
+            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u,
+                                                 glintParams["microfacet_roughness"]);
         }
 
         if (glintParams.contains("density_randomization")) {
-            changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v,
-                                               glintParams["density_randomization"]);
+            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v,
+                                                 glintParams["density_randomization"]);
         }
     } else if (truePBRData.contains("fuzz")) {
         // fuzz is enabled
         const auto& fuzzParams = truePBRData["fuzz"];
 
         // Set shader type to MLP
-        changed |= NIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
+        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
         // Enable Fuzz with soft lighting flag
-        changed |= NIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING);
+        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING);
 
         // get color
         auto fuzzColor = vector<float> {0.0F, 0.0F, 0.0F};
@@ -1027,9 +1030,9 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
             fuzzColor = fuzzParams["color"].get<vector<float>>();
         }
 
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, fuzzColor[0]);
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, fuzzColor[1]);
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u, fuzzColor[2]);
+        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, fuzzColor[0]);
+        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, fuzzColor[1]);
+        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u, fuzzColor[2]);
 
         // get weight
         auto fuzzWeight = 1.0F;
@@ -1037,22 +1040,22 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
             fuzzWeight = fuzzParams["weight"].get<float>();
         }
 
-        changed |= NIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v, fuzzWeight);
+        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v, fuzzWeight);
     } else {
         // Revert to default NIFShader type
-        changed |= NIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
+        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
     }
 
     if (!enableMultiLayer) {
         // Clear multilayer flags
-        changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+        changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
 
         if (!flag(truePBRData, "hair")) {
-            changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
+            changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
         }
 
         if (!truePBRData.contains("fuzz")) {
-            changed |= NIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING);
+            changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING);
         }
     }
 

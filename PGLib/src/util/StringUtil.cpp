@@ -11,16 +11,9 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <cstddef>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <locale>
-#include <sstream>
 #include <string>
 #include <stringapiset.h>
-#include <thread>
 #include <vector>
 #include <wingdi.h>
 #include <winnls.h>
@@ -159,101 +152,6 @@ auto containsOnlyAscii(const std::wstring& str) -> bool
     return std::ranges::all_of(str, [](wchar_t wc) { return wc <= ASCII_UPPER_BOUND; });
 }
 
-auto getFileBytes(const filesystem::path& filePath) -> vector<std::byte>
-{
-    ifstream inputFile(filePath, ios::binary | ios::ate);
-    if (!inputFile.is_open()) {
-        // Unable to open file
-        return {};
-    }
-
-    auto length = inputFile.tellg();
-    if (length == -1) {
-        // Unable to find length
-        inputFile.close();
-        return {};
-    }
-
-    inputFile.seekg(0, ios::beg);
-
-    // Make a buffer of the exact size of the file and read the data into it.
-    vector<std::byte> buffer(length);
-    inputFile.read(reinterpret_cast<char*>(buffer.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-                   length);
-
-    inputFile.close();
-
-    return buffer;
-}
-
-auto getThreadID() -> string
-{
-    // Get the current thread ID
-    std::ostringstream oss;
-    oss << std::this_thread::get_id();
-    return oss.str();
-}
-
-auto getJSON(const std::filesystem::path& filePath,
-             nlohmann::json& json) -> bool
-{
-    ifstream inputFile(filePath);
-    if (!inputFile.is_open()) {
-        // Unable to open file
-        return false;
-    }
-
-    try {
-        inputFile >> json;
-    } catch (...) {
-        // Handle JSON parsing error
-        return false;
-    }
-
-    inputFile.close();
-    return true;
-}
-
-auto getJSONFromBytes(const vector<std::byte>& bytes,
-                      nlohmann::json& json) -> bool
-{
-    try {
-        // Convert vector of bytes to string
-        std::string jsonString(bytes.size(), '\0');
-        std::memcpy(jsonString.data(), bytes.data(), bytes.size());
-
-        // Parse the JSON string
-        json = nlohmann::json::parse(jsonString);
-    } catch (...) {
-        // Handle JSON parsing error
-        return false;
-    }
-
-    return true;
-}
-
-auto saveJSON(const std::filesystem::path& filePath,
-              const nlohmann::json& json,
-              const bool& readable) -> bool
-{
-    ofstream outputFile;
-    outputFile.exceptions(std::ios::failbit | std::ios::badbit);
-    outputFile.open(filePath, ios::binary);
-    if (!outputFile.is_open()) {
-        // Unable to open file
-        return false;
-    }
-
-    if (readable) {
-        outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);
-    } else {
-        outputFile << json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
-    }
-
-    outputFile.close();
-    return true;
-}
-
 auto checkIfStringInJSONArray(const nlohmann::json& json,
                               const string& str) -> bool
 {
@@ -265,35 +163,6 @@ auto checkIfStringInJSONArray(const nlohmann::json& json,
         }
     }
     return false;
-}
-
-auto getPluginPathFromDataPath(const filesystem::path& dataPath) -> filesystem::path
-{
-    static const std::filesystem::path meshesPrefix = "meshes";
-    static const std::filesystem::path texturesPrefix = "textures";
-
-    auto relativePath = dataPath;
-
-    // Check if the first component is "meshes" or "textures"
-    if (!dataPath.empty()) {
-        auto iter = dataPath.begin();
-        if (*iter == meshesPrefix) {
-            // Erase the first component
-            relativePath = std::filesystem::path {};
-            for (++iter; iter != dataPath.end(); ++iter) {
-                relativePath /= *iter;
-            }
-        } else if (*iter == texturesPrefix) {
-            relativePath = std::filesystem::path {};
-            for (++iter; iter != dataPath.end(); ++iter) {
-                relativePath /= *iter;
-            }
-        } else {
-            return dataPath;
-        }
-    }
-
-    return relativePath;
 }
 
 auto toLowerASCIIFast(const std::string& str) -> std::string

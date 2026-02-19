@@ -1,8 +1,8 @@
-#include "PGMeshPermutationTracker.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
 
 #include "PGGlobals.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
 #include "util/StringUtil.hpp"
 
 #include "BasicTypes.hpp"
@@ -54,7 +54,7 @@ void PGMeshPermutationTracker::load()
     m_origCrc32 = crcBeforeResult.checksum();
 
     // Load original NIF
-    m_origNifFile = NIFUtil::loadNIFFromBytes(nifFileData, false);
+    m_origNifFile = PGNIFUtil::loadNIFFromBytes(nifFileData, false);
 }
 
 void PGMeshPermutationTracker::load(const std::shared_ptr<nifly::NifFile>& origNifFile,
@@ -85,7 +85,7 @@ void PGMeshPermutationTracker::ignoreBaseMesh() { m_ignoreBaseMesh = true; }
 auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
                                           bool isWeighted,
                                           const std::unordered_map<unsigned int,
-                                                                   NIFUtil::TextureSet>& altTexResults,
+                                                                   PGTypes::TextureSet>& altTexResults,
                                           const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
 {
     if (m_stagedMeshPtr == nullptr) {

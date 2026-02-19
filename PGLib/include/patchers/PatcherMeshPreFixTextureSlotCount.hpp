@@ -1,7 +1,7 @@
 #pragma once
 
 #include "patchers/base/PatcherMeshPre.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -36,6 +36,6 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(NIFUtil::TextureSet& slots,
+    auto applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape) -> bool override;
 };

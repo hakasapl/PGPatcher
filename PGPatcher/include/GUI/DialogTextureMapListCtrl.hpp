@@ -2,7 +2,7 @@
 
 #include "GUI/components/PGTextureMapListCtrl.hpp"
 
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include <wx/listctrl.h>
 #include <wx/wx.h>
@@ -22,9 +22,9 @@ public:
                              const wxString& text);
 
     [[nodiscard]] auto getList() const -> std::vector<std::pair<std::wstring,
-                                                                NIFUtil::TextureType>>;
+                                                                PGEnums::TextureType>>;
     void populateList(const std::vector<std::pair<std::wstring,
-                                                  NIFUtil::TextureType>>& items);
+                                                  PGEnums::TextureType>>& items);
 
 private:
     void updateColumnWidths();

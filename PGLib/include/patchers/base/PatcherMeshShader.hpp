@@ -2,7 +2,7 @@
 
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMesh.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -31,7 +31,7 @@ public:
      */
     struct PatcherMatch {
         std::wstring matchedPath; // The path of the matched file
-        std::unordered_set<NIFUtil::TextureSlots> matchedFrom; // The texture slots that the match matched with
+        std::unordered_set<PGEnums::TextureSlots> matchedFrom; // The texture slots that the match matched with
         std::shared_ptr<void> extraData; // Any extra data the patcher might need intermally to do the patch
     };
 
@@ -69,12 +69,12 @@ public:
     /// @param[in] oldSlots array of texture slot textures
     /// @param[out] matches vector of matches for the given textures
     /// @return if any match was found
-    virtual auto shouldApply(const NIFUtil::TextureSet& oldSlots,
+    virtual auto shouldApply(const PGTypes::TextureSet& oldSlots,
                              std::vector<PatcherMatch>& matches) -> bool
         = 0;
 
     // Methods that apply the patch to a shape
-    virtual void applyPatch(NIFUtil::TextureSet& slots,
+    virtual void applyPatch(PGTypes::TextureSet& slots,
                             nifly::NiShape& nifShape,
                             const PatcherMatch& match)
         = 0;
@@ -83,7 +83,7 @@ public:
     /// @param[in] oldSlots array of the slot textures
     /// @param[in] match matching texture
     /// @return new array containing the applied matched texture
-    virtual void applyPatchSlots(NIFUtil::TextureSet& slots,
+    virtual void applyPatchSlots(PGTypes::TextureSet& slots,
                                  const PatcherMatch& match)
         = 0;
 

@@ -2,7 +2,8 @@
 
 #include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+
 
 #include "NifFile.hpp"
 
@@ -17,8 +18,8 @@
  */
 class PatcherMeshShaderTransform : public PatcherMesh {
 private:
-    NIFUtil::ShapeShader m_fromShader; /** Shader to transform from */
-    NIFUtil::ShapeShader m_toShader; /** Shader to transform to */
+    PGEnums::ShapeShader m_fromShader; /** Shader to transform from */
+    PGEnums::ShapeShader m_toShader; /** Shader to transform to */
 
 public:
     // Custom type definitions
@@ -30,8 +31,8 @@ public:
     PatcherMeshShaderTransform(std::filesystem::path nifPath,
                                nifly::NifFile* nif,
                                std::string patcherName,
-                               const NIFUtil::ShapeShader& from,
-                               const NIFUtil::ShapeShader& to);
+                               const PGEnums::ShapeShader& from,
+                               const PGEnums::ShapeShader& to);
     virtual ~PatcherMeshShaderTransform() = default;
     PatcherMeshShaderTransform(const PatcherMeshShaderTransform& other) = default;
     auto operator=(const PatcherMeshShaderTransform& other) -> PatcherMeshShaderTransform& = default;

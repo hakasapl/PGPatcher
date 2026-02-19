@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Patcher.hpp"
-#include "util/NIFUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -19,8 +19,8 @@
 class PatcherMesh : public Patcher {
 private:
     struct PatchedTextureSet {
-        NIFUtil::TextureSet original;
-        std::unordered_map<uint32_t, NIFUtil::TextureSet> patchResults;
+        PGTypes::TextureSet original;
+        std::unordered_map<uint32_t, PGTypes::TextureSet> patchResults;
     };
 
     static std::shared_mutex s_patchedTextureSetsMutex;
@@ -30,11 +30,11 @@ private:
 public:
     static auto getTextureSet(const std::filesystem::path& nifPath,
                               nifly::NifFile& nif,
-                              nifly::NiShape& nifShape) -> NIFUtil::TextureSet;
+                              nifly::NiShape& nifShape) -> PGTypes::TextureSet;
     static auto setTextureSet(const std::filesystem::path& nifPath,
                               nifly::NifFile& nif,
                               nifly::NiShape& nifShape,
-                              const NIFUtil::TextureSet& textures) -> bool;
+                              const PGTypes::TextureSet& textures) -> bool;
     static void clearTextureSets(const std::filesystem::path& nifPath);
 
 private:

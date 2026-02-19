@@ -1,9 +1,9 @@
 #pragma once
 
-#include "PGMeshPermutationTracker.hpp"
 #include "common/BethesdaGame.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/EnumStringHelper.hpp"
-#include "util/NIFUtil.hpp"
 
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -158,7 +158,7 @@ public:
         bool singlepassMATO;
         bool isIgnored;
         ModelRecordType recType;
-        std::unordered_map<unsigned int, NIFUtil::TextureSet> alternateTextures;
+        std::unordered_map<unsigned int, PGTypes::TextureSet> alternateTextures;
     };
 
     static auto getPluginLangFromString(const std::string& lang) -> PluginLang;
@@ -183,4 +183,13 @@ public:
 
     static void savePlugin(const std::filesystem::path& outputDir,
                            bool esmify);
+
+    /**
+     * @brief Get the Plugin Path From Data Path object (removes textures or meshes from beginning of path)
+     *
+     * @param dataPath The data path to process
+     * @return std::filesystem::path The plugin path derived from the data path, or the original path if it does not
+     * start with "meshes" or "textures"
+     */
+    static auto getPluginPathFromDataPath(const std::filesystem::path& dataPath) -> std::filesystem::path;
 };

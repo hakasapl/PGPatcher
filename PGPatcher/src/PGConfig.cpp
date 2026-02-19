@@ -4,9 +4,11 @@
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
-#include "util/NIFUtil.hpp"
 #include "util/StringUtil.hpp"
+
 
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -113,7 +115,7 @@ void PGConfig::loadConfig()
         Logger::debug(L"Loading PGPatcher Config: {}", getUserConfigFile().wstring());
 
         nlohmann::json j;
-        if (parseJSON(getFileBytes(getUserConfigFile()), j)) {
+        if (parseJSON(FileUtil::getFileBytes(getUserConfigFile()), j)) {
             if (!j.empty()) {
                 replaceForwardSlashes(j);
                 addConfigJSON(j);
@@ -195,7 +197,7 @@ auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("processing") && paramJ["processing"].contains("texturemaps")) {
             for (const auto& item : paramJ["processing"]["texturemaps"].items()) {
                 m_params.Processing.textureMaps.emplace_back(utf8toUTF16(item.key()),
-                                                             NIFUtil::getTexTypeFromStr(item.value().get<string>()));
+                                                             PGEnums::getTexTypeFromStr(item.value().get<string>()));
             }
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("vanillabsalist")) {
@@ -420,7 +422,7 @@ auto PGConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["processing"]["blocklist"] = utf16VectorToUTF8(m_params.Processing.blockList);
     j["params"]["processing"]["texturemaps"] = nlohmann::json::object();
     for (const auto& [Key, Value] : m_params.Processing.textureMaps) {
-        j["params"]["processing"]["texturemaps"][utf16toUTF8(Key)] = NIFUtil::getStrFromTexType(Value);
+        j["params"]["processing"]["texturemaps"][utf16toUTF8(Key)] = PGEnums::getStrFromTexType(Value);
     }
     j["params"]["processing"]["vanillabsalist"] = utf16VectorToUTF8(m_params.Processing.vanillaBSAList);
     j["params"]["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
@@ -460,7 +462,7 @@ auto PGConfig::saveUserConfig() -> bool
     // write to file
     try {
         filesystem::create_directories(getUserConfigFile().parent_path());
-        StringUtil::saveJSON(getUserConfigFile(), j, true);
+        FileUtil::saveJSON(getUserConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save user config: {}", e.what());
         return false;
@@ -482,7 +484,7 @@ auto PGConfig::saveModConfig() -> bool
     // write to file
     try {
         filesystem::create_directories(getModConfigFile().parent_path());
-        StringUtil::saveJSON(getModConfigFile(), j, true);
+        FileUtil::saveJSON(getModConfigFile(), j, true);
     } catch (const exception& e) {
         spdlog::error("Failed to save mod config: {}", e.what());
         return false;
@@ -501,7 +503,7 @@ auto PGConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString,
     }
 
     nlohmann::json j;
-    if (!parseJSON(getFileBytes(getIgnoredMessagesConfigFile()), j)) {
+    if (!parseJSON(FileUtil::getFileBytes(getIgnoredMessagesConfigFile()), j)) {
         throw std::runtime_error("Failed to parse ignored messages config JSON");
     }
 
@@ -529,7 +531,7 @@ auto PGConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
     // write to file
     try {
         filesystem::create_directories(getIgnoredMessagesConfigFile().parent_path());
-        StringUtil::saveJSON(getIgnoredMessagesConfigFile(), j, true);
+        FileUtil::saveJSON(getIgnoredMessagesConfigFile(), j, true);
     } catch (const std::exception& e) {
         spdlog::error("Failed to save ignored messages config: {}", e.what());
         return false;
