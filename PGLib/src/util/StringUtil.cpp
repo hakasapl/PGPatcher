@@ -66,28 +66,6 @@ auto utf16VectorToUTF8(const vector<wstring>& vec) -> vector<string>
     return out;
 }
 
-auto windows1252VectorToUTF16(const vector<string>& vec) -> vector<wstring>
-{
-    vector<wstring> out;
-    out.reserve(vec.size());
-    for (const auto& item : vec) {
-        out.push_back(windows1252toUTF16(item));
-    }
-
-    return out;
-}
-
-auto utf16VectorToWindows1252(const vector<wstring>& vec) -> vector<string>
-{
-    vector<string> out;
-    out.reserve(vec.size());
-    for (const auto& item : vec) {
-        out.push_back(utf16toWindows1252(item));
-    }
-
-    return out;
-}
-
 auto toLowerASCII(const std::wstring& str) -> std::wstring { return boost::to_lower_copy(str, std::locale::classic()); }
 
 auto utf8toUTF16(const string& str) -> wstring

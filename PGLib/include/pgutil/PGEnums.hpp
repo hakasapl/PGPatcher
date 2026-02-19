@@ -40,7 +40,6 @@ enum class TextureSlots : uint8_t {
     ENVMASK,
     MULTILAYER,
     BACKLIGHT,
-    UNUSED,
     UNKNOWN
 };
 
@@ -99,6 +98,6 @@ auto getTexTypeFromStr(const std::string& type) -> TextureType;
 
 auto getTexTypesStr() -> std::vector<std::string>;
 
-enum class TextureAttribute : uint8_t { CM_ENVMASK, CM_GLOSSINESS, CM_METALNESS, CM_HEIGHT };
+enum class TextureAttribute : uint8_t { CM_ENVMASK, CM_GLOSSINESS, CM_METALNESS };
 
 }

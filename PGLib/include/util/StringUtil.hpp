@@ -20,8 +20,6 @@ auto utf16toASCII(const std::wstring& str) -> std::string;
 
 auto utf8VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>;
 auto utf16VectorToUTF8(const std::vector<std::wstring>& vec) -> std::vector<std::string>;
-auto windows1252VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>;
-auto utf16VectorToWindows1252(const std::vector<std::wstring>& vec) -> std::vector<std::string>;
 
 auto containsOnlyAscii(const std::string& str) -> bool;
 auto containsOnlyAscii(const std::wstring& str) -> bool;
