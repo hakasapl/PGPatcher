@@ -361,7 +361,7 @@ public class PGMutagen
                     bool isWeighted = false;
                     if (modelMajorRec is IArmorAddonGetter armorAddonGetter)
                     {
-                        if ((modelRec.Item2 == "MALE" && armorAddonGetter.WeightSliderEnabled.Male) || (modelRec.Item2 == "FEMALE" && armorAddonGetter.WeightSliderEnabled.Female))
+                        if (((modelRec.Item2 == "MALE" || modelRec.Item2 == "1STMALE") && armorAddonGetter.WeightSliderEnabled.Male) || ((modelRec.Item2 == "FEMALE" || modelRec.Item2 == "1STFEMALE") && armorAddonGetter.WeightSliderEnabled.Female))
                         {
                             isWeighted = true;
                         }
@@ -814,7 +814,7 @@ public class PGMutagen
                 bool is_weighted = false;
                 if (modelRec is IArmorAddonGetter armorAddonRec)
                 {
-                    if ((subModel == "MALE" && armorAddonRec.WeightSliderEnabled.Male) || (subModel == "FEMALE" && armorAddonRec.WeightSliderEnabled.Female))
+                    if (((subModel == "MALE" || subModel == "1STMALE") && armorAddonRec.WeightSliderEnabled.Male) || ((subModel == "FEMALE" || subModel == "1STFEMALE") && armorAddonRec.WeightSliderEnabled.Female))
                     {
                         is_weighted = true;
                     }
@@ -955,8 +955,8 @@ public class PGMutagen
                 if (modRecord is IArmorAddon armorAddonRec)
                 {
                     // if weight slider is enabled, do not update the file if it is either _1 or _0 variant
-                    if ((modelUse.SubModel == "MALE" && armorAddonRec.WeightSliderEnabled.Male) ||
-                        (modelUse.SubModel == "FEMALE" && armorAddonRec.WeightSliderEnabled.Female))
+                    if (((modelUse.SubModel == "MALE" || modelUse.SubModel == "1STMALE") && armorAddonRec.WeightSliderEnabled.Male) ||
+                        ((modelUse.SubModel == "FEMALE" || modelUse.SubModel == "1STFEMALE") && armorAddonRec.WeightSliderEnabled.Female))
                     {
                         string existingFile = matchExistingElem.File.ToString();
                         // add other variant to check list
