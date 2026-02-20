@@ -13,6 +13,7 @@
 #include <memory>
 #include <shared_mutex>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -78,6 +79,8 @@ private:
     std::map<std::filesystem::path, BethesdaFile> m_fileMap; /** < Stores the file map for every file found in the load
                                                               order. Key is a lowercase path, value is a BethesdaFile*/
     std::shared_mutex m_fileMapMutex; /** < Shared Mutex for the file map */
+    std::unordered_set<std::filesystem::path>
+        m_foldersToMap; /**< Set of folders to include when populating the file map, all lowercase */
 
     BethesdaGame* m_bg; /** < BethesdaGame which stores a BethesdaGame object
                         corresponding to this load order */
@@ -104,6 +107,7 @@ public:
      * @param logging Whether to enable CLI logging
      */
     BethesdaDirectory(BethesdaGame* bg,
+                      std::unordered_set<std::filesystem::path> foldersToMap,
                       std::filesystem::path generatedPath = "");
 
     /**
@@ -115,6 +119,7 @@ public:
      * @param logging Whether to enable CLI logging
      */
     BethesdaDirectory(std::filesystem::path dataPath,
+                      std::unordered_set<std::filesystem::path> foldersToMap,
                       std::filesystem::path generatedPath = "");
 
     /**
