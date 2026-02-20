@@ -7,8 +7,13 @@
 #include <string>
 #include <vector>
 
+/**
+ * @brief Namespace containing enumerations and conversion utilities for shader types, texture slots, and texture
+ * attributes.
+ */
 namespace PGEnums {
 // These need to be in the order of worst shader to best shader
+/// @brief Represents the shader type applied to a shape, ordered from worst to best quality.
 enum class ShapeShader : uint8_t { UNKNOWN, NONE, VANILLAPARALLAX, COMPLEXMATERIAL, TRUEPBR };
 
 static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 5> SHAPESHADER_TABLE {{
@@ -93,12 +98,30 @@ static constexpr std::array<EnumStringHelper::EnumStringEntry<TextureType>, 21> 
     {.value = TextureType::UNKNOWN, .name = "unknown"},
 }};
 
+/**
+ * @brief Converts a TextureType enum value to its string representation.
+ *
+ * @param type The texture type to convert.
+ * @return String name of the texture type, or "unknown" if not found.
+ */
 auto getStrFromTexType(const TextureType& type) -> std::string;
 
+/**
+ * @brief Converts a string name to the corresponding TextureType enum value.
+ *
+ * @param type String name of the texture type.
+ * @return Corresponding TextureType, or TextureType::UNKNOWN if not found.
+ */
 auto getTexTypeFromStr(const std::string& type) -> TextureType;
 
+/**
+ * @brief Returns a list of all known texture type name strings.
+ *
+ * @return Vector of strings, one per TextureType enum value.
+ */
 auto getTexTypesStr() -> std::vector<std::string>;
 
+/// @brief Flags describing sub-channel properties within a Complex Material texture.
 enum class TextureAttribute : uint8_t { CM_ENVMASK, CM_GLOSSINESS, CM_METALNESS, CM_HEIGHT };
 
 }
