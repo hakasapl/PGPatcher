@@ -38,15 +38,43 @@ public:
                          wxWindowID id,
                          bool allowIgnore = true);
 
+    /**
+     * @brief Set whether ignored messages are shown in the list.
+     *
+     * @param showIgnored True to show ignored messages, false to hide them.
+     */
     void setShowIgnored(bool showIgnored);
+    /**
+     * @brief Set the full list of log messages to display.
+     *
+     * @param messages All log messages to show.
+     */
     void setLogMessages(const std::vector<wxString>& messages);
+    /**
+     * @brief Set the map of messages and their ignored state.
+     *
+     * @param ignoredItems Map from message text to ignored flag.
+     */
     void setIgnoreMap(const std::unordered_map<wxString,
                                                bool>& ignoredItems);
+    /**
+     * @brief Get the current ignore map.
+     *
+     * @return Reference to the map from message text to ignored flag.
+     */
     [[nodiscard]] auto getIgnoreMap() const -> const std::unordered_map<wxString,
                                                                         bool>&;
+    /**
+     * @brief Get the number of messages that are not ignored.
+     *
+     * @return Count of non-ignored messages.
+     */
     [[nodiscard]] auto getNumUnignoredMessages() const -> size_t;
 
 private:
+    /**
+     * @brief Rebuild the list control contents from the current message and ignore state.
+     */
     void repopulateList();
 
     /**

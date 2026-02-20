@@ -26,8 +26,20 @@ public:
                          long style = wxLC_REPORT);
 
 private:
+    /**
+     * @brief Handle a double-click event to begin editing a texture map entry.
+     *
+     * @param event The mouse event from the double-click.
+     */
     void onTextureRulesMapsChangeStart(wxMouseEvent& event);
 
+    /**
+     * @brief Determine which column contains a given point for a specific list item.
+     *
+     * @param pos Position to test, in client coordinates.
+     * @param item List item index to check sub-item rectangles against.
+     * @return Zero-based column index, or -1 if the point is not within any column.
+     */
     auto getColumnAtPosition(const wxPoint& pos,
                              long item) -> int;
 };
