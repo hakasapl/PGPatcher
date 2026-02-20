@@ -3,8 +3,19 @@
 #include <unordered_set>
 #include <vector>
 
+/**
+ * @brief Utility functions for common container operations such as search and deduplication.
+ */
 namespace ContainerUtil {
-// Template Functions
+
+/**
+ * @brief Checks whether a value exists in a vector.
+ *
+ * @tparam T Element type of the vector.
+ * @param vec The vector to search.
+ * @param test The value to look for.
+ * @return true if the value is found in the vector, false otherwise.
+ */
 template <typename T>
 auto isInVector(const std::vector<T>& vec,
                 const T& test) -> bool
@@ -12,7 +23,13 @@ auto isInVector(const std::vector<T>& vec,
     return std::find(vec.begin(), vec.end(), test) != vec.end();
 }
 
-// concatenates two vectors without duplicates
+/**
+ * @brief Appends elements from a second vector into a first vector, skipping any duplicates.
+ *
+ * @tparam T Element type of the vectors.
+ * @param vec1 Destination vector that receives unique elements from vec2.
+ * @param vec2 Source vector whose elements are merged into vec1.
+ */
 template <typename T>
 void concatenateVectorsWithoutDuplicates(std::vector<T>& vec1,
                                          const std::vector<T>& vec2)
@@ -27,7 +44,13 @@ void concatenateVectorsWithoutDuplicates(std::vector<T>& vec1,
     }
 };
 
-// adds an element to a vector if it is not already present
+/**
+ * @brief Inserts an element into a vector only if it is not already present.
+ *
+ * @tparam T Element type of the vector.
+ * @param vec The vector to insert into.
+ * @param element The element to add if not already present.
+ */
 template <typename T>
 void addUniqueElement(std::vector<T>& vec,
                       const T& element)
@@ -36,4 +59,5 @@ void addUniqueElement(std::vector<T>& vec,
         vec.push_back(element);
     }
 }
+
 }

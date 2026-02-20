@@ -15,6 +15,16 @@
 #include <variant>
 #include <vector>
 
+/**
+ * @brief Thread-safe logging facade built on top of spdlog with deduplication and prefix support.
+ *
+ * Features:
+ * - Duplicate-message suppression: identical messages (critical/error/warn) are logged only once.
+ * - Scoped prefix stack: Prefix objects push/pop bracket-enclosed labels for debug/trace messages.
+ * - Threaded buffer mode: worker threads accumulate log entries that are flushed atomically via
+ *   flushThreadedBuffer() to avoid interleaved output.
+ * - Overloads for both std::string (UTF-8) and std::wstring (UTF-16) format strings.
+ */
 class Logger {
 private:
     inline static std::unordered_set<std::wstring> s_existingMessages;
@@ -58,23 +68,62 @@ private:
     }
 
 public:
-    // Scoped prefix class
+    /**
+     * @brief RAII guard that pushes a label onto the thread-local prefix stack for debug/trace messages.
+     *
+     * The label is enclosed in square brackets and prepended to every debug/trace message logged
+     * while this object is alive. The prefix is automatically removed when the object is destroyed.
+     */
     class Prefix {
     public:
+        /**
+         * @brief Pushes a wide-string prefix label onto the thread-local prefix stack.
+         *
+         * @param prefix Label text to prepend to debug/trace messages.
+         */
         explicit Prefix(const std::wstring& prefix);
+
+        /**
+         * @brief Pushes a UTF-8 string prefix label onto the thread-local prefix stack.
+         *
+         * @param prefix Label text to prepend to debug/trace messages.
+         */
         explicit Prefix(const std::string& prefix);
+
+        /**
+         * @brief Pops this prefix label from the thread-local prefix stack.
+         */
         ~Prefix();
+
         Prefix(const Prefix&) = delete;
         auto operator=(const Prefix&) -> Prefix& = delete;
         Prefix(Prefix&&) = delete;
         auto operator=(Prefix&&) -> Prefix& = delete;
     };
 
-    // MT helpers
+    /**
+     * @brief Activates the thread-local buffered logging mode and clears any previous buffer contents.
+     *
+     * While active, all log calls on the current thread are stored in a per-thread buffer instead
+     * of being forwarded to spdlog. Call flushThreadedBuffer() to emit the collected messages.
+     */
     static void startThreadedBuffer();
+
+    /**
+     * @brief Flushes the thread-local log buffer to spdlog under a global exclusive lock and deactivates buffering.
+     *
+     * Acquires the global write lock so the entire batch of buffered messages is emitted without
+     * interleaving with other threads.
+     */
     static void flushThreadedBuffer();
 
-    // WString Log functions
+    /**
+     * @brief Logs a critical-level message using a wide format string, suppressing duplicates.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Wide-string fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void critical(const std::wstring& fmt,
                          Args&&... moreArgs)
@@ -94,6 +143,13 @@ public:
         spdlog::critical(L"{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs an error-level message using a wide format string, suppressing duplicates.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Wide-string fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void error(const std::wstring& fmt,
                       Args&&... moreArgs)
@@ -113,6 +169,13 @@ public:
         spdlog::error(L"{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs a warning-level message using a wide format string, suppressing duplicates.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Wide-string fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void warn(const std::wstring& fmt,
                      Args&&... moreArgs)
@@ -132,6 +195,13 @@ public:
         spdlog::warn(L"{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs an info-level message using a wide format string (no deduplication).
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Wide-string fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void info(const std::wstring& fmt,
                      Args&&... moreArgs)
@@ -147,6 +217,13 @@ public:
         spdlog::info(L"{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs a debug-level message using a wide format string, prepending the active prefix stack.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Wide-string fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void debug(const std::wstring& fmt,
                       Args&&... moreArgs)
@@ -162,6 +239,13 @@ public:
         spdlog::debug(L"{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs a trace-level message using a wide format string, prepending the active prefix stack.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Wide-string fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void trace(const std::wstring& fmt,
                       Args&&... moreArgs)
@@ -177,7 +261,13 @@ public:
         spdlog::trace(L"{}", resolvedStr);
     }
 
-    // String Log functions
+    /**
+     * @brief Logs a critical-level message using a narrow (UTF-8) format string, suppressing duplicates.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Narrow fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void critical(const std::string& fmt,
                          Args&&... moreArgs)
@@ -197,6 +287,13 @@ public:
         spdlog::critical("{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs an error-level message using a narrow (UTF-8) format string, suppressing duplicates.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Narrow fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void error(const std::string& fmt,
                       Args&&... moreArgs)
@@ -216,6 +313,13 @@ public:
         spdlog::error("{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs a warning-level message using a narrow (UTF-8) format string, suppressing duplicates.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Narrow fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void warn(const std::string& fmt,
                      Args&&... moreArgs)
@@ -235,6 +339,13 @@ public:
         spdlog::warn("{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs an info-level message using a narrow (UTF-8) format string (no deduplication).
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Narrow fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void info(const std::string& fmt,
                      Args&&... moreArgs)
@@ -250,6 +361,13 @@ public:
         spdlog::info("{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs a debug-level message using a narrow (UTF-8) format string, prepending the active prefix stack.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Narrow fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void debug(const std::string& fmt,
                       Args&&... moreArgs)
@@ -265,6 +383,13 @@ public:
         spdlog::debug("{}", resolvedStr);
     }
 
+    /**
+     * @brief Logs a trace-level message using a narrow (UTF-8) format string, prepending the active prefix stack.
+     *
+     * @tparam Args Types of the format arguments.
+     * @param fmt Narrow fmt format string.
+     * @param moreArgs Arguments forwarded to fmt::format.
+     */
     template <typename... Args>
     static void trace(const std::string& fmt,
                       Args&&... moreArgs)
