@@ -29,6 +29,11 @@ private:
     };
 
 public:
+    /**
+     * @brief Initializes the DirectX compute shader used for the HDR conversion.
+     *
+     * @return true if the shader was successfully initialized; false otherwise.
+     */
     static auto initShader() -> bool;
 
     /**
@@ -38,6 +43,14 @@ public:
      */
     static auto getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory;
 
+    /**
+     * @brief Loads patcher options from a string key-value map.
+     *
+     * Recognized keys: "luminance_mult" (float multiplier applied during HDR conversion),
+     * "output_format" (DXGI format string for the output texture).
+     *
+     * @param optionsStr Map of option name strings to value strings.
+     */
     static void loadOptions(const std::unordered_map<std::string,
                                                      std::string>& optionsStr);
 

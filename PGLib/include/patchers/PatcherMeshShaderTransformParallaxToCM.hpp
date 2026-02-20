@@ -18,6 +18,12 @@ private:
     static inline bool s_onlyWhenRequired = true;
 
 public:
+    /**
+     * @brief Loads patcher options from a flag value.
+     *
+     * @param onlyWhenRequired When true, the Parallax-to-CM transform is only applied when
+     *                         the base parallax shader cannot be used; when false it is always applied.
+     */
     static void loadOptions(const bool& onlyWhenRequired);
 
     /**
@@ -50,6 +56,13 @@ public:
     PatcherMeshShaderTransformParallaxToCM(std::filesystem::path nifPath,
                                            nifly::NifFile* nif);
 
+    /**
+     * @brief Determines whether the Parallax-to-CM transform should be applied for a given match.
+     *
+     * @param baseMatch        The matched shader/texture information for the current shape.
+     * @param canApplyBaseShader true if the base parallax shader can be applied without transformation.
+     * @return true if the transform should be applied; false if it should be skipped.
+     */
     auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch,
                          bool canApplyBaseShader) -> bool override;
 
