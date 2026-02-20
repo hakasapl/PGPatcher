@@ -8,7 +8,6 @@
 #include "Object3d.hpp"
 #include "Shaders.hpp"
 
-#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <map>
@@ -141,8 +140,7 @@ auto setTextureSlot(nifly::NifFile* nif,
 /// @param[in] newSlots textures to set
 auto setTextureSlots(nifly::NifFile* nif,
                      nifly::NiShape* nifShape,
-                     const std::array<std::wstring,
-                                      NUM_TEXTURE_SLOTS>& newSlots) -> bool;
+                     const PGTypes::TextureSet& newSlots) -> bool;
 
 /// @brief get the set texture for a slot
 /// @param nif nif
@@ -187,16 +185,13 @@ auto getTexMatch(const std::wstring& base,
 /// @return array of texture names without suffixes
 auto getSearchPrefixes(nifly::NifFile const& nif,
                        nifly::NiShape* nifShape,
-                       const bool& findBaseSlots = true) -> std::array<std::wstring,
-                                                                       NUM_TEXTURE_SLOTS>;
+                       const bool& findBaseSlots = true) -> PGTypes::TextureSet;
 
 /// @brief Gets all the texture prefixes for a texture set. ie. _n.dds is removed etc. for each slot
 /// @param[in] oldSlots
 /// @return array of texture names without suffixes
-auto getSearchPrefixes(const std::array<std::wstring,
-                                        NUM_TEXTURE_SLOTS>& oldSlots,
-                       const bool& findBaseSlots = true) -> std::array<std::wstring,
-                                                                       NUM_TEXTURE_SLOTS>;
+auto getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
+                       const bool& findBaseSlots = true) -> PGTypes::TextureSet;
 
 auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiShape*,
                                                                             int>;
