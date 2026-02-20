@@ -49,6 +49,7 @@ using namespace StringUtil;
 PGDirectory::PGDirectory(BethesdaGame* bg,
                          filesystem::path outputPath)
     : BethesdaDirectory(bg,
+                        PGGlobals::s_foldersToMap,
                         std::move(outputPath))
 {
 }
@@ -56,6 +57,7 @@ PGDirectory::PGDirectory(BethesdaGame* bg,
 PGDirectory::PGDirectory(filesystem::path dataPath,
                          filesystem::path outputPath)
     : BethesdaDirectory(std::move(dataPath),
+                        PGGlobals::s_foldersToMap,
                         std::move(outputPath))
 {
 }

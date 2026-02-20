@@ -6,7 +6,6 @@
 #include "common/BethesdaGame.hpp"
 #include "util/TaskQueue.hpp"
 
-
 #include <filesystem>
 #include <unordered_set>
 
@@ -18,7 +17,7 @@ private:
     static PGModManager* s_PGMM;
 
 public:
-    static inline std::unordered_set<std::filesystem::path> s_foldersToMap
+    const static inline std::unordered_set<std::filesystem::path> s_foldersToMap
         = {"meshes", "textures", "pbrnifpatcher", "lightplacer"};
 
     static auto getBG() -> BethesdaGame*;

@@ -1,6 +1,5 @@
 #include "common/BethesdaDirectory.hpp"
 
-#include "PGGlobals.hpp"
 #include "common/BethesdaGame.hpp"
 #include "util/ContainerUtil.hpp"
 #include "util/FileUtil.hpp"
@@ -35,6 +34,7 @@
 #include <shlwapi.h>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <winnt.h>
@@ -43,9 +43,11 @@ using namespace std;
 using namespace StringUtil;
 
 BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg,
+                                     std::unordered_set<std::filesystem::path> foldersToMap,
                                      filesystem::path generatedPath)
     : m_generatedDir(std::move(generatedPath))
     , m_bg(bg)
+    , m_foldersToMap(std::move(foldersToMap))
 {
     // Assign instance vars
     m_dataDir = filesystem::path(this->m_bg->getGameDataPath());
@@ -55,9 +57,11 @@ BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg,
 }
 
 BethesdaDirectory::BethesdaDirectory(filesystem::path dataPath,
+                                     std::unordered_set<std::filesystem::path> foldersToMap,
                                      filesystem::path generatedPath)
     : m_dataDir(std::move(dataPath))
     , m_generatedDir(std::move(generatedPath))
+    , m_foldersToMap(std::move(foldersToMap))
     , m_bg(nullptr)
 {
     // Log starting message
@@ -288,7 +292,7 @@ void BethesdaDirectory::addLooseFilesToMap()
     }
 
     // loop through each folder to map
-    for (const auto& folder : PGGlobals::s_foldersToMap) {
+    for (const auto& folder : m_foldersToMap) {
         // check if folder exists
         const auto curCheckFolder = m_dataDir / folder;
         if (!filesystem::exists(curCheckFolder)) {
@@ -367,7 +371,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 // get folder name within the BSA vfs
                 const filesystem::path folderName = asciitoUTF16(string(fileEntry.first.name()));
 
-                if (!PGGlobals::s_foldersToMap.contains(folderName.begin()->wstring())) {
+                if (!m_foldersToMap.contains(folderName.begin()->wstring())) {
                     // skip if folder is not in the list of folders to map
                     continue;
                 }
