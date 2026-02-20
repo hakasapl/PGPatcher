@@ -12,6 +12,12 @@
 #include <queue>
 #include <thread>
 
+/**
+ * @brief Single-threaded task queue that executes submitted callables serially on a background thread.
+ *
+ * Tasks are processed in FIFO order. If a task throws an exception it is captured via
+ * ExceptionHandler and an optional callback is invoked; no further tasks are processed after that.
+ */
 class TaskQueue {
 private:
     static constexpr int LOOP_INTERVAL = 10; /** Worker loop interval in milliseconds */
@@ -29,7 +35,14 @@ private:
     void workerLoop();
 
 public:
+    /**
+     * @brief Constructs a TaskQueue and starts the background worker thread.
+     */
     TaskQueue();
+
+    /**
+     * @brief Destroys the TaskQueue, shutting down the worker thread and waiting for it to finish.
+     */
     ~TaskQueue();
 
     TaskQueue(const TaskQueue&) = delete;
@@ -37,7 +50,14 @@ public:
     TaskQueue(TaskQueue&&) = delete;
     auto operator=(TaskQueue&&) -> TaskQueue& = delete;
 
-    // Queue a task to run
+    /**
+     * @brief Submits a callable to be executed on the background worker thread.
+     *
+     * The task is silently dropped if ExceptionHandler::hasException() returns true.
+     *
+     * @tparam Func Callable type (any invocable that takes no arguments).
+     * @param func The callable to enqueue.
+     */
     template <typename Func> void queueTask(Func&& func)
     {
         if (ExceptionHandler::hasException()) {
@@ -53,22 +73,50 @@ public:
         m_cv.notify_one();
     }
 
-    // Check if the thread is currently working or has queued tasks
+    /**
+     * @brief Returns whether the queue is currently processing a task or has tasks waiting.
+     *
+     * @return true if a task is executing or at least one task is queued, false otherwise.
+     */
     auto isWorking() const -> bool;
 
-    // Get number of queued tasks (not including currently processing)
+    /**
+     * @brief Returns the number of tasks waiting in the queue (not including any currently executing task).
+     *
+     * @return Number of pending tasks.
+     */
     auto getQueuedTaskCount() const -> size_t;
 
-    // Check if currently processing a task
+    /**
+     * @brief Returns whether the worker thread is actively executing a task right now.
+     *
+     * @return true if a task is currently being executed, false otherwise.
+     */
     auto isProcessing() const -> bool;
 
-    // Check if the queue has been shut down
+    /**
+     * @brief Returns whether the queue has been shut down.
+     *
+     * @return true if shutdown() has been called and the worker thread is no longer running.
+     */
     auto isShutdown() const -> bool;
 
-    // Wait for all tasks to complete
+    /**
+     * @brief Blocks the calling thread until all queued and in-progress tasks have finished.
+     */
     void waitForCompletion() const;
 
+    /**
+     * @brief Signals the worker thread to stop and waits for it to exit.
+     *
+     * Any tasks remaining in the queue are discarded.
+     */
     void shutdown();
 
+    /**
+     * @brief Registers a callback that is invoked when a task throws an unhandled exception.
+     *
+     * @param callback Callable invoked (on the worker thread) immediately after the exception is captured.
+     */
     static void setExceptionCallback(const std::function<void()>& callback);
 };

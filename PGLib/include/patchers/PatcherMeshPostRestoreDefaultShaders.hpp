@@ -38,8 +38,25 @@ public:
                     nifly::NiShape& nifShape) -> bool override;
 
 private:
+    /**
+     * @brief Restores the default shader on a shape that currently uses the Parallax shader type,
+     *        when the referenced parallax texture does not actually exist.
+     *
+     * @param slots      Texture slot set for the shape (parallax slot is cleared on success).
+     * @param shaderProp The BSLightingShaderProperty to inspect and potentially modify.
+     * @return true if the shader was restored to default; false if no change was made.
+     */
     static auto restoreDefaultShaderFromParallax(PGTypes::TextureSet& slots,
                                                  nifly::BSLightingShaderProperty& shaderProp) -> bool;
+
+    /**
+     * @brief Restores the default shader on a shape that currently uses the Complex Material (env-map)
+     *        shader type, when neither the cubemap nor the env-mask texture exists.
+     *
+     * @param slots      Texture slot set for the shape (cubemap and env-mask slots are cleared on success).
+     * @param shaderProp The BSLightingShaderProperty to inspect and potentially modify.
+     * @return true if the shader was restored to default; false if no change was made.
+     */
     static auto restoreDefaultShaderFromComplexMaterial(PGTypes::TextureSet& slots,
                                                         nifly::BSLightingShaderProperty& shaderProp) -> bool;
 };

@@ -4,6 +4,11 @@
 
 #include <vector>
 
+/**
+ * @brief Semi-transparent floating window shown while dragging items in a PGCheckedDragListCtrl.
+ *
+ * Displays a ghost image of the dragged items that follows the mouse cursor during a drag operation.
+ */
 class PGCheckedDragListCtrlGhostWindow : public wxFrame {
 private:
     std::vector<wxString> m_lines;
@@ -17,10 +22,26 @@ private:
     static inline wxColour s_GhostForeground = *wxBLACK;
 
 public:
+    /**
+     * @brief Construct a new PGCheckedDragListCtrlGhostWindow.
+     *
+     * @param parent Parent window that owns this ghost window.
+     * @param lines Lines of text to display in the ghost image.
+     */
     PGCheckedDragListCtrlGhostWindow(wxWindow* parent,
                                      const std::vector<wxString>& lines);
 
+    /**
+     * @brief Render the ghost window contents.
+     *
+     * @param event The wxWidgets paint event (unused).
+     */
     void OnPaint([[maybe_unused]] wxPaintEvent& event);
 
+    /**
+     * @brief Move the ghost window to follow the mouse cursor.
+     *
+     * @param pos New screen position to move the window to.
+     */
     void updatePosition(const wxPoint& pos);
 };

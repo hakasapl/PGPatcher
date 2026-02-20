@@ -30,6 +30,12 @@
 
 class PGModManager;
 
+/**
+ * @brief Extends BethesdaDirectory to manage NIF mesh and DDS texture file mapping for a Bethesda game load order.
+ *
+ * Discovers and categorizes all relevant files (meshes, textures, PBR JSONs, Light Placer JSONs) from the
+ * load order, deduces texture types from shader assignments, and maintains per-texture attribute and type metadata.
+ */
 class PGDirectory : public BethesdaDirectory {
 public:
     struct NifCache {
@@ -76,9 +82,21 @@ private:
     TaskQueue m_CMClassificationQueue;
 
 public:
-    // constructor - calls the BethesdaDirectory constructor
+    /**
+     * @brief Constructs a PGDirectory using a BethesdaGame to resolve data paths.
+     *
+     * @param bg Pointer to the BethesdaGame instance providing game/data paths.
+     * @param outputPath Optional output directory path; defaults to empty (use game data path).
+     */
     PGDirectory(BethesdaGame* bg,
                 std::filesystem::path outputPath = "");
+
+    /**
+     * @brief Constructs a PGDirectory using an explicit data directory path.
+     *
+     * @param dataPath Absolute path to the Bethesda data directory.
+     * @param outputPath Optional output directory path; defaults to empty (use dataPath).
+     */
     PGDirectory(std::filesystem::path dataPath,
                 std::filesystem::path outputPath = "");
 
@@ -102,8 +120,14 @@ public:
                                            size_t)>& progressCallback
                   = {}) -> void;
 
+    /**
+     * @brief Blocks until all background plugin mesh-use mapping tasks have completed, then shuts down the queue.
+     */
     void waitForMeshMapping();
 
+    /**
+     * @brief Blocks until all background Complex Material classification tasks have completed, then shuts down the queue.
+     */
     void waitForCMClassification();
 
 private:
@@ -171,29 +195,88 @@ public:
                           std::unordered_set<PGTypes::PGTexture,
                                              PGTypes::PGTextureHasher>>&;
 
+    /**
+     * @brief Returns the map of all discovered NIF mesh files and their cached data.
+     *
+     * @return Const reference to the mesh map keyed by relative path.
+     */
     [[nodiscard]] auto getMeshes() const -> const std::unordered_map<std::filesystem::path,
                                                                      NifCache>&;
 
+    /**
+     * @brief Returns the set of all discovered DDS texture file paths.
+     *
+     * @return Const reference to the set of texture paths.
+     */
     [[nodiscard]] auto getTextures() const -> const std::unordered_set<std::filesystem::path>&;
 
+    /**
+     * @brief Returns the ordered list of PBR NIF Patcher JSON configuration file paths.
+     *
+     * @return Const reference to the vector of PBR JSON paths.
+     */
     [[nodiscard]] auto getPBRJSONs() const -> const std::vector<std::filesystem::path>&;
 
+    /**
+     * @brief Returns the ordered list of Light Placer JSON configuration file paths.
+     *
+     * @return Const reference to the vector of Light Placer JSON paths.
+     */
     [[nodiscard]] auto getLightPlacerJSONs() const -> const std::vector<std::filesystem::path>&;
 
+    /**
+     * @brief Adds a texture attribute flag to the specified texture path.
+     *
+     * @param path Relative texture path.
+     * @param attribute Attribute to add.
+     * @return true if the attribute was newly inserted; false if it already existed or the path is unknown.
+     */
     auto addTextureAttribute(const std::filesystem::path& path,
                              const PGEnums::TextureAttribute& attribute) -> bool;
 
+    /**
+     * @brief Removes a texture attribute flag from the specified texture path.
+     *
+     * @param path Relative texture path.
+     * @param attribute Attribute to remove.
+     * @return true if the attribute was present and removed; false otherwise.
+     */
     auto removeTextureAttribute(const std::filesystem::path& path,
                                 const PGEnums::TextureAttribute& attribute) -> bool;
 
+    /**
+     * @brief Checks whether a given attribute flag is set for the specified texture path.
+     *
+     * @param path Relative texture path.
+     * @param attribute Attribute to check.
+     * @return true if the attribute is present; false otherwise.
+     */
     [[nodiscard]] auto hasTextureAttribute(const std::filesystem::path& path,
                                            const PGEnums::TextureAttribute& attribute) -> bool;
 
+    /**
+     * @brief Returns all attribute flags currently set for the specified texture path.
+     *
+     * @param path Relative texture path.
+     * @return Set of TextureAttribute values, or an empty set if the path is unknown.
+     */
     [[nodiscard]] auto getTextureAttributes(const std::filesystem::path& path)
         -> std::unordered_set<PGEnums::TextureAttribute>;
 
+    /**
+     * @brief Sets the texture type for the specified texture path.
+     *
+     * @param path Relative texture path.
+     * @param type The TextureType to assign.
+     */
     void setTextureType(const std::filesystem::path& path,
                         const PGEnums::TextureType& type);
 
+    /**
+     * @brief Returns the texture type assigned to the specified texture path.
+     *
+     * @param path Relative texture path.
+     * @return The assigned TextureType, or TextureType::UNKNOWN if the path is not tracked.
+     */
     auto getTextureType(const std::filesystem::path& path) -> PGEnums::TextureType;
 };

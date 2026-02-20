@@ -14,6 +14,12 @@
 #include <minidumpapiset.h>
 #include <tlhelp32.h>
 
+/**
+ * @brief Provides static handlers for Windows exception handling and utility methods.
+ *
+ * All methods are static; the class is used as a pure utility namespace with additional
+ * Windows-specific helpers for crash-dump generation and process introspection.
+ */
 class PGHandlers {
 private:
     // Global variables for crash handling
@@ -24,6 +30,17 @@ private:
     static inline _MINIDUMP_TYPE s_miniDumpType = MiniDumpWithPrivateWriteCopyMemory;
 
 public:
+    /**
+     * @brief Structured-exception handler that writes a minidump and logs the crash.
+     *
+     * Creates a timestamped minidump file under the "log" directory, prints a message to
+     * stderr, and returns EXCEPTION_EXECUTE_HANDLER to terminate the process. Only the
+     * first call produces a dump; subsequent calls return EXCEPTION_CONTINUE_SEARCH.
+     *
+     * @param exceptionInfo Pointer to the Windows exception information provided by the OS.
+     * @return EXCEPTION_EXECUTE_HANDLER after writing the dump, or EXCEPTION_CONTINUE_SEARCH
+     *         if a dump has already been written.
+     */
     static auto WINAPI customExceptionHandler(EXCEPTION_POINTERS* exceptionInfo) -> LONG
     {
         if (s_crashLogged.exchange(true)) {
@@ -72,6 +89,12 @@ public:
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
+    /**
+     * @brief Get the filesystem path of the running executable.
+     *
+     * @return Absolute path to the current executable, or an empty path if it cannot be
+     *         determined or does not exist on disk.
+     */
     static auto getExePath() -> std::filesystem::path
     {
         std::array<wchar_t, MAX_PATH> buffer {};
@@ -88,6 +111,14 @@ public:
         return {};
     }
 
+    /**
+     * @brief Check whether the process is running under Mod Organizer 2's virtual filesystem.
+     *
+     * Enumerates loaded modules of the current process and looks for "usvfs_x64.dll", which
+     * is injected by MO2's USVFS layer.
+     *
+     * @return true if usvfs_x64.dll is loaded in the process, false otherwise.
+     */
     static auto isUnderUSVFS() -> bool
     {
         HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
