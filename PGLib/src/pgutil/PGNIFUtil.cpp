@@ -336,8 +336,7 @@ auto PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
 
 auto PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
-                                const std::array<std::wstring,
-                                                 NUM_TEXTURE_SLOTS>& newSlots) -> bool
+                                const PGTypes::TextureSet& newSlots) -> bool
 {
     bool changed = false;
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
@@ -360,7 +359,7 @@ auto PGNIFUtil::getTextureSlot(nifly::NifFile* nif,
 auto PGNIFUtil::getTextureSlots(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape) -> PGTypes::TextureSet
 {
-    array<wstring, NUM_TEXTURE_SLOTS> outSlots;
+    PGTypes::TextureSet outSlots;
 
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
         string texture;
@@ -457,10 +456,9 @@ auto PGNIFUtil::getTexMatch(const wstring& base,
 
 auto PGNIFUtil::getSearchPrefixes(NifFile const& nif,
                                   nifly::NiShape* nifShape,
-                                  const bool& findBaseSlots) -> array<wstring,
-                                                                      NUM_TEXTURE_SLOTS>
+                                  const bool& findBaseSlots) -> PGTypes::TextureSet
 {
-    array<wstring, NUM_TEXTURE_SLOTS> outPrefixes;
+    PGTypes::TextureSet outPrefixes;
 
     // Loop through each texture Slot
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
@@ -488,12 +486,10 @@ auto PGNIFUtil::getSearchPrefixes(NifFile const& nif,
     return outPrefixes;
 }
 
-auto PGNIFUtil::getSearchPrefixes(const array<wstring,
-                                              NUM_TEXTURE_SLOTS>& oldSlots,
-                                  const bool& findBaseSlots) -> array<wstring,
-                                                                      NUM_TEXTURE_SLOTS>
+auto PGNIFUtil::getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
+                                  const bool& findBaseSlots) -> PGTypes::TextureSet
 {
-    array<wstring, NUM_TEXTURE_SLOTS> outSlots;
+    PGTypes::TextureSet outSlots;
 
     for (uint32_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
         if (oldSlots.at(i).empty()) {
