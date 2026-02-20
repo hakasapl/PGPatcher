@@ -228,7 +228,7 @@ void initLogger(const filesystem::path& logpath,
     }
 }
 
-constexpr auto NUM_PREPARING_STEPS = 9;
+constexpr auto NUM_PREPARING_STEPS = 11;
 constexpr auto NUM_FINALIZING_STEPS = 5;
 constexpr auto NUM_TOTAL_STEPS = 6;
 
@@ -532,7 +532,26 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     const PatcherUtil::PatcherTextureSet texPatchers;
     PGPatcher::loadPatchers(meshPatchers, texPatchers);
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void {
+        progressWindow->setStepLabel("Waiting for plugin initialization");
+        progressWindow->setStepProgress(9, NUM_PREPARING_STEPS);
+    });
+
+    // Plugins required for map files
+    pluginInit.waitForCompletion();
+    pluginInit.shutdown();
+
+    progressWindow->CallAfter([progressWindow]() -> void {
+        progressWindow->setStepLabel("Waiting for mod manager initialization");
+        progressWindow->setStepProgress(10, NUM_PREPARING_STEPS);
+    });
+
+    // Mods required for map files
+    modManagerInit.waitForCompletion();
+    modManagerInit.shutdown();
+
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(11, NUM_PREPARING_STEPS); });
+
     //
     // END PATCHER INITIALIZATION
     //
@@ -540,20 +559,10 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     // Initialize "Loading meshes" Step
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Loading meshes");
-        progressWindow->setStepLabel("");
+        progressWindow->setStepLabel("Reading NIFs");
         progressWindow->setMainProgress(1, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
-
-    // Plugins required for map files
-    pluginInit.waitForCompletion();
-    pluginInit.shutdown();
-
-    // Mods required for map files
-    modManagerInit.waitForCompletion();
-    modManagerInit.shutdown();
-
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Reading NIFs"); });
 
     // Map files
     pgd->mapFiles(params.Processing.blockList,

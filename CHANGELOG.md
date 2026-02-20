@@ -2,6 +2,7 @@
 
 ## [0.9.14] - UNRELEASED
 
+- Added additional progress dialog status messages during initialization
 - Fixed 1st person model ARMA patching when 1st person model and real model are the same
 
 ## [0.9.13] - 2026-02-16
