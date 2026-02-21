@@ -1,10 +1,11 @@
 #pragma once
 
+#include "pgutil/PGTypes.hpp"
+
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
-#include "pgutil/PGNIFUtil.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -59,8 +60,7 @@ public:
         /// @brief Relative path (within the data directory) of the saved output mesh file.
         std::filesystem::path meshPath;
         /// @brief Alternate texture results keyed by FormKey; each maps shape index to a TextureSet.
-        std::vector<std::pair<FormKey, std::unordered_map<unsigned int, PGTypes::TextureSet>>>
-            altTexResults;
+        std::vector<std::pair<FormKey, std::unordered_map<unsigned int, PGTypes::TextureSet>>> altTexResults;
         /// @brief Index corrections mapping old 3D block indices to new indices after sorting.
         std::unordered_map<int, int> idxCorrections;
     };

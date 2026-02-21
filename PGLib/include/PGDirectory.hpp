@@ -4,11 +4,11 @@
 #include "PGPlugin.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
+#include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/TaskQueue.hpp"
 #include "util/TaskTracker.hpp"
-
 
 #include <DirectXTex.h>
 #include <nlohmann/json.hpp>
@@ -126,7 +126,8 @@ public:
     void waitForMeshMapping();
 
     /**
-     * @brief Blocks until all background Complex Material classification tasks have completed, then shuts down the queue.
+     * @brief Blocks until all background Complex Material classification tasks have completed, then shuts down the
+     * queue.
      */
     void waitForCMClassification();
 

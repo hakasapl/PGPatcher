@@ -2,6 +2,7 @@
 
 #include "patchers/base/Patcher.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/StringUtil.hpp"
 
 #include "BasicTypes.hpp"
@@ -30,8 +31,7 @@ shared_mutex PatcherMesh::s_patchedTextureSetsMutex;
 
 auto PatcherMesh::getTextureSet(const filesystem::path& nifPath,
                                 nifly::NifFile& nif,
-                                nifly::NiShape& nifShape) -> array<wstring,
-                                                                   NUM_TEXTURE_SLOTS>
+                                nifly::NiShape& nifShape) -> PGTypes::TextureSet
 {
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto texturesetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
@@ -49,8 +49,7 @@ auto PatcherMesh::getTextureSet(const filesystem::path& nifPath,
 auto PatcherMesh::setTextureSet(const filesystem::path& nifPath,
                                 nifly::NifFile& nif,
                                 nifly::NiShape& nifShape,
-                                const array<wstring,
-                                            NUM_TEXTURE_SLOTS>& textures) -> bool
+                                const PGTypes::TextureSet& textures) -> bool
 {
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto textureSetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));

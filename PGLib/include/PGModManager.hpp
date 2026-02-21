@@ -3,7 +3,6 @@
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
 
-
 #include <nlohmann/json_fwd.hpp>
 
 #include <cstddef>

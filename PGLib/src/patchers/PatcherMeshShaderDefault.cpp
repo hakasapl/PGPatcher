@@ -4,7 +4,7 @@
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"

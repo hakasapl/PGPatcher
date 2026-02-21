@@ -3,7 +3,7 @@
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
 
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>

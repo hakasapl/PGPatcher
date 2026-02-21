@@ -2,7 +2,9 @@
 
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherMeshPost.hpp"
+#include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"

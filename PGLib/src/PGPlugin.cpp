@@ -3,9 +3,8 @@
 #include "PGMutagenWrapper.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/EnumStringHelper.hpp"
-
 
 #include <spdlog/spdlog.h>
 

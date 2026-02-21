@@ -3,7 +3,7 @@
 #include "PGDirectory.hpp"
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherUtil.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/TaskTracker.hpp"
 
 #include "Geometry.hpp"

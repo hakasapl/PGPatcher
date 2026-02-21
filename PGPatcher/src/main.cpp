@@ -25,7 +25,6 @@
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
-#include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/ExceptionHandler.hpp"
 #include "util/FileUtil.hpp"

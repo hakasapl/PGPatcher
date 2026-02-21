@@ -3,7 +3,7 @@
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -241,19 +241,17 @@ private:
     /**
      * @brief Enables truepbr on a shape (pbr: true in JSON)
      *
-     * @param nifShape Shape to enable truepbr on
      * @param nifShader Shader of shape
      * @param nifShaderBSLSP Properties of shader
      * @param truePBRData Data to enable truepbr with
      * @param matchedPath Matched path (PBR prefix)
      * @param[out] newSlots New slots of shape
      */
-    auto enableTruePBROnShape(nifly::NiShape* nifShape,
-                              nifly::NiShader* nifShader,
-                              nifly::BSLightingShaderProperty* nifShaderBSLSP,
-                              nlohmann::json& truePBRData,
-                              const std::wstring& matchedPath,
-                              PGTypes::TextureSet& newSlots) -> bool;
+    static auto enableTruePBROnShape(nifly::NiShader* nifShader,
+                                     nifly::BSLightingShaderProperty* nifShaderBSLSP,
+                                     nlohmann::json& truePBRData,
+                                     const std::wstring& matchedPath,
+                                     PGTypes::TextureSet& newSlots) -> bool;
 
     // TruePBR Helpers
 

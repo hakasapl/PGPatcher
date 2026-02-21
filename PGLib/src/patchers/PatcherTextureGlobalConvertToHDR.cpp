@@ -5,7 +5,6 @@
 #include "patchers/base/PatcherTextureGlobal.hpp"
 #include <DirectXTex.h>
 
-
 #include <filesystem>
 #include <memory>
 #include <string>
