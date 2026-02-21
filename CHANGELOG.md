@@ -1,7 +1,8 @@
 # Changelog
 
-## [0.9.14] - UNRELEASED
+## [0.9.14] - 2026-02-21
 
+- Lots of refactors and cleanup with no functional changes
 - Added additional progress dialog status messages during initialization
 - Fixed 1st person model ARMA patching when 1st person model and real model are the same
 - Fixed potential race condition where old plugin may not be read for caching purposes
