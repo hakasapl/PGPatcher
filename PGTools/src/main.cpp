@@ -16,7 +16,6 @@
 #include "patchers/PatcherTextureGlobalConvertToHDR.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
-#include "patchers/base/Patcher.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/ExceptionHandler.hpp"
 

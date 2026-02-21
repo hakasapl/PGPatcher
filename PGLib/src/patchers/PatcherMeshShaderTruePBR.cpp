@@ -5,9 +5,9 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
-
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -448,8 +448,8 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
 
         bool pathMatch = false;
         {
-            std::lock_guard<std::mutex> lock(cacheMutex);
-            if (cache.find(cacheKey) == cache.end()) {
+            const std::scoped_lock lock(cacheMutex);
+            if (!cache.contains(cacheKey)) {
                 // Not in cache, update it
                 cache[cacheKey] = boost::icontains(diffuse, get<0>(cacheKey));
             }
@@ -650,7 +650,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
                 float newLVal = vertHSL[2];
                 if (truePBRData.contains("vertex_color_lum_mult")) {
                     const auto newVertexColorMult = truePBRData["vertex_color_lum_mult"].get<float>();
-                    newLVal = 1 - (1 - vertHSL[2]) * newVertexColorMult;
+                    newLVal = 1 - ((1 - vertHSL[2]) * newVertexColorMult);
                 }
 
                 float newSVal = vertHSL[1];
@@ -777,7 +777,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     // "pbr" attribute
     if (enableTruePBR) {
         // no pbr, we can return here
-        changed |= enableTruePBROnShape(nifShape, nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
+        changed |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
     }
 
     return changed;
@@ -885,8 +885,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 }
 
-auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShape* nifShape,
-                                                    NiShader* nifShader,
+auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
                                                     BSLightingShaderProperty* nifShaderBSLSP,
                                                     nlohmann::json& truePBRData,
                                                     const wstring& matchedPath,

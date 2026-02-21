@@ -5,6 +5,7 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"

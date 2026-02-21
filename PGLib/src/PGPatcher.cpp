@@ -13,6 +13,7 @@
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 #include "util/TaskPoolRunner.hpp"

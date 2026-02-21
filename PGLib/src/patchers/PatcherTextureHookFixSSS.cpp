@@ -2,6 +2,7 @@
 
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
+#include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 
 #include <DirectXTex.h>

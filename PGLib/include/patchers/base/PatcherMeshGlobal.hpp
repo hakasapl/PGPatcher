@@ -33,7 +33,6 @@ public:
     /**
      * @brief Apply the patch to the NIFShape if able
      *
-     * @param nifShape Shape to apply patch to
      * @return true Patch was applied
      * @return false Patch was not applied
      */

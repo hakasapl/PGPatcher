@@ -130,8 +130,9 @@ public:
         me32.dwSize = sizeof(MODULEENTRY32W);
 
         if (Module32FirstW(hSnapshot, &me32) != 0) {
-            do {
-                const std::wstring moduleName(me32.szModule);
+            do { // NOLINT(cppcoreguidelines-avoid-do-while)
+                const std::wstring moduleName(
+                    me32.szModule); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
                 if (moduleName == L"usvfs_x64.dll") {
                     CloseHandle(hSnapshot);
                     return true;

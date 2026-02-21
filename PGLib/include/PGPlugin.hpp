@@ -2,9 +2,8 @@
 
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/EnumStringHelper.hpp"
-
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <nlohmann/json.hpp>

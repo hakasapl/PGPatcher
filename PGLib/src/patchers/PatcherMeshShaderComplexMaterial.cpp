@@ -6,9 +6,9 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 #include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
-
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"

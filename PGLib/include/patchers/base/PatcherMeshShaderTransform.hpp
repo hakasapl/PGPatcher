@@ -4,7 +4,6 @@
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 
-
 #include "NifFile.hpp"
 
 #include <filesystem>

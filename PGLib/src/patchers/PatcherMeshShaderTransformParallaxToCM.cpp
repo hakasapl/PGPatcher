@@ -3,7 +3,7 @@
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
 
 #include "NifFile.hpp"
 

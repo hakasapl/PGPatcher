@@ -4,7 +4,7 @@
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
 
 #include <wx/listctrl.h>
 #include <wx/wx.h>

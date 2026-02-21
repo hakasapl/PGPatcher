@@ -19,9 +19,12 @@
 #include <boost/iostreams/stream.hpp>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <excpt.h>
 #include <filesystem>
+#include <istream>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -86,7 +89,7 @@ auto PGNIFUtil::getSlotFromTexType(const PGEnums::TextureType& type) -> PGEnums:
            {PGEnums::TextureType::SUBSURFACEPBR, PGEnums::TextureSlots::BACKLIGHT},
            {PGEnums::TextureType::UNKNOWN, PGEnums::TextureSlots::UNKNOWN}};
 
-    if (texTypeToSlotMap.find(type) != texTypeToSlotMap.end()) {
+    if (texTypeToSlotMap.contains(type)) {
         return texTypeToSlotMap[type];
     }
 
@@ -555,7 +558,7 @@ auto PGNIFUtil::isPatchableShape(nifly::NifFile& nif,
     }
 
     // get NIFShader from shape
-    NiShader* nifShader = nif.GetShader(&nifShape);
+    const NiShader* nifShader = nif.GetShader(&nifShape);
     return nifShader != nullptr;
 }
 

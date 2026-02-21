@@ -2,7 +2,8 @@
 
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMesh.hpp"
-#include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGTypes.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"

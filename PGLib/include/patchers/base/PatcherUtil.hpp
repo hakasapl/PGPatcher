@@ -9,7 +9,6 @@
 #include "patchers/base/PatcherMeshShaderTransform.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
 #include "pgutil/PGEnums.hpp"
-#include "pgutil/PGNIFUtil.hpp"
 #include "util/StringUtil.hpp"
 
 #include <nlohmann/json_fwd.hpp>
