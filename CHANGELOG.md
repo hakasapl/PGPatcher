@@ -4,6 +4,7 @@
 
 - Added additional progress dialog status messages during initialization
 - Fixed 1st person model ARMA patching when 1st person model and real model are the same
+- Fixed potential race condition where old plugin may not be read for caching purposes
 
 ## [0.9.13] - 2026-02-16
 

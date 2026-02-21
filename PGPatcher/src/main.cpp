@@ -408,19 +408,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     //
 
     //
-    // OUTPUT DIRECTORY CLEANUP
-    //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Deleting existing output"); });
-
-    // delete existing output
-    PGPatcher::deleteOutputDir();
-
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_PREPARING_STEPS); });
-    //
-    // END OUTPUT DIRECTORY CLEANUP
-    //
-
-    //
     // POPULATING FILE MAP
     //
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Populating file map"); });
@@ -428,7 +415,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     // Init file map
     pgd->populateFileMap(true);
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(7, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_PREPARING_STEPS); });
     //
     // END POPULATING FILE MAP
     //
@@ -453,7 +440,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
         return;
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(8, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(7, NUM_PREPARING_STEPS); });
     //
     // END VALIDATING DATA FILES
     //
@@ -532,29 +519,42 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     const PatcherUtil::PatcherTextureSet texPatchers;
     PGPatcher::loadPatchers(meshPatchers, texPatchers);
 
-    progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setStepLabel("Waiting for plugin initialization");
-        progressWindow->setStepProgress(9, NUM_PREPARING_STEPS);
-    });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(8, NUM_PREPARING_STEPS); });
+    //
+    // END PATCHER INITIALIZATION
+    //
+
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel("Waiting for plugin initialization"); });
 
     // Plugins required for map files
     pluginInit.waitForCompletion();
     pluginInit.shutdown();
 
-    progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setStepLabel("Waiting for mod manager initialization");
-        progressWindow->setStepProgress(10, NUM_PREPARING_STEPS);
-    });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, NUM_PREPARING_STEPS); });
+
+    //
+    // OUTPUT DIRECTORY CLEANUP
+    //
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Deleting existing output"); });
+
+    // delete existing output
+    // we delete after pluginInit is done because we need to make sure it had a chance to read the old plugin
+    PGPatcher::deleteOutputDir();
+
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, NUM_PREPARING_STEPS); });
+    //
+    // END OUTPUT DIRECTORY CLEANUP
+    //
+
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel("Waiting for mod manager initialization"); });
 
     // Mods required for map files
     modManagerInit.waitForCompletion();
     modManagerInit.shutdown();
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(11, NUM_PREPARING_STEPS); });
-
-    //
-    // END PATCHER INITIALIZATION
-    //
 
     // Initialize "Loading meshes" Step
     progressWindow->CallAfter([progressWindow]() -> void {
