@@ -375,6 +375,5 @@ private:
 
     static auto readINIValue(const std::filesystem::path& iniPath,
                              const std::wstring& section,
-                             const std::wstring& key,
-                             const bool& firstINIRead) -> std::wstring;
+                             const std::wstring& key) -> std::wstring;
 };

@@ -463,7 +463,7 @@ auto PGConfig::saveUserConfig() -> bool
         filesystem::create_directories(getUserConfigFile().parent_path());
         FileUtil::saveJSON(getUserConfigFile(), j, true);
     } catch (const exception& e) {
-        spdlog::error("Failed to save user config: {}", e.what());
+        spdlog::critical("Failed to save user config: {}", e.what());
         return false;
     }
 
@@ -485,7 +485,7 @@ auto PGConfig::saveModConfig() -> bool
         filesystem::create_directories(getModConfigFile().parent_path());
         FileUtil::saveJSON(getModConfigFile(), j, true);
     } catch (const exception& e) {
-        spdlog::error("Failed to save mod config: {}", e.what());
+        spdlog::critical("Failed to save mod config: {}", e.what());
         return false;
     }
 
@@ -532,7 +532,7 @@ auto PGConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
         filesystem::create_directories(getIgnoredMessagesConfigFile().parent_path());
         FileUtil::saveJSON(getIgnoredMessagesConfigFile(), j, true);
     } catch (const std::exception& e) {
-        spdlog::error("Failed to save ignored messages config: {}", e.what());
+        spdlog::critical("Failed to save ignored messages config: {}", e.what());
         return false;
     }
 

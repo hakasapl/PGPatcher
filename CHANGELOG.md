@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.15] - UNRELEASED
+
+- Refined warning and error messages to be more clear and reflect the [docs](https://github.com/hakasapl/PGPatcher/wiki/Error-Message-Guide)
+
 ## [0.9.14] - 2026-02-21
 
 - Lots of refactors and cleanup with no functional changes

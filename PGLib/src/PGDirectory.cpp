@@ -82,8 +82,7 @@ auto PGDirectory::findFiles() -> void
         if (boost::iequals(firstPath, "textures") && boost::iequals(path.extension().wstring(), L".dds")) {
             if (!isPathAscii(path)) {
                 // Skip non-ascii paths
-                Logger::warn(L"Texture {} contains non-ascii characters which are not allowed - skipping",
-                             path.wstring());
+                Logger::warn(L"Texture {} contains non-ascii characters which are not allowed", path.wstring());
                 continue;
             }
 
@@ -291,7 +290,7 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
     }
 
     if (!success) {
-        Logger::error(L"Failed to check if {} is complex material", texture.wstring());
+        Logger::error(L"Unable to process texture: {}", texture.wstring());
         return;
     }
 
@@ -338,7 +337,7 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
         try {
             nifBytes = getFile(nifPath);
         } catch (...) {
-            Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
+            Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
             return TaskTracker::Result::FAILURE;
         }
 
@@ -347,7 +346,7 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
             nif = make_shared<nifly::NifFile>(PGNIFUtil::loadNIFFromBytes(nifBytes));
         } catch (...) {
             // Unable to read NIF, delete from Meshes set
-            Logger::error(L"Error reading NIF File \"{}\" (skipping)", nifPath.wstring());
+            Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
             return TaskTracker::Result::FAILURE;
         }
     }
@@ -381,7 +380,7 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
             string texture = utf16toUTF8(textureSet.at(slot));
 
             if (!containsOnlyAscii(texture)) {
-                Logger::error(L"NIF {} has texture slot(s) with invalid non-ASCII chars (skipping)", nifPath.wstring());
+                Logger::error(L"Mesh {} has texture slot(s) with invalid non-ASCII chars", nifPath.wstring());
                 return TaskTracker::Result::FAILURE;
             }
 
