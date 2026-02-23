@@ -327,7 +327,7 @@ auto main(int argC,
     }
 
     if (args.shortcut) {
-        spdlog::info("Press ENTER to exit...");
+        cout << "Press ENTER to exit...";
         cin.get();
     }
 
