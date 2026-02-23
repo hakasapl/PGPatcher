@@ -62,6 +62,7 @@ auto getExecutablePath() -> filesystem::path
 struct PGToolsCLIArgs {
     int verbosity = 0;
     bool multithreading = true;
+    bool shortcut = false;
 
     struct Patch {
         CLI::App* subCommand = nullptr;
@@ -264,6 +265,9 @@ void addArguments(CLI::App& app,
                  "Verbosity level -v for DEBUG data or -vv for TRACE data "
                  "(warning: TRACE data is very verbose)");
     app.add_flag("--no-multithreading", args.multithreading, "Disable multithreading");
+    app.add_flag("--shortcut",
+                 args.shortcut,
+                 "Keep pgtools running at the end (useful if you are running not in a terminal directly)");
 
     args.Patch.subCommand = app.add_subcommand("patch", "Patch meshes");
     args.Patch.subCommand->add_option("patcher", args.Patch.patchers, "List of patchers to use")
@@ -310,16 +314,22 @@ auto main(int argC,
     }
 
     // Main Runner (Catches all exceptions)
-    CPPTRACE_TRY
-    {
-        mainRunner(args);
-        return 0;
-    }
+    CPPTRACE_TRY { mainRunner(args); }
     CPPTRACE_CATCH(const exception& e)
     {
         ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
 
-    ExceptionHandler::throwExceptionOnMainThread();
-    return 1;
+    int returnCode = 0;
+    if (ExceptionHandler::hasException()) {
+        ExceptionHandler::throwExceptionOnMainThread();
+        returnCode = 1;
+    }
+
+    if (args.shortcut) {
+        cout << "Press ENTER to exit...";
+        cin.get();
+    }
+
+    return returnCode;
 }

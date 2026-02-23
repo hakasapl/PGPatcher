@@ -931,16 +931,17 @@ auto WINAPI WinMain(HINSTANCE /*hInstance*/,
     }
 
     // Main Runner (Catches all exceptions)
-    CPPTRACE_TRY
-    {
-        mainRunner(args, exePath);
-        return 0;
-    }
+    CPPTRACE_TRY { mainRunner(args, exePath); }
     CPPTRACE_CATCH(const exception& e)
     {
         ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
 
-    ExceptionHandler::throwExceptionOnMainThread();
-    return 1;
+    int returnCode = 0;
+    if (ExceptionHandler::hasException()) {
+        ExceptionHandler::throwExceptionOnMainThread();
+        returnCode = 1;
+    }
+
+    return returnCode;
 }
