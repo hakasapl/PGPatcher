@@ -254,11 +254,6 @@ void mainRunner(PGToolsCLIArgs& args)
 
         spdlog::info("PGPatcher took {} seconds to complete", timeTaken);
     }
-
-    if (args.shortcut) {
-        spdlog::info("Press ENTER to exit...");
-        cin.get();
-    }
 }
 
 void addArguments(CLI::App& app,
@@ -319,16 +314,22 @@ auto main(int argC,
     }
 
     // Main Runner (Catches all exceptions)
-    CPPTRACE_TRY
-    {
-        mainRunner(args);
-        return 0;
-    }
+    CPPTRACE_TRY { mainRunner(args); }
     CPPTRACE_CATCH(const exception& e)
     {
         ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
 
-    ExceptionHandler::throwExceptionOnMainThread();
-    return 1;
+    int returnCode = 0;
+    if (ExceptionHandler::hasException()) {
+        ExceptionHandler::throwExceptionOnMainThread();
+        returnCode = 1;
+    }
+
+    if (args.shortcut) {
+        spdlog::info("Press ENTER to exit...");
+        cin.get();
+    }
+
+    return returnCode;
 }
