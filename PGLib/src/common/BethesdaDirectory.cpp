@@ -333,7 +333,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
     // skip BSA if it doesn't exist (can happen if it's in the ini but not in the
     // data folder)
     if (!filesystem::exists(bsaPath)) {
-        Logger::warn(L"Skipping BSA {} because it doesn't exist", bsaPath.wstring());
+        Logger::warn(L"BSA is in INI but does not exist: {}", bsaPath.wstring());
         return;
     }
 
@@ -354,8 +354,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
 
                 if (!containsOnlyAscii(string(fileEntry.first.name()))
                     || !containsOnlyAscii(string(entry.first.name()))) {
-                    Logger::warn(L"File {}\\{} in BSA {} contains non-ascii characters which is not handled correctly "
-                                 L"by Skyrim",
+                    Logger::warn(L"File {}\\{} in BSA {} contains non-ascii characters",
                                  windows1252toUTF16(string(fileEntry.first.name())),
                                  windows1252toUTF16(string(entry.first.name())),
                                  bsaName);

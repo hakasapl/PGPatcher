@@ -608,7 +608,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                         = PGGlobals::getPGMM()->getModByFileSmart(winningShaderMatch.match.matchedPath);
 
                     if (modMatchFrom != nullptr && modMatchPath != nullptr && modMatchFrom != modMatchPath) {
-                        Logger::warn(L"Mod {} assets are matching assets from {}. Verify this is intended behavior.",
+                        Logger::warn(L"Mod {} assets match assets from mod {}. Verify this is correct.",
                                      modMatchPath->name,
                                      modMatchFrom->name);
                     }
