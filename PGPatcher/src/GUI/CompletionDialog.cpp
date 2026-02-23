@@ -4,9 +4,9 @@
 #include "PGConfig.hpp"
 #include "PGPatcherGlobals.hpp"
 
-
 #include <wx/artprov.h>
 #include <wx/collpane.h>
+#include <wx/colour.h>
 #include <wx/gdicmn.h>
 #include <wx/listbase.h>
 #include <wx/listctrl.h>
@@ -48,7 +48,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     // Add information icon
     auto* icon = new wxStaticBitmap(this, wxID_ANY, wxArtProvider::GetIcon(wxART_INFORMATION, wxART_MESSAGE_BOX));
-    contentSizer->Add(icon, 0, wxTOP | wxLEFT | wxBOTTOM | wxALIGN_CENTER_VERTICAL, 10);
+    contentSizer->Add(icon, 0, wxTOP | wxLEFT | wxBOTTOM | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
 
     // Text
     auto* text
@@ -56,7 +56,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                            wxID_ANY,
                            L"PGPatcher has completed generating output.\n\nProcessing Time: "
                                + std::to_wstring(timeTaken) + L" seconds\nOutput Location:\n" + outputPath.wstring());
-    text->Wrap(requiredWidth - 80); // Wrap based on calculated width
+    text->Wrap(requiredWidth - 80 - HELPBTN_SIZE - (BORDER_SIZE * 2)); // Wrap based on calculated width
     contentSizer->Add(text, 1, wxALL | wxALIGN_CENTER_VERTICAL, 15);
 
     mainSizer->Add(contentSizer, 1, wxEXPAND);
@@ -102,23 +102,41 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     // Buttons sizer
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
+    // Add help ? button to the bottom right of the whole window that opens the wiki URL on click
+    auto* helpButton = new wxButton(this, wxID_ANY, "?");
+    wxFont helpButtonFont = helpButton->GetFont();
+    helpButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
+    helpButton->SetFont(helpButtonFont);
+
+    helpButton->SetToolTip("Open the PGPatcher Error Message wiki");
+
+    const wxSize helpBtnSize = wxSize(HELPBTN_SIZE, helpButton->GetSize().GetHeight());
+    helpButton->SetMinSize(helpBtnSize);
+    helpButton->SetMaxSize(helpBtnSize);
+
+    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+        wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Error-Message-Guide");
+    });
+
+    buttonSizer->Add(helpButton, 0, wxALL, BORDER_SIZE);
+
     // OK button
     auto* okButton = new wxButton(this, wxID_ANY, "OK");
     okButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
         saveIgnoredMessagesToConfig();
         EndModal(wxID_OK); // then close
     });
-    buttonSizer->Add(okButton, 0, wxALL, 10);
+    buttonSizer->Add(okButton, 0, wxALL, BORDER_SIZE);
 
     // Open File Location button
     auto* openFileLocationButton = new wxButton(this, wxID_ANY, "Open Output Location");
     openFileLocationButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenOutputLocation, this);
-    buttonSizer->Add(openFileLocationButton, 0, wxALL, 10);
+    buttonSizer->Add(openFileLocationButton, 0, wxALL, BORDER_SIZE);
 
     // Open Log file button
     auto* openLogFileButton = new wxButton(this, wxID_ANY, "Open Log File");
     openLogFileButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenLogFile, this);
-    buttonSizer->Add(openLogFileButton, 0, wxALL, 10);
+    buttonSizer->Add(openLogFileButton, 0, wxALL, BORDER_SIZE);
 
     mainSizer->Add(buttonSizer, 0, wxALIGN_CENTER_HORIZONTAL);
 
