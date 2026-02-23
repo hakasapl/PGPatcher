@@ -497,8 +497,9 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
                     break;
                 }
 
-                if (PGNIFUtil::hasShaderFlag(shaderBSSP, SLSF2_BACK_LIGHTING)) {
-                    textureType = PGEnums::TextureType::BACKLIGHT;
+                if (shaderType == BSLSP_HAIRTINT && PGNIFUtil::hasShaderFlag(shaderBSSP, SLSF2_BACK_LIGHTING)) {
+                    // Hair tint map
+                    textureType = PGEnums::TextureType::HAIR_FLOWMAP;
                     break;
                 }
 
@@ -507,9 +508,8 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
                     break;
                 }
 
-                if (shaderType == BSLSP_HAIRTINT && PGNIFUtil::hasShaderFlag(shaderBSSP, SLSF2_BACK_LIGHTING)) {
-                    // Hair tint map
-                    textureType = PGEnums::TextureType::HAIR_FLOWMAP;
+                if (PGNIFUtil::hasShaderFlag(shaderBSSP, SLSF2_BACK_LIGHTING)) {
+                    textureType = PGEnums::TextureType::BACKLIGHT;
                     break;
                 }
 

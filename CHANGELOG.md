@@ -5,6 +5,7 @@
 - Added help buttons on every dialog
 - Added --shortcut CLI option for pgtools.exe to keep it open when done running until ENTER is pressed
 - Refined warning and error messages to be more clear and reflect the [docs](https://github.com/hakasapl/PGPatcher/wiki/Error-Message-Guide)
+- Fixed flow map textures being detected as backlight textures with prepatched meshes
 
 ## [0.9.14] - 2026-02-21
 
