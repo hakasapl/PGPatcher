@@ -62,6 +62,7 @@ auto getExecutablePath() -> filesystem::path
 struct PGToolsCLIArgs {
     int verbosity = 0;
     bool multithreading = true;
+    bool shortcut = false;
 
     struct Patch {
         CLI::App* subCommand = nullptr;
@@ -253,6 +254,11 @@ void mainRunner(PGToolsCLIArgs& args)
 
         spdlog::info("PGPatcher took {} seconds to complete", timeTaken);
     }
+
+    if (args.shortcut) {
+        spdlog::info("Press ENTER to exit...");
+        cin.get();
+    }
 }
 
 void addArguments(CLI::App& app,
@@ -264,6 +270,9 @@ void addArguments(CLI::App& app,
                  "Verbosity level -v for DEBUG data or -vv for TRACE data "
                  "(warning: TRACE data is very verbose)");
     app.add_flag("--no-multithreading", args.multithreading, "Disable multithreading");
+    app.add_flag("--shortcut",
+                 args.shortcut,
+                 "Keep pgtools running at the end (useful if you are running not in a terminal directly)");
 
     args.Patch.subCommand = app.add_subcommand("patch", "Patch meshes");
     args.Patch.subCommand->add_option("patcher", args.Patch.patchers, "List of patchers to use")
