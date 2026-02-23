@@ -157,6 +157,9 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
                 getTruePBRConfigs()[configOrder++] = element;
             }
         } catch (nlohmann::json::parse_error& e) {
+            Logger::debug(L"Failed to parse TruePBR config JSON: {}. Error: {}",
+                          config.wstring(),
+                          StringUtil::utf8toUTF16(e.what()));
             Logger::error(L"Failed to parse JSON: {}", config.wstring());
             continue;
         }
