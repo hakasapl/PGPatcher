@@ -225,7 +225,7 @@ public class PGMutagen
                 catch (Exception)
                 {
                     // failed to load mod, skip
-                    MessageHandler.Log("Failed to read plugin, skipping: " + modKey.FileName, 4);
+                    MessageHandler.Log("Failed to read plugin: " + modKey.FileName, 4);
 
                     // add to missing masters
                     modsWithMissingMasters.Add(modKey);
@@ -251,7 +251,7 @@ public class PGMutagen
                 else
                 {
                     modsWithMissingMasters.Add(modKey);
-                    MessageHandler.Log("Plugin has missing masters, skipping: " + modKey.FileName, 4);
+                    MessageHandler.Log("Plugin has missing masters: " + modKey.FileName, 4);
                 }
             }
 
@@ -351,7 +351,7 @@ public class PGMutagen
                     }
                     catch (Exception)
                     {
-                        MessageHandler.Log("Unable to read model path (skipping): " + GetRecordDesc(modelMajorRec), 3);
+                        MessageHandler.Log("Unable to read model path: " + GetRecordDesc(modelMajorRec), 3);
                         continue;
                     }
 
@@ -382,7 +382,7 @@ public class PGMutagen
                         }
                         else
                         {
-                            MessageHandler.Log("Weight slider enabled but mesh name doesn't end with _0.nif or _1.nif (skipping): " + GetRecordDesc(modelMajorRec), 3);
+                            MessageHandler.Log("Weight slider enabled but mesh name doesn't end with _0.nif or _1.nif: " + GetRecordDesc(modelMajorRec), 3);
                             continue;
                         }
 
@@ -738,7 +738,7 @@ public class PGMutagen
                 if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var modelRec) ||
                     GetModelElemBySubModel(modelRec, subModel) is not { } matchedModel)
                 {
-                    MessageHandler.Log($"Failed to resolve model record. A plugin has likely overridden the FormID with a different record (not fixing this will cause CTDs): {GetRecordDesc(formKey)}", 4);
+                    MessageHandler.Log($"Failed to resolve model record: {GetRecordDesc(formKey)}", 4);
                     continue;
                 }
 
@@ -928,7 +928,7 @@ public class PGMutagen
                     }
                     catch (Exception)
                     {
-                        MessageHandler.Log("Failed to copy model record - this is usually an issue with the plugin: " + GetRecordDesc(existingRecord), 4);
+                        MessageHandler.Log("Failed to copy model record: " + GetRecordDesc(existingRecord), 4);
                         ModifiedRecords[searchFormKey] = null;
                     }
                 }

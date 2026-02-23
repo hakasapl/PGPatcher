@@ -293,7 +293,7 @@ auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& e
     nlohmann::json meta;
     const auto jsonBytes = pgd->getFile(metaPath);
     if (!FileUtil::getJSONFromBytes(jsonBytes, meta)) {
-        Logger::error(L"Failed to parse CM metadata JSON: {}", metaPath.wstring());
+        Logger::error(L"Failed to parse JSON: {}", metaPath.wstring());
         return {};
     }
 

@@ -115,7 +115,7 @@ void mainRunner(PGToolsCLIArgs& args)
         try {
             filesystem::create_directories(args.Patch.output);
         } catch (const filesystem::filesystem_error& e) {
-            spdlog::error("Failed to create output directory: {}", e.what());
+            spdlog::critical("Failed to create output directory: {}", e.what());
             exit(1);
         }
 

@@ -320,8 +320,10 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
 
         // Check if mod folder exists
         if (!filesystem::exists(curModDir)) {
-            Logger::warn(L"Mod directory from modlist.txt does not exist: {}", curModDir.wstring());
-            continue;
+            Logger::debug(L"Mod directory from modlist.txt does not exist: {}", curModDir.wstring());
+            Logger::critical("modlist.txt from MO2 does not reflect the contents of the mods folder. This should not "
+                             "happen unless MO2 is in a corrupt state.");
+            return;
         }
 
         // check if mod dir is output dir
@@ -393,8 +395,7 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
                     m_modFileMap[relPathLower] = modPtr;
                 }
             } catch (const filesystem::filesystem_error& e) {
-                Logger::error(
-                    L"Error reading mod directory {} (skipping): {}", mod, StringUtil::asciitoUTF16(e.what()));
+                Logger::error(L"Error reading mod directory {}: {}", mod, StringUtil::asciitoUTF16(e.what()));
             }
         }
 

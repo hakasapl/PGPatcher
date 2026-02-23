@@ -248,10 +248,8 @@ void PGMeshPermutationTracker::validateWeightedVariants()
 {
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
     for (const auto& [key, nifFile] : s_otherWeightVariants) {
-        Logger::error(
-            L"Weighted mesh variant for '{}' not created. Weight variants (_0 and _1) do not match. This is a "
-            "bug with the original meshes.",
-            key.first.wstring());
+        Logger::error(L"Weighted mesh variant for '{}' not created. Weight variants (_0 and _1) do not match.",
+                      key.first.wstring());
     }
     s_otherWeightVariants.clear();
 }
@@ -266,7 +264,7 @@ void PGMeshPermutationTracker::processWeightVariant()
     if (s_otherWeightVariants.contains({otherVariantPath, dupIdx})) {
         if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{otherVariantPath, dupIdx}], {}, true, true)) {
             // different from each other, post error
-            Logger::error(L"Weighted mesh variants '{}' and '{}' do not match. This is a bug with the original meshes.",
+            Logger::error(L"Weighted mesh variants '{}' and '{}' do not match.",
                           m_origMeshPath.wstring(),
                           otherVariantPath.wstring());
         }

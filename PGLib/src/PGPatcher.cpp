@@ -885,7 +885,7 @@ auto PGPatcher::patchDDS(const filesystem::path& ddsPath) -> TaskTracker::Result
 
     DirectX::ScratchImage ddsImage;
     if (!PGGlobals::getPGD3D()->getDDS(ddsPath, ddsImage)) {
-        Logger::error(L"Unable to load DDS file: {}", ddsPath.wstring());
+        Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
         return TaskTracker::Result::FAILURE;
     }
 
@@ -893,14 +893,14 @@ auto PGPatcher::patchDDS(const filesystem::path& ddsPath) -> TaskTracker::Result
     if (PatcherTextureHookConvertToCM::isInProcessList(ddsPath)) {
         auto patcher = PatcherTextureHookConvertToCM(ddsPath, &ddsImage);
         if (!patcher.applyPatch()) {
-            Logger::error(L"Failed to convert to complex material for texture {}", ddsPath.wstring());
+            Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
             return TaskTracker::Result::FAILURE;
         }
     }
     if (PatcherTextureHookFixSSS::isInProcessList(ddsPath)) {
         auto patcher = PatcherTextureHookFixSSS(ddsPath, &ddsImage);
         if (!patcher.applyPatch()) {
-            Logger::error(L"Failed to generate SSS map for texture {}", ddsPath.wstring());
+            Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
             return TaskTracker::Result::FAILURE;
         }
     }
@@ -925,7 +925,7 @@ auto PGPatcher::patchDDS(const filesystem::path& ddsPath) -> TaskTracker::Result
                                                   DirectX::DDS_FLAGS_NONE,
                                                   outputFile.c_str());
         if (FAILED(hr)) {
-            Logger::error(L"Unable to save DDS {}: {}", outputFile.wstring(), PGD3D::getHRESULTErrorMessage(hr));
+            Logger::error(L"Unable to save texture {}: {}", outputFile.wstring(), PGD3D::getHRESULTErrorMessage(hr));
             return TaskTracker::Result::FAILURE;
         }
 

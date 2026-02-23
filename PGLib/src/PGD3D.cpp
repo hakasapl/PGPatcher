@@ -227,23 +227,23 @@ auto PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
     // get metadata (should only pull headers, which is much faster)
     DirectX::TexMetadata ddsImageMeta1 {};
     if (!getDDSMetadata(ddsPath1, ddsImageMeta1)) {
-        Logger::error(L"Failed to load texture header: {}", ddsPath1.wstring());
+        Logger::error(L"Unable to process texture: {}", ddsPath1.wstring());
         return false;
     }
 
     DirectX::TexMetadata ddsImageMeta2 {};
     if (!getDDSMetadata(ddsPath2, ddsImageMeta2)) {
-        Logger::error(L"Failed to load texture header: {}", ddsPath2.wstring());
+        Logger::error(L"Unable to process texture: {}", ddsPath2.wstring());
         return false;
     }
 
     // Validate dimensions before calculating aspect ratios
     if (ddsImageMeta1.height == 0 || ddsImageMeta2.height == 0) {
         if (ddsImageMeta1.height == 0) {
-            Logger::error(L"Invalid texture dimensions (height is zero) for: {}", ddsPath1.wstring());
+            Logger::error(L"Unable to process texture: {}", ddsPath1.wstring());
         }
         if (ddsImageMeta2.height == 0) {
-            Logger::error(L"Invalid texture dimensions (height is zero) for: {}", ddsPath2.wstring());
+            Logger::error(L"Unable to process texture: {}", ddsPath2.wstring());
         }
         return false;
     }

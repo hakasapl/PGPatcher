@@ -107,8 +107,8 @@ void addFileToZip(mz_zip_archive& zip,
     // add file to Zip
     if (mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
         == 0) {
-        spdlog::error(L"Error adding file to zip: {}", filePath.wstring());
-        exit(1);
+        spdlog::critical(L"Error creating output zip file");
+        return;
     }
 }
 
@@ -649,7 +649,7 @@ void mainRunnerPost(const PGConfig::PGParams& params,
     // Check for empty output
     if (PGPatcher::isOutputEmpty()) {
         // output is empty
-        Logger::warn("Output directory is empty. No files were generated. Is your game path set correctly?");
+        Logger::warn("Output directory is empty. No files were generated.");
         return;
     }
 

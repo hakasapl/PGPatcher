@@ -164,7 +164,7 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
             try {
                 file->write(aos, bsaVersion);
             } catch (...) {
-                Logger::error(L"Failed to read file {}", relPath.wstring());
+                Logger::error(L"Failed to read file: {}", relPath.wstring());
                 return {};
             }
 
@@ -256,12 +256,7 @@ void BethesdaDirectory::addBSAFilesToMap()
     // Loop through each BSA file
     for (const auto& bsaName : bsaFiles) {
         // add bsa to file map
-        try {
-            addBSAToFileMap(bsaName);
-        } catch (...) {
-            Logger::error(L"Failed to add BSA file {} to map (Skipping)", bsaName);
-            continue;
-        }
+        addBSAToFileMap(bsaName);
     }
 }
 
@@ -360,7 +355,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 if (!containsOnlyAscii(string(fileEntry.first.name()))
                     || !containsOnlyAscii(string(entry.first.name()))) {
                     Logger::warn(L"File {}\\{} in BSA {} contains non-ascii characters which is not handled correctly "
-                                 L"by Skyrim - skipping",
+                                 L"by Skyrim",
                                  windows1252toUTF16(string(fileEntry.first.name())),
                                  windows1252toUTF16(string(entry.first.name())),
                                  bsaName);
@@ -390,7 +385,7 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
                 updateFileMap(curPath, bsaStructPtr);
             }
         } catch (...) {
-            Logger::error(L"Failed to get file pointer from BSA, skipping {}", bsaName);
+            Logger::error(L"Failed to get file pointer from BSA: {}", bsaName);
             continue;
         }
     }
@@ -454,20 +449,17 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
     }
 
     // loop through each field
-    bool firstINIRead = true;
     for (const auto& field : getINIBSAFields()) {
         // loop through each ini file
         wstring iniVal;
         for (const auto& iniPath : iniFileOrder) {
-            const wstring curVal = readINIValue(iniPath, L"Archive", asciitoUTF16(field), firstINIRead);
+            const wstring curVal = readINIValue(iniPath, L"Archive", asciitoUTF16(field));
             if (curVal.empty()) {
                 continue;
             }
 
             iniVal = curVal;
         }
-
-        firstINIRead = false;
 
         if (iniVal.empty()) {
             continue;
@@ -653,21 +645,14 @@ auto BethesdaDirectory::isHidden(const filesystem::path& path) -> bool
 
 auto BethesdaDirectory::readINIValue(const filesystem::path& iniPath,
                                      const wstring& section,
-                                     const wstring& key,
-                                     const bool& firstINIRead) -> wstring
+                                     const wstring& key) -> wstring
 {
     if (!filesystem::exists(iniPath)) {
-        if (firstINIRead) {
-            Logger::warn(L"INI file does not exist (ignoring): {}", iniPath.wstring());
-        }
         return L"";
     }
 
     ifstream f(iniPath);
     if (!f.is_open()) {
-        if (firstINIRead) {
-            Logger::warn(L"Unable to open INI (ignoring): {}", iniPath.wstring());
-        }
         return L"";
     }
 
