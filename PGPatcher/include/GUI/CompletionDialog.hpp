@@ -11,6 +11,8 @@
 class CompletionDialog : public wxDialog {
 private:
     constexpr static int MIN_WIDTH = 400;
+    constexpr static int HELPBTN_SIZE = 24;
+    constexpr static int BORDER_SIZE = 10;
 
     PGLogMessageListCtrl* m_warnListCtrl;
     PGLogMessageListCtrl* m_errListCtrl;

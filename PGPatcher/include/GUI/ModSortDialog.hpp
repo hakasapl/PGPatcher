@@ -35,6 +35,8 @@ private:
     constexpr static int MIN_HEIGHT = 400;
     constexpr static int DEFAULT_PADDING = 20;
     constexpr static int DEFAULT_BORDER = 10;
+    constexpr static int HELPBTN_FONT_SIZE = 12;
+    constexpr static int HELPBTN_SIZE = 30;
 
     static inline const wxColour s_NEW_MOD_COLOR {213, 128, 255};
     static inline const wxColour s_LOSING_MOD_COLOR {255, 102, 102};

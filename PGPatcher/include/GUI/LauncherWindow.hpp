@@ -41,6 +41,7 @@ private:
     constexpr static int LEFTSIZER_WRAP_SIZE = 400;
     constexpr static int BORDER_SIZE = 5;
     constexpr static int BUTTON_FONT_SIZE = 12;
+    constexpr static int HELPBTN_SIZE = 30;
 
     PGConfig& m_pgc; /** Reference to the PGConfig object */
 

@@ -9,7 +9,6 @@
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
 
-
 #include <boost/algorithm/string/join.hpp>
 #include <wx/event.h>
 #include <wx/listctrl.h>
@@ -411,6 +410,26 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     m_processingOptionsSizer->Add(processingOptionsHorizontalSizer, 0, wxALL, 0);
 
     leftSizer->Add(m_processingOptionsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
+
+    // Add help ? button to the bottom right of the whole window that opens the wiki URL on click
+    auto* helpButton = new wxButton(this, wxID_ANY, "?");
+    wxFont helpButtonFont = helpButton->GetFont();
+    helpButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
+    helpButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
+    helpButton->SetFont(helpButtonFont);
+
+    helpButton->SetToolTip("Open the PGPatcher wiki");
+
+    const wxSize helpBtnSize = wxSize(HELPBTN_SIZE, HELPBTN_SIZE);
+    helpButton->SetMinSize(helpBtnSize);
+    helpButton->SetMaxSize(helpBtnSize);
+
+    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+        wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki");
+    });
+
+    rightSizer->AddStretchSpacer(1);
+    rightSizer->Add(helpButton, 0, wxALL | wxALIGN_LEFT, BORDER_SIZE);
 
     //
     // Finalize

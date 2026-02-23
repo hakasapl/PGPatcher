@@ -68,14 +68,38 @@ ModSortDialog::ModSortDialog()
     // Global events
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
+    wxSizer* helpSizer = new wxBoxSizer(wxHORIZONTAL);
+
     // Add message at the top
     const wxString message
         = "Please sort your mods to determine what mod PGPatcher uses to patch meshes where. Selecting mods will show "
           "conflicts. The mod you have selected wins over mods that are green, and loses over mods that are red. New "
           "mods PGPatcher hasn't seen before are highlighted in purple.";
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    messageText->Wrap(DEFAULT_WIDTH - (2 * DEFAULT_PADDING)); // Wrap text based on dialog width with some padding
-    mainSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
+    messageText->Wrap(DEFAULT_WIDTH - (2 * DEFAULT_PADDING) - HELPBTN_SIZE
+                      - DEFAULT_PADDING); // Wrap text based on dialog width with some padding
+    helpSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
+
+    // Add help ? button to the bottom right of the whole window that opens the wiki URL on click
+    auto* helpButton = new wxButton(this, wxID_ANY, "?");
+    wxFont helpButtonFont = helpButton->GetFont();
+    helpButtonFont.SetPointSize(HELPBTN_FONT_SIZE); // Set font size to 12
+    helpButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
+    helpButton->SetFont(helpButtonFont);
+
+    helpButton->SetToolTip("Open the PGPatcher Mod Window wiki");
+
+    const wxSize helpBtnSize = wxSize(HELPBTN_SIZE, HELPBTN_SIZE);
+    helpButton->SetMinSize(helpBtnSize);
+    helpButton->SetMaxSize(helpBtnSize);
+
+    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+        wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Mod-Window");
+    });
+
+    helpSizer->Add(helpButton, 0, wxLEFT | wxTOP | wxBOTTOM, DEFAULT_BORDER);
+
+    mainSizer->Add(helpSizer, 0, wxEXPAND | wxALL, 0);
 
     // Add "Use MO2 Loose File Order" checkbox
     if (pgc->getParams().ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
