@@ -779,9 +779,6 @@ void mainRunner(ParallaxGenCLIArgs& args,
     Logger::warn("This is an EXPERIMENTAL development build of PGPatcher");
 #endif
 
-    // Alpha message
-    Logger::warn("PGPatcher is currently in BETA. Please file detailed bug reports on nexus or github.");
-
     // Create relevant objects
     // TODO control the lifetime of these in PGLib
     auto bg = BethesdaGame(params.Game.type, params.Game.dir);

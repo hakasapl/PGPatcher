@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.15] - UNRELEASED
+## [1.0.0] - 2026-02-23
 
 - Added help buttons on every dialog
 - Added --shortcut CLI option for pgtools.exe to keep it open when done running until ENTER is pressed
