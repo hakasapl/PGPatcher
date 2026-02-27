@@ -13,4 +13,4 @@ jobs:
       - name: PR Conventional Commit Validation
         uses: ytanikin/pr-conventional-commits@1.4.0
         with:
-          task_types: '["build", "ci", "docs", "feat", "fix", "perf", "refactor", "style", "test"]'
+          custom_labels: '{"build": "pr/build", "ci": "pr/ci", "docs": "pr/docs", "feat": "pr/feat", "fix": "pr/fix", "perf": "pr/perf", "refactor": "pr/refactor", "style": "pr/style", "test": "pr/test"}'
