@@ -1,0 +1,11 @@
+[
+    {
+        "name": "VS2022-VCPKG",
+        "visualStudio": "c33b3a65",
+        "visualStudioArchitecture": "x64",
+        "isTrusted": true,
+        "cmakeSettings": {
+            "CMAKE_TOOLCHAIN_FILE": "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        }
+    }
+]
