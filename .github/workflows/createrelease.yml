@@ -1,11 +1,11 @@
 ---
-name: "tagged-release"
+name: "Build and Publish Release"
 
 on:
   workflow_dispatch:
     inputs:
       prerelease:
-        description: "If true, the release will be marked as a pre-release. If false, it will be marked as a stable release."
+        description: "Is this a pre-release?"
         required: true
         default: false
         type: boolean
@@ -33,6 +33,7 @@ jobs:
       - uses: paulhatch/semantic-version@v5.4.0
         id: semver
         with:
+          tag_prefix: ""
           major_pattern: "/!:|BREAKING CHANGE:/"
           minor_pattern: "/feat(\\(.+\\))?:/"
           version_format: "${major}.${minor}.${patch}"
