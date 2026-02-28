@@ -30,9 +30,21 @@ This is an open-source project. We would love to have others contribute as well!
 
 ## Acknowledgments
 
-- The amazing folks on the community shaders discord who answer all my ridiculous technical questions.
-- [Spongeman131](https://www.nexusmods.com/skyrimspecialedition/users/1366316) for their SSEedit script [NIF Batch Processing Script](https://www.nexusmods.com/skyrimspecialedition/mods/33846), which was instrumental on figuring out how to modify meshes to enable parallax
-- [Kulharin](https://www.nexusmods.com/skyrimspecialedition/users/930789) for their SSEedit script [itAddsComplexMaterialParallax](https://www.nexusmods.com/skyrimspecialedition/mods/96777/?tab=files), which served the same purpose for figuring out how to modify meshes to enable complex material
-
+* The amazing folks on the community shaders discord who answer all my ridiculous technical questions.
+* [Spongeman131](https://www.nexusmods.com/skyrimspecialedition/users/1366316) for their SSEedit script [NIF Batch Processing Script](https://www.nexusmods.com/skyrimspecialedition/mods/33846), which was instrumental on figuring out how to modify meshes to enable parallax
+* [Kulharin](https://www.nexusmods.com/skyrimspecialedition/users/930789) for their SSEedit script [itAddsComplexMaterialParallax](https://www.nexusmods.com/skyrimspecialedition/mods/96777/?tab=files), which served the same purpose for figuring out how to modify meshes to enable complex material
 
 The following libraries made PGPatcher possible - send them your thanks!
+
+* [ousnius/nifly](https://github.com/ousnius/nifly)
+* [Mutagen-Modding/Mutagen](https://github.com/Mutagen-Modding/Mutagen)
+* [Ryan-rsm-McKenzie/bsa](https://github.com/Ryan-rsm-McKenzie/bsa)
+* [CLIUtils/cli11](https://github.com/CLIUtils/CLI11)
+* [jeremy-rifkin/cpptrace](https://github.com/jeremy-rifkin/cpptrace)
+* [microsoft/directxtex](https://github.com/microsoft/DirectXTex)
+* [nlohmann/json](https://github.com/nlohmann/json)
+* [richgel999/miniz](https://github.com/richgel999/miniz)
+* [gabime/spdlog](https://github.com/gabime/spdlog)
+* [wxWidgets/wxWidgets](https://github.com/wxWidgets/wxWidgets)
+* [google/flatbuffers](https://github.com/google/flatbuffers)
+* [boostorg/boost](https://github.com/boostorg/boost)
