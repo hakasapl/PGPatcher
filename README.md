@@ -1,6 +1,6 @@
-<center><img width="200" alt="image" src="https://raw.githubusercontent.com/hakasapl/PGPatcher/refs/heads/main/nexus/icon-highres.png" /></center>
+<p align="center"><img width="200" alt="image" src="https://raw.githubusercontent.com/hakasapl/PGPatcher/refs/heads/main/nexus/icon-highres.png" /></p>
 
-<center><h1>PGPatcher - Dynamic Mesh and Texture Patcher for Skyrim SE</h1></center>
+<h1 align="center">PGPatcher - Mesh and Texture Patcher for Skyrim</h1>
 
 For a long time, there were primarily only parallax mods (or complex parallax but that's the same thing. See my rant on the naming of these things [here](https://github.com/hakasapl/PGPatcher/wiki/Supported-Shaders)). The process for using them in-game was generally to install a ton of pre-patched parallax meshes (such as those offered by mods like Lux among others), and then installing [auto parallax](https://www.nexusmods.com/skyrimspecialedition/mods/79473) to automatically disable parallax on meshes for which textures did not exist. This method of doing things is **very suboptimal and not clean** for several reasons.
 
