@@ -31,7 +31,7 @@ using namespace std;
 LauncherWindow::LauncherWindow(PGConfig& pgc)
     : wxDialog(nullptr,
                wxID_ANY,
-               "PGPatcher " + string(PG_VERSION) + " Launcher",
+               "PGPatcher " + string(PG_FULL_VERSION) + " Launcher",
                wxDefaultPosition,
                wxSize(MIN_WIDTH,
                       DEFAULT_HEIGHT),

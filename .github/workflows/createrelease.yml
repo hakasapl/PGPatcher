@@ -1,0 +1,89 @@
+---
+name: "tagged-release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: "If true, the release will be marked as a pre-release. If false, it will be marked as a stable release."
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  release:
+    runs-on: windows-2022
+
+    steps:
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - name: Install flatc
+        uses: Nugine/setup-flatc@v1
+        with:
+          version: "25.2.10"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - uses: paulhatch/semantic-version@v5.4.0
+        id: semver
+        with:
+          major_pattern: "/!:|BREAKING CHANGE:/"
+          minor_pattern: "/feat(\\(.+\\))?:/"
+          version_format: "${major}.${minor}.${patch}"
+
+      # if ${{ steps.semver.outputs.increment }} is 0, just fail because this release already exists
+      - name: Check if release already exists
+        if: ${{ steps.semver.outputs.increment == '0' }}
+        run: exit 1
+
+      - name: Build Release
+        if: ${{ inputs.prerelease }}
+        shell: pwsh
+        run: |
+          ./buildRelease.ps1 -Version ${{ steps.semver.outputs.version }} -Prerelease ${{ steps.semver.outputs.increment }}
+
+      - name: Build Release
+        if: ${{ !inputs.prerelease }}
+        shell: pwsh
+        run: |
+          ./buildRelease.ps1 -Version ${{ steps.semver.outputs.version }} -Prerelease 0
+
+      - name: Rename dist zip (pre-release)
+        if: ${{ inputs.prerelease }}
+        shell: pwsh
+        run: |
+          Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip"
+
+      - name: Rename dist zip (stable release)
+        if: ${{ !inputs.prerelease }}
+        shell: pwsh
+        run: |
+          Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.semver.outputs.version }}.zip"
+
+      - name: Release Pre-Release
+        uses: softprops/action-gh-release@v2
+        if: ${{ inputs.prerelease }}
+        with:
+          name: ${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}
+          tag_name: ${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}
+          draft: true
+          files: ./dist/PGPatcher-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
+          generate_release_notes: true
+          prerelease: true
+
+      - name: Release Stable Release
+        uses: softprops/action-gh-release@v2
+        if: ${{ !inputs.prerelease }}
+        with:
+          name: ${{ steps.semver.outputs.version }}
+          tag_name: ${{ steps.semver.outputs.version }}
+          draft: true
+          files: ./dist/PGPatcher-${{ steps.semver.outputs.version }}.zip
+          generate_release_notes: true
+          prerelease: false

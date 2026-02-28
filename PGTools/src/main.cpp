@@ -77,12 +77,12 @@ struct PGToolsCLIArgs {
 void mainRunner(PGToolsCLIArgs& args)
 {
     // Welcome Message
-    spdlog::info("Welcome to PGTools version {}!", PG_VERSION);
+    spdlog::info("Welcome to PGTools version {}!", PG_FULL_VERSION);
 
     // Get EXE path
     const auto exePath = getExecutablePath().parent_path();
 
-#if PG_TEST_BUILD
+#if defined(PG_PRERELEASE) && (PG_PRERELEASE > 0)
     // Post test message for test builds
     spdlog::warn("This is an EXPERIMENTAL development build of PG Patcher");
 #endif

@@ -30,17 +30,48 @@ add_compile_definitions(_WIN32_WINNT=0x0A00)
 add_compile_definitions(UNICODE _UNICODE)
 
 # Version
-set(PG_VERSION_MAJOR 1)
-set(PG_VERSION_MINOR 0)
-set(PG_VERSION_PATCH 0)
-set(PG_VERSION_TEST 0)
 
-set(PG_VERSION "${PG_VERSION_MAJOR}.${PG_VERSION_MINOR}.${PG_VERSION_PATCH}.${PG_VERSION_TEST}")
+# if PG_VERSION is defined PG_PRERELEASE must also be defined, otherwise fail
+if(DEFINED PG_VERSION AND NOT DEFINED PG_PRERELEASE)
+  message(FATAL_ERROR "PG_VERSION is defined but PG_PRERELEASE is not defined. Please define both or neither.")
+endif()
+
+if (DEFINED PG_PRERELEASE AND NOT DEFINED PG_VERSION)
+  message(FATAL_ERROR "PG_PRERELEASE is defined but PG_VERSION is not defined. Please define both or neither.")
+endif()
+
+# Check if PG_VERSION is set, if not set, use the latest commit hash as version
+if(NOT DEFINED PG_VERSION OR NOT DEFINED PG_PRERELEASE)
+  execute_process(
+    COMMAND git describe --tags --abbrev=0
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE PG_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+  execute_process(
+    COMMAND git rev-list --count ${PG_VERSION}..HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE PG_PRERELEASE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+endif()
+
+# Create res friendly version strings
+string(REPLACE "." "," PG_VERSION_RES ${PG_VERSION})
+
+# if prerelease is greater than 0, append -prerelease to version string
+if (${PG_PRERELEASE} GREATER 0)
+  set(PG_FULL_VERSION "${PG_VERSION}-pre${PG_PRERELEASE}")
+  set(PG_VERSION_RES "${PG_VERSION_RES},${PG_PRERELEASE}")
+else()
+  set(PG_FULL_VERSION "${PG_VERSION}")
+endif()
+
 project(${PROJECT_NAME} VERSION ${PG_VERSION})
-add_compile_definitions(PG_VERSION="${PG_VERSION}")
 
-# Set to 1 for test builds, 0 for prod builds
-add_compile_definitions(PG_TEST_BUILD=0)
+add_compile_definitions(PG_FULL_VERSION="${PG_FULL_VERSION}")
+add_compile_definitions(PG_PRERELEASE=${PG_PRERELEASE})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 

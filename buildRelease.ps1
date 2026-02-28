@@ -4,7 +4,9 @@ This script is intended to be run from the command line, not from within an IDE.
 #>
 
 param(
-    [switch]$NoZip  # If specified, skip creating the zip file
+    [switch]$NoZip,                # If specified, skip creating the zip file
+    [string]$Version,              # --version <PG_VERSION>
+    [int]$Prerelease               # --prerelease <PRERELEASE_NUM>
 )
 
 # Enable strict mode for safer scripting
@@ -37,9 +39,26 @@ if (-not (Test-Path -Path $buildDir -PathType Container)) {
 }
 
 # Configure PGPatcher
-cmake -B $buildDir -S . -G Ninja `
-    -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo
+$cmakeArgs = @(
+    "-B", $buildDir,
+    "-S", ".",
+    "-G", "Ninja",
+    "-DCMAKE_TOOLCHAIN_FILE=$toolchain",
+    "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+)
+
+if ($PSBoundParameters.ContainsKey('Version') -and $Version) {
+    $cmakeArgs += "-DPG_VERSION=$Version"
+}
+
+if ($PSBoundParameters.ContainsKey('Prerelease')) {
+    $cmakeArgs += "-DPG_PRERELEASE=$Prerelease"
+}
+
+# print command that will be run
+Write-Host "Running cmake with arguments: $($cmakeArgs -join ' ')"
+
+cmake @cmakeArgs
 
 # Build and install
 cmake --build $buildDir

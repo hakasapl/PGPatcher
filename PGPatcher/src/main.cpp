@@ -772,11 +772,11 @@ void mainRunner(ParallaxGenCLIArgs& args,
     initLogger(logPath, params.Processing.enableDebugLogging, params.Processing.enableTraceLogging);
 
     // Welcome Message
-    Logger::info("Welcome to PGPatcher version {}!", PG_VERSION);
+    Logger::info("Welcome to PGPatcher version {}!", PG_FULL_VERSION);
 
-#if PG_TEST_BUILD
+#if defined(PG_PRERELEASE) && (PG_PRERELEASE > 0)
     // Post test message for test builds
-    Logger::warn("This is an EXPERIMENTAL development build of PGPatcher");
+    Logger::warn("This is an EXPERIMENTAL pre-release build of PGPatcher");
 #endif
 
     // Create relevant objects
