@@ -43,7 +43,7 @@ endif()
 # Check if PG_VERSION is set, if not set, use the latest tag and distance from tag
 if(NOT DEFINED PG_VERSION OR NOT DEFINED PG_PRERELEASE)
   execute_process(
-    COMMAND git describe --tags --abbrev=0 --match "[0-9]*.[0-9]*.[0-9]*"
+    COMMAND git describe --tags --abbrev=0 --match "[0-9]*.[0-9]*.[0-9]*" --exclude "*-pre*"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT_VARIABLE PG_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
