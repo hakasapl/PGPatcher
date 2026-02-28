@@ -84,7 +84,7 @@ void mainRunner(PGToolsCLIArgs& args)
 
 #if defined(PG_PRERELEASE) && (PG_PRERELEASE > 0)
     // Post test message for test builds
-    spdlog::warn("This is an EXPERIMENTAL development build of PG Patcher");
+    spdlog::warn("This is an EXPERIMENTAL pre-release build of PG Patcher");
 #endif
 
     ExceptionHandler::setMainThread();

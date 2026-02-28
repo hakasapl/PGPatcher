@@ -13,6 +13,17 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Param validation
+$hasVersion = $PSBoundParameters.ContainsKey('Version') -and -not [string]::IsNullOrWhiteSpace($Version)
+$hasPrerelease = $PSBoundParameters.ContainsKey('Prerelease') -and $null -ne $Prerelease
+
+# XOR: true when only one is provided
+if ($hasVersion -xor $hasPrerelease) {
+    throw [System.ArgumentException]::new(
+        "Parameters -Version and -Prerelease must be provided together (either specify both, or neither)."
+    )
+}
+
 # Get the current script directory
 $scriptDir = $PSScriptRoot
 if (-not $scriptDir) {

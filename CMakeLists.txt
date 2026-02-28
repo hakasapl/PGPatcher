@@ -40,7 +40,7 @@ if (DEFINED PG_PRERELEASE AND NOT DEFINED PG_VERSION)
   message(FATAL_ERROR "PG_PRERELEASE is defined but PG_VERSION is not defined. Please define both or neither.")
 endif()
 
-# Check if PG_VERSION is set, if not set, use the latest commit hash as version
+# Check if PG_VERSION is set, if not set, use the latest tag and distance from tag
 if(NOT DEFINED PG_VERSION OR NOT DEFINED PG_PRERELEASE)
   execute_process(
     COMMAND git describe --tags --abbrev=0
@@ -63,10 +63,11 @@ string(REPLACE "." "," PG_VERSION_RES ${PG_VERSION})
 # if prerelease is greater than 0, append -prerelease to version string
 if (${PG_PRERELEASE} GREATER 0)
   set(PG_FULL_VERSION "${PG_VERSION}-pre${PG_PRERELEASE}")
-  set(PG_VERSION_RES "${PG_VERSION_RES},${PG_PRERELEASE}")
 else()
   set(PG_FULL_VERSION "${PG_VERSION}")
 endif()
+
+set(PG_VERSION_RES "${PG_VERSION_RES},${PG_PRERELEASE}")
 
 project(${PROJECT_NAME} VERSION ${PG_VERSION})
 
