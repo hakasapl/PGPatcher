@@ -4,12 +4,25 @@ This script is intended to be run from the command line, not from within an IDE.
 #>
 
 param(
-    [switch]$NoZip  # If specified, skip creating the zip file
+    [switch]$NoZip,                # If specified, skip creating the zip file
+    [string]$Version,              # --version <PG_VERSION>
+    [int]$Prerelease               # --prerelease <PRERELEASE_NUM>
 )
 
 # Enable strict mode for safer scripting
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Param validation
+$hasVersion = $PSBoundParameters.ContainsKey('Version') -and -not [string]::IsNullOrWhiteSpace($Version)
+$hasPrerelease = $PSBoundParameters.ContainsKey('Prerelease') -and $null -ne $Prerelease
+
+# XOR: true when only one is provided
+if ($hasVersion -xor $hasPrerelease) {
+    throw [System.ArgumentException]::new(
+        "Parameters -Version and -Prerelease must be provided together (either specify both, or neither)."
+    )
+}
 
 # Get the current script directory
 $scriptDir = $PSScriptRoot
@@ -37,9 +50,26 @@ if (-not (Test-Path -Path $buildDir -PathType Container)) {
 }
 
 # Configure PGPatcher
-cmake -B $buildDir -S . -G Ninja `
-    -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo
+$cmakeArgs = @(
+    "-B", $buildDir,
+    "-S", ".",
+    "-G", "Ninja",
+    "-DCMAKE_TOOLCHAIN_FILE=$toolchain",
+    "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+)
+
+if ($PSBoundParameters.ContainsKey('Version') -and $Version) {
+    $cmakeArgs += "-DPG_VERSION=$Version"
+}
+
+if ($PSBoundParameters.ContainsKey('Prerelease')) {
+    $cmakeArgs += "-DPG_PRERELEASE=$Prerelease"
+}
+
+# print command that will be run
+Write-Host "Running cmake with arguments: $($cmakeArgs -join ' ')"
+
+cmake @cmakeArgs
 
 # Build and install
 cmake --build $buildDir
