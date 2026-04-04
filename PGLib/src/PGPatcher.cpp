@@ -420,7 +420,8 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
             continue;
         }
 
-        if (checkAllowedRecTypes && !allowedModelRecTypes.contains(use.second.recType)) {
+        if (checkAllowedRecTypes && use.second.recType != PGPlugin::ModelRecordType::UNKNOWN
+            && !allowedModelRecTypes.contains(use.second.recType)) {
             // This record is not in the allowed record types, trigger tracker to ignore the base mesh and skip this
             // patch
             meshTracker.ignoreBaseMesh();
