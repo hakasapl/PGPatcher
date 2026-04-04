@@ -400,6 +400,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         meshTracker.load();
     }
 
+    bool basePatchProcessed = false;
     if (forceBasePatch) {
         // add a dummy mesh use to trigger base patching (pgtools uses this since no plugins)
         const PGMeshPermutationTracker::FormKey dummyFormKey = {.modKey = L"", .formID = 0, .subMODL = ""};
@@ -409,6 +410,8 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                                                       .recType = PGPlugin::ModelRecordType::UNKNOWN,
                                                       .alternateTextures = {}};
         nifCache.meshUses.insert(nifCache.meshUses.begin(), make_pair(dummyFormKey, dummyUse));
+    } else {
+        basePatchProcessed = true;
     }
 
     // loop through each use
@@ -420,8 +423,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
             continue;
         }
 
-        if (checkAllowedRecTypes && use.second.recType != PGPlugin::ModelRecordType::UNKNOWN
-            && !allowedModelRecTypes.contains(use.second.recType)) {
+        if (checkAllowedRecTypes && !basePatchProcessed && !allowedModelRecTypes.contains(use.second.recType)) {
             // This record is not in the allowed record types, trigger tracker to ignore the base mesh and skip this
             // patch
             meshTracker.ignoreBaseMesh();
@@ -450,6 +452,8 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         } else {
             Logger::trace("Mesh not committed (already exists or no changes)");
         }
+
+        basePatchProcessed = true;
     }
 
     // Save meshes
