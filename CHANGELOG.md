@@ -2,6 +2,7 @@
 
 ## UNRELEASED
 
+- Confirmation dialog can now be resized freely when a message list is expanded
 - Added `--disable-dyncubemap` CLI argument to tell PGPatcher to never apply dynamic cubemap for Complex Material
 - Added `--ignore-mo2vfscheck` CLI argument to ignore enforcing running under USVFS DLL (For Linux users)
 - Added `--consider-allmeshes` CLI argument to force PGPatcher to consider patching meshes even if they do not show up in plugins
