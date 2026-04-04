@@ -75,6 +75,7 @@ struct ParallaxGenCLIArgs {
     bool console = false;
     bool forceLight = false;
     bool forceDark = false;
+    bool considerAllMeshes = false;
     bool ignoreMO2Check = false;
     bool disableDynCubemap = false;
     bool forceAlwaysCM = false;
@@ -615,8 +616,11 @@ void mainRunnerPost(const ParallaxGenCLIArgs& args,
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Processing NIFs"); });
 
-    PGPatcher::patchMeshes(
-        params.Processing.multithread, false, params.Processing.allowedModelRecordTypes, true, progressCallback);
+    PGPatcher::patchMeshes(params.Processing.multithread,
+                           args.considerAllMeshes,
+                           params.Processing.allowedModelRecordTypes,
+                           true,
+                           progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Patching textures");
@@ -893,6 +897,8 @@ void addArguments(CLI::App& app,
     auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");
     forceLightFlag->excludes(forceDarkFlag);
     forceDarkFlag->excludes(forceLightFlag);
+    app.add_flag(
+        "--consider-allmeshes", args.considerAllMeshes, "Consider all meshes, even those not in plugins, for patching");
     app.add_flag("--ignore-mo2vfscheck", args.ignoreMO2Check, "Ignore MO2 VFS check - might be useful for Linux users");
     app.add_flag(
         "--disable-dyncubemap", args.disableDynCubemap, "Do not apply dynamic cubemap to any Complex Material");
