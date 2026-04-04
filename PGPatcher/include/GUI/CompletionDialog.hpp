@@ -17,6 +17,8 @@ private:
     PGLogMessageListCtrl* m_warnListCtrl;
     PGLogMessageListCtrl* m_errListCtrl;
 
+    wxSize m_collapsedSize;
+
 public:
     /**
      * @brief Construct a new Mod Sort Dialog object

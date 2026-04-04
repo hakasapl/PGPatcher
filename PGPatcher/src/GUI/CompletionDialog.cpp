@@ -14,6 +14,7 @@
 #include <wx/wx.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 
@@ -59,7 +60,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     text->Wrap(requiredWidth - 80 - HELPBTN_SIZE - (BORDER_SIZE * 2)); // Wrap based on calculated width
     contentSizer->Add(text, 1, wxALL | wxALIGN_CENTER_VERTICAL, 15);
 
-    mainSizer->Add(contentSizer, 1, wxEXPAND);
+    mainSizer->Add(contentSizer, 0, wxEXPAND);
 
     // WARNINGS
     auto* warningsCtrl = new wxCollapsiblePane(
@@ -80,7 +81,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
     setupLogMessagePane(warningsCtrl, m_warnListCtrl);
 
-    mainSizer->Add(warningsCtrl, 0, wxEXPAND, 0);
+    mainSizer->Add(warningsCtrl, 1, wxEXPAND, 0);
 
     // ERRORS
     auto* errorsCtrl = new wxCollapsiblePane(
@@ -97,7 +98,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     m_errListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getErrorMessages());
     setupLogMessagePane(errorsCtrl, m_errListCtrl, false);
 
-    mainSizer->Add(errorsCtrl, 0, wxEXPAND, 0);
+    mainSizer->Add(errorsCtrl, 1, wxEXPAND, 0);
 
     // Buttons sizer
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -154,8 +155,8 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     });
 
     // Set min/max size based on fitted size
-    const wxSize fittedSize = GetSize();
-    SetSizeHints(fittedSize, wxSize(-1, fittedSize.GetHeight()));
+    m_collapsedSize = GetSize();
+    SetSizeHints(m_collapsedSize, wxSize(-1, m_collapsedSize.GetHeight()));
 
     Centre(); // Center the dialog on screen
 }
@@ -171,7 +172,6 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
     // Limit number of visible items before scrolling
     static constexpr int LIST_SIZE = 150;
     listCtrl->SetMinSize(wxSize(-1, LIST_SIZE));
-    listCtrl->SetMaxSize(wxSize(-1, LIST_SIZE));
 
     // Sizer for collapsible pane
     auto* parentSizer = new wxBoxSizer(wxVERTICAL);
@@ -211,7 +211,36 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
             dlgSize.SetHeight(dlgSize.GetHeight() - expandDelta);
             dlgMinSize.SetHeight(dlgMinSize.GetHeight() - expandDelta);
         }
-        this->SetSizeHints(dlgMinSize, wxSize(-1, dlgMinSize.GetHeight()));
+
+        // Give resize growth only to expanded collapsible panes.
+        bool hasExpandedPane = false;
+        if (auto* topSizer = this->GetSizer(); topSizer != nullptr) {
+            for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
+                auto* itemWindow = topSizer->GetItem(i)->GetWindow();
+                auto* collPane = wxDynamicCast(itemWindow, wxCollapsiblePane);
+                if (collPane != nullptr && collPane->IsExpanded()) {
+                    hasExpandedPane = true;
+                    break;
+                }
+            }
+
+            for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
+                auto* item = topSizer->GetItem(i);
+                auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
+                if (collPane != nullptr) {
+                    item->SetProportion((hasExpandedPane && collPane->IsExpanded()) ? 1 : 0);
+                }
+            }
+        }
+
+        if (hasExpandedPane) {
+            this->SetSizeHints(m_collapsedSize, wxSize(-1, -1));
+        } else {
+            // if no panes are expanded, reset to original size to prevent weird resizing behavior
+            dlgSize.SetHeight(m_collapsedSize.GetHeight());
+            this->SetSizeHints(m_collapsedSize, wxSize(-1, m_collapsedSize.GetHeight()));
+        }
+
         this->SetSize(dlgSize);
         this->Layout();
     });
