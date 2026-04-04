@@ -46,6 +46,18 @@ auto PatcherMeshShaderComplexMaterial::getShaderType() -> PGEnums::ShapeShader
     return PGEnums::ShapeShader::COMPLEXMATERIAL;
 }
 
+void PatcherMeshShaderComplexMaterial::loadOptions(unordered_map<string,
+                                                                 string>& optionsStr)
+{
+    for (const auto& [option, value] : optionsStr) {
+        if (option == "disable_dyncubemap") {
+            s_disableDynCubemap = true;
+        }
+    }
+}
+
+void PatcherMeshShaderComplexMaterial::loadOptions(bool disableDynCubemap) { s_disableDynCubemap = disableDynCubemap; }
+
 PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(filesystem::path nifPath,
                                                                    nifly::NifFile* nif)
     : PatcherMeshShader(std::move(nifPath),
@@ -236,6 +248,10 @@ void PatcherMeshShaderComplexMaterial::applyPatchSlots(PGTypes::TextureSet& slot
 
     slots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)] = L"";
     slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = matchedPath;
+
+    if (s_disableDynCubemap) {
+        return;
+    }
 
     // Apply any extra meta overrides
     bool enableDynCubemaps = true;

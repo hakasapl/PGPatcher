@@ -181,6 +181,7 @@ void mainRunner(PGToolsCLIArgs& args)
         if (patcherDefs.contains("complexmaterial")) {
             meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::getShaderType(),
                                                 PatcherMeshShaderComplexMaterial::getFactory());
+            PatcherMeshShaderComplexMaterial::loadOptions(patcherDefs["complexmaterial"]);
         }
         if (patcherDefs.contains("truepbr")) {
             meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::getShaderType(),
@@ -232,7 +233,8 @@ void mainRunner(PGToolsCLIArgs& args)
         }
 
         // Check if dynamic cubemap file is needed
-        if (args.Patch.patchers.contains("complexmaterial")) {
+        if (args.Patch.patchers.contains("complexmaterial")
+            && !patcherDefs["complexmaterial"].contains("disable_dyncubemap")) {
             // Install default cubemap file if needed
             static const filesystem::path dynCubeMapPath = "textures/cubemaps/dynamic1pxcubemap_black.dds";
 
