@@ -400,7 +400,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         meshTracker.load();
     }
 
-    if (forceBasePatch) {
+    if (forceBasePatch && nifCache.meshUses.empty()) {
         // add a dummy mesh use to trigger base patching (pgtools uses this since no plugins)
         const PGMeshPermutationTracker::FormKey dummyFormKey = {.modKey = L"", .formID = 0, .subMODL = ""};
         const PGPlugin::MeshUseAttributes dummyUse = {.isWeighted = false,
