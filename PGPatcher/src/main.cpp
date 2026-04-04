@@ -75,6 +75,7 @@ struct ParallaxGenCLIArgs {
     bool console = false;
     bool forceLight = false;
     bool forceDark = false;
+    bool ignoreMO2Check = false;
     bool disableDynCubemap = false;
     bool forceAlwaysCM = false;
 };
@@ -380,7 +381,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2
         && !params.ModManager.mo2InstanceDir.empty()) {
         // Make sure running is USVFS
-        if (!PGHandlers::isUnderUSVFS()) {
+        if (!args.ignoreMO2Check && !PGHandlers::isUnderUSVFS()) {
             Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
             return;
         }
@@ -892,6 +893,7 @@ void addArguments(CLI::App& app,
     auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");
     forceLightFlag->excludes(forceDarkFlag);
     forceDarkFlag->excludes(forceLightFlag);
+    app.add_flag("--ignore-mo2vfscheck", args.ignoreMO2Check, "Ignore MO2 VFS check - might be useful for Linux users");
     app.add_flag(
         "--disable-dyncubemap", args.disableDynCubemap, "Do not apply dynamic cubemap to any Complex Material");
     app.add_flag(
