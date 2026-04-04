@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <unordered_map>
 #include <vector>
+#include <wx/gdicmn.h>
 
 wxDEFINE_EVENT(s_EVT_PG_LOG_IGNORE_CHANGED,
                wxCommandEvent);
@@ -150,9 +151,18 @@ void PGLogMessageListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& ev
         const int id = evt.GetId();
         switch (id) {
         case static_cast<int>(ContextMenu::ID_PG_IGNORE_ITEM):
-            for (auto idx : selections) {
+            for (int i = static_cast<int>(selections.GetCount()) - 1; i >= 0; --i) {
+                const auto idx = selections.at(i);
                 const wxString& msg = GetItemText(idx);
                 m_ignoredItems[msg] = true;
+
+                if (m_showIgnored) {
+                    // set color to faded black for ignored messages
+                    SetItemTextColour(idx, s_IGNORED_MESSAGE_COLOR);
+                } else {
+                    // if we're not showing ignored messages, remove from list immediately
+                    DeleteItem(idx);
+                }
             }
             break;
 
@@ -160,11 +170,19 @@ void PGLogMessageListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& ev
             for (auto idx : selections) {
                 const wxString& msg = GetItemText(idx);
                 m_ignoredItems[msg] = false;
+
+                if (m_showIgnored) {
+                    // reset color to default for unignored messages
+                    SetItemTextColour(idx, GetTextColour());
+                }
             }
             break;
         }
 
-        repopulateList();
+        // Fire event after ignore/unignore action
+        wxCommandEvent updateEvt(s_EVT_PG_LOG_IGNORE_CHANGED, GetId());
+        updateEvt.SetEventObject(this);
+        ProcessWindowEvent(updateEvt);
     });
 
     // Show menu
