@@ -150,8 +150,8 @@ void zipDirectory(const filesystem::path& dirPath,
     mz_zip_writer_end(&zip);
 }
 
-auto deployAssets(const filesystem::path& outputDir,
-                  const filesystem::path& exePath) -> void
+auto deployDynamicCubemapFile(const filesystem::path& outputDir,
+                              const filesystem::path& exePath) -> void
 {
     Logger::info("Installing default dynamic cubemap file");
 
@@ -598,7 +598,8 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     }
 }
 
-void mainRunnerPost(const PGConfig::PGParams& params,
+void mainRunnerPost(const ParallaxGenCLIArgs& args,
+                    const PGConfig::PGParams& params,
                     const filesystem::path& exePath,
                     ProgressWindow* progressWindow,
                     const function<void(size_t,
@@ -674,8 +675,10 @@ void mainRunnerPost(const PGConfig::PGParams& params,
     //
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Deploying Assets"); });
 
-    // Deploy Assets
-    deployAssets(params.Output.dir, exePath);
+    if (params.ShaderPatcher.complexMaterial && !args.disableDynCubemap) {
+        // Deploy Assets
+        deployDynamicCubemapFile(params.Output.dir, exePath);
+    }
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, NUM_FINALIZING_STEPS); });
     //
@@ -830,8 +833,8 @@ void mainRunner(ParallaxGenCLIArgs& args,
         });
     if (!needModSortDialog) {
         // if we don't need the mod sort dialog we should queue both tasks and close the dialog after
-        backgroundRunners.queueTask([&params, &exePath, &progressWindow, &progressCallback]() -> void {
-            mainRunnerPost(params, exePath, progressWindow, progressCallback);
+        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &progressCallback]() -> void {
+            mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
             progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
         });
     }
@@ -854,8 +857,8 @@ void mainRunner(ParallaxGenCLIArgs& args,
         startTime = chrono::high_resolution_clock::now();
 
         // dispatch post task
-        backgroundRunners.queueTask([&params, &exePath, &progressWindow, &progressCallback]() -> void {
-            mainRunnerPost(params, exePath, progressWindow, progressCallback);
+        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &progressCallback]() -> void {
+            mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
             progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
         });
 
