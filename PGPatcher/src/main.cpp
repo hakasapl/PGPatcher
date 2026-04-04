@@ -75,6 +75,7 @@ struct ParallaxGenCLIArgs {
     bool console = false;
     bool forceLight = false;
     bool forceDark = false;
+    bool disableDynCubemap = false;
     bool forceAlwaysCM = false;
 };
 
@@ -472,6 +473,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
         Logger::debug("Adding Complex Material shader patcher");
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::getShaderType(),
                                             PatcherMeshShaderComplexMaterial::getFactory());
+        PatcherMeshShaderComplexMaterial::loadOptions(args.disableDynCubemap);
     }
     if (params.ShaderPatcher.truePBR) {
         Logger::debug("Adding True PBR shader patcher");
@@ -887,6 +889,8 @@ void addArguments(CLI::App& app,
     auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");
     forceLightFlag->excludes(forceDarkFlag);
     forceDarkFlag->excludes(forceLightFlag);
+    app.add_flag(
+        "--disable-dyncubemap", args.disableDynCubemap, "Do not apply dynamic cubemap to any Complex Material");
     app.add_flag(
         "--force-always-cm",
         args.forceAlwaysCM,

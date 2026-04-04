@@ -1,5 +1,9 @@
 # Changelog
 
+## UNRELEASED
+
+- Added `--disable-dyncubemap` CLI argument to tell PGPatcher to never apply dynamic cubemap for Complex Material
+
 ## [1.0.0] - 2026-02-23
 
 - Added help buttons on every dialog

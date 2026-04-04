@@ -12,9 +12,11 @@
 #include <filesystem>
 #include <shared_mutex>
 #include <shlwapi.h>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <winnt.h>
+
 /**
  * @class PatcherMeshShaderComplexMaterial
  * @brief Shader patcher for complex material
@@ -23,6 +25,9 @@ class PatcherMeshShaderComplexMaterial : public PatcherMeshShader {
 private:
     static std::shared_mutex s_metaCacheMutex; /** Mutex for material meta cache */
     static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
+
+    // Options
+    inline static bool s_disableDynCubemap = false;
 
 public:
     static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures\\cubemaps\\dynamic1pxcubemap_black.dds";
@@ -40,6 +45,21 @@ public:
      * @return PGEnums::ShapeShader CM shader type
      */
     static auto getShaderType() -> PGEnums::ShapeShader;
+
+    /**
+     * @brief Load options for this patcher from a map of option strings
+     *
+     * @param optionsStr Map of option strings to load
+     */
+    static void loadOptions(std::unordered_map<std::string,
+                                               std::string>& optionsStr);
+
+    /**
+     * @brief Load any options for all instances of this patcher
+     *
+     * @param disableDynCubemap Whether to disable dynamic cubemap
+     */
+    static void loadOptions(bool disableDynCubemap);
 
     /**
      * @brief Construct a new complex material patcher object
