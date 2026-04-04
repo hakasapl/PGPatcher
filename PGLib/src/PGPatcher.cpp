@@ -400,12 +400,13 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         meshTracker.load();
     }
 
-    if (forceBasePatch) {
+    if (forceBasePatch && nifCache.meshUses.empty()) {
         // add a dummy mesh use to trigger base patching (pgtools uses this since no plugins)
         const PGMeshPermutationTracker::FormKey dummyFormKey = {.modKey = L"", .formID = 0, .subMODL = ""};
         const PGPlugin::MeshUseAttributes dummyUse = {.isWeighted = false,
                                                       .singlepassMATO = false,
                                                       .isIgnored = false,
+                                                      .isDummyUse = true,
                                                       .recType = PGPlugin::ModelRecordType::UNKNOWN,
                                                       .alternateTextures = {}};
         nifCache.meshUses.insert(nifCache.meshUses.begin(), make_pair(dummyFormKey, dummyUse));
@@ -420,7 +421,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
             continue;
         }
 
-        if (checkAllowedRecTypes && !allowedModelRecTypes.contains(use.second.recType)) {
+        if (checkAllowedRecTypes && !use.second.isDummyUse && !allowedModelRecTypes.contains(use.second.recType)) {
             // This record is not in the allowed record types, trigger tracker to ignore the base mesh and skip this
             // patch
             meshTracker.ignoreBaseMesh();
