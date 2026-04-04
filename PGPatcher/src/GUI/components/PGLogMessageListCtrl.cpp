@@ -152,7 +152,7 @@ void PGLogMessageListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& ev
         switch (id) {
         case static_cast<int>(ContextMenu::ID_PG_IGNORE_ITEM):
             for (int i = static_cast<int>(selections.GetCount()) - 1; i >= 0; --i) {
-                const auto idx = selections.at(static_cast<size_t>(i));
+                const auto idx = selections.at(i);
                 const wxString& msg = GetItemText(idx);
                 m_ignoredItems[msg] = true;
 
