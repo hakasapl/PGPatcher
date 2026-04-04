@@ -6,6 +6,7 @@
 - Added `--ignore-mo2vfscheck` CLI argument to ignore enforcing running under USVFS DLL (For Linux users)
 - Added `--consider-allmeshes` CLI argument to force PGPatcher to consider patching meshes even if they do not show up in plugins
 - Fixed invalid shader permutation with anisotropic lighting and parallax together
+- Fixed "ignore" in the confirmation dialog scrolling the list back to the top
 
 ## [1.0.0] - 2026-02-23
 
