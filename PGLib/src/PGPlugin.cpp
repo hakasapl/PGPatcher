@@ -157,6 +157,7 @@ auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::p
         attributes.isWeighted = modelUse.isWeighted;
         attributes.singlepassMATO = modelUse.singlepassMATO;
         attributes.isIgnored = modelUse.isIgnored;
+        attributes.isDummyUse = false;
         attributes.recType = getRecTypeFromString(modelUse.type);
 
         for (const auto& altTex : modelUse.alternateTextures) {

@@ -168,6 +168,8 @@ public:
         bool singlepassMATO;
         /// @brief True if this mesh use should be excluded from patching.
         bool isIgnored;
+        /// @brief True if this is a dummy use not actually tied to a plugin
+        bool isDummyUse;
         /// @brief The plugin record type that references this model.
         ModelRecordType recType;
         /// @brief Map from alternate texture set index to the overriding TextureSet.
