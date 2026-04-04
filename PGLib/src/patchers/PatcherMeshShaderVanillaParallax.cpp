@@ -103,6 +103,11 @@ auto PatcherMeshShaderVanillaParallax::canApply(NiShape& nifShape,
         return false;
     }
 
+    // Anisotropic lighting doesn't work with regular Parallax
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_ANISOTROPIC_LIGHTING)) {
+        return false;
+    }
+
     return true;
 }
 

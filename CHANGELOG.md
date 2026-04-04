@@ -4,6 +4,7 @@
 
 - Added `--disable-dyncubemap` CLI argument to tell PGPatcher to never apply dynamic cubemap for Complex Material
 - Added `--ignore-mo2vfscheck` CLI argument to ignore enforcing running under USVFS DLL (For Linux users)
+- Fixed invalid shader permutation with anisotropic lighting and parallax together
 
 ## [1.0.0] - 2026-02-23
 
