@@ -2,6 +2,7 @@
 
 ## UNRELEASED
 
+- Added search bar to mod window
 - Confirmation dialog can now be resized freely when a message list is expanded
 - Added `--disable-dyncubemap` CLI argument to tell PGPatcher to never apply dynamic cubemap for Complex Material
 - Added `--ignore-mo2vfscheck` CLI argument to ignore enforcing running under USVFS DLL (For Linux users)

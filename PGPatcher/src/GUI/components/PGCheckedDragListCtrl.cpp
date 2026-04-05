@@ -2,6 +2,7 @@
 
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtMeshesIgnoredChanged.hpp"
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
 
 #include <wx/renderer.h>
@@ -423,6 +424,10 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
             for (const long item : selectedItems) {
                 ignoreMeshes(item, false);
             }
+
+            PGCheckedDragListCtrlEvtMeshesIgnoredChanged evt(GetId());
+            evt.SetEventObject(this);
+            wxPostEvent(this, evt);
         },
         ID_ENABLE_MESHES);
 
@@ -433,6 +438,10 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
             for (const long item : selectedItems) {
                 ignoreMeshes(item, true);
             }
+
+            PGCheckedDragListCtrlEvtMeshesIgnoredChanged evt(GetId());
+            evt.SetEventObject(this);
+            wxPostEvent(this, evt);
         },
         ID_DISABLE_MESHES);
 
@@ -511,9 +520,9 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex,
     }
 
     // Insert item at new position
-    const long newIndex = InsertItem(toIndex, cols.empty() ? wxString {} : cols[0]);
+    const long newIndex = InsertItem(toIndex, cols.empty() ? wxString {} : cols.at(0));
     for (int c = 1; c < colCount; ++c) {
-        SetItem(newIndex, c, cols[c]);
+        SetItem(newIndex, c, cols.at(static_cast<size_t>(c)));
     }
 
     // Restore properties
@@ -544,7 +553,7 @@ auto PGCheckedDragListCtrl::moveItems(const std::vector<long>& fromIndices,
     std::unordered_map<long, long> indexMap;
 
     for (size_t i = 0; i < sortedIndices.size(); i++) {
-        const long oldIndex = sortedIndices[i];
+        const long oldIndex = sortedIndices.at(i);
         long newIndex = toIndex;
 
         if (movingDown) {

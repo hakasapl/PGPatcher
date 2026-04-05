@@ -3,9 +3,11 @@
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtMeshesIgnoredChanged.hpp"
 #include "PGModManager.hpp"
 #include "pgutil/PGEnums.hpp"
 
+#include <wx/string.h>
 #include <wx/wx.h>
 
 #include <memory>
@@ -25,6 +27,17 @@ private:
     wxButton* m_discardButton = nullptr; /** Discard changes button to revert to last saved state */
     wxButton* m_restoreButton = nullptr; /** Restore default order button */
     wxCheckBox* m_checkBoxMO2 = nullptr; /** Checkbox to use MO2 loose file order */
+    wxTextCtrl* m_searchCtrl = nullptr; /** Search box used to quickly find mods by name */
+
+    struct CachedModRow {
+        std::wstring modName;
+        wxString shaderString;
+        bool isChecked = false;
+        bool areMeshesIgnored = false;
+        bool isNew = false;
+    };
+
+    std::vector<CachedModRow> m_cachedRows; /** Cached full mod list state used for filtering */
 
     std::unordered_set<std::wstring>
         m_newMods; /** Stores the original highlight of elements to be able to restore it later */
@@ -83,6 +96,13 @@ private:
     void onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event);
 
     /**
+     * @brief Event handler that triggers when one or more items are toggled for mesh ignore state
+     *
+     * @param event wxWidgets event object
+     */
+    void onMeshesIgnoredChanged(PGCheckedDragListCtrlEvtMeshesIgnoredChanged& event);
+
+    /**
      * @brief Event handler that triggers when the list control is resized
      *
      * @param event wxWidgets event object
@@ -138,6 +158,13 @@ private:
      */
     void onUseMO2LooseFileOrderChange(wxCommandEvent& event);
 
+    /**
+     * @brief Event handler that triggers when the search text is changed
+     *
+     * @param event wxWidgets event object
+     */
+    void onSearchTextChanged(wxCommandEvent& event);
+
     // Helpers
 
     /**
@@ -177,6 +204,26 @@ private:
     void fillListCtrl(const std::vector<std::shared_ptr<PGModManager::Mod>>& modList,
                       bool autoEnable = false,
                       bool preserveChecks = false);
+
+    /**
+     * @brief Rebuilds the cached rows from the currently visible list control state.
+     */
+    void rebuildCacheFromListCtrl();
+
+    /**
+     * @brief Merges currently visible list state into cache and updates visible-subset ordering.
+     */
+    void syncCacheFromListCtrl();
+
+    /**
+     * @brief Rebuilds the visible list control from cached rows and current search term.
+     */
+    void rebuildListCtrlFromCache();
+
+    /**
+     * @brief Returns trimmed lowercase search text.
+     */
+    [[nodiscard]] auto getActiveSearchTerm() const -> wxString;
 
     /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes
