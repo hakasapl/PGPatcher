@@ -406,7 +406,6 @@ void ModSortDialog::onSearchTextChanged(wxCommandEvent& event)
 {
     syncCacheFromListCtrl();
     rebuildListCtrlFromCache();
-    updateApplyButtonState();
 
     event.Skip();
 }
