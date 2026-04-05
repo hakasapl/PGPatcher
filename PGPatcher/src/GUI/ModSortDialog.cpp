@@ -265,7 +265,7 @@ void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
 void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
 {
     // Check if lock mo2 order is on
-    if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked() && getActiveSearchTerm().IsEmpty()) {
+    if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
         // Persist the just-updated visible check/ignore state before we rebuild from MO2 order.
         syncCacheFromListCtrl();
 
@@ -515,19 +515,7 @@ void ModSortDialog::updateMods()
     syncCacheFromListCtrl();
 
     // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
-    std::vector<const CachedModRow*> orderedRows;
-    orderedRows.reserve(m_cachedRows.size());
-
-    for (const auto& row : m_cachedRows) {
-        if (row.isChecked) {
-            orderedRows.push_back(&row);
-        }
-    }
-    for (const auto& row : m_cachedRows) {
-        if (!row.isChecked) {
-            orderedRows.push_back(&row);
-        }
-    }
+    const auto orderedRows = getOrderedCachedRows();
 
     // Loop through each cached element and update the mod manager directory.
     auto* pgmm = PGGlobals::getPGMM();
@@ -751,8 +739,7 @@ void ModSortDialog::syncCacheFromListCtrl()
         visibleState[modName] = {.modName = modName,
                                  .shaderString = m_listCtrl->GetItemText(i, 1),
                                  .isChecked = m_listCtrl->isChecked(i),
-                                 .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i),
-                                 .isNew = m_newMods.contains(modName)};
+                                 .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i)};
     }
 
     // First, merge visible row state.
@@ -765,7 +752,6 @@ void ModSortDialog::syncCacheFromListCtrl()
         row.shaderString = visibleRow.shaderString;
         row.isChecked = visibleRow.isChecked;
         row.areMeshesIgnored = visibleRow.areMeshesIgnored;
-        row.isNew = visibleRow.isNew;
     }
 
     if (visibleOrder.size() == m_cachedRows.size()) {
@@ -917,13 +903,8 @@ auto ModSortDialog::getActiveSearchTerm() const -> wxString
     return term.Lower();
 }
 
-void ModSortDialog::updateApplyButtonState()
+auto ModSortDialog::getOrderedCachedRows() const -> std::vector<const CachedModRow*>
 {
-    syncCacheFromListCtrl();
-
-    bool btnState = false;
-
-    // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
     std::vector<const CachedModRow*> orderedRows;
     orderedRows.reserve(m_cachedRows.size());
 
@@ -937,6 +918,18 @@ void ModSortDialog::updateApplyButtonState()
             orderedRows.push_back(&row);
         }
     }
+
+    return orderedRows;
+}
+
+void ModSortDialog::updateApplyButtonState()
+{
+    syncCacheFromListCtrl();
+
+    bool btnState = false;
+
+    // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
+    const auto orderedRows = getOrderedCachedRows();
 
     // Compare cached UI state against PGModManager baseline.
     auto* pgmm = PGGlobals::getPGMM();

@@ -226,6 +226,13 @@ private:
     [[nodiscard]] auto getActiveSearchTerm() const -> wxString;
 
     /**
+     * @brief Returns ordered view of cached rows: enabled rows first, disabled rows second.
+     *
+     * @return Vector of pointers to cached rows in display order.
+     */
+    [[nodiscard]] auto getOrderedCachedRows() const -> std::vector<const CachedModRow*>;
+
+    /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes
      */
     void updateApplyButtonState();
