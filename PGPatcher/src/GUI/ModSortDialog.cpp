@@ -269,10 +269,23 @@ void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
         // Persist the just-updated visible check/ignore state before we rebuild from MO2 order.
         syncCacheFromListCtrl();
 
+        // Save scroll position before any list operations reset it, then wrap the entire
+        // rebuild sequence in a single Freeze/Thaw so the intermediate full-list state
+        // (from fillListCtrl inside setMO2LooseFileOrderCheckboxState) is never painted.
+        const long topItem = m_listCtrl->GetTopItem();
+        m_listCtrl->Freeze();
+
         // reset indices to MO2 state for enabled items
         setMO2LooseFileOrderCheckboxState();
         rebuildCacheFromListCtrl();
         rebuildListCtrlFromCache();
+
+        m_listCtrl->Thaw();
+
+        if (topItem > 0 && topItem < m_listCtrl->GetItemCount()) {
+            m_listCtrl->EnsureVisible(m_listCtrl->GetItemCount() - 1);
+            m_listCtrl->EnsureVisible(topItem);
+        }
     } else {
         syncCacheFromListCtrl();
     }
@@ -597,6 +610,7 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
     }
 
     m_newMods.clear();
+    m_listCtrl->Freeze();
     m_listCtrl->DeleteAllItems();
 
     std::vector<std::shared_ptr<PGModManager::Mod>> disabledMods;
@@ -696,6 +710,8 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
         // iterate listIdx
         listIdx++;
     }
+
+    m_listCtrl->Thaw();
 
     updateApplyButtonState();
 }
@@ -814,7 +830,7 @@ void ModSortDialog::rebuildListCtrlFromCache()
         }
     }
 
-    m_newMods.clear();
+    const long savedTopItem = m_listCtrl->GetTopItem();
     m_listCtrl->Freeze();
     m_listCtrl->DeleteAllItems();
 
@@ -852,6 +868,11 @@ void ModSortDialog::rebuildListCtrlFromCache()
     }
 
     m_listCtrl->Thaw();
+
+    if (savedTopItem > 0 && savedTopItem < m_listCtrl->GetItemCount()) {
+        m_listCtrl->EnsureVisible(m_listCtrl->GetItemCount() - 1);
+        m_listCtrl->EnsureVisible(savedTopItem);
+    }
 
     const bool mo2Locked = m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked();
     if (m_restoreButton != nullptr) {

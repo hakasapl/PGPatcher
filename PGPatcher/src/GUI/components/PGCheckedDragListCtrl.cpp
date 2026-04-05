@@ -478,6 +478,9 @@ void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items,
         return;
     }
 
+    const long topItem = GetTopItem();
+    Freeze();
+
     std::vector<long> sortedItems = items;
 
     if (checked) {
@@ -491,6 +494,13 @@ void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items,
     for (const long item : sortedItems) {
         processCheckItem(item, checked);
     }
+
+    Thaw();
+
+    if (topItem > 0 && topItem < GetItemCount()) {
+        EnsureVisible(GetItemCount() - 1);
+        EnsureVisible(topItem);
+    }
 }
 
 auto PGCheckedDragListCtrl::moveItem(long fromIndex,
@@ -499,6 +509,10 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex,
     if (fromIndex == toIndex || fromIndex < 0 || fromIndex >= GetItemCount()) {
         return fromIndex;
     }
+
+    const long topItem = GetTopItem(); // preserve scroll position across delete/insert
+
+    Freeze();
 
     // Capture item data (all columns)
     const int colCount = GetColumnCount();
@@ -529,6 +543,18 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex,
     SetItemBackgroundColour(newIndex, bgColor);
     check(newIndex, curChecked);
     ignoreMeshes(newIndex, curIgnoreMeshes);
+
+    Thaw();
+
+    // EnsureVisible while frozen is a no-op on the native Windows ListView (WM_SETREDRAW=FALSE).
+    // Call it AFTER Thaw. Thaw only posts InvalidateRect (deferred paint), not UpdateWindow,
+    // so EnsureVisible here runs before WM_PAINT fires - one clean repaint at the right position.
+    // Double-EnsureVisible: scroll to bottom first so the next call must scroll up,
+    // pinning topItem to the top of the viewport.
+    if (topItem > 0 && topItem < GetItemCount()) {
+        EnsureVisible(GetItemCount() - 1);
+        EnsureVisible(topItem);
+    }
 
     return newIndex;
 }
