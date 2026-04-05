@@ -725,16 +725,12 @@ void ModSortDialog::syncCacheFromListCtrl()
     std::vector<std::wstring> visibleOrder;
     visibleOrder.reserve(m_listCtrl->GetItemCount());
 
-    std::unordered_set<std::wstring> visibleSet;
-    visibleSet.reserve(m_listCtrl->GetItemCount());
-
     std::unordered_map<std::wstring, CachedModRow> visibleState;
     visibleState.reserve(m_listCtrl->GetItemCount());
 
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
         visibleOrder.push_back(modName);
-        visibleSet.insert(modName);
 
         visibleState[modName] = {.modName = modName,
                                  .shaderString = m_listCtrl->GetItemText(i, 1),
@@ -774,37 +770,8 @@ void ModSortDialog::syncCacheFromListCtrl()
         return;
     }
 
-    // Filtered mode: only reorder visible subset while preserving hidden relative order.
-    std::unordered_map<std::wstring, CachedModRow> rowMap;
-    rowMap.reserve(m_cachedRows.size());
-    for (const auto& row : m_cachedRows) {
-        rowMap[row.modName] = row;
-    }
-
-    size_t insertPos = m_cachedRows.size();
-    for (size_t i = 0; i < m_cachedRows.size(); ++i) {
-        if (visibleSet.contains(m_cachedRows.at(i).modName)) {
-            insertPos = i;
-            break;
-        }
-    }
-
-    std::erase_if(m_cachedRows,
-                  [&visibleSet](const CachedModRow& row) -> bool { return visibleSet.contains(row.modName); });
-
-    insertPos = std::min(insertPos, m_cachedRows.size());
-
-    std::vector<CachedModRow> visibleRows;
-    visibleRows.reserve(visibleOrder.size());
-    for (const auto& modName : visibleOrder) {
-        if (rowMap.contains(modName)) {
-            visibleRows.push_back(rowMap.at(modName));
-        }
-    }
-
-    m_cachedRows.insert(m_cachedRows.begin() + static_cast<std::vector<CachedModRow>::difference_type>(insertPos),
-                        visibleRows.begin(),
-                        visibleRows.end());
+    // Filtered mode: dragging is disabled during search, so the visible order cannot diverge from the
+    // cached order. State has already been merged above; no reordering is needed.
 }
 
 void ModSortDialog::rebuildListCtrlFromCache()
