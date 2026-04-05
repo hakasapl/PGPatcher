@@ -823,8 +823,8 @@ void ModSortDialog::rebuildListCtrlFromCache()
     }
 
     bool disableIsNew = true;
-    for (const auto* row : filteredRows) {
-        if (!row->isNew) {
+    for (const auto& row : m_cachedRows) {
+        if (!row.isNew) {
             disableIsNew = false;
             break;
         }
