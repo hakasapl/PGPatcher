@@ -815,6 +815,7 @@ void ModSortDialog::rebuildListCtrlFromCache()
     }
 
     m_newMods.clear();
+    m_listCtrl->Freeze();
     m_listCtrl->DeleteAllItems();
 
     long index = 0;
@@ -849,6 +850,8 @@ void ModSortDialog::rebuildListCtrlFromCache()
 
         ++index;
     }
+
+    m_listCtrl->Thaw();
 
     const bool mo2Locked = m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked();
     if (m_restoreButton != nullptr) {
