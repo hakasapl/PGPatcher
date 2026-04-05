@@ -2,6 +2,7 @@
 
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
+#include "GUI/components/PGCheckedDragListCtrlEvtMeshesIgnoredChanged.hpp"
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
 
 #include <wx/renderer.h>
@@ -423,6 +424,10 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
             for (const long item : selectedItems) {
                 ignoreMeshes(item, false);
             }
+
+            PGCheckedDragListCtrlEvtMeshesIgnoredChanged evt(GetId());
+            evt.SetEventObject(this);
+            wxPostEvent(this, evt);
         },
         ID_ENABLE_MESHES);
 
@@ -433,6 +438,10 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
             for (const long item : selectedItems) {
                 ignoreMeshes(item, true);
             }
+
+            PGCheckedDragListCtrlEvtMeshesIgnoredChanged evt(GetId());
+            evt.SetEventObject(this);
+            wxPostEvent(this, evt);
         },
         ID_DISABLE_MESHES);
 
@@ -469,6 +478,9 @@ void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items,
         return;
     }
 
+    const long topItem = GetTopItem();
+    Freeze();
+
     std::vector<long> sortedItems = items;
 
     if (checked) {
@@ -482,6 +494,13 @@ void PGCheckedDragListCtrl::processCheckItems(const std::vector<long>& items,
     for (const long item : sortedItems) {
         processCheckItem(item, checked);
     }
+
+    Thaw();
+
+    if (topItem > 0 && topItem < GetItemCount()) {
+        EnsureVisible(GetItemCount() - 1);
+        EnsureVisible(topItem);
+    }
 }
 
 auto PGCheckedDragListCtrl::moveItem(long fromIndex,
@@ -490,6 +509,10 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex,
     if (fromIndex == toIndex || fromIndex < 0 || fromIndex >= GetItemCount()) {
         return fromIndex;
     }
+
+    const long topItem = GetTopItem(); // preserve scroll position across delete/insert
+
+    Freeze();
 
     // Capture item data (all columns)
     const int colCount = GetColumnCount();
@@ -511,15 +534,27 @@ auto PGCheckedDragListCtrl::moveItem(long fromIndex,
     }
 
     // Insert item at new position
-    const long newIndex = InsertItem(toIndex, cols.empty() ? wxString {} : cols[0]);
+    const long newIndex = InsertItem(toIndex, cols.empty() ? wxString {} : cols.at(0));
     for (int c = 1; c < colCount; ++c) {
-        SetItem(newIndex, c, cols[c]);
+        SetItem(newIndex, c, cols.at(static_cast<size_t>(c)));
     }
 
     // Restore properties
     SetItemBackgroundColour(newIndex, bgColor);
     check(newIndex, curChecked);
     ignoreMeshes(newIndex, curIgnoreMeshes);
+
+    Thaw();
+
+    // EnsureVisible while frozen is a no-op on the native Windows ListView (WM_SETREDRAW=FALSE).
+    // Call it AFTER Thaw. Thaw only posts InvalidateRect (deferred paint), not UpdateWindow,
+    // so EnsureVisible here runs before WM_PAINT fires - one clean repaint at the right position.
+    // Double-EnsureVisible: scroll to bottom first so the next call must scroll up,
+    // pinning topItem to the top of the viewport.
+    if (topItem > 0 && topItem < GetItemCount()) {
+        EnsureVisible(GetItemCount() - 1);
+        EnsureVisible(topItem);
+    }
 
     return newIndex;
 }
@@ -544,7 +579,7 @@ auto PGCheckedDragListCtrl::moveItems(const std::vector<long>& fromIndices,
     std::unordered_map<long, long> indexMap;
 
     for (size_t i = 0; i < sortedIndices.size(); i++) {
-        const long oldIndex = sortedIndices[i];
+        const long oldIndex = sortedIndices.at(i);
         long newIndex = toIndex;
 
         if (movingDown) {
