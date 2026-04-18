@@ -234,7 +234,9 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
         }
 
         if (hasExpandedPane) {
-            this->SetSizeHints(m_collapsedSize, wxSize(-1, -1));
+            // Keep minimum height in sync with expanded pane state so users can't resize below visible content.
+            const int expandedMinHeight = std::max(m_collapsedSize.GetHeight(), dlgMinSize.GetHeight());
+            this->SetSizeHints(wxSize(m_collapsedSize.GetWidth(), expandedMinHeight), wxSize(-1, -1));
         } else {
             // if no panes are expanded, reset to original size to prevent weird resizing behavior
             dlgSize.SetHeight(m_collapsedSize.GetHeight());
