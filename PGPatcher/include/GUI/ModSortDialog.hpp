@@ -233,6 +233,15 @@ private:
     [[nodiscard]] auto getOrderedCachedRows() const -> std::vector<const CachedModRow*>;
 
     /**
+     * @brief Reorders the full cached enabled list for a move-top or move-bottom action while search is active.
+     *
+     * @param selectedModNames Selected visible mod names in display order
+     * @param moveToTop true to move to top of enabled rows, false to move to bottom of enabled rows
+     */
+    void reorderCachedRowsFromFilteredMove(const std::vector<std::wstring>& selectedModNames,
+                                           bool moveToTop);
+
+    /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes
      */
     void updateApplyButtonState();

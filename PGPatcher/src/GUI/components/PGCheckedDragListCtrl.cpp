@@ -122,7 +122,11 @@ auto PGCheckedDragListCtrl::getCutoffLine() const -> int { return m_cutoffLine; 
 
 void PGCheckedDragListCtrl::setDraggingEnabled(bool enabled) { m_draggingEnabled = enabled; }
 
+void PGCheckedDragListCtrl::setContextMoveEnabled(bool enabled) { m_contextMoveEnabled = enabled; }
+
 auto PGCheckedDragListCtrl::isDraggingEnabled() const -> bool { return m_draggingEnabled; }
+
+auto PGCheckedDragListCtrl::isContextMoveEnabled() const -> bool { return m_contextMoveEnabled; }
 
 // EVENT HANDLERS
 
@@ -359,8 +363,8 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     // Disable move options if any selected item is below the cutoff line
     const bool anyBelowCutoff = std::ranges::any_of(
         selectedItems, [this](long idx) -> bool { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
-    menu.Enable(ID_MOVE_TOP, !anyBelowCutoff && m_draggingEnabled);
-    menu.Enable(ID_MOVE_BOTTOM, !anyBelowCutoff && m_draggingEnabled);
+    menu.Enable(ID_MOVE_TOP, !anyBelowCutoff && m_contextMoveEnabled);
+    menu.Enable(ID_MOVE_BOTTOM, !anyBelowCutoff && m_contextMoveEnabled);
 
     // Disable enable/disable options if all selected items are already in that state
     const bool allEnabled = std::ranges::all_of(selectedItems, [this](long idx) -> bool { return isChecked(idx); });
@@ -381,7 +385,15 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
         wxEVT_MENU,
         [this, selectedItems](wxCommandEvent&) -> void {
             // Move all items to top
-            moveItems(selectedItems, 0);
+            const auto newIndices = moveItems(selectedItems, 0);
+            clearAllSelections();
+            for (const long idx : newIndices) {
+                SetItemState(idx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+            }
+
+            PGCheckedDragListCtrlEvtItemDragged dragEvt(GetId(), selectedItems.front(), 0);
+            dragEvt.SetEventObject(this);
+            wxPostEvent(this, dragEvt);
         },
         ID_MOVE_TOP);
 
@@ -390,7 +402,15 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
         [this, selectedItems](wxCommandEvent&) -> void {
             // Move all items to bottom (just above cutoff line)
             const long insertPos = m_cutoffLine >= 0 ? m_cutoffLine : GetItemCount();
-            moveItems(selectedItems, insertPos);
+            const auto newIndices = moveItems(selectedItems, insertPos);
+            clearAllSelections();
+            for (const long idx : newIndices) {
+                SetItemState(idx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+            }
+
+            PGCheckedDragListCtrlEvtItemDragged dragEvt(GetId(), selectedItems.front(), insertPos);
+            dragEvt.SetEventObject(this);
+            wxPostEvent(this, dragEvt);
         },
         ID_MOVE_BOTTOM);
 
