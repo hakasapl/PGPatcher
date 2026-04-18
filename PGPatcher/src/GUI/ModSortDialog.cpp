@@ -257,6 +257,27 @@ void ModSortDialog::onItemDeselected(wxListEvent& event)
 
 void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
 {
+    if (!getActiveSearchTerm().IsEmpty()) {
+        syncCacheFromListCtrl();
+
+        std::vector<std::wstring> selectedModNames;
+        long selectedIdx = -1;
+        while ((selectedIdx = m_listCtrl->GetNextItem(selectedIdx, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED))
+               != wxNOT_FOUND) {
+            selectedModNames.push_back(m_listCtrl->GetItemText(selectedIdx, 0).ToStdWstring());
+        }
+
+        if (!selectedModNames.empty()) {
+            const bool moveToTop = event.getNewPosition() == 0;
+            reorderCachedRowsFromFilteredMove(selectedModNames, moveToTop);
+            rebuildListCtrlFromCache();
+        }
+
+        updateApplyButtonState();
+        event.Skip();
+        return;
+    }
+
     syncCacheFromListCtrl();
     updateApplyButtonState();
     event.Skip();
@@ -433,6 +454,7 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
 
     const bool searchActive = !getActiveSearchTerm().IsEmpty();
     m_listCtrl->setDraggingEnabled(!isChecked && !searchActive);
+    m_listCtrl->setContextMoveEnabled(!isChecked);
 }
 
 auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
@@ -879,6 +901,7 @@ void ModSortDialog::rebuildListCtrlFromCache()
     }
 
     m_listCtrl->setDraggingEnabled(!mo2Locked && searchTerm.IsEmpty());
+    m_listCtrl->setContextMoveEnabled(!mo2Locked);
 }
 
 auto ModSortDialog::getActiveSearchTerm() const -> wxString
@@ -910,6 +933,50 @@ auto ModSortDialog::getOrderedCachedRows() const -> std::vector<const CachedModR
     }
 
     return orderedRows;
+}
+
+void ModSortDialog::reorderCachedRowsFromFilteredMove(const std::vector<std::wstring>& selectedModNames,
+                                                      bool moveToTop)
+{
+    if (selectedModNames.empty() || m_cachedRows.empty()) {
+        return;
+    }
+
+    const std::unordered_set<std::wstring> selectedMods(selectedModNames.begin(), selectedModNames.end());
+
+    std::vector<CachedModRow> selectedEnabledRows;
+    std::vector<CachedModRow> unselectedEnabledRows;
+    std::vector<CachedModRow> disabledRows;
+    selectedEnabledRows.reserve(selectedMods.size());
+    unselectedEnabledRows.reserve(m_cachedRows.size());
+    disabledRows.reserve(m_cachedRows.size());
+
+    for (const auto& row : m_cachedRows) {
+        if (!row.isChecked) {
+            disabledRows.push_back(row);
+            continue;
+        }
+
+        if (selectedMods.contains(row.modName)) {
+            selectedEnabledRows.push_back(row);
+        } else {
+            unselectedEnabledRows.push_back(row);
+        }
+    }
+
+    std::vector<CachedModRow> reorderedRows;
+    reorderedRows.reserve(m_cachedRows.size());
+
+    if (moveToTop) {
+        reorderedRows.insert(reorderedRows.end(), selectedEnabledRows.begin(), selectedEnabledRows.end());
+        reorderedRows.insert(reorderedRows.end(), unselectedEnabledRows.begin(), unselectedEnabledRows.end());
+    } else {
+        reorderedRows.insert(reorderedRows.end(), unselectedEnabledRows.begin(), unselectedEnabledRows.end());
+        reorderedRows.insert(reorderedRows.end(), selectedEnabledRows.begin(), selectedEnabledRows.end());
+    }
+
+    reorderedRows.insert(reorderedRows.end(), disabledRows.begin(), disabledRows.end());
+    m_cachedRows = std::move(reorderedRows);
 }
 
 void ModSortDialog::updateApplyButtonState()

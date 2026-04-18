@@ -12,6 +12,7 @@ private:
     wxImageList* m_imagelist; /** Image list for checkboxes */
 
     bool m_draggingEnabled = true; /** True if user can drag, false otherwise */
+    bool m_contextMoveEnabled = true; /** True if move-to-top/bottom menu actions are enabled */
 
     wxTimer m_autoscrollTimer; /** Timer that is responsible for autoscroll */
     static constexpr int AUTOSCROLL_TIMER_INTERVAL = 250; /** Scroll every this amount in ms when autoscrolling */
@@ -115,12 +116,27 @@ public:
     void setDraggingEnabled(bool enabled);
 
     /**
+     * @brief Set whether context-menu move actions are enabled.
+     *
+     * @param enabled true to enable context-menu move actions, false to disable
+     */
+    void setContextMoveEnabled(bool enabled);
+
+    /**
      * @brief Get the Dragging Enabled object
      *
      * @return true if dragging is enabled
      * @return false if dragging is disabled
      */
     [[nodiscard]] auto isDraggingEnabled() const -> bool;
+
+    /**
+     * @brief Get whether context-menu move actions are enabled.
+     *
+     * @return true if context-menu move actions are enabled
+     * @return false if context-menu move actions are disabled
+     */
+    [[nodiscard]] auto isContextMoveEnabled() const -> bool;
 
 private:
     // Event Handlers
