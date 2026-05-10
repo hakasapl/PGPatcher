@@ -12,7 +12,6 @@
 #include "PGPlugin.hpp"
 #include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
-#include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -512,11 +511,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     if (params.PostPatcher.hairFlowMap) {
         Logger::debug("Adding Hair Flow Map post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
-    }
-
-    if (params.GlobalPatcher.fixEffectLightingCS) {
-        Logger::debug("Adding Effect Lighting CS Fix pre-patcher");
-        meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
     }
 
     const PatcherUtil::PatcherTextureSet texPatchers;

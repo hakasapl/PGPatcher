@@ -134,8 +134,6 @@ private:
     void onPostPatcherHairFlowMapChange(wxCommandEvent& event);
 
     // Global Patchers
-    wxCheckBox* m_globalPatcherFixEffectLightingCSCheckbox;
-    void onGlobalPatcherFixEffectLightingCSChange(wxCommandEvent& event);
 
     // Mesh Rules
     std::vector<std::wstring> m_meshRulesAllowListState;

@@ -2,7 +2,6 @@
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "PGPatcher.hpp"
-#include "patchers/PatcherMeshGlobalFixEffectLightingCS.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
@@ -198,9 +197,6 @@ void mainRunner(PGToolsCLIArgs& args)
         }
         if (patcherDefs.contains("particlelightstolp")) {
             meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::getFactory());
-        }
-        if (patcherDefs.contains("fixeffectlightingcs")) {
-            meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFixEffectLightingCS::getFactory());
         }
 
         if (patcherDefs.contains("restoredefaultshaders")) {
