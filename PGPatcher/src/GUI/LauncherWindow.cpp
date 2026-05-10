@@ -277,15 +277,8 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Global Patchers
     //
-    auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
-    m_globalPatcherFixEffectLightingCSCheckbox
-        = new wxCheckBox(this, wxID_ANY, "Fix Effect Lighting (CS Only) (Experimental)");
-    m_globalPatcherFixEffectLightingCSCheckbox->SetToolTip("Makes ambient light react to some effect shaders better");
-    m_globalPatcherFixEffectLightingCSCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onGlobalPatcherFixEffectLightingCSChange, this);
-    globalPatcherSizer->Add(m_globalPatcherFixEffectLightingCSCheckbox, 0, wxALL, BORDER_SIZE);
-
-    rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    // auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
+    // rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
     // Processing and RUN buttons
@@ -531,7 +524,6 @@ void LauncherWindow::loadConfig()
     m_postPatcherHairFlowMapCheckbox->SetValue(initParams.PostPatcher.hairFlowMap);
 
     // Global Patchers
-    m_globalPatcherFixEffectLightingCSCheckbox->SetValue(initParams.GlobalPatcher.fixEffectLightingCS);
 }
 
 // Component event handlers
@@ -613,11 +605,6 @@ void LauncherWindow::onProcessingEnableTraceLoggingChange([[maybe_unused]] wxCom
 }
 
 void LauncherWindow::onPrePatcherFixMeshLightingChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateDisabledElements();
-}
-
-void LauncherWindow::onGlobalPatcherFixEffectLightingCSChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
@@ -758,7 +745,6 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.PostPatcher.hairFlowMap = m_postPatcherHairFlowMapCheckbox->GetValue();
 
     // Global Patchers
-    params.GlobalPatcher.fixEffectLightingCS = m_globalPatcherFixEffectLightingCSCheckbox->GetValue();
 }
 
 void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event)

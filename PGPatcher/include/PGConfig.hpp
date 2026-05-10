@@ -128,12 +128,7 @@ public:
 
         // Global Patchers
         struct GlobalPatcher {
-            bool fixEffectLightingCS = false;
-
-            auto operator==(const GlobalPatcher& other) const -> bool
-            {
-                return fixEffectLightingCS == other.fixEffectLightingCS;
-            }
+            auto operator==(const GlobalPatcher& other) const -> bool { return true; }
         } GlobalPatcher;
 
         auto operator==(const PGParams& other) const -> bool

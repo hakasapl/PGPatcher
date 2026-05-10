@@ -246,9 +246,6 @@ auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
         }
 
         // "globalpatcher"
-        if (paramJ.contains("globalpatcher") && paramJ["globalpatcher"].contains("fixeffectlightingcs")) {
-            paramJ["globalpatcher"]["fixeffectlightingcs"].get_to<bool>(m_params.GlobalPatcher.fixEffectLightingCS);
-        }
     }
 }
 
@@ -446,7 +443,6 @@ auto PGConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["postpatcher"]["hairflowmap"] = m_params.PostPatcher.hairFlowMap;
 
     // "globalpatcher"
-    j["params"]["globalpatcher"]["fixeffectlightingcs"] = m_params.GlobalPatcher.fixEffectLightingCS;
 
     return j;
 }
