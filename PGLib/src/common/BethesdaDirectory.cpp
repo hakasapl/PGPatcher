@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <fileapi.h>
 #include <filesystem>
 #include <fstream>
@@ -337,7 +338,13 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
         return;
     }
 
-    const bsa::tes4::version bsaVersion = bsaObj.read(bsaPath);
+    bsa::tes4::version bsaVersion = bsa::tes4::version::tes5;
+    try {
+        bsaVersion = bsaObj.read(bsaPath);
+    } catch (...) {
+        Logger::error(L"Failed to read BSA file version: {}", bsaName);
+        return;
+    }
 
     const shared_ptr<BSAFile> bsaStructPtr
         = make_shared<BSAFile>(bsaPath, boost::to_lower_copy(bsaName), bsaVersion, bsaObj);
