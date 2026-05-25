@@ -191,6 +191,11 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
 
     for (const auto& meshResult : meshResults) {
         for (const auto& [formKey, altTexMap] : meshResult.altTexResults) {
+            if (formKey.modKey.empty() || formKey.formID == 0) {
+                // skip dummy use
+                continue;
+            }
+
             PGMutagenWrapper::ModelUse modelUse;
             modelUse.modName = formKey.modKey;
             modelUse.formID = formKey.formID;

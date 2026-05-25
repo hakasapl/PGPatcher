@@ -10,6 +10,7 @@
 - Fixed invalid shader permutation with anisotropic lighting and parallax together
 - Fixed "ignore" in the confirmation dialog scrolling the list back to the top
 - Removed "Fix Effect Lighting" patcher as this has been superceded by Community Shaders volumetric shadows
+- Facegens can now be patched if one of the patchers needs to patch it
 
 ## [1.0.0] - 2026-02-23
 
