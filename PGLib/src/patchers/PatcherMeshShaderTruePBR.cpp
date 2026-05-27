@@ -103,7 +103,18 @@ auto PatcherMeshShaderTruePBR::getPathLookupCacheMutex() -> std::mutex&
 
 auto PatcherMeshShaderTruePBR::getTruePBRConfigFilenameFields() -> vector<string>
 {
-    static const vector<string> pgConfigFilenameFields = {"match_normal", "match_diffuse", "rename"};
+    static const vector<string> pgConfigFilenameFields = {"match_normal",
+                                                          "match_diffuse",
+                                                          "rename",
+                                                          "match1",
+                                                          "match2",
+                                                          "match3",
+                                                          "match4",
+                                                          "match5",
+                                                          "match6",
+                                                          "match7",
+                                                          "match8",
+                                                          "match9"};
     return pgConfigFilenameFields;
 }
 
@@ -184,7 +195,6 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             std::ranges::reverse(revNormal);
 
             getTruePBRNormalInverse()[StringUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
-            continue;
         }
 
         // "match_diffuse" attribute

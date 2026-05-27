@@ -106,9 +106,7 @@ public:
     /**
      * @brief Get the True PBR Match X Map
      *
-     * @return std::unordered_map<uint8_t,
-     * std::unordered_map<std::wstring,
-     * std::vector<size_t>>>& Lookup
+     * @return std::unordered_map<PGEnums::TextureSlots, std::unordered_map<std::wstring, std::vector<size_t>>>& Lookup
      */
     static auto getTruePBRMatchXMap() -> std::unordered_map<PGEnums::TextureSlots,
                                                             std::unordered_map<std::wstring,
@@ -305,6 +303,7 @@ private:
      * @param lookup Lookup table to use
      * @param slotLabel Slot label to use
      * @param nifPath NIF path to use
+     * @param slot Slot that matched (for metadata, optional)
      */
     static void getSlotMatch(std::map<size_t,
                                       std::tuple<nlohmann::json,
@@ -328,6 +327,13 @@ private:
                                      const std::wstring& diffuse,
                                      const std::wstring& nifPath);
 
+    /**
+     * @brief Get matchX match for a given lookup
+     *
+     * @param[out] truePBRData Data that matched
+     * @param oldSlots Old slots to match
+     * @param nifPath NIF path to use
+     */
     static void getMatchXMatch(std::map<size_t,
                                         std::tuple<nlohmann::json,
                                                    std::wstring>>& truePBRData,
@@ -341,6 +347,7 @@ private:
      * @param texName Texture name to insert
      * @param cfg Config ID
      * @param nifPath NIF path to use
+     * @param slot Slot that matched (for metadata, optional)
      */
     static void insertTruePBRData(std::map<size_t,
                                            std::tuple<nlohmann::json,
