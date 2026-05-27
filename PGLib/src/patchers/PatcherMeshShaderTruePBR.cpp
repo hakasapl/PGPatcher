@@ -64,6 +64,13 @@ auto PatcherMeshShaderTruePBR::getPathLookupJSONs() -> map<size_t,
     return pathLookupJSONs;
 }
 
+auto PatcherMeshShaderTruePBR::getMatchSlotJSONs() -> map<size_t,
+                                                          nlohmann::json>&
+{
+    static map<size_t, nlohmann::json> matchSlotJSONs = {};
+    return matchSlotJSONs;
+}
+
 auto PatcherMeshShaderTruePBR::getTruePBRDiffuseInverse() -> map<wstring,
                                                                  vector<size_t>>&
 {
@@ -192,6 +199,21 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         if (config.second.contains("path_contains")) {
             getPathLookupJSONs()[config.first] = config.second;
         }
+
+        // "matchX" attribute (standalone - no match_normal/match_diffuse/path_contains)
+        if (!config.second.contains("match_normal") && !config.second.contains("match_diffuse")
+            && !config.second.contains("path_contains")) {
+            bool hasMatchSlot = false;
+            for (int i = 1; i <= static_cast<int>(NUM_TEXTURE_SLOTS); i++) {
+                if (config.second.contains("match" + std::to_string(i))) {
+                    hasMatchSlot = true;
+                    break;
+                }
+            }
+            if (hasMatchSlot) {
+                getMatchSlotJSONs()[config.first] = config.second;
+            }
+        }
     }
 }
 
@@ -275,6 +297,31 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
 
     // "path_contains" attribute: Linear search for path_contains
     getPathContainsMatch(truePBRData, searchPrefixes[0], getNIFPath().wstring());
+
+    // "matchX" attribute: Linear search for exact slot matches (standalone configs)
+    getMatchSlotMatch(truePBRData, oldSlots, getNIFPath().wstring());
+
+    // Filter out any matches where "matchX" conditions are not satisfied
+    for (auto it = truePBRData.begin(); it != truePBRData.end();) {
+        const auto& cfg = get<0>(it->second);
+        bool matchXPasses = true;
+        for (int i = 1; i <= static_cast<int>(NUM_TEXTURE_SLOTS); i++) {
+            const auto matchKey = "match" + std::to_string(i);
+            if (cfg.contains(matchKey)) {
+                auto matchValue = StringUtil::toLowerASCIIFast(
+                    StringUtil::utf8toUTF16(cfg[matchKey].get<string>()));
+                if (matchValue != StringUtil::toLowerASCIIFast(oldSlots[static_cast<size_t>(i - 1)])) {
+                    matchXPasses = false;
+                    break;
+                }
+            }
+        }
+        if (!matchXPasses) {
+            it = truePBRData.erase(it);
+        } else {
+            ++it;
+        }
+    }
 
     // Split data into individual JSONs
     unordered_map<wstring, map<size_t, tuple<nlohmann::json, wstring>>> truePBROutputData;
@@ -464,6 +511,37 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
     }
 }
 
+void PatcherMeshShaderTruePBR::getMatchSlotMatch(std::map<size_t,
+                                                          std::tuple<nlohmann::json,
+                                                                     std::wstring>>& truePBRData,
+                                                 const PGTypes::TextureSet& oldSlots,
+                                                 const wstring& nifPath)
+{
+    for (const auto& config : getMatchSlotJSONs()) {
+        // Skip if already inserted by another mechanism
+        if (truePBRData.contains(config.first)) {
+            continue;
+        }
+
+        bool allMatch = true;
+        for (int i = 1; i <= static_cast<int>(NUM_TEXTURE_SLOTS); i++) {
+            const auto matchKey = "match" + std::to_string(i);
+            if (config.second.contains(matchKey)) {
+                auto matchValue = StringUtil::toLowerASCIIFast(
+                    StringUtil::utf8toUTF16(config.second[matchKey].get<string>()));
+                if (matchValue != StringUtil::toLowerASCIIFast(oldSlots[static_cast<size_t>(i - 1)])) {
+                    allMatch = false;
+                    break;
+                }
+            }
+        }
+
+        if (allMatch) {
+            insertTruePBRData(truePBRData, L"", config.first, nifPath);
+        }
+    }
+}
+
 auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
                                                           std::tuple<nlohmann::json,
                                                                      std::wstring>>& truePBRData,
@@ -475,6 +553,12 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
 
     // Check if we should skip this due to nif filter (this is expsenive, so we do it last)
     if (curCfg.contains("nif_filter") && !boost::icontains(nifPath, curCfg["nif_filter"].get<string>())) {
+        return;
+    }
+
+    // If neither match_normal nor match_diffuse is present (e.g. matchX-only config), insert with empty matchedPath
+    if (!curCfg.contains("match_normal") && !curCfg.contains("match_diffuse")) {
+        truePBRData.insert({cfg, {curCfg, L""}});
         return;
     }
 
@@ -789,83 +873,81 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
                                                   const nlohmann::json& truePBRData,
                                                   const std::wstring& matchedPath)
 {
-    if (matchedPath.empty()) {
-        return;
-    }
-
-    // "lock_diffuse" attribute
-    if (!flag(truePBRData, "lock_diffuse")) {
-        auto newDiffuse = matchedPath + L".dds";
-        slots[static_cast<size_t>(PGEnums::TextureSlots::DIFFUSE)] = newDiffuse;
-    }
-
-    // "lock_normal" attribute
-    if (!flag(truePBRData, "lock_normal")) {
-        auto newNormal = matchedPath + L"_n.dds";
-        slots[static_cast<size_t>(PGEnums::TextureSlots::NORMAL)] = newNormal;
-    }
-
-    // "emissive" attribute
-    if (truePBRData.contains("emissive") && !flag(truePBRData, "lock_emissive")) {
-        wstring newGlow;
-        if (truePBRData["emissive"].get<bool>()) {
-            newGlow = matchedPath + L"_g.dds";
+    if (!matchedPath.empty()) {
+        // "lock_diffuse" attribute
+        if (!flag(truePBRData, "lock_diffuse")) {
+            auto newDiffuse = matchedPath + L".dds";
+            slots[static_cast<size_t>(PGEnums::TextureSlots::DIFFUSE)] = newDiffuse;
         }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::GLOW)] = newGlow;
-    }
-
-    // "parallax" attribute
-    if (truePBRData.contains("parallax") && !flag(truePBRData, "lock_parallax")) {
-        wstring newParallax;
-        if (truePBRData["parallax"].get<bool>()) {
-            newParallax = matchedPath + L"_p.dds";
+        // "lock_normal" attribute
+        if (!flag(truePBRData, "lock_normal")) {
+            auto newNormal = matchedPath + L"_n.dds";
+            slots[static_cast<size_t>(PGEnums::TextureSlots::NORMAL)] = newNormal;
         }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)] = newParallax;
-    }
+        // "emissive" attribute
+        if (truePBRData.contains("emissive") && !flag(truePBRData, "lock_emissive")) {
+            wstring newGlow;
+            if (truePBRData["emissive"].get<bool>()) {
+                newGlow = matchedPath + L"_g.dds";
+            }
 
-    // "cubemap" attribute
-    if (truePBRData.contains("cubemap") && !flag(truePBRData, "lock_cubemap")) {
-        auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
-        slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = newCubemap;
-    } else {
-        slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = L"";
-    }
-
-    // "lock_rmaos" attribute
-    if (!flag(truePBRData, "lock_rmaos")) {
-        auto newRMAOS = matchedPath + L"_rmaos.dds";
-        slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = newRMAOS;
-    }
-
-    // "lock_cnr" attribute
-    if (!flag(truePBRData, "lock_cnr")) {
-        // "coat_normal" attribute
-        wstring newCNR;
-        if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].get<bool>()) {
-            newCNR = matchedPath + L"_cnr.dds";
+            slots[static_cast<size_t>(PGEnums::TextureSlots::GLOW)] = newGlow;
         }
 
-        // Fuzz texture slot
-        if (truePBRData.contains("fuzz") && flag(truePBRData["fuzz"], "texture")) {
-            newCNR = matchedPath + L"_f.dds";
+        // "parallax" attribute
+        if (truePBRData.contains("parallax") && !flag(truePBRData, "lock_parallax")) {
+            wstring newParallax;
+            if (truePBRData["parallax"].get<bool>()) {
+                newParallax = matchedPath + L"_p.dds";
+            }
+
+            slots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)] = newParallax;
         }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::MULTILAYER)] = newCNR;
-    }
-
-    // "lock_subsurface" attribute
-    if (!flag(truePBRData, "lock_subsurface")) {
-        // "subsurface_foliage" attribute
-        wstring newSubsurface;
-        if ((truePBRData.contains("subsurface_foliage") && truePBRData["subsurface_foliage"].get<bool>())
-            || (truePBRData.contains("subsurface") && truePBRData["subsurface"].get<bool>())
-            || (truePBRData.contains("coat_diffuse") && truePBRData["coat_diffuse"].get<bool>())) {
-            newSubsurface = matchedPath + L"_s.dds";
+        // "cubemap" attribute
+        if (truePBRData.contains("cubemap") && !flag(truePBRData, "lock_cubemap")) {
+            auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
+            slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = newCubemap;
+        } else {
+            slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = L"";
         }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::BACKLIGHT)] = newSubsurface;
+        // "lock_rmaos" attribute
+        if (!flag(truePBRData, "lock_rmaos")) {
+            auto newRMAOS = matchedPath + L"_rmaos.dds";
+            slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = newRMAOS;
+        }
+
+        // "lock_cnr" attribute
+        if (!flag(truePBRData, "lock_cnr")) {
+            // "coat_normal" attribute
+            wstring newCNR;
+            if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].get<bool>()) {
+                newCNR = matchedPath + L"_cnr.dds";
+            }
+
+            // Fuzz texture slot
+            if (truePBRData.contains("fuzz") && flag(truePBRData["fuzz"], "texture")) {
+                newCNR = matchedPath + L"_f.dds";
+            }
+
+            slots[static_cast<size_t>(PGEnums::TextureSlots::MULTILAYER)] = newCNR;
+        }
+
+        // "lock_subsurface" attribute
+        if (!flag(truePBRData, "lock_subsurface")) {
+            // "subsurface_foliage" attribute
+            wstring newSubsurface;
+            if ((truePBRData.contains("subsurface_foliage") && truePBRData["subsurface_foliage"].get<bool>())
+                || (truePBRData.contains("subsurface") && truePBRData["subsurface"].get<bool>())
+                || (truePBRData.contains("coat_diffuse") && truePBRData["coat_diffuse"].get<bool>())) {
+                newSubsurface = matchedPath + L"_s.dds";
+            }
+
+            slots[static_cast<size_t>(PGEnums::TextureSlots::BACKLIGHT)] = newSubsurface;
+        }
     }
 
     // "SlotX" attributes

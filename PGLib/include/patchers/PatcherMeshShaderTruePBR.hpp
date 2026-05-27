@@ -70,6 +70,14 @@ public:
                                                  nlohmann::json>&;
 
     /**
+     * @brief Get the Match Slot JSONs objects (configs matching by exact slot value)
+     *
+     * @return std::map<size_t, nlohmann::json>& JSON objects
+     */
+    static auto getMatchSlotJSONs() -> std::map<size_t,
+                                                nlohmann::json>&;
+
+    /**
      * @brief Get the Path Lookup Cache object
      *
      * @return std::unordered_map<std::tuple<std::wstring, std::wstring>, bool, TupleStrHash>& Cache results for path
@@ -315,6 +323,19 @@ private:
                                                          std::wstring>>& truePBRData,
                                      const std::wstring& diffuse,
                                      const std::wstring& nifPath);
+
+    /**
+     * @brief Get match for exact slot value(s)
+     *
+     * @param[out] truePBRData Data that matched
+     * @param oldSlots Texture slots to match against
+     * @param nifPath NIF path to use
+     */
+    static void getMatchSlotMatch(std::map<size_t,
+                                           std::tuple<nlohmann::json,
+                                                      std::wstring>>& truePBRData,
+                                  const PGTypes::TextureSet& oldSlots,
+                                  const std::wstring& nifPath);
 
     /**
      * @brief Inserts truepbr data if criteria is met
