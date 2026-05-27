@@ -104,6 +104,15 @@ public:
                                                       std::vector<size_t>>&;
 
     /**
+     * @brief Get the True PBR Match X Map
+     *
+     * @return std::unordered_map<PGEnums::TextureSlots, std::unordered_map<std::wstring, std::vector<size_t>>>& Lookup
+     */
+    static auto getTruePBRMatchXMap() -> std::unordered_map<PGEnums::TextureSlots,
+                                                            std::unordered_map<std::wstring,
+                                                                               std::vector<size_t>>>&;
+
+    /**
      * @brief Get the True PBR Config Filename Fields (fields that have paths)
      *
      * @return std::vector<std::string> Filename fields
@@ -294,6 +303,7 @@ private:
      * @param lookup Lookup table to use
      * @param slotLabel Slot label to use
      * @param nifPath NIF path to use
+     * @param slot Slot that matched (for metadata, optional)
      */
     static void getSlotMatch(std::map<size_t,
                                       std::tuple<nlohmann::json,
@@ -301,7 +311,8 @@ private:
                              const std::wstring& texName,
                              const std::map<std::wstring,
                                             std::vector<size_t>>& lookup,
-                             const std::wstring& nifPath);
+                             const std::wstring& nifPath,
+                             const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::UNKNOWN);
 
     /**
      * @brief Get path contains match for diffuse
@@ -317,17 +328,32 @@ private:
                                      const std::wstring& nifPath);
 
     /**
+     * @brief Get matchX match for a given lookup
+     *
+     * @param[out] truePBRData Data that matched
+     * @param oldSlots Old slots to match
+     * @param nifPath NIF path to use
+     */
+    static void getMatchXMatch(std::map<size_t,
+                                        std::tuple<nlohmann::json,
+                                                   std::wstring>>& truePBRData,
+                               const PGTypes::TextureSet& oldSlots,
+                               const std::wstring& nifPath);
+
+    /**
      * @brief Inserts truepbr data if criteria is met
      *
      * @param[out] truePBRData Data to update
      * @param texName Texture name to insert
      * @param cfg Config ID
      * @param nifPath NIF path to use
+     * @param slot Slot that matched (for metadata, optional)
      */
     static void insertTruePBRData(std::map<size_t,
                                            std::tuple<nlohmann::json,
                                                       std::wstring>>& truePBRData,
                                   const std::wstring& texName,
                                   size_t cfg,
-                                  const std::wstring& nifPath);
+                                  const std::wstring& nifPath,
+                                  const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::UNKNOWN);
 };

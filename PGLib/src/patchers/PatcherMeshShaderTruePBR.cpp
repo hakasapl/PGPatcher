@@ -78,6 +78,14 @@ auto PatcherMeshShaderTruePBR::getTruePBRNormalInverse() -> map<wstring,
     return truePBRNormalInverse;
 }
 
+auto PatcherMeshShaderTruePBR::getTruePBRMatchXMap() -> unordered_map<PGEnums::TextureSlots,
+                                                                      unordered_map<wstring,
+                                                                                    vector<size_t>>>&
+{
+    static unordered_map<PGEnums::TextureSlots, unordered_map<wstring, vector<size_t>>> truePBRMatchXMap = {};
+    return truePBRMatchXMap;
+}
+
 auto PatcherMeshShaderTruePBR::getPathLookupCache() -> unordered_map<tuple<wstring,
                                                                            wstring>,
                                                                      bool,
@@ -176,7 +184,6 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             std::ranges::reverse(revNormal);
 
             getTruePBRNormalInverse()[StringUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
-            continue;
         }
 
         // "match_diffuse" attribute
@@ -191,6 +198,22 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         // "path_contains" attribute
         if (config.second.contains("path_contains")) {
             getPathLookupJSONs()[config.first] = config.second;
+        }
+
+        // "matchX" attribute
+        for (int i = 0; i < NUM_TEXTURE_SLOTS - 1; i++) {
+            const string matchXStr = "match" + to_string(i + 1);
+            if (config.second.contains(matchXStr)) {
+                auto matchStr = StringUtil::utf8toUTF16(config.second.at(matchXStr).get<string>());
+
+                // Prepend "textures\\" if it's not already there
+                if (!matchStr.empty() && !matchStr.starts_with(L"textures\\")) {
+                    matchStr.insert(0, L"textures\\");
+                }
+
+                getTruePBRMatchXMap()[static_cast<PGEnums::TextureSlots>(i)][StringUtil::toLowerASCIIFast(matchStr)]
+                    .push_back(config.first);
+            }
         }
     }
 }
@@ -268,13 +291,24 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
 
     map<size_t, tuple<nlohmann::json, wstring>> truePBRData;
     // "match_normal" attribute: Binary search for normal map
-    getSlotMatch(truePBRData, searchPrefixes[1], getTruePBRNormalInverse(), getNIFPath().wstring());
+    getSlotMatch(truePBRData,
+                 searchPrefixes[1],
+                 getTruePBRNormalInverse(),
+                 getNIFPath().wstring(),
+                 PGEnums::TextureSlots::NORMAL);
 
     // "match_diffuse" attribute: Binary search for diffuse map
-    getSlotMatch(truePBRData, searchPrefixes[0], getTruePBRDiffuseInverse(), getNIFPath().wstring());
+    getSlotMatch(truePBRData,
+                 searchPrefixes[0],
+                 getTruePBRDiffuseInverse(),
+                 getNIFPath().wstring(),
+                 PGEnums::TextureSlots::DIFFUSE);
 
     // "path_contains" attribute: Linear search for path_contains
     getPathContainsMatch(truePBRData, searchPrefixes[0], getNIFPath().wstring());
+
+    // "matchX" attribute: search exact match for each slot
+    getMatchXMatch(truePBRData, oldSlots, getNIFPath().wstring());
 
     // Split data into individual JSONs
     unordered_map<wstring, map<size_t, tuple<nlohmann::json, wstring>>> truePBROutputData;
@@ -290,11 +324,8 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
         }
         truePBROutputData[matchedPath][sequence] = data;
 
-        if (get<0>(data).contains("match_normal")) {
-            truePBRMatchedFrom[matchedPath].insert(PGEnums::TextureSlots::NORMAL);
-        } else {
-            truePBRMatchedFrom[matchedPath].insert(PGEnums::TextureSlots::DIFFUSE);
-        }
+        const auto matchedFromSlot = static_cast<PGEnums::TextureSlots>(get<0>(data).at("meta_matchedFrom").get<int>());
+        truePBRMatchedFrom[matchedPath].insert(matchedFromSlot);
     }
 
     // Convert output to vectors
@@ -375,7 +406,8 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t,
                                             const wstring& texName,
                                             const map<wstring,
                                                       vector<size_t>>& lookup,
-                                            const wstring& nifPath)
+                                            const wstring& nifPath,
+                                            const PGEnums::TextureSlots& slot)
 {
     // binary search for map
     auto mapReverse = StringUtil::toLowerASCIIFast(texName);
@@ -429,7 +461,7 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t,
 
     // Loop through all matches
     for (const auto& cfg : cfgs) {
-        insertTruePBRData(truePBRData, texName, cfg, nifPath);
+        insertTruePBRData(truePBRData, texName, cfg, nifPath, slot);
     }
 }
 
@@ -459,7 +491,42 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
         }
 
         if (pathMatch) {
-            insertTruePBRData(truePBRData, diffuse, config.first, nifPath);
+            insertTruePBRData(truePBRData, diffuse, config.first, nifPath, PGEnums::TextureSlots::DIFFUSE);
+        }
+    }
+}
+
+void PatcherMeshShaderTruePBR::getMatchXMatch(std::map<size_t,
+                                                       std::tuple<nlohmann::json,
+                                                                  std::wstring>>& truePBRData,
+                                              const PGTypes::TextureSet& oldSlots,
+                                              const std::wstring& nifPath)
+{
+    const auto& truePBRMatchXMap = getTruePBRMatchXMap();
+    for (size_t i = 0; i < NUM_TEXTURE_SLOTS - 1; i++) {
+        const auto curSlot = static_cast<PGEnums::TextureSlots>(i);
+
+        // check if this slot was ever cached
+        if (!truePBRMatchXMap.contains(curSlot)) {
+            continue;
+        }
+
+        // get texture slot str
+        const auto& lookupWStr = oldSlots.at(i);
+        if (lookupWStr.empty()) {
+            continue;
+        }
+        const auto lookupStr = StringUtil::toLowerASCIIFast(lookupWStr);
+
+        // lookup
+        const auto& matchXMap = truePBRMatchXMap.at(curSlot);
+        if (!matchXMap.contains(lookupStr)) {
+            continue;
+        }
+
+        // add to truePBRData
+        for (const auto& cfg : matchXMap.at(lookupStr)) {
+            insertTruePBRData(truePBRData, PGNIFUtil::getTexBase(lookupStr, curSlot), cfg, nifPath, curSlot);
         }
     }
 }
@@ -469,9 +536,10 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
                                                                      std::wstring>>& truePBRData,
                                                  const wstring& texName,
                                                  size_t cfg,
-                                                 const wstring& nifPath) -> void
+                                                 const wstring& nifPath,
+                                                 const PGEnums::TextureSlots& slot) -> void
 {
-    const auto curCfg = getTruePBRConfigs()[cfg];
+    auto curCfg = getTruePBRConfigs()[cfg];
 
     // Check if we should skip this due to nif filter (this is expsenive, so we do it last)
     if (curCfg.contains("nif_filter") && !boost::icontains(nifPath, curCfg["nif_filter"].get<string>())) {
@@ -487,8 +555,14 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
     }
 
     // Get PBR path, which is the path without the matched field
-    auto matchedField = curCfg.contains("match_normal") ? PGNIFUtil::getTexBase(curCfg["match_normal"].get<string>())
-                                                        : PGNIFUtil::getTexBase(curCfg["match_diffuse"].get<string>());
+    wstring matchedField;
+    if (curCfg.contains("match_normal") || curCfg.contains("match_diffuse")) {
+        matchedField = curCfg.contains("match_normal") ? PGNIFUtil::getTexBase(curCfg["match_normal"].get<string>())
+                                                       : PGNIFUtil::getTexBase(curCfg["match_diffuse"].get<string>());
+    } else {
+        // This is a "matchX" entry, so we can just use the whole texture path as is
+        matchedField = texPath;
+    }
     texPath.erase(texPath.length() - matchedField.length(), matchedField.length());
 
     // "rename" attribute
@@ -505,6 +579,8 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
     if (!enableTruePBR) {
         matchedPath = L"";
     }
+
+    curCfg["meta_matchedFrom"] = static_cast<int>(slot);
 
     truePBRData.insert({cfg, {curCfg, matchedPath}});
 }
