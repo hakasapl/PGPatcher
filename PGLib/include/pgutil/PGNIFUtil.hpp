@@ -202,4 +202,6 @@ auto isPatchableShape(nifly::NifFile& nif,
 auto isShaderPatchableShape(nifly::NifFile& nif,
                             nifly::NiShape& nifShape) -> bool;
 
+auto isFacegenMesh(std::filesystem::path const& path) -> bool;
+
 } // namespace PGNIFUtil

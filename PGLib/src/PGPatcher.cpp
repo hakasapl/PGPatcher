@@ -400,16 +400,24 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         meshTracker.load();
     }
 
-    if (forceBasePatch && nifCache.meshUses.empty()) {
+    const bool isFacegen = PGNIFUtil::isFacegenMesh(nifPath);
+    if (nifCache.meshUses.empty() && (forceBasePatch || isFacegen)) {
         // add a dummy mesh use to trigger base patching (pgtools uses this since no plugins)
+        // always trigger dummy for facegen meshes since they never appear in plugins
+        Logger::debug("Forcing non-plugin patching context for mesh: {}", nifPath.string());
         const PGMeshPermutationTracker::FormKey dummyFormKey = {.modKey = L"", .formID = 0, .subMODL = ""};
         const PGPlugin::MeshUseAttributes dummyUse = {.isWeighted = false,
                                                       .singlepassMATO = false,
+                                                      .isFacegen = isFacegen,
                                                       .isIgnored = false,
                                                       .isDummyUse = true,
                                                       .recType = PGPlugin::ModelRecordType::UNKNOWN,
                                                       .alternateTextures = {}};
         nifCache.meshUses.insert(nifCache.meshUses.begin(), make_pair(dummyFormKey, dummyUse));
+    } else if (isFacegen) {
+        // if this is true then there are mesh uses but this is a facegen mesh so we should throw a warning
+        Logger::warn(L"NIF has mesh uses but is detected as a facegen mesh: {}", nifPath.wstring());
+        return TaskTracker::Result::FAILURE;
     }
 
     // loop through each use

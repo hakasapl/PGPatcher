@@ -166,6 +166,8 @@ public:
         bool isWeighted;
         /// @brief True if this is a single-pass MATO (Material Object) record.
         bool singlepassMATO;
+        /// @brief True if this mesh is facegen
+        bool isFacegen;
         /// @brief True if this mesh use should be excluded from patching.
         bool isIgnored;
         /// @brief True if this is a dummy use not actually tied to a plugin
