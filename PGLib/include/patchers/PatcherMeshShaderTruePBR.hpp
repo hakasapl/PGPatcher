@@ -104,6 +104,17 @@ public:
                                                       std::vector<size_t>>&;
 
     /**
+     * @brief Get the True PBR Match X Map
+     *
+     * @return std::unordered_map<uint8_t,
+     * std::unordered_map<std::wstring,
+     * std::vector<size_t>>>& Lookup
+     */
+    static auto getTruePBRMatchXMap() -> std::unordered_map<PGEnums::TextureSlots,
+                                                            std::unordered_map<std::wstring,
+                                                                               std::vector<size_t>>>&;
+
+    /**
      * @brief Get the True PBR Config Filename Fields (fields that have paths)
      *
      * @return std::vector<std::string> Filename fields
@@ -301,7 +312,8 @@ private:
                              const std::wstring& texName,
                              const std::map<std::wstring,
                                             std::vector<size_t>>& lookup,
-                             const std::wstring& nifPath);
+                             const std::wstring& nifPath,
+                             const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::UNKNOWN);
 
     /**
      * @brief Get path contains match for diffuse
@@ -316,6 +328,12 @@ private:
                                      const std::wstring& diffuse,
                                      const std::wstring& nifPath);
 
+    static void getMatchXMatch(std::map<size_t,
+                                        std::tuple<nlohmann::json,
+                                                   std::wstring>>& truePBRData,
+                               const PGTypes::TextureSet& oldSlots,
+                               const std::wstring& nifPath);
+
     /**
      * @brief Inserts truepbr data if criteria is met
      *
@@ -329,5 +347,6 @@ private:
                                                       std::wstring>>& truePBRData,
                                   const std::wstring& texName,
                                   size_t cfg,
-                                  const std::wstring& nifPath);
+                                  const std::wstring& nifPath,
+                                  const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::UNKNOWN);
 };

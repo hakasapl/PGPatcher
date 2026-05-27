@@ -11,6 +11,7 @@
 - Fixed "ignore" in the confirmation dialog scrolling the list back to the top
 - Removed "Fix Effect Lighting" patcher as this has been superceded by Community Shaders volumetric shadows
 - Added "Failed to read file version" error for corrupt BSA files
+- Added matchX attributes for PBR config
 
 ## [1.0.0] - 2026-02-23
 
