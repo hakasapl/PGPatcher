@@ -404,7 +404,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     if (nifCache.meshUses.empty() && (forceBasePatch || isFacegen)) {
         // add a dummy mesh use to trigger base patching (pgtools uses this since no plugins)
         // always trigger dummy for facegen meshes since they never appear in plugins
-        Logger::debug("Forcing non-plugin patching context for mesh: {}", nifPath.string());
+        Logger::debug(L"Forcing non-plugin patching context for mesh: {}", nifPath.wstring());
         const PGMeshPermutationTracker::FormKey dummyFormKey = {.modKey = L"", .formID = 0, .subMODL = ""};
         const PGPlugin::MeshUseAttributes dummyUse = {.isWeighted = false,
                                                       .singlepassMATO = false,
