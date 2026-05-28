@@ -791,7 +791,7 @@ void LauncherWindow::updateMO2Items()
     // Get game path
     const auto gamePathMO2 = PGModManager::getGamePathFromInstanceDir(instanceDir);
     const bool lockByMO2Path = !gamePathMO2.empty();
-    if (!gamePathMO2.empty()) {
+    if (lockByMO2Path) {
         // found the game path, set it to the game location textbox
         m_gameLocationTextbox->SetValue(gamePathMO2.wstring());
     }
