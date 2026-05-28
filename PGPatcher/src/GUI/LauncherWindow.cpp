@@ -954,6 +954,7 @@ void LauncherWindow::setGamePathBasedOnExe()
     const auto curModManagerType = curParams.ModManager.type;
     if (curModManagerType == PGModManager::ModManagerType::MODORGANIZER2) {
         // Keep MO2 path selection behavior, but preserve install-location lock precedence.
+        updateMO2Items();
         return;
     }
 
