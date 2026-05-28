@@ -602,5 +602,5 @@ auto PGNIFUtil::isFacegenMesh(const std::filesystem::path& path) -> bool
 {
     // all facegen paths start with "meshes\actors\character\facegendata\facegeom\"
     const auto relativePath = path.lexically_relative("meshes/actors/character/facegendata/facegeom");
-    return !relativePath.empty() && relativePath.string().find("..") == string::npos;
+    return !relativePath.empty() && relativePath.wstring().find(L"..") == string::npos;
 }
