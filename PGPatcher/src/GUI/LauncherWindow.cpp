@@ -38,6 +38,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
     , m_pgc(pgc)
     , m_gameLocationLocked(false)
+    , m_gameLocationLockedByInstallLocation(false)
 {
     // Calculate the scrollbar width (if visible)
     static const int scrollbarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
@@ -775,10 +776,10 @@ void LauncherWindow::updateMO2Items()
 {
     // check if MO2 is selected
     if (!m_modManagerRadios[PGModManager::ModManagerType::MODORGANIZER2]->GetValue()) {
-        // If MO2 is not selected, clear the instance location textbox and return
-        m_gameLocationTextbox->Enable(true);
-        m_gameLocationBrowseButton->Enable(true);
-        m_gameLocationLocked = false;
+        const bool shouldLock = m_gameLocationLockedByInstallLocation;
+        m_gameLocationTextbox->Enable(!shouldLock);
+        m_gameLocationBrowseButton->Enable(!shouldLock);
+        m_gameLocationLocked = shouldLock;
         for (const auto& gameType : BethesdaGame::getGameTypes()) {
             m_gameTypeRadios[gameType]->Enable(true);
         }
@@ -789,19 +790,16 @@ void LauncherWindow::updateMO2Items()
 
     // Get game path
     const auto gamePathMO2 = PGModManager::getGamePathFromInstanceDir(instanceDir);
-    if (!gamePathMO2.empty()) {
+    const bool lockByMO2Path = !gamePathMO2.empty();
+    if (lockByMO2Path) {
         // found the game path, set it to the game location textbox
         m_gameLocationTextbox->SetValue(gamePathMO2.wstring());
-        // disable the game location textbox
-        m_gameLocationTextbox->Enable(false);
-        m_gameLocationBrowseButton->Enable(false);
-        m_gameLocationLocked = true;
-    } else {
-        // not found, enable the game location textbox
-        m_gameLocationTextbox->Enable(true);
-        m_gameLocationBrowseButton->Enable(true);
-        m_gameLocationLocked = false;
     }
+
+    const bool shouldLock = m_gameLocationLockedByInstallLocation || lockByMO2Path;
+    m_gameLocationTextbox->Enable(!shouldLock);
+    m_gameLocationBrowseButton->Enable(!shouldLock);
+    m_gameLocationLocked = shouldLock;
 
     // Get game type
     const auto gameTypeMO2 = PGModManager::getGameTypeFromInstanceDir(instanceDir);
@@ -942,6 +940,7 @@ void LauncherWindow::setGamePathBasedOnExe()
 {
     const auto exePath = PGPatcherGlobals::getEXEPath();
     if (exePath.empty()) {
+        m_gameLocationLockedByInstallLocation = false;
         return;
     }
 
@@ -949,14 +948,17 @@ void LauncherWindow::setGamePathBasedOnExe()
     getParams(curParams);
     const auto curGameType = curParams.Game.type;
 
+    const auto gamePath = exePath.parent_path().parent_path();
+    m_gameLocationLockedByInstallLocation = BethesdaGame::isGamePathValid(gamePath, curGameType);
+
     const auto curModManagerType = curParams.ModManager.type;
     if (curModManagerType == PGModManager::ModManagerType::MODORGANIZER2) {
-        // don't change the game path if MO2 is selected since that's enforced by MO2 instead
+        // Keep MO2 path selection behavior, but preserve install-location lock precedence.
+        updateMO2Items();
         return;
     }
 
-    const auto gamePath = exePath.parent_path().parent_path();
-    if (BethesdaGame::isGamePathValid(gamePath, curGameType)) {
+    if (m_gameLocationLockedByInstallLocation) {
         m_gameLocationTextbox->SetValue(gamePath.wstring());
 
         // disable textbox and browse button

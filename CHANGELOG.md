@@ -13,6 +13,7 @@
 - Facegens can now be patched if one of the patchers needs to patch it
 - Added "Failed to read file version" error for corrupt BSA files
 - Added matchX attributes for PBR config
+- Fixed game directory textbox becoming enabled again when mod manager is selected
 
 ## [1.0.0] - 2026-02-23
 
