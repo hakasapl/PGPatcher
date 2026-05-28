@@ -1,6 +1,6 @@
 # Changelog
 
-## UNRELEASED
+## [1.1.2] - 2026-05-28
 
 - Fixed unicode character exception during non-plugin mesh logging
 
