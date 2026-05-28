@@ -1,18 +1,18 @@
 # Changelog
 
-## UNRELEASED
+## [1.1.0] - 2026-05-28
 
+- Added matchX attributes for PBR config
 - Added search bar to mod window
 - Confirmation dialog can now be resized freely when a message list is expanded
 - Added `--disable-dyncubemap` CLI argument to tell PGPatcher to never apply dynamic cubemap for Complex Material
 - Added `--ignore-mo2vfscheck` CLI argument to ignore enforcing running under USVFS DLL (For Linux users)
 - Added `--consider-allmeshes` CLI argument to force PGPatcher to consider patching meshes even if they do not show up in plugins
+- Removed "Fix Effect Lighting (CS Only)" patcher as this has been superceded by Community Shaders volumetric shadows
+- Facegen meshes are now included in the patching pipeline
+- Fixed uncaught exception for corrupt BSA files
 - Fixed invalid shader permutation with anisotropic lighting and parallax together
 - Fixed "ignore" in the confirmation dialog scrolling the list back to the top
-- Removed "Fix Effect Lighting" patcher as this has been superceded by Community Shaders volumetric shadows
-- Facegens can now be patched if one of the patchers needs to patch it
-- Added "Failed to read file version" error for corrupt BSA files
-- Added matchX attributes for PBR config
 - Fixed game directory textbox becoming enabled again when mod manager is selected
 
 ## [1.0.0] - 2026-02-23
