@@ -64,6 +64,7 @@ private:
 
     // Game
     bool m_gameLocationLocked;
+    bool m_gameLocationLockedByInstallLocation;
     wxTextCtrl* m_gameLocationTextbox;
     void onGameLocationChange(wxCommandEvent& event);
     wxButton* m_gameLocationBrowseButton;
