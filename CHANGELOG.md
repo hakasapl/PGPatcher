@@ -1,5 +1,9 @@
 # Changelog
 
+## UNRELEASED
+
+- Fixed unicode character exception during non-plugin mesh logging
+
 ## [1.1.1] - 2026-05-28
 
 - Fixed unicode character exception during facegen checking
