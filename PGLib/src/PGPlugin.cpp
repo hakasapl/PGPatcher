@@ -234,6 +234,29 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
     PGMutagenWrapper::libSetModelUses(modelUses);
 }
 
+void PGPlugin::updateWinningPluginsWithChanges(const std::vector<std::filesystem::path>& plugins)
+{
+    if (!s_initialized) {
+        return;
+    }
+
+    // backup plugins first
+    for (const auto& plugin : plugins) {
+        const auto backupPath = plugin.string() + ".pgpatcher_bak";
+        try {
+            if (filesystem::exists(backupPath)) {
+                filesystem::remove(backupPath);
+            }
+            filesystem::copy_file(plugin, backupPath);
+        } catch (const std::filesystem::filesystem_error& e) {
+            spdlog::error("Failed to back up plugin {}: {}", plugin.string(), e.what());
+            return;
+        }
+    }
+
+    PGMutagenWrapper::libUpdateWinningPluginsWithChanges(plugins);
+}
+
 void PGPlugin::savePlugin(const filesystem::path& outputDir,
                           bool esmify)
 {

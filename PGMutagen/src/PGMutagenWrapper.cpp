@@ -271,6 +271,28 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
     }
 }
 
+void PGMutagenWrapper::libUpdateWinningPluginsWithChanges(const std::vector<std::filesystem::path>& plugins)
+{
+    // Use vector to manage the memory for LoadOrderArr
+    vector<const wchar_t*> pluginArr;
+    if (!plugins.empty()) {
+        pluginArr.reserve(plugins.size()); // Pre-allocate the vector size
+        for (const auto& mod : plugins) {
+            pluginArr.push_back(mod.c_str()); // Populate the vector with the c_str pointers
+        }
+    }
+
+    // Add the null terminator to the end
+    pluginArr.push_back(nullptr);
+
+    {
+        const lock_guard<mutex> lock(s_libMutex);
+        UpdateWinningPluginsWithChanges(pluginArr.data());
+        libLogMessageIfExists();
+        libThrowExceptionIfExists();
+    }
+}
+
 auto PGMutagenWrapper::utf8toUTF16(const string& str) -> wstring
 {
     // Just return empty string if empty

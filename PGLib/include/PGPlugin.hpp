@@ -268,6 +268,13 @@ public:
     static void setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
 
     /**
+     * @brief Updates plugin records from winning plugins with pgpatcher changes
+     *
+     * @param plugins List of plugin file absolute paths to update
+     */
+    static void updateWinningPluginsWithChanges(const std::vector<std::filesystem::path>& plugins);
+
+    /**
      * @brief Saves the generated output plugin to the given directory.
      *
      * @param outputDir Directory in which to write the output plugin file.

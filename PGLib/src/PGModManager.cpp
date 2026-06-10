@@ -112,6 +112,8 @@ auto PGModManager::getMod(const wstring& modName) const -> shared_ptr<Mod>
     return nullptr;
 }
 
+auto PGModManager::getWinningPluginsToUpdate() const -> vector<filesystem::path> { return m_winningPluginsToUpdate; }
+
 void PGModManager::loadJSON(const nlohmann::json& json)
 {
     if (!json.is_object()) {
@@ -293,30 +295,38 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
     int basePriority = 0;
     unordered_set<wstring> foundMods;
     while (getline(modListFileF, modStr)) {
-        wstring mod = StringUtil::utf8toUTF16(modStr);
-        if (mod.empty()) {
+        const wstring modRaw = StringUtil::utf8toUTF16(modStr);
+        if (modRaw.empty()) {
             // skip empty lines
             continue;
         }
 
-        if (mod.starts_with(L"-") || mod.starts_with(L"*")) {
-            // Skip disabled and uncontrolled mods
-            continue;
-        }
-
-        if (mod.starts_with(L"#")) {
+        if (modRaw.starts_with(L"#")) {
             // Skip comments
             continue;
         }
 
-        if (mod.ends_with(L"_separator")) {
+        if (modRaw.ends_with(L"_separator")) {
             // Skip separators
             continue;
         }
 
-        // loop through all files in mod
-        mod.erase(0, 1); // remove +
+        const wstring mod = modRaw.substr(1); // remove first character for checks below
         const auto curModDir = modDir / mod;
+
+        // check if this mod has plugins to patch later
+        for (const auto& pluginName : s_pluginsToUpdateWithChanges) {
+            const auto pluginPath = curModDir / pluginName;
+            if (filesystem::exists(pluginPath) && m_winningPluginsToUpdateFound.insert(pluginPath).second) {
+                m_winningPluginsToUpdate.push_back(pluginPath);
+                Logger::debug(L"Found winning plugin that may need to updated later: {}", pluginPath.wstring());
+            }
+        }
+
+        if (modRaw.starts_with(L"-") || modRaw.starts_with(L"*")) {
+            // Skip disabled and uncontrolled mods
+            continue;
+        }
 
         // Check if mod folder exists
         if (!filesystem::exists(curModDir)) {

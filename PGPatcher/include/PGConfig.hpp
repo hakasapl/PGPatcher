@@ -66,6 +66,7 @@ public:
         struct Processing {
             bool multithread = true;
             bool pluginESMify = false;
+            bool updateWinningPluginsWithChanges = true;
             bool enableModDevMode = false;
             bool enableDebugLogging = false;
             bool enableTraceLogging = false;
@@ -82,7 +83,8 @@ public:
                     && enableTraceLogging == other.enableTraceLogging
                     && allowedModelRecordTypes == other.allowedModelRecordTypes
                     && vanillaBSAList == other.vanillaBSAList && textureMaps == other.textureMaps
-                    && allowList == other.allowList && blockList == other.blockList;
+                    && allowList == other.allowList && blockList == other.blockList
+                    && updateWinningPluginsWithChanges == other.updateWinningPluginsWithChanges;
             }
         } Processing;
 

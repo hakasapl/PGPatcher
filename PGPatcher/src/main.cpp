@@ -230,7 +230,7 @@ void initLogger(const filesystem::path& logpath,
 }
 
 constexpr auto NUM_PREPARING_STEPS = 11;
-constexpr auto NUM_FINALIZING_STEPS = 5;
+constexpr auto NUM_FINALIZING_STEPS = 6;
 constexpr auto NUM_TOTAL_STEPS = 6;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
@@ -721,6 +721,22 @@ void mainRunnerPost(const ParallaxGenCLIArgs& args,
         // END OUTPUT ZIP
         //
     }
+
+    //
+    // UPDATE WINNING PLUGINS
+    //
+    if (params.Processing.updateWinningPluginsWithChanges) {
+        progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Updating DynDOLOD"); });
+
+        Logger::info("Updating DynDOLOD plugin");
+        PGPlugin::updateWinningPluginsWithChanges(PGGlobals::getPGMM()->getWinningPluginsToUpdate());
+
+        progressWindow->CallAfter(
+            [progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_FINALIZING_STEPS); });
+    }
+    //
+    // END UPDATE WINNING PLUGINS
+    //
 
     progressWindow->CallAfter(
         [progressWindow]() -> void { progressWindow->setMainProgress(6, NUM_TOTAL_STEPS, true); });
