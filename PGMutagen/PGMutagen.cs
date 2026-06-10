@@ -1135,12 +1135,12 @@ public class PGMutagen
         {
             if (Env is null)
             {
-                throw new Exception("Initialize must be called before UpdateWinningPluginWithChanges");
+                throw new Exception("Initialize must be called before UpdateWinningPluginsWithChanges");
             }
 
             if (OutMod is null)
             {
-                throw new Exception("OutMod is null in UpdateWinningPluginWithChanges");
+                throw new Exception("OutMod is null in UpdateWinningPluginsWithChanges");
             }
 
             // load plugins
