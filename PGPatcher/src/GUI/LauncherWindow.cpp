@@ -378,7 +378,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 
     m_processingUpdateWinningPluginsWithChangesCheckbox = new wxCheckBox(this, wxID_ANY, "Update DynDOLOD");
     m_processingUpdateWinningPluginsWithChangesCheckbox->SetToolTip(
-        "Updated DynDOLOD.esp with changes from PG_X.esp to ensure no mismatched textures after regenerating PGPatcher "
+        "Updates DynDOLOD.esp with changes from PG_X.esp to ensure no mismatched textures after regenerating PGPatcher "
         "but not regenerating DynDOLOD.");
     m_processingUpdateWinningPluginsWithChangesCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingUpdateWinningPluginsWithChangesChange, this);
