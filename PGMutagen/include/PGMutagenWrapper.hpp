@@ -64,10 +64,8 @@ public:
 
     /**
      * @brief Populates the internal plugin object graph, optionally merging an existing output mod.
-     *
-     * @param existingModPath Path to an existing output mod to merge into the session; empty to start fresh.
      */
-    static void libPopulateObjs(const std::filesystem::path& existingModPath = {});
+    static void libPopulateObjs();
 
     /**
      * @brief Writes all pending changes to the output plugin file and finalises the session.
@@ -97,6 +95,7 @@ public:
      * @brief Updates winning plugins (like dyndolod) with changes from PGPatcher.esp.
      *
      * @param plugins List of plugin file paths that need to be updated with PGPatcher.esp changes.
+     */
     static void libUpdateWinningPluginsWithChanges(const std::vector<std::filesystem::path>& plugins);
 
 private:

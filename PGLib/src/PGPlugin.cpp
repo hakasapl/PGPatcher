@@ -112,10 +112,7 @@ void PGPlugin::initialize(const BethesdaGame& game,
     s_initialized = true;
 }
 
-void PGPlugin::populateObjs(const filesystem::path& existingModPath)
-{
-    PGMutagenWrapper::libPopulateObjs(existingModPath);
-}
+void PGPlugin::populateObjs() { PGMutagenWrapper::libPopulateObjs(); }
 
 auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                                                     MeshUseAttributes>>

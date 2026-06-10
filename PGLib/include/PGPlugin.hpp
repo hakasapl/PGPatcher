@@ -246,10 +246,8 @@ public:
 
     /**
      * @brief Populates the internal object cache by reading all 3D model records from the loaded plugins.
-     *
-     * @param existingModPath Optional path to a pre-existing PGPatcher output plugin to merge with.
      */
-    static void populateObjs(const std::filesystem::path& existingModPath = {});
+    static void populateObjs();
 
     /**
      * @brief Returns all plugin records that reference the given model path.

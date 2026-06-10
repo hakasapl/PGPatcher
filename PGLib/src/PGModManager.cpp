@@ -259,6 +259,25 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
             ++it;
         }
     }
+
+    // loop through each folder in the staging folder
+    if (!vortexDeployment.contains("stagingPath")) {
+        throw runtime_error("Vortex deployment file does not contain 'stagingPath' field: "
+                            + StringUtil::utf16toUTF8(deploymentFile.wstring()));
+    }
+
+    const filesystem::path stagingPath = StringUtil::utf8toUTF16(vortexDeployment["stagingPath"].get<string>());
+
+    for (const auto& folder : filesystem::directory_iterator(stagingPath)) {
+        // loop through each winning plugin option
+        for (const auto& pluginName : s_pluginsToUpdateWithChanges) {
+            const auto pluginPath = folder.path() / pluginName;
+            if (filesystem::exists(pluginPath) && m_winningPluginsToUpdateFound.insert(pluginPath).second) {
+                m_winningPluginsToUpdate.push_back(pluginPath);
+                Logger::debug(L"Found winning plugin that may need to updated later: {}", pluginPath.wstring());
+            }
+        }
+    }
 }
 
 void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
@@ -267,6 +286,8 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
     // required file is modlist.txt in the profile folder
 
     Logger::info("Populating mods from Mod Organizer 2");
+
+    m_winningPluginsToUpdateFound.clear();
 
     // First read modorganizer.ini in the instance folder to get the profiles and mods folders
     const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";

@@ -352,11 +352,11 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     if (params.Processing.multithread) {
         pluginInit.queueTask([&bg, &exePath, &params]() -> void {
             PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+            PGPlugin::populateObjs();
         });
     } else {
         PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        PGPlugin::populateObjs();
     }
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_PREPARING_STEPS); });

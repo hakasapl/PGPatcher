@@ -282,7 +282,7 @@ public class PGMutagen
     }
 
     [UnmanagedCallersOnly(EntryPoint = "PopulateObjs", CallConvs = [typeof(CallConvCdecl)])]
-    public static void PopulateObjs([DNNE.C99Type("const wchar_t*")] IntPtr oldPGPluginPath)
+    public static void PopulateObjs()
     {
         try
         {
@@ -294,30 +294,6 @@ public class PGMutagen
             if (OutMod is null)
             {
                 throw new Exception("OutMod is null in PopulateObjs");
-            }
-
-            // Get path to old PG plugin
-            string oldModPath = Marshal.PtrToStringUni(oldPGPluginPath) ?? string.Empty;
-            if (!oldModPath.IsNullOrEmpty() && File.Exists(oldModPath))
-            {
-                MessageHandler.Log("Loading old output plugin for cache " + oldModPath, 2);
-                // Add all old PG records to output mod
-                using var oldMod = SkyrimMod.Create(GameType).FromPath(oldModPath).Construct();
-                // loop through all texture sets in old mod
-                foreach (var txst in oldMod.TextureSets)
-                {
-                    var newFormKey = new FormKey(OutMod.ModKey, txst.FormKey.ID);
-                    var newTXSTObj = txst.Duplicate(newFormKey);
-
-                    // Add to output mod
-                    OutMod.TextureSets.Add(newTXSTObj);
-                    allocatedFormIDs.Add(newTXSTObj.FormKey.ID);
-                    lastUsedFormID = newTXSTObj.FormKey.ID;
-
-                    // Add to dictionary (mark as unused)
-                    var textures = GetTextureSet(newTXSTObj);
-                    NewTextureSets[textures] = new Tuple<ITextureSet, bool>(newTXSTObj, false);
-                }
             }
 
             foreach (var modelMajorRec in EnumerateModelRecordsSafe())
@@ -1163,321 +1139,286 @@ public class PGMutagen
                 {
                     if (rec is Mutagen.Bethesda.Skyrim.Activator activator)
                     {
-                        var pluginRec = updatedMod.Activators.GetOrAddAsOverride(activator);
                         if (ModifiedRecords.TryGetValue(activator.FormKey, out IMajorRecord? value) && value is Mutagen.Bethesda.Skyrim.Activator modifiedActivator)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedActivator.Model;
+                            updatedMod.Activators.GetOrAddAsOverride(activator).Model = modifiedActivator.Model;
                         }
                     }
                     else if (rec is Ammunition ammunition)
                     {
-                        var pluginRec = updatedMod.Ammunitions.GetOrAddAsOverride(ammunition);
                         if (ModifiedRecords.TryGetValue(ammunition.FormKey, out IMajorRecord? value) && value is Ammunition modifiedAmmunition)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedAmmunition.Model;
+                            updatedMod.Ammunitions.GetOrAddAsOverride(ammunition).Model = modifiedAmmunition.Model;
                         }
                     }
                     else if (rec is AnimatedObject @object)
                     {
-                        var pluginRec = updatedMod.AnimatedObjects.GetOrAddAsOverride(@object);
                         if (ModifiedRecords.TryGetValue(@object.FormKey, out IMajorRecord? value) && value is AnimatedObject modifiedObject)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedObject.Model;
+                            updatedMod.AnimatedObjects.GetOrAddAsOverride(@object).Model = modifiedObject.Model;
                         }
                     }
                     else if (rec is Armor armor)
                     {
-                        var pluginRec = updatedMod.Armors.GetOrAddAsOverride(armor);
                         if (ModifiedRecords.TryGetValue(armor.FormKey, out IMajorRecord? value) && value is Armor modifiedArmor)
                         {
                             // update MODL record in updatedMod
+                            var pluginRec = updatedMod.Armors.GetOrAddAsOverride(armor);
                             pluginRec.WorldModel = modifiedArmor.WorldModel;
                             pluginRec.Destructible = modifiedArmor.Destructible;
                         }
                     }
                     else if (rec is ArmorAddon addon)
                     {
-                        var pluginRec = updatedMod.ArmorAddons.GetOrAddAsOverride(addon);
                         if (ModifiedRecords.TryGetValue(addon.FormKey, out IMajorRecord? value) && value is ArmorAddon modifiedAddon)
                         {
                             // update MODL record in updatedMod
+                            var pluginRec = updatedMod.ArmorAddons.GetOrAddAsOverride(addon);
                             pluginRec.WorldModel = modifiedAddon.WorldModel;
                             pluginRec.FirstPersonModel = modifiedAddon.FirstPersonModel;
                         }
                     }
                     else if (rec is ArtObject object1)
                     {
-                        var pluginRec = updatedMod.ArtObjects.GetOrAddAsOverride(object1);
                         if (ModifiedRecords.TryGetValue(object1.FormKey, out IMajorRecord? value) && value is ArtObject modifiedObject)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedObject.Model;
+                            updatedMod.ArtObjects.GetOrAddAsOverride(object1).Model = modifiedObject.Model;
                         }
                     }
                     else if (rec is BodyPartData data)
                     {
-                        var pluginRec = updatedMod.BodyParts.GetOrAddAsOverride(data);
                         if (ModifiedRecords.TryGetValue(data.FormKey, out IMajorRecord? value) && value is BodyPartData modifiedData)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedData.Model;
+                            updatedMod.BodyParts.GetOrAddAsOverride(data).Model = modifiedData.Model;
                         }
                     }
                     else if (rec is Book book)
                     {
-                        var pluginRec = updatedMod.Books.GetOrAddAsOverride(book);
                         if (ModifiedRecords.TryGetValue(book.FormKey, out IMajorRecord? value) && value is Book modifiedBook)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedBook.Model;
+                            updatedMod.Books.GetOrAddAsOverride(book).Model = modifiedBook.Model;
                         }
                     }
                     else if (rec is CameraShot shot)
                     {
-                        var pluginRec = updatedMod.CameraShots.GetOrAddAsOverride(shot);
                         if (ModifiedRecords.TryGetValue(shot.FormKey, out IMajorRecord? value) && value is CameraShot modifiedShot)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedShot.Model;
+                            updatedMod.CameraShots.GetOrAddAsOverride(shot).Model = modifiedShot.Model;
                         }
                     }
                     else if (rec is Climate climate)
                     {
-                        var pluginRec = updatedMod.Climates.GetOrAddAsOverride(climate);
                         if (ModifiedRecords.TryGetValue(climate.FormKey, out IMajorRecord? value) && value is Climate modifiedClimate)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedClimate.Model;
+                            updatedMod.Climates.GetOrAddAsOverride(climate).Model = modifiedClimate.Model;
                         }
                     }
                     else if (rec is Container container)
                     {
-                        var pluginRec = updatedMod.Containers.GetOrAddAsOverride(container);
                         if (ModifiedRecords.TryGetValue(container.FormKey, out IMajorRecord? value) && value is Container modifiedContainer)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedContainer.Model;
+                            updatedMod.Containers.GetOrAddAsOverride(container).Model = modifiedContainer.Model;
                         }
                     }
                     else if (rec is Door door)
                     {
-                        var pluginRec = updatedMod.Doors.GetOrAddAsOverride(door);
                         if (ModifiedRecords.TryGetValue(door.FormKey, out IMajorRecord? value) && value is Door modifiedDoor)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedDoor.Model;
+                            updatedMod.Doors.GetOrAddAsOverride(door).Model = modifiedDoor.Model;
                         }
                     }
                     else if (rec is Explosion explosion)
                     {
-                        var pluginRec = updatedMod.Explosions.GetOrAddAsOverride(explosion);
                         if (ModifiedRecords.TryGetValue(explosion.FormKey, out IMajorRecord? value) && value is Explosion modifiedExplosion)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedExplosion.Model;
+                            updatedMod.Explosions.GetOrAddAsOverride(explosion).Model = modifiedExplosion.Model;
                         }
                     }
                     else if (rec is Flora flora)
                     {
-                        var pluginRec = updatedMod.Florae.GetOrAddAsOverride(flora);
                         if (ModifiedRecords.TryGetValue(flora.FormKey, out IMajorRecord? value) && value is Flora modifiedFlora)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedFlora.Model;
+                            updatedMod.Florae.GetOrAddAsOverride(flora).Model = modifiedFlora.Model;
                         }
                     }
                     else if (rec is Furniture furniture)
                     {
-                        var pluginRec = updatedMod.Furniture.GetOrAddAsOverride(furniture);
                         if (ModifiedRecords.TryGetValue(furniture.FormKey, out IMajorRecord? value) && value is Furniture modifiedFurniture)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedFurniture.Model;
+                            updatedMod.Furniture.GetOrAddAsOverride(furniture).Model = modifiedFurniture.Model;
                         }
                     }
                     else if (rec is Grass grass)
                     {
-                        var pluginRec = updatedMod.Grasses.GetOrAddAsOverride(grass);
                         if (ModifiedRecords.TryGetValue(grass.FormKey, out IMajorRecord? value) && value is Grass modifiedGrass)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedGrass.Model;
+                            updatedMod.Grasses.GetOrAddAsOverride(grass).Model = modifiedGrass.Model;
                         }
                     }
                     else if (rec is Hazard hazard)
                     {
-                        var pluginRec = updatedMod.Hazards.GetOrAddAsOverride(hazard);
                         if (ModifiedRecords.TryGetValue(hazard.FormKey, out IMajorRecord? value) && value is Hazard modifiedHazard)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedHazard.Model;
+                            updatedMod.Hazards.GetOrAddAsOverride(hazard).Model = modifiedHazard.Model;
                         }
                     }
                     else if (rec is HeadPart part)
                     {
-                        var pluginRec = updatedMod.HeadParts.GetOrAddAsOverride(part);
                         if (ModifiedRecords.TryGetValue(part.FormKey, out IMajorRecord? value) && value is HeadPart modifiedPart)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedPart.Model;
+                            updatedMod.HeadParts.GetOrAddAsOverride(part).Model = modifiedPart.Model;
                         }
                     }
                     else if (rec is IdleMarker marker)
                     {
-                        var pluginRec = updatedMod.IdleMarkers.GetOrAddAsOverride(marker);
                         if (ModifiedRecords.TryGetValue(marker.FormKey, out IMajorRecord? value) && value is IdleMarker modifiedMarker)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedMarker.Model;
+                            updatedMod.IdleMarkers.GetOrAddAsOverride(marker).Model = modifiedMarker.Model;
                         }
                     }
                     else if (rec is Impact impact)
                     {
-                        var pluginRec = updatedMod.Impacts.GetOrAddAsOverride(impact);
                         if (ModifiedRecords.TryGetValue(impact.FormKey, out IMajorRecord? value) && value is Impact modifiedImpact)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedImpact.Model;
+                            updatedMod.Impacts.GetOrAddAsOverride(impact).Model = modifiedImpact.Model;
                         }
                     }
                     else if (rec is Ingestible ingestible)
                     {
-                        var pluginRec = updatedMod.Ingestibles.GetOrAddAsOverride(ingestible);
                         if (ModifiedRecords.TryGetValue(ingestible.FormKey, out IMajorRecord? value) && value is Ingestible modifiedIngestible)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedIngestible.Model;
+                            updatedMod.Ingestibles.GetOrAddAsOverride(ingestible).Model = modifiedIngestible.Model;
                         }
                     }
                     else if (rec is Ingredient ingredient)
                     {
-                        var pluginRec = updatedMod.Ingredients.GetOrAddAsOverride(ingredient);
                         if (ModifiedRecords.TryGetValue(ingredient.FormKey, out IMajorRecord? value) && value is Ingredient modifiedIngredient)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedIngredient.Model;
+                            updatedMod.Ingredients.GetOrAddAsOverride(ingredient).Model = modifiedIngredient.Model;
                         }
                     }
                     else if (rec is Key key)
                     {
-                        var pluginRec = updatedMod.Keys.GetOrAddAsOverride(key);
                         if (ModifiedRecords.TryGetValue(key.FormKey, out IMajorRecord? value) && value is Key modifiedKey)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedKey.Model;
+                            updatedMod.Keys.GetOrAddAsOverride(key).Model = modifiedKey.Model;
                         }
                     }
                     else if (rec is LeveledNpc npc)
                     {
-                        var pluginRec = updatedMod.LeveledNpcs.GetOrAddAsOverride(npc);
                         if (ModifiedRecords.TryGetValue(npc.FormKey, out IMajorRecord? value) && value is LeveledNpc modifiedNpc)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedNpc.Model;
+                            updatedMod.LeveledNpcs.GetOrAddAsOverride(npc).Model = modifiedNpc.Model;
                         }
                     }
                     else if (rec is Light light)
                     {
-                        var pluginRec = updatedMod.Lights.GetOrAddAsOverride(light);
                         if (ModifiedRecords.TryGetValue(light.FormKey, out IMajorRecord? value) && value is Light modifiedLight)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedLight.Model;
+                            updatedMod.Lights.GetOrAddAsOverride(light).Model = modifiedLight.Model;
                         }
                     }
                     else if (rec is MaterialObject object2)
                     {
-                        var pluginRec = updatedMod.MaterialObjects.GetOrAddAsOverride(object2);
                         if (ModifiedRecords.TryGetValue(object2.FormKey, out IMajorRecord? value) && value is MaterialObject modifiedObject)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedObject.Model;
+                            updatedMod.MaterialObjects.GetOrAddAsOverride(object2).Model = modifiedObject.Model;
                         }
                     }
                     else if (rec is MiscItem item)
                     {
-                        var pluginRec = updatedMod.MiscItems.GetOrAddAsOverride(item);
                         if (ModifiedRecords.TryGetValue(item.FormKey, out IMajorRecord? value) && value is MiscItem modifiedItem)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedItem.Model;
+                            updatedMod.MiscItems.GetOrAddAsOverride(item).Model = modifiedItem.Model;
                         }
                     }
                     else if (rec is MoveableStatic rec_static)
                     {
-                        var pluginRec = updatedMod.MoveableStatics.GetOrAddAsOverride(rec_static);
                         if (ModifiedRecords.TryGetValue(rec_static.FormKey, out IMajorRecord? value) && value is MoveableStatic modifiedStatic)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedStatic.Model;
+                            updatedMod.MoveableStatics.GetOrAddAsOverride(rec_static).Model = modifiedStatic.Model;
                         }
                     }
                     else if (rec is Projectile projectile)
                     {
-                        var pluginRec = updatedMod.Projectiles.GetOrAddAsOverride(projectile);
                         if (ModifiedRecords.TryGetValue(projectile.FormKey, out IMajorRecord? value) && value is Projectile modifiedProjectile)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedProjectile.Model;
+                            updatedMod.Projectiles.GetOrAddAsOverride(projectile).Model = modifiedProjectile.Model;
                         }
                     }
                     else if (rec is Scroll scroll)
                     {
-                        var pluginRec = updatedMod.Scrolls.GetOrAddAsOverride(scroll);
                         if (ModifiedRecords.TryGetValue(scroll.FormKey, out IMajorRecord? value) && value is Scroll modifiedScroll)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedScroll.Model;
+                            updatedMod.Scrolls.GetOrAddAsOverride(scroll).Model = modifiedScroll.Model;
                         }
                     }
                     else if (rec is SoulGem gem)
                     {
-                        var pluginRec = updatedMod.SoulGems.GetOrAddAsOverride(gem);
                         if (ModifiedRecords.TryGetValue(gem.FormKey, out IMajorRecord? value) && value is SoulGem modifiedGem)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedGem.Model;
+                            updatedMod.SoulGems.GetOrAddAsOverride(gem).Model = modifiedGem.Model;
                         }
                     }
                     else if (rec is IStaticGetter static1)
                     {
-                        var pluginRec = updatedMod.Statics.GetOrAddAsOverride(static1);
-                        MessageHandler.Log("Processing Static record: " + GetRecordDesc(static1), 4);
                         if (ModifiedRecords.TryGetValue(static1.FormKey, out IMajorRecord? value) && value is Static modifiedStatic)
                         {
-                            MessageHandler.Log("Updating model for Static record: " + GetRecordDesc(static1), 4);
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedStatic.Model;
+                            updatedMod.Statics.GetOrAddAsOverride(static1).Model = modifiedStatic.Model;
                         }
                     }
                     else if (rec is TalkingActivator activator1)
                     {
-                        var pluginRec = updatedMod.TalkingActivators.GetOrAddAsOverride(activator1);
                         if (ModifiedRecords.TryGetValue(activator1.FormKey, out IMajorRecord? value) && value is TalkingActivator modifiedActivator)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedActivator.Model;
+                            updatedMod.TalkingActivators.GetOrAddAsOverride(activator1).Model = modifiedActivator.Model;
                         }
                     }
                     else if (rec is Tree tree)
                     {
-                        var pluginRec = updatedMod.Trees.GetOrAddAsOverride(tree);
                         if (ModifiedRecords.TryGetValue(tree.FormKey, out IMajorRecord? value) && value is Tree modifiedTree)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedTree.Model;
+                            updatedMod.Trees.GetOrAddAsOverride(tree).Model = modifiedTree.Model;
                         }
                     }
                     else if (rec is Weapon weapon)
                     {
-                        var pluginRec = updatedMod.Weapons.GetOrAddAsOverride(weapon);
                         if (ModifiedRecords.TryGetValue(weapon.FormKey, out IMajorRecord? value) && value is Weapon modifiedWeapon)
                         {
                             // update MODL record in updatedMod
-                            pluginRec.Model = modifiedWeapon.Model;
+                            updatedMod.Weapons.GetOrAddAsOverride(weapon).Model = modifiedWeapon.Model;
                         }
                     }
                 }
