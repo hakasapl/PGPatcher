@@ -96,8 +96,7 @@ public:
     /**
      * @brief Updates winning plugins (like dyndolod) with changes from PGPatcher.esp.
      *
-     * @param plugins List of plugin file paths that need to updated with PGPatcher.esp changes
-     */
+     * @param plugins List of plugin file paths that need to be updated with PGPatcher.esp changes.
     static void libUpdateWinningPluginsWithChanges(const std::vector<std::filesystem::path>& plugins);
 
 private:
