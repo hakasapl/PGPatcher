@@ -108,8 +108,8 @@ try {
             $copyFile = $true
         }
 
-        # Check if file is "PGMutagen.runtimeconfig.json"
-        if ($_.Name -eq 'PGMutagen.runtimeconfig.json') {
+        # Check if file ends in .json (runtimeconfig, deps, etc.)
+        if ($_.Name -match '\.json$') {
             $copyFile = $true
         }
 
