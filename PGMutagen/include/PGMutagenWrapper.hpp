@@ -63,7 +63,7 @@ public:
                               const unsigned int& lang = 0);
 
     /**
-     * @brief Populates the internal plugin object graph, optionally merging an existing output mod.
+     * @brief Populates the internal plugin object graph
      */
     static void libPopulateObjs();
 

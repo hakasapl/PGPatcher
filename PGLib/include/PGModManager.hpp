@@ -70,7 +70,7 @@ private:
 
     std::vector<std::filesystem::path> m_winningPluginsToUpdate;
     std::unordered_set<std::filesystem::path> m_winningPluginsToUpdateFound;
-    static inline std::vector<std::filesystem::path> s_pluginsToUpdateWithChanges = {"DynDOLOD.esp"};
+    const static inline std::vector<std::filesystem::path> s_pluginsToUpdateWithChanges = {"DynDOLOD.esp"};
 
     ModManagerType m_mmType;
 

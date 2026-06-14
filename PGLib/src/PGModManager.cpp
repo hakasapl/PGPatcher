@@ -266,6 +266,8 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
                             + StringUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
+    m_winningPluginsToUpdateFound.clear();
+
     const filesystem::path stagingPath = StringUtil::utf8toUTF16(vortexDeployment["stagingPath"].get<string>());
 
     for (const auto& folder : filesystem::directory_iterator(stagingPath)) {

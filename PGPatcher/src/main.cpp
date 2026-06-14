@@ -730,10 +730,9 @@ void mainRunnerPost(const ParallaxGenCLIArgs& args,
 
         Logger::info("Updating DynDOLOD plugin");
         PGPlugin::updateWinningPluginsWithChanges(PGGlobals::getPGMM()->getWinningPluginsToUpdate());
-
-        progressWindow->CallAfter(
-            [progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_FINALIZING_STEPS); });
     }
+
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_FINALIZING_STEPS); });
     //
     // END UPDATE WINNING PLUGINS
     //
