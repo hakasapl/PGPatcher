@@ -113,6 +113,9 @@ set(CSHARP_SOURCES
 
 add_custom_command(
     OUTPUT ${PGMUTAGEN_LIB}
+    # OutputPath controls where DNNE emits PGMutagenNE.lib (used by the C++ linker at build time).
+    # --output (PublishDir) controls where the runtime and managed DLLs land for shipping.
+    # Both point to the same directory so all artifacts end up in one place.
     COMMAND dotnet publish "${GENERATED_CSPROJ}"
         -c ${MSBUILD_CONFIGURATION}
         -r win-x64
