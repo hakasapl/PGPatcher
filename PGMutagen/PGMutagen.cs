@@ -13,8 +13,6 @@ using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Plugins.Records;
 using Noggog;
 
-// Harmony
-using HarmonyLib;
 using Mutagen.Bethesda.Plugins.Exceptions;
 using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Plugins.Binary.Streams;
@@ -164,12 +162,9 @@ public class PGMutagen
     {
         try
         {
-            // Setup harmony patches
+            // Set base directory so Mutagen can resolve assemblies relative to our DLL location
             string ExePath = Marshal.PtrToStringUni(exePath) ?? string.Empty;
-            PatchBaseDirectory.BaseDirectory = ExePath;
-
-            var harmony = new Harmony("com.github.hakasapl.pgpatcher.pgmutagen");
-            harmony.PatchAll();
+            AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", ExePath);
 
             // Main method
             string dataPath = Marshal.PtrToStringUni(dataPathPtr) ?? string.Empty;
@@ -1689,23 +1684,5 @@ public class PGMutagen
         if (rec is IWeaponGetter) return "WEAP";
 
         return "";
-    }
-}
-
-
-// HARMONY PATCHES
-
-[HarmonyPatch(typeof(AppDomain))]
-[HarmonyPatch("get_BaseDirectory")]
-public static class PatchBaseDirectory
-{
-    public static string? BaseDirectory;
-
-    public static bool Prefix(ref string __result)
-    {
-        __result = BaseDirectory ?? string.Empty;
-
-        // don't invoke original method
-        return false;
     }
 }
