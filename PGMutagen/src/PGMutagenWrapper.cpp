@@ -28,10 +28,28 @@
 using namespace std;
 
 namespace {
-void dnneFailure([[maybe_unused]] enum failure_type type,
-                 [[maybe_unused]] int errorCode)
+void dnneFailure(enum failure_type type, int errorCode)
 {
-    spdlog::critical("DotNet Wrapper failed to load, verify .NET runtime is installed properly");
+    switch (type) {
+    case failure_load_runtime:
+        spdlog::critical(
+            "DotNet Wrapper failed to load the .NET runtime (error: 0x{:08X}). "
+            "Ensure nethost.dll, hostfxr.dll, hostpolicy.dll, and coreclr.dll are present "
+            "alongside PGMutagenNE.dll.",
+            static_cast<unsigned int>(errorCode));
+        break;
+    case failure_load_export:
+        spdlog::critical(
+            "DotNet Wrapper failed to load a managed export (error: 0x{:08X}). "
+            "Ensure PGMutagen.dll is present and matches the expected version.",
+            static_cast<unsigned int>(errorCode));
+        break;
+    default:
+        spdlog::critical("DotNet Wrapper failed with unknown type {} (error: 0x{:08X}).",
+                         static_cast<int>(type),
+                         static_cast<unsigned int>(errorCode));
+        break;
+    }
 }
 } // namespace
 
@@ -104,6 +122,20 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
                                      const unsigned int& lang)
 {
     set_failure_callback(dnneFailure);
+
+    // Proactively try to load the .NET runtime. try_preload_runtime() returns an error
+    // code on failure instead of calling abort(), giving us the chance to surface a
+    // proper exception to the caller.
+    const int runtimeRC = try_preload_runtime();
+    if (runtimeRC != 0) {
+        spdlog::critical(
+            "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}). "
+            "Ensure nethost.dll, hostfxr.dll, and all accompanying runtime DLLs are present "
+            "alongside PGMutagenNE.dll.",
+            static_cast<unsigned int>(runtimeRC));
+        throw runtime_error("PGMutagenWrapper: .NET runtime failed to initialize. "
+                            "Check the log for details.");
+    }
 
     // Use vector to manage the memory for LoadOrderArr
     vector<const wchar_t*> loadOrderArr;
