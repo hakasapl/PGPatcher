@@ -88,3 +88,22 @@ add_subdirectory(PGMutagen)
 add_subdirectory(PGPatcher)
 add_subdirectory(PGLib)
 add_subdirectory(PGTools)
+
+# Include VCRedist DLLs in the output
+if(DEFINED ENV{VCToolsRedistDir} AND NOT "$ENV{VCToolsRedistDir}" STREQUAL "")
+  file(GLOB MSVC_REDIST_DIR
+    "$ENV{VCToolsRedistDir}x64/Microsoft.VC*.CRT"
+  )
+
+  add_custom_command(
+    OUTPUT copy_runtime_dlls_stamp
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${MSVC_REDIST_DIR}"
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    COMMAND ${CMAKE_COMMAND} -E touch copy_runtime_dlls_stamp
+  )
+
+  add_custom_target(copy_runtime_dlls ALL
+    DEPENDS copy_runtime_dlls_stamp
+  )
+endif()
