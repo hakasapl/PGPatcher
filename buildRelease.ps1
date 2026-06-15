@@ -103,13 +103,17 @@ try {
         # Bool to see if file should be copied
         $copyFile = $false
 
-        # Check if file ends in .dll
-        if ($_.Name -match '\.dll$' -or $_.Name -match '\.exe$' -or $_.Name -match '\.pdb$') {
+        # Check if file ends in .dll or .pdb, or is a whitelisted .exe
+        $allowedExes = @('PGPatcher.exe', 'pgtools.exe')
+        if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
+            $copyFile = $true
+        }
+        if ($_.Name -match '\.exe$' -and $allowedExes -contains $_.Name) {
             $copyFile = $true
         }
 
-        # Check if file is "PGMutagen.runtimeconfig.json"
-        if ($_.Name -eq 'PGMutagen.runtimeconfig.json') {
+        # Check if file ends in .json (runtimeconfig, deps)
+        if ($_.Name -match '\.(runtimeconfig|deps)\.json$') {
             $copyFile = $true
         }
 

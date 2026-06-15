@@ -86,6 +86,7 @@ include_directories(${PGMUTAGENNE_OBJ_DIR}/flatbuffers)
 execute_process(
     COMMAND dotnet restore "${GENERATED_CSPROJ}"
         --packages "${PGMUTAGENNE_BUILD_DIR}/.nuget/packages"
+        -r win-x64
         /p:BaseIntermediateOutputPath="${PGMUTAGENNE_BUILD_DIR}/obj/"
         /p:BaseOutputPath="${PGMUTAGENNE_BUILD_DIR}/bin/"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -112,16 +113,22 @@ set(CSHARP_SOURCES
 
 add_custom_command(
     OUTPUT ${PGMUTAGEN_LIB}
-    COMMAND msbuild PGMutagen.csproj
-        -p:Configuration=${MSBUILD_CONFIGURATION}
+    # OutputPath controls where DNNE emits PGMutagenNE.lib (used by the C++ linker at build time).
+    # --output (PublishDir) controls where the runtime and managed DLLs land for shipping.
+    # Both point to the same directory so all artifacts end up in one place.
+    COMMAND dotnet publish "${GENERATED_CSPROJ}"
+        -c ${MSBUILD_CONFIGURATION}
+        -r win-x64
+        --self-contained true
+        --no-restore
         -p:Platform=x64
         -p:OutputPath=${PGMUTAGENNE_BIN_DIR}/
         -p:BaseIntermediateOutputPath=${PGMUTAGENNE_OBJ_DIR}/
-        -p:BaseOutputPath=${PGMUTAGENNE_BIN_DIR}/
+        --output ${PGMUTAGENNE_BIN_DIR}/
     DEPENDS
         ${CSHARP_SOURCES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Building PGMutagenNE.lib"
+    COMMENT "Building PGMutagenNE.lib (self-contained)"
 )
 
 add_custom_target(PGMutagenNE

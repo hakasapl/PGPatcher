@@ -28,10 +28,27 @@
 using namespace std;
 
 namespace {
-void dnneFailure([[maybe_unused]] enum failure_type type,
-                 [[maybe_unused]] int errorCode)
+constexpr auto DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE
+    = "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}).";
+
+void dnneFailure(enum failure_type type,
+                 int errorCode)
 {
-    spdlog::critical("DotNet Wrapper failed to load, verify .NET runtime is installed properly");
+    switch (type) {
+    case failure_load_runtime:
+        spdlog::critical(DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE, static_cast<unsigned int>(errorCode));
+        break;
+    case failure_load_export:
+        spdlog::critical("DotNet Wrapper failed to load a managed export (error: 0x{:08X}). "
+                         "Ensure PGMutagen.dll is present and matches the expected version.",
+                         static_cast<unsigned int>(errorCode));
+        break;
+    default:
+        spdlog::critical("DotNet Wrapper failed with unknown type {} (error: 0x{:08X}).",
+                         static_cast<int>(type),
+                         static_cast<unsigned int>(errorCode));
+        break;
+    }
 }
 } // namespace
 
@@ -103,6 +120,16 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
                                      const vector<wstring>& loadOrder,
                                      const unsigned int& lang)
 {
+    // Proactively try to load the .NET runtime. try_preload_runtime() returns an error
+    // code on failure instead of calling abort(), giving us the chance to surface a
+    // proper exception to the caller.
+    const int runtimeRC = try_preload_runtime();
+    if (runtimeRC != 0) {
+        spdlog::critical(DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE, static_cast<unsigned int>(runtimeRC));
+        throw runtime_error("PGMutagenWrapper: .NET runtime failed to initialize. "
+                            "Check the log for details.");
+    }
+
     set_failure_callback(dnneFailure);
 
     // Use vector to manage the memory for LoadOrderArr
