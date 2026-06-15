@@ -28,15 +28,16 @@
 using namespace std;
 
 namespace {
+constexpr auto DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE
+    = "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}). "
+      "Ensure nethost.dll, hostfxr.dll, and all accompanying runtime DLLs are present "
+      "alongside PGMutagenNE.dll.";
+
 void dnneFailure(enum failure_type type, int errorCode)
 {
     switch (type) {
     case failure_load_runtime:
-        spdlog::critical(
-            "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}). "
-            "Ensure nethost.dll, hostfxr.dll, and all accompanying runtime DLLs are present "
-            "alongside PGMutagenNE.dll.",
-            static_cast<unsigned int>(errorCode));
+        spdlog::critical(DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE, static_cast<unsigned int>(errorCode));
         break;
     case failure_load_export:
         spdlog::critical(
@@ -128,11 +129,7 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
     // proper exception to the caller.
     const int runtimeRC = try_preload_runtime();
     if (runtimeRC != 0) {
-        spdlog::critical(
-            "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}). "
-            "Ensure nethost.dll, hostfxr.dll, and all accompanying runtime DLLs are present "
-            "alongside PGMutagenNE.dll.",
-            static_cast<unsigned int>(runtimeRC));
+        spdlog::critical(DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE, static_cast<unsigned int>(runtimeRC));
         throw runtime_error("PGMutagenWrapper: .NET runtime failed to initialize. "
                             "Check the log for details.");
     }
