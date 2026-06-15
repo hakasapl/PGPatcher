@@ -47,7 +47,7 @@ function New-LauncherExe {
         throw "Unable to find csc compiler required to generate launcher executable."
     }
 
-    $sourceFile = Join-Path -Path $buildDir -ChildPath ("launcher-" + [System.Guid]::NewGuid().ToString() + ".cs")
+    $sourceFile = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ("pgpatcher-launcher-" + [System.Guid]::NewGuid().ToString() + ".cs")
 
     $launcherSource = @"
 using System;
