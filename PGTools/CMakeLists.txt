@@ -24,6 +24,12 @@ add_executable(${EXE_NAME}
     ${CMAKE_CURRENT_BINARY_DIR}/resources/meta.rc
 )
 
+# Delay load c# wrapper
+if(MSVC)
+    target_link_options(${EXE_NAME} PRIVATE "/DELAYLOAD:PGLib.dll")
+    target_link_libraries(${EXE_NAME} PRIVATE delayimp)
+endif()
+
 #
 # VCPKG Dependencies
 #
@@ -36,15 +42,10 @@ target_link_libraries(${EXE_NAME} PRIVATE
     cpptrace::cpptrace
 )
 
-if(MSVC)
-    target_link_options(${EXE_NAME} PRIVATE "/DELAYLOAD:PGLib.dll")
-    target_link_libraries(${EXE_NAME} PRIVATE delayimp)
-endif()
-
 add_custom_command(TARGET ${EXE_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${EXE_NAME}>/lib"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${EXE_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_RUNTIME_DLLS:${EXE_NAME}>
-        "$<TARGET_FILE_DIR:${EXE_NAME}>/lib"
+        "$<TARGET_FILE_DIR:${EXE_NAME}>"
     COMMAND_EXPAND_LISTS
 )

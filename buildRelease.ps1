@@ -86,10 +86,8 @@ $zipFile = Join-Path -Path $distDir -ChildPath "PGPatcher.zip"
 # Create a temporary directory to collect the files
 $tempDir = Join-Path -Path $distDir -ChildPath "PGPatcher"
 $fileDir = Join-Path -Path $tempDir -ChildPath "PGPatcher"
-$libDir = Join-Path -Path $fileDir -ChildPath "lib"
 New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
 New-Item -Path $fileDir -ItemType Directory -Force | Out-Null
-New-Item -Path $libDir -ItemType Directory -Force | Out-Null
 
 try {
     # Copy DLLs, EXEs, JSONs and folders from build/bin
@@ -100,13 +98,16 @@ try {
 
     Write-Host "Copying files and directories from $sourceBinDir..."
 
-    # Copy EXEs, asset folders, and the pre-built lib directory from build/bin
-    $allowedExes = @('PGPatcher.exe', 'pgtools.exe')
+    # Copy DLLs, EXEs, and JSONs
     Get-ChildItem -Path $sourceBinDir | ForEach-Object {
         # Bool to see if file should be copied
         $copyFile = $false
 
-        # Check if file is a whitelisted .exe
+        # Check if file ends in .dll or .pdb, or is a whitelisted .exe
+        $allowedExes = @('PGPatcher.exe', 'pgtools.exe')
+        if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
+            $copyFile = $true
+        }
         if ($_.Name -match '\.exe$' -and $allowedExes -contains $_.Name) {
             $copyFile = $true
         }
@@ -125,15 +126,46 @@ try {
             $copyFile = $true
         }
 
-        # Check if is the pre-built lib folder (contains all DLLs, PDBs, runtimes, etc.)
-        if ($_.PSIsContainer -and $_.Name -eq 'lib') {
-            $copyFile = $true
+        # Check if is folder and name is "dotnetlib". If so, copy only .dll files, .pdb files, PGMutagen.runtimeconfig.json, and PGMutagen.deps.json
+        if ($_.PSIsContainer -and $_.Name -eq 'dotnetlib') {
+            Get-ChildItem -Path $_.FullName -Recurse | ForEach-Object {
+                $copyInnerFile = $false
+
+                if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
+                    $copyInnerFile = $true
+                }
+
+                if ($_.Name -match 'PGMutagen\.(runtimeconfig|deps)\.json$') {
+                    $copyInnerFile = $true
+                }
+
+                # Copy runtimes folder if present
+                if ($_.PSIsContainer -and $_.Name -eq 'runtimes') {
+                    $copyInnerFile = $true
+                }
+
+                if ($copyInnerFile) {
+                    $destPath = Join-Path -Path $fileDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
+                    $destDir = Split-Path -Path $destPath -Parent
+
+                    # Create destination directory if it doesn't exist
+                    if (-not (Test-Path -Path $destDir -PathType Container)) {
+                        New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+                    }
+
+                    # Copy the file
+                    Write-Host "Copying file: $($_.FullName) to $destPath"
+                    Copy-Item -Path $_.FullName -Destination $destPath -Recurse -Force
+                }
+            }
+
+            # Skip copying the root "dotnetlib" folder itself, since we already copied the necessary files inside it
+            return
         }
 
         # Copy file if the conditions are met
         if ($copyFile) {
-            $destBaseDir = $fileDir
-            $destPath = Join-Path -Path $destBaseDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
+            $destPath = Join-Path -Path $fileDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
             $destDir = Split-Path -Path $destPath -Parent
 
             # Create destination directory if it doesn't exist
@@ -144,16 +176,6 @@ try {
             # Copy the file
             Write-Host "Copying file: $($_.FullName) to $destPath"
             Copy-Item -Path $_.FullName -Destination $destPath -Recurse -Force
-        }
-    }
-
-    # Validate executables can run with DLLs in lib
-    foreach ($exeName in $allowedExes) {
-        $exePath = Join-Path -Path $fileDir -ChildPath $exeName
-        Write-Host "Validating runtime for $exeName"
-        $validationOutput = (& $exePath --help 2>&1 | Out-String).Trim()
-        if ($LASTEXITCODE -ne 0) {
-            throw "Runtime validation failed for $exeName with exit code $LASTEXITCODE.`n$validationOutput"
         }
     }
 
