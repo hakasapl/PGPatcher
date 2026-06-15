@@ -60,11 +60,11 @@ target_include_directories(${LIBRARY_NAME} PUBLIC include)
 # Shader Files
 #
 add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders"
+    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/cshaders
-        "$<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders"
+        $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
 )
 
 # include and link mutagen wrapper output
