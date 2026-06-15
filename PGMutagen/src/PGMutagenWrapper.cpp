@@ -122,8 +122,6 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
                                      const vector<wstring>& loadOrder,
                                      const unsigned int& lang)
 {
-    set_failure_callback(dnneFailure);
-
     // Proactively try to load the .NET runtime. try_preload_runtime() returns an error
     // code on failure instead of calling abort(), giving us the chance to surface a
     // proper exception to the caller.
@@ -133,6 +131,8 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
         throw runtime_error("PGMutagenWrapper: .NET runtime failed to initialize. "
                             "Check the log for details.");
     }
+
+    set_failure_callback(dnneFailure);
 
     // Use vector to manage the memory for LoadOrderArr
     vector<const wchar_t*> loadOrderArr;
