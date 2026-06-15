@@ -40,6 +40,12 @@ target_link_libraries(${EXE_NAME} PRIVATE
     cpptrace::cpptrace
 )
 
+# Delay load c# wrapper
+if(MSVC)
+    target_link_options(${EXE_NAME} PRIVATE "/DELAYLOAD:PGLib.dll")
+    target_link_libraries(${EXE_NAME} PRIVATE delayimp)
+endif()
+
 #
 # Assets
 #

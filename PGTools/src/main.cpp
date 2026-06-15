@@ -58,6 +58,24 @@ auto getExecutablePath() -> filesystem::path
     return {};
 }
 
+void configureDotnetLibDirectory(const filesystem::path& exeDir)
+{
+    const auto libDir = exeDir / "dotnetlib";
+    if (!filesystem::exists(libDir)) {
+        return;
+    }
+
+    if (SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS) == 0) {
+        cerr << "Failed to configure DLL search directories.\n";
+        exit(1);
+    }
+
+    if (AddDllDirectory(libDir.c_str()) == nullptr) {
+        cerr << "Failed to add dotnetlib directory to DLL search path.\n";
+        exit(1);
+    }
+}
+
 struct PGToolsCLIArgs {
     int verbosity = 0;
     bool multithreading = true;
@@ -288,6 +306,9 @@ auto main(int argC,
 #endif
 
     SetConsoleOutputCP(CP_UTF8);
+
+    const auto exePath = getExecutablePath().parent_path();
+    configureDotnetLibDirectory(exePath);
 
     // CLI Arguments
     PGToolsCLIArgs args;

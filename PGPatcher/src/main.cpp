@@ -229,6 +229,24 @@ void initLogger(const filesystem::path& logpath,
     }
 }
 
+void configureDotNetLibDirectory(const filesystem::path& exeDir)
+{
+    const auto libDir = exeDir / "dotnetlib";
+    if (!filesystem::exists(libDir)) {
+        return;
+    }
+
+    if (SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS) == 0) {
+        cerr << "Failed to configure DLL search directories.\n";
+        exit(1);
+    }
+
+    if (AddDllDirectory(libDir.c_str()) == nullptr) {
+        cerr << "Failed to add dotnetlib directory to DLL search path.\n";
+        exit(1);
+    }
+}
+
 constexpr auto NUM_PREPARING_STEPS = 11;
 constexpr auto NUM_FINALIZING_STEPS = 5;
 constexpr auto NUM_TOTAL_STEPS = 6;
@@ -921,6 +939,7 @@ auto WINAPI WinMain(HINSTANCE /*hInstance*/,
 
     // Find location of ParallaxGen.exe
     const filesystem::path exePath = PGHandlers::getExePath().parent_path();
+    configureDotNetLibDirectory(exePath);
 
     // CLI Arguments
     ParallaxGenCLIArgs args;

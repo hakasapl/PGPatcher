@@ -112,11 +112,6 @@ try {
             $copyFile = $true
         }
 
-        # Check if file ends in .json (runtimeconfig, deps)
-        if ($_.Name -match '\.(runtimeconfig|deps)\.json$') {
-            $copyFile = $true
-        }
-
         # Check if is folder and name is "assets"
         if ($_.PSIsContainer -and $_.Name -eq 'assets') {
             $copyFile = $true
@@ -131,9 +126,41 @@ try {
             $copyFile = $true
         }
 
-        # Check if is folder and name is "runtimes"
-        if ($_.PSIsContainer -and $_.Name -eq 'runtimes') {
-            $copyFile = $true
+        # Check if is folder and name is "dotnetlib". If so, copy only .dll files, .pdb files, PGMutagen.runtimeconfig.json, and PGMutagen.deps.json
+        if ($_.PSIsContainer -and $_.Name -eq 'dotnetlib') {
+            Get-ChildItem -Path $_.FullName -Recurse | ForEach-Object {
+                $copyInnerFile = $false
+
+                if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
+                    $copyInnerFile = $true
+                }
+
+                if ($_.Name -match 'PGMutagen\.(runtimeconfig|deps)\.json$') {
+                    $copyInnerFile = $true
+                }
+
+                # Copy runtimes folder if present
+                if ($_.PSIsContainer -and $_.Name -eq 'runtimes') {
+                    $copyInnerFile = $true
+                }
+
+                if ($copyInnerFile) {
+                    $destPath = Join-Path -Path $fileDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
+                    $destDir = Split-Path -Path $destPath -Parent
+
+                    # Create destination directory if it doesn't exist
+                    if (-not (Test-Path -Path $destDir -PathType Container)) {
+                        New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+                    }
+
+                    # Copy the file
+                    Write-Host "Copying file: $($_.FullName) to $destPath"
+                    Copy-Item -Path $_.FullName -Destination $destPath -Recurse -Force
+                }
+            }
+
+            # Skip copying the root "dotnetlib" folder itself, since we already copied the necessary files inside it
+            return
         }
 
         # Copy file if the conditions are met
