@@ -33,8 +33,8 @@ void dnneFailure(enum failure_type type, int errorCode)
     switch (type) {
     case failure_load_runtime:
         spdlog::critical(
-            "DotNet Wrapper failed to load the .NET runtime (error: 0x{:08X}). "
-            "Ensure nethost.dll, hostfxr.dll, hostpolicy.dll, and coreclr.dll are present "
+            "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}). "
+            "Ensure nethost.dll, hostfxr.dll, and all accompanying runtime DLLs are present "
             "alongside PGMutagenNE.dll.",
             static_cast<unsigned int>(errorCode));
         break;
