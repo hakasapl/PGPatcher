@@ -68,6 +68,10 @@ private:
     std::unordered_map<std::wstring, std::shared_ptr<Mod>> m_modMap;
     std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
 
+    std::vector<std::filesystem::path> m_winningPluginsToUpdate;
+    std::unordered_set<std::filesystem::path> m_winningPluginsToUpdateFound;
+    const static inline std::vector<std::filesystem::path> s_pluginsToUpdateWithChanges = {"DynDOLOD.esp"};
+
     ModManagerType m_mmType;
 
     static constexpr const char* MO2INI_PROFILESDIR_KEY = "profiles_directory=";
@@ -142,6 +146,13 @@ public:
      * @return Shared pointer to the Mod, or nullptr if not found.
      */
     [[nodiscard]] auto getMod(const std::wstring& modName) const -> std::shared_ptr<Mod>;
+
+    /**
+     * @brief Returns the set of winning plugin file paths that need to be updated with PGPatcher.esp changes.
+     *
+     * @return Vector of absolute file paths to winning plugins that should be updated.
+     */
+    [[nodiscard]] auto getWinningPluginsToUpdate() const -> std::vector<std::filesystem::path>;
 
     /**
      * @brief Deserializes mod priority/enabled state from a JSON object into the mod map.

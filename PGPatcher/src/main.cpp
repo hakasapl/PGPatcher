@@ -248,7 +248,7 @@ void configureDotNetLibDirectory(const filesystem::path& exeDir)
 }
 
 constexpr auto NUM_PREPARING_STEPS = 11;
-constexpr auto NUM_FINALIZING_STEPS = 5;
+constexpr auto NUM_FINALIZING_STEPS = 6;
 constexpr auto NUM_TOTAL_STEPS = 6;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
@@ -370,11 +370,11 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     if (params.Processing.multithread) {
         pluginInit.queueTask([&bg, &exePath, &params]() -> void {
             PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+            PGPlugin::populateObjs();
         });
     } else {
         PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        PGPlugin::populateObjs();
     }
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_PREPARING_STEPS); });
@@ -739,6 +739,21 @@ void mainRunnerPost(const ParallaxGenCLIArgs& args,
         // END OUTPUT ZIP
         //
     }
+
+    //
+    // UPDATE WINNING PLUGINS
+    //
+    if (params.Processing.updateWinningPluginsWithChanges) {
+        progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Updating DynDOLOD"); });
+
+        Logger::info("Updating DynDOLOD plugin");
+        PGPlugin::updateWinningPluginsWithChanges(PGGlobals::getPGMM()->getWinningPluginsToUpdate());
+    }
+
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_FINALIZING_STEPS); });
+    //
+    // END UPDATE WINNING PLUGINS
+    //
 
     progressWindow->CallAfter(
         [progressWindow]() -> void { progressWindow->setMainProgress(6, NUM_TOTAL_STEPS, true); });

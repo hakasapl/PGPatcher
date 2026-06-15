@@ -153,11 +153,11 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
     }
 }
 
-void PGMutagenWrapper::libPopulateObjs(const filesystem::path& existingModPath)
+void PGMutagenWrapper::libPopulateObjs()
 {
     const lock_guard<mutex> lock(s_libMutex);
 
-    PopulateObjs(existingModPath.wstring().c_str());
+    PopulateObjs();
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 }
@@ -293,6 +293,28 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
     {
         const lock_guard<mutex> lock(s_libMutex);
         SetModelUses(size, buf);
+        libLogMessageIfExists();
+        libThrowExceptionIfExists();
+    }
+}
+
+void PGMutagenWrapper::libUpdateWinningPluginsWithChanges(const std::vector<std::filesystem::path>& plugins)
+{
+    // Use vector to manage the memory for LoadOrderArr
+    vector<const wchar_t*> pluginArr;
+    if (!plugins.empty()) {
+        pluginArr.reserve(plugins.size()); // Pre-allocate the vector size
+        for (const auto& mod : plugins) {
+            pluginArr.push_back(mod.c_str()); // Populate the vector with the c_str pointers
+        }
+    }
+
+    // Add the null terminator to the end
+    pluginArr.push_back(nullptr);
+
+    {
+        const lock_guard<mutex> lock(s_libMutex);
+        UpdateWinningPluginsWithChanges(pluginArr.data());
         libLogMessageIfExists();
         libThrowExceptionIfExists();
     }

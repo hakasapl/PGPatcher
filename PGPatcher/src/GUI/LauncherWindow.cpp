@@ -376,6 +376,14 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
     processingCheckboxSizer->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
 
+    m_processingUpdateWinningPluginsWithChangesCheckbox = new wxCheckBox(this, wxID_ANY, "Update DynDOLOD");
+    m_processingUpdateWinningPluginsWithChangesCheckbox->SetToolTip(
+        "Updates DynDOLOD.esp with changes from PG_X.esp to ensure no mismatched textures after regenerating PGPatcher "
+        "but not regenerating DynDOLOD.");
+    m_processingUpdateWinningPluginsWithChangesCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onProcessingUpdateWinningPluginsWithChangesChange, this);
+    processingCheckboxSizer->Add(m_processingUpdateWinningPluginsWithChangesCheckbox, 0, wxALL, BORDER_SIZE);
+
     m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
     m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
     m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
@@ -499,6 +507,8 @@ void LauncherWindow::loadConfig()
 
     // Processing
     m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
+    m_processingUpdateWinningPluginsWithChangesCheckbox->SetValue(
+        initParams.Processing.updateWinningPluginsWithChanges);
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
     m_processingEnableDevModeCheckbox->SetValue(initParams.Processing.enableModDevMode);
     m_processingEnableDebugLoggingCheckbox->SetValue(initParams.Processing.enableDebugLogging);
@@ -579,6 +589,11 @@ void LauncherWindow::onOutputLocationChange([[maybe_unused]] wxCommandEvent& eve
 void LauncherWindow::onOutputZipChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
+void LauncherWindow::onProcessingUpdateWinningPluginsWithChangesChange([[maybe_unused]] wxCommandEvent& event)
 {
     updateDisabledElements();
 }
@@ -720,6 +735,7 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
 
     // Processing
     params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
+    params.Processing.updateWinningPluginsWithChanges = m_processingUpdateWinningPluginsWithChangesCheckbox->GetValue();
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
     params.Processing.enableModDevMode = m_processingEnableDevModeCheckbox->GetValue();
     params.Processing.enableDebugLogging = m_processingEnableDebugLoggingCheckbox->GetValue();

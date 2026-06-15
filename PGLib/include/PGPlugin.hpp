@@ -246,10 +246,8 @@ public:
 
     /**
      * @brief Populates the internal object cache by reading all 3D model records from the loaded plugins.
-     *
-     * @param existingModPath Optional path to a pre-existing PGPatcher output plugin to merge with.
      */
-    static void populateObjs(const std::filesystem::path& existingModPath = {});
+    static void populateObjs();
 
     /**
      * @brief Returns all plugin records that reference the given model path.
@@ -266,6 +264,13 @@ public:
      * @param meshResults List of MeshResult objects produced by PGMeshPermutationTracker::saveMeshes().
      */
     static void setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
+
+    /**
+     * @brief Updates plugin records from winning plugins with pgpatcher changes
+     *
+     * @param plugins List of plugin file absolute paths to update
+     */
+    static void updateWinningPluginsWithChanges(const std::vector<std::filesystem::path>& plugins);
 
     /**
      * @brief Saves the generated output plugin to the given directory.

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.0] - UNRELEASED
+
+- Added update DynDOLOD option under processing to update DynDOLOD static references when re-generating PGPatcher
+
 ## [1.1.2] - 2026-05-28
 
 - Fixed unicode character exception during non-plugin mesh logging

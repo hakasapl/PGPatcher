@@ -174,6 +174,10 @@ auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
         if (paramJ.contains("processing") && paramJ["processing"].contains("pluginesmify")) {
             paramJ["processing"]["pluginesmify"].get_to<bool>(m_params.Processing.pluginESMify);
         }
+        if (paramJ.contains("processing") && paramJ["processing"].contains("updatewinningpluginswithchanges")) {
+            paramJ["processing"]["updatewinningpluginswithchanges"].get_to<bool>(
+                m_params.Processing.updateWinningPluginsWithChanges);
+        }
         if (paramJ.contains("processing") && paramJ["processing"].contains("devmode")) {
             paramJ["processing"]["devmode"].get_to<bool>(m_params.Processing.enableModDevMode);
         }
@@ -411,6 +415,7 @@ auto PGConfig::getUserConfigJSON() const -> nlohmann::json
     // "processing"
     j["params"]["processing"]["multithread"] = m_params.Processing.multithread;
     j["params"]["processing"]["pluginesmify"] = m_params.Processing.pluginESMify;
+    j["params"]["processing"]["updatewinningpluginswithchanges"] = m_params.Processing.updateWinningPluginsWithChanges;
     j["params"]["processing"]["devmode"] = m_params.Processing.enableModDevMode;
     j["params"]["processing"]["enabledebuglogging"] = m_params.Processing.enableDebugLogging;
     j["params"]["processing"]["enabletracelogging"] = m_params.Processing.enableTraceLogging;
