@@ -54,6 +54,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 public static class Launcher {
     private static string QuoteArg(string arg) {
@@ -65,7 +66,31 @@ public static class Launcher {
             return arg;
         }
 
-        return "\"" + arg.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        var sb = new StringBuilder();
+        sb.Append('"');
+        int backslashCount = 0;
+
+        foreach (var ch in arg) {
+            if (ch == '\\') {
+                backslashCount++;
+                continue;
+            }
+
+            if (ch == '\"') {
+                sb.Append('\\', backslashCount * 2 + 1);
+                sb.Append('\"');
+                backslashCount = 0;
+                continue;
+            }
+
+            sb.Append('\\', backslashCount);
+            backslashCount = 0;
+            sb.Append(ch);
+        }
+
+        sb.Append('\\', backslashCount * 2);
+        sb.Append('"');
+        return sb.ToString();
     }
 
     public static int Main(string[] args) {
@@ -87,6 +112,11 @@ public static class Launcher {
         psi.Environment["PATH"] = libDir + ";" + (Environment.GetEnvironmentVariable("PATH") ?? "");
 
         using (var process = Process.Start(psi)) {
+            if (process == null) {
+                Console.Error.WriteLine("Failed to start target executable: " + target);
+                return 1;
+            }
+
             process.WaitForExit();
             return process.ExitCode;
         }
@@ -242,7 +272,7 @@ try {
     foreach ($exeName in $allowedExes) {
         $launcherPath = Join-Path -Path $fileDir -ChildPath $exeName
         Write-Host "Validating launcher runtime for $exeName"
-        & $launcherPath --help *> $null
+        & $launcherPath --help
         if ($LASTEXITCODE -ne 0) {
             throw "Launcher validation failed for $exeName with exit code $LASTEXITCODE."
         }
