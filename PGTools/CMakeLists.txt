@@ -41,11 +41,3 @@ target_link_libraries(${EXE_NAME} PRIVATE
     CLI11::CLI11
     cpptrace::cpptrace
 )
-
-add_custom_command(TARGET ${EXE_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${EXE_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_RUNTIME_DLLS:${EXE_NAME}>
-        "$<TARGET_FILE_DIR:${EXE_NAME}>"
-    COMMAND_EXPAND_LISTS
-)

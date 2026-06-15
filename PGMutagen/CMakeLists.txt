@@ -17,9 +17,6 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 set(LIBRARY_NAME "PGMutagenWrapper")
 add_library(${LIBRARY_NAME} SHARED ${SOURCES} ${HEADERS})
 target_compile_options(${LIBRARY_NAME} PRIVATE /utf-8)
-set_target_properties(${LIBRARY_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
 
 #
 # VCPKG Dependencies
