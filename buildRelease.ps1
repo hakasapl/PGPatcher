@@ -94,7 +94,18 @@ public static class Launcher {
     }
 
     public static int Main(string[] args) {
-        var exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName) ?? ".";
+        var moduleFileName = Process.GetCurrentProcess().MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(moduleFileName)) {
+            Console.Error.WriteLine("Unable to determine launcher executable path.");
+            return 1;
+        }
+
+        var exeDir = Path.GetDirectoryName(moduleFileName);
+        if (string.IsNullOrWhiteSpace(exeDir)) {
+            Console.Error.WriteLine("Unable to determine launcher directory.");
+            return 1;
+        }
+
         var target = Path.GetFullPath(Path.Combine(exeDir, "$TargetRelativePath"));
         if (!File.Exists(target)) {
             Console.Error.WriteLine("Target executable was not found: " + target);
@@ -109,7 +120,7 @@ public static class Launcher {
             Arguments = string.Join(" ", args.Select(QuoteArg))
         };
 
-        psi.Environment["PATH"] = libDir + ";" + (Environment.GetEnvironmentVariable("PATH") ?? "");
+        psi.EnvironmentVariables["PATH"] = libDir + ";" + (Environment.GetEnvironmentVariable("PATH") ?? "");
 
         using (var process = Process.Start(psi)) {
             if (process == null) {
@@ -272,9 +283,9 @@ try {
     foreach ($exeName in $allowedExes) {
         $launcherPath = Join-Path -Path $fileDir -ChildPath $exeName
         Write-Host "Validating launcher runtime for $exeName"
-        & $launcherPath --help
+        $validationOutput = (& $launcherPath --help 2>&1 | Out-String).Trim()
         if ($LASTEXITCODE -ne 0) {
-            throw "Launcher validation failed for $exeName with exit code $LASTEXITCODE."
+            throw "Launcher validation failed for $exeName with exit code $LASTEXITCODE.`n$validationOutput"
         }
     }
 
