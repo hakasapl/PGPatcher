@@ -94,7 +94,7 @@ public static class Launcher {
     }
 
     public static int Main(string[] args) {
-        var exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName ?? "") ?? ".";
+        var exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName) ?? ".";
         var target = Path.GetFullPath(Path.Combine(exeDir, "$TargetRelativePath"));
         if (!File.Exists(target)) {
             Console.Error.WriteLine("Target executable was not found: " + target);
@@ -208,7 +208,7 @@ try {
         # Bool to see if file should be copied
         $copyFile = $false
 
-        # Check if file ends in .dll or .pdb, or is a whitelisted .exe
+        # Check if file ends in .dll or .pdb
         if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
             $copyFile = $true
         }
