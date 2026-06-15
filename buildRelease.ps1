@@ -36,6 +36,78 @@ $sourceBinDir = Join-Path -Path $buildDir -ChildPath "bin"
 $distDir = Join-Path -Path $scriptDir -ChildPath "dist"
 $toolchain = "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 
+function New-LauncherExe {
+    param(
+        [Parameter(Mandatory = $true)][string]$LauncherPath,
+        [Parameter(Mandatory = $true)][string]$TargetRelativePath
+    )
+
+    $csc = Get-Command csc -ErrorAction SilentlyContinue
+    if (-not $csc) {
+        throw "Unable to find csc compiler required to generate launcher executable."
+    }
+
+    $sourceFile = Join-Path -Path $buildDir -ChildPath ("launcher-" + [System.Guid]::NewGuid().ToString() + ".cs")
+
+    $launcherSource = @"
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+
+public static class Launcher {
+    private static string QuoteArg(string arg) {
+        if (string.IsNullOrEmpty(arg)) {
+            return "\"\"";
+        }
+
+        if (!arg.Any(ch => char.IsWhiteSpace(ch) || ch == '\"')) {
+            return arg;
+        }
+
+        return "\"" + arg.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+    }
+
+    public static int Main(string[] args) {
+        var exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName ?? "") ?? ".";
+        var target = Path.GetFullPath(Path.Combine(exeDir, "$TargetRelativePath"));
+        if (!File.Exists(target)) {
+            Console.Error.WriteLine("Target executable was not found: " + target);
+            return 1;
+        }
+
+        var libDir = Path.GetDirectoryName(target) ?? exeDir;
+        var psi = new ProcessStartInfo {
+            FileName = target,
+            WorkingDirectory = exeDir,
+            UseShellExecute = false,
+            Arguments = string.Join(" ", args.Select(QuoteArg))
+        };
+
+        psi.Environment["PATH"] = libDir + ";" + (Environment.GetEnvironmentVariable("PATH") ?? "");
+
+        using (var process = Process.Start(psi)) {
+            process.WaitForExit();
+            return process.ExitCode;
+        }
+    }
+}
+"@
+
+    try {
+        Set-Content -Path $sourceFile -Value $launcherSource -Encoding UTF8
+        & $csc.Source /nologo /target:exe /out:$LauncherPath $sourceFile
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to compile launcher executable at $LauncherPath."
+        }
+    }
+    finally {
+        if (Test-Path -Path $sourceFile) {
+            Remove-Item -Path $sourceFile -Force
+        }
+    }
+}
+
 # Delete build directory if it exists
 if (Test-Path $buildDir) {
     Remove-Item -Recurse -Force $buildDir
@@ -86,8 +158,10 @@ $zipFile = Join-Path -Path $distDir -ChildPath "PGPatcher.zip"
 # Create a temporary directory to collect the files
 $tempDir = Join-Path -Path $distDir -ChildPath "PGPatcher"
 $fileDir = Join-Path -Path $tempDir -ChildPath "PGPatcher"
+$libDir = Join-Path -Path $fileDir -ChildPath "lib"
 New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
 New-Item -Path $fileDir -ItemType Directory -Force | Out-Null
+New-Item -Path $libDir -ItemType Directory -Force | Out-Null
 
 try {
     # Copy DLLs, EXEs, JSONs and folders from build/bin
@@ -99,12 +173,12 @@ try {
     Write-Host "Copying files and directories from $sourceBinDir..."
 
     # Copy DLLs, EXEs, and JSONs
+    $allowedExes = @('PGPatcher.exe', 'pgtools.exe')
     Get-ChildItem -Path $sourceBinDir | ForEach-Object {
         # Bool to see if file should be copied
         $copyFile = $false
 
         # Check if file ends in .dll or .pdb, or is a whitelisted .exe
-        $allowedExes = @('PGPatcher.exe', 'pgtools.exe')
         if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
             $copyFile = $true
         }
@@ -138,7 +212,7 @@ try {
 
         # Copy file if the conditions are met
         if ($copyFile) {
-            $destPath = Join-Path -Path $fileDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
+            $destPath = Join-Path -Path $libDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
             $destDir = Split-Path -Path $destPath -Parent
 
             # Create destination directory if it doesn't exist
@@ -149,6 +223,28 @@ try {
             # Copy the file
             Write-Host "Copying file: $($_.FullName) to $destPath"
             Copy-Item -Path $_.FullName -Destination $destPath -Recurse -Force
+        }
+    }
+
+    # Generate root launchers so the root folder only contains EXEs
+    foreach ($exeName in $allowedExes) {
+        $launcherPath = Join-Path -Path $fileDir -ChildPath $exeName
+        $targetPath = Join-Path -Path $libDir -ChildPath $exeName
+        if (-not (Test-Path -Path $targetPath -PathType Leaf)) {
+            throw "Expected target executable was not copied: $targetPath"
+        }
+
+        Write-Host "Generating launcher executable: $launcherPath"
+        New-LauncherExe -LauncherPath $launcherPath -TargetRelativePath ("lib\" + $exeName)
+    }
+
+    # Validate launchers can run with DLLs in lib
+    foreach ($exeName in $allowedExes) {
+        $launcherPath = Join-Path -Path $fileDir -ChildPath $exeName
+        Write-Host "Validating launcher runtime for $exeName"
+        & $launcherPath --help *> $null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Launcher validation failed for $exeName with exit code $LASTEXITCODE."
         }
     }
 
