@@ -29,21 +29,19 @@ using namespace std;
 
 namespace {
 constexpr auto DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE
-    = "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}). "
-      "Ensure nethost.dll, hostfxr.dll, and all accompanying runtime DLLs are present "
-      "alongside PGMutagenNE.dll.";
+    = "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}).";
 
-void dnneFailure(enum failure_type type, int errorCode)
+void dnneFailure(enum failure_type type,
+                 int errorCode)
 {
     switch (type) {
     case failure_load_runtime:
         spdlog::critical(DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE, static_cast<unsigned int>(errorCode));
         break;
     case failure_load_export:
-        spdlog::critical(
-            "DotNet Wrapper failed to load a managed export (error: 0x{:08X}). "
-            "Ensure PGMutagen.dll is present and matches the expected version.",
-            static_cast<unsigned int>(errorCode));
+        spdlog::critical("DotNet Wrapper failed to load a managed export (error: 0x{:08X}). "
+                         "Ensure PGMutagen.dll is present and matches the expected version.",
+                         static_cast<unsigned int>(errorCode));
         break;
     default:
         spdlog::critical("DotNet Wrapper failed with unknown type {} (error: 0x{:08X}).",
