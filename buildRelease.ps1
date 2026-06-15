@@ -108,7 +108,7 @@ try {
             $copyFile = $true
         }
 
-        # Check if file ends in .json (runtimeconfig, deps, etc.)
+        # Check if file ends in .json (runtimeconfig, deps)
         if ($_.Name -match '\.(runtimeconfig|deps)\.json$') {
             $copyFile = $true
         }
