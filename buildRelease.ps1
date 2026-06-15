@@ -219,7 +219,7 @@ try {
         # Bool to see if file should be copied
         $copyFile = $false
 
-        # Check if file ends in .dll or .pdb
+        # Check if file ends in .dll or .pdb, or is a whitelisted .exe
         if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
             $copyFile = $true
         }
@@ -276,7 +276,7 @@ try {
         }
 
         Write-Host "Generating launcher executable: $launcherPath"
-        New-LauncherExe -LauncherPath $launcherPath -TargetRelativePath ("lib\" + $exeName)
+        New-LauncherExe -LauncherPath $launcherPath -TargetRelativePath ("lib/" + $exeName)
     }
 
     # Validate launchers can run with DLLs in lib
