@@ -17,6 +17,9 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 set(LIBRARY_NAME "PGMutagenWrapper")
 add_library(${LIBRARY_NAME} SHARED ${SOURCES} ${HEADERS})
 target_compile_options(${LIBRARY_NAME} PRIVATE /utf-8)
+set_target_properties(${LIBRARY_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/lib"
+)
 
 #
 # VCPKG Dependencies
@@ -143,11 +146,9 @@ include_directories(${PGMUTAGENNE_BIN_DIR}/)
 # C# DLLs Copy
 #
 add_custom_target(CopyPGMutagenDLLs ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin/lib"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${PGMUTAGENNE_BIN_DIR}/" "${CMAKE_BINARY_DIR}/bin"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${PGMUTAGENNE_BIN_DIR}/" "${CMAKE_BINARY_DIR}/bin/lib"
-    COMMENT "Copying PGMutagen DLLs to build/bin"
+    COMMENT "Copying PGMutagen DLLs to build/bin/lib"
 )
 
 add_dependencies(CopyPGMutagenDLLs PGMutagenNE)

@@ -100,22 +100,14 @@ try {
 
     Write-Host "Copying files and directories from $sourceBinDir..."
 
-    # Copy DLLs, EXEs, and JSONs
+    # Copy EXEs, asset folders, and the pre-built lib directory from build/bin
     $allowedExes = @('PGPatcher.exe', 'pgtools.exe')
     Get-ChildItem -Path $sourceBinDir | ForEach-Object {
         # Bool to see if file should be copied
         $copyFile = $false
 
-        # Check if file ends in .dll or .pdb, or is a whitelisted .exe
-        if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
-            $copyFile = $true
-        }
+        # Check if file is a whitelisted .exe
         if ($_.Name -match '\.exe$' -and $allowedExes -contains $_.Name) {
-            $copyFile = $true
-        }
-
-        # Check if file ends in .json (runtimeconfig, deps)
-        if ($_.Name -match '\.(runtimeconfig|deps)\.json$') {
             $copyFile = $true
         }
 
@@ -133,19 +125,14 @@ try {
             $copyFile = $true
         }
 
-        # Check if is folder and name is "runtimes"
-        if ($_.PSIsContainer -and $_.Name -eq 'runtimes') {
+        # Check if is the pre-built lib folder (contains all DLLs, PDBs, runtimes, etc.)
+        if ($_.PSIsContainer -and $_.Name -eq 'lib') {
             $copyFile = $true
         }
 
         # Copy file if the conditions are met
         if ($copyFile) {
-            $destBaseDir = $libDir
-            if (($_.Name -match '\.exe$' -and $allowedExes -contains $_.Name) -or
-                ($_.PSIsContainer -and ($_.Name -eq 'assets' -or $_.Name -eq 'resources' -or $_.Name -eq 'cshaders'))) {
-                $destBaseDir = $fileDir
-            }
-
+            $destBaseDir = $fileDir
             $destPath = Join-Path -Path $destBaseDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
             $destDir = Split-Path -Path $destPath -Parent
 
