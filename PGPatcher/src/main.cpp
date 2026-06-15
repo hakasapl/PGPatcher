@@ -187,23 +187,6 @@ void initLogger(const filesystem::path& logpath,
                 }
             }
 
-            void configureLibDirectory(const filesystem::path& exeDir)
-            {
-                const auto libDir = exeDir / "lib";
-                if (!filesystem::exists(libDir)) {
-                    return;
-                }
-
-                if (SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS) == 0) {
-                    cerr << "Failed to configure DLL search directories.\n";
-                    exit(1);
-                }
-
-                if (AddDllDirectory(libDir.c_str()) == nullptr) {
-                    cerr << "Failed to add lib directory to DLL search path.\n";
-                    exit(1);
-                }
-            }
         } catch (const filesystem::filesystem_error& e) {
             cerr << "Failed to delete old logs: " << e.what() << "\n";
         }
@@ -244,6 +227,24 @@ void initLogger(const filesystem::path& logpath,
         consoleSink->set_level(spdlog::level::debug);
         spdlog::flush_on(spdlog::level::trace);
         Logger::trace("TRACE logging enabled");
+    }
+}
+
+void configureLibDirectory(const filesystem::path& exeDir)
+{
+    const auto libDir = exeDir / "lib";
+    if (!filesystem::exists(libDir)) {
+        return;
+    }
+
+    if (SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS) == 0) {
+        cerr << "Failed to configure DLL search directories.\n";
+        exit(1);
+    }
+
+    if (AddDllDirectory(libDir.c_str()) == nullptr) {
+        cerr << "Failed to add lib directory to DLL search path.\n";
+        exit(1);
     }
 }
 
