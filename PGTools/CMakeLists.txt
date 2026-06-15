@@ -35,3 +35,8 @@ target_link_libraries(${EXE_NAME} PRIVATE
     CLI11::CLI11
     cpptrace::cpptrace
 )
+
+if(MSVC)
+    target_link_options(${EXE_NAME} PRIVATE "/DELAYLOAD:PGLib.dll")
+    target_link_libraries(${EXE_NAME} PRIVATE delayimp)
+endif()

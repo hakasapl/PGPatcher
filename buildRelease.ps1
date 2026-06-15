@@ -36,119 +36,6 @@ $sourceBinDir = Join-Path -Path $buildDir -ChildPath "bin"
 $distDir = Join-Path -Path $scriptDir -ChildPath "dist"
 $toolchain = "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 
-function New-LauncherExe {
-    param(
-        [Parameter(Mandatory = $true)][string]$LauncherPath,
-        [Parameter(Mandatory = $true)][string]$TargetRelativePath
-    )
-
-    $csc = Get-Command csc -ErrorAction SilentlyContinue
-    if (-not $csc) {
-        throw "Unable to find csc compiler required to generate launcher executable."
-    }
-
-    $sourceFile = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ("pgpatcher-launcher-" + [System.Guid]::NewGuid().ToString() + ".cs")
-
-    $launcherSource = @"
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text;
-
-public static class Launcher {
-    private static string QuoteArg(string arg) {
-        if (string.IsNullOrEmpty(arg)) {
-            return "\"\"";
-        }
-
-        if (!arg.Any(ch => char.IsWhiteSpace(ch) || ch == '\"')) {
-            return arg;
-        }
-
-        var sb = new StringBuilder();
-        sb.Append('"');
-        int backslashCount = 0;
-
-        foreach (var ch in arg) {
-            if (ch == '\\') {
-                backslashCount++;
-                continue;
-            }
-
-            if (ch == '\"') {
-                sb.Append('\\', backslashCount * 2 + 1);
-                sb.Append('\"');
-                backslashCount = 0;
-                continue;
-            }
-
-            sb.Append('\\', backslashCount);
-            backslashCount = 0;
-            sb.Append(ch);
-        }
-
-        sb.Append('\\', backslashCount * 2);
-        sb.Append('"');
-        return sb.ToString();
-    }
-
-    public static int Main(string[] args) {
-        var moduleFileName = Process.GetCurrentProcess().MainModule?.FileName;
-        if (string.IsNullOrWhiteSpace(moduleFileName)) {
-            Console.Error.WriteLine("Unable to determine launcher executable path.");
-            return 1;
-        }
-
-        var exeDir = Path.GetDirectoryName(moduleFileName);
-        if (string.IsNullOrWhiteSpace(exeDir)) {
-            Console.Error.WriteLine("Unable to determine launcher directory.");
-            return 1;
-        }
-
-        var target = Path.GetFullPath(Path.Combine(exeDir, "$TargetRelativePath"));
-        if (!File.Exists(target)) {
-            Console.Error.WriteLine("Target executable was not found: " + target);
-            return 1;
-        }
-
-        var libDir = Path.GetDirectoryName(target) ?? exeDir;
-        var psi = new ProcessStartInfo {
-            FileName = target,
-            WorkingDirectory = exeDir,
-            UseShellExecute = false,
-            Arguments = string.Join(" ", args.Select(QuoteArg))
-        };
-
-        psi.EnvironmentVariables["PATH"] = libDir + ";" + (Environment.GetEnvironmentVariable("PATH") ?? "");
-
-        using (var process = Process.Start(psi)) {
-            if (process == null) {
-                Console.Error.WriteLine("Failed to start target executable: " + target);
-                return 1;
-            }
-
-            process.WaitForExit();
-            return process.ExitCode;
-        }
-    }
-}
-"@
-
-    try {
-        Set-Content -Path $sourceFile -Value $launcherSource -Encoding UTF8
-        & $csc.Source /nologo /target:exe /out:$LauncherPath $sourceFile
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to compile launcher executable at $LauncherPath."
-        }
-    }
-    finally {
-        if (Test-Path -Path $sourceFile) {
-            Remove-Item -Path $sourceFile -Force
-        }
-    }
-}
-
 # Delete build directory if it exists
 if (Test-Path $buildDir) {
     Remove-Item -Recurse -Force $buildDir
@@ -253,7 +140,13 @@ try {
 
         # Copy file if the conditions are met
         if ($copyFile) {
-            $destPath = Join-Path -Path $libDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
+            $destBaseDir = $libDir
+            if (($_.Name -match '\.exe$' -and $allowedExes -contains $_.Name) -or
+                ($_.PSIsContainer -and ($_.Name -eq 'assets' -or $_.Name -eq 'resources' -or $_.Name -eq 'cshaders'))) {
+                $destBaseDir = $fileDir
+            }
+
+            $destPath = Join-Path -Path $destBaseDir -ChildPath $_.FullName.Substring($sourceBinDir.Length + 1)
             $destDir = Split-Path -Path $destPath -Parent
 
             # Create destination directory if it doesn't exist
@@ -267,25 +160,13 @@ try {
         }
     }
 
-    # Generate root launchers so the root folder only contains EXEs
+    # Validate executables can run with DLLs in lib
     foreach ($exeName in $allowedExes) {
-        $launcherPath = Join-Path -Path $fileDir -ChildPath $exeName
-        $targetPath = Join-Path -Path $libDir -ChildPath $exeName
-        if (-not (Test-Path -Path $targetPath -PathType Leaf)) {
-            throw "Expected target executable was not copied: $targetPath"
-        }
-
-        Write-Host "Generating launcher executable: $launcherPath"
-        New-LauncherExe -LauncherPath $launcherPath -TargetRelativePath ("lib/" + $exeName)
-    }
-
-    # Validate launchers can run with DLLs in lib
-    foreach ($exeName in $allowedExes) {
-        $launcherPath = Join-Path -Path $fileDir -ChildPath $exeName
-        Write-Host "Validating launcher runtime for $exeName"
-        $validationOutput = (& $launcherPath --help 2>&1 | Out-String).Trim()
+        $exePath = Join-Path -Path $fileDir -ChildPath $exeName
+        Write-Host "Validating runtime for $exeName"
+        $validationOutput = (& $exePath --help 2>&1 | Out-String).Trim()
         if ($LASTEXITCODE -ne 0) {
-            throw "Launcher validation failed for $exeName with exit code $LASTEXITCODE.`n$validationOutput"
+            throw "Runtime validation failed for $exeName with exit code $LASTEXITCODE.`n$validationOutput"
         }
     }
 
