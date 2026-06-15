@@ -76,6 +76,11 @@ add_compile_definitions(PG_PRERELEASE=${PG_PRERELEASE})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+# Disable vcpkg's automatic DLL copy next to each executable.
+# DLLs are copied explicitly to bin/lib by the post-build commands in each
+# target's CMakeLists.txt so they are not needed in the bin root.
+set(VCPKG_APPLOCAL_DEPS OFF)
+
 #
 # Externals
 #
