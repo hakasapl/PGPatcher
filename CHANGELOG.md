@@ -3,6 +3,7 @@
 ## [1.1.3] - UNRELEASED
 
 - Fixed unhandled exception when file is not found in BSA due to corrupt BSA
+- Fixed unhandled exception modlist.txt not found due to wide chars
 
 ## [1.1.2] - 2026-05-28
 
