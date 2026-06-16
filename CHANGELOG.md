@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.3] - UNRELEASED
+
+- Fixed unhandled exception when file is not found in BSA due to corrupt BSA
+
 ## [1.1.2] - 2026-05-28
 
 - Fixed unicode character exception during non-plugin mesh logging

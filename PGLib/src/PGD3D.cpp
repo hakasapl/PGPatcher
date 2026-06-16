@@ -878,7 +878,13 @@ auto PGD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readability-conver
         // Load DDS file
         hr = DirectX::LoadFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
     } else if (pgd->isBSAFile(ddsPath)) {
-        vector<std::byte> ddsBytes = pgd->getFile(ddsPath);
+        vector<std::byte> ddsBytes;
+        try {
+            ddsBytes = pgd->getFile(ddsPath);
+        } catch (...) {
+            Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
+            return false;
+        }
 
         // Load DDS file
         hr = DirectX::LoadFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
@@ -915,7 +921,13 @@ auto PGD3D::getDDSMetadata(const filesystem::path& ddsPath,
         // Load DDS file
         hr = DirectX::GetMetadataFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, ddsMeta);
     } else if (pgd->isBSAFile(ddsPath)) {
-        vector<std::byte> ddsBytes = pgd->getFile(ddsPath);
+        vector<std::byte> ddsBytes;
+        try {
+            ddsBytes = pgd->getFile(ddsPath);
+        } catch (...) {
+            Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
+            return false;
+        }
 
         // Load DDS file
         hr = DirectX::GetMetadataFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, ddsMeta);
