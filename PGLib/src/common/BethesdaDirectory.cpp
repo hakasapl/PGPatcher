@@ -172,7 +172,8 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
             auto& s = aos.get<binary_io::memory_ostream>();
             outFileBytes = s.rdbuf();
         } else {
-            throw runtime_error("File not found in BSA archive");
+            Logger::error(L"File not found in BSA archive: {}", relPath.wstring());
+            return {};
         }
     }
 
