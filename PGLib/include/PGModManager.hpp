@@ -25,6 +25,25 @@
  * for reading MO2 instance configuration files.
  */
 class PGModManager {
+private:
+    constexpr static uint8_t HEX_ALPHA_BASE = 10U;
+
+    /**
+     * @brief Converts a single hexadecimal character to its integer value.
+     *
+     * @param c The hexadecimal character (0-9, a-f, A-F).
+     * @return uint8_t value of the hex digit, or 0 for invalid input.
+     */
+    static auto fromHexDigit(char c) -> uint8_t;
+
+    /**
+     * @brief Decodes a MO2 INI field value that is encoded as a Qt byte array (e.g., "@ByteArray(68656C6C6F)").
+     *
+     * @param byteArrayVal The string value extracted from the MO2 INI field, without the "@ByteArray(" prefix and ")"
+     * suffix.
+     * @return std::wstring containing the decoded value.
+     */
+    static auto decodeQtByteArrayValue(const std::string& byteArrayVal) -> std::wstring;
 
 public:
     /// @brief Identifies which mod manager type is in use.

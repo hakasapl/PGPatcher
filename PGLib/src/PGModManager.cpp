@@ -17,6 +17,8 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -31,6 +33,58 @@
 #include <vector>
 
 using namespace std;
+
+auto PGModManager::fromHexDigit(char c) -> uint8_t
+{
+    if (c >= '0' && c <= '9') {
+        return static_cast<uint8_t>(c - '0');
+    }
+    if (c >= 'a' && c <= 'f') {
+        return static_cast<uint8_t>(HEX_ALPHA_BASE + (c - 'a'));
+    }
+    if (c >= 'A' && c <= 'F') {
+        return static_cast<uint8_t>(HEX_ALPHA_BASE + (c - 'A'));
+    }
+    return 0;
+}
+
+auto PGModManager::decodeQtByteArrayValue(const std::string& byteArrayVal) -> std::wstring
+{
+    // Qt may serialize QByteArray values with C-style escapes like "\\xC3\\xA0".
+    std::string decodedBytes;
+    decodedBytes.reserve(byteArrayVal.size());
+
+    for (size_t i = 0; i < byteArrayVal.size();) {
+        const auto curCh = byteArrayVal.at(i);
+        if (curCh == '\\' && i + 1 < byteArrayVal.size()) {
+            const auto nextCh = byteArrayVal.at(i + 1);
+            if (nextCh == 'x' && i + 3 < byteArrayVal.size()) {
+                const auto hiCh = byteArrayVal.at(i + 2);
+                const auto loCh = byteArrayVal.at(i + 3);
+                if (std::isxdigit(static_cast<unsigned char>(hiCh)) != 0
+                    && std::isxdigit(static_cast<unsigned char>(loCh)) != 0) {
+                    const auto hi = fromHexDigit(hiCh);
+                    const auto lo = fromHexDigit(loCh);
+                    decodedBytes.push_back(static_cast<char>((hi << 4U) | lo));
+                    i += 4;
+                    continue;
+                }
+            }
+
+            // Preserve common escaped backslashes and pass through other escapes as literals.
+            if (nextCh == '\\') {
+                decodedBytes.push_back('\\');
+                i += 2;
+                continue;
+            }
+        }
+
+        decodedBytes.push_back(curCh);
+        ++i;
+    }
+
+    return StringUtil::utf8toUTF16(decodedBytes);
+}
 
 PGModManager::PGModManager(const ModManagerType& mmType)
     : m_mmType(mmType)
@@ -517,26 +571,23 @@ auto PGModManager::getMO2INIField(const std::filesystem::path& instanceDir,
     ifstream mo2IniFileF(mo2IniFile);
     string mo2IniLine;
     while (getline(mo2IniFileF, mo2IniLine)) {
-        const wstring mo2IniLineWstr = StringUtil::utf8toUTF16(mo2IniLine);
-
         if (mo2IniLine.starts_with(fieldName)) {
-            auto fieldValue = mo2IniLineWstr.substr(strlen(fieldName.c_str()));
+            auto fieldValue = mo2IniLine.substr(fieldName.size());
             mo2IniFileF.close();
 
-            wstring parsedVal;
-
             // remove leading and trailing quotes
-            boost::trim_if(fieldValue, boost::is_any_of(L"\""));
+            boost::trim_if(fieldValue, boost::is_any_of("\""));
 
             // remove @ByteArray( and ) from the string if isByteArray is true
             if (isByteArray && boost::starts_with(fieldValue, MO2INI_BYTEARRAYPREFIX)
                 && boost::ends_with(fieldValue, MO2INI_BYTEARRAYSUFFIX)) {
-                parsedVal = fieldValue.substr(strlen(MO2INI_BYTEARRAYPREFIX),
-                                              fieldValue.size() - strlen(MO2INI_BYTEARRAYPREFIX)
-                                                  - strlen(MO2INI_BYTEARRAYSUFFIX));
-            } else {
-                parsedVal = fieldValue;
+                const auto byteArrayVal = fieldValue.substr(strlen(MO2INI_BYTEARRAYPREFIX),
+                                                            fieldValue.size() - strlen(MO2INI_BYTEARRAYPREFIX)
+                                                                - strlen(MO2INI_BYTEARRAYSUFFIX));
+                return decodeQtByteArrayValue(byteArrayVal);
             }
+
+            auto parsedVal = StringUtil::utf8toUTF16(fieldValue);
 
             // replace backslashes with single ones
             boost::replace_all(parsedVal, L"\\\\", L"\\");
@@ -593,30 +644,14 @@ auto PGModManager::getMO2FilePaths(const std::filesystem::path& instanceDir) -> 
                                                                                           std::filesystem::path>
 {
     // Find MO2 paths from ModOrganizer.ini
-    wstring profileDirField;
-    wstring modDirField;
-    filesystem::path baseDir;
-
     const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
     if (!filesystem::exists(mo2IniFile)) {
         return {{}, {}};
     }
 
-    ifstream mo2IniFileF(mo2IniFile);
-    string mo2IniLine;
-    while (getline(mo2IniFileF, mo2IniLine)) {
-        const wstring mo2IniLineWstr = StringUtil::utf8toUTF16(mo2IniLine);
-
-        if (mo2IniLine.starts_with(MO2INI_PROFILESDIR_KEY)) {
-            profileDirField = mo2IniLineWstr.substr(strlen(MO2INI_PROFILESDIR_KEY));
-        } else if (mo2IniLine.starts_with(MO2INI_MODDIR_KEY)) {
-            modDirField = mo2IniLineWstr.substr(strlen(MO2INI_MODDIR_KEY));
-        } else if (mo2IniLine.starts_with(MO2INI_BASEDIR_KEY)) {
-            baseDir = mo2IniLineWstr.substr(strlen(MO2INI_BASEDIR_KEY));
-        }
-    }
-
-    mo2IniFileF.close();
+    auto profileDirField = getMO2INIField(instanceDir, MO2INI_PROFILESDIR_KEY, true);
+    auto modDirField = getMO2INIField(instanceDir, MO2INI_MODDIR_KEY, true);
+    filesystem::path baseDir = getMO2INIField(instanceDir, MO2INI_BASEDIR_KEY, true);
 
     if (baseDir.empty()) {
         // if baseDir is empty, set it to the instance directory
@@ -624,8 +659,9 @@ auto PGModManager::getMO2FilePaths(const std::filesystem::path& instanceDir) -> 
     }
 
     // replace any instance of %BASE_DIR% with the base directory
-    boost::replace_all(profileDirField, MO2INI_BASEDIR_WILDCARD, baseDir.wstring());
-    boost::replace_all(modDirField, MO2INI_BASEDIR_WILDCARD, baseDir.wstring());
+    const auto baseDirWildcardW = StringUtil::utf8toUTF16(MO2INI_BASEDIR_WILDCARD);
+    boost::replace_all(profileDirField, baseDirWildcardW, baseDir.wstring());
+    boost::replace_all(modDirField, baseDirWildcardW, baseDir.wstring());
 
     filesystem::path profileDir = profileDirField;
     filesystem::path modDir = modDirField;
