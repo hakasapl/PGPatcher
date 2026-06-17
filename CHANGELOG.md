@@ -1,7 +1,8 @@
 # Changelog
 
-## [1.1.3] - UNRELEASED
+## [1.1.3] - 2026-06-16
 
+- Changed build pipeline to package .NET runtime and VCRedist alongside PGPatcher, meaning these are no longer required on the system
 - Fixed unhandled exception when file is not found in BSA due to corrupt BSA
 - Fixed unhandled exception modlist.txt not found due to wide chars
 
