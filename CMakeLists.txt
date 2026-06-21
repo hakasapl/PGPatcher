@@ -83,7 +83,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 #
 # Externals
 #
-add_subdirectory(external/nifly)
+if(WIN32)
+  add_subdirectory(external/nifly)
+endif()
 
 #
 # Submodules
