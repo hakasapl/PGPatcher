@@ -16,6 +16,7 @@ if(WIN32)
     include_directories("include")
     file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS include/*.hpp)
     file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
+    list(FILTER SOURCES EXCLUDE REGEX "main_linux_stub\\.cpp$")
 
     #
     # Executable
