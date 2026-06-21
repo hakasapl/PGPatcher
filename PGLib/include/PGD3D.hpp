@@ -20,6 +20,19 @@
 #include <wrl/client.h>
 #endif
 
+#ifndef _WIN32
+#include <vulkan/vulkan.h>
+
+struct VKPipelineData {
+    VkShaderModule        shaderModule        = VK_NULL_HANDLE;
+    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+    VkPipelineLayout      pipelineLayout      = VK_NULL_HANDLE;
+    VkPipeline            pipeline            = VK_NULL_HANDLE;
+    bool                  hasCounterBuffer    = false; // CountAlphaValues uses SSBO not image
+    bool                  hasPushConstants    = false; // ConvertToHDR / SSSFix
+};
+#endif
+
 class PGD3D {
 public:
     /**
@@ -55,6 +68,17 @@ private:
 
     // Global shader storage
     ShaderHandle m_shaderCountAlphaValues;
+#endif
+
+#ifndef _WIN32
+    VkInstance               m_vkInstance            = VK_NULL_HANDLE;
+    VkPhysicalDevice         m_vkPhysicalDevice      = VK_NULL_HANDLE;
+    VkDevice                 m_vkDevice              = VK_NULL_HANDLE;
+    VkQueue                  m_vkComputeQueue        = VK_NULL_HANDLE;
+    uint32_t                 m_vkComputeQueueFamily  = 0;
+    VkCommandPool            m_vkCommandPool         = VK_NULL_HANDLE;
+    std::unordered_map<std::string, VKPipelineData> m_vkPipelines;
+    ShaderHandle             m_shaderCountAlphaValues; // std::string on Linux
 #endif
 
     std::unordered_map<std::filesystem::path, DirectX::TexMetadata> m_ddsMetaDataCache;
@@ -94,6 +118,7 @@ public:
      * @param shaderPath Path to shader folder
      */
     PGD3D(std::filesystem::path shaderPath);
+    ~PGD3D();
 
     /**
      * @brief Initialize GPU. This must be called before any other GPU functions

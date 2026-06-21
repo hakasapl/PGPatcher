@@ -1,0 +1,33 @@
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(binding = 0, rgba32f) uniform readonly  image2D Input;
+layout(binding = 1, rgba32f) uniform writeonly image2D Output;
+
+layout(push_constant) uniform Params {
+    float fAlbedoSatPower;
+    float fAlbedoNorm;
+} params;
+
+void main() {
+    ivec2 coord     = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 outSize   = imageSize(Output);
+    if (coord.x >= outSize.x || coord.y >= outSize.y) return;
+
+    // 2x2 average from source
+    vec4 acc = vec4(0.0);
+    for (int dy = 0; dy < 2; dy++)
+        for (int dx = 0; dx < 2; dx++)
+            acc += imageLoad(Input, coord * 2 + ivec2(dx, dy));
+    vec4 avg = acc / 4.0;
+
+    vec3 color   = avg.rgb;
+    float len    = length(color);
+    float expo   = params.fAlbedoSatPower * len;
+    vec3 albedo  = pow(max(vec3(0.001), color), vec3(expo));
+    float alen   = length(albedo);
+    if (alen > 0.0)
+        albedo = clamp(mix(albedo, albedo / alen, params.fAlbedoNorm), 0.0, 1.0);
+
+    imageStore(Output, coord, vec4(albedo, avg.a));
+}

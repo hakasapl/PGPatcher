@@ -90,6 +90,10 @@
     {
       "name": "flatbuffers",
       "version>=": "25.2.10"
+    },
+    {
+      "name": "vulkan",
+      "platform": "!windows"
     }
   ]
 }

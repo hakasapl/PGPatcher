@@ -44,7 +44,8 @@ set(D3D_LIBS
 if(WIN32)
     set(PLATFORM_LIBS ${D3D_LIBS} Shlwapi)
 else()
-    set(PLATFORM_LIBS "")
+    find_package(Vulkan REQUIRED)
+    set(PLATFORM_LIBS Vulkan::Vulkan)
 endif()
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC
@@ -73,6 +74,41 @@ add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
         ${CMAKE_CURRENT_SOURCE_DIR}/cshaders
         $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
 )
+endif()
+
+if(NOT WIN32)
+    find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
+
+    set(GLSL_SHADERS
+        cshaders/CountAlphaValues.comp
+        cshaders/ParallaxToCM.comp
+        cshaders/ConvertToHDR.comp
+        cshaders/SSSFix.comp
+    )
+
+    set(SPV_OUTPUTS "")
+    foreach(GLSL ${GLSL_SHADERS})
+        get_filename_component(FILE_NAME ${GLSL} NAME_WE)
+        set(SPV_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cshaders/${FILE_NAME}.spv)
+        add_custom_command(
+            OUTPUT ${SPV_OUTPUT}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/cshaders
+            COMMAND ${GLSLANG_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/${GLSL} -o ${SPV_OUTPUT}
+            DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${GLSL}
+        )
+        list(APPEND SPV_OUTPUTS ${SPV_OUTPUT})
+    endforeach()
+
+    add_custom_target(PGLibSPV DEPENDS ${SPV_OUTPUTS})
+    add_dependencies(${LIBRARY_NAME} PGLibSPV)
+
+    # Copy .spv files to runtime output directory
+    add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_BINARY_DIR}/cshaders
+            $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
+    )
 endif()
 
 # include and link mutagen wrapper output

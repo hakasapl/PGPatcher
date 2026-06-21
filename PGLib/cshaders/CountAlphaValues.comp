@@ -1,0 +1,16 @@
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(binding = 0, rgba8) uniform readonly image2D Input;
+layout(binding = 1) buffer OutputBuffer { uint data[4]; } Output;
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size  = imageSize(Input);
+    if (coord.x >= size.x || coord.y >= size.y) return;
+    vec4 pixel = imageLoad(Input, coord) * 255.0;
+    if (pixel.r >= 4.0)   atomicAdd(Output.data[0], 1u);
+    if (pixel.g >= 4.0)   atomicAdd(Output.data[1], 1u);
+    if (pixel.b >= 4.0)   atomicAdd(Output.data[2], 1u);
+    if (pixel.a > 254.0)  atomicAdd(Output.data[3], 1u);
+}

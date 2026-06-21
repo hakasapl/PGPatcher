@@ -66,7 +66,10 @@ jobs:
             dotnet-sdk-8.0 \
             flatbuffers-compiler \
             nasm \
-            libboost-all-dev
+            libboost-all-dev \
+            libvulkan-dev \
+            glslang-tools \
+            spirv-tools
 
       - name: Configure
         run: cmake -S . -B buildLinux -DCMAKE_BUILD_TYPE=RelWithDebInfo
