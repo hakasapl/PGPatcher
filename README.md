@@ -28,6 +28,10 @@ As a user I understand the reluctance to learn and use yet another external tool
 
 This is an open-source project. We would love to have others contribute as well! See [CONTRIBUTING.md](https://github.com/hakasapl/PGPatcher/blob/main/CONTRIBUTING.md) for more details about the project.
 
+## Build Platforms
+
+CI now runs builds on both Windows and Linux. The Linux build currently produces a compatibility `pgtools` stub target, while full application functionality is provided by Windows builds.
+
 ## Acknowledgments
 
 * The amazing folks on the community shaders discord who answer all my ridiculous technical questions.

@@ -14,20 +14,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #
 # MSVC / Windows SDK
 #
-add_compile_options("/Zc:__cplusplus")
+if(MSVC)
+  add_compile_options("/Zc:__cplusplus")
+endif()
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 cmake_policy(SET CMP0167 NEW)
 
-# Disables conflicting min/max macros in Windows.h
-add_compile_definitions(NOMINMAX)
-add_compile_definitions(WIN32_LEAN_AND_MEAN)
-add_compile_definitions(NOSOCKETTYPE)
-add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
-add_compile_definitions(_WIN32_WINNT=0x0A00)
-add_compile_definitions(UNICODE _UNICODE)
+if(WIN32)
+  # Disables conflicting min/max macros in Windows.h
+  add_compile_definitions(NOMINMAX)
+  add_compile_definitions(WIN32_LEAN_AND_MEAN)
+  add_compile_definitions(NOSOCKETTYPE)
+  add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
+  add_compile_definitions(_WIN32_WINNT=0x0A00)
+  add_compile_definitions(UNICODE _UNICODE)
+endif()
 
 # Version
 
@@ -84,10 +88,15 @@ add_subdirectory(external/nifly)
 #
 # Submodules
 #
-add_subdirectory(PGMutagen)
-add_subdirectory(PGPatcher)
-add_subdirectory(PGLib)
-add_subdirectory(PGTools)
+if(WIN32)
+  add_subdirectory(PGMutagen)
+  add_subdirectory(PGPatcher)
+  add_subdirectory(PGLib)
+  add_subdirectory(PGTools)
+else()
+  add_subdirectory(PGTools)
+  message(STATUS "Non-Windows build detected: building Linux-compatible pgtools target only.")
+endif()
 
 #
 # VC Redist DLLs include in build

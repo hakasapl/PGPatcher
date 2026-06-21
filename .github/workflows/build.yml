@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-2022
 
     steps:
@@ -35,5 +35,27 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pgpatcher-${{ github.sha }}
+          name: pgpatcher-windows-${{ github.sha }}
           path: dist/PGPatcher
+
+  build-linux:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Configure
+        run: cmake -S . -B buildLinux -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build
+        run: cmake --build buildLinux --config RelWithDebInfo
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgpatcher-linux-${{ github.sha }}
+          path: buildLinux/bin

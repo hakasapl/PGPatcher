@@ -4,6 +4,8 @@ Contributors are welcome. Thank you in advance! Please use this page to learn ab
 
 PGPatcher is a primarily C++ 20 application built on the MSVC 2022 toolchain, using VCPKG for dependency management. There is some C#.NET portions in one of the modules which this page will expand on. The project uses cmake for building, including the .NET portions.
 
+Linux now has a compatibility build in CI that compiles a stub `pgtools` target to keep the project buildable cross-platform. Full patching functionality remains available in Windows builds.
+
 ## Guidelines
 
 ### Commits / PRs
