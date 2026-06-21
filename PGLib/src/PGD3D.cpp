@@ -52,17 +52,6 @@ using Microsoft::WRL::ComPtr;
 #endif
 
 #ifndef _WIN32
-// Map DXGI_FORMAT to VkFormat (only the formats we actually use)
-static auto dxgiToVkFormat(DXGI_FORMAT fmt) -> VkFormat {
-    switch (fmt) {
-    case DXGI_FORMAT_R8G8B8A8_UNORM:       return VK_FORMAT_R8G8B8A8_UNORM;
-    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:  return VK_FORMAT_R8G8B8A8_SRGB;
-    case DXGI_FORMAT_R16G16B16A16_FLOAT:   return VK_FORMAT_R16G16B16A16_SFLOAT;
-    case DXGI_FORMAT_R32G32B32A32_FLOAT:   return VK_FORMAT_R32G32B32A32_SFLOAT;
-    default:                               return VK_FORMAT_R8G8B8A8_UNORM;
-    }
-}
-
 // Find a memory type index supporting the required property flags
 static auto findMemoryType(VkPhysicalDevice physDev, uint32_t typeFilter,
                            VkMemoryPropertyFlags props) -> uint32_t {

@@ -4,7 +4,7 @@ Contributors are welcome. Thank you in advance! Please use this page to learn ab
 
 PGPatcher is a primarily C++ 20 application built on the MSVC 2022 toolchain, using VCPKG for dependency management. There is some C#.NET portions in one of the modules which this page will expand on. The project uses cmake for building, including the .NET portions.
 
-Linux has a native build in CI that compiles both `pgtools` and `pgpatcher` with full patching functionality. On Linux, GPU compute shaders are replaced with equivalent CPU-based implementations using DirectXTex software operations. Game path discovery uses Steam's `libraryfolders.vdf` and XDG data directories instead of the Windows registry.
+Linux has a native build in CI that compiles both `pgtools` and `pgpatcher` with full patching functionality. On Linux, GPU compute uses Vulkan compute shaders (GLSL `.comp` compiled to SPIR-V at build time) instead of DirectX 11 HLSL shaders. Game path discovery uses Steam's `libraryfolders.vdf` and XDG data directories instead of the Windows registry.
 
 ## Guidelines
 
