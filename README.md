@@ -30,7 +30,7 @@ This is an open-source project. We would love to have others contribute as well!
 
 ## Build Platforms
 
-CI now runs builds on both Windows and Linux. The Linux build currently produces a compatibility `pgtools` stub target, while full application functionality is provided by Windows builds.
+CI runs builds on both Windows and Linux. Both platforms produce fully functional `pgtools` and `pgpatcher` builds. On Linux, GPU texture processing uses CPU-based software implementations via DirectXTex instead of DirectX11 compute shaders.
 
 ## Acknowledgments
 

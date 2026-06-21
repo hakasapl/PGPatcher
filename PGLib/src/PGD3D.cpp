@@ -1181,7 +1181,7 @@ auto PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
     const size_t srcH = srcImg->height;
 
     // Determine output dimensions
-    const size_t dstW = (outWidth  > 0) ? outWidth  : srcW;
+    const size_t dstW = (outWidth > 0) ? outWidth : srcW;
     const size_t dstH = (outHeight > 0) ? outHeight : srcH;
 
     // Allocate output image

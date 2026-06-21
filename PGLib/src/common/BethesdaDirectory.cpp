@@ -112,6 +112,7 @@ auto BethesdaDirectory::checkGlob(const wstring& str,
 #else
     return std::ranges::any_of(globList, [&](const wstring& glob) -> bool {
         // Simple case-insensitive wildcard matcher: supports * and ?
+        // Note: to_lower_copy uses default locale; Bethesda paths are ASCII-compatible
         const wstring lStr = boost::to_lower_copy(str);
         const wstring lGlob = boost::to_lower_copy(glob);
         size_t si = 0;
