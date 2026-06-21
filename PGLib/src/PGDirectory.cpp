@@ -28,6 +28,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cwctype>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -35,14 +36,17 @@
 #include <map>
 #include <mutex>
 #include <shared_mutex>
-#include <shlwapi.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <shlwapi.h>
 #include <winnt.h>
+#endif
 
 using namespace std;
 using namespace StringUtil;
@@ -317,11 +321,45 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
 auto PGDirectory::checkGlobMatchInVector(const wstring& check,
                                          const vector<std::wstring>& list) -> bool
 {
+#ifdef _WIN32
     // convert wstring to LPCWSTR
     LPCWSTR checkCstr = check.c_str();
 
     // check if string matches any glob
     return std::ranges::any_of(list, [&](const wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
+#else
+    // Cross-platform wildcard matching using std::filesystem
+    return std::ranges::any_of(list, [&](const wstring& glob) {
+        return std::filesystem::path(check).filename() == std::filesystem::path(glob).filename()
+            || [&]() -> bool {
+                // Simple wildcard matcher: supports * and ?
+                const wstring& str = check;
+                const wstring& pat = glob;
+                size_t si = 0;
+                size_t pi = 0;
+                size_t starIdx = wstring::npos;
+                size_t matchIdx = 0;
+                while (si < str.size()) {
+                    if (pi < pat.size() && (towlower(pat[pi]) == towlower(str[si]) || pat[pi] == L'?')) {
+                        ++si;
+                        ++pi;
+                    } else if (pi < pat.size() && pat[pi] == L'*') {
+                        starIdx = pi;
+                        matchIdx = si;
+                        ++pi;
+                    } else if (starIdx != wstring::npos) {
+                        pi = starIdx + 1;
+                        ++matchIdx;
+                        si = matchIdx;
+                    } else {
+                        return false;
+                    }
+                }
+                while (pi < pat.size() && pat[pi] == L'*') { ++pi; }
+                return pi == pat.size();
+            }();
+    });
+#endif
 }
 
 auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,

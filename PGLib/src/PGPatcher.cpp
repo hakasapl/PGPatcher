@@ -51,8 +51,11 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
 #include <winerror.h>
 #include <winnt.h>
+#endif
 
 using namespace std;
 using namespace StringUtil;

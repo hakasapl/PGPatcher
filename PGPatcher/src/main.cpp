@@ -35,7 +35,6 @@
 #include <CLI/CLI.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <consoleapi.h>
 #include <cpptrace/from_current.hpp>
 #include <miniz.h>
 #include <miniz_zip.h>
@@ -61,7 +60,12 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#ifdef _WIN32
+#include <consoleapi.h>
 #include <windows.h>
+#endif
+
 #include <wx/colour.h>
 
 constexpr unsigned MAX_LOG_SIZE = 10490000; // 10 MB
@@ -109,7 +113,7 @@ void addFileToZip(mz_zip_archive& zip,
     // add file to Zip
     if (mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
         == 0) {
-        spdlog::critical(L"Error creating output zip file");
+        spdlog::critical("Error creating output zip file");
         return;
     }
 }
@@ -229,6 +233,7 @@ void initLogger(const filesystem::path& logpath,
     }
 }
 
+#ifdef _WIN32
 void configureDotNetLibDirectory(const filesystem::path& exeDir)
 {
     const auto libDir = exeDir / "dotnetlib";
@@ -246,6 +251,7 @@ void configureDotNetLibDirectory(const filesystem::path& exeDir)
         exit(1);
     }
 }
+#endif
 
 constexpr auto NUM_PREPARING_STEPS = 11;
 constexpr auto NUM_FINALIZING_STEPS = 5;
@@ -922,24 +928,35 @@ void addArguments(CLI::App& app,
 }
 }
 
+#ifdef _WIN32
 auto WINAPI WinMain(HINSTANCE /*hInstance*/,
                     HINSTANCE /*hPrevInstance*/,
                     LPSTR /*lpCmdLine*/,
                     int /*nCmdShow*/) -> int
 {
+    const int argC = __argc;
+    char** argV = __argv;
+#else
+auto main(int argC, char** argV) -> int
+{
+#endif
 // Block until enter only in debug mode
 #ifdef _DEBUG
     cout << "Press ENTER to start (DEBUG mode)...";
     cin.get();
 #endif
 
+#ifdef _WIN32
     SetUnhandledExceptionFilter(PGHandlers::customExceptionHandler);
 
     SetConsoleOutputCP(CP_UTF8);
+#endif
 
     // Find location of ParallaxGen.exe
     const filesystem::path exePath = PGHandlers::getExePath().parent_path();
+#ifdef _WIN32
     configureDotNetLibDirectory(exePath);
+#endif
 
     // CLI Arguments
     ParallaxGenCLIArgs args;
@@ -947,12 +964,14 @@ auto WINAPI WinMain(HINSTANCE /*hInstance*/,
     addArguments(app, args);
 
     // Parse CLI Arguments (this is what exits on any validation issues)
-    CLI11_PARSE(app, __argc, __argv);
+    CLI11_PARSE(app, argC, argV);
 
     if (args.console) {
+#ifdef _WIN32
         // Allocate a console
         AllocConsole();
         SetConsoleOutputCP(CP_UTF8);
+#endif
     }
 
     // Main Runner (Catches all exceptions)

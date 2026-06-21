@@ -67,7 +67,11 @@ void Logger::flushThreadedBuffer()
             [level](auto&& value) -> auto {
                 using T = std::decay_t<decltype(value)>;
                 if constexpr (std::is_same_v<T, std::wstring>) {
+#ifdef _WIN32
                     spdlog::log(level, L"{}", value);
+#else
+                    spdlog::log(level, "{}", StringUtil::utf16toUTF8(value));
+#endif
                 } else {
                     spdlog::log(level, "{}", value);
                 }

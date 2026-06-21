@@ -67,6 +67,15 @@ private:
         return processMessage(StringUtil::utf8toUTF16(fmt));
     }
 
+    static void logWStr(spdlog::level::level_enum lvl, const std::wstring& msg)
+    {
+#ifdef _WIN32
+        spdlog::log(lvl, L"{}", msg);
+#else
+        spdlog::log(lvl, "{}", StringUtil::utf16toUTF8(msg));
+#endif
+    }
+
 public:
     /**
      * @brief RAII guard that pushes a label onto the thread-local prefix stack for debug/trace messages.
@@ -140,7 +149,7 @@ public:
             return;
         }
 
-        spdlog::critical(L"{}", resolvedStr);
+        logWStr(spdlog::level::critical, resolvedStr);
     }
 
     /**
@@ -166,7 +175,7 @@ public:
             return;
         }
 
-        spdlog::error(L"{}", resolvedStr);
+        logWStr(spdlog::level::err, resolvedStr);
     }
 
     /**
@@ -192,7 +201,7 @@ public:
             return;
         }
 
-        spdlog::warn(L"{}", resolvedStr);
+        logWStr(spdlog::level::warn, resolvedStr);
     }
 
     /**
@@ -214,7 +223,7 @@ public:
             return;
         }
 
-        spdlog::info(L"{}", resolvedStr);
+        logWStr(spdlog::level::info, resolvedStr);
     }
 
     /**
@@ -236,7 +245,7 @@ public:
             return;
         }
 
-        spdlog::debug(L"{}", resolvedStr);
+        logWStr(spdlog::level::debug, resolvedStr);
     }
 
     /**
@@ -258,7 +267,7 @@ public:
             return;
         }
 
-        spdlog::trace(L"{}", resolvedStr);
+        logWStr(spdlog::level::trace, resolvedStr);
     }
 
     /**

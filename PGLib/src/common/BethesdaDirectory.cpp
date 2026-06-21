@@ -23,22 +23,26 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <cwctype>
 #include <exception>
-#include <fileapi.h>
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <memory>
-#include <minwindef.h>
 #include <mutex>
 #include <shared_mutex>
-#include <shlwapi.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <fileapi.h>
+#include <minwindef.h>
+#include <shlwapi.h>
 #include <winnt.h>
+#endif
 
 using namespace std;
 using namespace StringUtil;
@@ -96,6 +100,7 @@ auto BethesdaDirectory::getExtensionBlocklist() -> vector<wstring>
 auto BethesdaDirectory::checkGlob(const wstring& str,
                                   const vector<wstring>& globList) -> bool
 {
+#ifdef _WIN32
     // convert wstring vector to LPCWSTR vector
     vector<LPCWSTR> globListCstr = convertWStringToLPCWSTRVector(globList);
 
@@ -104,6 +109,30 @@ auto BethesdaDirectory::checkGlob(const wstring& str,
 
     // check if string matches any glob
     return std::ranges::any_of(globListCstr, [&](LPCWSTR glob) { return PathMatchSpecW(strCstr, glob); });
+#else
+    return std::ranges::any_of(globList, [&](const wstring& glob) -> bool {
+        // Simple case-insensitive wildcard matcher: supports * and ?
+        const wstring lStr = boost::to_lower_copy(str);
+        const wstring lGlob = boost::to_lower_copy(glob);
+        size_t si = 0;
+        size_t pi = 0;
+        size_t starIdx = wstring::npos;
+        size_t matchIdx = 0;
+        while (si < lStr.size()) {
+            if (pi < lGlob.size() && (lGlob[pi] == lStr[si] || lGlob[pi] == L'?')) {
+                ++si; ++pi;
+            } else if (pi < lGlob.size() && lGlob[pi] == L'*') {
+                starIdx = pi; matchIdx = si; ++pi;
+            } else if (starIdx != wstring::npos) {
+                pi = starIdx + 1; ++matchIdx; si = matchIdx;
+            } else {
+                return false;
+            }
+        }
+        while (pi < lGlob.size() && lGlob[pi] == L'*') { ++pi; }
+        return pi == lGlob.size();
+    });
+#endif
 }
 
 void BethesdaDirectory::populateFileMap(bool includeBSAs)
@@ -599,6 +628,7 @@ auto BethesdaDirectory::isFileInBSA(const filesystem::path& file,
     return false;
 }
 
+#ifdef _WIN32
 auto BethesdaDirectory::convertWStringToLPCWSTRVector(const vector<wstring>& original) -> vector<LPCWSTR>
 {
     vector<LPCWSTR> output(original.size());
@@ -627,14 +657,17 @@ auto BethesdaDirectory::checkGlob(const LPCWSTR& str,
 
     return false;
 }
+#endif
 
 auto BethesdaDirectory::isHidden(const filesystem::path& path) -> bool
 {
+#ifdef _WIN32
     // check if file is hidden in filesystem
     DWORD const fileAttributes = GetFileAttributesW(path.c_str());
     if (fileAttributes != INVALID_FILE_ATTRIBUTES && (fileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0) {
         return true;
     }
+#endif
 
     // check if file is a dotfile
     if (path.filename().wstring().starts_with(L".")) {

@@ -51,6 +51,23 @@ jobs:
           submodules: true
           fetch-depth: 0
 
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            libglu1-mesa-dev \
+            freeglut3-dev \
+            mesa-common-dev \
+            libwebkit2gtk-4.1-dev \
+            dotnet-sdk-8.0 \
+            flatbuffers-compiler \
+            nasm \
+            libboost-all-dev
+
       - name: Configure
         run: cmake -S . -B buildLinux -DCMAKE_BUILD_TYPE=RelWithDebInfo
 

@@ -13,11 +13,14 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <utility>
+
+#ifdef _WIN32
 #include <winerror.h>
 #include <winnt.h>
+using namespace Microsoft::WRL;
+#endif
 
 using namespace std;
-using namespace Microsoft::WRL;
 
 auto PatcherTextureHookConvertToCM::addToProcessList(const filesystem::path& texPath) -> void
 {
@@ -46,7 +49,7 @@ auto PatcherTextureHookConvertToCM::initShader() -> bool
 {
     auto* pgd3d = PGGlobals::getPGD3D();
 
-    if (s_shader != nullptr) {
+    if (PGD3D::isShaderInitialized(s_shader)) {
         return true;
     }
 

@@ -16,7 +16,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <windows.h>
 
 /**
  * @brief Provides plugin (ESP/ESM) reading, object population, and mesh-use data via the PGMutagen C# wrapper.

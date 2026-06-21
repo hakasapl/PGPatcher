@@ -26,7 +26,10 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
 #include <winnt.h>
+#endif
 
 class PGModManager;
 

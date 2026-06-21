@@ -352,11 +352,12 @@ private:
                        const bool& generated = false);
 
     /**
-     * @brief Convert a list of wstrings to a LPCWSTRs
+     * @brief Convert a list of wstrings to a LPCWSTRs (Windows only)
      *
      * @param original original list of wstrings to convert
      * @return std::vector<LPCWSTR> list of LPCWSTRs
      */
+#ifdef _WIN32
     [[nodiscard]] static auto convertWStringToLPCWSTRVector(const std::vector<std::wstring>& original)
         -> std::vector<LPCWSTR>;
 
@@ -372,6 +373,7 @@ private:
     static auto checkGlob(const LPCWSTR& str,
                           LPCWSTR& winningGlob,
                           const std::vector<LPCWSTR>& globList) -> bool;
+#endif
 
     static auto readINIValue(const std::filesystem::path& iniPath,
                              const std::wstring& section,

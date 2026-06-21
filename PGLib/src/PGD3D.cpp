@@ -10,15 +10,10 @@
 
 #include <algorithm>
 #include <array>
-#include <comdef.h>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <d3d11.h>
-#include <d3dcommon.h>
-#include <d3dcompiler.h>
-#include <dxcapi.h>
-#include <dxgi.h>
 #include <dxgiformat.h>
 #include <filesystem>
 #include <mutex>
@@ -27,16 +22,29 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <comdef.h>
+#include <d3d11.h>
+#include <d3dcommon.h>
+#include <d3dcompiler.h>
+#include <dxcapi.h>
+#include <dxgi.h>
 #include <windows.h>
 #include <wrl/client.h>
+#endif
 
 using namespace std;
 using namespace StringUtil;
+#ifdef _WIN32
 using Microsoft::WRL::ComPtr;
+#endif
 
+#ifdef _WIN32
 // We need to access unions as part of certain DX11 structures
 // reinterpret cast is needed often for type casting with DX11
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+#endif
 
 PGD3D::PGD3D(filesystem::path shaderPath)
     : m_shaderPath(std::move(shaderPath))
@@ -145,6 +153,7 @@ auto PGD3D::countPixelValues(const DirectX::ScratchImage& image,
                              array<int,
                                    4>& outData) -> bool
 {
+#ifdef _WIN32
     if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderCountAlphaValues == nullptr)) {
         throw runtime_error("GPU not initialized");
     }
@@ -219,6 +228,55 @@ auto PGD3D::countPixelValues(const DirectX::ScratchImage& image,
 
     outData = data[0];
     return true;
+#else
+    // Linux CPU fallback: replicate CountAlphaValues.hlsl logic
+    // Decompress to RGBA8 if needed
+    DirectX::ScratchImage rgbaImage;
+    const DirectX::TexMetadata& meta = image.GetMetadata();
+
+    bool needsDecompress = DirectX::IsCompressed(meta.format);
+    const DirectX::ScratchImage* src = &image;
+    if (needsDecompress) {
+        HRESULT hr = DirectX::Decompress(image.GetImages(), image.GetImageCount(), meta,
+                                         DXGI_FORMAT_R8G8B8A8_UNORM, rgbaImage);
+        if (FAILED(hr)) {
+            return false;
+        }
+        src = &rgbaImage;
+    } else if (meta.format != DXGI_FORMAT_R8G8B8A8_UNORM) {
+        HRESULT hr = DirectX::Convert(image.GetImages(), image.GetImageCount(), meta,
+                                      DXGI_FORMAT_R8G8B8A8_UNORM, DirectX::TEX_FILTER_DEFAULT,
+                                      DirectX::TEX_THRESHOLD_DEFAULT, rgbaImage);
+        if (FAILED(hr)) {
+            return false;
+        }
+        src = &rgbaImage;
+    }
+
+    array<int, 4> counts = {0, 0, 0, 0};
+
+    // Only process the first mip (mip 0, array 0)
+    const DirectX::Image* img = src->GetImage(0, 0, 0);
+    if (img == nullptr) {
+        return false;
+    }
+
+    const size_t pixelCount = img->width * img->height;
+    const uint8_t* pixels = img->pixels;
+    for (size_t i = 0; i < pixelCount; ++i) {
+        const uint8_t r = pixels[i * 4 + 0];
+        const uint8_t g = pixels[i * 4 + 1];
+        const uint8_t b = pixels[i * 4 + 2];
+        const uint8_t a = pixels[i * 4 + 3];
+        if (r >= 4) { ++counts[0]; }
+        if (g >= 4) { ++counts[1]; }
+        if (b >= 4) { ++counts[2]; }
+        if (a > 254) { ++counts[3]; }
+    }
+
+    outData = counts;
+    return true;
+#endif
 }
 
 auto PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
@@ -262,6 +320,7 @@ auto PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
 
 auto PGD3D::initGPU() -> bool
 {
+#ifdef _WIN32
     const std::scoped_lock lock(m_d3dMutex);
 
 // initialize GPU device and context
@@ -285,17 +344,26 @@ auto PGD3D::initGPU() -> bool
     );
 
     return !FAILED(hr);
+#else
+    // No GPU needed on Linux - CPU fallback is used
+    return true;
+#endif
 }
 
 auto PGD3D::initShaders() -> bool
 {
+#ifdef _WIN32
     // Initialize shaders
     return initShader("CountAlphaValues.hlsl", m_shaderCountAlphaValues);
+#else
+    return true;
+#endif
 }
 
 auto PGD3D::initShader(const std::filesystem::path& filename,
-                       ComPtr<ID3D11ComputeShader>& outShader) -> bool
+                       ShaderHandle& outShader) -> bool
 {
+#ifdef _WIN32
     if (m_ptrDevice == nullptr) {
         throw runtime_error("GPU not initialized");
     }
@@ -333,6 +401,11 @@ auto PGD3D::initShader(const std::filesystem::path& filename,
             shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, outShader.ReleaseAndGetAddressOf());
     }
     return !FAILED(hr);
+#else
+    // On Linux: store the shader filename as the handle for CPU dispatch
+    outShader = filename.filename().string();
+    return true;
+#endif
 }
 
 //
@@ -340,6 +413,7 @@ auto PGD3D::initShader(const std::filesystem::path& filename,
 //
 auto PGD3D::isPowerOfTwo(unsigned int x) -> bool { return (x != 0U) && ((x & (x - 1)) == 0U); }
 
+#ifdef _WIN32
 auto PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
                             ComPtr<ID3D11Texture2D>& dest) -> bool
 {
@@ -861,6 +935,8 @@ auto PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
     return true;
 }
 
+#endif // _WIN32
+
 //
 // Texture Helpers
 //
@@ -952,13 +1028,14 @@ auto PGD3D::getDDSMetadata(const filesystem::path& ddsPath,
 
 auto PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
                                  DirectX::ScratchImage& outTexture,
-                                 const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
+                                 const ShaderHandle& shader,
                                  const DXGI_FORMAT& outFormat,
-                                 const UINT& outWidth,
-                                 const UINT& outHeight,
+                                 unsigned int outWidth,
+                                 unsigned int outHeight,
                                  const void* shaderParams,
-                                 const UINT& shaderParamsSize) -> bool
+                                 unsigned int shaderParamsSize) -> bool
 {
+#ifdef _WIN32
     if (shader == nullptr) {
         throw runtime_error("Shader was not initialized");
     }
@@ -1068,6 +1145,168 @@ auto PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
     flushGPU();
 
     return true;
+#else
+    // Linux CPU fallback: dispatch per-shader CPU implementation
+    if (shader.empty()) {
+        throw runtime_error("Shader was not initialized");
+    }
+
+    if (inTexture.GetImageCount() < 1) {
+        return false;
+    }
+
+    const DirectX::TexMetadata inputMeta = inTexture.GetMetadata();
+
+    // Decompress input to RGBA32F for processing
+    DirectX::ScratchImage decompressed;
+    const DirectX::ScratchImage* src = &inTexture;
+    if (DirectX::IsCompressed(inputMeta.format)) {
+        HRESULT hr = DirectX::Decompress(inTexture.GetImages(), inTexture.GetImageCount(),
+                                         inputMeta, DXGI_FORMAT_R32G32B32A32_FLOAT, decompressed);
+        if (FAILED(hr)) { return false; }
+        src = &decompressed;
+    } else if (inputMeta.format != DXGI_FORMAT_R32G32B32A32_FLOAT) {
+        HRESULT hr = DirectX::Convert(inTexture.GetImages(), inTexture.GetImageCount(),
+                                      inputMeta, DXGI_FORMAT_R32G32B32A32_FLOAT,
+                                      DirectX::TEX_FILTER_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT,
+                                      decompressed);
+        if (FAILED(hr)) { return false; }
+        src = &decompressed;
+    }
+
+    const DirectX::Image* srcImg = src->GetImage(0, 0, 0);
+    if (srcImg == nullptr) { return false; }
+
+    const size_t srcW = srcImg->width;
+    const size_t srcH = srcImg->height;
+
+    // Determine output dimensions
+    const size_t dstW = (outWidth  > 0) ? outWidth  : srcW;
+    const size_t dstH = (outHeight > 0) ? outHeight : srcH;
+
+    // Allocate output image
+    DirectX::ScratchImage processedImage;
+    HRESULT hr = processedImage.Initialize2D(DXGI_FORMAT_R32G32B32A32_FLOAT, dstW, dstH, 1, 1);
+    if (FAILED(hr)) { return false; }
+
+    DirectX::Image* dstImg = processedImage.GetImage(0, 0, 0);
+    if (dstImg == nullptr) { return false; }
+
+    const auto* srcPixels = reinterpret_cast<const float*>(srcImg->pixels);
+    auto* dstPixels       = reinterpret_cast<float*>(dstImg->pixels);
+
+    if (shader == "ParallaxToCM.hlsl") {
+        // Copy red channel to alpha, zero RGB
+        for (size_t y = 0; y < dstH; ++y) {
+            for (size_t x = 0; x < dstW; ++x) {
+                const size_t si = (y * srcW + x) * 4;
+                const size_t di = (y * dstW + x) * 4;
+                dstPixels[di + 0] = 0.0F;
+                dstPixels[di + 1] = 0.0F;
+                dstPixels[di + 2] = 0.0F;
+                dstPixels[di + 3] = srcPixels[si + 0]; // red -> alpha
+            }
+        }
+    } else if (shader == "ConvertToHDR.hlsl") {
+        // Multiply RGB by luminance multiplier (from shaderParams)
+        float luminanceMult = 1.0F;
+        if (shaderParams != nullptr && shaderParamsSize >= sizeof(float)) {
+            memcpy(&luminanceMult, shaderParams, sizeof(float));
+        }
+        for (size_t y = 0; y < dstH; ++y) {
+            for (size_t x = 0; x < dstW; ++x) {
+                const size_t i = (y * dstW + x) * 4;
+                dstPixels[i + 0] = srcPixels[i + 0] * luminanceMult;
+                dstPixels[i + 1] = srcPixels[i + 1] * luminanceMult;
+                dstPixels[i + 2] = srcPixels[i + 2] * luminanceMult;
+                dstPixels[i + 3] = srcPixels[i + 3];
+            }
+        }
+    } else if (shader == "SSSFix.hlsl") {
+        // 2x downscale + saturation power on RGB
+        struct SSSParams { float fAlbedoSatPower; float fAlbedoNorm; };
+        SSSParams params {0.5F, 1.8F};
+        if (shaderParams != nullptr && shaderParamsSize >= sizeof(SSSParams)) {
+            memcpy(&params, shaderParams, sizeof(SSSParams));
+        }
+        constexpr int scaleFactor = 2;
+        for (size_t y = 0; y < dstH; ++y) {
+            for (size_t x = 0; x < dstW; ++x) {
+                // Average scaleFactor x scaleFactor block
+                float r = 0, g = 0, b = 0, a = 0;
+                for (int dy = 0; dy < scaleFactor; ++dy) {
+                    for (int dx = 0; dx < scaleFactor; ++dx) {
+                        const size_t sy = y * scaleFactor + dy;
+                        const size_t sx = x * scaleFactor + dx;
+                        const size_t si = (sy * srcW + sx) * 4;
+                        r += srcPixels[si + 0];
+                        g += srcPixels[si + 1];
+                        b += srcPixels[si + 2];
+                        a += srcPixels[si + 3];
+                    }
+                }
+                const float n = static_cast<float>(scaleFactor * scaleFactor);
+                r /= n; g /= n; b /= n; a /= n;
+
+                // Saturation power: albedo = pow(max(0.001, color), satPower * length(color))
+                const float len = std::sqrt(r*r + g*g + b*b);
+                const float exp = params.fAlbedoSatPower * len;
+                float ar = std::pow(std::max(0.001F, r), exp);
+                float ag = std::pow(std::max(0.001F, g), exp);
+                float ab = std::pow(std::max(0.001F, b), exp);
+
+                // lerp(albedo, normalize(albedo), norm), saturate
+                const float alen = std::sqrt(ar*ar + ag*ag + ab*ab);
+                if (alen > 0.0F) {
+                    ar = std::min(1.0F, ar + (ar/alen - ar) * params.fAlbedoNorm);
+                    ag = std::min(1.0F, ag + (ag/alen - ag) * params.fAlbedoNorm);
+                    ab = std::min(1.0F, ab + (ab/alen - ab) * params.fAlbedoNorm);
+                }
+                ar = std::max(0.0F, ar);
+                ag = std::max(0.0F, ag);
+                ab = std::max(0.0F, ab);
+
+                const size_t di = (y * dstW + x) * 4;
+                dstPixels[di + 0] = ar;
+                dstPixels[di + 1] = ag;
+                dstPixels[di + 2] = ab;
+                dstPixels[di + 3] = a;
+            }
+        }
+    } else {
+        // Unknown shader - identity copy
+        for (size_t y = 0; y < dstH; ++y) {
+            for (size_t x = 0; x < dstW; ++x) {
+                const size_t i = (y * dstW + x) * 4;
+                dstPixels[i + 0] = srcPixels[i + 0];
+                dstPixels[i + 1] = srcPixels[i + 1];
+                dstPixels[i + 2] = srcPixels[i + 2];
+                dstPixels[i + 3] = srcPixels[i + 3];
+            }
+        }
+    }
+
+    // Convert to the requested output format
+    if (outFormat == DXGI_FORMAT_R32G32B32A32_FLOAT) {
+        outTexture = std::move(processedImage);
+    } else {
+        hr = DirectX::Convert(processedImage.GetImages(), processedImage.GetImageCount(),
+                              processedImage.GetMetadata(), outFormat,
+                              DirectX::TEX_FILTER_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT,
+                              outTexture);
+        if (FAILED(hr)) { return false; }
+    }
+
+    // Generate mip chain
+    DirectX::ScratchImage mippedImage;
+    hr = DirectX::GenerateMipMaps(outTexture.GetImages(), outTexture.GetImageCount(),
+                                  outTexture.GetMetadata(), DirectX::TEX_FILTER_DEFAULT, 0, mippedImage);
+    if (SUCCEEDED(hr)) {
+        outTexture = std::move(mippedImage);
+    }
+
+    return true;
+#endif
 }
 
 auto PGD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& rawPixels,
@@ -1096,12 +1335,14 @@ auto PGD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& rawPixels,
     return image;
 }
 
+#ifdef _WIN32
 auto PGD3D::getHRESULTErrorMessage(HRESULT hr) -> wstring
 {
     // Get error message
     const _com_error err(hr);
     return err.ErrorMessage();
 }
+#endif
 
 auto PGD3D::getDXGIFormatFromString(const string& format) -> DXGI_FORMAT
 {
@@ -1116,4 +1357,6 @@ auto PGD3D::getDXGIFormatFromString(const string& format) -> DXGI_FORMAT
     return DXGI_FORMAT_UNKNOWN;
 }
 
+#ifdef _WIN32
 // NOLINTEND(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+#endif

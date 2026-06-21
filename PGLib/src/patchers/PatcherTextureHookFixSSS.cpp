@@ -10,16 +10,19 @@
 
 #include <cstddef>
 #include <filesystem>
-#include <minwindef.h>
 #include <mutex>
 #include <shared_mutex>
 #include <stdexcept>
 #include <utility>
+
+#ifdef _WIN32
+#include <minwindef.h>
 #include <winerror.h>
 #include <winnt.h>
+using namespace Microsoft::WRL;
+#endif
 
 using namespace std;
-using namespace Microsoft::WRL;
 
 auto PatcherTextureHookFixSSS::addToProcessList(const filesystem::path& texPath) -> void
 {
@@ -48,7 +51,7 @@ auto PatcherTextureHookFixSSS::initShader() -> bool
 {
     auto* pgd3d = PGGlobals::getPGD3D();
 
-    if (s_shader != nullptr) {
+    if (PGD3D::isShaderInitialized(s_shader)) {
         return true;
     }
 

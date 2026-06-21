@@ -16,7 +16,9 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 #
 set(LIBRARY_NAME "PGMutagenWrapper")
 add_library(${LIBRARY_NAME} SHARED ${SOURCES} ${HEADERS})
-target_compile_options(${LIBRARY_NAME} PRIVATE /utf-8)
+if(MSVC)
+    target_compile_options(${LIBRARY_NAME} PRIVATE /utf-8)
+endif()
 
 #
 # VCPKG Dependencies
@@ -36,6 +38,15 @@ set(PGMUTAGENNE_BIN_DIR "${PGMUTAGENNE_BUILD_DIR}/bin")
 set(PGMUTAGENNE_OBJ_DIR "${PGMUTAGENNE_BUILD_DIR}/obj")
 set(PGMUTAGENNE_NUGET_DIR "${PGMUTAGENNE_BUILD_DIR}/.nuget/packages")
 
+# Determine RID and static lib extension based on platform
+if(WIN32)
+    set(DOTNET_RID "win-x64")
+    set(PGMUTAGEN_LIB "${PGMUTAGENNE_BIN_DIR}/PGMutagenNE.lib")
+else()
+    set(DOTNET_RID "linux-x64")
+    set(PGMUTAGEN_LIB "${PGMUTAGENNE_BIN_DIR}/PGMutagenNE.a")
+endif()
+
 set(GENERATED_CSPROJ "${CMAKE_CURRENT_SOURCE_DIR}/PGMutagen.csproj")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/PGMutagen.csproj.in"
@@ -43,9 +54,6 @@ configure_file(
     @ONLY
 )
 
-set(PGMUTAGEN_LIB
-    ${PGMUTAGENNE_BIN_DIR}/PGMutagenNE.lib
-)
 target_link_libraries(${LIBRARY_NAME}
     PUBLIC
         "${PGMUTAGEN_LIB}"
@@ -86,7 +94,7 @@ include_directories(${PGMUTAGENNE_OBJ_DIR}/flatbuffers)
 execute_process(
     COMMAND dotnet restore "${GENERATED_CSPROJ}"
         --packages "${PGMUTAGENNE_BUILD_DIR}/.nuget/packages"
-        -r win-x64
+        -r ${DOTNET_RID}
         /p:BaseIntermediateOutputPath="${PGMUTAGENNE_BUILD_DIR}/obj/"
         /p:BaseOutputPath="${PGMUTAGENNE_BUILD_DIR}/bin/"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -113,12 +121,12 @@ set(CSHARP_SOURCES
 
 add_custom_command(
     OUTPUT ${PGMUTAGEN_LIB}
-    # OutputPath controls where DNNE emits PGMutagenNE.lib (used by the C++ linker at build time).
+    # OutputPath controls where DNNE emits the static lib (used by the C++ linker at build time).
     # --output (PublishDir) controls where the runtime and managed DLLs land for shipping.
     # Both point to the same directory so all artifacts end up in one place.
     COMMAND dotnet publish "${GENERATED_CSPROJ}"
         -c ${MSBUILD_CONFIGURATION}
-        -r win-x64
+        -r ${DOTNET_RID}
         --self-contained true
         --no-restore
         -p:Platform=x64
@@ -128,7 +136,7 @@ add_custom_command(
     DEPENDS
         ${CSHARP_SOURCES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Building PGMutagenNE.lib (self-contained)"
+    COMMENT "Building PGMutagenNE static lib (self-contained, ${DOTNET_RID})"
 )
 
 add_custom_target(PGMutagenNE

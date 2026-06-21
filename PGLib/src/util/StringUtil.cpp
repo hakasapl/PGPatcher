@@ -13,11 +13,14 @@
 #include <algorithm>
 #include <locale>
 #include <string>
-#include <stringapiset.h>
 #include <vector>
+
+#ifdef _WIN32
+#include <stringapiset.h>
 #include <wingdi.h>
 #include <winnls.h>
 #include <winnt.h>
+#endif
 
 using namespace std;
 namespace StringUtil {
@@ -119,12 +122,16 @@ auto utf8toUTF16(const string& str) -> wstring
         return {};
     }
 
+#ifdef _WIN32
     // Convert string > wstring
     const int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.length(), nullptr, 0);
     std::wstring wStr(sizeNeeded, 0);
     MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.length(), wStr.data(), sizeNeeded);
 
     return wStr;
+#else
+    return boost::locale::conv::utf_to_utf<wchar_t>(str);
+#endif
 }
 
 auto utf16toUTF8(const wstring& wStr) -> string
@@ -134,12 +141,16 @@ auto utf16toUTF8(const wstring& wStr) -> string
         return {};
     }
 
+#ifdef _WIN32
     // Convert wstring > string
     const int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wStr.data(), (int)wStr.size(), nullptr, 0, nullptr, nullptr);
     string str(sizeNeeded, 0);
     WideCharToMultiByte(CP_UTF8, 0, wStr.data(), (int)wStr.size(), str.data(), sizeNeeded, nullptr, nullptr);
 
     return str;
+#else
+    return boost::locale::conv::utf_to_utf<char>(wStr);
+#endif
 }
 
 auto containsOnlyAscii(const std::string& str) -> bool

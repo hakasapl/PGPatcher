@@ -12,18 +12,25 @@
 #include <spdlog/spdlog.h>
 
 #include <array>
-#include <combaseapi.h>
 #include <cstdint>
 #include <filesystem>
-#include <minwindef.h>
 #include <mutex>
 #include <stdexcept>
 #include <string>
-#include <stringapiset.h>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <combaseapi.h>
+#include <minwindef.h>
+#include <stringapiset.h>
 #include <winbase.h>
 #include <winnls.h>
+#else
+#include <boost/locale.hpp>
+#include <boost/locale/encoding.hpp>
+#include <cstdlib>
+#endif
 
 using namespace std;
 
@@ -69,30 +76,40 @@ void PGMutagenWrapper::libLogMessageIfExists()
 
     while (message != nullptr) {
         const wstring messageOut(message);
+#ifdef _WIN32
         LocalFree(static_cast<HGLOBAL>(message)); // Only free if memory was allocated.
+#else
+        free(message); // On Linux, memory was allocated with malloc
+#endif
         message = nullptr;
 
-        // log the message
+        // log the message (convert wstring to string on Linux since spdlog wchar is Windows-only)
+#ifdef _WIN32
+#  define PGMW_SPDLOG_ARG(s) L"{}", (s)
+#else
+#  define PGMW_SPDLOG_ARG(s) "{}", utf16toUTF8(s)
+#endif
         switch (level) {
         case TRACE_LOG:
-            spdlog::trace(L"{}", messageOut);
+            spdlog::trace(PGMW_SPDLOG_ARG(messageOut));
             break;
         case DEBUG_LOG:
-            spdlog::debug(L"{}", messageOut);
+            spdlog::debug(PGMW_SPDLOG_ARG(messageOut));
             break;
         case INFO_LOG:
-            spdlog::info(L"{}", messageOut);
+            spdlog::info(PGMW_SPDLOG_ARG(messageOut));
             break;
         case WARN_LOG:
-            spdlog::warn(L"{}", messageOut);
+            spdlog::warn(PGMW_SPDLOG_ARG(messageOut));
             break;
         case ERROR_LOG:
-            spdlog::error(L"{}", messageOut);
+            spdlog::error(PGMW_SPDLOG_ARG(messageOut));
             break;
         case CRITICAL_LOG:
-            spdlog::critical(L"{}", messageOut);
+            spdlog::critical(PGMW_SPDLOG_ARG(messageOut));
             break;
         }
+#undef PGMW_SPDLOG_ARG
 
         // Get the next message
         GetLogMessage(&message, &level);
@@ -109,7 +126,11 @@ void PGMutagenWrapper::libThrowExceptionIfExists()
     }
 
     const wstring messageOut(message);
+#ifdef _WIN32
     LocalFree(static_cast<HGLOBAL>(message)); // Only free if memory was allocated.
+#else
+    free(message); // On Linux, memory was allocated with malloc
+#endif
 
     throw runtime_error("PGMutagenWrapper: " + utf16toUTF8(messageOut));
 }
@@ -233,7 +254,11 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
         modelUsesOut.push_back(curUse);
     }
 
+#ifdef _WIN32
     ::CoTaskMemFree(buffer);
+#else
+    free(buffer);
+#endif
 
     return modelUsesOut;
 }
@@ -305,12 +330,16 @@ auto PGMutagenWrapper::utf8toUTF16(const string& str) -> wstring
         return {};
     }
 
+#ifdef _WIN32
     // Convert string > wstring
     const int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.length(), nullptr, 0);
     std::wstring wStr(sizeNeeded, 0);
     MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.length(), wStr.data(), sizeNeeded);
 
     return wStr;
+#else
+    return boost::locale::conv::utf_to_utf<wchar_t>(str);
+#endif
 }
 
 auto PGMutagenWrapper::utf16toUTF8(const wstring& wStr) -> string
@@ -320,10 +349,14 @@ auto PGMutagenWrapper::utf16toUTF8(const wstring& wStr) -> string
         return {};
     }
 
+#ifdef _WIN32
     // Convert wstring > string
     const int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wStr.data(), (int)wStr.size(), nullptr, 0, nullptr, nullptr);
     string str(sizeNeeded, 0);
     WideCharToMultiByte(CP_UTF8, 0, wStr.data(), (int)wStr.size(), str.data(), sizeNeeded, nullptr, nullptr);
 
     return str;
+#else
+    return boost::locale::conv::utf_to_utf<char>(wStr);
+#endif
 }

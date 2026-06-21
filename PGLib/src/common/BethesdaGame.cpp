@@ -9,23 +9,29 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <combaseapi.h>
 #include <filesystem>
 #include <fstream>
-#include <guiddef.h>
-#include <knownfolders.h>
 #include <map>
-#include <minwindef.h>
-#include <objbase.h>
-#include <shlobj.h>
-#include <shlobj_core.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#ifdef _WIN32
+#include <combaseapi.h>
+#include <guiddef.h>
+#include <knownfolders.h>
+#include <minwindef.h>
+#include <objbase.h>
+#include <shlobj.h>
+#include <shlobj_core.h>
 #include <winerror.h>
 #include <winnt.h>
 #include <winreg.h>
+#else
+#include <cstdlib>
+#include <sstream>
+#endif
 
 using namespace std;
 
@@ -226,6 +232,7 @@ auto BethesdaGame::getGameDataPath() const -> filesystem::path { return m_gameDa
 
 auto BethesdaGame::findGamePathFromSteam(const GameType& type) -> filesystem::path
 {
+#ifdef _WIN32
     // TODO UNICODE get file path as UNICODE
 
     // Find the game path from the registry
@@ -244,6 +251,88 @@ auto BethesdaGame::findGamePathFromSteam(const GameType& type) -> filesystem::pa
     }
 
     return {};
+#else
+    // On Linux: parse ~/.steam/steam/steamapps/libraryfolders.vdf to find installed games
+
+    // Map game type to Steam App ID
+    static const std::map<GameType, int> steamAppIDMap {
+        {GameType::SKYRIM_SE, static_cast<int>(SteamGameID::STEAMGAMEID_SKYRIM_SE)},
+        {GameType::SKYRIM_VR, static_cast<int>(SteamGameID::STEAMGAMEID_SKYRIM_VR)},
+        {GameType::ENDERAL_SE, static_cast<int>(SteamGameID::STEAMGAMEID_ENDERAL_SE)},
+    };
+
+    if (!steamAppIDMap.contains(type)) {
+        return {};
+    }
+
+    const int steamAppID = steamAppIDMap.at(type);
+    if (steamAppID == 0) {
+        return {};
+    }
+
+    // Find Steam root paths
+    const char* home = std::getenv("HOME");
+    if (home == nullptr) {
+        return {};
+    }
+
+    vector<filesystem::path> steamLibraries;
+
+    // Default steam install path
+    filesystem::path steamRoot = filesystem::path(home) / ".steam" / "steam";
+    if (!filesystem::exists(steamRoot)) {
+        steamRoot = filesystem::path(home) / ".local" / "share" / "Steam";
+    }
+
+    // Parse libraryfolders.vdf
+    const filesystem::path vdfPath = steamRoot / "steamapps" / "libraryfolders.vdf";
+    if (filesystem::exists(vdfPath)) {
+        ifstream vdfFile(vdfPath);
+        string line;
+        while (getline(vdfFile, line)) {
+            // Look for "path" entries
+            const auto pathPos = line.find("\"path\"");
+            if (pathPos != string::npos) {
+                const auto firstQuote = line.find('"', pathPos + 6);
+                const auto secondQuote = line.find('"', firstQuote + 1);
+                if (firstQuote != string::npos && secondQuote != string::npos) {
+                    steamLibraries.emplace_back(line.substr(firstQuote + 1, secondQuote - firstQuote - 1));
+                }
+            }
+        }
+    }
+
+    // Always check default library
+    steamLibraries.insert(steamLibraries.begin(), steamRoot);
+
+    const string appIDStr = to_string(steamAppID);
+    for (const auto& lib : steamLibraries) {
+        const filesystem::path acfPath = lib / "steamapps" / ("appmanifest_" + appIDStr + ".acf");
+        if (!filesystem::exists(acfPath)) {
+            continue;
+        }
+
+        // Parse installdir from manifest
+        ifstream acf(acfPath);
+        string acfLine;
+        while (getline(acf, acfLine)) {
+            const auto pos = acfLine.find("\"installdir\"");
+            if (pos != string::npos) {
+                const auto q1 = acfLine.find('"', pos + 12);
+                const auto q2 = acfLine.find('"', q1 + 1);
+                if (q1 != string::npos && q2 != string::npos) {
+                    const string installDir = acfLine.substr(q1 + 1, q2 - q1 - 1);
+                    const filesystem::path gamePath = lib / "steamapps" / "common" / installDir;
+                    if (filesystem::exists(gamePath)) {
+                        return gamePath;
+                    }
+                }
+            }
+        }
+    }
+
+    return {};
+#endif
 }
 
 auto BethesdaGame::getINIPaths() const -> BethesdaGame::ININame
@@ -370,6 +459,7 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension,
 
 auto BethesdaGame::getGameDocumentSystemPath() const -> filesystem::path
 {
+#ifdef _WIN32
     filesystem::path docPath = getSystemPath(FOLDERID_Documents);
     if (docPath.empty()) {
         return {};
@@ -377,10 +467,25 @@ auto BethesdaGame::getGameDocumentSystemPath() const -> filesystem::path
 
     docPath /= getDocumentLocation();
     return docPath;
+#else
+    // On Linux: use ~/Documents or ~ as the documents directory
+    const char* home = std::getenv("HOME");
+    if (home == nullptr) {
+        return {};
+    }
+
+    filesystem::path docsPath = filesystem::path(home) / "Documents";
+    if (!filesystem::exists(docsPath)) {
+        docsPath = filesystem::path(home);
+    }
+
+    return docsPath / getDocumentLocation();
+#endif
 }
 
 auto BethesdaGame::getGameAppdataSystemPath(const GameType& type) -> filesystem::path
 {
+#ifdef _WIN32
     filesystem::path appDataPath = getSystemPath(FOLDERID_LocalAppData);
     if (appDataPath.empty()) {
         return {};
@@ -388,8 +493,26 @@ auto BethesdaGame::getGameAppdataSystemPath(const GameType& type) -> filesystem:
 
     appDataPath /= getAppDataLocation(type);
     return appDataPath;
+#else
+    // On Linux: use XDG_DATA_HOME or ~/.local/share
+    const char* xdgData = std::getenv("XDG_DATA_HOME");
+    filesystem::path appDataPath;
+    if (xdgData != nullptr && filesystem::exists(xdgData)) {
+        appDataPath = filesystem::path(xdgData);
+    } else {
+        const char* home = std::getenv("HOME");
+        if (home == nullptr) {
+            return {};
+        }
+        appDataPath = filesystem::path(home) / ".local" / "share";
+    }
+
+    appDataPath /= getAppDataLocation(type);
+    return appDataPath;
+#endif
 }
 
+#ifdef _WIN32
 auto BethesdaGame::getSystemPath(const GUID& folderID) -> filesystem::path
 {
     PWSTR path = nullptr;
@@ -404,6 +527,7 @@ auto BethesdaGame::getSystemPath(const GUID& folderID) -> filesystem::path
     // Handle error
     return {};
 }
+#endif
 
 auto BethesdaGame::getGameTypes() -> vector<GameType>
 {

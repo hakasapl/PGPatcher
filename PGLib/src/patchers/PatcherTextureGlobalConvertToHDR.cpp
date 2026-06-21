@@ -17,7 +17,7 @@ auto PatcherTextureGlobalConvertToHDR::initShader() -> bool
 {
     auto* pgd3d = PGGlobals::getPGD3D();
 
-    if (s_shader != nullptr) {
+    if (PGD3D::isShaderInitialized(s_shader)) {
         return true;
     }
 

@@ -40,6 +40,13 @@ set(D3D_LIBS
     oleaut32.lib
     D3DCompiler.lib
 )
+
+if(WIN32)
+    set(PLATFORM_LIBS ${D3D_LIBS} Shlwapi)
+else()
+    set(PLATFORM_LIBS "")
+endif()
+
 target_link_libraries(${LIBRARY_NAME} PUBLIC
     spdlog::spdlog
     bsa::bsa
@@ -47,8 +54,7 @@ target_link_libraries(${LIBRARY_NAME} PUBLIC
     nifly
     miniz::miniz
     Microsoft::DirectXTex
-    ${D3D_LIBS}
-    Shlwapi
+    ${PLATFORM_LIBS}
     nlohmann_json::nlohmann_json
     nlohmann_json_schema_validator::validator
     cpptrace::cpptrace
@@ -57,8 +63,9 @@ target_link_libraries(${LIBRARY_NAME} PUBLIC
 target_include_directories(${LIBRARY_NAME} PUBLIC include)
 
 #
-# Shader Files
+# Shader Files (Windows only - D3D compute shaders)
 #
+if(WIN32)
 add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
     COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
@@ -66,6 +73,7 @@ add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
         ${CMAKE_CURRENT_SOURCE_DIR}/cshaders
         $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
 )
+endif()
 
 # include and link mutagen wrapper output
 add_dependencies(${LIBRARY_NAME} PGMutagenWrapper)

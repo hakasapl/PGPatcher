@@ -1,14 +1,18 @@
 #pragma once
 
+#include "PGD3D.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
 
 #include <DirectXTex.h>
+
+#ifdef _WIN32
 #include <d3d11.h>
+#include <wrl/client.h>
+#endif
 
 #include <filesystem>
 #include <shared_mutex>
 #include <unordered_set>
-#include <wrl/client.h>
 
 /**
  * @brief Texture hook patcher that fixes SubSurface Scattering (SSS) textures by
@@ -24,7 +28,7 @@ private:
         float fAlbedoSatPower;
         float fAlbedoNorm;
     };
-    static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
+    static inline PGD3D::ShaderHandle s_shader;
 
     static constexpr const char* SHADER_NAME = "SSSFix.hlsl";
 

@@ -11,11 +11,14 @@
 
 #include <filesystem>
 #include <shared_mutex>
-#include <shlwapi.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#ifdef _WIN32
+#include <shlwapi.h>
 #include <winnt.h>
+#endif
 
 /**
  * @class PatcherMeshShaderComplexMaterial

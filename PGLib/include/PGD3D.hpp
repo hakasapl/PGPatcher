@@ -4,20 +4,39 @@
 
 #include <array>
 #include <cstddef>
-#include <d3d11.h>
-#include <d3dcommon.h>
 #include <dxgiformat.h>
 #include <filesystem>
-#include <minwindef.h>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#ifdef _WIN32
+#include <d3d11.h>
+#include <d3dcommon.h>
+#include <minwindef.h>
 #include <winnt.h>
 #include <wrl/client.h>
+#endif
 
 class PGD3D {
+public:
+    /**
+     * @brief Platform-specific handle type for a compiled compute shader.
+     *
+     * On Windows this is a COM smart pointer to an ID3D11ComputeShader.
+     * On Linux this is a std::string holding the shader filename, used to
+     * dispatch the correct CPU fallback implementation.
+     */
+#ifdef _WIN32
+    using ShaderHandle = Microsoft::WRL::ComPtr<ID3D11ComputeShader>;
+    static auto isShaderInitialized(const ShaderHandle& h) -> bool { return h != nullptr; }
+#else
+    using ShaderHandle = std::string;
+    static auto isShaderInitialized(const ShaderHandle& h) -> bool { return !h.empty(); }
+#endif
+
 private:
     std::mutex m_d3dMutex;
 
@@ -27,23 +46,26 @@ private:
 
     std::filesystem::path m_shaderPath;
 
+#ifdef _WIN32
     // GPU objects
     Microsoft::WRL::ComPtr<ID3D11Device> m_ptrDevice; // GPU device
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_ptrContext; // GPU context
 
     static inline const D3D_FEATURE_LEVEL s_featureLevel = D3D_FEATURE_LEVEL_11_0; // DX11
 
+    // Global shader storage
+    ShaderHandle m_shaderCountAlphaValues;
+#endif
+
     std::unordered_map<std::filesystem::path, DirectX::TexMetadata> m_ddsMetaDataCache;
     std::shared_mutex m_ddsMetaDataMutex;
-
-    // Global shader storage
-    Microsoft::WRL::ComPtr<ID3D11ComputeShader> m_shaderCountAlphaValues;
 
 public:
     //
     // Static Helpers
     //
 
+#ifdef _WIN32
     /**
      * @brief Get the error message from a HRESULT
      *
@@ -51,6 +73,7 @@ public:
      * @return std::wstring error message
      */
     static auto getHRESULTErrorMessage(HRESULT hr) -> std::wstring;
+#endif
 
     /**
      * @brief Get the DXGI_FORMAT from a string
@@ -104,12 +127,12 @@ public:
      */
     auto applyShaderToTexture(const DirectX::ScratchImage& inTexture,
                               DirectX::ScratchImage& outTexture,
-                              const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
+                              const ShaderHandle& shader,
                               const DXGI_FORMAT& outFormat = DXGI_FORMAT_R8G8B8A8_UNORM,
-                              const UINT& outWidth = 0,
-                              const UINT& outHeight = 0,
+                              unsigned int outWidth = 0,
+                              unsigned int outHeight = 0,
                               const void* shaderParams = nullptr,
-                              const UINT& shaderParamsSize = 0) -> bool;
+                              unsigned int shaderParamsSize = 0) -> bool;
 
     auto checkIfCM(const std::filesystem::path& ddsPath,
                    bool& result,
@@ -129,20 +152,21 @@ public:
                           std::array<int,
                                      4>& outData) -> bool;
 
-    //
-    // GPU Helpers
-    //
-
     /**
-     * @brief Compiles shader into a D3D11 Shader blob
+     * @brief Compiles/registers a shader by filename
      *
      * @param filename Filename of shader relative to "shaders" folder
-     * @param[out] outShader Output shader blob
+     * @param[out] outShader Output shader handle
      * @return true on success
      * @return false on failure
      */
     auto initShader(const std::filesystem::path& filename,
-                    Microsoft::WRL::ComPtr<ID3D11ComputeShader>& outShader) -> bool;
+                    ShaderHandle& outShader) -> bool;
+
+#ifdef _WIN32
+    //
+    // GPU Helpers (Windows / D3D11 only)
+    //
 
     /**
      * @brief Create a Texture2D object on the GPU from a ScratchImage
@@ -303,6 +327,7 @@ public:
      * @brief Flush GPU (clear any released variables)
      */
     void flushGPU();
+#endif // _WIN32
 
     //
     // Texture helpers

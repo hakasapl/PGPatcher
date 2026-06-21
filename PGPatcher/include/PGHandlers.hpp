@@ -3,24 +3,28 @@
 #include <array>
 #include <atomic>
 #include <ctime>
-#include <excpt.h>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <windows.h>
 
+#ifdef _WIN32
+#include <excpt.h>
+#include <windows.h>
 #include <minidumpapiset.h>
 #include <tlhelp32.h>
+#else
+#include <unistd.h>
+#endif
 
 /**
- * @brief Provides static handlers for Windows exception handling and utility methods.
+ * @brief Provides static handlers for exception handling and utility methods.
  *
- * All methods are static; the class is used as a pure utility namespace with additional
- * Windows-specific helpers for crash-dump generation and process introspection.
+ * All methods are static; the class is used as a pure utility namespace.
  */
 class PGHandlers {
+#ifdef _WIN32
 private:
     // Global variables for crash handling
     static inline std::atomic<bool> s_crashLogged {false};
@@ -32,14 +36,6 @@ private:
 public:
     /**
      * @brief Structured-exception handler that writes a minidump and logs the crash.
-     *
-     * Creates a timestamped minidump file under the "log" directory, prints a message to
-     * stderr, and returns EXCEPTION_EXECUTE_HANDLER to terminate the process. Only the
-     * first call produces a dump; subsequent calls return EXCEPTION_CONTINUE_SEARCH.
-     *
-     * @param exceptionInfo Pointer to the Windows exception information provided by the OS.
-     * @return EXCEPTION_EXECUTE_HANDLER after writing the dump, or EXCEPTION_CONTINUE_SEARCH
-     *         if a dump has already been written.
      */
     static auto WINAPI customExceptionHandler(EXCEPTION_POINTERS* exceptionInfo) -> LONG
     {
@@ -85,15 +81,11 @@ public:
 
         CloseHandle(hFile);
 
-        // Continue searching or terminate the process
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
     /**
      * @brief Get the filesystem path of the running executable.
-     *
-     * @return Absolute path to the current executable, or an empty path if it cannot be
-     *         determined or does not exist on disk.
      */
     static auto getExePath() -> std::filesystem::path
     {
@@ -113,11 +105,6 @@ public:
 
     /**
      * @brief Check whether the process is running under Mod Organizer 2's virtual filesystem.
-     *
-     * Enumerates loaded modules of the current process and looks for "usvfs_x64.dll", which
-     * is injected by MO2's USVFS layer.
-     *
-     * @return true if usvfs_x64.dll is loaded in the process, false otherwise.
      */
     static auto isUnderUSVFS() -> bool
     {
@@ -143,4 +130,30 @@ public:
         CloseHandle(hSnapshot);
         return false;
     }
+
+#else
+    // Linux stubs
+public:
+    /**
+     * @brief Get the filesystem path of the running executable using /proc/self/exe.
+     */
+    static auto getExePath() -> std::filesystem::path
+    {
+        char buf[4096] = {};
+        const ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (n > 0) {
+            buf[n] = '\0';
+            std::filesystem::path outPath = buf;
+            if (std::filesystem::exists(outPath)) {
+                return outPath;
+            }
+        }
+        return {};
+    }
+
+    /**
+     * @brief Check whether the process is running under USVFS. Always false on Linux.
+     */
+    static auto isUnderUSVFS() -> bool { return false; }
+#endif
 };

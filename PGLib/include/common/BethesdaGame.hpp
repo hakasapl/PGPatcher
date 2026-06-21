@@ -4,7 +4,10 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 // Steam game ID definitions
 enum class SteamGameID : int {
@@ -171,8 +174,10 @@ private:
     [[nodiscard]] auto getGameDocumentSystemPath() const -> std::filesystem::path;
     [[nodiscard]] static auto getGameAppdataSystemPath(const GameType& type) -> std::filesystem::path;
 
-    // gets the system path for a folder (from windows.h)
+    // gets the system path for a folder (from windows.h, Windows only)
+#ifdef _WIN32
     static auto getSystemPath(const GUID& folderID) -> std::filesystem::path;
+#endif
 
     [[nodiscard]] static auto getGameRegistryPath(const GameType& type) -> std::string;
 };

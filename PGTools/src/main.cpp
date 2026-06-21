@@ -33,13 +33,19 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 using namespace std;
 
 namespace {
 auto getExecutablePath() -> filesystem::path
 {
+#ifdef _WIN32
     array<wchar_t, MAX_PATH> buffer {};
     if (GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH) == 0) {
         cerr << "Error getting executable path: " << GetLastError() << "\n";
@@ -47,6 +53,16 @@ auto getExecutablePath() -> filesystem::path
     }
 
     filesystem::path outPath = filesystem::path(buffer.data());
+#else
+    char buf[4096] = {};
+    const ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (n <= 0) {
+        cerr << "Error getting executable path\n";
+        exit(1);
+    }
+    buf[n] = '\0';
+    filesystem::path outPath = buf;
+#endif
 
     if (filesystem::exists(outPath)) {
         return outPath;
@@ -58,6 +74,7 @@ auto getExecutablePath() -> filesystem::path
     return {};
 }
 
+#ifdef _WIN32
 void configureDotnetLibDirectory(const filesystem::path& exeDir)
 {
     const auto libDir = exeDir / "dotnetlib";
@@ -75,6 +92,7 @@ void configureDotnetLibDirectory(const filesystem::path& exeDir)
         exit(1);
     }
 }
+#endif
 
 struct PGToolsCLIArgs {
     int verbosity = 0;
@@ -305,10 +323,14 @@ auto main(int argC,
     cin.get();
 #endif
 
+#ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
+#endif
 
     const auto exePath = getExecutablePath().parent_path();
+#ifdef _WIN32
     configureDotnetLibDirectory(exePath);
+#endif
 
     // CLI Arguments
     PGToolsCLIArgs args;

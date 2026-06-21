@@ -83,22 +83,15 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 #
 # Externals
 #
-if(WIN32)
-  add_subdirectory(external/nifly)
-endif()
+add_subdirectory(external/nifly)
 
 #
 # Submodules
 #
-if(WIN32)
-  add_subdirectory(PGMutagen)
-  add_subdirectory(PGPatcher)
-  add_subdirectory(PGLib)
-  add_subdirectory(PGTools)
-else()
-  add_subdirectory(PGTools)
-  message(STATUS "Non-Windows build detected: building Linux-compatible pgtools target only.")
-endif()
+add_subdirectory(PGMutagen)
+add_subdirectory(PGLib)
+add_subdirectory(PGTools)
+add_subdirectory(PGPatcher)
 
 #
 # VC Redist DLLs include in build

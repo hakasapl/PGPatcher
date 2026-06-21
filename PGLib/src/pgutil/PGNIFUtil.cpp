@@ -22,7 +22,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <excpt.h>
 #include <filesystem>
 #include <istream>
 #include <map>
@@ -32,7 +31,11 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#ifdef _WIN32
+#include <excpt.h>
 #include <windows.h>
+#endif
 
 using namespace std;
 
@@ -124,6 +127,7 @@ auto PGNIFUtil::getDefaultsFromSuffix(const std::filesystem::path& path) -> std:
 extern "C" auto loadNifWithSEH(nifly::NifFile* pNif,
                                std::istream* pStream) -> bool
 {
+#ifdef _WIN32
     __try {
         pNif->Load(*pStream);
         return true;
@@ -131,6 +135,14 @@ extern "C" auto loadNifWithSEH(nifly::NifFile* pNif,
         // Catch the access violation or other SEH exception
         return false;
     }
+#else
+    try {
+        pNif->Load(*pStream);
+        return true;
+    } catch (...) {
+        return false;
+    }
+#endif
 }
 
 auto PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
