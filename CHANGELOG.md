@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.4] - UNRELEASED
+## [1.1.4] - 2026-06-23
 
 - Fixed shape deleting during patching messing up 3d indices in plugins
 - Fixed deleting shape when trigger is in plugins rather than meshes
