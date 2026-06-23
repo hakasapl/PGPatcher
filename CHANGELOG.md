@@ -2,7 +2,8 @@
 
 ## [1.1.4] - UNRELEASED
 
-- Fixed edge case where deleted shape from PBR would have mismatched 3d indices in plugins
+- Fixed shape deleting during patching messing up 3d indices in plugins
+- Fixed deleting shape when trigger is in plugins rather than meshes
 
 ## [1.1.3] - 2026-06-16
 
