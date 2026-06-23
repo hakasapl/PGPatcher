@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.4] - UNRELEASED
+
+- Fixed edge case where deleted shape from PBR would have mismatched 3d indices in plugins
+
 ## [1.1.3] - 2026-06-16
 
 - Changed build pipeline to package .NET runtime and VCRedist alongside PGPatcher, meaning these are no longer required on the system

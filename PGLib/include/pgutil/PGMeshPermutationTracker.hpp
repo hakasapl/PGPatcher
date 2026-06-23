@@ -63,6 +63,8 @@ public:
         std::vector<std::pair<FormKey, std::unordered_map<unsigned int, PGTypes::TextureSet>>> altTexResults;
         /// @brief Index corrections mapping old 3D block indices to new indices after sorting.
         std::unordered_map<int, int> idxCorrections;
+        /// @brief Index corrections mapping old 3D block indices to new indices after patching.
+        std::unordered_map<int, int> inverseIdxCorrectionsPatching;
     };
 
 private:
@@ -76,6 +78,7 @@ private:
 
     nifly::NifFile m_stagedMesh;
     nifly::NifFile* m_stagedMeshPtr;
+    std::unordered_map<nifly::NiObject*, int> m_stagedMeshOriginal3DIdx;
 
     using AltTex3DIndices = std::unordered_set<unsigned int>;
 

@@ -78,6 +78,9 @@ auto PGMeshPermutationTracker::stageMesh() -> nifly::NifFile*
     m_stagedMesh.CopyFrom(m_origNifFile);
     m_stagedMeshPtr = &m_stagedMesh;
 
+    // Store original 3D indices for the staged mesh
+    m_stagedMeshOriginal3DIdx = get3dIndices(m_stagedMeshPtr);
+
     return m_stagedMeshPtr;
 }
 
@@ -133,17 +136,34 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
         processWeightVariant();
     }
 
+    // Find index corrections for the staged mesh
+    const auto new3dIndices = get3dIndices(m_stagedMeshPtr);
+    unordered_map<int, int> inverseIdxCorrectionsPatching;
+    for (const auto& [nifObject, oldIndex3D] : m_stagedMeshOriginal3DIdx) {
+        int newIndex3D = -1;
+        if (new3dIndices.contains(nifObject)) {
+            // exists after patching, set new index 3d
+            newIndex3D = new3dIndices.at(nifObject);
+        }
+
+        inverseIdxCorrectionsPatching[newIndex3D] = oldIndex3D;
+    }
+
     // Add new mesh
     nifly::NifFile newMesh;
     newMesh.CopyFrom(*m_stagedMeshPtr);
 
-    const MeshResult meshResult = {.meshPath = {}, .altTexResults = {{formKey, altTexResults}}, .idxCorrections = {}};
+    const MeshResult meshResult = {.meshPath = {},
+                                   .altTexResults = {{formKey, altTexResults}},
+                                   .idxCorrections = {},
+                                   .inverseIdxCorrectionsPatching = inverseIdxCorrectionsPatching};
 
     m_outputMeshes.emplace_back(meshResult, newMesh);
 
     // Clear staged mesh
     m_stagedMeshPtr = nullptr;
     m_stagedMesh.Clear();
+    m_stagedMeshOriginal3DIdx.clear();
 
     return true;
 }
@@ -180,7 +200,12 @@ auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
                 newIndex3D = newBlocks.at(nifObject);
             }
 
-            meshResult.idxCorrections[oldIndex3D] = newIndex3D;
+            auto correctedOldIndex3D = oldIndex3D;
+            if (meshResult.inverseIdxCorrectionsPatching.contains(oldIndex3D)) {
+                correctedOldIndex3D = meshResult.inverseIdxCorrectionsPatching.at(oldIndex3D);
+            }
+
+            meshResult.idxCorrections[correctedOldIndex3D] = newIndex3D;
         }
 
         // Get filename of mesh
