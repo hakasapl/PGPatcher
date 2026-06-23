@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.4] - UNRELEASED
+
+- Fixed shape deleting during patching messing up 3d indices in plugins
+- Fixed deleting shape when trigger is in plugins rather than meshes
+
 ## [1.1.3] - 2026-06-16
 
 - Changed build pipeline to package .NET runtime and VCRedist alongside PGPatcher, meaning these are no longer required on the system

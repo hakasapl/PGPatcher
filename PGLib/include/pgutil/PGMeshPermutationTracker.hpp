@@ -63,11 +63,14 @@ public:
         std::vector<std::pair<FormKey, std::unordered_map<unsigned int, PGTypes::TextureSet>>> altTexResults;
         /// @brief Index corrections mapping old 3D block indices to new indices after sorting.
         std::unordered_map<int, int> idxCorrections;
+        /// @brief Index corrections mapping old 3D block indices to new indices after patching.
+        std::unordered_map<int, int> inverseIdxCorrectionsPatching;
     };
 
 private:
     std::filesystem::path m_origMeshPath;
     nifly::NifFile m_origNifFile;
+    std::unordered_set<int> m_origShapeIndices;
     unsigned long long m_origCrc32;
     bool m_ignoreBaseMesh = false;
 
@@ -76,6 +79,7 @@ private:
 
     nifly::NifFile m_stagedMesh;
     nifly::NifFile* m_stagedMeshPtr;
+    std::unordered_map<nifly::NiObject*, int> m_stagedMeshOriginal3DIdx;
 
     using AltTex3DIndices = std::unordered_set<unsigned int>;
 
@@ -273,6 +277,8 @@ private:
      */
     static auto get3dIndices(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiObject*,
                                                                               int>;
+
+    static auto get3dIndicesSet(const nifly::NifFile* nif) -> std::unordered_set<int>;
 
     /**
      * @brief Resolves the path of the corresponding weighted variant (_0/_1) for a given NIF.

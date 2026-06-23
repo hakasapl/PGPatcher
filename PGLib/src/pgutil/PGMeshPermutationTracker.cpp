@@ -56,6 +56,9 @@ void PGMeshPermutationTracker::load()
 
     // Load original NIF
     m_origNifFile = PGNIFUtil::loadNIFFromBytes(nifFileData, false);
+
+    // Store original shape indices
+    m_origShapeIndices = get3dIndicesSet(&m_origNifFile);
 }
 
 void PGMeshPermutationTracker::load(const std::shared_ptr<nifly::NifFile>& origNifFile,
@@ -67,6 +70,9 @@ void PGMeshPermutationTracker::load(const std::shared_ptr<nifly::NifFile>& origN
 
     m_origNifFile = *origNifFile;
     m_origCrc32 = origCrc32;
+
+    // Store original shape indices
+    m_origShapeIndices = get3dIndicesSet(&m_origNifFile);
 }
 
 auto PGMeshPermutationTracker::stageMesh() -> nifly::NifFile*
@@ -77,6 +83,9 @@ auto PGMeshPermutationTracker::stageMesh() -> nifly::NifFile*
     // Copy original NIF to staged mesh
     m_stagedMesh.CopyFrom(m_origNifFile);
     m_stagedMeshPtr = &m_stagedMesh;
+
+    // Store original 3D indices for the staged mesh
+    m_stagedMeshOriginal3DIdx = get3dIndices(m_stagedMeshPtr);
 
     return m_stagedMeshPtr;
 }
@@ -133,17 +142,32 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
         processWeightVariant();
     }
 
+    // Find index corrections for the staged mesh
+    const auto new3dIndices = get3dIndices(m_stagedMeshPtr);
+    unordered_map<int, int> inverseIdxCorrectionsPatching;
+    for (const auto& [nifObject, oldIndex3D] : m_stagedMeshOriginal3DIdx) {
+        if (new3dIndices.contains(nifObject)) {
+            // exists after patching, set new index 3d
+            const auto newIndex3D = new3dIndices.at(nifObject);
+            inverseIdxCorrectionsPatching[newIndex3D] = oldIndex3D;
+        }
+    }
+
     // Add new mesh
     nifly::NifFile newMesh;
     newMesh.CopyFrom(*m_stagedMeshPtr);
 
-    const MeshResult meshResult = {.meshPath = {}, .altTexResults = {{formKey, altTexResults}}, .idxCorrections = {}};
+    const MeshResult meshResult = {.meshPath = {},
+                                   .altTexResults = {{formKey, altTexResults}},
+                                   .idxCorrections = {},
+                                   .inverseIdxCorrectionsPatching = inverseIdxCorrectionsPatching};
 
     m_outputMeshes.emplace_back(meshResult, newMesh);
 
     // Clear staged mesh
     m_stagedMeshPtr = nullptr;
     m_stagedMesh.Clear();
+    m_stagedMeshOriginal3DIdx.clear();
 
     return true;
 }
@@ -173,14 +197,38 @@ auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
         mesh.PrettySortBlocks();
         const auto newBlocks = get3dIndices(&mesh);
 
+        auto originalShapesFoundTracker = m_origShapeIndices;
+
         for (const auto& [nifObject, oldIndex3D] : blocks) {
-            int newIndex3D = -1;
-            if (newBlocks.contains(nifObject)) {
-                // exists after patching, set new index 3d
-                newIndex3D = newBlocks.at(nifObject);
+            if (!newBlocks.contains(nifObject)) {
+                throw std::runtime_error(
+                    "Sorted blocks mesh does not contain an object that was in the unsorted version. "
+                    "This should not happen.");
             }
 
-            meshResult.idxCorrections[oldIndex3D] = newIndex3D;
+            // exists after patching, set new index 3d
+            auto newIndex3D = newBlocks.at(nifObject);
+
+            auto correctedOldIndex3D = oldIndex3D;
+            if (meshResult.inverseIdxCorrectionsPatching.contains(oldIndex3D)) {
+                correctedOldIndex3D = meshResult.inverseIdxCorrectionsPatching.at(oldIndex3D);
+            } else {
+                throw std::runtime_error("Staged mesh does not contain an object that was in the ephemeral mesh. "
+                                         "This should not happen.");
+            }
+
+            if (originalShapesFoundTracker.contains(correctedOldIndex3D)) {
+                originalShapesFoundTracker.erase(correctedOldIndex3D);
+            } else {
+                throw std::runtime_error("Staged mesh does not contain an object that was in the ephemeral mesh. "
+                                         "This should not happen.");
+            }
+
+            meshResult.idxCorrections[correctedOldIndex3D] = newIndex3D;
+        }
+
+        for (const auto& missingShape : originalShapesFoundTracker) {
+            meshResult.idxCorrections[missingShape] = -1; // shape was removed
         }
 
         // Get filename of mesh
@@ -706,6 +754,33 @@ auto PGMeshPermutationTracker::get3dIndices(const nifly::NifFile* nif) -> unorde
         if (dynamic_cast<NiParticleSystem*>(obj) != nullptr) {
             // Particle system, increment index3d
             blocks[obj] = oldIndex3D;
+            oldIndex3D++;
+        }
+    }
+
+    return blocks;
+}
+
+auto PGMeshPermutationTracker::get3dIndicesSet(const nifly::NifFile* nif) -> unordered_set<int>
+{
+    if (nif == nullptr) {
+        throw runtime_error("NIF is null");
+    }
+
+    vector<NiObject*> tree;
+    nif->GetTree(tree);
+    unordered_set<int> blocks;
+    int oldIndex3D = 0;
+    for (auto& obj : tree) {
+        if (dynamic_cast<NiShape*>(obj) != nullptr) {
+            blocks.insert(oldIndex3D++);
+            continue;
+        }
+
+        // other stuff that should increment oldIndex3D
+        if (dynamic_cast<NiParticleSystem*>(obj) != nullptr) {
+            // Particle system, increment index3d
+            blocks.insert(oldIndex3D);
             oldIndex3D++;
         }
     }
