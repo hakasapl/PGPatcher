@@ -70,6 +70,7 @@ public:
 private:
     std::filesystem::path m_origMeshPath;
     nifly::NifFile m_origNifFile;
+    std::unordered_set<int> m_origShapeIndices;
     unsigned long long m_origCrc32;
     bool m_ignoreBaseMesh = false;
 
@@ -276,6 +277,8 @@ private:
      */
     static auto get3dIndices(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiObject*,
                                                                               int>;
+
+    static auto get3dIndicesSet(const nifly::NifFile* nif) -> std::unordered_set<int>;
 
     /**
      * @brief Resolves the path of the corresponding weighted variant (_0/_1) for a given NIF.

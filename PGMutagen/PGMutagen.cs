@@ -989,9 +989,9 @@ public class PGMutagen
                         altTexDict[curAltTex.Value.SlotId] = curAltTex.Value;
                     }
                     // Loop through existing alternate textures
-                    for (int j = 0; j < matchExistingElem.AlternateTextures.Count; j++)
+                    for (int j = 0; j < matchModElem.AlternateTextures.Count; j++)
                     {
-                        var curAltTex = matchExistingElem.AlternateTextures[j];
+                        var curAltTex = matchModElem.AlternateTextures[j];
                         if (!altTexDict.ContainsKey(curAltTex.Index))
                         {
                             continue;
@@ -1004,6 +1004,7 @@ public class PGMutagen
                         var newAltTex = bufAltTex.SlotIdNew;
                         if (curAltTex.Index != newAltTex)
                         {
+                            changed = true;
                             if (newAltTex == -1)
                             {
                                 // delete the alternate texture
@@ -1014,7 +1015,6 @@ public class PGMutagen
 
                             // Change index
                             matchModElem.AlternateTextures[j].Index = newAltTex;
-                            changed = true;
                         }
 
                         // Find new texture set
