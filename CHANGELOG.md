@@ -4,6 +4,7 @@
 
 - Fixed shape deleting during patching messing up 3d indices in plugins
 - Fixed deleting shape when trigger is in plugins rather than meshes
+- Fixed randomness around order of patching shapes
 
 ## [1.1.3] - 2026-06-16
 

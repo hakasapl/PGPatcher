@@ -13,8 +13,8 @@
 #include <map>
 #include <string>
 #include <tuple>
-#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace PGNIFUtil {
@@ -193,8 +193,8 @@ auto getSearchPrefixes(nifly::NifFile const& nif,
 auto getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
                        const bool& findBaseSlots = true) -> PGTypes::TextureSet;
 
-auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiShape*,
-                                                                            int>;
+auto getShapesWith3DIdx(const nifly::NifFile* nif) -> std::vector<std::pair<nifly::NiShape*,
+                                                                            int>>;
 
 auto isPatchableShape(nifly::NifFile& nif,
                       nifly::NiShape& nifShape) -> bool;

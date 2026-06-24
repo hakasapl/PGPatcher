@@ -31,6 +31,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 #include <windows.h>
 
@@ -513,8 +514,8 @@ auto PGNIFUtil::getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
     return outSlots;
 }
 
-auto PGNIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_map<nifly::NiShape*,
-                                                                                  int>
+auto PGNIFUtil::getShapesWith3DIdx(const nifly::NifFile* nif) -> vector<pair<nifly::NiShape*,
+                                                                             int>>
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
@@ -522,12 +523,12 @@ auto PGNIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> unordered_ma
 
     vector<NiObject*> tree;
     nif->GetTree(tree);
-    unordered_map<NiShape*, int> shapes;
+    vector<pair<NiShape*, int>> shapes;
     int oldIndex3D = 0;
     for (auto& obj : tree) {
         auto* const curShape = dynamic_cast<NiShape*>(obj);
         if (curShape != nullptr) {
-            shapes[curShape] = oldIndex3D++;
+            shapes.emplace_back(curShape, oldIndex3D++);
             continue;
         }
 
