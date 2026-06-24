@@ -514,8 +514,8 @@ auto PGNIFUtil::getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
     return outSlots;
 }
 
-auto PGNIFUtil::getShapesWithBlockIDs(const nifly::NifFile* nif) -> vector<pair<nifly::NiShape*,
-                                                                                int>>
+auto PGNIFUtil::getShapesWith3DIdx(const nifly::NifFile* nif) -> vector<pair<nifly::NiShape*,
+                                                                             int>>
 {
     if (nif == nullptr) {
         throw runtime_error("NIF is null");

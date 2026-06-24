@@ -496,7 +496,7 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
     const auto patcherObjects = createNIFPatcherObjects(nifPath, nif);
 
     // Get shapes and index 3ds (this is in the order as they would show up as 3d indices in plugins)
-    const auto shapes = PGNIFUtil::getShapesWithBlockIDs(nif);
+    const auto shapes = PGNIFUtil::getShapesWith3DIdx(nif);
 
     for (const auto& [nifShape, oldIndex3D] : shapes) {
         const auto shapeBlockID = nif->GetBlockID(nifShape);

@@ -352,7 +352,7 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
     }
 
     // Loop through each shape
-    const auto shapes = PGNIFUtil::getShapesWithBlockIDs(nif.get());
+    const auto shapes = PGNIFUtil::getShapesWith3DIdx(nif.get());
     // clear shapes in cache
     std::vector<std::pair<int, PGTypes::TextureSet>> textureSets;
     for (const auto& [shape, oldindex3d] : shapes) {

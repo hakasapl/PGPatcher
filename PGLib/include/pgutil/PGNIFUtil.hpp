@@ -193,8 +193,8 @@ auto getSearchPrefixes(nifly::NifFile const& nif,
 auto getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
                        const bool& findBaseSlots = true) -> PGTypes::TextureSet;
 
-auto getShapesWithBlockIDs(const nifly::NifFile* nif) -> std::vector<std::pair<nifly::NiShape*,
-                                                                               int>>;
+auto getShapesWith3DIdx(const nifly::NifFile* nif) -> std::vector<std::pair<nifly::NiShape*,
+                                                                            int>>;
 
 auto isPatchableShape(nifly::NifFile& nif,
                       nifly::NiShape& nifShape) -> bool;
