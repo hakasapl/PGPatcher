@@ -120,13 +120,8 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
 
     // Check if staged mesh is different from all existing output meshes
     for (auto& outputMesh : m_outputMeshes) {
-        if (compareMesh(m_stagedMesh,
-                        outputMesh.second,
-                        nonAltTexShapes,
-                        false,
-                        false,
-                        &stagedInverseIdxCorrectionsPatching,
-                        &outputMesh.first.inverseIdxCorrectionsPatching)) {
+        if (compareMesh(
+                m_stagedMesh, outputMesh.second, nonAltTexShapes, false, false, &stagedInverseIdxCorrectionsPatching)) {
             // Mesh is identical to an existing output mesh, do not add
             outputMesh.first.altTexResults.emplace_back(formKey, altTexResults);
             // Clear staged mesh
@@ -337,12 +332,8 @@ auto PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
                                            bool compareAllTXST,
                                            bool checkOnlyWeighted,
                                            const std::unordered_map<int,
-                                                                    int>* meshAInverseIdxCorrectionsPatching,
-                                           const std::unordered_map<int,
-                                                                    int>* meshBInverseIdxCorrectionsPatching) -> bool
+                                                                    int>* meshAInverseIdxCorrectionsPatching) -> bool
 {
-    (void)meshBInverseIdxCorrectionsPatching;
-
     // This should be compared before sorting blocks (sorting blocks should happen last)
     const auto blocksA = getComparableBlocks(&meshA);
     const auto blocksB = getComparableBlocks(&meshB);

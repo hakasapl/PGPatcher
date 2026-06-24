@@ -191,9 +191,7 @@ private:
                             bool compareAllTXST = false,
                             bool checkOnlyWeighted = false,
                             const std::unordered_map<int,
-                                                     int>* meshAInverseIdxCorrectionsPatching = nullptr,
-                            const std::unordered_map<int,
-                                                     int>* meshBInverseIdxCorrectionsPatching = nullptr) -> bool;
+                                                     int>* meshAInverseIdxCorrectionsPatching = nullptr) -> bool;
 
     /**
      * @brief Compares two BSTriShape blocks for geometric equivalence.
