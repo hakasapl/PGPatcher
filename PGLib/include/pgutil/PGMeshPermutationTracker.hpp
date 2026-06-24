@@ -189,7 +189,11 @@ private:
                             const nifly::NifFile& meshB,
                             const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA,
                             bool compareAllTXST = false,
-                            bool checkOnlyWeighted = false) -> bool;
+                            bool checkOnlyWeighted = false,
+                            const std::unordered_map<int,
+                                                     int>* meshAInverseIdxCorrectionsPatching = nullptr,
+                            const std::unordered_map<int,
+                                                     int>* meshBInverseIdxCorrectionsPatching = nullptr) -> bool;
 
     /**
      * @brief Compares two BSTriShape blocks for geometric equivalence.
@@ -279,6 +283,12 @@ private:
                                                                               int>;
 
     static auto get3dIndicesSet(const nifly::NifFile* nif) -> std::unordered_set<int>;
+
+    static auto buildInverseIdxCorrections(const std::unordered_map<nifly::NiObject*,
+                                                                    int>& current3DIndices,
+                                           const std::unordered_map<nifly::NiObject*,
+                                                                    int>& original3DIndices) -> std::unordered_map<int,
+                                                                                                                   int>;
 
     /**
      * @brief Resolves the path of the corresponding weighted variant (_0/_1) for a given NIF.

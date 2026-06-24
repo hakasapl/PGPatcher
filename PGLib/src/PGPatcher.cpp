@@ -520,7 +520,7 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
             ptrAltTex = &alternateTextures.at(oldIndex3D);
         } else {
             // we want to include any texture sets that do not have alternate textures defined to be compared
-            nonAltTexShapes.insert(shapeBlockID);
+            nonAltTexShapes.insert(oldIndex3D);
         }
         if (!processNIFShape(nifPath, nif, nifShape, patcherObjects, singlepassMATO, modelRecordType, ptrAltTex)) {
             return false;

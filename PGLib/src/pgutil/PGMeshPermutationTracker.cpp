@@ -112,9 +112,21 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     // Add to processed form keys
     m_processedFormKeys.insert(formKey);
 
+    // Build current->original 3D index map for the staged mesh so comparisons remain stable if
+    // patchers deleted shapes and shifted current indices.
+    const auto stagedCurrent3DIndices = get3dIndices(m_stagedMeshPtr);
+    const auto stagedInverseIdxCorrectionsPatching
+        = buildInverseIdxCorrections(stagedCurrent3DIndices, m_stagedMeshOriginal3DIdx);
+
     // Check if staged mesh is different from all existing output meshes
     for (auto& outputMesh : m_outputMeshes) {
-        if (compareMesh(m_stagedMesh, outputMesh.second, nonAltTexShapes)) {
+        if (compareMesh(m_stagedMesh,
+                        outputMesh.second,
+                        nonAltTexShapes,
+                        false,
+                        false,
+                        &stagedInverseIdxCorrectionsPatching,
+                        &outputMesh.first.inverseIdxCorrectionsPatching)) {
             // Mesh is identical to an existing output mesh, do not add
             outputMesh.first.altTexResults.emplace_back(formKey, altTexResults);
             // Clear staged mesh
@@ -142,17 +154,6 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
         processWeightVariant();
     }
 
-    // Find index corrections for the staged mesh
-    const auto new3dIndices = get3dIndices(m_stagedMeshPtr);
-    unordered_map<int, int> inverseIdxCorrectionsPatching;
-    for (const auto& [nifObject, oldIndex3D] : m_stagedMeshOriginal3DIdx) {
-        if (new3dIndices.contains(nifObject)) {
-            // exists after patching, set new index 3d
-            const auto newIndex3D = new3dIndices.at(nifObject);
-            inverseIdxCorrectionsPatching[newIndex3D] = oldIndex3D;
-        }
-    }
-
     // Add new mesh
     nifly::NifFile newMesh;
     newMesh.CopyFrom(*m_stagedMeshPtr);
@@ -160,7 +161,7 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     const MeshResult meshResult = {.meshPath = {},
                                    .altTexResults = {{formKey, altTexResults}},
                                    .idxCorrections = {},
-                                   .inverseIdxCorrectionsPatching = inverseIdxCorrectionsPatching};
+                                   .inverseIdxCorrectionsPatching = stagedInverseIdxCorrectionsPatching};
 
     m_outputMeshes.emplace_back(meshResult, newMesh);
 
@@ -334,8 +335,14 @@ auto PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
                                            const nifly::NifFile& meshB,
                                            const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA,
                                            bool compareAllTXST,
-                                           bool checkOnlyWeighted) -> bool
+                                           bool checkOnlyWeighted,
+                                           const std::unordered_map<int,
+                                                                    int>* meshAInverseIdxCorrectionsPatching,
+                                           const std::unordered_map<int,
+                                                                    int>* meshBInverseIdxCorrectionsPatching) -> bool
 {
+    (void)meshBInverseIdxCorrectionsPatching;
+
     // This should be compared before sorting blocks (sorting blocks should happen last)
     const auto blocksA = getComparableBlocks(&meshA);
     const auto blocksB = getComparableBlocks(&meshB);
@@ -510,9 +517,17 @@ auto PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
                 return false;
             }
 
-            // get txst block id
-            const auto shapeBlockIdA = meshA.GetBlockID(shapeA);
-            const bool enforceTxstCheck = enforceCheckShapeTXSTA.contains(shapeBlockIdA);
+            // Resolve the original 3D index (before patch-time deletions/reordering) for stable
+            // alternate-texture enforcement.
+            auto enforceIdxA = static_cast<unsigned int>(i);
+            if (meshAInverseIdxCorrectionsPatching != nullptr) {
+                const auto foundA = meshAInverseIdxCorrectionsPatching->find(static_cast<int>(i));
+                if (foundA != meshAInverseIdxCorrectionsPatching->end() && foundA->second >= 0) {
+                    enforceIdxA = static_cast<unsigned int>(foundA->second);
+                }
+            }
+
+            const bool enforceTxstCheck = enforceCheckShapeTXSTA.contains(enforceIdxA);
             if (!enforceTxstCheck && !compareAllTXST) {
                 continue;
             }
@@ -786,6 +801,26 @@ auto PGMeshPermutationTracker::get3dIndicesSet(const nifly::NifFile* nif) -> uno
     }
 
     return blocks;
+}
+
+auto PGMeshPermutationTracker::buildInverseIdxCorrections(const std::unordered_map<nifly::NiObject*,
+                                                                                   int>& current3DIndices,
+                                                          const std::unordered_map<nifly::NiObject*,
+                                                                                   int>& original3DIndices)
+    -> std::unordered_map<int,
+                          int>
+{
+    unordered_map<int, int> inverseIdxCorrections;
+    for (const auto& [nifObject, oldIndex3D] : original3DIndices) {
+        if (!current3DIndices.contains(nifObject)) {
+            continue;
+        }
+
+        const auto newIndex3D = current3DIndices.at(nifObject);
+        inverseIdxCorrections[newIndex3D] = oldIndex3D;
+    }
+
+    return inverseIdxCorrections;
 }
 
 auto PGMeshPermutationTracker::getOtherWeightVariant(const std::filesystem::path& nifPath) -> std::filesystem::path
