@@ -13,6 +13,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -26,6 +27,7 @@ private:
     wxButton* m_applyButton = nullptr; /** Apply button to save changes without closing the dialog */
     wxButton* m_discardButton = nullptr; /** Discard changes button to revert to last saved state */
     wxButton* m_restoreButton = nullptr; /** Restore default order button */
+    wxButton* m_showAllMeshesButton = nullptr; /** Show all meshes/shapes/matches button */
     wxCheckBox* m_checkBoxMO2 = nullptr; /** Checkbox to use MO2 loose file order */
     wxTextCtrl* m_searchCtrl = nullptr; /** Search box used to quickly find mods by name */
 
@@ -145,6 +147,13 @@ private:
     void onRestoreDefault(wxCommandEvent& event);
 
     /**
+     * @brief Event handler that triggers when the "Show All Meshes" button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onShowAllMeshes(wxCommandEvent& event);
+
+    /**
      * @brief Event handler that triggers when the Discard Changes button is pressed
      *
      * @param event wxWidgets event object
@@ -194,6 +203,12 @@ private:
      * @brief Updates the mods in the PGModManager based on the current state of the list control
      */
     void updateMods();
+
+    /**
+     * @brief Updates mod states in memory only (without saving to disk).
+     *        Called when mod order changes to reflect updates in real-time without requiring Apply.
+     */
+    void updateModStatesLive();
 
     /**
      * @brief Fills the list control with the given mod list

@@ -32,14 +32,7 @@
 #include <vector>
 
 class PGPatcher {
-private:
-    // Registered Patchers
-    static PatcherUtil::PatcherTextureSet s_texPatchers;
-    static PatcherUtil::PatcherMeshSet s_meshPatchers;
-
-    static std::shared_mutex s_diffJSONMutex;
-    static nlohmann::json s_diffJSON;
-
+public:
     // Mesh Patch Tracking structures (for meta info displayed to user later)
     struct MatchMeta {
         std::shared_ptr<PGModManager::Mod> mod;
@@ -51,14 +44,28 @@ private:
         std::string shapeName;
         std::vector<std::string> prePatchersApplied;
         std::vector<std::string> postPatchersApplied;
-        std::map<PGMeshPermutationTracker::FormKey, std::vector<MatchMeta>> matches;
+        std::unordered_map<PGMeshPermutationTracker::FormKey,
+                           std::vector<MatchMeta>,
+                           PGMeshPermutationTracker::FormKeyHash>
+            matches;
     };
     struct MeshMeta {
         std::vector<std::string> globalPatchersApplied;
-        std::vector<MeshShapeMeta> shapeMeta;
+        std::vector<PGMeshPermutationTracker::FormKey> formKeys;
+        std::map<size_t, MeshShapeMeta> shapeMeta;
     };
 
-    static inline std::map<std::filesystem::path, MeshMeta> s_meshPatchInfo;
+    using MeshPatchInfo = std::map<std::filesystem::path, MeshMeta>;
+
+private:
+    // Registered Patchers
+    static PatcherUtil::PatcherTextureSet s_texPatchers;
+    static PatcherUtil::PatcherMeshSet s_meshPatchers;
+
+    static std::shared_mutex s_diffJSONMutex;
+    static nlohmann::json s_diffJSON;
+
+    static inline MeshPatchInfo s_meshPatchInfo;
     static inline std::shared_mutex s_meshPatchInfoMutex;
 
 public:
@@ -97,8 +104,31 @@ public:
      *
      * @return std::map<std::filesystem::path, MeshMeta>
      */
-    static auto getPatchMeta() -> std::map<std::filesystem::path,
-                                           MeshMeta>;
+    static auto getPatchMeta() -> MeshPatchInfo;
+
+    /**
+     * @brief Sort matches according to a provided mod priority list.
+     *
+     * Matches are ordered by mod priority first, then by shader quality, with stable ordering within ties.
+     */
+    static void sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
+                            const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList);
+
+    /**
+     * @brief Sort mesh patch metadata matches according to a provided mod priority list.
+     *
+     * Matches are ordered by mod priority first, then by shader quality, with stable ordering within ties.
+     */
+    static void sortMatches(std::vector<MatchMeta>& matches,
+                            const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList);
+
+    /**
+     * @brief Check whether any mesh patch metadata has been collected.
+     *
+     * @return true if patch metadata exists
+     * @return false if no patch metadata exists
+     */
+    static auto hasConflictData() -> bool;
 
     /**
      * @brief Finalize any other requires output files

@@ -175,6 +175,63 @@ auto PGPatcher::getPatchMeta() -> std::map<std::filesystem::path,
     return s_meshPatchInfo;
 }
 
+namespace {
+template <typename T>
+void sortMatchesImpl(std::vector<T>& matches,
+                     const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)
+{
+    std::unordered_map<const PGModManager::Mod*, size_t> modPriorityOrder;
+    modPriorityOrder.reserve(modPriorityList.size());
+    size_t priorityRank = 0;
+    for (const auto& mod : modPriorityList) {
+        modPriorityOrder.emplace(mod.get(), priorityRank++);
+    }
+
+    const size_t fallbackRank = modPriorityList.size();
+    std::ranges::stable_sort(matches, [&](const T& a, const T& b) -> bool {
+        size_t aRank = fallbackRank;
+        if (a.mod != nullptr) {
+            const auto aIt = modPriorityOrder.find(a.mod.get());
+            if (aIt != modPriorityOrder.end()) {
+                aRank = aIt->second;
+            }
+        }
+
+        size_t bRank = fallbackRank;
+        if (b.mod != nullptr) {
+            const auto bIt = modPriorityOrder.find(b.mod.get());
+            if (bIt != modPriorityOrder.end()) {
+                bRank = bIt->second;
+            }
+        }
+
+        if (aRank != bRank) {
+            return aRank < bRank;
+        }
+
+        return static_cast<int>(a.shader) > static_cast<int>(b.shader);
+    });
+}
+} // namespace
+
+void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
+                            const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)
+{
+    sortMatchesImpl(matches, modPriorityList);
+}
+
+void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
+                            const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)
+{
+    sortMatchesImpl(matches, modPriorityList);
+}
+
+auto PGPatcher::hasConflictData() -> bool
+{
+    const shared_lock lock(s_meshPatchInfoMutex);
+    return !s_meshPatchInfo.empty();
+}
+
 void PGPatcher::deleteOutputDir(const bool& preOutput)
 {
     static const unordered_set<filesystem::path> foldersToDelete
@@ -290,9 +347,6 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
-    // Prepare meta
-    MeshMeta meshMeta;
-
     // Get mod of nif
     if (PGGlobals::isPGMMSet()) {
         const auto mod = PGGlobals::getPGMM()->getModByFileSmart(nifPath);
@@ -316,10 +370,17 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     }
 
     auto nifCache = meshes.at(nifPath);
+    const bool isFacegen = PGNIFUtil::isFacegenMesh(nifPath);
+    if (nifCache.meshUses.empty() && !forceBasePatch && !isFacegen) {
+        Logger::trace(L"Skipping NIF patching for mesh with no plugin uses: {}", nifPath.wstring());
+        return TaskTracker::Result::SUCCESS;
+    }
 
     meshTracker.load();
 
-    const bool isFacegen = PGNIFUtil::isFacegenMesh(nifPath);
+    // Prepare meta
+    MeshMeta meshMeta;
+
     if (nifCache.meshUses.empty() && (forceBasePatch || isFacegen)) {
         // add a dummy mesh use to trigger base patching (pgtools uses this since no plugins)
         // always trigger dummy for facegen meshes since they never appear in plugins
@@ -427,6 +488,9 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
     // Get shapes and index 3ds (this is in the order as they would show up as 3d indices in plugins)
     const auto shapes = PGNIFUtil::getShapesWith3DIdx(nif);
 
+    meshMeta.formKeys.push_back(formKey);
+
+    size_t shapeMetaIdx = 0;
     for (const auto& [nifShape, oldIndex3D] : shapes) {
         const auto shapeBlockID = nif->GetBlockID(nifShape);
         const auto shapeName = nifShape->name.get();
@@ -444,12 +508,12 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
             continue;
         }
 
-        MeshShapeMeta meshShapeMeta;
-        meshShapeMeta.blockID = shapeBlockID;
+        auto& curMeshShapeMeta = meshMeta.shapeMeta[shapeMetaIdx++];
+        curMeshShapeMeta.blockID = shapeBlockID;
         if (shapeName.empty()) {
-            meshShapeMeta.shapeName = "[ UNNAMED ]";
+            curMeshShapeMeta.shapeName = "[ UNNAMED ]";
         } else {
-            meshShapeMeta.shapeName = shapeName;
+            curMeshShapeMeta.shapeName = shapeName;
         }
 
         PGTypes::TextureSet* ptrAltTex = nullptr;
@@ -462,7 +526,7 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
         if (!processNIFShape(nifPath,
                              nif,
                              nifShape,
-                             meshShapeMeta,
+                             curMeshShapeMeta,
                              patcherObjects,
                              singlepassMATO,
                              formKey,
@@ -470,8 +534,6 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
                              ptrAltTex)) {
             return false;
         }
-
-        meshMeta.shapeMeta.push_back(meshShapeMeta);
     }
 
     // Run global patchers
@@ -498,6 +560,10 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                                 const PGPlugin::ModelRecordType& modelRecordType,
                                 PGTypes::TextureSet* alternateTexture) -> bool
 {
+    if (boost::icontains(nifPath.wstring(), "mountaintrim01.nif")) {
+        Logger::trace("Debug breakpoint for mountaintrim01.nif");
+    }
+
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
     }
@@ -652,7 +718,7 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
                 curMatch.mod = PGGlobals::getPGMM()->getModByFileSmart(match.matchedPath);
             }
 
-            {
+            if (curMatch.mod != nullptr) {
                 const std::shared_lock lk(curMatch.mod->mutex);
                 if (!curMatch.mod->isEnabled) {
                     // do not add match if mod it matched from is disabled
@@ -746,25 +812,9 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
         }
     }
 
-    // Stable sort by mod priority (highest first), then by shader enum (highest first),
-    // then by original relative order. First element wins.
-    std::ranges::stable_sort(
-        matches, [](const PatcherUtil::ShaderPatcherMatch& a, const PatcherUtil::ShaderPatcherMatch& b) -> bool {
-            int aPriority = -1;
-            if (a.mod != nullptr) {
-                aPriority = a.mod->priority;
-            }
-            int bPriority = -1;
-            if (b.mod != nullptr) {
-                bPriority = b.mod->priority;
-            }
-
-            if (aPriority != bPriority) {
-                return aPriority > bPriority;
-            }
-
-            return static_cast<int>(a.shader) > static_cast<int>(b.shader);
-        });
+    const auto modPriorityList = PGGlobals::isPGMMSet() ? PGGlobals::getPGMM()->getModsByPriority()
+                                                        : std::vector<std::shared_ptr<PGModManager::Mod>> {};
+    sortMatches(matches, modPriorityList);
 
     return matches;
 }

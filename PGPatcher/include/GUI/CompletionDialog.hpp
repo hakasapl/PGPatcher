@@ -59,6 +59,11 @@ private:
     void onOpenLogFile(wxCommandEvent& event);
 
     /**
+     * @brief Opens the mod order/conflict dialog so the user can adjust priorities after patching.
+     */
+    void onShowModConflicts(wxCommandEvent& event);
+
+    /**
      * @brief Persist the current set of ignored warning messages to the configuration.
      *
      * Reads the ignore map from the warnings list control and forwards it to

@@ -2,6 +2,7 @@
 
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
 
+#include <functional>
 #include <vector>
 
 #include <wx/listctrl.h>
@@ -13,6 +14,13 @@ private:
 
     bool m_draggingEnabled = true; /** True if user can drag, false otherwise */
     bool m_contextMoveEnabled = true; /** True if move-to-top/bottom menu actions are enabled */
+
+    /**
+     * @brief Optional callback invoked at the end of the context menu, after a separator.
+     *        Receives the menu being built and the currently selected item indices so callers
+     *        can append extra items.  Called only when at least one item is selected.
+     */
+    std::function<void(wxMenu&, const std::vector<long>&)> m_contextMenuExtension;
 
     wxTimer m_autoscrollTimer; /** Timer that is responsible for autoscroll */
     static constexpr int AUTOSCROLL_TIMER_INTERVAL = 250; /** Scroll every this amount in ms when autoscrolling */
@@ -137,6 +145,17 @@ public:
      * @return false if context-menu move actions are disabled
      */
     [[nodiscard]] auto isContextMoveEnabled() const -> bool;
+
+    /**
+     * @brief Set an optional callback that appends extra items to the context menu.
+     *
+     * The callback is invoked with a reference to the menu and the selected item indices.
+     * A separator is automatically added before the extra items.
+     *
+     * @param extension Callable to invoke, or an empty std::function to remove.
+     */
+    void setContextMenuExtension(std::function<void(wxMenu&,
+                                                    const std::vector<long>&)> extension);
 
 private:
     // Event Handlers

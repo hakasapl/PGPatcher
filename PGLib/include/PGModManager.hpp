@@ -65,6 +65,8 @@ public:
         std::shared_mutex mutex;
         /// @brief The mod's display name as used by the mod manager.
         std::wstring name;
+        /// @brief The absolute path to the mod's folder on disk.
+        std::filesystem::path folder;
         /// @brief True if this mod was added since the last session and has no stored priority.
         bool isNew = false;
         /// @brief True if the mod is currently enabled in the mod manager.
@@ -88,6 +90,7 @@ private:
     std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
 
     ModManagerType m_mmType;
+    std::filesystem::path m_stagingLocation;
 
     static constexpr const char* MO2INI_PROFILESDIR_KEY = "profiles_directory=";
     static constexpr const char* MO2INI_MODDIR_KEY = "mod_directory=";
@@ -248,6 +251,11 @@ public:
      * @return Corresponding ModManagerType, or NONE if unrecognized.
      */
     [[nodiscard]] static auto getModManagerTypeFromStr(const std::string& type) -> ModManagerType;
+
+    /**
+     * @brief Returns the root staging location used by the active mod manager.
+     */
+    [[nodiscard]] auto getStagingLocation() const -> const std::filesystem::path&;
 
     /**
      * @brief Assigns ascending priority values to all newly-added enabled mods that have no stored priority.

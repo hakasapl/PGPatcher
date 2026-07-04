@@ -263,6 +263,15 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
                             + StringUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
+    // Extract staging path where all Vortex mods are stored
+    if (!vortexDeployment.contains("stagingPath")) {
+        throw runtime_error("Vortex deployment file does not contain 'stagingPath' field: "
+                            + StringUtil::utf16toUTF8(deploymentFile.wstring()));
+    }
+
+    const auto stagingPath = filesystem::path(StringUtil::utf8toUTF16(vortexDeployment["stagingPath"].get<string>()));
+    m_stagingLocation = stagingPath;
+
     // loop through files
     unordered_set<wstring> foundMods;
     for (const auto& file : vortexDeployment["files"]) {
@@ -276,9 +285,19 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
             continue;
         }
 
-        auto modName = StringUtil::utf8toUTF16(file["source"].get<string>());
+        // Get the mod identifier from source field (e.g., "1DwemerArmorSE-81043-1-1671541249")
+        const auto sourceId = StringUtil::utf8toUTF16(file["source"].get<string>());
+        const auto curModDir = stagingPath / sourceId;
 
-        // filter out modname suffix
+        // Check if mod folder exists
+        if (!filesystem::exists(curModDir)) {
+            Logger::debug(L"Mod directory from vortex.deployment.json does not exist: {}", curModDir.wstring());
+            continue;
+        }
+
+        auto modName = sourceId;
+
+        // filter out modname suffix (e.g., remove "-81043-1-1671541249" from "1DwemerArmorSE-81043-1-1671541249")
         const static wregex vortexSuffixRe(L"-[0-9]+-.*");
         modName = regex_replace(modName, vortexSuffixRe, L"");
 
@@ -294,6 +313,7 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
         }
 
         modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
+        modPtr->folder = curModDir; // Store the actual mod folder path
 
         // Update file map
         Logger::trace(L"Mapping file to mod: {} -> {}", relPath.wstring(), modName);
@@ -330,6 +350,7 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
     auto mo2Paths = getMO2FilePaths(instanceDir);
     const auto profileDir = mo2Paths.first;
     const auto modDir = mo2Paths.second;
+    m_stagingLocation = modDir;
 
     // Find location of modlist.txt
     const auto curProfile = getSelectedProfileFromInstanceDir(instanceDir);
@@ -401,11 +422,10 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
         }
 
         modPtr->modManagerOrder = basePriority++;
-
-        m_modMap[mod] = modPtr;
+        modPtr->folder = curModDir;
         foundMods.insert(mod);
 
-        // loop through each folder to map
+        m_modMap[mod] = modPtr;
         for (const auto& folder : PGGlobals::s_foldersToMap) {
             const auto curSearchDir = curModDir / folder;
             if (!filesystem::exists(curSearchDir)) {
@@ -505,6 +525,8 @@ auto PGModManager::getStrFromModManagerType(const ModManagerType& type) -> strin
 
     return modManagerTypeToStrMap.at(ModManagerType::NONE);
 }
+
+auto PGModManager::getStagingLocation() const -> const filesystem::path& { return m_stagingLocation; }
 
 auto PGModManager::getModManagerTypeFromStr(const string& type) -> ModManagerType
 {

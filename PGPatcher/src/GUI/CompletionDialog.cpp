@@ -1,8 +1,10 @@
 #include "GUI/CompletionDialog.hpp"
 
+#include "GUI/ModSortDialog.hpp"
 #include "GUI/components/PGLogMessageListCtrl.hpp"
 #include "PGConfig.hpp"
 #include "PGPatcherGlobals.hpp"
+
 
 #include <wx/artprov.h>
 #include <wx/collpane.h>
@@ -139,6 +141,11 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     openLogFileButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenLogFile, this);
     buttonSizer->Add(openLogFileButton, 0, wxALL, BORDER_SIZE);
 
+    // Show mod conflicts / order button
+    auto* showModConflictsButton = new wxButton(this, wxID_ANY, "Show Mod Conflicts");
+    showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
+    buttonSizer->Add(showModConflictsButton, 0, wxALL, BORDER_SIZE);
+
     mainSizer->Add(buttonSizer, 0, wxALIGN_CENTER_HORIZONTAL);
 
     SetSizerAndFit(mainSizer); // This automatically sizes the dialog to fit content
@@ -268,6 +275,14 @@ void CompletionDialog::onOpenLogFile([[maybe_unused]] wxCommandEvent& event)
 
     // Close dialog
     EndModal(wxID_OK);
+}
+
+void CompletionDialog::onShowModConflicts([[maybe_unused]] wxCommandEvent& event)
+{
+    saveIgnoredMessagesToConfig();
+
+    ModSortDialog dialog;
+    dialog.ShowModal();
 }
 
 void CompletionDialog::saveIgnoredMessagesToConfig()

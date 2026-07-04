@@ -128,6 +128,12 @@ auto PGCheckedDragListCtrl::isDraggingEnabled() const -> bool { return m_draggin
 
 auto PGCheckedDragListCtrl::isContextMoveEnabled() const -> bool { return m_contextMoveEnabled; }
 
+void PGCheckedDragListCtrl::setContextMenuExtension(std::function<void(wxMenu&,
+                                                                       const std::vector<long>&)> extension)
+{
+    m_contextMenuExtension = std::move(extension);
+}
+
 // EVENT HANDLERS
 
 void PGCheckedDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
@@ -464,6 +470,12 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
             wxPostEvent(this, evt);
         },
         ID_DISABLE_MESHES);
+
+    // Allow the owner to append extra items (e.g. "Show Conflicts...")
+    if (m_contextMenuExtension) {
+        menu.AppendSeparator();
+        m_contextMenuExtension(menu, selectedItems);
+    }
 
     PopupMenu(&menu);
 }
