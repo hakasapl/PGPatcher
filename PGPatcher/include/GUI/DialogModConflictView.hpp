@@ -174,6 +174,7 @@ private:
     [[nodiscard]] auto getSelectedShapeIndex() const -> long;
     [[nodiscard]] auto getSelectedMatchRow() const -> long;
     void copyTextToClipboard(const wxString& text);
-    void openMatchFile(const wxString& modNameStr, const std::filesystem::path& relPath);
+    void openMatchFile(const wxString& modNameStr,
+                       const std::filesystem::path& relPath);
     void openPathWithDefaultApp(const std::filesystem::path& path);
 };

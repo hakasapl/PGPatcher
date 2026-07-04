@@ -7,11 +7,12 @@
 #include "pgutil/PGEnums.hpp"
 #include "util/StringUtil.hpp"
 
-#include <wx/listctrl.h>
-#include <wx/splitter.h>
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
+#include <wx/listctrl.h>
+#include <wx/splitter.h>
 #include <wx/wx.h>
+
 
 #include <algorithm>
 #include <chrono>
@@ -584,7 +585,8 @@ void DialogModConflictView::openPathWithDefaultApp(const filesystem::path& path)
     wxLaunchDefaultApplication(wxString(path.wstring()));
 }
 
-void DialogModConflictView::openMatchFile(const wxString& modNameStr, const filesystem::path& relPath)
+void DialogModConflictView::openMatchFile(const wxString& modNameStr,
+                                          const filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
         wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
@@ -675,8 +677,10 @@ void DialogModConflictView::onMeshContextMenu(wxContextMenuEvent& event)
     auto* copyName = menu.Append(wxID_ANY, "Copy name");
     auto* openItem = menu.Append(wxID_ANY, "Open");
 
-    menu.Bind(wxEVT_MENU, [this, meshPath](wxCommandEvent&) { copyTextToClipboard(wxString(meshPath.wstring())); },
-              copyName->GetId());
+    menu.Bind(
+        wxEVT_MENU,
+        [this, meshPath](wxCommandEvent&) { copyTextToClipboard(wxString(meshPath.wstring())); },
+        copyName->GetId());
     menu.Bind(wxEVT_MENU, [this, meshPath](wxCommandEvent&) { openPathWithDefaultApp(meshPath); }, openItem->GetId());
 
     m_meshListCtrl->PopupMenu(&menu);
@@ -719,35 +723,38 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
     auto* openModFolder = menu.Append(wxID_ANY, "Open mod folder");
     auto* openMatchingFile = menu.Append(wxID_ANY, "Open matching file");
 
-    menu.Bind(wxEVT_MENU, [this, modNameStr](wxCommandEvent&) { copyTextToClipboard(modNameStr); },
-              copyModName->GetId());
+    menu.Bind(
+        wxEVT_MENU, [this, modNameStr](wxCommandEvent&) { copyTextToClipboard(modNameStr); }, copyModName->GetId());
 
-    menu.Bind(wxEVT_MENU, [this, modNameStr](wxCommandEvent&) {
-        if (modNameStr.IsEmpty() || modNameStr == "[Untracked Mod/Vanilla]") {
-            return;
-        }
-
-        try {
-            auto* pgmm = PGGlobals::getPGMM();
-            if (pgmm == nullptr) {
+    menu.Bind(
+        wxEVT_MENU,
+        [this, modNameStr](wxCommandEvent&) {
+            if (modNameStr.IsEmpty() || modNameStr == "[Untracked Mod/Vanilla]") {
                 return;
             }
 
-            const auto mod = pgmm->getMod(modNameStr.ToStdWstring());
-            if (mod != nullptr && !mod->folder.empty()) {
-                openPathWithDefaultApp(mod->folder);
-            }
-        } catch (...) {
-            // Ignore lookup failures.
-        }
-    },
-              openModFolder->GetId());
+            try {
+                auto* pgmm = PGGlobals::getPGMM();
+                if (pgmm == nullptr) {
+                    return;
+                }
 
-    menu.Bind(wxEVT_MENU,
-              [this, modNameStr, relPathStr](wxCommandEvent&) {
-                  openMatchFile(modNameStr, filesystem::path(relPathStr.ToStdWstring()));
-              },
-              openMatchingFile->GetId());
+                const auto mod = pgmm->getMod(modNameStr.ToStdWstring());
+                if (mod != nullptr && !mod->folder.empty()) {
+                    openPathWithDefaultApp(mod->folder);
+                }
+            } catch (...) {
+                // Ignore lookup failures.
+            }
+        },
+        openModFolder->GetId());
+
+    menu.Bind(
+        wxEVT_MENU,
+        [this, modNameStr, relPathStr](wxCommandEvent&) {
+            openMatchFile(modNameStr, filesystem::path(relPathStr.ToStdWstring()));
+        },
+        openMatchingFile->GetId());
 
     m_matchListCtrl->PopupMenu(&menu);
 }
