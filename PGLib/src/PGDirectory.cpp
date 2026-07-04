@@ -354,7 +354,6 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
     // Loop through each shape
     const auto shapes = PGNIFUtil::getShapesWith3DIdx(nif.get());
     // clear shapes in cache
-    std::vector<std::pair<int, PGTypes::TextureSet>> textureSets;
     for (const auto& [shape, oldindex3d] : shapes) {
         if (shape == nullptr) {
             // Skip if shape is null (invalid shapes)
@@ -373,16 +372,10 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
 
         auto* const shader = nif->GetShader(shape);
         const auto textureSet = PGNIFUtil::getTextureSlots(nif.get(), shape);
-        textureSets.emplace_back(oldindex3d, textureSet);
 
         // Loop through each texture slot
         for (uint32_t slot = 0; slot < NUM_TEXTURE_SLOTS; slot++) {
             string texture = utf16toUTF8(textureSet.at(slot));
-
-            if (!containsOnlyAscii(texture)) {
-                Logger::error(L"Mesh {} has texture slot(s) with invalid non-ASCII chars", nifPath.wstring());
-                return TaskTracker::Result::FAILURE;
-            }
 
             if (texture.empty()) {
                 // No texture in this slot
@@ -535,16 +528,6 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
         updateNifCache(nifPath, modelUses);
     }
 
-    if (cachenif) {
-        // Calculate original CRC32
-        boost::crc_32_type crcBeforeResult {};
-        crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
-        updateNifCache(nifPath, nif, crcBeforeResult.checksum());
-    }
-
-    // update nif cache
-    updateNifCache(nifPath, textureSets);
-
     // find mod of this mesh
     if (PGGlobals::isPGMMSet()) {
         auto mod = PGGlobals::getPGMM()->getModByFileSmart(nifPath);
@@ -603,19 +586,6 @@ auto PGDirectory::addToTextureMaps(const filesystem::path& path,
 }
 
 void PGDirectory::updateNifCache(const filesystem::path& path,
-                                 const vector<pair<int,
-                                                   PGTypes::TextureSet>>& txstSets)
-{
-    const unique_lock lock(m_meshesMutex);
-
-    if (!m_meshes.contains(path)) {
-        m_meshes[path] = NifCache {};
-    }
-
-    m_meshes.at(path).textureSets = txstSets;
-}
-
-void PGDirectory::updateNifCache(const filesystem::path& path,
                                  const vector<pair<PGMeshPermutationTracker::FormKey,
                                                    PGPlugin::MeshUseAttributes>>& meshUses)
 {
@@ -626,20 +596,6 @@ void PGDirectory::updateNifCache(const filesystem::path& path,
     }
 
     m_meshes.at(path).meshUses = meshUses;
-}
-
-void PGDirectory::updateNifCache(const filesystem::path& path,
-                                 const shared_ptr<nifly::NifFile>& nif,
-                                 const unsigned long long& crc32)
-{
-    const unique_lock lock(m_meshesMutex);
-
-    if (!m_meshes.contains(path)) {
-        m_meshes[path] = NifCache {};
-    }
-
-    m_meshes.at(path).nif = nif;
-    m_meshes.at(path).origCRC32 = crc32;
 }
 
 auto PGDirectory::getTextureMap(const PGEnums::TextureSlots& slot) -> map<wstring,

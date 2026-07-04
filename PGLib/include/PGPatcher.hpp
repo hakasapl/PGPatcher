@@ -3,6 +3,8 @@
 #include "PGDirectory.hpp"
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "pgutil/PGEnums.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/TaskTracker.hpp"
 
@@ -18,8 +20,11 @@
 #include <spdlog/spdlog.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
+#include <memory>
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
@@ -35,30 +40,26 @@ private:
     static std::shared_mutex s_diffJSONMutex;
     static nlohmann::json s_diffJSON;
 
-    struct MatchCacheKey {
-        std::wstring nifPath;
-        PGTypes::TextureSet slots;
-        bool singlepassMATO = false;
-
-        auto operator==(const MatchCacheKey& other) const -> bool
-        {
-            return slots == other.slots && singlepassMATO == other.singlepassMATO && nifPath == other.nifPath;
-        }
+    // Mesh Patch Tracking structures (for meta info displayed to user later)
+    struct MatchMeta {
+        std::shared_ptr<PGModManager::Mod> mod;
+        PGEnums::ShapeShader shader {};
+        std::filesystem::path matchedPath;
+    };
+    struct MeshShapeMeta {
+        uint32_t blockID;
+        std::string shapeName;
+        std::vector<std::string> prePatchersApplied;
+        std::vector<std::string> postPatchersApplied;
+        std::map<PGMeshPermutationTracker::FormKey, std::vector<MatchMeta>> matches;
+    };
+    struct MeshMeta {
+        std::vector<std::string> globalPatchersApplied;
+        std::vector<MeshShapeMeta> shapeMeta;
     };
 
-    struct MatchCacheKeyHasher {
-        auto operator()(const MatchCacheKey& key) const -> size_t
-        {
-            size_t seed = 0;
-            boost::hash_combine(seed, boost::hash_range(key.slots.begin(), key.slots.end()));
-            boost::hash_combine(seed, key.singlepassMATO);
-            return seed;
-        }
-    };
-
-    static std::shared_mutex s_matchCacheMutex;
-    static std::unordered_map<MatchCacheKey, std::vector<PatcherUtil::ShaderPatcherMatch>, MatchCacheKeyHasher>
-        s_matchCache;
+    static inline std::map<std::filesystem::path, MeshMeta> s_meshPatchInfo;
+    static inline std::shared_mutex s_meshPatchInfoMutex;
 
 public:
     /**
@@ -80,8 +81,7 @@ public:
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
                             const bool& checkAllowedRecTypes = false,
                             const std::function<void(size_t,
-                                                     size_t)>& progressCallback
-                            = {});
+                                                     size_t)>& progressCallback = {});
 
     /**
      * @brief Run texture patcher
@@ -90,23 +90,20 @@ public:
      */
     static void patchTextures(const bool& multiThread = true,
                               const std::function<void(size_t,
-                                                       size_t)>& progressCallback
-                              = {});
+                                                       size_t)>& progressCallback = {});
+
+    /**
+     * @brief Get the Patch Meta object
+     *
+     * @return std::map<std::filesystem::path, MeshMeta>
+     */
+    static auto getPatchMeta() -> std::map<std::filesystem::path,
+                                           MeshMeta>;
 
     /**
      * @brief Finalize any other requires output files
      */
     static void finalize();
-
-    /**
-     * @brief Populates the mod conflicts in pgmm as well as shader types for each mod
-     *
-     * @param multiThread whether to use multithreading
-     */
-    static void populateModData(const bool& multiThread = true,
-                                const std::function<void(size_t,
-                                                         size_t)>& progressCallback
-                                = {});
 
     /**
      * @brief Delets output directory in a smart way
@@ -141,9 +138,6 @@ private:
                          const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
                          const bool& checkAllowedRecTypes = false) -> TaskTracker::Result;
 
-    static auto populateModInfoFromNIF(const std::filesystem::path& nifPath,
-                                       const PGDirectory::NifCache& nifCache) -> TaskTracker::Result;
-
     // NIF Helpers
 
     /**
@@ -161,7 +155,9 @@ private:
      */
     static auto processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
+                           MeshMeta& meshMeta,
                            bool singlepassMATO,
+                           const PGMeshPermutationTracker::FormKey& formKey,
                            const PGPlugin::ModelRecordType& modelRecordType,
                            std::unordered_map<unsigned int,
                                               PGTypes::TextureSet>& alternateTextures,
@@ -185,29 +181,19 @@ private:
     static auto processNIFShape(const std::filesystem::path& nifPath,
                                 nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
+                                MeshShapeMeta& meshShapeMeta,
                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
                                 bool singlepassMATO,
+                                const PGMeshPermutationTracker::FormKey& formKey,
                                 const PGPlugin::ModelRecordType& modelRecordType,
                                 PGTypes::TextureSet* alternateTexture = nullptr) -> bool;
 
     static auto getMatches(const PGTypes::TextureSet& slots,
                            const PatcherUtil::PatcherMeshObjectSet& patchers,
-                           const bool& dryRun,
                            bool singlepassMATO,
                            const PGPlugin::ModelRecordType& modelRecordType,
                            const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
                            nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
-
-    /**
-     * @brief Get the Winning Match object (checks mod priority)
-     *
-     * @param Matches Matches to check
-     * @param NIFPath NIF path to check
-     * @param ModPriority Mod priority map
-     * @return ShaderPatcherMatch Winning match
-     */
-    static auto getWinningMatch(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches)
-        -> PatcherUtil::ShaderPatcherMatch;
 
     /**
      * @brief Helper method to run a transform if needed on a match

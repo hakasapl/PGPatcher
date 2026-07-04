@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.0] - UNRELEASED
+
+- Mod sort dialog will no longer appear during patching
+- Completion dialog now has an option to open the mod conflict view, make any changes, and re-run the patching step
+- Fixed sometimes ambiguous matching priority when multiple matches of different shader types come from the same mod
+
 ## [1.1.4] - 2026-06-24
 
 - Fixed shape deleting during patching messing up 3d indices in plugins

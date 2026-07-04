@@ -35,6 +35,17 @@ public:
         {
             return formID == other.formID && modKey == other.modKey && subMODL == other.subMODL;
         }
+
+        auto operator<(const FormKey& other) const -> bool
+        {
+            if (modKey != other.modKey) {
+                return modKey < other.modKey;
+            }
+            if (formID != other.formID) {
+                return formID < other.formID;
+            }
+            return subMODL < other.subMODL;
+        }
     };
 
     /**
