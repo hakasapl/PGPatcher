@@ -550,6 +550,38 @@ void PGModManager::assignNewModPriorities() const
     }
 }
 
+void PGModManager::updateModOrderInit(bool useDefaultOrder) const
+{
+    // make sure any new mods that need to be enabled get enabled
+    assignNewModPriorities();
+
+    const vector<shared_ptr<Mod>> mods
+        = useDefaultOrder && m_mmType == ModManagerType::MODORGANIZER2 ? getModsByDefaultOrder() : getModsByPriority();
+
+    vector<shared_ptr<Mod>> orderedMods;
+    orderedMods.reserve(mods.size());
+
+    for (const auto& mod : mods) {
+        if (mod->isEnabled) {
+            orderedMods.push_back(mod);
+        }
+    }
+
+    for (const auto& mod : mods) {
+        if (!mod->isEnabled) {
+            orderedMods.push_back(mod);
+        }
+    }
+
+    const int itemCount = static_cast<int>(orderedMods.size());
+    for (int i = 0; i < itemCount; ++i) {
+        const auto& mod = orderedMods.at(static_cast<size_t>(i));
+        if (mod->isEnabled) {
+            mod->priority = itemCount - i;
+        }
+    }
+}
+
 auto PGModManager::isValidMO2InstanceDir(const filesystem::path& instanceDir) -> bool
 {
     // Check if the instance directory contains the required files

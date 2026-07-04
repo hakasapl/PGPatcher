@@ -256,7 +256,6 @@ constexpr auto NUM_TOTAL_STEPS = 6;
 void mainRunnerPre(const ParallaxGenCLIArgs& args,
                    const PGConfig::PGParams& params,
                    const filesystem::path& exePath,
-                   bool needModSortDialog,
                    const std::filesystem::path& cfgDir,
                    ProgressWindow* progressWindow,
                    const function<void(size_t,
@@ -593,22 +592,12 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
         PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
     }
 
-    // Check if MO2 is used and MO2 use order is checked
-    if (needModSortDialog) {
-        progressWindow->CallAfter([progressWindow]() -> void {
-            progressWindow->setMainLabel("Building mod conflict information");
-            progressWindow->setStepLabel("");
-            progressWindow->setMainProgress(2, NUM_TOTAL_STEPS, true);
-            progressWindow->setStepProgress(0, 1);
-        });
+    // Assign new mod priorities for new mods
+    pgmm->updateModOrderInit(params.ModManager.mo2UseLooseFileOrder);
 
-        progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Finding conflicts"); });
-
-        // Find conflicts
-        PGPatcher::populateModData(params.Processing.multithread, progressCallback);
-
-        // Assign new mod priorities for new mods
-        pgmm->assignNewModPriorities();
+    // Persist computed mod order so non-dialog flows still keep modrules.json in sync.
+    if (!PGConfig::saveModConfig()) {
+        Logger::critical("Failed to save mod configuration to modrules.json");
     }
 }
 
@@ -834,58 +823,20 @@ void mainRunner(ParallaxGenCLIArgs& args,
     auto startTime = chrono::high_resolution_clock::now();
     long long timeTaken = 0;
 
-    const bool needModSortDialog
-        = (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR)
-        && params.ModManager.type != PGModManager::ModManagerType::NONE;
-
     // Dispatch the pre-generation task
     TaskQueue backgroundRunners;
-    backgroundRunners.queueTask(
-        [&args, &params, &exePath, needModSortDialog, &progressWindow, &cfgDir, &progressCallback]() -> void {
-            mainRunnerPre(args, params, exePath, needModSortDialog, cfgDir, progressWindow, progressCallback);
-            if (needModSortDialog) {
-                // if we need the mod sort dialog we need to close the progress dialog here
-                progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-            }
-        });
-    if (!needModSortDialog) {
-        // if we don't need the mod sort dialog we should queue both tasks and close the dialog after
-        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &progressCallback]() -> void {
-            mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
-            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-        });
-    }
+    backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
+        mainRunnerPre(args, params, exePath, cfgDir, progressWindow, progressCallback);
+        mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
+        progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+    });
 
     // Show progress dialog (this will block until closed by one of the callafters)
     progressWindow->ShowModal();
-    ExceptionHandler::throwExceptionOnMainThread();
 
     // Verify tasks are finished
+    ExceptionHandler::throwExceptionOnMainThread();
     backgroundRunners.waitForCompletion();
-
-    // Show conflict window if needed
-    if (needModSortDialog) {
-        // pause timer for UI
-        timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
-
-        // Select mod order
-        Logger::info("Showing mod priority order dialog");
-        PGUI::selectModOrder();
-        startTime = chrono::high_resolution_clock::now();
-
-        // dispatch post task
-        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &progressCallback]() -> void {
-            mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
-            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-        });
-
-        // Show progress dialog (this will block until closed by one of the callafters)
-        progressWindow->ShowModal();
-
-        // Verify tasks are finished
-        ExceptionHandler::throwExceptionOnMainThread();
-        backgroundRunners.waitForCompletion();
-    }
 
     // Confirmation UI
     const auto endTime = chrono::high_resolution_clock::now();

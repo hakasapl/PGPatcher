@@ -256,6 +256,17 @@ public:
      */
     void assignNewModPriorities() const;
 
+    /**
+     * @brief Normalizes persisted priority order to match dialog save semantics.
+     *
+     * Reconstructs visual ordering as enabled mods first, disabled mods second while preserving the
+     * relative order from either priority order or default mod-manager order. Enabled entries then get
+     * reassigned contiguous descending priority values.
+     *
+     * @param useDefaultOrder If true, base ordering uses getModsByDefaultOrder(); otherwise getModsByPriority().
+     */
+    void updateModOrderInit(bool useDefaultOrder) const;
+
 private:
     [[nodiscard]] static auto compareMods(const std::shared_ptr<Mod>& a,
                                           const std::shared_ptr<Mod>& b,
