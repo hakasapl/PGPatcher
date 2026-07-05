@@ -17,6 +17,8 @@
 #include <unordered_set>
 #include <vector>
 
+class DialogModConflictView;
+
 /**
  * @brief wxDialog that allows the user to sort the mods in the order they want
  */
@@ -44,6 +46,8 @@ private:
 
     std::unordered_set<std::wstring>
         m_newMods; /** Stores the original highlight of elements to be able to restore it later */
+
+    std::unordered_set<DialogModConflictView*> m_openConflictDialogs; /** Modeless conflict windows currently open */
 
     constexpr static int DEFAULT_WIDTH = 600;
     constexpr static int DEFAULT_HEIGHT = 600;
@@ -181,6 +185,17 @@ private:
      * @param event wxWidgets event object
      */
     void onSearchTextChanged(wxCommandEvent& event);
+
+    /**
+     * @brief Open a modeless conflict view dialog and track it for live updates.
+     */
+    void openConflictView(const std::unordered_set<std::wstring>& selectedMods,
+                          bool showAllMeshes = false);
+
+    /**
+     * @brief Refresh all open conflict dialogs to reflect in-memory mod state changes.
+     */
+    void refreshConflictViews();
 
     // Helpers
 

@@ -98,6 +98,11 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     mainSizer->Add(errorsCtrl, 1, wxEXPAND, 0);
 
+    // Show mod conflicts / order button
+    auto* showModConflictsButton = new wxButton(this, wxID_ANY, "Show Mod Conflicts");
+    showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
+    mainSizer->Add(showModConflictsButton, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, BORDER_SIZE);
+
     // Buttons sizer
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -136,11 +141,6 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     auto* openLogFileButton = new wxButton(this, wxID_ANY, "Open Log File");
     openLogFileButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenLogFile, this);
     buttonSizer->Add(openLogFileButton, 0, wxALL, BORDER_SIZE);
-
-    // Show mod conflicts / order button
-    auto* showModConflictsButton = new wxButton(this, wxID_ANY, "Show Mod Conflicts");
-    showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
-    buttonSizer->Add(showModConflictsButton, 0, wxALL, BORDER_SIZE);
 
     mainSizer->Add(buttonSizer, 0, wxALIGN_CENTER_HORIZONTAL);
 

@@ -52,12 +52,6 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     // Main sizer for the window
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Add "Show All Meshes" button at the top
-    m_showAllMeshesButton = new wxButton(this, wxID_ANY, "Show All Meshes");
-    m_showAllMeshesButton->SetToolTip("View all meshes, shapes, and matches regardless of conflicts");
-    m_showAllMeshesButton->Bind(wxEVT_BUTTON, &ModSortDialog::onShowAllMeshes, this);
-    mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxALL, 8);
-
     // Create the m_listCtrl
     m_listCtrl = new PGCheckedDragListCtrl(
         this, wxID_ANY, wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxLC_REPORT);
@@ -89,11 +83,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
         menu.Bind(
             wxEVT_MENU,
-            [this, selectedMods](wxCommandEvent& /*evt*/) {
-                auto* dlg = new DialogModConflictView(selectedMods);
-                dlg->ShowModal();
-                dlg->Destroy();
-            },
+            [this, selectedMods](wxCommandEvent& /*evt*/) { openConflictView(selectedMods); },
             showConflictsItem->GetId());
     });
 
@@ -136,6 +126,12 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     helpSizer->Add(helpButton, 0, wxLEFT | wxTOP | wxBOTTOM, DEFAULT_BORDER);
 
     mainSizer->Add(helpSizer, 0, wxEXPAND | wxALL, 0);
+
+    // Add "Show All Meshes" button below top help text and span dialog width
+    m_showAllMeshesButton = new wxButton(this, wxID_ANY, "Show All Meshes");
+    m_showAllMeshesButton->SetToolTip("View all meshes, shapes, and matches regardless of conflicts");
+    m_showAllMeshesButton->Bind(wxEVT_BUTTON, &ModSortDialog::onShowAllMeshes, this);
+    mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
 
     // Add "Use MO2 Loose File Order" checkbox
     if (pgc->getParams().ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
@@ -202,6 +198,15 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     // Add bottom rectangle to main sizer
     mainSizer->Add(bottomPanel, 0, wxEXPAND | wxTOP, 0); // No top border so it touches the list
 
+    // Add re-run patching button above bottom action buttons
+    m_rerunPatchingButton = new wxButton(this, wxID_ANY, "Save Changes and Update Output");
+    wxFont rerunButtonFont = m_rerunPatchingButton->GetFont();
+    rerunButtonFont.SetPointSize(12);
+    rerunButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
+    m_rerunPatchingButton->SetFont(rerunButtonFont);
+    m_rerunPatchingButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRerunPatching, this);
+    mainSizer->Add(m_rerunPatchingButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, DEFAULT_BORDER);
+
     // Create button sizer for horizontal layout
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -229,11 +234,6 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     auto* cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
     buttonSizer->Add(cancelButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
     cancelButton->Bind(wxEVT_BUTTON, &ModSortDialog::onBtnClose, this);
-
-    // Add re-run patching button
-    m_rerunPatchingButton = new wxButton(this, wxID_ANY, "Re-run Patching");
-    buttonSizer->Add(m_rerunPatchingButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
-    m_rerunPatchingButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRerunPatching, this);
 
     // Add apply button
     m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
@@ -413,18 +413,46 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
 void ModSortDialog::onShowAllMeshes([[maybe_unused]] wxCommandEvent& event)
 {
     // Open conflict viewer in "show all meshes" mode
-    auto* dlg = new DialogModConflictView({}, true);
-    dlg->ShowModal();
-    dlg->Destroy();
+    openConflictView({}, true);
+}
+
+void ModSortDialog::openConflictView(const std::unordered_set<std::wstring>& selectedMods,
+                                     bool showAllMeshes)
+{
+    auto* dlg = new DialogModConflictView(selectedMods, showAllMeshes);
+    m_openConflictDialogs.insert(dlg);
+
+    dlg->Bind(wxEVT_DESTROY, [this, dlg](wxWindowDestroyEvent& destroyEvent) -> void {
+        m_openConflictDialogs.erase(dlg);
+        destroyEvent.Skip();
+    });
+
+    dlg->Show();
+    dlg->Raise();
+}
+
+void ModSortDialog::refreshConflictViews()
+{
+    std::vector<DialogModConflictView*> staleDialogs;
+    staleDialogs.reserve(m_openConflictDialogs.size());
+
+    for (auto* dlg : m_openConflictDialogs) {
+        if (dlg == nullptr || dlg->IsBeingDeleted()) {
+            staleDialogs.push_back(dlg);
+            continue;
+        }
+        dlg->refreshDisplay();
+    }
+
+    for (auto* staleDialog : staleDialogs) {
+        m_openConflictDialogs.erase(staleDialog);
+    }
 }
 
 void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
 {
-    const int response = wxMessageBox("Re-run patching now using the current mod order?\n\n"
-                                      "This will overwrite the previous output.",
-                                      "Re-run Patching",
-                                      wxYES_NO | wxICON_QUESTION,
-                                      this);
+    const int response = wxMessageBox(
+        "Are you sure you want to re-run the patching step?", "Re-run Patching", wxYES_NO | wxICON_QUESTION, this);
     if (response != wxYES) {
         return;
     }
@@ -684,6 +712,8 @@ void ModSortDialog::updateModStatesLive()
 
         mod->areMeshesIgnored = row.areMeshesIgnored;
     }
+
+    refreshConflictViews();
 
     updateApplyButtonState();
 }

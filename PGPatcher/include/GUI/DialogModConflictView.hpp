@@ -10,6 +10,7 @@
 #include <wx/wx.h>
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -140,10 +141,14 @@ private:
     [[nodiscard]] auto isMatchVisible(const MatchView& match) const -> bool;
 
     /**
-     * @brief Count the number of visible matches in a shape, accounting for the
-     *        "show disabled" checkbox state.
+     * @brief Build deduplicated matches for a shape the same way the right-hand list is built.
+     *
+     * @param shapeMeta Shape metadata source.
+     * @param selectedFormKey Optional plugin-use filter. Nullopt means aggregate all plugin uses.
      */
-    [[nodiscard]] auto countVisibleMatches(const std::vector<MatchView>& matches) const -> size_t;
+    [[nodiscard]] auto buildDisplayMatches(const PGPatcher::MeshShapeMeta& shapeMeta,
+                                           const std::optional<PGMeshPermutationTracker::FormKey>& selectedFormKey
+                                           = std::nullopt) const -> std::vector<MatchView>;
 
     /**
      * @brief Return the index (into @p matches) of the winning match —
