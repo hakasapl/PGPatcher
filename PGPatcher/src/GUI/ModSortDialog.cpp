@@ -62,6 +62,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     // Listctrl events
     m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
     m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
+    m_listCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &ModSortDialog::onItemActivated, this);
 
     m_listCtrl->Bind(pgEVT_CDLC_ITEM_DRAGGED, &ModSortDialog::onItemDragged, this);
     m_listCtrl->Bind(pgEVT_CDLC_ITEM_CHECKED, &ModSortDialog::onItemChecked, this);
@@ -289,6 +290,17 @@ void ModSortDialog::onItemSelected(wxListEvent& event)
 void ModSortDialog::onItemDeselected(wxListEvent& event)
 {
     highlightConflictingItems();
+    event.Skip();
+}
+
+void ModSortDialog::onItemActivated(wxListEvent& event)
+{
+    const long idx = event.GetIndex();
+    if (idx != wxNOT_FOUND) {
+        std::unordered_set<std::wstring> selectedMod;
+        selectedMod.insert(m_listCtrl->GetItemText(idx, 0).ToStdWstring());
+        openConflictView(selectedMod);
+    }
     event.Skip();
 }
 

@@ -98,10 +98,13 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     mainSizer->Add(errorsCtrl, 1, wxEXPAND, 0);
 
-    // Show mod conflicts / order button
-    auto* showModConflictsButton = new wxButton(this, wxID_ANY, "Conflicts Manager");
-    showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
-    mainSizer->Add(showModConflictsButton, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, BORDER_SIZE);
+    // Show mod conflicts / order button (hidden when no conflict manager is configured)
+    const auto& modManagerType = PGPatcherGlobals::getPGC()->getParams().ModManager.type;
+    if (modManagerType != PGModManager::ModManagerType::NONE) {
+        auto* showModConflictsButton = new wxButton(this, wxID_ANY, "Conflicts Manager");
+        showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
+        mainSizer->Add(showModConflictsButton, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, BORDER_SIZE);
+    }
 
     // Buttons sizer
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);

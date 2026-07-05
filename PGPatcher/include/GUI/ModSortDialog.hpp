@@ -89,6 +89,13 @@ private:
     void onItemDeselected(wxListEvent& event);
 
     /**
+     * @brief Event handler that triggers when an item is activated (double-clicked) in the list
+     *
+     * @param event wxWidgets event object
+     */
+    void onItemActivated(wxListEvent& event);
+
+    /**
      * @brief Event handler that triggers when an item is dragged in the list
      *
      * @param event wxWidgets event object
