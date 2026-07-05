@@ -38,6 +38,7 @@ public:
     struct MatchMeta {
         std::shared_ptr<PGModManager::Mod> mod;
         PGEnums::ShapeShader shader {};
+        PGEnums::ShapeShader shaderTransformTo {};
         std::filesystem::path matchedPath;
     };
     struct MeshShapeMeta {

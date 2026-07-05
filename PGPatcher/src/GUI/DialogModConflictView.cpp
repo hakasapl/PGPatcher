@@ -294,7 +294,7 @@ auto DialogModConflictView::shapePassesIntersectionFilter(const PGPatcher::MeshS
     for (const auto& [formKey, shapeMatches] : shape.matches) {
         (void)formKey;
         for (const auto& match : shapeMatches) {
-            matches.push_back({match.mod, match.shader, match.matchedPath});
+            matches.push_back({match.mod, match.shader, match.shaderTransformTo, match.matchedPath});
         }
     }
 

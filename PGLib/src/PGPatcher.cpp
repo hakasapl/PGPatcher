@@ -177,28 +177,30 @@ auto PGPatcher::getPatchMeta() -> std::map<std::filesystem::path,
 
 void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches)
 {
-    std::ranges::sort(matches,
-                      [&](const PatcherUtil::ShaderPatcherMatch& a, const PatcherUtil::ShaderPatcherMatch& b) -> bool {
-                          if (a.mod != nullptr && b.mod == nullptr) {
-                              return true;
-                          }
+    std::ranges::sort(
+        matches, [&](const PatcherUtil::ShaderPatcherMatch& a, const PatcherUtil::ShaderPatcherMatch& b) -> bool {
+            if (a.mod != nullptr && b.mod == nullptr) {
+                return true;
+            }
 
-                          if (a.mod == nullptr && b.mod != nullptr) {
-                              return false;
-                          }
+            if (a.mod == nullptr && b.mod != nullptr) {
+                return false;
+            }
 
-                          if (a.mod != nullptr && b.mod != nullptr) {
-                              if (a.mod->priority != b.mod->priority) {
-                                  return a.mod->priority > b.mod->priority;
-                              }
-                          }
+            if (a.mod != nullptr && b.mod != nullptr) {
+                if (a.mod->priority != b.mod->priority) {
+                    return a.mod->priority > b.mod->priority;
+                }
+            }
 
-                          if (a.shader != b.shader) {
-                              return static_cast<int>(a.shader) > static_cast<int>(b.shader);
-                          }
+            const auto aShader = a.shaderTransformTo != PGEnums::ShapeShader::UNKNOWN ? a.shaderTransformTo : a.shader;
+            const auto bShader = b.shaderTransformTo != PGEnums::ShapeShader::UNKNOWN ? b.shaderTransformTo : b.shader;
+            if (aShader != bShader) {
+                return static_cast<int>(aShader) > static_cast<int>(bShader);
+            }
 
-                          return a.match.matchedPath < b.match.matchedPath;
-                      });
+            return a.match.matchedPath < b.match.matchedPath;
+        });
 }
 
 void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
@@ -237,9 +239,11 @@ void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
             return aRank < bRank;
         }
 
-        // Then sort by shader type (higher enum value wins)
-        if (static_cast<int>(a.shader) != static_cast<int>(b.shader)) {
-            return static_cast<int>(a.shader) > static_cast<int>(b.shader);
+        // Then sort by effective shader type (higher enum value wins; prefer transform target if set)
+        const auto aShader = a.shaderTransformTo != PGEnums::ShapeShader::UNKNOWN ? a.shaderTransformTo : a.shader;
+        const auto bShader = b.shaderTransformTo != PGEnums::ShapeShader::UNKNOWN ? b.shaderTransformTo : b.shader;
+        if (aShader != bShader) {
+            return static_cast<int>(aShader) > static_cast<int>(bShader);
         }
 
         // Finally sort by matched path filename A-Z
@@ -641,6 +645,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
             MatchMeta matchMeta;
             matchMeta.mod = match.mod;
             matchMeta.shader = match.shader;
+            matchMeta.shaderTransformTo = match.shaderTransformTo;
             matchMeta.matchedPath = match.match.matchedPath;
             meshShapeMeta.matches[formKey].push_back(matchMeta);
 
