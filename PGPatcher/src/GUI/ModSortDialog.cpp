@@ -38,7 +38,7 @@ using namespace std;
 ModSortDialog::ModSortDialog(wxWindow* parent)
     : wxDialog(parent,
                wxID_ANY,
-               "Set Mods",
+               "Conflict Manager",
                wxDefaultPosition,
                wxSize(DEFAULT_WIDTH,
                       DEFAULT_HEIGHT),
