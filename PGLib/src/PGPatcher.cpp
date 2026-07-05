@@ -24,6 +24,7 @@
 #include "NifFile.hpp"
 #include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -174,16 +175,76 @@ auto PGPatcher::getPatchMeta() -> std::map<std::filesystem::path,
     return s_meshPatchInfo;
 }
 
-void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
-                            const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)
+void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches)
 {
-    sortMatchesImpl(matches, modPriorityList);
+    std::ranges::sort(matches,
+                      [&](const PatcherUtil::ShaderPatcherMatch& a, const PatcherUtil::ShaderPatcherMatch& b) -> bool {
+                          if (a.mod != nullptr && b.mod == nullptr) {
+                              return true;
+                          }
+
+                          if (a.mod == nullptr && b.mod != nullptr) {
+                              return false;
+                          }
+
+                          if (a.mod != nullptr && b.mod != nullptr) {
+                              if (a.mod->priority != b.mod->priority) {
+                                  return a.mod->priority > b.mod->priority;
+                              }
+                          }
+
+                          if (a.shader != b.shader) {
+                              return static_cast<int>(a.shader) > static_cast<int>(b.shader);
+                          }
+
+                          return a.match.matchedPath < b.match.matchedPath;
+                      });
 }
 
 void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
                             const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)
 {
-    sortMatchesImpl(matches, modPriorityList);
+    // Build a map of mod pointers to their priority rank (index in modPriorityList)
+    std::unordered_map<const PGModManager::Mod*, size_t> modPriorityOrder;
+    modPriorityOrder.reserve(modPriorityList.size());
+    size_t priorityRank = 0;
+    for (const auto& mod : modPriorityList) {
+        modPriorityOrder.emplace(mod.get(), priorityRank++);
+    }
+
+    const size_t fallbackRank = modPriorityList.size();
+
+    std::ranges::sort(matches, [&](const MatchMeta& a, const MatchMeta& b) -> bool {
+        // Get priority ranks for each match's mod
+        size_t aRank = fallbackRank;
+        if (a.mod != nullptr) {
+            const auto aIt = modPriorityOrder.find(a.mod.get());
+            if (aIt != modPriorityOrder.end()) {
+                aRank = aIt->second;
+            }
+        }
+
+        size_t bRank = fallbackRank;
+        if (b.mod != nullptr) {
+            const auto bIt = modPriorityOrder.find(b.mod.get());
+            if (bIt != modPriorityOrder.end()) {
+                bRank = bIt->second;
+            }
+        }
+
+        // First sort by mod priority (lower rank = higher priority)
+        if (aRank != bRank) {
+            return aRank < bRank;
+        }
+
+        // Then sort by shader type (higher enum value wins)
+        if (static_cast<int>(a.shader) != static_cast<int>(b.shader)) {
+            return static_cast<int>(a.shader) > static_cast<int>(b.shader);
+        }
+
+        // Finally sort by matched path filename A-Z
+        return a.matchedPath.native() < b.matchedPath.native();
+    });
 }
 
 auto PGPatcher::hasConflictData() -> bool
@@ -533,6 +594,10 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                                 const PGPlugin::ModelRecordType& modelRecordType,
                                 PGTypes::TextureSet* alternateTexture) -> bool
 {
+    if (boost::icontains(nifPath.wstring(), L"wrmainroadmarket.nif")) {
+        Logger::trace("Processing facegen mesh");
+    }
+
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
     }
@@ -568,7 +633,8 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
 
     if (PGNIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         // Allowed shaders from result of patchers
-        auto matches = getMatches(slots, patchers, singlepassMATO, modelRecordType, &patchers, nifShape);
+        const auto matches = getMatches(slots, patchers, singlepassMATO, modelRecordType, &patchers, nifShape);
+        std::vector<PatcherUtil::ShaderPatcherMatch> enabledMatches;
 
         // Add matches to mesh shape meta
         for (const auto& match : matches) {
@@ -577,12 +643,21 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
             matchMeta.shader = match.shader;
             matchMeta.matchedPath = match.match.matchedPath;
             meshShapeMeta.matches[formKey].push_back(matchMeta);
+
+            if (match.mod != nullptr) {
+                const std::shared_lock lk(match.mod->mutex);
+                if (!match.mod->isEnabled) {
+                    continue;
+                }
+            }
+
+            enabledMatches.push_back(match);
         }
 
         PatcherUtil::ShaderPatcherMatch winningShaderMatch;
         // Get winning match
-        if (!matches.empty()) {
-            winningShaderMatch = matches.at(0);
+        if (!enabledMatches.empty()) {
+            winningShaderMatch = enabledMatches.at(0);
 
             // Apply transforms
             if (applyTransformIfNeeded(winningShaderMatch, patchers)) {
@@ -687,15 +762,6 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
                 curMatch.mod = PGGlobals::getPGMM()->getModByFileSmart(match.matchedPath);
             }
 
-            if (curMatch.mod != nullptr) {
-                const std::shared_lock lk(curMatch.mod->mutex);
-                if (!curMatch.mod->isEnabled) {
-                    // do not add match if mod it matched from is disabled
-                    Logger::trace(L"Rejecting: Mod '{}' is not enabled", curMatch.mod->name);
-                    continue;
-                }
-            }
-
             curMatch.shader = shader;
             curMatch.match = match;
             curMatch.shaderTransformTo = PGEnums::ShapeShader::UNKNOWN;
@@ -718,15 +784,12 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
 
             const unique_lock lock(match.mod->mutex);
 
-            match.mod->shaders.insert(match.shader);
             for (const auto& conflictMod : modSet) {
                 if (conflictMod != match.mod) {
                     match.mod->conflicts.insert(conflictMod);
                 }
             }
         }
-
-        return matches;
     }
 
     // Loop through matches and delete any that cannot apply
@@ -781,10 +844,7 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
         }
     }
 
-    const auto modPriorityList = PGGlobals::isPGMMSet() ? PGGlobals::getPGMM()->getModsByPriority()
-                                                        : std::vector<std::shared_ptr<PGModManager::Mod>> {};
-    sortMatches(matches, modPriorityList);
-
+    sortMatches(matches);
     return matches;
 }
 

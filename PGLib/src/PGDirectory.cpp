@@ -110,6 +110,10 @@ auto PGDirectory::findFiles() -> void
                               path.wstring(),
                               file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
                 m_pbrJSONs.push_back(path);
+
+                if (PGGlobals::isPGMMSet()) {
+                    PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::TRUEPBR);
+                }
             } else if (boost::iequals(firstPath, L"lightplacer")) {
                 // Found Light Placer JSON config
                 Logger::trace(L"Found light placer json: {} / {}",
@@ -582,6 +586,24 @@ auto PGDirectory::addToTextureMaps(const filesystem::path& path,
 
         const unique_lock lock(m_textureTypesMutex);
         m_textureTypes[path] = details;
+    }
+
+    // Add shader types to mod given certain types
+    if (type == PGEnums::TextureType::HEIGHT) {
+        // parallax
+        if (PGGlobals::isPGMMSet()) {
+            PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::VANILLAPARALLAX);
+        }
+    } else if (type == PGEnums::TextureType::COMPLEXMATERIAL) {
+        // PBR parallax
+        if (PGGlobals::isPGMMSet()) {
+            PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::COMPLEXMATERIAL);
+        }
+    } else {
+        // Default shader for all other types
+        if (PGGlobals::isPGMMSet()) {
+            PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::NONE);
+        }
     }
 }
 

@@ -3,17 +3,21 @@
 #include "PGGlobals.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
+#include "pgutil/PGEnums.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <shared_mutex>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -542,7 +546,7 @@ auto PGModManager::getModManagerTypeFromStr(const string& type) -> ModManagerTyp
     return modManagerStrToTypeMap.at("None");
 }
 
-void PGModManager::assignNewModPriorities() const
+void PGModManager::processNewMods() const
 {
     // Get all mods
     auto mods = getMods();
@@ -550,8 +554,15 @@ void PGModManager::assignNewModPriorities() const
     // newMods stores all mods which need a new priority, they will be sorted next step
     vector<shared_ptr<Mod>> newMods;
     for (const auto& mod : mods) {
-        if (!mod->isNew || !mod->isEnabled) {
+        // auto enable if new and has a shader (not NONE)
+        const bool shouldBeEnabled = !mod->shaders.empty() && *mod->shaders.rbegin() > PGEnums::ShapeShader::NONE;
+        if (!mod->isNew || !shouldBeEnabled) {
             continue;
+        }
+
+        if (shouldBeEnabled) {
+            const std::unique_lock<std::shared_mutex> modLock(mod->mutex);
+            mod->isEnabled = true;
         }
 
         newMods.push_back(mod);
@@ -575,7 +586,7 @@ void PGModManager::assignNewModPriorities() const
 void PGModManager::updateModOrderInit(bool useDefaultOrder) const
 {
     // make sure any new mods that need to be enabled get enabled
-    assignNewModPriorities();
+    processNewMods();
 
     const vector<shared_ptr<Mod>> mods
         = useDefaultOrder && m_mmType == ModManagerType::MODORGANIZER2 ? getModsByDefaultOrder() : getModsByPriority();
@@ -602,6 +613,18 @@ void PGModManager::updateModOrderInit(bool useDefaultOrder) const
             mod->priority = itemCount - i;
         }
     }
+}
+
+void PGModManager::addShaderToModByFile(const filesystem::path& relPath,
+                                        const PGEnums::ShapeShader& shader) const
+{
+    auto modPtr = getModByFileSmart(relPath);
+    if (modPtr == nullptr) {
+        return;
+    }
+
+    const std::unique_lock<std::shared_mutex> modLock(modPtr->mutex);
+    modPtr->shaders.insert(shader);
 }
 
 auto PGModManager::isValidMO2InstanceDir(const filesystem::path& instanceDir) -> bool

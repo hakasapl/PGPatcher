@@ -262,7 +262,7 @@ public:
      *
      * New mods are sorted by shader quality and name, then assigned priorities above the current maximum.
      */
-    void assignNewModPriorities() const;
+    void processNewMods() const;
 
     /**
      * @brief Normalizes persisted priority order to match dialog save semantics.
@@ -274,6 +274,9 @@ public:
      * @param useDefaultOrder If true, base ordering uses getModsByDefaultOrder(); otherwise getModsByPriority().
      */
     void updateModOrderInit(bool useDefaultOrder) const;
+
+    void addShaderToModByFile(const std::filesystem::path& relPath,
+                              const PGEnums::ShapeShader& shader) const;
 
 private:
     [[nodiscard]] static auto compareMods(const std::shared_ptr<Mod>& a,
