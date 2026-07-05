@@ -167,7 +167,6 @@ private:
      * @brief Patch a single NIF file
      *
      * @param nifPath relative path to the NIF file
-     * @param dryRun whether to run in dry run mode (no changes made)
      * @return TaskTracker::Result result of the patching process
      */
     static auto patchNIF(const std::filesystem::path& nifPath,
@@ -183,7 +182,6 @@ private:
      *
      * @param nifPath relative path to the NIF file
      * @param nifBytes NIF file bytes (used for CRC calculation)
-     * @param dryRun whether to run in dry run mode (no changes made)
      * @param[in,out] nifCache NIF cache JSON object to populate
      * @param[out] createdNIFs map of created NIFs
      * @param[out] nifModified whether the NIF file was modified
@@ -207,7 +205,6 @@ private:
      * @param nifPath relative path to the NIF file
      * @param nif loaded NIF file object
      * @param nifShape NIF shape object (pointer) to process
-     * @param dryRun whether to run in dry run mode (no changes made)
      * @param[out] shapeCache NIF shape cache JSON object to populate
      * @param canApply map of shape shaders that can be applied to this shape
      * @param patchers patcher objects created from registered patchers

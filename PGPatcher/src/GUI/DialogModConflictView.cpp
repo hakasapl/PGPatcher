@@ -511,6 +511,13 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
     const auto modPriorityList = PGGlobals::isPGMMSet() ? PGGlobals::getPGMM()->getModsByPriority()
                                                         : std::vector<std::shared_ptr<PGModManager::Mod>> {};
     PGPatcher::sortMatches(matches, modPriorityList);
+    int topVisibleMatchIdx = -1;
+    for (size_t i = 0; i < matches.size(); ++i) {
+        if (isMatchVisible(matches[i])) {
+            topVisibleMatchIdx = static_cast<int>(i);
+            break;
+        }
+    }
 
     // Handle case where shape has no matches (common in showAllMeshes mode)
     if (matches.empty()) {
@@ -538,19 +545,11 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
         m_matchListCtrl->SetItem(row, 1, shaderStr);
         m_matchListCtrl->SetItem(row, 2, matchedFile);
 
-        // Highlight the first entry only when plugin use is selected and the winning mod is enabled.
-        if (m_selectedPluginUseIdx >= 0 && i == 0 && match.mod != nullptr) {
-            bool isEnabled = false;
-            {
-                const shared_lock lock(match.mod->mutex);
-                isEnabled = match.mod->isEnabled;
-            }
-
-            if (isEnabled) {
-                m_matchListCtrl->SetItemBackgroundColour(row, s_WINNING_MATCH_COLOR);
-                m_matchListCtrl->SetItemTextColour(row, *wxBLACK);
-                continue;
-            }
+        // Highlight the top displayed row (winner after filtering/visibility rules).
+        if (static_cast<int>(i) == topVisibleMatchIdx) {
+            m_matchListCtrl->SetItemBackgroundColour(row, s_WINNING_MATCH_COLOR);
+            m_matchListCtrl->SetItemTextColour(row, *wxBLACK);
+            continue;
         }
 
         // Gray out disabled mods and untracked/vanilla sources
@@ -595,6 +594,91 @@ void DialogModConflictView::openPathWithDefaultApp(const filesystem::path& path)
     wxLaunchDefaultApplication(wxString(path.wstring()));
 }
 
+void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& relPath)
+{
+    if (!PGGlobals::isPGDSet()) {
+        wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    const int result = wxMessageBox(wxString::Format("This file is inside a BSA archive:\n%s\n\nWould you "
+                                                     "like to extract it to a read-only temporary location and open "
+                                                     "it? It will be deleted when you close this dialog.",
+                                                     relPath.wstring().c_str()),
+                                    "File Extraction",
+                                    wxYES_NO | wxICON_QUESTION,
+                                    this);
+
+    if (result != wxYES) {
+        return;
+    }
+
+    try {
+        filesystem::path tempDir = filesystem::temp_directory_path() / L"PGPatcher_Temp";
+        filesystem::create_directories(tempDir);
+
+        const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+        const filesystem::path tempFile = tempDir / (std::to_wstring(timestamp) + L"_" + relPath.filename().wstring());
+
+        std::vector<std::byte> fileBytes = PGGlobals::getPGD()->getFile(relPath);
+        if (fileBytes.empty()) {
+            wxMessageBox("Error: Failed to read file.", "Extraction Error", wxOK | wxICON_ERROR, this);
+            return;
+        }
+
+        std::ofstream outFile(tempFile, std::ios::binary);
+        if (!outFile) {
+            wxMessageBox(wxString::Format("Error: Failed to create temporary file at %s", tempFile.wstring().c_str()),
+                         "Extraction Error",
+                         wxOK | wxICON_ERROR,
+                         this);
+            return;
+        }
+        outFile.write(reinterpret_cast<const char*>(fileBytes.data()), fileBytes.size());
+        outFile.close();
+
+        filesystem::permissions(tempFile,
+                                filesystem::perms::owner_read | filesystem::perms::group_read
+                                    | filesystem::perms::others_read,
+                                filesystem::perm_options::replace);
+
+        m_tempFiles.push_back(tempFile);
+        openPathWithDefaultApp(tempFile);
+    } catch (const exception& ex) {
+        wxMessageBox(
+            wxString::Format("Error attempting to extract and open file: %s", StringUtil::utf8toUTF16(ex.what())),
+            "Extraction Error",
+            wxOK | wxICON_ERROR,
+            this);
+    }
+}
+
+void DialogModConflictView::openMeshFile(const filesystem::path& relPath)
+{
+    if (!PGGlobals::isPGDSet()) {
+        wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    auto* pgmm = PGGlobals::getPGMM();
+    if (pgmm != nullptr) {
+        const auto& mods = pgmm->getModsByPriority();
+        for (const auto& mod : mods) {
+            if (!mod->isEnabled) {
+                continue;
+            }
+
+            const filesystem::path absPath = mod->folder / relPath;
+            if (filesystem::exists(absPath)) {
+                openPathWithDefaultApp(absPath);
+                return;
+            }
+        }
+    }
+
+    extractAndOpenVirtualFile(relPath);
+}
+
 void DialogModConflictView::openMatchFile(const wxString& modNameStr,
                                           const filesystem::path& relPath)
 {
@@ -621,57 +705,7 @@ void DialogModConflictView::openMatchFile(const wxString& modNameStr,
         }
     }
 
-    const int result = wxMessageBox(wxString::Format("This file is inside a BSA archive:\n%s\n\nWould you "
-                                                     "like to extract it to a read-only temporary location and open "
-                                                     "it? It will be deleted when you close this dialog.",
-                                                     relPath.wstring()),
-                                    "File Extraction",
-                                    wxYES_NO | wxICON_QUESTION,
-                                    this);
-
-    if (result != wxYES) {
-        return;
-    }
-
-    try {
-        filesystem::path tempDir = filesystem::temp_directory_path() / L"PGPatcher_Temp";
-        filesystem::create_directories(tempDir);
-
-        const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-        const filesystem::path tempFile = tempDir / (std::to_wstring(timestamp) + L"_" + relPath.filename().wstring());
-
-        std::vector<std::byte> fileBytes = PGGlobals::getPGD()->getFile(relPath);
-        if (fileBytes.empty()) {
-            wxMessageBox("Error: Failed to read file.", "Extraction Error", wxOK | wxICON_ERROR, this);
-            return;
-        }
-
-        std::ofstream outFile(tempFile, std::ios::binary);
-        if (!outFile) {
-            wxMessageBox(wxString::Format("Error: Failed to create temporary file at %s", tempFile.wstring()),
-                         "Extraction Error",
-                         wxOK | wxICON_ERROR,
-                         this);
-            return;
-        }
-
-        outFile.write(reinterpret_cast<const char*>(fileBytes.data()), fileBytes.size());
-        outFile.close();
-
-        filesystem::permissions(tempFile,
-                                filesystem::perms::owner_read | filesystem::perms::group_read
-                                    | filesystem::perms::others_read,
-                                filesystem::perm_options::replace);
-
-        m_tempFiles.push_back(tempFile);
-        openPathWithDefaultApp(tempFile);
-    } catch (const exception& ex) {
-        wxMessageBox(
-            wxString::Format("Error attempting to extract and open file: %s", StringUtil::utf8toUTF16(ex.what())),
-            "Extraction Error",
-            wxOK | wxICON_ERROR,
-            this);
-    }
+    extractAndOpenVirtualFile(relPath);
 }
 
 void DialogModConflictView::onMeshContextMenu(wxContextMenuEvent& event)
@@ -691,7 +725,8 @@ void DialogModConflictView::onMeshContextMenu(wxContextMenuEvent& event)
         wxEVT_MENU,
         [this, meshPath](wxCommandEvent&) { copyTextToClipboard(wxString(meshPath.wstring())); },
         copyName->GetId());
-    menu.Bind(wxEVT_MENU, [this, meshPath](wxCommandEvent&) { openPathWithDefaultApp(meshPath); }, openItem->GetId());
+
+    menu.Bind(wxEVT_MENU, [this, meshPath](wxCommandEvent&) { openMeshFile(meshPath); }, openItem->GetId());
 
     m_meshListCtrl->PopupMenu(&menu);
 }
@@ -1089,99 +1124,12 @@ void DialogModConflictView::onMatchActivated(wxListEvent& event)
         return;
     }
 
-    if (!PGGlobals::isPGDSet()) {
-        wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
-        event.Skip();
-        return;
-    }
-
     const filesystem::path relPath(relPathStr.ToStdWstring());
 
     // Get the mod name from column 0 (first column displays the mod)
     const wxString modNameStr = m_matchListCtrl->GetItemText(row, 0);
 
-    // Try to open from the mod's actual folder
-    if (!modNameStr.IsEmpty() && modNameStr != "[Untracked Mod/Vanilla]") {
-        std::shared_ptr<PGModManager::Mod> mod = nullptr;
-        try {
-            mod = PGGlobals::getPGMM()->getMod(modNameStr.ToStdWstring());
-        } catch (...) {
-            // Mod lookup failed
-        }
-
-        if (mod && !mod->folder.empty()) {
-            const filesystem::path absPath = mod->folder / relPath;
-            if (filesystem::exists(absPath)) {
-                wxLaunchDefaultApplication(wxString(absPath.wstring()));
-                event.Skip();
-                return;
-            }
-        }
-    }
-
-    // File is in a BSA or inaccessible through the virtual data path.
-    // Extract to temp location.
-    const int result = wxMessageBox(wxString::Format("This file is inside a BSA archive:\n%s\n\nWould you "
-                                                     "like to extract it to a read-only temporary location and open "
-                                                     "it? It will be deleted when you close this dialog.",
-                                                     relPathStr),
-                                    "File Extraction",
-                                    wxYES_NO | wxICON_QUESTION,
-                                    this);
-
-    if (result != wxYES) {
-        event.Skip();
-        return;
-    }
-
-    // Extract to temp location.
-    try {
-        filesystem::path tempDir = filesystem::temp_directory_path() / L"PGPatcher_Temp";
-        filesystem::create_directories(tempDir);
-
-        // Generate a unique filename to avoid collisions
-        const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-        const filesystem::path tempFile = tempDir / (std::to_wstring(timestamp) + L"_" + relPath.filename().wstring());
-
-        // Read file (works for both loose files and BSA files)
-        std::vector<std::byte> fileBytes = PGGlobals::getPGD()->getFile(relPath);
-        if (fileBytes.empty()) {
-            wxMessageBox("Error: Failed to read file.", "Extraction Error", wxOK | wxICON_ERROR, this);
-            event.Skip();
-            return;
-        }
-
-        // Write to temp file
-        std::ofstream outFile(tempFile, std::ios::binary);
-        if (!outFile) {
-            wxMessageBox(wxString::Format("Error: Failed to create temporary file at %s", tempFile.wstring()),
-                         "Extraction Error",
-                         wxOK | wxICON_ERROR,
-                         this);
-            event.Skip();
-            return;
-        }
-        outFile.write(reinterpret_cast<const char*>(fileBytes.data()), fileBytes.size());
-        outFile.close();
-
-        // Make the temp file read-only to prevent accidental editing
-        filesystem::permissions(tempFile,
-                                filesystem::perms::owner_read | filesystem::perms::group_read
-                                    | filesystem::perms::others_read,
-                                filesystem::perm_options::replace);
-
-        // Track temp file for cleanup
-        m_tempFiles.push_back(tempFile);
-
-        // Open the temp file
-        wxLaunchDefaultApplication(wxString(tempFile.wstring()));
-    } catch (const exception& ex) {
-        wxMessageBox(
-            wxString::Format("Error attempting to extract and open file: %s", StringUtil::utf8toUTF16(ex.what())),
-            "Extraction Error",
-            wxOK | wxICON_ERROR,
-            this);
-    }
+    openMatchFile(modNameStr, relPath);
 
     event.Skip();
 }
@@ -1194,95 +1142,9 @@ void DialogModConflictView::onMeshActivated(wxListEvent& event)
         return;
     }
 
-    if (!PGGlobals::isPGDSet()) {
-        wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
-        event.Skip();
-        return;
-    }
-
     const auto& meshPath = m_filteredMeshes[static_cast<size_t>(row)];
 
-    // Try to open from each enabled mod's actual folder
-    auto* pgmm = PGGlobals::getPGMM();
-    if (pgmm != nullptr) {
-        const auto& mods = pgmm->getModsByPriority();
-        for (const auto& mod : mods) {
-            if (!mod->isEnabled) {
-                continue;
-            }
-
-            const filesystem::path absPath = mod->folder / meshPath;
-            if (filesystem::exists(absPath)) {
-                wxLaunchDefaultApplication(wxString(absPath.wstring()));
-                event.Skip();
-                return;
-            }
-        }
-    }
-
-    // File is in a BSA or inaccessible through the virtual data path.
-    // Extract to temp location.
-    const int result = wxMessageBox(wxString::Format("This file is inside a BSA archive:\n%s\n\nWould you "
-                                                     "like to extract it to a read-only temporary location and open "
-                                                     "it? It will be deleted when you close this dialog.",
-                                                     meshPath.wstring()),
-                                    "File Extraction",
-                                    wxYES_NO | wxICON_QUESTION,
-                                    this);
-
-    if (result != wxYES) {
-        event.Skip();
-        return;
-    }
-
-    // Extract to temp location.
-    try {
-        filesystem::path tempDir = filesystem::temp_directory_path() / L"PGPatcher_Temp";
-        filesystem::create_directories(tempDir);
-
-        // Generate a unique filename to avoid collisions
-        const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-        const filesystem::path tempFile = tempDir / (std::to_wstring(timestamp) + L"_" + meshPath.filename().wstring());
-
-        // Read file (works for both loose files and BSA files)
-        std::vector<std::byte> fileBytes = PGGlobals::getPGD()->getFile(meshPath);
-        if (fileBytes.empty()) {
-            wxMessageBox("Error: Failed to read file.", "Extraction Error", wxOK | wxICON_ERROR, this);
-            event.Skip();
-            return;
-        }
-
-        // Write to temp file
-        std::ofstream outFile(tempFile, std::ios::binary);
-        if (!outFile) {
-            wxMessageBox(wxString::Format("Error: Failed to create temporary file at %s", tempFile.wstring()),
-                         "Extraction Error",
-                         wxOK | wxICON_ERROR,
-                         this);
-            event.Skip();
-            return;
-        }
-        outFile.write(reinterpret_cast<const char*>(fileBytes.data()), fileBytes.size());
-        outFile.close();
-
-        // Make the temp file read-only to prevent accidental editing
-        filesystem::permissions(tempFile,
-                                filesystem::perms::owner_read | filesystem::perms::group_read
-                                    | filesystem::perms::others_read,
-                                filesystem::perm_options::replace);
-
-        // Track temp file for cleanup
-        m_tempFiles.push_back(tempFile);
-
-        // Open the temp file
-        wxLaunchDefaultApplication(wxString(tempFile.wstring()));
-    } catch (const exception& ex) {
-        wxMessageBox(
-            wxString::Format("Error attempting to extract and open file: %s", StringUtil::utf8toUTF16(ex.what())),
-            "Extraction Error",
-            wxOK | wxICON_ERROR,
-            this);
-    }
+    openMeshFile(meshPath);
 
     event.Skip();
 }

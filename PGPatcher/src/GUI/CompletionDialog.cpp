@@ -200,11 +200,16 @@ void CompletionDialog::updateTimingInfo(const long long& timeTaken)
 
     // Find the static text control and update its label
     for (auto* child : GetChildren()) {
-        if (auto* staticText = wxDynamicCast(child, wxStaticText)) {
-            staticText->SetLabel(newText);
-            Layout(); // Re-layout to accommodate new text size
-            break;
+        auto* staticText = wxDynamicCast(child, wxStaticText);
+        if (staticText == nullptr) {
+            continue;
         }
+        if (!staticText->GetLabel().StartsWith(wxString("PGPatcher has completed generating output."))) {
+            continue;
+        }
+        staticText->SetLabel(newText);
+        Layout(); // Re-layout to accommodate new text size
+        break;
     }
 }
 

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -310,14 +311,12 @@ void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
         }
 
         updateModStatesLive();
-        updateApplyButtonState();
         event.Skip();
         return;
     }
 
     syncCacheFromListCtrl();
     updateModStatesLive();
-    updateApplyButtonState();
     event.Skip();
 }
 
@@ -350,7 +349,6 @@ void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
     }
 
     updateModStatesLive();
-    updateApplyButtonState();
     event.Skip();
 }
 
@@ -358,7 +356,6 @@ void ModSortDialog::onMeshesIgnoredChanged(PGCheckedDragListCtrlEvtMeshesIgnored
 {
     syncCacheFromListCtrl();
     updateModStatesLive();
-    updateApplyButtonState();
     event.Skip();
 }
 
@@ -704,6 +701,8 @@ void ModSortDialog::updateModStatesLive()
             continue;
         }
 
+        // aquire lock
+        const std::unique_lock lock(mod->mutex);
         mod->isEnabled = row.isChecked;
 
         if (mod->isEnabled) {

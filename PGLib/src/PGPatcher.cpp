@@ -573,10 +573,6 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                                 const PGPlugin::ModelRecordType& modelRecordType,
                                 PGTypes::TextureSet* alternateTexture) -> bool
 {
-    if (boost::icontains(nifPath.wstring(), "mountaintrim01.nif")) {
-        Logger::trace("Debug breakpoint for mountaintrim01.nif");
-    }
-
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
     }
