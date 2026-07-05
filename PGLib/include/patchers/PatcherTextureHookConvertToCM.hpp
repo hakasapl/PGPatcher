@@ -24,6 +24,8 @@ private:
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:
+    static void reset();
+
     /**
      * @brief Registers a parallax texture for conversion and tracks the generated output file.
      *

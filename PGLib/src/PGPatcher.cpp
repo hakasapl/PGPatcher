@@ -87,6 +87,8 @@ void PGPatcher::patchMeshes(const bool& multiThread,
 
     // Init Handlers
     HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
+    PatcherTextureHookConvertToCM::reset();
+    PatcherTextureHookFixSSS::reset();
 
     //
     // MESH PATCHING
@@ -598,10 +600,6 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                                 const PGPlugin::ModelRecordType& modelRecordType,
                                 PGTypes::TextureSet* alternateTexture) -> bool
 {
-    if (boost::icontains(nifPath.wstring(), L"wrmainroadmarket.nif")) {
-        Logger::trace("Processing facegen mesh");
-    }
-
     if (nif == nullptr) {
         throw runtime_error("NIF is null");
     }

@@ -21,6 +21,12 @@
 using namespace std;
 using namespace Microsoft::WRL;
 
+void PatcherTextureHookFixSSS::reset()
+{
+    const unique_lock lock(s_texToProcessMutex);
+    s_texToProcess.clear();
+}
+
 auto PatcherTextureHookFixSSS::addToProcessList(const filesystem::path& texPath) -> void
 {
     auto* pgd = PGGlobals::getPGD();
