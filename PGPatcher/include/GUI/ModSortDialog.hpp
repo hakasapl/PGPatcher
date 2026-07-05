@@ -28,6 +28,7 @@ private:
     wxButton* m_discardButton = nullptr; /** Discard changes button to revert to last saved state */
     wxButton* m_restoreButton = nullptr; /** Restore default order button */
     wxButton* m_showAllMeshesButton = nullptr; /** Show all meshes/shapes/matches button */
+    wxButton* m_rerunPatchingButton = nullptr; /** Re-run patching button */
     wxCheckBox* m_checkBoxMO2 = nullptr; /** Checkbox to use MO2 loose file order */
     wxTextCtrl* m_searchCtrl = nullptr; /** Search box used to quickly find mods by name */
 
@@ -64,7 +65,7 @@ public:
     /**
      * @brief Construct a new Mod Sort Dialog object
      */
-    ModSortDialog();
+    explicit ModSortDialog(wxWindow* parent = nullptr);
 
 private:
     // Event Handlers
@@ -152,6 +153,13 @@ private:
      * @param event wxWidgets event object
      */
     void onShowAllMeshes(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the "Re-run Patching" button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onRerunPatching(wxCommandEvent& event);
 
     /**
      * @brief Event handler that triggers when the Discard Changes button is pressed

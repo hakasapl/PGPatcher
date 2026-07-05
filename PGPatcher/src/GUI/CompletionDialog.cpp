@@ -5,7 +5,6 @@
 #include "PGConfig.hpp"
 #include "PGPatcherGlobals.hpp"
 
-
 #include <wx/artprov.h>
 #include <wx/collpane.h>
 #include <wx/colour.h>
@@ -32,9 +31,6 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
-    // Play system information sound
-    wxBell();
-
     // Get config
     const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
 
@@ -168,6 +164,50 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     Centre(); // Center the dialog on screen
 }
 
+auto CompletionDialog::ShowModal() -> int
+{
+    // Reset size and collapse everything
+    for (auto* child : GetChildren()) {
+        if (auto* pane = wxDynamicCast(child, wxCollapsiblePane)) {
+            pane->Collapse();
+        }
+    }
+
+    if (auto* topSizer = GetSizer(); topSizer != nullptr) {
+        for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
+            auto* item = topSizer->GetItem(i);
+            auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
+            if (collPane != nullptr) {
+                item->SetProportion(0);
+            }
+        }
+    }
+
+    SetSizeHints(m_collapsedSize, wxSize(-1, m_collapsedSize.GetHeight()));
+    Layout();
+    SetSize(m_collapsedSize);
+
+    wxBell();
+    return wxDialog::ShowModal();
+}
+
+void CompletionDialog::updateTimingInfo(const long long& timeTaken)
+{
+    // Update the text with the new timing info
+    const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
+    const wxString newText = L"PGPatcher has completed generating output.\n\nProcessing Time: "
+        + std::to_wstring(timeTaken) + L" seconds\nOutput Location:\n" + outputPath.wstring();
+
+    // Find the static text control and update its label
+    for (auto* child : GetChildren()) {
+        if (auto* staticText = wxDynamicCast(child, wxStaticText)) {
+            staticText->SetLabel(newText);
+            Layout(); // Re-layout to accommodate new text size
+            break;
+        }
+    }
+}
+
 void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
                                            PGLogMessageListCtrl* listCtrl,
                                            bool ignoreCheckbox)
@@ -281,8 +321,11 @@ void CompletionDialog::onShowModConflicts([[maybe_unused]] wxCommandEvent& event
 {
     saveIgnoredMessagesToConfig();
 
-    ModSortDialog dialog;
-    dialog.ShowModal();
+    ModSortDialog dialog(this);
+    const int result = dialog.ShowModal();
+    if (result == wxID_RETRY) {
+        EndModal(wxID_RETRY);
+    }
 }
 
 void CompletionDialog::saveIgnoredMessagesToConfig()

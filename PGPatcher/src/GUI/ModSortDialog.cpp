@@ -35,8 +35,8 @@ using namespace std;
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 // class ModSortDialog
-ModSortDialog::ModSortDialog()
-    : wxDialog(nullptr,
+ModSortDialog::ModSortDialog(wxWindow* parent)
+    : wxDialog(parent,
                wxID_ANY,
                "Set Mods",
                wxDefaultPosition,
@@ -230,6 +230,11 @@ ModSortDialog::ModSortDialog()
     buttonSizer->Add(cancelButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
     cancelButton->Bind(wxEVT_BUTTON, &ModSortDialog::onBtnClose, this);
 
+    // Add re-run patching button
+    m_rerunPatchingButton = new wxButton(this, wxID_ANY, "Re-run Patching");
+    buttonSizer->Add(m_rerunPatchingButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    m_rerunPatchingButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRerunPatching, this);
+
     // Add apply button
     m_applyButton = new wxButton(this, wxID_APPLY, "Apply");
     buttonSizer->Add(m_applyButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
@@ -411,6 +416,24 @@ void ModSortDialog::onShowAllMeshes([[maybe_unused]] wxCommandEvent& event)
     auto* dlg = new DialogModConflictView({}, true);
     dlg->ShowModal();
     dlg->Destroy();
+}
+
+void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
+{
+    const int response = wxMessageBox("Re-run patching now using the current mod order?\n\n"
+                                      "This will overwrite the previous output.",
+                                      "Re-run Patching",
+                                      wxYES_NO | wxICON_QUESTION,
+                                      this);
+    if (response != wxYES) {
+        return;
+    }
+
+    // Persist current mod state before re-running.
+    updateMods();
+
+    // Signal to the parent completion dialog that rerun was requested.
+    EndModal(wxID_RETRY);
 }
 
 void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)

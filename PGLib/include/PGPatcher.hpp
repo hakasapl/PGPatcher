@@ -131,6 +131,14 @@ public:
     static auto hasConflictData() -> bool;
 
     /**
+     * @brief Reset transient data collected during patching.
+     *
+     * Clears in-memory conflict metadata and diff JSON so subsequent patch runs
+     * start from a clean state.
+     */
+    static void resetRunState();
+
+    /**
      * @brief Finalize any other requires output files
      */
     static void finalize();

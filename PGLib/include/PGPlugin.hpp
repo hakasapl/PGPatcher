@@ -252,6 +252,11 @@ public:
     static void populateObjs(const std::filesystem::path& existingModPath = {});
 
     /**
+     * @brief Resets plugin patching state to the baseline captured after populateObjs().
+     */
+    static void resetPatchingState();
+
+    /**
      * @brief Returns all plugin records that reference the given model path.
      *
      * @param modelPath Wide-string relative model path (e.g., L"meshes\\foo\\bar.nif").

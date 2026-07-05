@@ -247,19 +247,19 @@ void configureDotNetLibDirectory(const filesystem::path& exeDir)
     }
 }
 
-constexpr auto NUM_PREPARING_STEPS = 11;
+constexpr auto NUM_PREPARING_STEPS = 10;
 constexpr auto NUM_FINALIZING_STEPS = 5;
 constexpr auto NUM_TOTAL_STEPS = 6;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
-void mainRunnerPre(const ParallaxGenCLIArgs& args,
-                   const PGConfig::PGParams& params,
-                   const filesystem::path& exePath,
-                   const std::filesystem::path& cfgDir,
-                   ProgressWindow* progressWindow,
-                   const function<void(size_t,
-                                       size_t)>& progressCallback)
+void mainRunnerPrep(const ParallaxGenCLIArgs& args,
+                    const PGConfig::PGParams& params,
+                    const filesystem::path& exePath,
+                    const std::filesystem::path& cfgDir,
+                    ProgressWindow* progressWindow,
+                    const function<void(size_t,
+                                        size_t)>& progressCallback)
 {
     // Initialize "Preparing" Step
     progressWindow->CallAfter([progressWindow]() -> void {
@@ -548,16 +548,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, NUM_PREPARING_STEPS); });
 
     //
-    // OUTPUT DIRECTORY CLEANUP
-    //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Deleting existing output"); });
-
-    // delete existing output
-    // we delete after pluginInit is done because we need to make sure it had a chance to read the old plugin
-    PGPatcher::deleteOutputDir();
-
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, NUM_PREPARING_STEPS); });
-    //
     // END OUTPUT DIRECTORY CLEANUP
     //
 
@@ -568,7 +558,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     modManagerInit.waitForCompletion();
     modManagerInit.shutdown();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(11, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, NUM_PREPARING_STEPS); });
 
     // Initialize "Loading meshes" Step
     progressWindow->CallAfter([progressWindow]() -> void {
@@ -601,13 +591,26 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     }
 }
 
-void mainRunnerPost(const ParallaxGenCLIArgs& args,
-                    const PGConfig::PGParams& params,
-                    const filesystem::path& exePath,
-                    ProgressWindow* progressWindow,
-                    const function<void(size_t,
-                                        size_t)>& progressCallback)
+void mainRunnerPatch(const ParallaxGenCLIArgs& args,
+                     const PGConfig::PGParams& params,
+                     const filesystem::path& exePath,
+                     ProgressWindow* progressWindow,
+                     const function<void(size_t,
+                                         size_t)>& progressCallback)
 {
+    // Make sure the state is clean for the patch
+    PGPatcher::resetRunState();
+    PGPlugin::resetPatchingState();
+    PGGlobals::getPGD()->clearGeneratedFiles();
+
+    //
+    // OUTPUT DIRECTORY CLEANUP
+    //
+
+    // delete existing output
+    // we delete after pluginInit is done because we need to make sure it had a chance to read the old plugin
+    PGPatcher::deleteOutputDir();
+
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Patching meshes");
         progressWindow->setStepLabel("");
@@ -826,9 +829,10 @@ void mainRunner(ParallaxGenCLIArgs& args,
     // Dispatch the pre-generation task
     TaskQueue backgroundRunners;
     backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
-        mainRunnerPre(args, params, exePath, cfgDir, progressWindow, progressCallback);
-        mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
-        progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
+        mainRunnerPrep(args, params, exePath, cfgDir, progressWindow, progressCallback);
+        mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
+        auto* const progressWindowPtr = progressWindow;
+        progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
     });
 
     // Show progress dialog (this will block until closed by one of the callafters)
@@ -846,7 +850,30 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     // Show completion dialog
     CompletionDialog dlg(timeTaken);
-    dlg.ShowModal();
+    while (dlg.ShowModal() == wxID_RETRY) {
+        // Restart time
+        const auto startTime = chrono::high_resolution_clock::now();
+
+        // return code RETRY means we redo the patching process
+        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
+            mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
+            auto* const progressWindowPtr = progressWindow;
+            progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
+        });
+
+        // Show progress dialog (this will block until closed by one of the callafters)
+        progressWindow->ShowModal();
+
+        // Verify tasks are finished
+        ExceptionHandler::throwExceptionOnMainThread();
+        backgroundRunners.waitForCompletion();
+
+        const auto endTime = chrono::high_resolution_clock::now();
+        timeTaken = chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
+        dlg.updateTimingInfo(timeTaken);
+
+        Logger::info("PGPatcher took {} seconds to complete (does not include time in user interface)", timeTaken);
+    }
 }
 
 void addArguments(CLI::App& app,

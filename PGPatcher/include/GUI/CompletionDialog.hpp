@@ -25,6 +25,10 @@ public:
      */
     CompletionDialog(const long long& timeTaken);
 
+    auto ShowModal() -> int override;
+
+    void updateTimingInfo(const long long& timeTaken);
+
 private:
     /**
      * @brief Configure a collapsible pane to host a log-message list control.

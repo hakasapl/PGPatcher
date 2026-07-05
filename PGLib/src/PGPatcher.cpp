@@ -232,6 +232,19 @@ auto PGPatcher::hasConflictData() -> bool
     return !s_meshPatchInfo.empty();
 }
 
+void PGPatcher::resetRunState()
+{
+    {
+        const unique_lock lock(s_meshPatchInfoMutex);
+        s_meshPatchInfo.clear();
+    }
+
+    {
+        const unique_lock lock(s_diffJSONMutex);
+        s_diffJSON.clear();
+    }
+}
+
 void PGPatcher::deleteOutputDir(const bool& preOutput)
 {
     static const unordered_set<filesystem::path> foldersToDelete
