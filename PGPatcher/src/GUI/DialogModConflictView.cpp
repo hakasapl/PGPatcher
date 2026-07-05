@@ -547,9 +547,19 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
 
         // Highlight the top displayed row (winner after filtering/visibility rules).
         if (static_cast<int>(i) == topVisibleMatchIdx) {
-            m_matchListCtrl->SetItemBackgroundColour(row, s_WINNING_MATCH_COLOR);
-            m_matchListCtrl->SetItemTextColour(row, *wxBLACK);
-            continue;
+            // Only highlight if the mod is enabled
+            bool shouldHighlight = (match.mod != nullptr);
+            if (shouldHighlight) {
+                const shared_lock lock(match.mod->mutex);
+                shouldHighlight = match.mod->isEnabled;
+            }
+
+            if (shouldHighlight) {
+                m_matchListCtrl->SetItemBackgroundColour(row, s_WINNING_MATCH_COLOR);
+                m_matchListCtrl->SetItemTextColour(row, *wxBLACK);
+                continue; // Only continue if we actually highlighted
+            }
+            // If disabled, fall through to apply gray color
         }
 
         // Gray out disabled mods and untracked/vanilla sources

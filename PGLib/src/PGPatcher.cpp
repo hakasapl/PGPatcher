@@ -35,7 +35,6 @@
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <d3d11.h>
 #include <exception>
@@ -174,45 +173,6 @@ auto PGPatcher::getPatchMeta() -> std::map<std::filesystem::path,
     const shared_lock lock(s_meshPatchInfoMutex);
     return s_meshPatchInfo;
 }
-
-namespace {
-template <typename T>
-void sortMatchesImpl(std::vector<T>& matches,
-                     const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)
-{
-    std::unordered_map<const PGModManager::Mod*, size_t> modPriorityOrder;
-    modPriorityOrder.reserve(modPriorityList.size());
-    size_t priorityRank = 0;
-    for (const auto& mod : modPriorityList) {
-        modPriorityOrder.emplace(mod.get(), priorityRank++);
-    }
-
-    const size_t fallbackRank = modPriorityList.size();
-    std::ranges::stable_sort(matches, [&](const T& a, const T& b) -> bool {
-        size_t aRank = fallbackRank;
-        if (a.mod != nullptr) {
-            const auto aIt = modPriorityOrder.find(a.mod.get());
-            if (aIt != modPriorityOrder.end()) {
-                aRank = aIt->second;
-            }
-        }
-
-        size_t bRank = fallbackRank;
-        if (b.mod != nullptr) {
-            const auto bIt = modPriorityOrder.find(b.mod.get());
-            if (bIt != modPriorityOrder.end()) {
-                bRank = bIt->second;
-            }
-        }
-
-        if (aRank != bRank) {
-            return aRank < bRank;
-        }
-
-        return static_cast<int>(a.shader) > static_cast<int>(b.shader);
-    });
-}
-} // namespace
 
 void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
                             const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)

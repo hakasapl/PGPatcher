@@ -663,6 +663,8 @@ void ModSortDialog::updateMods()
             continue;
         }
 
+        // Acquire lock to prevent data race with conflict viewer reading these fields
+        const std::unique_lock lock(mod->mutex);
         mod->isEnabled = row.isChecked;
 
         if (mod->isEnabled) {
