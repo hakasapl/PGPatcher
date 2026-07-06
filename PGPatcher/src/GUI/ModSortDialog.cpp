@@ -70,7 +70,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     m_listCtrl->Bind(wxEVT_SIZE, &ModSortDialog::onListCtrlResize, this);
 
-    // Extend the list's own context menu with a "Show Conflicts..." item
+    // Extend the list's own context menu with conflict/match actions.
     m_listCtrl->setContextMenuExtension([this](wxMenu& menu, const std::vector<long>& selectedIndices) {
         // Collect selected mod names
         std::unordered_set<std::wstring> selectedMods;
@@ -78,11 +78,21 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
             selectedMods.insert(m_listCtrl->GetItemText(idx).ToStdWstring());
         }
 
+        std::wstring selectedModName;
+        if (selectedIndices.size() == 1) {
+            selectedModName = m_listCtrl->GetItemText(selectedIndices.front()).ToStdWstring();
+        }
+
         auto* showConflictsItem = menu.Append(wxID_ANY, "Show Conflicts...");
         auto* showMatchesItem = menu.Append(wxID_ANY, "Show Matches...");
+        menu.AppendSeparator();
+        auto* openModFolderItem = menu.Append(wxID_ANY, "Open Mod Folder");
         if (!PGPatcher::hasConflictData()) {
             showConflictsItem->Enable(false);
             showMatchesItem->Enable(false);
+        }
+        if (selectedIndices.size() != 1) {
+            openModFolderItem->Enable(false);
         }
 
         menu.Bind(
@@ -93,6 +103,28 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
             wxEVT_MENU,
             [this, selectedMods](wxCommandEvent& /*evt*/) { openConflictView(selectedMods, true); },
             showMatchesItem->GetId());
+        menu.Bind(
+            wxEVT_MENU,
+            [this, selectedModName](wxCommandEvent& /*evt*/) {
+                if (selectedModName.empty()) {
+                    return;
+                }
+
+                try {
+                    auto* pgmm = PGGlobals::getPGMM();
+                    if (pgmm == nullptr) {
+                        return;
+                    }
+
+                    const auto mod = pgmm->getMod(selectedModName);
+                    if (mod != nullptr && !mod->folder.empty()) {
+                        wxLaunchDefaultApplication(wxString(mod->folder.wstring()));
+                    }
+                } catch (...) {
+                    // Ignore lookup failures.
+                }
+            },
+            openModFolderItem->GetId());
     });
 
     // define base item BG color, which should always be the background color of the listbox (theme agnostic)
