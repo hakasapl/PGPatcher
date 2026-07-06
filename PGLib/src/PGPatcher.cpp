@@ -550,11 +550,7 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
 
         auto& curMeshShapeMeta = meshMeta.shapeMeta[shapeMetaIdx++];
         curMeshShapeMeta.blockID = shapeBlockID;
-        if (shapeName.empty()) {
-            curMeshShapeMeta.shapeName = "[ UNNAMED ]";
-        } else {
-            curMeshShapeMeta.shapeName = shapeName;
-        }
+        curMeshShapeMeta.shapeName = shapeName;
 
         PGTypes::TextureSet* ptrAltTex = nullptr;
         if (alternateTextures.contains(oldIndex3D)) {

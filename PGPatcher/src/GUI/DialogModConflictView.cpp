@@ -519,7 +519,7 @@ void DialogModConflictView::populateShapeList(long meshIdx)
     for (const auto& [idx3D, shapeInfo] : sortedShapes) {
         (void)idx3D;
         const wxString baseShapeName
-            = shapeInfo->shapeName.empty() ? wxString("[Unnamed Shape]") : wxString::FromUTF8(shapeInfo->shapeName);
+            = shapeInfo->shapeName.empty() ? wxString("[ Unnamed ]") : wxString::FromUTF8(shapeInfo->shapeName);
         const wxString shapeLabelText = wxString::Format("%s (%u)", baseShapeName, shapeInfo->blockID);
 
         const long row = m_shapeListCtrl->InsertItem(m_shapeListCtrl->GetItemCount(), shapeLabelText);
