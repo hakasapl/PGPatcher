@@ -34,13 +34,13 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
                                              bool showAllMeshes)
     : wxDialog(nullptr,
                wxID_ANY,
-               "Conflict Viewer",
+               "Match Viewer",
                wxDefaultPosition,
                wxSize(DEFAULT_WIDTH,
                       DEFAULT_HEIGHT),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
     , m_filterMods(filterMods)
-    , m_showAllMeshes(showAllMeshes)
+    , m_showOnlyConflicts(!showAllMeshes)
 {
     // Take a fresh snapshot of the mesh patch metadata based on current mod state.
     // This ensures we reflect any mod priority changes made without saving.
@@ -50,24 +50,36 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     // ---- Filter / mod indicator -------------------------------------------
     m_filterLabel = new wxStaticText(this, wxID_ANY, wxEmptyString);
-    if (!m_showAllMeshes) {
-        if (m_filterMods.empty()) {
-            m_filterLabel->SetLabel("Showing all conflicts");
-        } else {
-            wxString names;
-            for (const auto& mod : m_filterMods) {
-                if (!names.IsEmpty()) {
-                    names += ", ";
-                }
-                names += wxString(mod);
+    {
+        wxString label;
+        wxString names;
+        for (const auto& mod : m_filterMods) {
+            if (!names.IsEmpty()) {
+                names += ", ";
             }
-            m_filterLabel->SetLabel(wxString::Format("Viewing conflicts for mod(s): %s", names));
+            names += wxString(mod);
         }
-        mainSizer->AddSpacer(10);
-        mainSizer->Add(m_filterLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
-    } else {
-        m_filterLabel->Show(false);
+        if (m_showOnlyConflicts) {
+            if (names.IsEmpty()) {
+                label = wxString("Showing all conflicts");
+            } else if (m_filterMods.size() == 1) {
+                label = wxString::Format("Showing conflicts for mod: %s", names);
+            } else {
+                label = wxString::Format("Showing conflicts between mods: %s", names);
+            }
+        } else {
+            if (names.IsEmpty()) {
+                label = wxString("Showing all matches");
+            } else if (m_filterMods.size() == 1) {
+                label = wxString::Format("Showing matches for mod: %s", names);
+            } else {
+                label = wxString::Format("Showing matches for mods: %s", names);
+            }
+        }
+        m_filterLabel->SetLabel(label);
     }
+    mainSizer->AddSpacer(10);
+    mainSizer->Add(m_filterLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
 
     // ---- Search bar --------------------------------------------------------
     auto* searchSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -78,10 +90,15 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, DEFAULT_BORDER);
     searchSizer->Add(m_meshSearchCtrl, 1, wxEXPAND);
 
-    m_showDisabledCheckbox = new wxCheckBox(this, wxID_ANY, "Show conflicts from disabled mods");
+    m_showDisabledCheckbox = new wxCheckBox(this, wxID_ANY, "Show Disabled Mods");
     m_showDisabledCheckbox->SetValue(false); // default: hide disabled-mod matches
     m_showDisabledCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowDisabledChanged, this);
     searchSizer->Add(m_showDisabledCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, DEFAULT_BORDER * 2);
+
+    m_showOnlyConflictsCheckbox = new wxCheckBox(this, wxID_ANY, "Only Show Conflicts");
+    m_showOnlyConflictsCheckbox->SetValue(m_showOnlyConflicts);
+    m_showOnlyConflictsCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowOnlyConflictsChanged, this);
+    searchSizer->Add(m_showOnlyConflictsCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, DEFAULT_BORDER * 2);
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxALL, DEFAULT_BORDER);
 
     // ---- Three-panel split area --------------------------------------------
@@ -106,6 +123,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
         = new wxListCtrl(meshPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
     m_meshListCtrl->InsertColumn(0, "Mesh Path");
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &DialogModConflictView::onMeshSelected, this);
+    m_meshListCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &DialogModConflictView::onMeshDeselected, this);
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &DialogModConflictView::onMeshActivated, this);
     m_meshListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onMeshContextMenu, this);
     m_meshListCtrl->Bind(wxEVT_SIZE, &DialogModConflictView::onMeshListResize, this);
@@ -124,6 +142,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
         = new wxListCtrl(shapePanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
     m_shapeListCtrl->InsertColumn(0, "Shape");
     m_shapeListCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &DialogModConflictView::onShapeSelected, this);
+    m_shapeListCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &DialogModConflictView::onShapeDeselected, this);
     m_shapeListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onShapeContextMenu, this);
     m_shapeListCtrl->Bind(wxEVT_SIZE, &DialogModConflictView::onShapeListResize, this);
     shapeSizer->Add(m_shapeListCtrl, 1, wxEXPAND);
@@ -288,6 +307,33 @@ auto DialogModConflictView::meshPassesModFilter(const PGPatcher::MeshMeta& meshM
     return false;
 }
 
+auto DialogModConflictView::meshPassesAnyModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool
+{
+    for (const auto& [shapeKey, shapeInfo] : meshMeta.shapeMeta) {
+        (void)shapeKey;
+        if (shapePassesAnyModFilter(shapeInfo)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+auto DialogModConflictView::shapePassesAnyModFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool
+{
+    if (m_filterMods.empty()) {
+        return true;
+    }
+    for (const auto& [formKey, shapeMatches] : shape.matches) {
+        (void)formKey;
+        for (const auto& match : shapeMatches) {
+            if (match.mod != nullptr && m_filterMods.contains(match.mod->name)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 auto DialogModConflictView::shapePassesIntersectionFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool
 {
     vector<MatchView> matches;
@@ -369,8 +415,12 @@ void DialogModConflictView::rebuildMeshList()
     const wxString searchTerm = m_meshSearchCtrl->GetValue().Lower();
 
     for (const auto& [meshPath, meshData] : m_patchMeta) {
-        // In "show all" mode, don't filter by mod.  In normal mode, apply mod filter.
-        if (!m_showAllMeshes && !meshPassesModFilter(meshData)) {
+        // When "show only conflicts" is on, apply mod/conflict filter. Otherwise show all meshes.
+        if (m_showOnlyConflicts && !meshPassesModFilter(meshData)) {
+            continue;
+        }
+        // When filter mods are set but NOT in conflicts-only mode, still restrict to meshes containing those mods.
+        if (!m_showOnlyConflicts && !m_filterMods.empty() && !meshPassesAnyModFilter(meshData)) {
             continue;
         }
 
@@ -434,9 +484,25 @@ void DialogModConflictView::populateShapeList(long meshIdx)
     vector<pair<int, const PGPatcher::MeshShapeMeta*>> sortedShapes;
     sortedShapes.reserve(meshData.shapeMeta.size());
     for (const auto& [shapeKey, shapeInfo] : meshData.shapeMeta) {
-        // In "show all" mode, skip mod filter. In normal mode, apply intersection filter.
-        if (!m_showAllMeshes && !m_filterMods.empty() && !shapePassesIntersectionFilter(shapeInfo)) {
-            continue;
+        // When "show only conflicts" is on:
+        //   - if filterMods set: shape must pass intersection filter
+        //   - if filterMods empty: shape must have an actual conflict
+        // When "show only conflicts" is off: show all shapes (but still filter to filterMods union if set)
+        if (m_showOnlyConflicts) {
+            if (!m_filterMods.empty() && !shapePassesIntersectionFilter(shapeInfo)) {
+                continue;
+            }
+            if (m_filterMods.empty()) {
+                const auto allMatches = buildDisplayMatches(shapeInfo);
+                if (!shapeHasActualConflict(allMatches)) {
+                    continue;
+                }
+            }
+        } else if (!m_filterMods.empty()) {
+            // Union filter: at least one match from any of the filter mods must be on this shape
+            if (!shapePassesAnyModFilter(shapeInfo)) {
+                continue;
+            }
         }
         sortedShapes.emplace_back(static_cast<int>(shapeKey), &shapeInfo);
     }
@@ -508,20 +574,24 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
     // The actual ordering is delegated to PGPatcher::sortMatches() using the live mod order.
     vector<MatchView> matches = buildDisplayMatches(shapeMeta, selectedFormKey);
 
-    const auto modPriorityList = PGGlobals::isPGMMSet() ? PGGlobals::getPGMM()->getModsByPriority()
-                                                        : std::vector<std::shared_ptr<PGModManager::Mod>> {};
+    const auto modPriorityList = m_modOrderProvider
+        ? m_modOrderProvider()
+        : (PGGlobals::isPGMMSet() ? PGGlobals::getPGMM()->getModsByPriority()
+                                  : std::vector<std::shared_ptr<PGModManager::Mod>> {});
     PGPatcher::sortMatches(matches, modPriorityList);
     int topVisibleMatchIdx = -1;
-    for (size_t i = 0; i < matches.size(); ++i) {
-        if (isMatchVisible(matches[i])) {
-            topVisibleMatchIdx = static_cast<int>(i);
-            break;
+    if (m_selectedPluginUseIdx >= 0) {
+        for (size_t i = 0; i < matches.size(); ++i) {
+            if (isMatchVisible(matches[i])) {
+                topVisibleMatchIdx = static_cast<int>(i);
+                break;
+            }
         }
     }
 
-    // Handle case where shape has no matches (common in showAllMeshes mode)
+    // Handle case where shape has no matches (common when not in conflicts-only mode)
     if (matches.empty()) {
-        if (m_showAllMeshes) {
+        if (!m_showOnlyConflicts) {
             // In "show all" mode, show explanatory text
             const long row = m_matchListCtrl->InsertItem(m_matchListCtrl->GetItemCount(),
                                                          wxString("[No matches - this shape cannot be patched]"));
@@ -814,6 +884,12 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
     m_matchListCtrl->PopupMenu(&menu);
 }
 
+void DialogModConflictView::setModOrderProvider(
+    std::function<std::vector<std::shared_ptr<PGModManager::Mod>>()> provider)
+{
+    m_modOrderProvider = std::move(provider);
+}
+
 void DialogModConflictView::refreshDisplay()
 {
     // Refresh metadata and rebuild while preserving current selection state.
@@ -913,6 +989,25 @@ void DialogModConflictView::refreshDisplay()
 // ============================================================================
 // Event handlers
 // ============================================================================
+
+void DialogModConflictView::onMeshDeselected(wxListEvent& event)
+{
+    m_shapeListCtrl->DeleteAllItems();
+    m_matchListCtrl->DeleteAllItems();
+    m_pluginUseCombo->SetSelection(0);
+    m_selectedPluginUseIdx = -1;
+    m_currentPluginUses.clear();
+    while (m_pluginUseCombo->GetCount() > 1) {
+        m_pluginUseCombo->Delete(1);
+    }
+    event.Skip();
+}
+
+void DialogModConflictView::onShapeDeselected(wxListEvent& event)
+{
+    m_matchListCtrl->DeleteAllItems();
+    event.Skip();
+}
 
 void DialogModConflictView::onMeshSelected(wxListEvent& event)
 {
@@ -1088,6 +1183,100 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
         const long clampedTop = min(topMeshItem, itemCount - 1);
         // Standard wxListCtrl scroll trick: scroll to bottom then back to target
         // so the target row ends up at the top of the visible area.
+        m_meshListCtrl->EnsureVisible(itemCount - 1);
+        m_meshListCtrl->EnsureVisible(clampedTop);
+    }
+
+    Thaw();
+    event.Skip();
+}
+
+void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
+{
+    m_showOnlyConflicts = m_showOnlyConflictsCheckbox->IsChecked();
+
+    // Update filter label text to reflect new mode
+    {
+        wxString names;
+        for (const auto& mod : m_filterMods) {
+            if (!names.IsEmpty()) {
+                names += ", ";
+            }
+            names += wxString(mod);
+        }
+        wxString label;
+        if (m_showOnlyConflicts) {
+            if (names.IsEmpty()) {
+                label = wxString("Showing all conflicts");
+            } else if (m_filterMods.size() == 1) {
+                label = wxString::Format("Showing conflicts for mod: %s", names);
+            } else {
+                label = wxString::Format("Showing conflicts between mods: %s", names);
+            }
+        } else {
+            if (names.IsEmpty()) {
+                label = wxString("Showing all matches");
+            } else if (m_filterMods.size() == 1) {
+                label = wxString::Format("Showing matches for mod: %s", names);
+            } else {
+                label = wxString::Format("Showing matches for mods: %s", names);
+            }
+        }
+        m_filterLabel->SetLabel(label);
+    }
+
+    // Remember selection and rebuild
+    filesystem::path selectedMeshPath;
+    int selectedIdx3D = -1;
+    int selectedPluginUseIdx = m_selectedPluginUseIdx;
+
+    const long meshIdx = m_meshListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+    if (meshIdx != wxNOT_FOUND && static_cast<size_t>(meshIdx) < m_filteredMeshes.size()) {
+        selectedMeshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+        const long shapeRow = m_shapeListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+        if (shapeRow != wxNOT_FOUND) {
+            selectedIdx3D = static_cast<int>(m_shapeListCtrl->GetItemData(shapeRow));
+        }
+    }
+
+    const long topMeshItem = m_meshListCtrl->GetTopItem();
+    Freeze();
+
+    rebuildMeshList();
+
+    if (!selectedMeshPath.empty()) {
+        const auto it = find(m_filteredMeshes.begin(), m_filteredMeshes.end(), selectedMeshPath);
+        if (it != m_filteredMeshes.end()) {
+            const long newMeshIdx = static_cast<long>(it - m_filteredMeshes.begin());
+            m_meshListCtrl->SetItemState(newMeshIdx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+            populateShapeList(newMeshIdx);
+
+            if (selectedIdx3D >= 0) {
+                for (long i = 0; i < m_shapeListCtrl->GetItemCount(); ++i) {
+                    if (static_cast<int>(m_shapeListCtrl->GetItemData(i)) == selectedIdx3D) {
+                        m_shapeListCtrl->SetItemState(i, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+                        break;
+                    }
+                }
+            }
+
+            if (selectedPluginUseIdx >= 0 && selectedPluginUseIdx < static_cast<int>(m_currentPluginUses.size())) {
+                m_selectedPluginUseIdx = selectedPluginUseIdx;
+                m_pluginUseCombo->SetSelection(selectedPluginUseIdx + 1);
+                populateMatchList(selectedMeshPath, selectedIdx3D);
+            } else {
+                m_selectedPluginUseIdx = -1;
+                m_pluginUseCombo->SetSelection(0);
+                if (selectedIdx3D >= 0) {
+                    populateMatchList(selectedMeshPath, selectedIdx3D);
+                }
+            }
+        }
+    }
+
+    const long itemCount = m_meshListCtrl->GetItemCount();
+    if (itemCount > 0 && topMeshItem >= 0) {
+        const long clampedTop = min(topMeshItem, itemCount - 1);
         m_meshListCtrl->EnsureVisible(itemCount - 1);
         m_meshListCtrl->EnsureVisible(clampedTop);
     }

@@ -204,6 +204,12 @@ private:
      */
     void refreshConflictViews();
 
+    /**
+     * @brief Build a mod priority list from the current live (unsaved) list state.
+     *        Enabled mods appear first in visual order, disabled mods after.
+     */
+    [[nodiscard]] auto getLiveModPriorityList() const -> std::vector<std::shared_ptr<PGModManager::Mod>>;
+
     // Helpers
 
     /**

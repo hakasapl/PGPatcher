@@ -10,6 +10,7 @@
 #include <wx/wx.h>
 
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -49,6 +50,12 @@ public:
      */
     void refreshDisplay();
 
+    /**
+     * @brief Set a callback that returns the live mod priority order (enabled first).
+     *        Called by ModSortDialog after construction.
+     */
+    void setModOrderProvider(std::function<std::vector<std::shared_ptr<PGModManager::Mod>>()> provider);
+
 private:
     using MatchView = PGPatcher::MatchMeta;
 
@@ -65,6 +72,7 @@ private:
     wxListCtrl* m_matchListCtrl = nullptr;
     wxStaticText* m_filterLabel = nullptr; ///< Banner showing which mods are being filtered.
     wxCheckBox* m_showDisabledCheckbox = nullptr; ///< Toggle visibility of disabled/untracked matches.
+    wxCheckBox* m_showOnlyConflictsCheckbox = nullptr; ///< When checked, show only conflicting shapes.
 
     /// Thread-safe snapshot of mesh patch metadata taken at construction time.
     PGPatcher::MeshPatchInfo m_patchMeta;
@@ -74,8 +82,10 @@ private:
     std::vector<wxString> m_filteredMeshLabels;
     /// Mod-name filter; empty means "show all".
     std::unordered_set<std::wstring> m_filterMods;
-    /// If true, show ALL meshes/shapes/matches instead of just conflicts.
-    bool m_showAllMeshes = false;
+    /// If true, show only conflicting meshes/shapes (based on filterMods intersection or actual conflict).
+    bool m_showOnlyConflicts = false;
+    /// Callback that returns the current live mod priority list (enabled first, disabled after).
+    std::function<std::vector<std::shared_ptr<PGModManager::Mod>>()> m_modOrderProvider;
     /// Temp files extracted from BSAs; cleaned up on dialog close.
     std::vector<std::filesystem::path> m_tempFiles;
     /// Current plugin use selection (-1 = no filter, show all deduplicated).
@@ -123,6 +133,18 @@ private:
     [[nodiscard]] auto meshPassesModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool;
 
     /**
+     * @brief Return true if the mesh contains at least one shape where any match belongs to any of the filtered mods.
+     *        Used for union filtering in non-conflict-only mode.
+     */
+    [[nodiscard]] auto meshPassesAnyModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool;
+
+    /**
+     * @brief Return true if the shape has at least one match from any mod in m_filterMods.
+     *        Used for union filtering in non-conflict-only mode.
+     */
+    [[nodiscard]] auto shapePassesAnyModFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool;
+
+    /**
      * @brief Return true if the shape passes the intersection filter: every mod in
      *        m_filterMods must have at least one match in this shape.
      */
@@ -159,12 +181,15 @@ private:
     // ---- Event handlers ----------------------------------------------------
 
     void onMeshSelected(wxListEvent& event);
+    void onMeshDeselected(wxListEvent& event);
     void onMeshActivated(wxListEvent& event);
     void onMeshContextMenu(wxContextMenuEvent& event);
     void onShapeSelected(wxListEvent& event);
+    void onShapeDeselected(wxListEvent& event);
     void onShapeContextMenu(wxContextMenuEvent& event);
     void onSearchChanged(wxCommandEvent& event);
     void onShowDisabledChanged(wxCommandEvent& event);
+    void onShowOnlyConflictsChanged(wxCommandEvent& event);
     void onPluginUseSelected(wxCommandEvent& event);
     void onMatchActivated(wxListEvent& event);
     void onMatchContextMenu(wxContextMenuEvent& event);

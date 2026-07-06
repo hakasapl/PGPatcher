@@ -79,14 +79,20 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
         }
 
         auto* showConflictsItem = menu.Append(wxID_ANY, "Show Conflicts...");
+        auto* showMatchesItem = menu.Append(wxID_ANY, "Show Matches...");
         if (!PGPatcher::hasConflictData()) {
             showConflictsItem->Enable(false);
+            showMatchesItem->Enable(false);
         }
 
         menu.Bind(
             wxEVT_MENU,
             [this, selectedMods](wxCommandEvent& /*evt*/) { openConflictView(selectedMods); },
             showConflictsItem->GetId());
+        menu.Bind(
+            wxEVT_MENU,
+            [this, selectedMods](wxCommandEvent& /*evt*/) { openConflictView(selectedMods, true); },
+            showMatchesItem->GetId());
     });
 
     // define base item BG color, which should always be the background color of the listbox (theme agnostic)
@@ -299,7 +305,7 @@ void ModSortDialog::onItemActivated(wxListEvent& event)
     if (idx != wxNOT_FOUND) {
         std::unordered_set<std::wstring> selectedMod;
         selectedMod.insert(m_listCtrl->GetItemText(idx, 0).ToStdWstring());
-        openConflictView(selectedMod);
+        openConflictView(selectedMod, true);
     }
     event.Skip();
 }
@@ -429,6 +435,7 @@ void ModSortDialog::openConflictView(const std::unordered_set<std::wstring>& sel
                                      bool showAllMeshes)
 {
     auto* dlg = new DialogModConflictView(selectedMods, showAllMeshes);
+    dlg->setModOrderProvider([this]() { return getLiveModPriorityList(); });
     m_openConflictDialogs.insert(dlg);
 
     dlg->Bind(wxEVT_DESTROY, [this, dlg](wxWindowDestroyEvent& destroyEvent) -> void {
@@ -456,6 +463,33 @@ void ModSortDialog::refreshConflictViews()
     for (auto* staleDialog : staleDialogs) {
         m_openConflictDialogs.erase(staleDialog);
     }
+}
+
+auto ModSortDialog::getLiveModPriorityList() const -> std::vector<std::shared_ptr<PGModManager::Mod>>
+{
+    auto* pgmm = PGGlobals::getPGMM();
+    std::vector<std::shared_ptr<PGModManager::Mod>> result;
+    result.reserve(m_cachedRows.size());
+
+    // Enabled mods first, in visual order
+    for (const auto& row : m_cachedRows) {
+        if (row.isChecked) {
+            auto mod = pgmm->getMod(row.modName);
+            if (mod != nullptr) {
+                result.push_back(std::move(mod));
+            }
+        }
+    }
+    // Disabled mods after, in visual order
+    for (const auto& row : m_cachedRows) {
+        if (!row.isChecked) {
+            auto mod = pgmm->getMod(row.modName);
+            if (mod != nullptr) {
+                result.push_back(std::move(mod));
+            }
+        }
+    }
+    return result;
 }
 
 void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
