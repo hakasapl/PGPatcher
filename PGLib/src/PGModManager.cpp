@@ -7,17 +7,14 @@
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
-#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include <mutex>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
-#include <shared_mutex>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -27,8 +24,10 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <ranges>
 #include <regex>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -546,71 +545,57 @@ auto PGModManager::getModManagerTypeFromStr(const string& type) -> ModManagerTyp
     return modManagerStrToTypeMap.at("None");
 }
 
-void PGModManager::processNewMods() const
+void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
 {
-    // Get all mods
-    auto mods = getMods();
+    // Start from the current mod snapshot.
+    const auto allMods = getMods();
 
-    // newMods stores all mods which need a new priority, they will be sorted next step
-    vector<shared_ptr<Mod>> newMods;
-    for (const auto& mod : mods) {
-        // auto enable if new and has a shader (not NONE)
-        const bool shouldBeEnabled = !mod->shaders.empty() && *mod->shaders.rbegin() > PGEnums::ShapeShader::NONE;
-        if (!mod->isNew || !shouldBeEnabled) {
+    // Collect newly discovered mods that should be auto-enabled and assigned fresh priorities.
+    vector<shared_ptr<Mod>> autoEnabledNewMods;
+    autoEnabledNewMods.reserve(allMods.size());
+    for (const auto& modEntry : allMods) {
+        const bool hasPatchableShader
+            = !modEntry->shaders.empty() && *modEntry->shaders.rbegin() > PGEnums::ShapeShader::NONE;
+        if (!modEntry->isNew || !hasPatchableShader) {
             continue;
         }
 
-        if (shouldBeEnabled) {
-            const std::unique_lock<std::shared_mutex> modLock(mod->mutex);
-            mod->isEnabled = true;
+        {
+            const unique_lock<shared_mutex> modLock(modEntry->mutex);
+            modEntry->isEnabled = true;
         }
 
-        newMods.push_back(mod);
+        autoEnabledNewMods.push_back(modEntry);
     }
 
-    // Sort newMods by shader (higher enum index first), then by name
-    std::ranges::stable_sort(
-        newMods, [](const auto& a, const auto& b) -> auto { return PGModManager::compareMods(a, b, false); });
+    // Sort auto-enabled new mods by shader quality/name using existing comparator behavior.
+    std::ranges::stable_sort(autoEnabledNewMods, [](const auto& a, const auto& b) -> auto {
+        return PGModManager::compareMods(a, b, false);
+    });
 
-    // find maximum priority value
-    int maxPriority = 0;
-    for (const auto& mod : mods) {
-        maxPriority = std::max(mod->priority, maxPriority);
+    // Continue priority assignment above the current maximum.
+    int highestAssignedPriority = 0;
+    for (const auto& modEntry : allMods) {
+        highestAssignedPriority = std::max(modEntry->priority, highestAssignedPriority);
     }
 
-    for (auto& newMod : std::ranges::reverse_view(newMods)) {
-        newMod->priority = ++maxPriority;
+    for (auto& newModEntry : std::ranges::reverse_view(autoEnabledNewMods)) {
+        newModEntry->priority = ++highestAssignedPriority;
     }
-}
 
-void PGModManager::updateModOrderInit(bool useDefaultOrder) const
-{
-    // make sure any new mods that need to be enabled get enabled
-    processNewMods();
-
-    const vector<shared_ptr<Mod>> mods
+    const vector<shared_ptr<Mod>> modsSortedBySelectedBaseOrder
         = useDefaultOrder && m_mmType == ModManagerType::MODORGANIZER2 ? getModsByDefaultOrder() : getModsByPriority();
 
-    vector<shared_ptr<Mod>> orderedMods;
-    orderedMods.reserve(mods.size());
+    // Rebuild ordering to enabled-first while preserving relative order within each group.
+    vector<shared_ptr<Mod>> modsWithEnabledFirst = modsSortedBySelectedBaseOrder;
+    std::ranges::stable_partition(modsWithEnabledFirst,
+                                  [](const auto& modEntry) -> bool { return modEntry->isEnabled; });
 
-    for (const auto& mod : mods) {
-        if (mod->isEnabled) {
-            orderedMods.push_back(mod);
-        }
-    }
-
-    for (const auto& mod : mods) {
-        if (!mod->isEnabled) {
-            orderedMods.push_back(mod);
-        }
-    }
-
-    const int itemCount = static_cast<int>(orderedMods.size());
-    for (int i = 0; i < itemCount; ++i) {
-        const auto& mod = orderedMods.at(static_cast<size_t>(i));
-        if (mod->isEnabled) {
-            mod->priority = itemCount - i;
+    const int modCount = static_cast<int>(modsWithEnabledFirst.size());
+    for (int orderedIndex = 0; orderedIndex < modCount; ++orderedIndex) {
+        const auto& modEntry = modsWithEnabledFirst.at(static_cast<size_t>(orderedIndex));
+        if (modEntry->isEnabled) {
+            modEntry->priority = modCount - orderedIndex;
         }
     }
 }

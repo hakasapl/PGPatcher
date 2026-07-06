@@ -70,7 +70,6 @@ constexpr unsigned MAX_LOG_FILES = 1000;
 using namespace std;
 struct ParallaxGenCLIArgs {
     bool autostart = false;
-    bool highmem = false;
     bool console = false;
     bool forceLight = false;
     bool forceDark = false;
@@ -574,7 +573,6 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
                   params.Processing.textureMaps,
                   params.Processing.vanillaBSAList,
                   params.Processing.multithread,
-                  args.highmem,
                   progressCallback);
 
     // Any patcher initialization that requires PGD
@@ -583,7 +581,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     }
 
     // Assign new mod priorities for new mods
-    pgmm->updateModOrderInit(params.ModManager.mo2UseLooseFileOrder);
+    pgmm->updateStateFromModlist(params.ModManager.mo2UseLooseFileOrder);
 
     // Persist computed mod order so non-dialog flows still keep modrules.json in sync.
     if (!PGConfig::saveModConfig()) {
@@ -881,7 +879,6 @@ void addArguments(CLI::App& app,
 {
     // Logging
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
-    app.add_flag("--highmem", args.highmem, "Enable high memory mode");
     app.add_flag("--console", args.console, "Show console in the background");
     auto* const forceLightFlag = app.add_flag("--force-light", args.forceLight, "Force light theme");
     auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");

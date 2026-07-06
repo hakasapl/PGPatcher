@@ -163,7 +163,6 @@ auto PGDirectory::mapFiles(const vector<wstring>& nifBlocklist,
                                              PGEnums::TextureType>>& manualTextureMaps,
                            const vector<wstring>& parallaxBSAExcludes,
                            const bool& multithreading,
-                           const bool& highmem,
                            const std::function<void(size_t,
                                                     size_t)>& progressCallback) -> void
 {
@@ -200,8 +199,8 @@ auto PGDirectory::mapFiles(const vector<wstring>& nifBlocklist,
             continue;
         }
 
-        runner.addTask([this, &taskTracker, &mesh, &highmem, &multithreading] {
-            taskTracker.completeJob(mapTexturesFromNIF(mesh, highmem, multithreading));
+        runner.addTask([this, &taskTracker, &mesh, &multithreading] {
+            taskTracker.completeJob(mapTexturesFromNIF(mesh, multithreading));
         });
     }
 
@@ -329,7 +328,6 @@ auto PGDirectory::checkGlobMatchInVector(const wstring& check,
 }
 
 auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
-                                     const bool& cachenif,
                                      const bool& multithreading) -> TaskTracker::Result
 {
     auto result = TaskTracker::Result::SUCCESS;

@@ -24,7 +24,6 @@
 #include "NifFile.hpp"
 #include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
-#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -36,6 +35,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <d3d11.h>
 #include <exception>

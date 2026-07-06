@@ -18,7 +18,6 @@
 #include <filesystem>
 #include <functional>
 #include <map>
-#include <memory>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -111,7 +110,6 @@ public:
                                               PGEnums::TextureType>>& manualTextureMaps,
                   const std::vector<std::wstring>& parallaxBSAExcludes,
                   const bool& multithreading = true,
-                  const bool& highmem = false,
                   const std::function<void(size_t,
                                            size_t)>& progressCallback = {}) -> void;
 
@@ -130,7 +128,6 @@ private:
     auto findFiles() -> void;
 
     auto mapTexturesFromNIF(const std::filesystem::path& nifPath,
-                            const bool& cachenif = false,
                             const bool& multithreading = true) -> TaskTracker::Result;
 
     auto updateUnconfirmedTexturesMap(const std::filesystem::path& path,

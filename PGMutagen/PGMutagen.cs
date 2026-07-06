@@ -433,7 +433,7 @@ public class PGMutagen
             OutputSplitMods.Clear();
 
             // Restore allocation state from the post-PopulateObjs baseline.
-            allocatedFormIDs = new SortedSet<uint>(InitialAllocatedFormIDs);
+            allocatedFormIDs = [.. InitialAllocatedFormIDs];
             lastUsedFormID = InitialLastUsedFormID;
 
             // Recreate output plugin and re-add baseline texture sets from the old plugin snapshot.
@@ -1748,7 +1748,7 @@ public class PGMutagen
             InitialOutModTextureSets.Add(txst.Duplicate(newFormKey));
         }
 
-        InitialAllocatedFormIDs = new SortedSet<uint>(allocatedFormIDs);
+        InitialAllocatedFormIDs = [.. allocatedFormIDs];
         InitialLastUsedFormID = lastUsedFormID;
     }
 }

@@ -258,13 +258,6 @@ public:
     [[nodiscard]] auto getStagingLocation() const -> const std::filesystem::path&;
 
     /**
-     * @brief Assigns ascending priority values to all newly-added enabled mods that have no stored priority.
-     *
-     * New mods are sorted by shader quality and name, then assigned priorities above the current maximum.
-     */
-    void processNewMods() const;
-
-    /**
      * @brief Normalizes persisted priority order to match dialog save semantics.
      *
      * Reconstructs visual ordering as enabled mods first, disabled mods second while preserving the
@@ -273,8 +266,11 @@ public:
      *
      * @param useDefaultOrder If true, base ordering uses getModsByDefaultOrder(); otherwise getModsByPriority().
      */
-    void updateModOrderInit(bool useDefaultOrder) const;
+    void updateStateFromModlist(bool useDefaultOrder) const;
 
+    /**
+     * @brief Helper to add a shader type to the owning mod of a given file path.
+     */
     void addShaderToModByFile(const std::filesystem::path& relPath,
                               const PGEnums::ShapeShader& shader) const;
 
