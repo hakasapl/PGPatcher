@@ -2,18 +2,19 @@
 
 #include "PGModManager.hpp"
 #include "PGPatcher.hpp"
-#include "patchers/base/PatcherUtil.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
 
 #include <wx/listctrl.h>
 #include <wx/splitter.h>
 #include <wx/textctrl.h>
 #include <wx/wx.h>
 
+#include <cstddef>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -51,7 +52,7 @@ public:
     void refreshDisplay();
 
     /**
-     * @brief Set a callback that returns the live mod priority order (enabled first).
+     * @brief Set a callback that returns the live mod priority order in the conflict manager
      *        Called by ModSortDialog after construction.
      */
     void setModOrderProvider(std::function<std::vector<std::shared_ptr<PGModManager::Mod>>()> provider);
@@ -62,7 +63,7 @@ private:
     struct PluginUseInfo {
         PGMeshPermutationTracker::FormKey formKey;
 
-        auto displayString() const -> wxString;
+        [[nodiscard]] auto displayString() const -> wxString;
     };
 
     wxTextCtrl* m_meshSearchCtrl = nullptr;

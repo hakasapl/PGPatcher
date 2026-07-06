@@ -3,8 +3,8 @@
 #include "PGGlobals.hpp"
 #include "PGModManager.hpp"
 #include "PGPatcher.hpp"
-#include "patchers/base/PatcherUtil.hpp"
 #include "pgutil/PGEnums.hpp"
+#include "pgutil/PGMeshPermutationTracker.hpp"
 #include "util/StringUtil.hpp"
 
 #include <wx/clipbrd.h>
@@ -15,8 +15,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <ios>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
@@ -27,6 +32,16 @@
 
 using namespace std;
 using namespace StringUtil;
+
+namespace {
+constexpr int FILTER_LABEL_TOP_SPACER = 10;
+constexpr int OUTER_SPLITTER_MIN_PANE_SIZE = 100;
+constexpr int INNER_SPLITTER_MIN_PANE_SIZE = 80;
+constexpr int DISABLED_TEXT_COLOR_CHANNEL = 160;
+constexpr int MATCH_LIST_MOD_COL_WIDTH = 200;
+constexpr int MATCH_LIST_SHADER_COL_WIDTH = 130;
+constexpr int MATCH_LIST_MIN_PATH_COL_WIDTH = 40;
+}
 
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
@@ -78,7 +93,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
         }
         m_filterLabel->SetLabel(label);
     }
-    mainSizer->AddSpacer(10);
+    mainSizer->AddSpacer(FILTER_LABEL_TOP_SPACER);
     mainSizer->Add(m_filterLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
 
     // ---- Search bar --------------------------------------------------------
@@ -182,8 +197,8 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     // -- Wire up splitters ---------------------------------------------------
     innerSplitter->SplitVertically(shapePanel, matchPanel, MID_PANE_WIDTH);
     outerSplitter->SplitVertically(meshPanel, innerSplitter, LEFT_PANE_WIDTH);
-    outerSplitter->SetMinimumPaneSize(100);
-    innerSplitter->SetMinimumPaneSize(80);
+    outerSplitter->SetMinimumPaneSize(OUTER_SPLITTER_MIN_PANE_SIZE);
+    innerSplitter->SetMinimumPaneSize(INNER_SPLITTER_MIN_PANE_SIZE);
 
     mainSizer->Add(outerSplitter, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
 
@@ -298,24 +313,14 @@ auto DialogModConflictView::shapeHasActualConflict(const vector<MatchView>& matc
 
 auto DialogModConflictView::meshPassesModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool
 {
-    for (const auto& [shapeKey, shapeInfo] : meshMeta.shapeMeta) {
-        (void)shapeKey;
-        if (shapePassesIntersectionFilter(shapeInfo)) {
-            return true;
-        }
-    }
-    return false;
+    return ranges::any_of(meshMeta.shapeMeta,
+                          [this](const auto& shapeEntry) { return shapePassesIntersectionFilter(shapeEntry.second); });
 }
 
 auto DialogModConflictView::meshPassesAnyModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool
 {
-    for (const auto& [shapeKey, shapeInfo] : meshMeta.shapeMeta) {
-        (void)shapeKey;
-        if (shapePassesAnyModFilter(shapeInfo)) {
-            return true;
-        }
-    }
-    return false;
+    return ranges::any_of(meshMeta.shapeMeta,
+                          [this](const auto& shapeEntry) { return shapePassesAnyModFilter(shapeEntry.second); });
 }
 
 auto DialogModConflictView::shapePassesAnyModFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool
@@ -340,7 +345,10 @@ auto DialogModConflictView::shapePassesIntersectionFilter(const PGPatcher::MeshS
     for (const auto& [formKey, shapeMatches] : shape.matches) {
         (void)formKey;
         for (const auto& match : shapeMatches) {
-            matches.push_back({match.mod, match.shader, match.shaderTransformTo, match.matchedPath});
+            matches.push_back({.mod = match.mod,
+                               .shader = match.shader,
+                               .shaderTransformTo = match.shaderTransformTo,
+                               .matchedPath = match.matchedPath});
         }
     }
 
@@ -371,8 +379,8 @@ auto DialogModConflictView::computeWinningMatchIdx(const vector<MatchView>& matc
     int maxPriority = -1;
     int winnerIdx = -1;
 
-    for (int i = 0; i < static_cast<int>(matches.size()); ++i) {
-        const auto& match = matches[static_cast<size_t>(i)];
+    for (size_t i = 0; i < matches.size(); ++i) {
+        const auto& match = matches.at(i);
         if (match.mod == nullptr) {
             continue;
         }
@@ -396,7 +404,7 @@ auto DialogModConflictView::computeWinningMatchIdx(const vector<MatchView>& matc
         }
 
         maxPriority = curPriority;
-        winnerIdx = i;
+        winnerIdx = static_cast<int>(i);
     }
 
     return winnerIdx;
@@ -441,7 +449,7 @@ void DialogModConflictView::rebuildMeshList()
     }
 
     sort(sortedIndices.begin(), sortedIndices.end(), [&](size_t a, size_t b) {
-        return m_filteredMeshes[a] < m_filteredMeshes[b];
+        return m_filteredMeshes.at(a) < m_filteredMeshes.at(b);
     });
 
     vector<filesystem::path> sortedMeshes;
@@ -449,15 +457,15 @@ void DialogModConflictView::rebuildMeshList()
     sortedMeshes.reserve(m_filteredMeshes.size());
     sortedLabels.reserve(m_filteredMeshLabels.size());
     for (const size_t idx : sortedIndices) {
-        sortedMeshes.push_back(std::move(m_filteredMeshes[idx]));
-        sortedLabels.push_back(std::move(m_filteredMeshLabels[idx]));
+        sortedMeshes.push_back(std::move(m_filteredMeshes.at(idx)));
+        sortedLabels.push_back(std::move(m_filteredMeshLabels.at(idx)));
     }
 
     m_filteredMeshes = std::move(sortedMeshes);
     m_filteredMeshLabels = std::move(sortedLabels);
 
-    for (size_t i = 0; i < m_filteredMeshes.size(); ++i) {
-        m_meshListCtrl->InsertItem(m_meshListCtrl->GetItemCount(), m_filteredMeshLabels[i]);
+    for (const auto& meshLabel : m_filteredMeshLabels) {
+        m_meshListCtrl->InsertItem(m_meshListCtrl->GetItemCount(), meshLabel);
     }
 
     Thaw();
@@ -472,7 +480,7 @@ void DialogModConflictView::populateShapeList(long meshIdx)
         return;
     }
 
-    const auto& meshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+    const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     const auto meshIt = m_patchMeta.find(meshPath);
     if (meshIt == m_patchMeta.end()) {
         return;
@@ -567,22 +575,24 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
 
     optional<PGMeshPermutationTracker::FormKey> selectedFormKey;
     if (m_selectedPluginUseIdx >= 0 && static_cast<size_t>(m_selectedPluginUseIdx) < m_currentPluginUses.size()) {
-        selectedFormKey = m_currentPluginUses[static_cast<size_t>(m_selectedPluginUseIdx)].formKey;
+        selectedFormKey = m_currentPluginUses.at(static_cast<size_t>(m_selectedPluginUseIdx)).formKey;
     }
 
     // Determine which matches to display based on plugin use filter.
     // The actual ordering is delegated to PGPatcher::sortMatches() using the live mod order.
     vector<MatchView> matches = buildDisplayMatches(shapeMeta, selectedFormKey);
 
-    const auto modPriorityList = m_modOrderProvider
-        ? m_modOrderProvider()
-        : (PGGlobals::isPGMMSet() ? PGGlobals::getPGMM()->getModsByPriority()
-                                  : std::vector<std::shared_ptr<PGModManager::Mod>> {});
+    std::vector<std::shared_ptr<PGModManager::Mod>> modPriorityList;
+    if (m_modOrderProvider) {
+        modPriorityList = m_modOrderProvider();
+    } else if (PGGlobals::isPGMMSet()) {
+        modPriorityList = PGGlobals::getPGMM()->getModsByPriority();
+    }
     PGPatcher::sortMatches(matches, modPriorityList);
     int topVisibleMatchIdx = -1;
     if (m_selectedPluginUseIdx >= 0) {
         for (size_t i = 0; i < matches.size(); ++i) {
-            if (isMatchVisible(matches[i])) {
+            if (isMatchVisible(matches.at(i))) {
                 topVisibleMatchIdx = static_cast<int>(i);
                 break;
             }
@@ -595,14 +605,15 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
             // In "show all" mode, show explanatory text
             const long row = m_matchListCtrl->InsertItem(m_matchListCtrl->GetItemCount(),
                                                          wxString("[No matches - this shape cannot be patched]"));
-            m_matchListCtrl->SetItemTextColour(row, wxColour(160, 160, 160));
+            m_matchListCtrl->SetItemTextColour(
+                row, wxColour(DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL));
         }
         return;
     }
 
     // Populate the list in helper-defined order.
     for (size_t i = 0; i < matches.size(); ++i) {
-        const auto& match = matches[i];
+        const auto& match = matches.at(i);
         if (!isMatchVisible(match)) {
             continue;
         }
@@ -639,7 +650,8 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
             shouldGray = !match.mod->isEnabled;
         }
         if (shouldGray) {
-            m_matchListCtrl->SetItemTextColour(row, wxColour(160, 160, 160));
+            m_matchListCtrl->SetItemTextColour(
+                row, wxColour(DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL));
         }
     }
 }
@@ -694,7 +706,7 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
     }
 
     try {
-        filesystem::path tempDir = filesystem::temp_directory_path() / L"PGPatcher_Temp";
+        const filesystem::path tempDir = filesystem::temp_directory_path() / L"PGPatcher_Temp";
         filesystem::create_directories(tempDir);
 
         const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
@@ -714,7 +726,13 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
                          this);
             return;
         }
-        outFile.write(reinterpret_cast<const char*>(fileBytes.data()), fileBytes.size());
+        if (fileBytes.size() > static_cast<size_t>(numeric_limits<streamsize>::max())) {
+            wxMessageBox("Error: File is too large to extract.", "Extraction Error", wxOK | wxICON_ERROR, this);
+            return;
+        }
+        const auto bytesToWrite = static_cast<streamsize>(fileBytes.size());
+        const auto* fileData = static_cast<const char*>(static_cast<const void*>(fileBytes.data()));
+        outFile.write(fileData, bytesToWrite);
         outFile.close();
 
         filesystem::permissions(tempFile,
@@ -796,7 +814,7 @@ void DialogModConflictView::onMeshContextMenu(wxContextMenuEvent& event)
         return;
     }
 
-    const auto& meshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+    const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     wxMenu menu;
     auto* copyName = menu.Append(wxID_ANY, "Copy Name");
     auto* openItem = menu.Append(wxID_ANY, "Open");
@@ -900,7 +918,7 @@ void DialogModConflictView::refreshDisplay()
         if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size()) {
             return filesystem::path {};
         }
-        return m_filteredMeshes[static_cast<size_t>(meshIdx)];
+        return m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     }();
 
     const int selectedIdx3D = [&] {
@@ -1018,7 +1036,7 @@ void DialogModConflictView::onMeshSelected(wxListEvent& event)
 
     // Populate plugin use dropdown based on the selected mesh
     if (static_cast<size_t>(meshIdx) < m_filteredMeshes.size()) {
-        const auto& meshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+        const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
         if (m_patchMeta.contains(meshPath)) {
             populatePluginUseList(meshPath);
         } else {
@@ -1047,7 +1065,7 @@ void DialogModConflictView::onShapeSelected(wxListEvent& event)
         return;
     }
 
-    const auto& meshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+    const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     const auto idx3D = static_cast<size_t>(m_shapeListCtrl->GetItemData(shapeRow));
 
     populateMatchList(meshPath, idx3D);
@@ -1061,7 +1079,7 @@ void DialogModConflictView::onSearchChanged(wxCommandEvent& event)
         if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size()) {
             return filesystem::path {};
         }
-        return m_filteredMeshes[static_cast<size_t>(meshIdx)];
+        return m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     }();
 
     const int selectedIdx3D = [&] {
@@ -1123,11 +1141,11 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
     // Remember what is currently selected so we can restore it after rebuilding.
     filesystem::path selectedMeshPath;
     int selectedIdx3D = -1;
-    int selectedPluginUseIdx = m_selectedPluginUseIdx; // Save dropdown selection
+    const int selectedPluginUseIdx = m_selectedPluginUseIdx; // Save dropdown selection
 
     const long meshIdx = m_meshListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
     if (meshIdx != wxNOT_FOUND && static_cast<size_t>(meshIdx) < m_filteredMeshes.size()) {
-        selectedMeshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+        selectedMeshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
 
         const long shapeRow = m_shapeListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
         if (shapeRow != wxNOT_FOUND) {
@@ -1228,11 +1246,11 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
     // Remember selection and rebuild
     filesystem::path selectedMeshPath;
     int selectedIdx3D = -1;
-    int selectedPluginUseIdx = m_selectedPluginUseIdx;
+    const int selectedPluginUseIdx = m_selectedPluginUseIdx;
 
     const long meshIdx = m_meshListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
     if (meshIdx != wxNOT_FOUND && static_cast<size_t>(meshIdx) < m_filteredMeshes.size()) {
-        selectedMeshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+        selectedMeshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
         const long shapeRow = m_shapeListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
         if (shapeRow != wxNOT_FOUND) {
             selectedIdx3D = static_cast<int>(m_shapeListCtrl->GetItemData(shapeRow));
@@ -1285,7 +1303,7 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
     event.Skip();
 }
 
-void DialogModConflictView::onPluginUseSelected(wxCommandEvent& event)
+void DialogModConflictView::onPluginUseSelected(wxCommandEvent& /*event*/)
 {
     // Get the currently selected shape
     const long meshIdx = m_meshListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
@@ -1298,7 +1316,7 @@ void DialogModConflictView::onPluginUseSelected(wxCommandEvent& event)
         return;
     }
 
-    const auto& meshPath = m_filteredMeshes[static_cast<size_t>(meshIdx)];
+    const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     const auto idx3D = static_cast<size_t>(m_shapeListCtrl->GetItemData(shapeRow));
 
     // Update the selected plugin use index
@@ -1341,7 +1359,7 @@ void DialogModConflictView::onMeshActivated(wxListEvent& event)
         return;
     }
 
-    const auto& meshPath = m_filteredMeshes[static_cast<size_t>(row)];
+    const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(row));
 
     openMeshFile(meshPath);
 
@@ -1363,12 +1381,11 @@ void DialogModConflictView::onShapeListResize(wxSizeEvent& event)
 void DialogModConflictView::onMatchListResize(wxSizeEvent& event)
 {
     const int totalWidth = m_matchListCtrl->GetClientSize().GetWidth();
-    constexpr int col0Width = 200; // Mod
-    constexpr int col1Width = 130; // Shader
-    const int col2Width = totalWidth - col0Width - col1Width - 2; // Matched File (fills remaining)
-    m_matchListCtrl->SetColumnWidth(0, col0Width);
-    m_matchListCtrl->SetColumnWidth(1, col1Width);
-    m_matchListCtrl->SetColumnWidth(2, col2Width > 40 ? col2Width : 40);
+    const int col2Width = totalWidth - MATCH_LIST_MOD_COL_WIDTH - MATCH_LIST_SHADER_COL_WIDTH - 2;
+    m_matchListCtrl->SetColumnWidth(0, MATCH_LIST_MOD_COL_WIDTH);
+    m_matchListCtrl->SetColumnWidth(1, MATCH_LIST_SHADER_COL_WIDTH);
+    m_matchListCtrl->SetColumnWidth(
+        2, col2Width > MATCH_LIST_MIN_PATH_COL_WIDTH ? col2Width : MATCH_LIST_MIN_PATH_COL_WIDTH);
     event.Skip();
 }
 
@@ -1380,8 +1397,9 @@ void DialogModConflictView::cleanupTempFiles()
                 filesystem::remove(tempPath);
             }
         } catch (const exception& ex) {
-            // Log error but don't throw; just skip cleanup for this file
-            // In production, this might log to a debug output or system log
+            wxLogError(wxString::Format("Failed to delete temporary file %s: %s",
+                                        tempPath.wstring().c_str(),
+                                        StringUtil::utf8toUTF16(ex.what())));
         }
     }
     m_tempFiles.clear();
