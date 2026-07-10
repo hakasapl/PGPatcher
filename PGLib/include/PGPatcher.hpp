@@ -140,11 +140,6 @@ public:
     static void resetRunState();
 
     /**
-     * @brief Finalize any other requires output files
-     */
-    static void finalize();
-
-    /**
      * @brief Delets output directory in a smart way
      *
      * @param preOutput whether this is being called pre or post output

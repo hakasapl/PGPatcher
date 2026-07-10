@@ -29,6 +29,14 @@ public:
 
     void updateTimingInfo(const long long& timeTaken);
 
+    /**
+     * @brief Reload the warning and error lists from the logger sink.
+     *
+     * Call after a patching re-run so the lists reflect the latest run instead of the
+     * messages captured when the dialog was constructed.
+     */
+    void refreshLogMessages();
+
 private:
     /**
      * @brief Configure a collapsible pane to host a log-message list control.

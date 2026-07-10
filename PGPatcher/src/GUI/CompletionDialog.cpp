@@ -216,6 +216,14 @@ void CompletionDialog::updateTimingInfo(const long long& timeTaken)
     }
 }
 
+void CompletionDialog::refreshLogMessages()
+{
+    // Repopulating the lists also fires s_EVT_PG_LOG_IGNORE_CHANGED, which updates the
+    // "Show Warnings (N)" / "Show Errors (N)" pane labels bound in the constructor.
+    m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
+    m_errListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getErrorMessages());
+}
+
 void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
                                            PGLogMessageListCtrl* listCtrl,
                                            bool ignoreCheckbox)

@@ -580,6 +580,13 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
     }
 
+    // Extended texture classification (complex material detection) runs on a background
+    // queue and adds shader types to mods as it completes. Wait for it here so mod enable
+    // state and priorities below are computed from complete shader data, and so we do not
+    // race the classification threads while reading mod shader sets.
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Classifying textures"); });
+    pgd->waitForCMClassification();
+
     // Assign new mod priorities for new mods
     pgmm->updateStateFromModlist(params.ModManager.mo2UseLooseFileOrder);
 
@@ -600,6 +607,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     PGPatcher::resetRunState();
     PGPlugin::resetPatchingState();
     PGGlobals::getPGD()->clearGeneratedFiles();
+    PGPatcherGlobals::getWXLoggerSink()->resetToRunStart();
 
     //
     // OUTPUT DIRECTORY CLEANUP
@@ -828,6 +836,11 @@ void mainRunner(ParallaxGenCLIArgs& args,
     TaskQueue backgroundRunners;
     backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
         mainRunnerPrep(args, params, exePath, cfgDir, progressWindow, progressCallback);
+
+        // Snapshot message counts after prep so re-runs of the patching step can discard
+        // messages from a previous patch run while keeping preparation-phase messages
+        PGPatcherGlobals::getWXLoggerSink()->markRunStart();
+
         mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
         auto* const progressWindowPtr = progressWindow;
         progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
@@ -869,6 +882,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
         const auto endTime = chrono::high_resolution_clock::now();
         timeTaken = chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
         dlg.updateTimingInfo(timeTaken);
+        dlg.refreshLogMessages();
 
         Logger::info("PGPatcher took {} seconds to complete (does not include time in user interface)", timeTaken);
     }

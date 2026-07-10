@@ -317,7 +317,34 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     SetSizer(mainSizer);
 }
 
+ModSortDialog::~ModSortDialog()
+{
+    // Conflict viewers are modeless and parentless, so they are not destroyed with this
+    // dialog automatically. They hold callbacks that capture "this" (the mod order
+    // provider and the destroy-event handler), so they must be neutralized and closed
+    // here to prevent use-after-free once this dialog is gone.
+    for (auto* dlg : m_openConflictDialogs) {
+        if (dlg == nullptr) {
+            continue;
+        }
+
+        dlg->Unbind(wxEVT_DESTROY, &ModSortDialog::onConflictViewDestroyed, this);
+        dlg->setModOrderProvider({});
+        if (!dlg->IsBeingDeleted()) {
+            dlg->Destroy();
+        }
+    }
+
+    m_openConflictDialogs.clear();
+}
+
 // EVENT HANDLERS
+
+void ModSortDialog::onConflictViewDestroyed(wxWindowDestroyEvent& event)
+{
+    m_openConflictDialogs.erase(static_cast<DialogModConflictView*>(event.GetWindow()));
+    event.Skip();
+}
 
 void ModSortDialog::onItemSelected(wxListEvent& event)
 {
@@ -470,10 +497,9 @@ void ModSortDialog::openConflictView(const std::unordered_set<std::wstring>& sel
     dlg->setModOrderProvider([this]() { return getLiveModPriorityList(); });
     m_openConflictDialogs.insert(dlg);
 
-    dlg->Bind(wxEVT_DESTROY, [this, dlg](wxWindowDestroyEvent& destroyEvent) -> void {
-        m_openConflictDialogs.erase(dlg);
-        destroyEvent.Skip();
-    });
+    // Member-function handler (not a lambda) so the destructor can Unbind it when this
+    // dialog is destroyed before the viewer.
+    dlg->Bind(wxEVT_DESTROY, &ModSortDialog::onConflictViewDestroyed, this);
 
     dlg->Show();
     dlg->Raise();

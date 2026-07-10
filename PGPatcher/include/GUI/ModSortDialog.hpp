@@ -71,8 +71,23 @@ public:
      */
     explicit ModSortDialog(wxWindow* parent = nullptr);
 
+    /**
+     * @brief Destroy the Mod Sort Dialog object
+     *
+     * Closes any conflict viewer windows that are still open, since they hold
+     * callbacks into this dialog and must not outlive it.
+     */
+    ~ModSortDialog() override;
+
 private:
     // Event Handlers
+
+    /**
+     * @brief Event handler that triggers when a tracked conflict viewer window is destroyed
+     *
+     * @param event wxWidgets event object
+     */
+    void onConflictViewDestroyed(wxWindowDestroyEvent& event);
 
     /**
      * @brief Event handler that triggers when an item is selected in the list (highlighting)
