@@ -78,6 +78,11 @@ private:
     std::filesystem::path m_generatedDir; /**< Stores the path to the generated directory */
     std::map<std::filesystem::path, BethesdaFile> m_fileMap; /** < Stores the file map for every file found in the load
                                                               order. Key is a lowercase path, value is a BethesdaFile*/
+    std::map<std::filesystem::path, BethesdaFile>
+        m_generatedFileRestoreMap; /**< Original file-map entries that were
+                                                                                                              overridden
+                                      by generated files and can be restored when generated files are deleted
+                                                                                                          */
     std::shared_mutex m_fileMapMutex; /** < Shared Mutex for the file map */
     std::unordered_set<std::filesystem::path>
         m_foldersToMap; /**< Set of folders to include when populating the file map, all lowercase */
@@ -164,6 +169,14 @@ public:
      * @param relPath path of the generated file
      */
     void addGeneratedFile(const std::filesystem::path& relPath);
+
+    /**
+     * @brief Remove all generated-file entries from the in-memory file map.
+     *
+     * This is useful before a fresh patch run so generated files from a
+     * previous run do not remain marked as active inputs.
+     */
+    void clearGeneratedFiles();
 
     /**
      * @brief Check if a file in the load order is a loose file

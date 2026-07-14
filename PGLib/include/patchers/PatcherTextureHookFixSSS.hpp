@@ -32,6 +32,8 @@ private:
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:
+    static void reset();
+
     /**
      * @brief Registers a diffuse texture for SSS fixing and tracks the generated output file.
      *

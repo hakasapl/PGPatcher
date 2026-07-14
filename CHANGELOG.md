@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.0] - UNRELEASED
+
+- Added Conflict viewer dialog to see any matching conflicts
+- Conflict manager will no longer appear during patching, it is accessible from the completion dialog
+- Conflict manager can now re-run the patching step for quick changes
+- Added "Open Mod Folder" option to the conflict manager
+- Meshes with no plugin uses and not flagged for patching will not be loaded during patching step
+- Fixed sometimes ambiguous matching priority when multiple matches of different shader types come from the same mod
+- Removed --highmem CLI argument
+
 ## [1.1.4] - 2026-06-24
 
 - Fixed shape deleting during patching messing up 3d indices in plugins

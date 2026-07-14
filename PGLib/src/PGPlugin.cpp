@@ -117,6 +117,15 @@ void PGPlugin::populateObjs(const filesystem::path& existingModPath)
     PGMutagenWrapper::libPopulateObjs(existingModPath);
 }
 
+void PGPlugin::resetPatchingState()
+{
+    if (!s_initialized) {
+        return;
+    }
+
+    PGMutagenWrapper::libResetPatchingState();
+}
+
 auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                                                     MeshUseAttributes>>
 {

@@ -70,7 +70,6 @@ constexpr unsigned MAX_LOG_FILES = 1000;
 using namespace std;
 struct ParallaxGenCLIArgs {
     bool autostart = false;
-    bool highmem = false;
     bool console = false;
     bool forceLight = false;
     bool forceDark = false;
@@ -247,20 +246,19 @@ void configureDotNetLibDirectory(const filesystem::path& exeDir)
     }
 }
 
-constexpr auto NUM_PREPARING_STEPS = 11;
+constexpr auto NUM_PREPARING_STEPS = 10;
 constexpr auto NUM_FINALIZING_STEPS = 5;
 constexpr auto NUM_TOTAL_STEPS = 6;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
-void mainRunnerPre(const ParallaxGenCLIArgs& args,
-                   const PGConfig::PGParams& params,
-                   const filesystem::path& exePath,
-                   bool needModSortDialog,
-                   const std::filesystem::path& cfgDir,
-                   ProgressWindow* progressWindow,
-                   const function<void(size_t,
-                                       size_t)>& progressCallback)
+void mainRunnerPrep(const ParallaxGenCLIArgs& args,
+                    const PGConfig::PGParams& params,
+                    const filesystem::path& exePath,
+                    const std::filesystem::path& cfgDir,
+                    ProgressWindow* progressWindow,
+                    const function<void(size_t,
+                                        size_t)>& progressCallback)
 {
     // Initialize "Preparing" Step
     progressWindow->CallAfter([progressWindow]() -> void {
@@ -549,16 +547,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, NUM_PREPARING_STEPS); });
 
     //
-    // OUTPUT DIRECTORY CLEANUP
-    //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Deleting existing output"); });
-
-    // delete existing output
-    // we delete after pluginInit is done because we need to make sure it had a chance to read the old plugin
-    PGPatcher::deleteOutputDir();
-
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, NUM_PREPARING_STEPS); });
-    //
     // END OUTPUT DIRECTORY CLEANUP
     //
 
@@ -569,7 +557,7 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
     modManagerInit.waitForCompletion();
     modManagerInit.shutdown();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(11, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, NUM_PREPARING_STEPS); });
 
     // Initialize "Loading meshes" Step
     progressWindow->CallAfter([progressWindow]() -> void {
@@ -585,7 +573,6 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
                   params.Processing.textureMaps,
                   params.Processing.vanillaBSAList,
                   params.Processing.multithread,
-                  args.highmem,
                   progressCallback);
 
     // Any patcher initialization that requires PGD
@@ -593,32 +580,43 @@ void mainRunnerPre(const ParallaxGenCLIArgs& args,
         PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
     }
 
-    // Check if MO2 is used and MO2 use order is checked
-    if (needModSortDialog) {
-        progressWindow->CallAfter([progressWindow]() -> void {
-            progressWindow->setMainLabel("Building mod conflict information");
-            progressWindow->setStepLabel("");
-            progressWindow->setMainProgress(2, NUM_TOTAL_STEPS, true);
-            progressWindow->setStepProgress(0, 1);
-        });
+    // Extended texture classification (complex material detection) runs on a background
+    // queue and adds shader types to mods as it completes. Wait for it here so mod enable
+    // state and priorities below are computed from complete shader data, and so we do not
+    // race the classification threads while reading mod shader sets.
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Classifying textures"); });
+    pgd->waitForCMClassification();
 
-        progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Finding conflicts"); });
+    // Assign new mod priorities for new mods
+    pgmm->updateStateFromModlist(params.ModManager.mo2UseLooseFileOrder);
 
-        // Find conflicts
-        PGPatcher::populateModData(params.Processing.multithread, progressCallback);
-
-        // Assign new mod priorities for new mods
-        pgmm->assignNewModPriorities();
+    // Persist computed mod order so non-dialog flows still keep modrules.json in sync.
+    if (!PGConfig::saveModConfig()) {
+        Logger::critical("Failed to save mod configuration to modrules.json");
     }
 }
 
-void mainRunnerPost(const ParallaxGenCLIArgs& args,
-                    const PGConfig::PGParams& params,
-                    const filesystem::path& exePath,
-                    ProgressWindow* progressWindow,
-                    const function<void(size_t,
-                                        size_t)>& progressCallback)
+void mainRunnerPatch(const ParallaxGenCLIArgs& args,
+                     const PGConfig::PGParams& params,
+                     const filesystem::path& exePath,
+                     ProgressWindow* progressWindow,
+                     const function<void(size_t,
+                                         size_t)>& progressCallback)
 {
+    // Make sure the state is clean for the patch
+    PGPatcher::resetRunState();
+    PGPlugin::resetPatchingState();
+    PGGlobals::getPGD()->clearGeneratedFiles();
+    PGPatcherGlobals::getWXLoggerSink()->resetToRunStart();
+
+    //
+    // OUTPUT DIRECTORY CLEANUP
+    //
+
+    // delete existing output
+    // we delete after pluginInit is done because we need to make sure it had a chance to read the old plugin
+    PGPatcher::deleteOutputDir();
+
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel("Patching meshes");
         progressWindow->setStepLabel("");
@@ -834,58 +832,26 @@ void mainRunner(ParallaxGenCLIArgs& args,
     auto startTime = chrono::high_resolution_clock::now();
     long long timeTaken = 0;
 
-    const bool needModSortDialog
-        = (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR)
-        && params.ModManager.type != PGModManager::ModManagerType::NONE;
-
     // Dispatch the pre-generation task
     TaskQueue backgroundRunners;
-    backgroundRunners.queueTask(
-        [&args, &params, &exePath, needModSortDialog, &progressWindow, &cfgDir, &progressCallback]() -> void {
-            mainRunnerPre(args, params, exePath, needModSortDialog, cfgDir, progressWindow, progressCallback);
-            if (needModSortDialog) {
-                // if we need the mod sort dialog we need to close the progress dialog here
-                progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-            }
-        });
-    if (!needModSortDialog) {
-        // if we don't need the mod sort dialog we should queue both tasks and close the dialog after
-        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &progressCallback]() -> void {
-            mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
-            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-        });
-    }
+    backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
+        mainRunnerPrep(args, params, exePath, cfgDir, progressWindow, progressCallback);
+
+        // Snapshot message counts after prep so re-runs of the patching step can discard
+        // messages from a previous patch run while keeping preparation-phase messages
+        PGPatcherGlobals::getWXLoggerSink()->markRunStart();
+
+        mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
+        auto* const progressWindowPtr = progressWindow;
+        progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
+    });
 
     // Show progress dialog (this will block until closed by one of the callafters)
     progressWindow->ShowModal();
-    ExceptionHandler::throwExceptionOnMainThread();
 
     // Verify tasks are finished
+    ExceptionHandler::throwExceptionOnMainThread();
     backgroundRunners.waitForCompletion();
-
-    // Show conflict window if needed
-    if (needModSortDialog) {
-        // pause timer for UI
-        timeTaken += chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
-
-        // Select mod order
-        Logger::info("Showing mod priority order dialog");
-        PGUI::selectModOrder();
-        startTime = chrono::high_resolution_clock::now();
-
-        // dispatch post task
-        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &progressCallback]() -> void {
-            mainRunnerPost(args, params, exePath, progressWindow, progressCallback);
-            progressWindow->CallAfter([&progressWindow]() -> void { progressWindow->EndModal(wxID_OK); });
-        });
-
-        // Show progress dialog (this will block until closed by one of the callafters)
-        progressWindow->ShowModal();
-
-        // Verify tasks are finished
-        ExceptionHandler::throwExceptionOnMainThread();
-        backgroundRunners.waitForCompletion();
-    }
 
     // Confirmation UI
     const auto endTime = chrono::high_resolution_clock::now();
@@ -895,7 +861,31 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     // Show completion dialog
     CompletionDialog dlg(timeTaken);
-    dlg.ShowModal();
+    while (dlg.ShowModal() == wxID_RETRY) {
+        // Restart time
+        const auto startTime = chrono::high_resolution_clock::now();
+
+        // return code RETRY means we redo the patching process
+        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
+            mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
+            auto* const progressWindowPtr = progressWindow;
+            progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
+        });
+
+        // Show progress dialog (this will block until closed by one of the callafters)
+        progressWindow->ShowModal();
+
+        // Verify tasks are finished
+        ExceptionHandler::throwExceptionOnMainThread();
+        backgroundRunners.waitForCompletion();
+
+        const auto endTime = chrono::high_resolution_clock::now();
+        timeTaken = chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
+        dlg.updateTimingInfo(timeTaken);
+        dlg.refreshLogMessages();
+
+        Logger::info("PGPatcher took {} seconds to complete (does not include time in user interface)", timeTaken);
+    }
 }
 
 void addArguments(CLI::App& app,
@@ -903,7 +893,6 @@ void addArguments(CLI::App& app,
 {
     // Logging
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
-    app.add_flag("--highmem", args.highmem, "Enable high memory mode");
     app.add_flag("--console", args.console, "Show console in the background");
     auto* const forceLightFlag = app.add_flag("--force-light", args.forceLight, "Force light theme");
     auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");

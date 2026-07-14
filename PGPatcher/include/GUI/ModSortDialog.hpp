@@ -13,8 +13,11 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+class DialogModConflictView;
 
 /**
  * @brief wxDialog that allows the user to sort the mods in the order they want
@@ -26,6 +29,8 @@ private:
     wxButton* m_applyButton = nullptr; /** Apply button to save changes without closing the dialog */
     wxButton* m_discardButton = nullptr; /** Discard changes button to revert to last saved state */
     wxButton* m_restoreButton = nullptr; /** Restore default order button */
+    wxButton* m_showAllMeshesButton = nullptr; /** Show all meshes/shapes/matches button */
+    wxButton* m_rerunPatchingButton = nullptr; /** Re-run patching button */
     wxCheckBox* m_checkBoxMO2 = nullptr; /** Checkbox to use MO2 loose file order */
     wxTextCtrl* m_searchCtrl = nullptr; /** Search box used to quickly find mods by name */
 
@@ -41,6 +46,8 @@ private:
 
     std::unordered_set<std::wstring>
         m_newMods; /** Stores the original highlight of elements to be able to restore it later */
+
+    std::unordered_set<DialogModConflictView*> m_openConflictDialogs; /** Modeless conflict windows currently open */
 
     constexpr static int DEFAULT_WIDTH = 600;
     constexpr static int DEFAULT_HEIGHT = 600;
@@ -62,10 +69,25 @@ public:
     /**
      * @brief Construct a new Mod Sort Dialog object
      */
-    ModSortDialog();
+    explicit ModSortDialog(wxWindow* parent = nullptr);
+
+    /**
+     * @brief Destroy the Mod Sort Dialog object
+     *
+     * Closes any conflict viewer windows that are still open, since they hold
+     * callbacks into this dialog and must not outlive it.
+     */
+    ~ModSortDialog() override;
 
 private:
     // Event Handlers
+
+    /**
+     * @brief Event handler that triggers when a tracked conflict viewer window is destroyed
+     *
+     * @param event wxWidgets event object
+     */
+    void onConflictViewDestroyed(wxWindowDestroyEvent& event);
 
     /**
      * @brief Event handler that triggers when an item is selected in the list (highlighting)
@@ -80,6 +102,13 @@ private:
      * @param event wxWidgets event object
      */
     void onItemDeselected(wxListEvent& event);
+
+    /**
+     * @brief Event handler that triggers when an item is activated (double-clicked) in the list
+     *
+     * @param event wxWidgets event object
+     */
+    void onItemActivated(wxListEvent& event);
 
     /**
      * @brief Event handler that triggers when an item is dragged in the list
@@ -145,6 +174,20 @@ private:
     void onRestoreDefault(wxCommandEvent& event);
 
     /**
+     * @brief Event handler that triggers when the "Show All Meshes" button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onShowAllMeshes(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the "Re-run Patching" button is pressed
+     *
+     * @param event wxWidgets event object
+     */
+    void onRerunPatching(wxCommandEvent& event);
+
+    /**
      * @brief Event handler that triggers when the Discard Changes button is pressed
      *
      * @param event wxWidgets event object
@@ -164,6 +207,23 @@ private:
      * @param event wxWidgets event object
      */
     void onSearchTextChanged(wxCommandEvent& event);
+
+    /**
+     * @brief Open a modeless conflict view dialog and track it for live updates.
+     */
+    void openConflictView(const std::unordered_set<std::wstring>& selectedMods,
+                          bool showAllMeshes = false);
+
+    /**
+     * @brief Refresh all open conflict dialogs to reflect in-memory mod state changes.
+     */
+    void refreshConflictViews();
+
+    /**
+     * @brief Build a mod priority list from the current live (unsaved) list state.
+     *        Enabled mods appear first in visual order, disabled mods after.
+     */
+    [[nodiscard]] auto getLiveModPriorityList() const -> std::vector<std::shared_ptr<PGModManager::Mod>>;
 
     // Helpers
 
@@ -194,6 +254,12 @@ private:
      * @brief Updates the mods in the PGModManager based on the current state of the list control
      */
     void updateMods();
+
+    /**
+     * @brief Updates mod states in memory only (without saving to disk).
+     *        Called when mod order changes to reflect updates in real-time without requiring Apply.
+     */
+    void updateModStatesLive();
 
     /**
      * @brief Fills the list control with the given mod list

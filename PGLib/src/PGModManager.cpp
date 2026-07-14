@@ -3,6 +3,7 @@
 #include "PGGlobals.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
+#include "pgutil/PGEnums.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
@@ -23,8 +24,10 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <ranges>
 #include <regex>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -263,6 +266,15 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
                             + StringUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
+    // Extract staging path where all Vortex mods are stored
+    if (!vortexDeployment.contains("stagingPath")) {
+        throw runtime_error("Vortex deployment file does not contain 'stagingPath' field: "
+                            + StringUtil::utf16toUTF8(deploymentFile.wstring()));
+    }
+
+    const auto stagingPath = filesystem::path(StringUtil::utf8toUTF16(vortexDeployment["stagingPath"].get<string>()));
+    m_stagingLocation = stagingPath;
+
     // loop through files
     unordered_set<wstring> foundMods;
     for (const auto& file : vortexDeployment["files"]) {
@@ -276,9 +288,19 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
             continue;
         }
 
-        auto modName = StringUtil::utf8toUTF16(file["source"].get<string>());
+        // Get the mod identifier from source field (e.g., "1DwemerArmorSE-81043-1-1671541249")
+        const auto sourceId = StringUtil::utf8toUTF16(file["source"].get<string>());
+        const auto curModDir = stagingPath / sourceId;
 
-        // filter out modname suffix
+        // Check if mod folder exists
+        if (!filesystem::exists(curModDir)) {
+            Logger::debug(L"Mod directory from vortex.deployment.json does not exist: {}", curModDir.wstring());
+            continue;
+        }
+
+        auto modName = sourceId;
+
+        // filter out modname suffix (e.g., remove "-81043-1-1671541249" from "1DwemerArmorSE-81043-1-1671541249")
         const static wregex vortexSuffixRe(L"-[0-9]+-.*");
         modName = regex_replace(modName, vortexSuffixRe, L"");
 
@@ -294,6 +316,7 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
         }
 
         modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
+        modPtr->folder = curModDir; // Store the actual mod folder path
 
         // Update file map
         Logger::trace(L"Mapping file to mod: {} -> {}", relPath.wstring(), modName);
@@ -330,6 +353,7 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
     auto mo2Paths = getMO2FilePaths(instanceDir);
     const auto profileDir = mo2Paths.first;
     const auto modDir = mo2Paths.second;
+    m_stagingLocation = modDir;
 
     // Find location of modlist.txt
     const auto curProfile = getSelectedProfileFromInstanceDir(instanceDir);
@@ -401,11 +425,10 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
         }
 
         modPtr->modManagerOrder = basePriority++;
-
-        m_modMap[mod] = modPtr;
+        modPtr->folder = curModDir;
         foundMods.insert(mod);
 
-        // loop through each folder to map
+        m_modMap[mod] = modPtr;
         for (const auto& folder : PGGlobals::s_foldersToMap) {
             const auto curSearchDir = curModDir / folder;
             if (!filesystem::exists(curSearchDir)) {
@@ -506,6 +529,8 @@ auto PGModManager::getStrFromModManagerType(const ModManagerType& type) -> strin
     return modManagerTypeToStrMap.at(ModManagerType::NONE);
 }
 
+auto PGModManager::getStagingLocation() const -> const filesystem::path& { return m_stagingLocation; }
+
 auto PGModManager::getModManagerTypeFromStr(const string& type) -> ModManagerType
 {
     const static auto modManagerStrToTypeMap
@@ -520,34 +545,71 @@ auto PGModManager::getModManagerTypeFromStr(const string& type) -> ModManagerTyp
     return modManagerStrToTypeMap.at("None");
 }
 
-void PGModManager::assignNewModPriorities() const
+void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
 {
-    // Get all mods
-    auto mods = getMods();
+    // Start from the current mod snapshot.
+    const auto allMods = getMods();
 
-    // newMods stores all mods which need a new priority, they will be sorted next step
-    vector<shared_ptr<Mod>> newMods;
-    for (const auto& mod : mods) {
-        if (!mod->isNew || !mod->isEnabled) {
+    // Collect newly discovered mods that should be auto-enabled and assigned fresh priorities.
+    vector<shared_ptr<Mod>> autoEnabledNewMods;
+    autoEnabledNewMods.reserve(allMods.size());
+    for (const auto& modEntry : allMods) {
+        const bool hasPatchableShader
+            = !modEntry->shaders.empty() && *modEntry->shaders.rbegin() > PGEnums::ShapeShader::NONE;
+        if (!modEntry->isNew || !hasPatchableShader) {
             continue;
         }
 
-        newMods.push_back(mod);
+        {
+            const unique_lock<shared_mutex> modLock(modEntry->mutex);
+            modEntry->isEnabled = true;
+        }
+
+        autoEnabledNewMods.push_back(modEntry);
     }
 
-    // Sort newMods by shader (higher enum index first), then by name
-    std::ranges::stable_sort(
-        newMods, [](const auto& a, const auto& b) -> auto { return PGModManager::compareMods(a, b, false); });
+    // Sort auto-enabled new mods by shader quality/name using existing comparator behavior.
+    std::ranges::stable_sort(autoEnabledNewMods, [](const auto& a, const auto& b) -> auto {
+        return PGModManager::compareMods(a, b, false);
+    });
 
-    // find maximum priority value
-    int maxPriority = 0;
-    for (const auto& mod : mods) {
-        maxPriority = std::max(mod->priority, maxPriority);
+    // Continue priority assignment above the current maximum.
+    int highestAssignedPriority = 0;
+    for (const auto& modEntry : allMods) {
+        highestAssignedPriority = std::max(modEntry->priority, highestAssignedPriority);
     }
 
-    for (auto& newMod : std::ranges::reverse_view(newMods)) {
-        newMod->priority = ++maxPriority;
+    for (auto& newModEntry : std::ranges::reverse_view(autoEnabledNewMods)) {
+        newModEntry->priority = ++highestAssignedPriority;
     }
+
+    const vector<shared_ptr<Mod>> modsSortedBySelectedBaseOrder
+        = useDefaultOrder && m_mmType == ModManagerType::MODORGANIZER2 ? getModsByDefaultOrder() : getModsByPriority();
+
+    // Rebuild ordering to enabled-first while preserving relative order within each group.
+    vector<shared_ptr<Mod>> modsWithEnabledFirst = modsSortedBySelectedBaseOrder;
+    std::ranges::stable_partition(modsWithEnabledFirst,
+                                  [](const auto& modEntry) -> bool { return modEntry->isEnabled; });
+
+    const int modCount = static_cast<int>(modsWithEnabledFirst.size());
+    for (int orderedIndex = 0; orderedIndex < modCount; ++orderedIndex) {
+        const auto& modEntry = modsWithEnabledFirst.at(static_cast<size_t>(orderedIndex));
+        if (modEntry->isEnabled) {
+            modEntry->priority = modCount - orderedIndex;
+        }
+    }
+}
+
+void PGModManager::addShaderToModByFile(const filesystem::path& relPath,
+                                        const PGEnums::ShapeShader& shader) const
+{
+    auto modPtr = getModByFileSmart(relPath);
+    if (modPtr == nullptr) {
+        return;
+    }
+
+    const std::unique_lock<std::shared_mutex> modLock(modPtr->mutex);
+    modPtr->shaders.insert(shader);
 }
 
 auto PGModManager::isValidMO2InstanceDir(const filesystem::path& instanceDir) -> bool

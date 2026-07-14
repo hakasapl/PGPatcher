@@ -112,6 +112,7 @@ void BethesdaDirectory::populateFileMap(bool includeBSAs)
     {
         const unique_lock lock(m_fileMapMutex);
         m_fileMap.clear();
+        m_generatedFileRestoreMap.clear();
     }
 
     if (includeBSAs && m_bg != nullptr) {
@@ -183,7 +184,39 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
     return outFileBytes;
 }
 
-void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath) { updateFileMap(relPath, nullptr, true); }
+void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath)
+{
+    const unique_lock lock(m_fileMapMutex);
+
+    const auto existingIt = m_fileMap.find(relPath);
+    if (existingIt != m_fileMap.end() && !existingIt->second.generated) {
+        // Keep the original/native source so deletion of generated entries can restore it.
+        m_generatedFileRestoreMap[relPath] = existingIt->second;
+    }
+
+    const BethesdaFile generatedFile = {.path = relPath, .bsaFile = nullptr, .generated = true};
+    m_fileMap[relPath] = generatedFile;
+}
+
+void BethesdaDirectory::clearGeneratedFiles()
+{
+    const unique_lock lock(m_fileMapMutex);
+
+    for (auto it = m_fileMap.begin(); it != m_fileMap.end();) {
+        if (it->second.generated) {
+            const auto restoreIt = m_generatedFileRestoreMap.find(it->first);
+            if (restoreIt != m_generatedFileRestoreMap.end()) {
+                it->second = restoreIt->second;
+                m_generatedFileRestoreMap.erase(restoreIt);
+                ++it;
+            } else {
+                it = m_fileMap.erase(it);
+            }
+        } else {
+            ++it;
+        }
+    }
+}
 
 auto BethesdaDirectory::isLooseFile(const filesystem::path& relPath) -> bool
 {

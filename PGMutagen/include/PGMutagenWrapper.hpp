@@ -27,23 +27,23 @@ public:
      * @brief Holds an alternate texture assignment for a single texture slot in a model record.
      */
     struct AlternateTexture {
-        int slotID = 0;     ///< Original texture slot index referenced by the plugin record.
-        int slotIDNew = 0;  ///< New texture slot index after patching (may differ from slotID).
-        std::array<std::wstring, NUM_PLUGIN_TEXTURE_SLOTS> slots;  ///< Resolved texture paths for all slots.
+        int slotID = 0; ///< Original texture slot index referenced by the plugin record.
+        int slotIDNew = 0; ///< New texture slot index after patching (may differ from slotID).
+        std::array<std::wstring, NUM_PLUGIN_TEXTURE_SLOTS> slots; ///< Resolved texture paths for all slots.
     };
 
     /**
      * @brief Describes a single use of a mesh model within a plugin record.
      */
     struct ModelUse {
-        std::wstring modName;                          ///< Name of the plugin (mod) that owns this record.
-        unsigned int formID;                           ///< FormID of the record referencing this model.
-        std::string subModel;                          ///< Sub-model identifier within the record.
-        bool isWeighted;                               ///< Whether the model uses a weighted (skinned) mesh.
-        std::wstring meshFile;                         ///< Path to the mesh file referenced by this record.
-        bool singlepassMATO;                           ///< Whether this record uses single-pass MATO rendering.
-        bool isIgnored;                                ///< Whether this model use should be skipped during patching.
-        std::string type;                              ///< Record type string (e.g. "STAT", "ACTI").
+        std::wstring modName; ///< Name of the plugin (mod) that owns this record.
+        unsigned int formID; ///< FormID of the record referencing this model.
+        std::string subModel; ///< Sub-model identifier within the record.
+        bool isWeighted; ///< Whether the model uses a weighted (skinned) mesh.
+        std::wstring meshFile; ///< Path to the mesh file referenced by this record.
+        bool singlepassMATO; ///< Whether this record uses single-pass MATO rendering.
+        bool isIgnored; ///< Whether this model use should be skipped during patching.
+        std::string type; ///< Record type string (e.g. "STAT", "ACTI").
         std::vector<AlternateTexture> alternateTextures; ///< List of alternate texture entries for this model.
     };
 
@@ -68,6 +68,11 @@ public:
      * @param existingModPath Path to an existing output mod to merge into the session; empty to start fresh.
      */
     static void libPopulateObjs(const std::filesystem::path& existingModPath = {});
+
+    /**
+     * @brief Resets mutable plugin-patching state to the post-populate baseline.
+     */
+    static void libResetPatchingState();
 
     /**
      * @brief Writes all pending changes to the output plugin file and finalises the session.

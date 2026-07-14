@@ -7,6 +7,7 @@
 #include <wx/msgdlg.h>
 #include <wx/string.h>
 
+#include <cstddef>
 #include <cstdlib>
 #include <fmt/format.h>
 #include <mutex>
@@ -26,6 +27,11 @@ template <typename Mutex> class WXLoggerSink : public spdlog::sinks::base_sink<M
 private:
     std::vector<wxString> m_errorMessages;
     std::vector<wxString> m_warningMessages;
+
+    // Message counts captured at the start of the patching step. Used to discard
+    // messages of a previous patch run when the patching step is re-run.
+    size_t m_runStartErrorCount = 0;
+    size_t m_runStartWarningCount = 0;
 
 protected:
     /**
@@ -105,5 +111,36 @@ public:
     {
         std::scoped_lock<Mutex> lock(this->mutex_);
         return m_warningMessages;
+    }
+
+    /**
+     * @brief Record the current message counts as the patch-run baseline.
+     *
+     * Call this after preparation completes, right before the patching step. Messages
+     * collected up to this point (preparation-phase messages) are preserved by
+     * resetToRunStart().
+     */
+    void markRunStart()
+    {
+        std::scoped_lock<Mutex> lock(this->mutex_);
+        m_runStartErrorCount = m_errorMessages.size();
+        m_runStartWarningCount = m_warningMessages.size();
+    }
+
+    /**
+     * @brief Discard all messages collected after the last markRunStart() call.
+     *
+     * Call this when the patching step is re-run so messages from the previous patch
+     * run do not linger while preparation-phase messages are kept.
+     */
+    void resetToRunStart()
+    {
+        std::scoped_lock<Mutex> lock(this->mutex_);
+        if (m_errorMessages.size() > m_runStartErrorCount) {
+            m_errorMessages.resize(m_runStartErrorCount);
+        }
+        if (m_warningMessages.size() > m_runStartWarningCount) {
+            m_warningMessages.resize(m_runStartWarningCount);
+        }
     }
 };

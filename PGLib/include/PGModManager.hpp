@@ -65,6 +65,8 @@ public:
         std::shared_mutex mutex;
         /// @brief The mod's display name as used by the mod manager.
         std::wstring name;
+        /// @brief The absolute path to the mod's folder on disk.
+        std::filesystem::path folder;
         /// @brief True if this mod was added since the last session and has no stored priority.
         bool isNew = false;
         /// @brief True if the mod is currently enabled in the mod manager.
@@ -88,6 +90,7 @@ private:
     std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
 
     ModManagerType m_mmType;
+    std::filesystem::path m_stagingLocation;
 
     static constexpr const char* MO2INI_PROFILESDIR_KEY = "profiles_directory=";
     static constexpr const char* MO2INI_MODDIR_KEY = "mod_directory=";
@@ -250,11 +253,26 @@ public:
     [[nodiscard]] static auto getModManagerTypeFromStr(const std::string& type) -> ModManagerType;
 
     /**
-     * @brief Assigns ascending priority values to all newly-added enabled mods that have no stored priority.
-     *
-     * New mods are sorted by shader quality and name, then assigned priorities above the current maximum.
+     * @brief Returns the root staging location used by the active mod manager.
      */
-    void assignNewModPriorities() const;
+    [[nodiscard]] auto getStagingLocation() const -> const std::filesystem::path&;
+
+    /**
+     * @brief Normalizes persisted priority order to match dialog save semantics.
+     *
+     * Reconstructs visual ordering as enabled mods first, disabled mods second while preserving the
+     * relative order from either priority order or default mod-manager order. Enabled entries then get
+     * reassigned contiguous descending priority values.
+     *
+     * @param useDefaultOrder If true, base ordering uses getModsByDefaultOrder(); otherwise getModsByPriority().
+     */
+    void updateStateFromModlist(bool useDefaultOrder) const;
+
+    /**
+     * @brief Helper to add a shader type to the owning mod of a given file path.
+     */
+    void addShaderToModByFile(const std::filesystem::path& relPath,
+                              const PGEnums::ShapeShader& shader) const;
 
 private:
     [[nodiscard]] static auto compareMods(const std::shared_ptr<Mod>& a,

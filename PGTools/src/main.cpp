@@ -151,7 +151,7 @@ void mainRunner(PGToolsCLIArgs& args)
         pgd.populateFileMap(false);
 
         // Map files
-        pgd.mapFiles({}, {}, {}, {}, args.multithreading, false);
+        pgd.mapFiles({}, {}, {}, {}, args.multithreading);
 
         // Split patchers into names and options
         unordered_map<string, unordered_map<string, string>> patcherDefs;

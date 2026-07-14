@@ -132,6 +132,11 @@ public class PGMutagen
     private static SortedSet<uint> allocatedFormIDs = [];
     private static uint lastUsedFormID = 1;
 
+    // Baseline captured immediately after PopulateObjs() to support rerun resets.
+    private static List<ITextureSet> InitialOutModTextureSets = [];
+    private static SortedSet<uint> InitialAllocatedFormIDs = [];
+    private static uint InitialLastUsedFormID = 1;
+
 
     private static SkyrimRelease GameType;
     private static Language PluginLanguage = Language.English;
@@ -401,6 +406,49 @@ public class PGMutagen
 
                     ModelUses[meshName].Add(curTuple);
                 }
+            }
+
+            // Capture baseline immediately after PopulateObjs so reruns can reset to this state.
+            SavePatchingBaselineFromCurrentOutMod();
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "ResetPatchingState", CallConvs = [typeof(CallConvCdecl)])]
+    public static void ResetPatchingState([DNNE.C99Type("const int")] int _reserved)
+    {
+        try
+        {
+            if (Env is null || OutMod is null)
+            {
+                throw new Exception("Initialize must be called before ResetPatchingState");
+            }
+
+            // Reset all per-patch mutable state.
+            ModifiedRecords.Clear();
+            OutputMasterTracker.Clear();
+            OutputSplitMods.Clear();
+
+            // Restore allocation state from the post-PopulateObjs baseline.
+            allocatedFormIDs = [.. InitialAllocatedFormIDs];
+            lastUsedFormID = InitialLastUsedFormID;
+
+            // Recreate output plugin and re-add baseline texture sets from the old plugin snapshot.
+            OutMod = new SkyrimMod(ModKey.FromFileName("PGPatcher.esp"), GameType);
+
+            NewTextureSets = new Dictionary<string[], Tuple<ITextureSet, bool>>(new StructuralArrayComparer());
+            foreach (var baselineTXST in InitialOutModTextureSets)
+            {
+                var newFormKey = new FormKey(OutMod.ModKey, baselineTXST.FormKey.ID);
+                var newTXSTObj = baselineTXST.Duplicate(newFormKey);
+
+                OutMod.TextureSets.Add(newTXSTObj);
+
+                var textures = GetTextureSet(newTXSTObj);
+                NewTextureSets[textures] = new Tuple<ITextureSet, bool>(newTXSTObj, false);
             }
         }
         catch (Exception ex)
@@ -1684,5 +1732,23 @@ public class PGMutagen
         if (rec is IWeaponGetter) return "WEAP";
 
         return "";
+    }
+
+    private static void SavePatchingBaselineFromCurrentOutMod()
+    {
+        if (OutMod is null)
+        {
+            throw new Exception("OutMod is null when saving baseline state");
+        }
+
+        InitialOutModTextureSets = [];
+        foreach (var txst in OutMod.TextureSets)
+        {
+            var newFormKey = new FormKey(OutMod.ModKey, txst.FormKey.ID);
+            InitialOutModTextureSets.Add(txst.Duplicate(newFormKey));
+        }
+
+        InitialAllocatedFormIDs = [.. allocatedFormIDs];
+        InitialLastUsedFormID = lastUsedFormID;
     }
 }

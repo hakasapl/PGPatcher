@@ -18,7 +18,6 @@
 #include <filesystem>
 #include <functional>
 #include <map>
-#include <memory>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -39,9 +38,6 @@ class PGModManager;
 class PGDirectory : public BethesdaDirectory {
 public:
     struct NifCache {
-        std::vector<std::pair<int, PGTypes::TextureSet>> textureSets;
-        std::shared_ptr<nifly::NifFile> nif; // keep nif in cache to avoid reloading it multiple times
-        unsigned long long origCRC32 = 0; // CRC32 of the NIF file
         std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>
             meshUses; // list of mesh uses
     };
@@ -108,17 +104,14 @@ public:
     /// @param mapFromMeshes The texture type is deducted from the shader/texture set it is assigned to, if false use
     /// only file suffix to determine type
     /// @param multithreading Speedup mapping by multithreading
-    /// @param cacheNIFs Faster but higher memory consumption
     auto mapFiles(const std::vector<std::wstring>& nifBlocklist,
                   const std::vector<std::wstring>& nifAllowlist,
                   const std::vector<std::pair<std::wstring,
                                               PGEnums::TextureType>>& manualTextureMaps,
                   const std::vector<std::wstring>& parallaxBSAExcludes,
                   const bool& multithreading = true,
-                  const bool& highmem = false,
                   const std::function<void(size_t,
-                                           size_t)>& progressCallback
-                  = {}) -> void;
+                                           size_t)>& progressCallback = {}) -> void;
 
     /**
      * @brief Blocks until all background plugin mesh-use mapping tasks have completed, then shuts down the queue.
@@ -135,7 +128,6 @@ private:
     auto findFiles() -> void;
 
     auto mapTexturesFromNIF(const std::filesystem::path& nifPath,
-                            const bool& cachenif = false,
                             const bool& multithreading = true) -> TaskTracker::Result;
 
     auto updateUnconfirmedTexturesMap(const std::filesystem::path& path,
@@ -148,14 +140,8 @@ private:
                           const std::unordered_set<PGEnums::TextureAttribute>& attributes) -> void;
 
     void updateNifCache(const std::filesystem::path& path,
-                        const std::vector<std::pair<int,
-                                                    PGTypes::TextureSet>>& txstSets);
-    void updateNifCache(const std::filesystem::path& path,
                         const std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                     PGPlugin::MeshUseAttributes>>& meshUses);
-    void updateNifCache(const std::filesystem::path& path,
-                        const std::shared_ptr<nifly::NifFile>& nif,
-                        const unsigned long long& crc32);
 
     void checkIfCMAddToMap(const std::filesystem::path& texture,
                            const PGEnums::TextureSlots& winningSlot);

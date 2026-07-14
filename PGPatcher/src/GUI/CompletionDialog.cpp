@@ -1,5 +1,6 @@
 #include "GUI/CompletionDialog.hpp"
 
+#include "GUI/ModSortDialog.hpp"
 #include "GUI/components/PGLogMessageListCtrl.hpp"
 #include "PGConfig.hpp"
 #include "PGPatcherGlobals.hpp"
@@ -30,9 +31,6 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
-    // Play system information sound
-    wxBell();
-
     // Get config
     const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
 
@@ -100,6 +98,14 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     mainSizer->Add(errorsCtrl, 1, wxEXPAND, 0);
 
+    // Show mod conflicts / order button (hidden when no conflict manager is configured)
+    const auto& modManagerType = PGPatcherGlobals::getPGC()->getParams().ModManager.type;
+    if (modManagerType != PGModManager::ModManagerType::NONE) {
+        auto* showModConflictsButton = new wxButton(this, wxID_ANY, "Conflict Manager");
+        showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
+        mainSizer->Add(showModConflictsButton, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, BORDER_SIZE);
+    }
+
     // Buttons sizer
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -159,6 +165,63 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     SetSizeHints(m_collapsedSize, wxSize(-1, m_collapsedSize.GetHeight()));
 
     Centre(); // Center the dialog on screen
+}
+
+auto CompletionDialog::ShowModal() -> int
+{
+    // Reset size and collapse everything
+    for (auto* child : GetChildren()) {
+        if (auto* pane = wxDynamicCast(child, wxCollapsiblePane)) {
+            pane->Collapse();
+        }
+    }
+
+    if (auto* topSizer = GetSizer(); topSizer != nullptr) {
+        for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
+            auto* item = topSizer->GetItem(i);
+            auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
+            if (collPane != nullptr) {
+                item->SetProportion(0);
+            }
+        }
+    }
+
+    SetSizeHints(m_collapsedSize, wxSize(-1, m_collapsedSize.GetHeight()));
+    Layout();
+    SetSize(m_collapsedSize);
+
+    wxBell();
+    return wxDialog::ShowModal();
+}
+
+void CompletionDialog::updateTimingInfo(const long long& timeTaken)
+{
+    // Update the text with the new timing info
+    const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
+    const wxString newText = L"PGPatcher has completed generating output.\n\nProcessing Time: "
+        + std::to_wstring(timeTaken) + L" seconds\nOutput Location:\n" + outputPath.wstring();
+
+    // Find the static text control and update its label
+    for (auto* child : GetChildren()) {
+        auto* staticText = wxDynamicCast(child, wxStaticText);
+        if (staticText == nullptr) {
+            continue;
+        }
+        if (!staticText->GetLabel().StartsWith(wxString("PGPatcher has completed generating output."))) {
+            continue;
+        }
+        staticText->SetLabel(newText);
+        Layout(); // Re-layout to accommodate new text size
+        break;
+    }
+}
+
+void CompletionDialog::refreshLogMessages()
+{
+    // Repopulating the lists also fires s_EVT_PG_LOG_IGNORE_CHANGED, which updates the
+    // "Show Warnings (N)" / "Show Errors (N)" pane labels bound in the constructor.
+    m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
+    m_errListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getErrorMessages());
 }
 
 void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
@@ -268,6 +331,17 @@ void CompletionDialog::onOpenLogFile([[maybe_unused]] wxCommandEvent& event)
 
     // Close dialog
     EndModal(wxID_OK);
+}
+
+void CompletionDialog::onShowModConflicts([[maybe_unused]] wxCommandEvent& event)
+{
+    saveIgnoredMessagesToConfig();
+
+    ModSortDialog dialog(this);
+    const int result = dialog.ShowModal();
+    if (result == wxID_RETRY) {
+        EndModal(wxID_RETRY);
+    }
 }
 
 void CompletionDialog::saveIgnoredMessagesToConfig()

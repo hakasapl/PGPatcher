@@ -27,6 +27,9 @@ void HandlerLightPlacerTracker::init(const vector<filesystem::path>& lpJSONs)
 {
     static auto* const pgd = PGGlobals::getPGD();
 
+    // Clear stale model->JSON pointer mappings from prior runs.
+    s_lightPlacerJSONMap.clear();
+
     // Clear and reserve space for new LPJSONs
     s_lightPlacerJSONs.clear();
     s_lightPlacerJSONs.reserve(lpJSONs.size());
