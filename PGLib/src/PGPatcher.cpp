@@ -78,6 +78,7 @@ void PGPatcher::patchMeshes(const bool& multiThread,
                             const bool& forceBasePatch,
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                             const bool& checkAllowedRecTypes,
+                            const bool& excludeFacegens,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback)
 {
@@ -110,11 +111,16 @@ void PGPatcher::patchMeshes(const bool& multiThread,
     }
 
     for (auto& [mesh, nifCache] : meshes) {
-        meshRunner.addTask(
-            [&taskTracker, &mesh, &setModelUsesQueue, &forceBasePatch, &allowedModelRecTypes, &checkAllowedRecTypes] {
-                taskTracker.completeJob(
-                    patchNIF(mesh, setModelUsesQueue, forceBasePatch, allowedModelRecTypes, checkAllowedRecTypes));
-            });
+        meshRunner.addTask([&taskTracker,
+                            &mesh,
+                            &setModelUsesQueue,
+                            &forceBasePatch,
+                            &allowedModelRecTypes,
+                            &checkAllowedRecTypes,
+                            &excludeFacegens] {
+            taskTracker.completeJob(patchNIF(
+                mesh, setModelUsesQueue, forceBasePatch, allowedModelRecTypes, checkAllowedRecTypes, excludeFacegens));
+        });
     }
 
     // Blocks until all tasks are done
@@ -383,7 +389,8 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                          TaskQueue& setModelUsesQueue,
                          const bool& forceBasePatch,
                          const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
-                         const bool& checkAllowedRecTypes) -> TaskTracker::Result
+                         const bool& checkAllowedRecTypes,
+                         const bool& excludeFacegens) -> TaskTracker::Result
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -411,6 +418,11 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
 
     auto nifCache = meshes.at(nifPath);
     const bool isFacegen = PGNIFUtil::isFacegenMesh(nifPath);
+    if (isFacegen && excludeFacegens) {
+        Logger::trace(L"Skipping NIF patching for facegen mesh (facegens excluded): {}", nifPath.wstring());
+        return TaskTracker::Result::SUCCESS;
+    }
+
     if (nifCache.meshUses.empty() && !forceBasePatch && !isFacegen) {
         Logger::trace(L"Skipping NIF patching for mesh with no plugin uses: {}", nifPath.wstring());
         return TaskTracker::Result::SUCCESS;
