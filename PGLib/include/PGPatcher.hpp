@@ -84,11 +84,13 @@ public:
      * @brief Run mesh patcher
      *
      * @param multiThread whether to use multithreading
+     * @param excludeFacegens whether to skip patching facegen meshes
      */
     static void patchMeshes(const bool& multiThread = true,
                             const bool& forceBasePatch = false,
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
                             const bool& checkAllowedRecTypes = false,
+                            const bool& excludeFacegens = false,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback = {});
 
@@ -169,7 +171,8 @@ private:
                          TaskQueue& setModelUsesQueue,
                          const bool& forceBasePatch = false,
                          const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
-                         const bool& checkAllowedRecTypes = false) -> TaskTracker::Result;
+                         const bool& checkAllowedRecTypes = false,
+                         const bool& excludeFacegens = false) -> TaskTracker::Result;
 
     // NIF Helpers
 

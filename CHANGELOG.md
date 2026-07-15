@@ -11,6 +11,7 @@
 - Added confirmation dialog for unsaved changes in the conflict viewer
 - Removed --highmem CLI argument
 - Removed purple highlight for new mods from conflict manager
+- Added --exclude-facegens CLI argument to skip patching facegen meshes
 
 ## [1.1.4] - 2026-06-24
 

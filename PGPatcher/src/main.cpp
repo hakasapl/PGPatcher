@@ -77,6 +77,7 @@ struct ParallaxGenCLIArgs {
     bool ignoreMO2Check = false;
     bool disableDynCubemap = false;
     bool forceAlwaysCM = false;
+    bool excludeFacegens = false;
 };
 
 namespace {
@@ -630,6 +631,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                            args.considerAllMeshes,
                            params.Processing.allowedModelRecordTypes,
                            true,
+                           args.excludeFacegens,
                            progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
@@ -908,6 +910,7 @@ void addArguments(CLI::App& app,
         args.forceAlwaysCM,
         "If upgrade to CM patcher is enabled, everything will be upgraded to CM no matter what (no parallax will be "
         "used)");
+    app.add_flag("--exclude-facegens", args.excludeFacegens, "Do not patch facegen meshes");
 }
 }
 
