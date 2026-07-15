@@ -454,7 +454,15 @@ void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
     event.Skip(); // allow default processing
 }
 
-void ModSortDialog::onClose([[maybe_unused]] wxCloseEvent& event) { EndModal(wxID_CANCEL); }
+void ModSortDialog::onClose(wxCloseEvent& event)
+{
+    if (event.CanVeto() && !confirmDiscardUnsavedChanges()) {
+        event.Veto();
+        return;
+    }
+
+    EndModal(wxID_CANCEL);
+}
 
 void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
 {
@@ -462,7 +470,27 @@ void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
     EndModal(wxID_OK);
 }
 
-void ModSortDialog::onBtnClose([[maybe_unused]] wxCommandEvent& event) { EndModal(wxID_CANCEL); }
+void ModSortDialog::onBtnClose([[maybe_unused]] wxCommandEvent& event)
+{
+    if (!confirmDiscardUnsavedChanges()) {
+        return;
+    }
+
+    EndModal(wxID_CANCEL);
+}
+
+auto ModSortDialog::confirmDiscardUnsavedChanges() -> bool
+{
+    if (!hasUnsavedChanges()) {
+        return true;
+    }
+
+    const int response = wxMessageBox("You have unsaved changes, are you sure you want to close?",
+                                      "Unsaved Changes",
+                                      wxYES_NO | wxICON_QUESTION,
+                                      this);
+    return response == wxYES;
+}
 
 void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods(); }
 
@@ -1157,11 +1185,9 @@ void ModSortDialog::reorderCachedRowsFromFilteredMove(const std::vector<std::wst
     m_cachedRows = std::move(reorderedRows);
 }
 
-void ModSortDialog::updateApplyButtonState()
+auto ModSortDialog::hasUnsavedChanges() -> bool
 {
     syncCacheFromListCtrl();
-
-    bool btnState = false;
 
     // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
     const auto orderedRows = getOrderedCachedRows();
@@ -1173,23 +1199,19 @@ void ModSortDialog::updateApplyButtonState()
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
         auto mod = pgmm->getMod(row.modName);
         if (mod == nullptr) {
-            btnState = true;
-            break;
+            return true;
         }
 
         if (mod->isEnabled != row.isChecked) {
-            btnState = true;
-            break;
+            return true;
         }
 
         if (mod->isEnabled && mod->priority != static_cast<int>(itemCount - i)) {
-            btnState = true;
-            break;
+            return true;
         }
 
         if (mod->areMeshesIgnored != row.areMeshesIgnored) {
-            btnState = true;
-            break;
+            return true;
         }
     }
 
@@ -1201,8 +1223,15 @@ void ModSortDialog::updateApplyButtonState()
 
     const auto currentParams = pgc->getParams();
     if (m_checkBoxMO2 != nullptr && currentParams.ModManager.mo2UseLooseFileOrder != m_checkBoxMO2->IsChecked()) {
-        btnState = true;
+        return true;
     }
+
+    return false;
+}
+
+void ModSortDialog::updateApplyButtonState()
+{
+    const bool btnState = hasUnsavedChanges();
 
     m_applyButton->Enable(btnState);
     m_discardButton->Enable(btnState);

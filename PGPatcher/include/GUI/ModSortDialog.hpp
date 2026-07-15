@@ -303,6 +303,20 @@ private:
                                            bool moveToTop);
 
     /**
+     * @brief Checks whether the current list/checkbox state differs from the saved state
+     *
+     * @return true if there are unsaved changes
+     */
+    [[nodiscard]] auto hasUnsavedChanges() -> bool;
+
+    /**
+     * @brief Prompts the user to confirm closing when there are unsaved changes
+     *
+     * @return true if it is okay to close (no unsaved changes or user confirmed)
+     */
+    [[nodiscard]] auto confirmDiscardUnsavedChanges() -> bool;
+
+    /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes
      */
     void updateApplyButtonState();
