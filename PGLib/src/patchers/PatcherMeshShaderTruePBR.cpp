@@ -635,6 +635,7 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_DETAIL_MAP);
 }
 
 void PatcherMeshShaderTruePBR::loadOptions(unordered_map<string,
@@ -984,6 +985,7 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
     changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
     changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
     changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_GLOW_MAP);
+    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_DETAIL_MAP);
 
     // Enable PBR flag
     changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
