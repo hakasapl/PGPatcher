@@ -9,6 +9,7 @@
 - Meshes with no plugin uses and not flagged for patching will not be loaded during patching step
 - Fixed sometimes ambiguous matching priority when multiple matches of different shader types come from the same mod
 - Removed --highmem CLI argument
+- Removed purple highlight for new mods from conflict manager
 
 ## [1.1.4] - 2026-06-24
 

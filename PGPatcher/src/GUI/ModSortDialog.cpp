@@ -139,8 +139,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     // Add message at the top
     const wxString message
         = "Please sort your mods to determine what mod PGPatcher uses to patch meshes where. Selecting mods will show "
-          "conflicts. The mod you have selected wins over mods that are green, and loses over mods that are red. New "
-          "mods PGPatcher hasn't seen before are highlighted in purple.";
+          "conflicts. The mod you have selected wins over mods that are green, and loses over mods that are red.";
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     messageText->Wrap(DEFAULT_WIDTH - (2 * DEFAULT_PADDING) - HELPBTN_SIZE
                       - DEFAULT_PADDING); // Wrap text based on dialog width with some padding
@@ -727,14 +726,8 @@ void ModSortDialog::highlightConflictingItems()
 void ModSortDialog::clearAllHighlights()
 {
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-        if (m_newMods.contains(itemText)) {
-            m_listCtrl->SetItemBackgroundColour(i, s_NEW_MOD_COLOR); // Restore original color
-            m_listCtrl->SetItemTextColour(i, *wxBLACK); // Ensure text is black for readability
-        } else {
-            m_listCtrl->SetItemBackgroundColour(i, s_BASE_ITEM_BG_COLOR); // Fallback to base item color
-            m_listCtrl->SetItemTextColour(i, s_BASE_ITEM_FG_COLOR);
-        }
+        m_listCtrl->SetItemBackgroundColour(i, s_BASE_ITEM_BG_COLOR);
+        m_listCtrl->SetItemTextColour(i, s_BASE_ITEM_FG_COLOR);
     }
 }
 
@@ -852,16 +845,6 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
         }
     }
 
-    // Check if all items in modList are new
-    bool disableIsNew = true;
-    for (const auto& mod : modList) {
-        if (!mod->isNew) {
-            disableIsNew = false;
-            break;
-        }
-    }
-
-    m_newMods.clear();
     m_listCtrl->Freeze();
     m_listCtrl->DeleteAllItems();
 
@@ -911,13 +894,6 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
         // Shader Column
         m_listCtrl->SetItem(index, 1, constructShaderString(shaders));
 
-        // Set highlight if new
-        if (!disableIsNew && mod->isNew) {
-            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
-            m_listCtrl->SetItemTextColour(index, *wxBLACK); // Ensure text is black for readability
-            m_newMods.insert(mod->name); // Store the original color using the mod name
-        }
-
         // Enable checkbox
         m_listCtrl->check(index, true);
 
@@ -941,13 +917,6 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
 
         // Shader Column
         m_listCtrl->SetItem(index, 1, constructShaderString(mod->shaders));
-
-        // Set highlight if new
-        if (!disableIsNew && mod->isNew) {
-            m_listCtrl->SetItemBackgroundColour(index, s_NEW_MOD_COLOR); // Highlight color
-            m_listCtrl->SetItemTextColour(index, *wxBLACK); // Ensure text is black for readability
-            m_newMods.insert(mod->name); // Store the original color using the mod name
-        }
 
         // Disable checkbox
         m_listCtrl->check(index, false);
@@ -978,8 +947,7 @@ void ModSortDialog::rebuildCacheFromListCtrl()
         m_cachedRows.push_back({.modName = modName,
                                 .shaderString = m_listCtrl->GetItemText(i, 1),
                                 .isChecked = m_listCtrl->isChecked(i),
-                                .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i),
-                                .isNew = m_newMods.contains(modName)});
+                                .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i)});
     }
 }
 
@@ -1073,14 +1041,6 @@ void ModSortDialog::rebuildListCtrlFromCache()
         }
     }
 
-    bool disableIsNew = true;
-    for (const auto& row : m_cachedRows) {
-        if (!row.isNew) {
-            disableIsNew = false;
-            break;
-        }
-    }
-
     const long savedTopItem = m_listCtrl->GetTopItem();
     m_listCtrl->Freeze();
     m_listCtrl->DeleteAllItems();
@@ -1092,12 +1052,6 @@ void ModSortDialog::rebuildListCtrlFromCache()
         m_listCtrl->check(insertedIndex, true);
         m_listCtrl->ignoreMeshes(insertedIndex, row->areMeshesIgnored);
 
-        if (!disableIsNew && row->isNew) {
-            m_listCtrl->SetItemBackgroundColour(insertedIndex, s_NEW_MOD_COLOR);
-            m_listCtrl->SetItemTextColour(insertedIndex, *wxBLACK);
-            m_newMods.insert(row->modName);
-        }
-
         ++index;
     }
 
@@ -1108,12 +1062,6 @@ void ModSortDialog::rebuildListCtrlFromCache()
         m_listCtrl->SetItem(insertedIndex, 1, row->shaderString);
         m_listCtrl->check(insertedIndex, false);
         m_listCtrl->ignoreMeshes(insertedIndex, row->areMeshesIgnored);
-
-        if (!disableIsNew && row->isNew) {
-            m_listCtrl->SetItemBackgroundColour(insertedIndex, s_NEW_MOD_COLOR);
-            m_listCtrl->SetItemTextColour(insertedIndex, *wxBLACK);
-            m_newMods.insert(row->modName);
-        }
 
         ++index;
     }
