@@ -8,6 +8,7 @@
 - Added "Open Mod Folder" option to the conflict manager
 - Meshes with no plugin uses and not flagged for patching will not be loaded during patching step
 - Fixed sometimes ambiguous matching priority when multiple matches of different shader types come from the same mod
+- Added confirmation dialog for unsaved changes in the conflict viewer
 - Removed --highmem CLI argument
 - Removed purple highlight for new mods from conflict manager
 
