@@ -39,13 +39,9 @@ private:
         wxString shaderString;
         bool isChecked = false;
         bool areMeshesIgnored = false;
-        bool isNew = false;
     };
 
     std::vector<CachedModRow> m_cachedRows; /** Cached full mod list state used for filtering */
-
-    std::unordered_set<std::wstring>
-        m_newMods; /** Stores the original highlight of elements to be able to restore it later */
 
     std::unordered_set<DialogModConflictView*> m_openConflictDialogs; /** Modeless conflict windows currently open */
 
@@ -58,7 +54,6 @@ private:
     constexpr static int HELPBTN_FONT_SIZE = 12;
     constexpr static int HELPBTN_SIZE = 30;
 
-    static inline const wxColour s_NEW_MOD_COLOR {213, 128, 255};
     static inline const wxColour s_LOSING_MOD_COLOR {255, 102, 102};
     static inline const wxColour s_WINNING_MOD_COLOR {204, 255, 102};
 
