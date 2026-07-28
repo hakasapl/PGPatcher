@@ -1,5 +1,7 @@
 #include "GUI/components/PGLogMessageListCtrl.hpp"
 
+#include "PGLocale.hpp"
+
 #include <cstddef>
 #include <unordered_map>
 #include <vector>
@@ -138,11 +140,13 @@ void PGLogMessageListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& ev
     // Build context menu
     wxMenu menu;
 
-    auto* ignoreItem = menu.Append(static_cast<int>(ContextMenu::ID_PG_IGNORE_ITEM), "Ignore");
+    auto* ignoreItem = menu.Append(static_cast<int>(ContextMenu::ID_PG_IGNORE_ITEM),
+                                   PGTr("components.logMessageList.ignore", "Ignore"));
     ignoreItem->Enable(!allIgnored);
 
     if (m_showIgnored) {
-        auto* unignoreItem = menu.Append(static_cast<int>(ContextMenu::ID_PG_UNIGNORE_ITEM), "Un-Ignore");
+        auto* unignoreItem = menu.Append(static_cast<int>(ContextMenu::ID_PG_UNIGNORE_ITEM),
+                                         PGTr("components.logMessageList.unignore", "Un-Ignore"));
         unignoreItem->Enable(!allNotIgnored);
     }
 

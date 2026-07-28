@@ -132,6 +132,11 @@ void PGConfig::loadConfig()
 
 auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
 {
+    // "ui" field
+    if (j.contains("ui") && j["ui"].contains("language") && j["ui"]["language"].is_string()) {
+        m_uiLanguage = j["ui"]["language"].get<string>();
+    }
+
     // "params" field
     if (j.contains("params")) {
         const auto& paramJ = j["params"];
@@ -284,6 +289,10 @@ auto PGConfig::getParams() const -> PGParams { return m_params; }
 
 void PGConfig::setParams(const PGParams& params) { this->m_params = params; }
 
+auto PGConfig::getUILanguage() const -> string { return m_uiLanguage; }
+
+void PGConfig::setUILanguage(const string& lang) { m_uiLanguage = lang; }
+
 auto PGConfig::validateParams(const PGParams& params,
                               vector<string>& errors) -> bool
 {
@@ -388,6 +397,9 @@ auto PGConfig::getUserConfigJSON() const -> nlohmann::json
 {
     // build output json
     nlohmann::json j = m_userConfig;
+
+    // "ui"
+    j["ui"]["language"] = m_uiLanguage;
 
     // Params
 

@@ -1,4 +1,5 @@
 #include "GUI/ProgressWindow.hpp"
+#include "PGLocale.hpp"
 #include "PGPatcherGlobals.hpp"
 
 #include <wx/animate.h>
@@ -20,7 +21,7 @@
 ProgressWindow::ProgressWindow()
     : wxDialog(nullptr,
                wxID_ANY,
-               "PGPatcher Generation Progress",
+               PGTr("progress.title", "PGPatcher Generation Progress"),
                wxDefaultPosition,
                wxSize(300,
                       150),
@@ -49,7 +50,7 @@ ProgressWindow::ProgressWindow()
     // Right Side (main progress area)
     auto* rightSizer = new wxBoxSizer(wxVERTICAL);
 
-    m_mainStatusText = new wxStaticText(this, wxID_ANY, "Overall Progress:");
+    m_mainStatusText = new wxStaticText(this, wxID_ANY, PGTr("progress.overall", "Overall Progress:"));
     m_progressBarMain = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, wxSize(300, 20));
 
     m_stepStatusText = new wxStaticText(this, wxID_ANY, "");
@@ -60,7 +61,7 @@ ProgressWindow::ProgressWindow()
     rightSizer->Add(m_stepStatusText, 0, wxEXPAND | wxBOTTOM, 5);
     rightSizer->Add(m_progressBarStep, 0, wxEXPAND | wxBOTTOM, 5);
 
-    auto* cancelButton = new wxButton(this, wxID_CANCEL, "Stop Generation / Quit");
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("progress.stopButton", "Stop Generation / Quit"));
     rightSizer->Add(cancelButton, 0, wxEXPAND | wxTOP, 5);
 
     mainSizer->Add(rightSizer, 1, wxEXPAND | wxALL, 10);
@@ -92,9 +93,9 @@ void ProgressWindow::setMainProgress(int done,
         m_mainStatusText->Update();
     }
 }
-void ProgressWindow::setMainLabel(const std::string& label)
+void ProgressWindow::setMainLabel(const wxString& label)
 {
-    m_mainLabelBase = wxString(label);
+    m_mainLabelBase = label;
     m_mainStatusText->SetLabel(label);
     m_mainStatusText->Refresh();
     m_mainStatusText->Update();
@@ -117,9 +118,9 @@ void ProgressWindow::setStepProgress(int done,
         m_stepStatusText->Update();
     }
 }
-void ProgressWindow::setStepLabel(const std::string& label)
+void ProgressWindow::setStepLabel(const wxString& label)
 {
-    m_stepLabelBase = wxString(label);
+    m_stepLabelBase = label;
     m_stepStatusText->SetLabel(label);
     m_stepStatusText->Refresh();
     m_stepStatusText->Update();

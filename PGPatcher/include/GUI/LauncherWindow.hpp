@@ -20,6 +20,9 @@
  */
 class LauncherWindow : public wxDialog {
 public:
+    /** ShowModal result indicating the launcher should be rebuilt (e.g. after a language change) */
+    constexpr static int RESULT_RELAUNCH = wxID_HIGHEST + 1;
+
     /**
      * @brief Construct a new Launcher Window object
      *
@@ -227,6 +230,13 @@ private:
      * @param event wxWidgets event object
      */
     void onRestoreDefaultsButtonPressed(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the user presses the settings (gear) button
+     *
+     * @param event wxWidgets event object
+     */
+    void onSettingsButtonPressed(wxCommandEvent& event);
 
     /**
      * @brief Event handler that triggers when the user presses the X on the dialog window, which closes the application

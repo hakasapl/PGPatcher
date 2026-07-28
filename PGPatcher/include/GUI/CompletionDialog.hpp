@@ -17,6 +17,8 @@ private:
     PGLogMessageListCtrl* m_warnListCtrl;
     PGLogMessageListCtrl* m_errListCtrl;
 
+    wxStaticText* m_completionText = nullptr;
+
     wxSize m_collapsedSize;
 
 public:

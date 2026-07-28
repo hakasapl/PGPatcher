@@ -1,0 +1,346 @@
+{
+  "_language": "English",
+  "common": {
+    "browse": "Browse",
+    "cancel": "Cancel",
+    "ok": "OK",
+    "close": "Close",
+    "errors": "Errors",
+    "error": "Error",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "label": "Language",
+      "tooltip": "Languages are read from the \"translations\" folder"
+    }
+  },
+  "launcher": {
+    "title": "PGPatcher %s Launcher",
+    "settingsButton": {
+      "tooltip": "Open PGPatcher settings"
+    },
+    "helpButton": {
+      "tooltip": "Open the PGPatcher wiki"
+    },
+    "game": {
+      "title": "Game",
+      "location": {
+        "label": "Location",
+        "tooltip": "Path to the game folder (NOT the data folder)"
+      },
+      "type": {
+        "label": "Type"
+      }
+    },
+    "modManager": {
+      "title": "Mod Manager",
+      "noneSuffix": " (No Conflict Resolution)"
+    },
+    "mo2Options": {
+      "title": "MO2 Options",
+      "instanceLocation": {
+        "label": "Instance Location",
+        "tooltip": "Path to the MO2 instance folder (Folder Icon > Open Instance folder in MO2)"
+      }
+    },
+    "output": {
+      "title": "Output",
+      "location": {
+        "help": "Location recommended to be a mod folder. Cannot be in your data folder. Avoid deleting old output before running if output is set to a mod folder.",
+        "tooltip": "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher"
+      },
+      "zip": {
+        "label": "Zip Output (Keep disabled if outputting to a mod folder)",
+        "tooltip": "Zip the output folder after processing"
+      },
+      "pluginLang": {
+        "label": "Plugin Language",
+        "placeholder": "Language",
+        "tooltip": "Language of embedded strings in output plugin. If a translation for this language is not available for a record, the default will be used which is usually English."
+      }
+    },
+    "prePatchers": {
+      "title": "Pre-Patchers",
+      "fixMeshLighting": {
+        "label": "Fix Mesh Lighting (ENB Only)",
+        "tooltip": "Fixes glowing meshes (For ENB users only!)"
+      }
+    },
+    "shaderPatchers": {
+      "title": "Shader Patchers",
+      "parallax": {
+        "label": "Parallax"
+      },
+      "complexMaterial": {
+        "label": "Complex Material"
+      },
+      "truePBR": {
+        "label": "TruePBR (CS Only)"
+      }
+    },
+    "shaderTransforms": {
+      "title": "Shader Transforms",
+      "parallaxToCM": {
+        "label": "Upgrade Parallax to Complex Material",
+        "tooltip": "Upgrades parallax textures and meshes to complex material when required for compatibility (highly recommended)"
+      }
+    },
+    "postPatchers": {
+      "title": "Post-Patchers",
+      "disablePrePatchedMaterials": {
+        "label": "Disable Pre-Patched Materials",
+        "tooltip": "Restores shaders to default if parallax or complex material textures are missing (highly recommended, replaces auto parallax functionality)"
+      },
+      "fixSSS": {
+        "label": "Fix Vanilla Subsurface Scattering",
+        "tooltip": "Fixes subsurface scattering in meshes, especially foliage"
+      },
+      "hairFlowMap": {
+        "label": "Add Hair Flow Map (CS Only)",
+        "tooltip": "Adds flow maps to texture sets for those that match the normal texture"
+      }
+    },
+    "buttons": {
+      "restoreDefaults": "Restore Defaults",
+      "loadConfig": "Load Config",
+      "saveConfig": "Save Config",
+      "startPatching": "Start Patching"
+    },
+    "processing": {
+      "title": "Processing",
+      "help": "These options are used to customize output generation. Avoid changing these unless you know what you are doing.",
+      "allowedRecordTypes": "Allowed Record Types",
+      "meshAllowlist": "Mesh Allowlist",
+      "meshBlocklist": "Mesh Blocklist",
+      "textureRules": "Texture Rules",
+      "multithreading": {
+        "label": "Multithreading",
+        "tooltip": "Speeds up runtime at the cost of using more resources"
+      },
+      "devMode": {
+        "label": "Enable Mod Dev Mode",
+        "tooltip": "Enables certain warnings to help those developing mods to work with PGPatcher"
+      },
+      "debugLogging": {
+        "label": "Enable Debug Logging",
+        "tooltip": "Enables debug logging in the output log"
+      },
+      "traceLogging": {
+        "label": "Enable Trace Logging",
+        "tooltip": "Enables trace logging in the output log (very verbose)"
+      }
+    },
+    "browse": {
+      "gameLocation": "Select Game Location",
+      "mo2InstanceLocation": "Select MO2 Instance Location",
+      "outputLocation": "Select Output Location"
+    },
+    "confirmLoadConfig": {
+      "title": "Confirm Load Config",
+      "message": "Are you sure you want to load the config from the file? This action will overwrite all current unsaved settings."
+    },
+    "confirmRestoreDefaults": {
+      "title": "Confirm Restore Defaults",
+      "message": "Are you sure you want to restore the default settings? This action cannot be undone."
+    }
+  },
+  "dialogs": {
+    "meshAllowlist": {
+      "title": "Mesh Rules Allowlist",
+      "description": "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire folders/files. Right click to add/remove entries."
+    },
+    "meshBlocklist": {
+      "title": "Mesh Rules Blocklist",
+      "description": "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire folders/files. Right click to add/remove entries."
+    },
+    "textureRules": {
+      "title": "Texture Rules",
+      "description": "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\". Right click to add/remove entries."
+    },
+    "recTypeSelector": {
+      "title": "Allowed Record Types",
+      "description": "Unchecking a record type will exclude it and its associated meshes from being patched. Only record types with models are shown."
+    }
+  },
+  "progress": {
+    "title": "PGPatcher Generation Progress",
+    "overall": "Overall Progress:",
+    "stopButton": "Stop Generation / Quit",
+    "steps": {
+      "preparing": "Preparing",
+      "initGpu": "Initializing GPU",
+      "outputDir": "Creating and validating output directory",
+      "validatingPlugins": "Validating plugins",
+      "initPluginPatching": "Initializing plugin patching",
+      "initModManager": "Initializing mod manager",
+      "populatingFileMap": "Populating file map",
+      "validatingDataFiles": "Validating data files",
+      "initPatchers": "Initializing patchers",
+      "waitPluginInit": "Waiting for plugin initialization",
+      "waitModManagerInit": "Waiting for mod manager initialization",
+      "loadingMeshes": "Loading meshes",
+      "readingNifs": "Reading NIFs",
+      "classifyingTextures": "Classifying textures",
+      "patchingMeshes": "Patching meshes",
+      "processingNifs": "Processing NIFs",
+      "patchingTextures": "Patching textures",
+      "processingTextures": "Processing textures",
+      "finalizing": "Finalizing",
+      "finishingWritingFiles": "Finishing writing files",
+      "savingPlugins": "Saving Plugins",
+      "deployingAssets": "Deploying Assets",
+      "savingDiffJson": "Saving Diff Json",
+      "creatingZipArchive": "Creating Zip Archive"
+    }
+  },
+  "completion": {
+    "title": "PGPatcher Generation Complete",
+    "message": "PGPatcher has completed generating output.\n\nProcessing Time: %lld seconds\nOutput Location:\n%s",
+    "showWarnings": "Show Warnings",
+    "showWarningsCount": "Show Warnings (%d)",
+    "showErrors": "Show Errors",
+    "showErrorsCount": "Show Errors (%d)",
+    "showIgnoredWarnings": "Show Ignored Warnings",
+    "conflictManager": "Conflict Manager",
+    "helpButton": {
+      "tooltip": "Open the PGPatcher Error Message wiki"
+    },
+    "openOutputLocation": "Open Output Location",
+    "openLogFile": "Open Log File"
+  },
+  "conflictManager": {
+    "title": "Conflict Manager",
+    "help": "Please sort your mods to determine what mod PGPatcher uses to patch meshes where. Selecting mods will show conflicts. The mod you have selected wins over mods that are green, and loses over mods that are red.",
+    "helpButton": {
+      "tooltip": "Open the PGPatcher Mod Window wiki"
+    },
+    "columns": {
+      "mod": "Mod",
+      "shader": "Shader"
+    },
+    "contextMenu": {
+      "showConflicts": "Show Conflicts...",
+      "showMatches": "Show Matches...",
+      "openModFolder": "Open Mod Folder"
+    },
+    "showAllMeshes": {
+      "label": "Show All Meshes",
+      "tooltip": "View all meshes, shapes, and matches regardless of conflicts"
+    },
+    "lockMO2Order": {
+      "label": "Lock to MO2 Loose File Order",
+      "tooltip": "Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts are not the same as loose file conflicts."
+    },
+    "search": {
+      "label": "Search:",
+      "hint": "Search mods by name..."
+    },
+    "winningModsOnTop": "Winning Mods on Top",
+    "losingModsOnBottom": "Losing Mods on Bottom",
+    "restoreDefaultOrder": {
+      "label": "Restore Default Order",
+      "tooltip": "For MO2 default order is your loose file order. For vortex default order is by shader, then by name alphabetically."
+    },
+    "buttons": {
+      "saveAndUpdateOutput": "Save Changes and Update Output",
+      "discardChanges": "Discard Changes",
+      "apply": "Apply",
+      "okay": "Okay"
+    },
+    "confirmUnsavedChanges": {
+      "title": "Unsaved Changes",
+      "message": "You have unsaved changes, are you sure you want to close?"
+    },
+    "confirmRestoreDefaultOrder": {
+      "title": "Confirm Restore Default Order",
+      "message": "Are you sure you want to restore default mod order and enable any manually disabled mods?"
+    },
+    "confirmRerunPatching": {
+      "title": "Re-run Patching",
+      "message": "Are you sure you want to re-run the patching step?"
+    },
+    "confirmDiscardChanges": {
+      "title": "Confirm Discard Changes",
+      "message": "Are you sure you want to discard all changes?"
+    },
+    "errors": {
+      "saveModConfig": "Failed to save mod configuration to modrules.json",
+      "saveUserConfig": "Failed to save user configuration to user.json"
+    }
+  },
+  "matchViewer": {
+    "title": "Match Viewer",
+    "filterLabel": {
+      "allConflicts": "Showing all conflicts",
+      "conflictsForMod": "Showing conflicts for mod: %s",
+      "conflictsBetweenMods": "Showing conflicts between mods: %s",
+      "allMatches": "Showing all matches",
+      "matchesForMod": "Showing matches for mod: %s",
+      "matchesForMods": "Showing matches for mods: %s"
+    },
+    "search": {
+      "label": "Search:",
+      "hint": "Search by mesh path..."
+    },
+    "showDisabledMods": "Show Disabled Mods",
+    "onlyShowConflicts": "Only Show Conflicts",
+    "panels": {
+      "meshes": "Meshes",
+      "shapes": "Shapes",
+      "matches": "Matches"
+    },
+    "columns": {
+      "meshPath": "Mesh Path",
+      "shape": "Shape",
+      "mod": "Mod",
+      "shader": "Shader",
+      "matchedFile": "Matched File"
+    },
+    "pluginUse": {
+      "label": "Filter by Plugin Use:",
+      "noneSelected": "(No Plugin Use Selected)"
+    },
+    "unnamedShape": "[ Unnamed ]",
+    "noMatches": "[No matches - this shape cannot be patched]",
+    "untrackedMod": "[Untracked Mod/Vanilla]",
+    "contextMenu": {
+      "copyName": "Copy Name",
+      "open": "Open",
+      "copyModName": "Copy Mod Name",
+      "openModFolder": "Open Mod Folder",
+      "openMatchingFile": "Open Matching File"
+    },
+    "extraction": {
+      "title": "File Extraction",
+      "message": "This file is inside a BSA archive:\n%s\n\nWould you like to extract it to a read-only temporary location and open it? It will be deleted when you close this dialog.",
+      "errorTitle": "Extraction Error",
+      "readFailed": "Error: Failed to read file.",
+      "createTempFailed": "Error: Failed to create temporary file at %s",
+      "fileTooLarge": "Error: File is too large to extract.",
+      "extractOpenFailed": "Error attempting to extract and open file: %s"
+    },
+    "errors": {
+      "dataDirUnavailable": "Cannot open file: data directory is not available.",
+      "deleteTempFailed": "Failed to delete temporary file %s: %s"
+    }
+  },
+  "components": {
+    "modifiableList": {
+      "add": "Add",
+      "remove": "Remove"
+    },
+    "logMessageList": {
+      "ignore": "Ignore",
+      "unignore": "Un-Ignore"
+    },
+    "checkedDragList": {
+      "moveToTop": "Move to Top",
+      "moveToBottom": "Move to Bottom",
+      "patchMeshes": "Patch Meshes",
+      "ignoreMeshes": "Ignore Meshes"
+    }
+  }
+}

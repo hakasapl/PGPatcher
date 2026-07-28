@@ -2,9 +2,11 @@
 
 #include "GUI/DialogModifiableListCtrl.hpp"
 #include "GUI/DialogRecTypeSelector.hpp"
+#include "GUI/DialogSettings.hpp"
 #include "GUI/DialogTextureMapListCtrl.hpp"
 #include "GUI/PGMessageBox.hpp"
 #include "PGConfig.hpp"
+#include "PGLocale.hpp"
 #include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "PGPlugin.hpp"
@@ -32,7 +34,9 @@ using namespace std;
 LauncherWindow::LauncherWindow(PGConfig& pgc)
     : wxDialog(nullptr,
                wxID_ANY,
-               "PGPatcher " + string(PG_FULL_VERSION) + " Launcher",
+               wxString::Format(PGTr("launcher.title",
+                                     "PGPatcher %s Launcher"),
+                                PG_FULL_VERSION),
                wxDefaultPosition,
                wxSize(MIN_WIDTH,
                       DEFAULT_HEIGHT),
@@ -62,14 +66,15 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Game
     //
-    auto* gameSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Game");
+    auto* gameSizer = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.game.title", "Game"));
 
     // Game Location
-    auto* gameLocationLabel = new wxStaticText(this, wxID_ANY, "Location");
+    auto* gameLocationLabel = new wxStaticText(this, wxID_ANY, PGTr("launcher.game.location.label", "Location"));
     m_gameLocationTextbox = new wxTextCtrl(this, wxID_ANY);
-    m_gameLocationTextbox->SetToolTip("Path to the game folder (NOT the data folder)");
+    m_gameLocationTextbox->SetToolTip(
+        PGTr("launcher.game.location.tooltip", "Path to the game folder (NOT the data folder)"));
     m_gameLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onGameLocationChange, this);
-    m_gameLocationBrowseButton = new wxButton(this, wxID_ANY, "Browse");
+    m_gameLocationBrowseButton = new wxButton(this, wxID_ANY, PGTr("common.browse", "Browse"));
     m_gameLocationBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseGameLocation, this);
 
     auto* gameLocationSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -80,7 +85,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     gameSizer->Add(gameLocationSizer, 0, wxEXPAND);
 
     // Game Type
-    auto* gameTypeLabel = new wxStaticText(this, wxID_ANY, "Type");
+    auto* gameTypeLabel = new wxStaticText(this, wxID_ANY, PGTr("launcher.game.type.label", "Type"));
     gameSizer->Add(gameTypeLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
     bool isFirst = true;
@@ -102,13 +107,13 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Mod Manager
     //
-    auto* modManagerSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Mod Manager");
+    auto* modManagerSizer = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.modManager.title", "Mod Manager"));
 
     isFirst = true;
     for (const auto& mmType : PGModManager::getModManagerTypes()) {
-        auto mmString = PGModManager::getStrFromModManagerType(mmType);
+        auto mmString = wxString(PGModManager::getStrFromModManagerType(mmType));
         if (mmType == PGModManager::ModManagerType::NONE) {
-            mmString += " (No Conflict Resolution)";
+            mmString += PGTr("launcher.modManager.noneSuffix", " (No Conflict Resolution)");
         }
 
         auto* radio
@@ -122,17 +127,19 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     leftSizer->Add(modManagerSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // MO2-specific controls (initially hidden)
-    m_mo2OptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "MO2 Options");
+    m_mo2OptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.mo2Options.title", "MO2 Options"));
 
     auto* mo2InstanceLocationSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* mo2InstanceLocationLabel = new wxStaticText(this, wxID_ANY, "Instance Location");
+    auto* mo2InstanceLocationLabel
+        = new wxStaticText(this, wxID_ANY, PGTr("launcher.mo2Options.instanceLocation.label", "Instance Location"));
 
     m_mo2InstanceLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_mo2InstanceLocationTextbox->SetToolTip(
-        "Path to the MO2 instance folder (Folder Icon > Open Instance folder in MO2)");
+        PGTr("launcher.mo2Options.instanceLocation.tooltip",
+             "Path to the MO2 instance folder (Folder Icon > Open Instance folder in MO2)"));
     m_mo2InstanceLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onMO2InstanceLocationChange, this);
 
-    m_mo2InstanceBrowseButton = new wxButton(this, wxID_ANY, "Browse");
+    m_mo2InstanceBrowseButton = new wxButton(this, wxID_ANY, PGTr("common.browse", "Browse"));
     m_mo2InstanceBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseMO2InstanceLocation, this);
 
     mo2InstanceLocationSizer->Add(m_mo2InstanceLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
@@ -148,21 +155,22 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Output
     //
-    auto* outputSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Output");
+    auto* outputSizer = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.output.title", "Output"));
 
     auto* outputLocationLabel = new wxStaticText(
         this,
         wxID_ANY,
-        "Location recommended to be a mod folder. Cannot be in your data folder. Avoid deleting old output before "
-        "running "
-        "if output is set to a mod folder.");
+        PGTr("launcher.output.location.help",
+             "Location recommended to be a mod folder. Cannot be in your data folder. Avoid deleting old output "
+             "before running if output is set to a mod folder."));
     outputLocationLabel->Wrap(LEFTSIZER_WRAP_SIZE);
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_outputLocationTextbox->SetToolTip(
-        "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher");
+        PGTr("launcher.output.location.tooltip",
+             "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher"));
     m_outputLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onOutputLocationChange, this);
 
-    auto* outputLocationBrowseButton = new wxButton(this, wxID_ANY, "Browse");
+    auto* outputLocationBrowseButton = new wxButton(this, wxID_ANY, PGTr("common.browse", "Browse"));
     outputLocationBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseOutputLocation, this);
 
     auto* outputLocationSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -172,8 +180,9 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     outputSizer->Add(outputLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
     outputSizer->Add(outputLocationSizer, 0, wxEXPAND);
 
-    m_outputZipCheckbox = new wxCheckBox(this, wxID_ANY, "Zip Output (Keep disabled if outputting to a mod folder)");
-    m_outputZipCheckbox->SetToolTip("Zip the output folder after processing");
+    m_outputZipCheckbox = new wxCheckBox(
+        this, wxID_ANY, PGTr("launcher.output.zip.label", "Zip Output (Keep disabled if outputting to a mod folder)"));
+    m_outputZipCheckbox->SetToolTip(PGTr("launcher.output.zip.tooltip", "Zip the output folder after processing"));
     m_outputZipCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onOutputZipChange, this);
 
     outputSizer->Add(m_outputZipCheckbox, 0, wxALL, BORDER_SIZE);
@@ -182,19 +191,25 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
 
     // Add label
-    auto* langLabel = new wxStaticText(this, wxID_ANY, "Plugin Language");
+    auto* langLabel = new wxStaticText(this, wxID_ANY, PGTr("launcher.output.pluginLang.label", "Plugin Language"));
     langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
 
     wxArrayString pluginLangs;
     for (const auto& lang : PGPlugin::getAvailablePluginLangStrs()) {
         pluginLangs.Add(lang);
     }
-    m_outputPluginLangCombo
-        = new wxComboBox(this, wxID_ANY, "Language", wxDefaultPosition, wxDefaultSize, pluginLangs, wxCB_READONLY);
+    m_outputPluginLangCombo = new wxComboBox(this,
+                                             wxID_ANY,
+                                             PGTr("launcher.output.pluginLang.placeholder", "Language"),
+                                             wxDefaultPosition,
+                                             wxDefaultSize,
+                                             pluginLangs,
+                                             wxCB_READONLY);
     m_outputPluginLangCombo->Bind(wxEVT_COMBOBOX, &LauncherWindow::onOutputPluginLangChange, this);
     m_outputPluginLangCombo->SetToolTip(
-        "Language of embedded strings in output plugin. If a translation for this language is not available for a "
-        "record, the default will be used which is usually English.");
+        PGTr("launcher.output.pluginLang.tooltip",
+             "Language of embedded strings in output plugin. If a translation for this language is not available for "
+             "a record, the default will be used which is usually English."));
     langSizer->Add(m_outputPluginLangCombo, 1, wxEXPAND | wxLEFT, BORDER_SIZE);
 
     outputSizer->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
@@ -208,10 +223,12 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Pre-Patchers
     //
-    auto* prePatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Pre-Patchers");
+    auto* prePatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.prePatchers.title", "Pre-Patchers"));
 
-    m_prePatcherFixMeshLightingCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Mesh Lighting (ENB Only)");
-    m_prePatcherFixMeshLightingCheckbox->SetToolTip("Fixes glowing meshes (For ENB users only!)");
+    m_prePatcherFixMeshLightingCheckbox = new wxCheckBox(
+        this, wxID_ANY, PGTr("launcher.prePatchers.fixMeshLighting.label", "Fix Mesh Lighting (ENB Only)"));
+    m_prePatcherFixMeshLightingCheckbox->SetToolTip(
+        PGTr("launcher.prePatchers.fixMeshLighting.tooltip", "Fixes glowing meshes (For ENB users only!)"));
     m_prePatcherFixMeshLightingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPrePatcherFixMeshLightingChange, this);
     prePatcherSizer->Add(m_prePatcherFixMeshLightingCheckbox, 0, wxALL, BORDER_SIZE);
 
@@ -220,18 +237,22 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Shader Patchers
     //
-    auto* shaderPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Shader Patchers");
+    auto* shaderPatcherSizer
+        = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.shaderPatchers.title", "Shader Patchers"));
 
-    m_shaderPatcherParallaxCheckbox = new wxCheckBox(this, wxID_ANY, "Parallax");
+    m_shaderPatcherParallaxCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("launcher.shaderPatchers.parallax.label", "Parallax"));
     m_shaderPatcherParallaxCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherParallaxChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherParallaxCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_shaderPatcherComplexMaterialCheckbox = new wxCheckBox(this, wxID_ANY, "Complex Material");
+    m_shaderPatcherComplexMaterialCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("launcher.shaderPatchers.complexMaterial.label", "Complex Material"));
     m_shaderPatcherComplexMaterialCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherComplexMaterialChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_shaderPatcherTruePBRCheckbox = new wxCheckBox(this, wxID_ANY, "TruePBR (CS Only)");
+    m_shaderPatcherTruePBRCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("launcher.shaderPatchers.truePBR.label", "TruePBR (CS Only)"));
     m_shaderPatcherTruePBRCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherTruePBRChange, this);
     shaderPatcherSizer->Add(m_shaderPatcherTruePBRCheckbox, 0, wxALL, BORDER_SIZE);
 
@@ -240,11 +261,15 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Shader Transforms
     //
-    auto* shaderTransformSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Shader Transforms");
+    auto* shaderTransformSizer
+        = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.shaderTransforms.title", "Shader Transforms"));
 
-    m_shaderTransformParallaxToCMCheckbox = new wxCheckBox(this, wxID_ANY, "Upgrade Parallax to Complex Material");
-    m_shaderTransformParallaxToCMCheckbox->SetToolTip("Upgrades parallax textures and meshes to complex material when "
-                                                      "required for compatibility (highly recommended)");
+    m_shaderTransformParallaxToCMCheckbox = new wxCheckBox(
+        this, wxID_ANY, PGTr("launcher.shaderTransforms.parallaxToCM.label", "Upgrade Parallax to Complex Material"));
+    m_shaderTransformParallaxToCMCheckbox->SetToolTip(
+        PGTr("launcher.shaderTransforms.parallaxToCM.tooltip",
+             "Upgrades parallax textures and meshes to complex material when required for compatibility (highly "
+             "recommended)"));
     m_shaderTransformParallaxToCMCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMChange, this);
     shaderTransformSizer->Add(m_shaderTransformParallaxToCMCheckbox, 0, wxALL, BORDER_SIZE);
@@ -254,24 +279,33 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Post-Patchers
     //
-    auto* postPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Post-Patchers");
+    auto* postPatcherSizer
+        = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.postPatchers.title", "Post-Patchers"));
 
-    m_postPatcherRestoreDefaultShadersCheckbox = new wxCheckBox(this, wxID_ANY, "Disable Pre-Patched Materials");
+    m_postPatcherRestoreDefaultShadersCheckbox = new wxCheckBox(
+        this,
+        wxID_ANY,
+        PGTr("launcher.postPatchers.disablePrePatchedMaterials.label", "Disable Pre-Patched Materials"));
     m_postPatcherRestoreDefaultShadersCheckbox->SetToolTip(
-        "Restores shaders to default if parallax or complex "
-        "material textures are missing (highly recommended, replaces auto parallax functionality)");
+        PGTr("launcher.postPatchers.disablePrePatchedMaterials.tooltip",
+             "Restores shaders to default if parallax or complex material textures are missing (highly recommended, "
+             "replaces auto parallax functionality)"));
     m_postPatcherRestoreDefaultShadersCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherRestoreDefaultShadersChange, this);
     postPatcherSizer->Add(m_postPatcherRestoreDefaultShadersCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_postPatcherFixSSSCheckbox = new wxCheckBox(this, wxID_ANY, "Fix Vanilla Subsurface Scattering");
-    m_postPatcherFixSSSCheckbox->SetToolTip("Fixes subsurface scattering in meshes, especially foliage");
+    m_postPatcherFixSSSCheckbox = new wxCheckBox(
+        this, wxID_ANY, PGTr("launcher.postPatchers.fixSSS.label", "Fix Vanilla Subsurface Scattering"));
+    m_postPatcherFixSSSCheckbox->SetToolTip(
+        PGTr("launcher.postPatchers.fixSSS.tooltip", "Fixes subsurface scattering in meshes, especially foliage"));
     m_postPatcherFixSSSCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherFixSSSChange, this);
     postPatcherSizer->Add(m_postPatcherFixSSSCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_postPatcherHairFlowMapCheckbox = new wxCheckBox(this, wxID_ANY, "Add Hair Flow Map (CS Only)");
+    m_postPatcherHairFlowMapCheckbox = new wxCheckBox(
+        this, wxID_ANY, PGTr("launcher.postPatchers.hairFlowMap.label", "Add Hair Flow Map (CS Only)"));
     m_postPatcherHairFlowMapCheckbox->SetToolTip(
-        "Adds flow maps to texture sets for those that match the normal texture");
+        PGTr("launcher.postPatchers.hairFlowMap.tooltip",
+             "Adds flow maps to texture sets for those that match the normal texture"));
     m_postPatcherHairFlowMapCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherHairFlowMapChange, this);
     postPatcherSizer->Add(m_postPatcherHairFlowMapCheckbox, 0, wxALL, BORDER_SIZE);
 
@@ -288,7 +322,8 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
 
     // Restore defaults button
-    auto* restoreDefaultsButton = new wxButton(this, wxID_ANY, "Restore Defaults");
+    auto* restoreDefaultsButton
+        = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.restoreDefaults", "Restore Defaults"));
     wxFont restoreDefaultsButtonFont = restoreDefaultsButton->GetFont();
     restoreDefaultsButtonFont.SetPointSize(BUTTON_FONT_SIZE);
     restoreDefaultsButton->SetFont(restoreDefaultsButtonFont);
@@ -296,7 +331,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     rightSizer->Add(restoreDefaultsButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Load config button
-    m_loadConfigButton = new wxButton(this, wxID_ANY, "Load Config");
+    m_loadConfigButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.loadConfig", "Load Config"));
     wxFont loadConfigButtonFont = m_loadConfigButton->GetFont();
     loadConfigButtonFont.SetPointSize(BUTTON_FONT_SIZE);
     m_loadConfigButton->SetFont(loadConfigButtonFont);
@@ -304,7 +339,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     rightSizer->Add(m_loadConfigButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Save config button
-    m_saveConfigButton = new wxButton(this, wxID_ANY, "Save Config");
+    m_saveConfigButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.saveConfig", "Save Config"));
     wxFont saveConfigButtonFont = m_saveConfigButton->GetFont();
     saveConfigButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     m_saveConfigButton->SetFont(saveConfigButtonFont);
@@ -316,7 +351,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     rightSizer->Add(separatorLine, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // cancel button on the right side
-    auto* cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel"));
     wxFont cancelButtonFont = cancelButton->GetFont();
     cancelButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     cancelButton->SetFont(cancelButtonFont);
@@ -324,7 +359,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     rightSizer->Add(cancelButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     // Start Patching button on the right side
-    m_okButton = new wxButton(this, wxID_ANY, "Start Patching");
+    m_okButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.startPatching", "Start Patching"));
     wxFont okButtonFont = m_okButton->GetFont();
     okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
@@ -336,13 +371,14 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Processing
     //
-    m_processingOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Processing");
+    m_processingOptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.processing.title", "Processing"));
 
     auto* processingHelpText = new wxStaticText(
         this,
         wxID_ANY,
-        "These options are used to customize output generation. Avoid changing these unless you know "
-        "what you are doing.");
+        PGTr("launcher.processing.help",
+             "These options are used to customize output generation. Avoid changing these unless you know what you "
+             "are doing."));
     processingHelpText->Wrap(LEFTSIZER_WRAP_SIZE);
     m_processingOptionsSizer->Add(processingHelpText, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
 
@@ -350,19 +386,23 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 
     auto* processingButtonsSizer = new wxBoxSizer(wxVERTICAL);
 
-    auto* btnOpenDialogRecTypeSelector = new wxButton(this, wxID_ANY, "Allowed Record Types");
+    auto* btnOpenDialogRecTypeSelector
+        = new wxButton(this, wxID_ANY, PGTr("launcher.processing.allowedRecordTypes", "Allowed Record Types"));
     btnOpenDialogRecTypeSelector->Bind(wxEVT_BUTTON, &LauncherWindow::onSelectPluginTypesBtn, this);
     processingButtonsSizer->Add(btnOpenDialogRecTypeSelector, 0, wxALL | wxEXPAND, BORDER_SIZE);
 
-    auto* btnOpenDialogMeshAllowlist = new wxButton(this, wxID_ANY, "Mesh Allowlist");
+    auto* btnOpenDialogMeshAllowlist
+        = new wxButton(this, wxID_ANY, PGTr("launcher.processing.meshAllowlist", "Mesh Allowlist"));
     btnOpenDialogMeshAllowlist->Bind(wxEVT_BUTTON, &LauncherWindow::onMeshRulesAllowBtn, this);
     processingButtonsSizer->Add(btnOpenDialogMeshAllowlist, 0, wxALL | wxEXPAND, BORDER_SIZE);
 
-    auto* btnOpenDialogMeshBlocklist = new wxButton(this, wxID_ANY, "Mesh Blocklist");
+    auto* btnOpenDialogMeshBlocklist
+        = new wxButton(this, wxID_ANY, PGTr("launcher.processing.meshBlocklist", "Mesh Blocklist"));
     btnOpenDialogMeshBlocklist->Bind(wxEVT_BUTTON, &LauncherWindow::onMeshRulesBlockBtn, this);
     processingButtonsSizer->Add(btnOpenDialogMeshBlocklist, 0, wxALL | wxEXPAND, BORDER_SIZE);
 
-    auto* btnOpenDialogTextureMaps = new wxButton(this, wxID_ANY, "Texture Rules");
+    auto* btnOpenDialogTextureMaps
+        = new wxButton(this, wxID_ANY, PGTr("launcher.processing.textureRules", "Texture Rules"));
     btnOpenDialogTextureMaps->Bind(wxEVT_BUTTON, &LauncherWindow::onTextureRulesTextureMapsBtn, this);
     processingButtonsSizer->Add(btnOpenDialogTextureMaps, 0, wxALL | wxEXPAND, BORDER_SIZE);
 
@@ -370,25 +410,33 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 
     auto* processingCheckboxSizer = new wxBoxSizer(wxVERTICAL);
 
-    m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
-    m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
+    m_processingMultithreadingCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("launcher.processing.multithreading.label", "Multithreading"));
+    m_processingMultithreadingCheckbox->SetToolTip(
+        PGTr("launcher.processing.multithreading.tooltip", "Speeds up runtime at the cost of using more resources"));
     m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
     processingCheckboxSizer->Add(m_processingMultithreadingCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_processingEnableDevModeCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Mod Dev Mode");
+    m_processingEnableDevModeCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("launcher.processing.devMode.label", "Enable Mod Dev Mode"));
     m_processingEnableDevModeCheckbox->SetToolTip(
-        "Enables certain warnings to help those developing mods to work with PGPatcher");
+        PGTr("launcher.processing.devMode.tooltip",
+             "Enables certain warnings to help those developing mods to work with PGPatcher"));
     m_processingEnableDevModeCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDevModeChange, this);
     processingCheckboxSizer->Add(m_processingEnableDevModeCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_processingEnableDebugLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Debug Logging");
-    m_processingEnableDebugLoggingCheckbox->SetToolTip("Enables debug logging in the output log");
+    m_processingEnableDebugLoggingCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("launcher.processing.debugLogging.label", "Enable Debug Logging"));
+    m_processingEnableDebugLoggingCheckbox->SetToolTip(
+        PGTr("launcher.processing.debugLogging.tooltip", "Enables debug logging in the output log"));
     m_processingEnableDebugLoggingCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDebugLoggingChange, this);
     processingCheckboxSizer->Add(m_processingEnableDebugLoggingCheckbox, 0, wxALL, BORDER_SIZE);
 
-    m_processingEnableTraceLoggingCheckbox = new wxCheckBox(this, wxID_ANY, "Enable Trace Logging");
-    m_processingEnableTraceLoggingCheckbox->SetToolTip("Enables trace logging in the output log (very verbose)");
+    m_processingEnableTraceLoggingCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("launcher.processing.traceLogging.label", "Enable Trace Logging"));
+    m_processingEnableTraceLoggingCheckbox->SetToolTip(
+        PGTr("launcher.processing.traceLogging.tooltip", "Enables trace logging in the output log (very verbose)"));
     m_processingEnableTraceLoggingCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableTraceLoggingChange, this);
     processingCheckboxSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, BORDER_SIZE);
@@ -406,7 +454,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     helpButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     helpButton->SetFont(helpButtonFont);
 
-    helpButton->SetToolTip("Open the PGPatcher wiki");
+    helpButton->SetToolTip(PGTr("launcher.helpButton.tooltip", "Open the PGPatcher wiki"));
 
     const wxSize helpBtnSize = wxSize(HELPBTN_SIZE, HELPBTN_SIZE);
     helpButton->SetMinSize(helpBtnSize);
@@ -416,8 +464,23 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki");
     });
 
+    // Settings (gear) button next to the help button
+    auto* settingsButton = new wxButton(this, wxID_ANY, wxString(wxUniChar(0x2699)));
+    wxFont settingsButtonFont = settingsButton->GetFont();
+    settingsButtonFont.SetPointSize(BUTTON_FONT_SIZE);
+    settingsButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
+    settingsButton->SetFont(settingsButtonFont);
+    settingsButton->SetToolTip(PGTr("launcher.settingsButton.tooltip", "Open PGPatcher settings"));
+    settingsButton->SetMinSize(helpBtnSize);
+    settingsButton->SetMaxSize(helpBtnSize);
+    settingsButton->Bind(wxEVT_BUTTON, &LauncherWindow::onSettingsButtonPressed, this);
+
+    auto* bottomButtonSizer = new wxBoxSizer(wxHORIZONTAL);
+    bottomButtonSizer->Add(helpButton, 0, wxRIGHT, BORDER_SIZE);
+    bottomButtonSizer->Add(settingsButton, 0, 0, 0);
+
     rightSizer->AddStretchSpacer(1);
-    rightSizer->Add(helpButton, 0, wxALL | wxALIGN_LEFT, BORDER_SIZE);
+    rightSizer->Add(bottomButtonSizer, 0, wxALL | wxALIGN_LEFT, BORDER_SIZE);
 
     //
     // Finalize
@@ -628,10 +691,11 @@ void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
 {
     DialogModifiableListCtrl dialog(
         this,
-        "Mesh Rules Allowlist",
-        "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like "
-        "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire "
-        "folders/files. Right click to add/remove entries.");
+        PGTr("dialogs.meshAllowlist.title", "Mesh Rules Allowlist"),
+        PGTr("dialogs.meshAllowlist.description",
+             "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like "
+             "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire "
+             "folders/files. Right click to add/remove entries."));
     dialog.populateList(m_meshRulesAllowListState);
     if (dialog.ShowModal() == wxID_OK) {
         m_meshRulesAllowListState = dialog.getList();
@@ -643,10 +707,11 @@ void LauncherWindow::onMeshRulesBlockBtn([[maybe_unused]] wxCommandEvent& event)
 {
     DialogModifiableListCtrl dialog(
         this,
-        "Mesh Rules Blocklist",
-        "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or "
-        "use wildcards (* is the wildcard) to blocklist entire "
-        "folders/files. Right click to add/remove entries.");
+        PGTr("dialogs.meshBlocklist.title", "Mesh Rules Blocklist"),
+        PGTr("dialogs.meshBlocklist.description",
+             "Any meshes matching rules here will not be patched. Enter path to mesh like "
+             "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire "
+             "folders/files. Right click to add/remove entries."));
     dialog.populateList(m_meshRulesBlockListState);
     if (dialog.ShowModal() == wxID_OK) {
         m_meshRulesBlockListState = dialog.getList();
@@ -658,11 +723,12 @@ void LauncherWindow::onTextureRulesTextureMapsBtn([[maybe_unused]] wxCommandEven
 {
     DialogTextureMapListCtrl dialog(
         this,
-        "Texture Rules",
-        "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). "
-        "Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. "
-        "Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\". Right click to "
-        "add/remove entries.");
+        PGTr("dialogs.textureRules.title", "Texture Rules"),
+        PGTr("dialogs.textureRules.description",
+             "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very "
+             "rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of "
+             "texture. Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\". "
+             "Right click to add/remove entries."));
     dialog.populateList(m_textureRulesTextureMapsState);
     if (dialog.ShowModal() == wxID_OK) {
         m_textureRulesTextureMapsState = dialog.getList();
@@ -672,7 +738,7 @@ void LauncherWindow::onTextureRulesTextureMapsBtn([[maybe_unused]] wxCommandEven
 
 void LauncherWindow::onSelectPluginTypesBtn([[maybe_unused]] wxCommandEvent& event)
 {
-    DialogRecTypeSelector selectorDialog(this);
+    DialogRecTypeSelector selectorDialog(this, PGTr("dialogs.recTypeSelector.title", "Allowed Record Types"));
     selectorDialog.populateList(m_DialogRecTypeSelectorState);
     if (selectorDialog.ShowModal() == wxID_OK) {
         m_DialogRecTypeSelectorState = selectorDialog.getSelectedRecordTypes();
@@ -741,7 +807,8 @@ void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event
         return;
     }
 
-    wxDirDialog dialog(this, "Select Game Location", m_gameLocationTextbox->GetValue());
+    wxDirDialog dialog(
+        this, PGTr("launcher.browse.gameLocation", "Select Game Location"), m_gameLocationTextbox->GetValue());
     if (dialog.ShowModal() == wxID_OK) {
         m_gameLocationTextbox->SetValue(dialog.GetPath());
     }
@@ -749,7 +816,9 @@ void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event
 
 void LauncherWindow::onBrowseMO2InstanceLocation([[maybe_unused]] wxCommandEvent& event)
 {
-    wxDirDialog dialog(this, "Select MO2 Instance Location", m_mo2InstanceLocationTextbox->GetValue());
+    wxDirDialog dialog(this,
+                       PGTr("launcher.browse.mo2InstanceLocation", "Select MO2 Instance Location"),
+                       m_mo2InstanceLocationTextbox->GetValue());
     if (dialog.ShowModal() == wxID_OK) {
         m_mo2InstanceLocationTextbox->SetValue(dialog.GetPath());
     }
@@ -808,7 +877,8 @@ void LauncherWindow::onMO2InstanceLocationChange([[maybe_unused]] wxCommandEvent
 
 void LauncherWindow::onBrowseOutputLocation([[maybe_unused]] wxCommandEvent& event)
 {
-    wxDirDialog dialog(this, "Select Output Location", m_outputLocationTextbox->GetValue());
+    wxDirDialog dialog(
+        this, PGTr("launcher.browse.outputLocation", "Select Output Location"), m_outputLocationTextbox->GetValue());
     if (dialog.ShowModal() == wxID_OK) {
         m_outputLocationTextbox->SetValue(dialog.GetPath());
     }
@@ -866,9 +936,10 @@ void LauncherWindow::onSaveConfigButtonPressed([[maybe_unused]] wxCommandEvent& 
 void LauncherWindow::onLoadConfigButtonPressed([[maybe_unused]] wxCommandEvent& event)
 {
     const int response
-        = PGMessageBox("Are you sure you want to load the config from the file? This action will overwrite all "
-                       "current unsaved settings.",
-                       "Confirm Load Config",
+        = PGMessageBox(PGTr("launcher.confirmLoadConfig.message",
+                            "Are you sure you want to load the config from the file? This action will overwrite all "
+                            "current unsaved settings."),
+                       PGTr("launcher.confirmLoadConfig.title", "Confirm Load Config"),
                        wxYES_NO | wxICON_WARNING,
                        this);
 
@@ -886,8 +957,9 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
 {
     // Show a confirmation dialog
     const int response
-        = PGMessageBox("Are you sure you want to restore the default settings? This action cannot be undone.",
-                       "Confirm Restore Defaults",
+        = PGMessageBox(PGTr("launcher.confirmRestoreDefaults.message",
+                            "Are you sure you want to restore the default settings? This action cannot be undone."),
+                       PGTr("launcher.confirmRestoreDefaults.title", "Confirm Restore Defaults"),
                        wxYES_NO | wxICON_WARNING,
                        this);
 
@@ -903,6 +975,21 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
     updateDisabledElements();
 }
 
+void LauncherWindow::onSettingsButtonPressed([[maybe_unused]] wxCommandEvent& event)
+{
+    DialogSettings dialog(this, m_pgc);
+    dialog.ShowModal();
+
+    if (dialog.languageChanged()) {
+        // Preserve the current (possibly unsaved) UI state in memory so the rebuilt launcher shows the same values
+        auto curParams = m_pgc.getParams();
+        getParams(curParams);
+        m_pgc.setParams(curParams);
+
+        EndModal(RESULT_RELAUNCH);
+    }
+}
+
 auto LauncherWindow::saveConfig() -> bool
 {
     vector<string> errors;
@@ -911,7 +998,7 @@ auto LauncherWindow::saveConfig() -> bool
 
     // Validate the parameters
     if (!PGConfig::validateParams(params, errors)) {
-        PGMessageBox(boost::algorithm::join(errors, "\n"), "Errors", wxOK | wxICON_ERROR, this);
+        PGMessageBox(boost::algorithm::join(errors, "\n"), PGTr("common.errors", "Errors"), wxOK | wxICON_ERROR, this);
         return false;
     }
 

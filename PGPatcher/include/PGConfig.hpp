@@ -146,6 +146,8 @@ private:
 
     PGParams m_params; /** Stores the configured parameters */
 
+    std::string m_uiLanguage = "en"; /** Stores the GUI language code (not a patching param) */
+
     nlohmann::json m_userConfig; /** Stores the user config JSON object */
 
 public:
@@ -195,6 +197,16 @@ public:
      * @param params new params to set
      */
     void setParams(const PGParams& params);
+
+    /**
+     * @brief Get the GUI language code (e.g. "en")
+     */
+    [[nodiscard]] auto getUILanguage() const -> std::string;
+
+    /**
+     * @brief Set the GUI language code (persisted on the next saveUserConfig)
+     */
+    void setUILanguage(const std::string& lang);
 
     /**
      * @brief Validates a given param struct

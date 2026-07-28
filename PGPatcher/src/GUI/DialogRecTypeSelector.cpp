@@ -1,5 +1,6 @@
 #include "GUI/DialogRecTypeSelector.hpp"
 
+#include "PGLocale.hpp"
 #include "PGPlugin.hpp"
 
 #include <algorithm>
@@ -25,8 +26,9 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
     auto* instructionText = new wxStaticText(
         this,
         wxID_ANY,
-        "Unchecking a record type will exclude it and its associated meshes from being patched. Only record types with "
-        "models are shown.");
+        PGTr("dialogs.recTypeSelector.description",
+             "Unchecking a record type will exclude it and its associated meshes from being patched. Only record types "
+             "with models are shown."));
     // wrap text around 300 px
     instructionText->Wrap(260);
     instructionText->SetMinSize(wxSize(-1, 50));
@@ -42,8 +44,8 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
     // Bind right-click for context menu
     m_listCtrl->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, [this](wxListEvent&) {
         wxMenu menu;
-        auto* enableItem = menu.Append(1, "Enable");
-        auto* disableItem = menu.Append(2, "Disable");
+        auto* enableItem = menu.Append(1, PGTr("common.enable", "Enable"));
+        auto* disableItem = menu.Append(2, PGTr("common.disable", "Disable"));
 
         // Check selection states
         bool allEnabled = true;
@@ -86,8 +88,8 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, 10);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
-    btnSizer->AddButton(new wxButton(this, wxID_CANCEL));
-    btnSizer->AddButton(new wxButton(this, wxID_OK));
+    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel")));
+    btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok", "OK")));
     btnSizer->Realize();
 
     mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, 10);

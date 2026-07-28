@@ -4,6 +4,7 @@
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtMeshesIgnoredChanged.hpp"
 #include "GUI/components/PGCheckedDragListCtrlGhostWindow.hpp"
+#include "PGLocale.hpp"
 
 #include <wx/renderer.h>
 #include <wx/wx.h>
@@ -348,14 +349,14 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     static constexpr int ID_ENABLE_MESHES = 1005;
     static constexpr int ID_DISABLE_MESHES = 1006;
 
-    menu.Append(ID_MOVE_TOP, "Move to Top");
-    menu.Append(ID_MOVE_BOTTOM, "Move to Bottom");
+    menu.Append(ID_MOVE_TOP, PGTr("components.checkedDragList.moveToTop", "Move to Top"));
+    menu.Append(ID_MOVE_BOTTOM, PGTr("components.checkedDragList.moveToBottom", "Move to Bottom"));
     menu.AppendSeparator();
-    menu.Append(ID_ENABLE, "Enable");
-    menu.Append(ID_DISABLE, "Disable");
+    menu.Append(ID_ENABLE, PGTr("common.enable", "Enable"));
+    menu.Append(ID_DISABLE, PGTr("common.disable", "Disable"));
     menu.AppendSeparator();
-    menu.Append(ID_ENABLE_MESHES, "Patch Meshes");
-    menu.Append(ID_DISABLE_MESHES, "Ignore Meshes");
+    menu.Append(ID_ENABLE_MESHES, PGTr("components.checkedDragList.patchMeshes", "Patch Meshes"));
+    menu.Append(ID_DISABLE_MESHES, PGTr("components.checkedDragList.ignoreMeshes", "Ignore Meshes"));
 
     // Gather all selected items
     std::vector<long> selectedItems = getSelectedItems();
