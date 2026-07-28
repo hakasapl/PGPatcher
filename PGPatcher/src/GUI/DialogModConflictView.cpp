@@ -820,7 +820,7 @@ void DialogModConflictView::openMatchFile(const wxString& modNameStr,
     }
 
     // Try to open from the mod's actual folder first.
-    if (!modNameStr.IsEmpty() && modNameStr != PGTr("matchViewer.untrackedMod", "[Untracked Mod/Vanilla]")) {
+    if (!modNameStr.IsEmpty()) {
         std::shared_ptr<PGModManager::Mod> mod = nullptr;
         try {
             mod = PGGlobals::getPGMM()->getMod(modNameStr.ToStdWstring());
