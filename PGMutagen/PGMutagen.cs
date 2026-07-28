@@ -457,8 +457,9 @@ public class PGMutagen
         }
     }
 
+    // esmMode: 0 = ESM flag only PGPatcher.esp, 1 = ESM flag all output plugins, 2 = no ESM flags
     [UnmanagedCallersOnly(EntryPoint = "Finalize", CallConvs = [typeof(CallConvCdecl)])]
-    public static void Finalize([DNNE.C99Type("const wchar_t*")] IntPtr outputPathPtr, [DNNE.C99Type("const int")] int esmify)
+    public static void Finalize([DNNE.C99Type("const wchar_t*")] IntPtr outputPathPtr, [DNNE.C99Type("const int")] int esmMode)
     {
         try
         {
@@ -492,7 +493,10 @@ public class PGMutagen
             {
                 OutMod.IsSmallMaster = true;
             }
-            OutMod.IsMaster = true;
+            if (esmMode != 2)
+            {
+                OutMod.IsMaster = true;
+            }
 
             bool OutModNeeded = OutMod.EnumerateMajorRecords().Any();
             bool HasModifiedRecords = ModifiedRecords.Count > 0;
@@ -705,7 +709,7 @@ public class PGMutagen
                 mod.IsSmallMaster = true;
 
                 // Set ESM flag if user wants
-                if (esmify == 1)
+                if (esmMode == 1)
                 {
                     mod.IsMaster = true;
                 }

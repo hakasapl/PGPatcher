@@ -78,10 +78,10 @@ public:
      * @brief Writes all pending changes to the output plugin file and finalises the session.
      *
      * @param outputPath Path where the output plugin file should be written.
-     * @param esmify     If true, the output plugin is saved as an ESM master file.
+     * @param esmMode    0 = ESM flag only PGPatcher.esp, 1 = ESM flag all output plugins, 2 = no ESM flags.
      */
     static void libFinalize(const std::filesystem::path& outputPath,
-                            const bool& esmify);
+                            int esmMode);
 
     /**
      * @brief Retrieves all plugin records that reference the given model path.

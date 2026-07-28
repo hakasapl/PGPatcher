@@ -81,6 +81,12 @@ public:
         {.value = PluginLang::TURKISH, .name = "Turkish"},
     }};
 
+    enum class ESMMode : uint8_t {
+        PGPATCHER_ONLY = 0, // ESM flag only PGPatcher.esp (default)
+        ALL = 1, // ESM flag all output plugins
+        NONE = 2 // do not ESM flag any output plugin
+    };
+
     enum class ModelRecordType : uint8_t {
         ACTIVATOR, // ACTI
         AMMUNITION, // AMMO
@@ -276,10 +282,10 @@ public:
      * @brief Saves the generated output plugin to the given directory.
      *
      * @param outputDir Directory in which to write the output plugin file.
-     * @param esmify If true, saves the plugin as an ESM (master file) instead of ESP.
+     * @param esmMode Which output plugins to ESM flag.
      */
     static void savePlugin(const std::filesystem::path& outputDir,
-                           bool esmify);
+                           ESMMode esmMode);
 
     /**
      * @brief Get the Plugin Path From Data Path object (removes textures or meshes from beginning of path)

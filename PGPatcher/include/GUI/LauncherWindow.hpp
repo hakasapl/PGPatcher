@@ -91,9 +91,6 @@ private:
     void onOutputPluginLangChange(wxCommandEvent& event);
 
     // Processing
-    wxCheckBox* m_processingPluginPatchingOptionsESMifyCheckbox;
-    void onProcessingPluginPatchingOptionsESMifyChange(wxCommandEvent& event);
-
     wxCheckBox* m_processingMultithreadingCheckbox;
     void onProcessingMultithreadingChange(wxCommandEvent& event);
 
