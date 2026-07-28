@@ -1,5 +1,6 @@
 #include "GUI/DialogModConflictView.hpp"
 
+#include "GUI/PGMessageBox.hpp"
 #include "PGGlobals.hpp"
 #include "PGModManager.hpp"
 #include "PGPatcher.hpp"
@@ -689,11 +690,11 @@ void DialogModConflictView::openPathWithDefaultApp(const filesystem::path& path)
 void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
+        PGMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
         return;
     }
 
-    const int result = wxMessageBox(wxString::Format("This file is inside a BSA archive:\n%s\n\nWould you "
+    const int result = PGMessageBox(wxString::Format("This file is inside a BSA archive:\n%s\n\nWould you "
                                                      "like to extract it to a read-only temporary location and open "
                                                      "it? It will be deleted when you close this dialog.",
                                                      relPath.wstring().c_str()),
@@ -714,20 +715,20 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
 
         std::vector<std::byte> fileBytes = PGGlobals::getPGD()->getFile(relPath);
         if (fileBytes.empty()) {
-            wxMessageBox("Error: Failed to read file.", "Extraction Error", wxOK | wxICON_ERROR, this);
+            PGMessageBox("Error: Failed to read file.", "Extraction Error", wxOK | wxICON_ERROR, this);
             return;
         }
 
         std::ofstream outFile(tempFile, std::ios::binary);
         if (!outFile) {
-            wxMessageBox(wxString::Format("Error: Failed to create temporary file at %s", tempFile.wstring().c_str()),
+            PGMessageBox(wxString::Format("Error: Failed to create temporary file at %s", tempFile.wstring().c_str()),
                          "Extraction Error",
                          wxOK | wxICON_ERROR,
                          this);
             return;
         }
         if (fileBytes.size() > static_cast<size_t>(numeric_limits<streamsize>::max())) {
-            wxMessageBox("Error: File is too large to extract.", "Extraction Error", wxOK | wxICON_ERROR, this);
+            PGMessageBox("Error: File is too large to extract.", "Extraction Error", wxOK | wxICON_ERROR, this);
             return;
         }
         const auto bytesToWrite = static_cast<streamsize>(fileBytes.size());
@@ -743,7 +744,7 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
         m_tempFiles.push_back(tempFile);
         openPathWithDefaultApp(tempFile);
     } catch (const exception& ex) {
-        wxMessageBox(
+        PGMessageBox(
             wxString::Format("Error attempting to extract and open file: %s", StringUtil::utf8toUTF16(ex.what())),
             "Extraction Error",
             wxOK | wxICON_ERROR,
@@ -754,7 +755,7 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
 void DialogModConflictView::openMeshFile(const filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
+        PGMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
         return;
     }
 
@@ -781,7 +782,7 @@ void DialogModConflictView::openMatchFile(const wxString& modNameStr,
                                           const filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        wxMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
+        PGMessageBox("Cannot open file: data directory is not available.", "Error", wxOK | wxICON_ERROR, this);
         return;
     }
 

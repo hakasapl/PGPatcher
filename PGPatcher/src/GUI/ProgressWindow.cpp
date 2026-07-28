@@ -8,6 +8,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
+#include <filesystem>
 #include <string>
 #include <wx/string.h>
 #include <wx/toplevel.h>
@@ -33,7 +34,12 @@ ProgressWindow::ProgressWindow()
 
     // Animated GIF on the left (part of the main sizer)
     wxAnimation anim;
-    const auto gifPath = PGPatcherGlobals::getEXEPath() / "resources" / "runningparallaxgen.gif";
+    const auto resourcesPath = PGPatcherGlobals::getEXEPath() / "resources";
+    auto gifPath
+        = resourcesPath / (PGPatcherGlobals::isDarkMode() ? "runningparallaxgen_dark.gif" : "runningparallaxgen.gif");
+    if (!std::filesystem::exists(gifPath)) {
+        gifPath = resourcesPath / "runningparallaxgen.gif";
+    }
     if (anim.LoadFile(gifPath.wstring(), wxANIMATION_TYPE_GIF)) {
         auto* animCtrl = new wxAnimationCtrl(this, wxID_ANY, anim);
         animCtrl->Play(); // start playing

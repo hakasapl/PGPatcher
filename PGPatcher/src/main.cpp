@@ -896,8 +896,10 @@ void addArguments(CLI::App& app,
     // Logging
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
     app.add_flag("--console", args.console, "Show console in the background");
-    auto* const forceLightFlag = app.add_flag("--force-light", args.forceLight, "Force light theme");
-    auto* const forceDarkFlag = app.add_flag("--force-dark", args.forceDark, "Force dark theme");
+    auto* const forceLightFlag
+        = app.add_flag("--force-light", args.forceLight, "Force light theme instead of following the system theme");
+    auto* const forceDarkFlag
+        = app.add_flag("--force-dark", args.forceDark, "Force dark theme instead of following the system theme");
     forceLightFlag->excludes(forceDarkFlag);
     forceDarkFlag->excludes(forceLightFlag);
     app.add_flag(
