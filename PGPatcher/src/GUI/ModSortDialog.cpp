@@ -160,7 +160,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     helpButton->SetMaxSize(helpBtnSize);
 
     helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
-        wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Mod-Window");
+        wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Conflict-Manager");
     });
 
     helpSizer->Add(helpButton, 0, wxLEFT | wxTOP | wxBOTTOM, DEFAULT_BORDER);

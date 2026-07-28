@@ -4,6 +4,11 @@
 
 - GUI now follows the system light/dark theme by default (--force-light and --force-dark still override)
 - Fixed message box popups and the completion dialog collapse arrows not rendering in dark mode
+- Removed the ESMify Plugin option from the launcher, replaced by the --esm-all CLI argument
+- Added --no-esm CLI argument to disable the ESM flag on PGPatcher.esp
+- Fixed broken wiki link in conflict manager
+- Change wording in output settings
+- Change wording in mod manager settings
 
 ## [1.2.0] - UNRELEASED
 

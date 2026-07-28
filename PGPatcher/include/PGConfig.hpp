@@ -65,7 +65,6 @@ public:
         // Processing
         struct Processing {
             bool multithread = true;
-            bool pluginESMify = false;
             bool enableModDevMode = false;
             bool enableDebugLogging = false;
             bool enableTraceLogging = false;
@@ -77,7 +76,7 @@ public:
 
             auto operator==(const Processing& other) const -> bool
             {
-                return multithread == other.multithread && pluginESMify == other.pluginESMify
+                return multithread == other.multithread
                     && enableModDevMode == other.enableModDevMode && enableDebugLogging == other.enableDebugLogging
                     && enableTraceLogging == other.enableTraceLogging
                     && allowedModelRecordTypes == other.allowedModelRecordTypes

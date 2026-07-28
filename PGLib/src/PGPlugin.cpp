@@ -244,9 +244,9 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
 }
 
 void PGPlugin::savePlugin(const filesystem::path& outputDir,
-                          bool esmify)
+                          ESMMode esmMode)
 {
-    PGMutagenWrapper::libFinalize(outputDir, esmify);
+    PGMutagenWrapper::libFinalize(outputDir, static_cast<int>(esmMode));
     // TODO add to generated files
 }
 

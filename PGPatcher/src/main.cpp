@@ -78,6 +78,8 @@ struct ParallaxGenCLIArgs {
     bool disableDynCubemap = false;
     bool forceAlwaysCM = false;
     bool excludeFacegens = false;
+    bool esmAll = false;
+    bool noEsm = false;
 };
 
 namespace {
@@ -679,7 +681,13 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel("Saving Plugins"); });
 
     Logger::info("Saving Plugins");
-    PGPlugin::savePlugin(params.Output.dir, params.Processing.pluginESMify);
+    auto esmMode = PGPlugin::ESMMode::PGPATCHER_ONLY;
+    if (args.esmAll) {
+        esmMode = PGPlugin::ESMMode::ALL;
+    } else if (args.noEsm) {
+        esmMode = PGPlugin::ESMMode::NONE;
+    }
+    PGPlugin::savePlugin(params.Output.dir, esmMode);
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, NUM_FINALIZING_STEPS); });
 
@@ -913,6 +921,11 @@ void addArguments(CLI::App& app,
         "If upgrade to CM patcher is enabled, everything will be upgraded to CM no matter what (no parallax will be "
         "used)");
     app.add_flag("--exclude-facegens", args.excludeFacegens, "Do not patch facegen meshes");
+    auto* const esmAllFlag
+        = app.add_flag("--esm-all", args.esmAll, "ESM flag all output plugins, not just PGPatcher.esp");
+    auto* const noEsmFlag = app.add_flag("--no-esm", args.noEsm, "Do not ESM flag PGPatcher.esp");
+    esmAllFlag->excludes(noEsmFlag);
+    noEsmFlag->excludes(esmAllFlag);
 }
 }
 

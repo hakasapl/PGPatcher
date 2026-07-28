@@ -2,8 +2,8 @@
 
 #include "GUI/DialogModifiableListCtrl.hpp"
 #include "GUI/DialogRecTypeSelector.hpp"
-#include "GUI/PGMessageBox.hpp"
 #include "GUI/DialogTextureMapListCtrl.hpp"
+#include "GUI/PGMessageBox.hpp"
 #include "PGConfig.hpp"
 #include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
@@ -102,16 +102,17 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     //
     // Mod Manager
     //
-    auto* modManagerSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Conflict Resolution Mod Manager");
+    auto* modManagerSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Mod Manager");
 
     isFirst = true;
     for (const auto& mmType : PGModManager::getModManagerTypes()) {
-        auto* radio = new wxRadioButton(this,
-                                        wxID_ANY,
-                                        PGModManager::getStrFromModManagerType(mmType),
-                                        wxDefaultPosition,
-                                        wxDefaultSize,
-                                        isFirst ? wxRB_GROUP : 0);
+        auto mmString = PGModManager::getStrFromModManagerType(mmType);
+        if (mmType == PGModManager::ModManagerType::NONE) {
+            mmString += " (No Conflict Resolution)";
+        }
+
+        auto* radio
+            = new wxRadioButton(this, wxID_ANY, mmString, wxDefaultPosition, wxDefaultSize, isFirst ? wxRB_GROUP : 0);
         isFirst = false;
         m_modManagerRadios[mmType] = radio;
         modManagerSizer->Add(radio, 0, wxALL, BORDER_SIZE);
@@ -152,8 +153,8 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     auto* outputLocationLabel = new wxStaticText(
         this,
         wxID_ANY,
-        "Location recommended to be a mod folder. CANNOT be in your data folder. AVOID DELETING OLD OUTPUT BEFORE "
-        "RUNNING "
+        "Location recommended to be a mod folder. Cannot be in your data folder. Avoid deleting old output before "
+        "running "
         "if output is set to a mod folder.");
     outputLocationLabel->Wrap(LEFTSIZER_WRAP_SIZE);
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
@@ -369,14 +370,6 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 
     auto* processingCheckboxSizer = new wxBoxSizer(wxVERTICAL);
 
-    m_processingPluginPatchingOptionsESMifyCheckbox = new wxCheckBox(this, wxID_ANY, "ESMify Plugin (Not Recommended)");
-    m_processingPluginPatchingOptionsESMifyCheckbox->SetToolTip(
-        "ESM flags all the output plugins, not just PGPatcher.esp (don't check this if you don't know what you're "
-        "doing)");
-    m_processingPluginPatchingOptionsESMifyCheckbox->Bind(
-        wxEVT_CHECKBOX, &LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange, this);
-    processingCheckboxSizer->Add(m_processingPluginPatchingOptionsESMifyCheckbox, 0, wxALL, BORDER_SIZE);
-
     m_processingMultithreadingCheckbox = new wxCheckBox(this, wxID_ANY, "Multithreading");
     m_processingMultithreadingCheckbox->SetToolTip("Speeds up runtime at the cost of using more resources");
     m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
@@ -499,7 +492,6 @@ void LauncherWindow::loadConfig()
     m_outputPluginLangCombo->SetStringSelection(PGPlugin::getStringFromPluginLang(initParams.Output.pluginLang));
 
     // Processing
-    m_processingPluginPatchingOptionsESMifyCheckbox->SetValue(initParams.Processing.pluginESMify);
     m_processingMultithreadingCheckbox->SetValue(initParams.Processing.multithread);
     m_processingEnableDevModeCheckbox->SetValue(initParams.Processing.enableModDevMode);
     m_processingEnableDebugLoggingCheckbox->SetValue(initParams.Processing.enableDebugLogging);
@@ -578,11 +570,6 @@ void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
 void LauncherWindow::onOutputLocationChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onOutputZipChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
-
-void LauncherWindow::onProcessingPluginPatchingOptionsESMifyChange([[maybe_unused]] wxCommandEvent& event)
-{
-    updateDisabledElements();
-}
 
 void LauncherWindow::onOutputPluginLangChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
@@ -720,7 +707,6 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
         = PGPlugin::getPluginLangFromString(m_outputPluginLangCombo->GetStringSelection().ToStdString());
 
     // Processing
-    params.Processing.pluginESMify = m_processingPluginPatchingOptionsESMifyCheckbox->GetValue();
     params.Processing.multithread = m_processingMultithreadingCheckbox->GetValue();
     params.Processing.enableModDevMode = m_processingEnableDevModeCheckbox->GetValue();
     params.Processing.enableDebugLogging = m_processingEnableDebugLoggingCheckbox->GetValue();

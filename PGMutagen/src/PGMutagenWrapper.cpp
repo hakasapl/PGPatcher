@@ -172,11 +172,11 @@ void PGMutagenWrapper::libResetPatchingState()
 }
 
 void PGMutagenWrapper::libFinalize(const filesystem::path& outputPath,
-                                   const bool& esmify)
+                                   int esmMode)
 {
     const lock_guard<mutex> lock(s_libMutex);
 
-    Finalize(outputPath.c_str(), static_cast<int>(esmify));
+    Finalize(outputPath.c_str(), esmMode);
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 }
