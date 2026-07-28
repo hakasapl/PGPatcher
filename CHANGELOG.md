@@ -6,6 +6,7 @@
 - Fixed message box popups and the completion dialog collapse arrows not rendering in dark mode
 - Removed the ESMify Plugin option from the launcher, replaced by the --esm-all CLI argument
 - Added --no-esm CLI argument to disable the ESM flag on PGPatcher.esp
+- Added GUI localization system with JSON translation files in the "translations" folder, selectable via the new settings (gear) button in the launcher
 - Fixed broken wiki link in conflict manager
 - Change wording in output settings
 - Change wording in mod manager settings

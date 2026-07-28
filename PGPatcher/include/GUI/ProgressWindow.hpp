@@ -47,7 +47,7 @@ public:
      *
      * @param label New label text to display.
      */
-    void setMainLabel(const std::string& label);
+    void setMainLabel(const wxString& label);
 
     /**
      * @brief Update the step (per-operation) progress bar.
@@ -65,5 +65,5 @@ public:
      *
      * @param label New label text to display.
      */
-    void setStepLabel(const std::string& label);
+    void setStepLabel(const wxString& label);
 };

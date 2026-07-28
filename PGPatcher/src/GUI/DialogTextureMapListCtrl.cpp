@@ -2,6 +2,7 @@
 
 #include "GUI/components/PGCustomListctrlChangedEvent.hpp"
 #include "GUI/components/PGTextureMapListCtrl.hpp"
+#include "PGLocale.hpp"
 #include "pgutil/PGEnums.hpp"
 
 #include <algorithm>
@@ -55,8 +56,8 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, 10);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
-    btnSizer->AddButton(new wxButton(this, wxID_CANCEL));
-    btnSizer->AddButton(new wxButton(this, wxID_OK));
+    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel")));
+    btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok", "OK")));
     btnSizer->Realize();
 
     mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, 10);

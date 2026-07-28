@@ -38,10 +38,15 @@ void PGUI::init(bool forceDarkMode,
 void PGUI::showLauncher(PGConfig& pgc,
                         PGConfig::PGParams& params)
 {
-    auto* launcher = new LauncherWindow(pgc); // NOLINT(cppcoreguidelines-owning-memory)
-    if (launcher->ShowModal() == wxID_OK) {
-        launcher->getParams(params);
-    }
+    int result = wxID_CANCEL;
+    do {
+        auto* launcher = new LauncherWindow(pgc); // NOLINT(cppcoreguidelines-owning-memory)
+        result = launcher->ShowModal();
+        if (result == wxID_OK) {
+            launcher->getParams(params);
+        }
+        launcher->Destroy();
+    } while (result == LauncherWindow::RESULT_RELAUNCH); // rebuild the launcher after a language change
 }
 
 void PGUI::selectModOrder()
