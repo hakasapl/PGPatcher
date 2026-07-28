@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.0] - UNRELEASED
+
+- GUI now follows the system light/dark theme by default (--force-light and --force-dark still override)
+- Fixed message box popups and the completion dialog collapse arrows not rendering in dark mode
+
 ## [1.2.0] - UNRELEASED
 
 - Added Conflict viewer dialog to see any matching conflicts

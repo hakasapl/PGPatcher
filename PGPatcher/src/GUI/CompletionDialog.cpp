@@ -11,6 +11,7 @@
 #include <wx/gdicmn.h>
 #include <wx/listbase.h>
 #include <wx/listctrl.h>
+#include <wx/renderer.h>
 #include <wx/toplevel.h>
 #include <wx/wx.h>
 
@@ -22,6 +23,49 @@
 // Disable owning memory checks because wxWidgets will take care of deleting the objects
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+
+namespace {
+// The native renderer draws the pane header's collapse arrow with the light theme regardless of the app appearance,
+// so in dark mode repaint the header with the generic renderer, which uses the control's foreground colour
+void fixCollapsiblePaneHeaderDarkMode(wxCollapsiblePane* pane)
+{
+    if (!PGPatcherGlobals::isDarkMode()) {
+        return;
+    }
+
+    auto* header = pane->GetControlWidget();
+    if (header == nullptr) {
+        return;
+    }
+
+    header->Bind(wxEVT_PAINT, [header, pane](wxPaintEvent&) -> void {
+        wxPaintDC dc(header);
+        dc.SetBackground(wxBrush(header->GetBackgroundColour()));
+        dc.Clear();
+        dc.SetFont(header->GetFont());
+        dc.SetTextForeground(header->GetForegroundColour());
+
+        const wxRect rect(wxPoint(0, 0), header->GetClientSize());
+
+        const wxSize btnSize = wxRendererNative::Get().GetCollapseButtonSize(header, dc);
+        wxRect btnRect(wxPoint(0, 0), btnSize);
+        btnRect = btnRect.CenterIn(rect, wxVERTICAL);
+
+        const int flags = pane->IsExpanded() ? wxCONTROL_EXPANDED : 0;
+        wxRendererNative::GetGeneric().DrawCollapseButton(header, dc, btnRect, flags);
+
+        wxString text;
+        const int indexAccel = wxControl::FindAccelIndex(header->GetLabel(), &text);
+        wxRect textRect(wxPoint(btnSize.x + header->FromDIP(2), 0), dc.GetTextExtent(text));
+        textRect = textRect.CenterIn(rect, wxVERTICAL);
+        dc.DrawLabel(text, textRect, wxALIGN_CENTRE_VERTICAL, indexAccel);
+
+        if (header->HasFocus()) {
+            wxRendererNative::Get().DrawFocusRect(header, dc, textRect.Inflate(1), flags);
+        }
+    });
+}
+} // namespace
 
 CompletionDialog::CompletionDialog(const long long& timeTaken)
     : wxDialog(nullptr,
@@ -63,6 +107,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     // WARNINGS
     auto* warningsCtrl = new wxCollapsiblePane(
         this, wxID_ANY, "Show Warnings", wxDefaultPosition, wxDefaultSize, wxCP_DEFAULT_STYLE | wxCP_NO_TLW_RESIZE);
+    fixCollapsiblePaneHeaderDarkMode(warningsCtrl);
 
     m_warnListCtrl = new PGLogMessageListCtrl(warningsCtrl->GetPane(), wxID_ANY);
     m_warnListCtrl->Bind(s_EVT_PG_LOG_IGNORE_CHANGED, [this, warningsCtrl](wxCommandEvent&) -> void {
@@ -84,6 +129,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     // ERRORS
     auto* errorsCtrl = new wxCollapsiblePane(
         this, wxID_ANY, "Show Errors", wxDefaultPosition, wxDefaultSize, wxCP_DEFAULT_STYLE | wxCP_NO_TLW_RESIZE);
+    fixCollapsiblePaneHeaderDarkMode(errorsCtrl);
     m_errListCtrl = new PGLogMessageListCtrl(errorsCtrl->GetPane(), wxID_ANY, false);
     m_errListCtrl->Bind(s_EVT_PG_LOG_IGNORE_CHANGED, [this, errorsCtrl](wxCommandEvent&) -> void {
         const auto numErrors = m_errListCtrl->getNumUnignoredMessages();

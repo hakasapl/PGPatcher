@@ -2,6 +2,7 @@
 
 #include "GUI/DialogModifiableListCtrl.hpp"
 #include "GUI/DialogRecTypeSelector.hpp"
+#include "GUI/PGMessageBox.hpp"
 #include "GUI/DialogTextureMapListCtrl.hpp"
 #include "PGConfig.hpp"
 #include "PGModManager.hpp"
@@ -879,7 +880,7 @@ void LauncherWindow::onSaveConfigButtonPressed([[maybe_unused]] wxCommandEvent& 
 void LauncherWindow::onLoadConfigButtonPressed([[maybe_unused]] wxCommandEvent& event)
 {
     const int response
-        = wxMessageBox("Are you sure you want to load the config from the file? This action will overwrite all "
+        = PGMessageBox("Are you sure you want to load the config from the file? This action will overwrite all "
                        "current unsaved settings.",
                        "Confirm Load Config",
                        wxYES_NO | wxICON_WARNING,
@@ -899,7 +900,7 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
 {
     // Show a confirmation dialog
     const int response
-        = wxMessageBox("Are you sure you want to restore the default settings? This action cannot be undone.",
+        = PGMessageBox("Are you sure you want to restore the default settings? This action cannot be undone.",
                        "Confirm Restore Defaults",
                        wxYES_NO | wxICON_WARNING,
                        this);
@@ -924,8 +925,7 @@ auto LauncherWindow::saveConfig() -> bool
 
     // Validate the parameters
     if (!PGConfig::validateParams(params, errors)) {
-        wxMessageDialog errorDialog(this, boost::algorithm::join(errors, "\n"), "Errors", wxOK | wxICON_ERROR);
-        errorDialog.ShowModal();
+        PGMessageBox(boost::algorithm::join(errors, "\n"), "Errors", wxOK | wxICON_ERROR, this);
         return false;
     }
 

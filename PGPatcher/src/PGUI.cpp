@@ -29,6 +29,9 @@ void PGUI::init(bool forceDarkMode,
     } else if (forceLightMode && !forceDarkMode) {
         wxTheApp->SetAppearance(wxApp::Appearance::Light);
         PGPatcherGlobals::setIsDarkMode(false);
+    } else {
+        wxTheApp->SetAppearance(wxApp::Appearance::System);
+        PGPatcherGlobals::setIsDarkMode(wxSystemSettings::GetAppearance().IsSystemDark());
     }
 }
 

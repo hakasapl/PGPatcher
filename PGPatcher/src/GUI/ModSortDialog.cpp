@@ -1,6 +1,7 @@
 #include "GUI/ModSortDialog.hpp"
 
 #include "GUI/DialogModConflictView.hpp"
+#include "GUI/PGMessageBox.hpp"
 #include "GUI/components/PGCheckedDragListCtrl.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemChecked.hpp"
 #include "GUI/components/PGCheckedDragListCtrlEvtItemDragged.hpp"
@@ -485,7 +486,7 @@ auto ModSortDialog::confirmDiscardUnsavedChanges() -> bool
         return true;
     }
 
-    const int response = wxMessageBox("You have unsaved changes, are you sure you want to close?",
+    const int response = PGMessageBox("You have unsaved changes, are you sure you want to close?",
                                       "Unsaved Changes",
                                       wxYES_NO | wxICON_QUESTION,
                                       this);
@@ -498,7 +499,7 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
 {
     // confirm with modal
     const int response
-        = wxMessageBox("Are you sure you want to restore default mod order and enable any manually disabled mods?",
+        = PGMessageBox("Are you sure you want to restore default mod order and enable any manually disabled mods?",
                        "Confirm Restore Default Order",
                        wxYES_NO | wxICON_QUESTION,
                        this);
@@ -579,7 +580,7 @@ auto ModSortDialog::getLiveModPriorityList() const -> std::vector<std::shared_pt
 
 void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
 {
-    const int response = wxMessageBox(
+    const int response = PGMessageBox(
         "Are you sure you want to re-run the patching step?", "Re-run Patching", wxYES_NO | wxICON_QUESTION, this);
     if (response != wxYES) {
         return;
@@ -594,7 +595,7 @@ void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
 
 void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
 {
-    const int response = wxMessageBox(
+    const int response = PGMessageBox(
         "Are you sure you want to discard all changes?", "Confirm Discard Changes", wxYES_NO | wxICON_QUESTION, this);
 
     if (response == wxYES) {
@@ -795,7 +796,7 @@ void ModSortDialog::updateMods()
 
     if (!PGConfig::saveModConfig()) {
         // critical dialog
-        wxMessageBox("Failed to save mod configuration to modrules.json", "Error", wxOK | wxICON_ERROR, this);
+        PGMessageBox("Failed to save mod configuration to modrules.json", "Error", wxOK | wxICON_ERROR, this);
     }
 
     auto currentParams = pgc->getParams();
@@ -803,7 +804,7 @@ void ModSortDialog::updateMods()
     pgc->setParams(currentParams);
     if (!pgc->saveUserConfig()) {
         // critical dialog
-        wxMessageBox("Failed to save user configuration to user.json", "Error", wxOK | wxICON_ERROR, this);
+        PGMessageBox("Failed to save user configuration to user.json", "Error", wxOK | wxICON_ERROR, this);
     }
 
     updateApplyButtonState();
