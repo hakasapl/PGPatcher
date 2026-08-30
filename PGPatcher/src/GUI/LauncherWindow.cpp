@@ -165,13 +165,12 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         this,
         wxID_ANY,
         PGTr("launcher.output.location.help",
-             "Location recommended to be a mod folder. Cannot be in your data folder. Avoid deleting old output "
-             "before running if output is set to a mod folder."));
+             "Location"));
     outputLocationLabel->Wrap(LEFTSIZER_WRAP_SIZE);
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_outputLocationTextbox->SetToolTip(
         PGTr("launcher.output.location.tooltip",
-             "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher"));
+             "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher, recommended to be a mod folder"));
     m_outputLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onOutputLocationChange, this);
 
     auto* outputLocationBrowseButton = new wxButton(this, wxID_ANY, PGTr("common.browse", "Browse"));

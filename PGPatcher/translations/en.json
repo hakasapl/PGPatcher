@@ -56,8 +56,8 @@
     "output": {
       "title": "Output",
       "location": {
-        "help": "Location recommended to be a mod folder. Cannot be in your data folder. Avoid deleting old output before running if output is set to a mod folder.",
-        "tooltip": "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher"
+        "help": "Location",
+        "tooltip": "Path to the output folder - This folder should be used EXCLUSIVELY for PGPatcher, recommended to be a mod folder"
       },
       "zip": {
         "label": "Zip Output (Keep disabled if outputting to a mod folder)",
