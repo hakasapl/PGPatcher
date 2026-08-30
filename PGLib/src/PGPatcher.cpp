@@ -653,6 +653,25 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
             matchMeta.shader = match.shader;
             matchMeta.shaderTransformTo = match.shaderTransformTo;
             matchMeta.matchedPath = match.match.matchedPath;
+
+            if (PGGlobals::isPGMMSet()) {
+                // Record which mod supplies each result texture so the conflict viewer can flag
+                // matches whose result textures come from different mods
+                PGTypes::TextureSet resultSlots = slots;
+                patchers.shaderPatchers.at(match.shader)->applyPatchSlots(resultSlots, match.match);
+                for (size_t slot = 0; slot < resultSlots.size(); slot++) {
+                    if (resultSlots.at(slot).empty()) {
+                        continue;
+                    }
+
+                    auto slotMod = PGGlobals::getPGMM()->getModByFileSmart(resultSlots.at(slot));
+                    if (slotMod != nullptr) {
+                        matchMeta.resultTextureMods.emplace_back(static_cast<PGEnums::TextureSlots>(slot),
+                                                                 std::move(slotMod));
+                    }
+                }
+            }
+
             meshShapeMeta.matches[formKey].push_back(matchMeta);
 
             if (match.mod != nullptr) {
@@ -683,22 +702,6 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
             // loop through patchers
             patchers.shaderPatchers.at(winningShaderMatch.shader)
                 ->applyPatch(slots, *nifShape, winningShaderMatch.match);
-
-            // Post warnings if any
-            if (PGGlobals::isPGMMSet()) {
-                for (const auto& curMatchedFrom : winningShaderMatch.match.matchedFrom) {
-                    const auto modMatchFrom
-                        = PGGlobals::getPGMM()->getModByFileSmart(slots.at(static_cast<int>(curMatchedFrom)));
-                    const auto modMatchPath
-                        = PGGlobals::getPGMM()->getModByFileSmart(winningShaderMatch.match.matchedPath);
-
-                    if (modMatchFrom != nullptr && modMatchPath != nullptr && modMatchFrom != modMatchPath) {
-                        Logger::warn(L"Mod {} assets match assets from mod {}. Verify this is correct.",
-                                     modMatchPath->name,
-                                     modMatchFrom->name);
-                    }
-                }
-            }
 
             if (nif->GetBlockID(nifShape) == NIF_NPOS) {
                 // shape was deleted, nothing else to do

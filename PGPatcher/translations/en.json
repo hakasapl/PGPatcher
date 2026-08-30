@@ -287,6 +287,8 @@
     },
     "showDisabledMods": "Show Disabled Mods",
     "onlyShowConflicts": "Only Show Conflicts",
+    "showMismatches": "Show Potential Mismatches",
+    "showMismatchesTooltip": "Show warning icons for meshes and matches with potential mod mismatches",
     "panels": {
       "meshes": "Meshes",
       "shapes": "Shapes",
@@ -306,6 +308,22 @@
     "unnamedShape": "[ Unnamed ]",
     "noMatches": "[No matches - this shape cannot be patched]",
     "untrackedMod": "[Untracked Mod/Vanilla]",
+    "warnings": {
+      "meshFromOtherMod": "Mesh is from %s, verify UVs match",
+      "resultTexturesFromDifferentMods": "Resultant textures come from multiple mods, verify this is correct:"
+    },
+    "slots": {
+      "diffuse": "Diffuse",
+      "normal": "Normal",
+      "glow": "Glow",
+      "parallax": "Parallax",
+      "cubemap": "Cubemap",
+      "envMask": "Environment Mask",
+      "multilayer": "Multilayer",
+      "backlight": "Backlight",
+      "unused": "Unused",
+      "unknown": "Unknown"
+    },
     "contextMenu": {
       "copyName": "Copy Name",
       "open": "Open",

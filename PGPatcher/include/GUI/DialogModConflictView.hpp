@@ -2,8 +2,10 @@
 
 #include "PGModManager.hpp"
 #include "PGPatcher.hpp"
+#include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 
+#include <wx/imaglist.h>
 #include <wx/listctrl.h>
 #include <wx/splitter.h>
 #include <wx/textctrl.h>
@@ -74,6 +76,7 @@ private:
     wxStaticText* m_filterLabel = nullptr; ///< Banner showing which mods are being filtered.
     wxCheckBox* m_showDisabledCheckbox = nullptr; ///< Toggle visibility of disabled/untracked matches.
     wxCheckBox* m_showOnlyConflictsCheckbox = nullptr; ///< When checked, show only conflicting shapes.
+    wxCheckBox* m_showMismatchesCheckbox = nullptr; ///< Toggle visibility of the mismatch warning icons.
 
     /// Thread-safe snapshot of mesh patch metadata taken at construction time.
     PGPatcher::MeshPatchInfo m_patchMeta;
@@ -93,12 +96,28 @@ private:
     int m_selectedPluginUseIdx = -1;
     /// Plugin use info for the currently selected shape.
     std::vector<PluginUseInfo> m_currentPluginUses;
+    /// Per-row warning tooltips for the mesh list; empty string means no warning icon on that row.
+    std::vector<wxString> m_meshRowTooltips;
+    /// Per-row warning tooltips for the match list; empty string means no warning icon on that row.
+    std::vector<wxString> m_matchRowTooltips;
+    /// Warning icon image list for the mesh list (owned here; the list control only borrows it).
+    wxImageList m_meshWarningImages;
+    /// Warning icon image list for the match list (owned here; the list control only borrows it).
+    wxImageList m_matchWarningImages;
+    /// True once the warning icon image lists were successfully created.
+    bool m_warningIconAvailable = false;
+    /// Whether mismatch warning icons are currently shown ("Show Potential Mismatches" checkbox state, off by
+    /// default).
+    bool m_showMismatches = false;
 
     constexpr static int DEFAULT_WIDTH = 1100;
     constexpr static int DEFAULT_HEIGHT = 650;
     constexpr static int DEFAULT_BORDER = 5;
     constexpr static int LEFT_PANE_WIDTH = 420;
     constexpr static int MID_PANE_WIDTH = 220;
+    constexpr static int WARNING_ICON_SIZE = 16;
+    /// Image list index of the warning icon (index 0 is a transparent placeholder shown by default).
+    constexpr static int WARNING_ICON_IMAGE_INDEX = 1;
 
     /// Background colour used to highlight the winning match row.
     static inline const wxColour s_WINNING_MATCH_COLOR {160, 215, 160};
@@ -179,6 +198,43 @@ private:
      */
     static auto computeWinningMatchIdx(const std::vector<MatchView>& matches) -> int;
 
+    /**
+     * @brief Load resources/warning.svg and build the warning icon image lists for the mesh and match lists.
+     */
+    void setupWarningIcons();
+
+    /**
+     * @brief Attach or detach the warning icon image lists based on the "Show Mismatches" checkbox state.
+     */
+    void applyWarningIconVisibility();
+
+    /**
+     * @brief Warning tooltip for a mesh row when the mesh file belongs to a tracked mod outside m_filterMods.
+     *        Returns an empty string when no warning applies (no mod filter, mesh owned by a filtered mod, or
+     *        mesh from vanilla/untracked sources which are assumed correct).
+     */
+    [[nodiscard]] auto getMeshWarningTooltip(const std::filesystem::path& meshPath) const -> wxString;
+
+    /**
+     * @brief Warning tooltip for a match row whose result textures come from more than one mod.
+     *        Lists each result texture slot with its owning mod. Empty string when no warning applies.
+     */
+    [[nodiscard]] static auto buildResultTexturesTooltip(const MatchView& match) -> wxString;
+
+    /// @brief Display name for a texture slot (e.g. "Diffuse", "Normal").
+    [[nodiscard]] static auto getSlotDisplayName(PGEnums::TextureSlots slot) -> wxString;
+
+    /**
+     * @brief Show/hide the list's native tooltip based on whether the cursor is over a row's warning icon.
+     *
+     * @param list List control the motion event belongs to.
+     * @param tooltips Per-row warning texts for that list (empty string = no warning on that row).
+     * @param event The motion event (skipped before returning).
+     */
+    static void updateHoverTooltip(wxListCtrl* list,
+                                   const std::vector<wxString>& tooltips,
+                                   wxMouseEvent& event);
+
     // ---- Event handlers ----------------------------------------------------
 
     void onMeshSelected(wxListEvent& event);
@@ -191,6 +247,7 @@ private:
     void onSearchChanged(wxCommandEvent& event);
     void onShowDisabledChanged(wxCommandEvent& event);
     void onShowOnlyConflictsChanged(wxCommandEvent& event);
+    void onShowMismatchesChanged(wxCommandEvent& event);
     void onPluginUseSelected(wxCommandEvent& event);
     void onMatchActivated(wxListEvent& event);
     void onMatchContextMenu(wxContextMenuEvent& event);

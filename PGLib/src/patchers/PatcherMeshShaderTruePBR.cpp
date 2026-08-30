@@ -36,7 +36,6 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -291,18 +290,10 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
 
     map<size_t, tuple<nlohmann::json, wstring>> truePBRData;
     // "match_normal" attribute: Binary search for normal map
-    getSlotMatch(truePBRData,
-                 searchPrefixes[1],
-                 getTruePBRNormalInverse(),
-                 getNIFPath().wstring(),
-                 PGEnums::TextureSlots::NORMAL);
+    getSlotMatch(truePBRData, searchPrefixes[1], getTruePBRNormalInverse(), getNIFPath().wstring());
 
     // "match_diffuse" attribute: Binary search for diffuse map
-    getSlotMatch(truePBRData,
-                 searchPrefixes[0],
-                 getTruePBRDiffuseInverse(),
-                 getNIFPath().wstring(),
-                 PGEnums::TextureSlots::DIFFUSE);
+    getSlotMatch(truePBRData, searchPrefixes[0], getTruePBRDiffuseInverse(), getNIFPath().wstring());
 
     // "path_contains" attribute: Linear search for path_contains
     getPathContainsMatch(truePBRData, searchPrefixes[0], getNIFPath().wstring());
@@ -312,7 +303,6 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
 
     // Split data into individual JSONs
     unordered_map<wstring, map<size_t, tuple<nlohmann::json, wstring>>> truePBROutputData;
-    unordered_map<wstring, unordered_set<PGEnums::TextureSlots>> truePBRMatchedFrom;
     for (const auto& [sequence, data] : truePBRData) {
         // get current JSON
         auto matchedPath = StringUtil::utf8toUTF16(get<0>(data)["json"].get<string>());
@@ -323,16 +313,12 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
             truePBROutputData.emplace(matchedPath, map<size_t, tuple<nlohmann::json, wstring>> {});
         }
         truePBROutputData[matchedPath][sequence] = data;
-
-        const auto matchedFromSlot = static_cast<PGEnums::TextureSlots>(get<0>(data).at("meta_matchedFrom").get<int>());
-        truePBRMatchedFrom[matchedPath].insert(matchedFromSlot);
     }
 
     // Convert output to vectors
     for (auto& [json, jsonData] : truePBROutputData) {
         PatcherMatch match;
         match.matchedPath = json;
-        match.matchedFrom = truePBRMatchedFrom[json];
         match.extraData = make_shared<decltype(jsonData)>(jsonData);
 
         // loop through json data
@@ -406,8 +392,7 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t,
                                             const wstring& texName,
                                             const map<wstring,
                                                       vector<size_t>>& lookup,
-                                            const wstring& nifPath,
-                                            const PGEnums::TextureSlots& slot)
+                                            const wstring& nifPath)
 {
     // binary search for map
     auto mapReverse = StringUtil::toLowerASCIIFast(texName);
@@ -461,7 +446,7 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t,
 
     // Loop through all matches
     for (const auto& cfg : cfgs) {
-        insertTruePBRData(truePBRData, texName, cfg, nifPath, slot);
+        insertTruePBRData(truePBRData, texName, cfg, nifPath);
     }
 }
 
@@ -491,7 +476,7 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
         }
 
         if (pathMatch) {
-            insertTruePBRData(truePBRData, diffuse, config.first, nifPath, PGEnums::TextureSlots::DIFFUSE);
+            insertTruePBRData(truePBRData, diffuse, config.first, nifPath);
         }
     }
 }
@@ -526,7 +511,7 @@ void PatcherMeshShaderTruePBR::getMatchXMatch(std::map<size_t,
 
         // add to truePBRData
         for (const auto& cfg : matchXMap.at(lookupStr)) {
-            insertTruePBRData(truePBRData, PGNIFUtil::getTexBase(lookupStr, curSlot), cfg, nifPath, curSlot);
+            insertTruePBRData(truePBRData, PGNIFUtil::getTexBase(lookupStr, curSlot), cfg, nifPath);
         }
     }
 }
@@ -536,8 +521,7 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
                                                                      std::wstring>>& truePBRData,
                                                  const wstring& texName,
                                                  size_t cfg,
-                                                 const wstring& nifPath,
-                                                 const PGEnums::TextureSlots& slot) -> void
+                                                 const wstring& nifPath) -> void
 {
     auto curCfg = getTruePBRConfigs()[cfg];
 
@@ -579,8 +563,6 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
     if (!enableTruePBR) {
         matchedPath = L"";
     }
-
-    curCfg["meta_matchedFrom"] = static_cast<int>(slot);
 
     truePBRData.insert({cfg, {curCfg, matchedPath}});
 }

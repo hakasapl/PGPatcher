@@ -46,7 +46,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
                wxDefaultPosition,
                wxSize(DEFAULT_WIDTH,
                       DEFAULT_HEIGHT),
-               wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     auto* pgc = PGPatcherGlobals::getPGC();
     if (pgc == nullptr) {

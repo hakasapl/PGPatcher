@@ -12,7 +12,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 /**
@@ -28,11 +27,10 @@ public:
 
     /**
      * @struct PatcherMatch
-     * @brief Structure to store the matched texture and the texture slots it matched with
+     * @brief Structure to store the matched texture
      */
     struct PatcherMatch {
         std::wstring matchedPath; // The path of the matched file
-        std::unordered_set<PGEnums::TextureSlots> matchedFrom; // The texture slots that the match matched with
         std::shared_ptr<void> extraData; // Any extra data the patcher might need intermally to do the patch
     };
 
