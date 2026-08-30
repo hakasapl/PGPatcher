@@ -11,6 +11,7 @@
 - Change wording in output settings
 - Change wording in mod manager settings
 - Mistmatch warnings no longer appear, instead the conflict viewer has an option to show potential conflicts more granularly
+- Added "Highlight New Mods" checkbox to the conflict manager
 - Fixed weight mismatch error showing when weighted mesh was used in both weighted and non-weighted contexts
 
 ## [1.2.0] - UNRELEASED
