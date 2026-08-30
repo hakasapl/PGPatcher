@@ -119,11 +119,20 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
         = buildInverseIdxCorrections(stagedCurrent3DIndices, m_stagedMeshOriginal3DIdx);
 
     // Check if staged mesh is different from all existing output meshes
-    for (auto& outputMesh : m_outputMeshes) {
+    for (size_t outputIdx = 0; outputIdx < m_outputMeshes.size(); outputIdx++) {
+        auto& outputMesh = m_outputMeshes.at(outputIdx);
         if (compareMesh(
                 m_stagedMesh, outputMesh.second, nonAltTexShapes, false, false, &stagedInverseIdxCorrectionsPatching)) {
             // Mesh is identical to an existing output mesh, do not add
             outputMesh.first.altTexResults.emplace_back(formKey, altTexResults);
+
+            if (isWeighted && !m_weightProcessedOutputs.contains(outputIdx)) {
+                // A weighted plugin use resolved to an output mesh that was created by a non-weighted use, so the
+                // output still needs its _0/_1 counterpart validated
+                processWeightVariant(outputMesh.second, outputIdx);
+                m_weightProcessedOutputs.insert(outputIdx);
+            }
+
             // Clear staged mesh
             m_stagedMeshPtr = nullptr;
             m_stagedMesh.Clear();
@@ -146,7 +155,8 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
 
     if (isWeighted) {
         // Process weighted variant
-        processWeightVariant();
+        processWeightVariant(m_stagedMesh, m_outputMeshes.size());
+        m_weightProcessedOutputs.insert(m_outputMeshes.size());
     }
 
     // Add new mesh
@@ -292,21 +302,34 @@ void PGMeshPermutationTracker::validateWeightedVariants()
 {
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
     for (const auto& [key, nifFile] : s_otherWeightVariants) {
+        // A mesh being used weighted in one place while its counterpart is never patched as weighted (not used
+        // weighted in plugins, no changes needed, or file absent) is a valid state. Only error when the counterpart
+        // was also patched as weighted, meaning the _0/_1 outputs actually diverged.
+        const auto otherVariantPath = getOtherWeightVariant(key.first);
+        if (!s_weightVariantProcessedPaths.contains(otherVariantPath.wstring())) {
+            Logger::debug(L"Skipping weight variant check for '{}': counterpart '{}' was not patched as weighted",
+                          key.first.wstring(),
+                          otherVariantPath.wstring());
+            continue;
+        }
+
         Logger::error(L"Weighted mesh variant for '{}' not created. Weight variants (_0 and _1) do not match.",
                       key.first.wstring());
     }
     s_otherWeightVariants.clear();
+    s_weightVariantProcessedPaths.clear();
 }
 
-void PGMeshPermutationTracker::processWeightVariant()
+void PGMeshPermutationTracker::processWeightVariant(const nifly::NifFile& mesh, const std::size_t dupIdx)
 {
     // Check other weight variant cache
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
-    const auto dupIdx = m_outputMeshes.size();
+    s_weightVariantProcessedPaths.insert(m_origMeshPath.wstring());
+
     // check if other variant exists
     const auto otherVariantPath = getOtherWeightVariant(m_origMeshPath);
     if (s_otherWeightVariants.contains({otherVariantPath, dupIdx})) {
-        if (!compareMesh(m_stagedMesh, s_otherWeightVariants[{otherVariantPath, dupIdx}], {}, true, true)) {
+        if (!compareMesh(mesh, s_otherWeightVariants[{otherVariantPath, dupIdx}], {}, true, true)) {
             // different from each other, post error
             Logger::error(L"Weighted mesh variants '{}' and '{}' do not match.",
                           m_origMeshPath.wstring(),
@@ -318,7 +341,7 @@ void PGMeshPermutationTracker::processWeightVariant()
     } else {
         // add to cache
         s_otherWeightVariants[{m_origMeshPath, dupIdx}] = nifly::NifFile();
-        s_otherWeightVariants[{m_origMeshPath, dupIdx}].CopyFrom(m_stagedMesh);
+        s_otherWeightVariants[{m_origMeshPath, dupIdx}].CopyFrom(mesh);
     }
 }
 

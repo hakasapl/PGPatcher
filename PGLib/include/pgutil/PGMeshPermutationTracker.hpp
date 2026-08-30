@@ -87,6 +87,8 @@ private:
 
     std::vector<std::pair<MeshResult, nifly::NifFile>> m_outputMeshes;
     std::unordered_set<FormKey, FormKeyHash> m_processedFormKeys;
+    /// @brief Indices into m_outputMeshes that already had their _0/_1 counterpart validated.
+    std::unordered_set<std::size_t> m_weightProcessedOutputs;
 
     nifly::NifFile m_stagedMesh;
     nifly::NifFile* m_stagedMeshPtr;
@@ -109,6 +111,9 @@ private:
     static inline std::mutex s_otherWeightVariantsMutex;
     static inline std::unordered_map<std::pair<std::filesystem::path, size_t>, nifly::NifFile, PathSizeHash>
         s_otherWeightVariants;
+    /// @brief Mesh paths that went through weighted variant processing (used weighted in plugins and patched).
+    /// Guarded by s_otherWeightVariantsMutex.
+    static inline std::unordered_set<std::wstring> s_weightVariantProcessedPaths;
 
 public:
     /**
@@ -181,9 +186,13 @@ public:
 
 private:
     /**
-     * @brief Handles weighted variant logic for the staged mesh (locates and validates the _0/_1 counterpart).
+     * @brief Handles weighted variant logic for an output mesh (locates and validates the _0/_1 counterpart).
+     *
+     * @param mesh The output mesh serving the weighted plugin use.
+     * @param dupIdx Index of the output mesh within this tracker.
      */
-    void processWeightVariant();
+    void processWeightVariant(const nifly::NifFile& mesh,
+                              std::size_t dupIdx);
 
     // Helpers
     /**
