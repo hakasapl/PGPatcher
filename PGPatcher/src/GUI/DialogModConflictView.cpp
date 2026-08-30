@@ -5,12 +5,16 @@
 #include "PGLocale.hpp"
 #include "PGModManager.hpp"
 #include "PGPatcher.hpp"
+#include "PGPatcherGlobals.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "util/StringUtil.hpp"
 
+#include <wx/artprov.h>
+#include <wx/bmpbndl.h>
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
+#include <wx/imaglist.h>
 #include <wx/listctrl.h>
 #include <wx/splitter.h>
 #include <wx/wx.h>
@@ -122,6 +126,15 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     m_showOnlyConflictsCheckbox->SetValue(m_showOnlyConflicts);
     m_showOnlyConflictsCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowOnlyConflictsChanged, this);
     searchSizer->Add(m_showOnlyConflictsCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, DEFAULT_BORDER * 2);
+
+    m_showMismatchesCheckbox
+        = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showMismatches", "Show Potential Mismatches"));
+    m_showMismatchesCheckbox->SetValue(m_showMismatches);
+    m_showMismatchesCheckbox->SetToolTip(PGTr("matchViewer.showMismatchesTooltip",
+                                              "Show warning icons for meshes and matches with potential mod "
+                                              "mismatches"));
+    m_showMismatchesCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowMismatchesChanged, this);
+    searchSizer->Add(m_showMismatchesCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, DEFAULT_BORDER * 2);
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxALL, DEFAULT_BORDER);
 
     // ---- Three-panel split area --------------------------------------------
@@ -150,6 +163,13 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &DialogModConflictView::onMeshActivated, this);
     m_meshListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onMeshContextMenu, this);
     m_meshListCtrl->Bind(wxEVT_SIZE, &DialogModConflictView::onMeshListResize, this);
+    m_meshListCtrl->Bind(wxEVT_MOTION, [this](wxMouseEvent& event) {
+        if (!m_showMismatches) {
+            event.Skip();
+            return;
+        }
+        updateHoverTooltip(m_meshListCtrl, m_meshRowTooltips, event);
+    });
     meshSizer->Add(m_meshListCtrl, 1, wxEXPAND);
     meshPanel->SetSizer(meshSizer);
 
@@ -200,8 +220,17 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     m_matchListCtrl->Bind(wxEVT_SIZE, &DialogModConflictView::onMatchListResize, this);
     m_matchListCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &DialogModConflictView::onMatchActivated, this);
     m_matchListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onMatchContextMenu, this);
+    m_matchListCtrl->Bind(wxEVT_MOTION, [this](wxMouseEvent& event) {
+        if (!m_showMismatches) {
+            event.Skip();
+            return;
+        }
+        updateHoverTooltip(m_matchListCtrl, m_matchRowTooltips, event);
+    });
     matchSizer->Add(m_matchListCtrl, 1, wxEXPAND);
     matchPanel->SetSizer(matchSizer);
+
+    setupWarningIcons();
 
     // -- Wire up splitters ---------------------------------------------------
     innerSplitter->SplitVertically(shapePanel, matchPanel, MID_PANE_WIDTH);
@@ -419,6 +448,153 @@ auto DialogModConflictView::computeWinningMatchIdx(const vector<MatchView>& matc
     return winnerIdx;
 }
 
+void DialogModConflictView::setupWarningIcons()
+{
+    const wxSize iconSize = FromDIP(wxSize(WARNING_ICON_SIZE, WARNING_ICON_SIZE));
+
+    wxBitmapBundle warningBundle;
+    const filesystem::path svgPath = PGPatcherGlobals::getEXEPath() / "resources" / "warning.svg";
+    if (filesystem::exists(svgPath)) {
+        warningBundle = wxBitmapBundle::FromSVGFile(wxString(svgPath.wstring()), iconSize);
+    }
+    if (!warningBundle.IsOk()) {
+        warningBundle = wxArtProvider::GetBitmapBundle(wxART_WARNING, wxART_LIST, iconSize);
+    }
+    if (!warningBundle.IsOk()) {
+        return; // no icon available; warning indicators are simply not shown
+    }
+
+    const wxBitmap warningBitmap = warningBundle.GetBitmap(iconSize);
+
+    // Rows inserted without an explicit image index render image 0 on Windows, so index 0 must
+    // be a fully transparent placeholder; the actual warning icon lives at WARNING_ICON_IMAGE_INDEX
+    wxImage blankImage(iconSize.GetWidth(), iconSize.GetHeight());
+    blankImage.InitAlpha();
+    fill_n(blankImage.GetAlpha(), static_cast<size_t>(iconSize.GetWidth()) * iconSize.GetHeight(), 0);
+    const wxBitmap blankBitmap(blankImage);
+
+    m_meshWarningImages.Create(iconSize.GetWidth(), iconSize.GetHeight(), true, 2);
+    m_meshWarningImages.Add(blankBitmap);
+    m_meshWarningImages.Add(warningBitmap);
+
+    m_matchWarningImages.Create(iconSize.GetWidth(), iconSize.GetHeight(), true, 2);
+    m_matchWarningImages.Add(blankBitmap);
+    m_matchWarningImages.Add(warningBitmap);
+
+    m_warningIconAvailable = true;
+    applyWarningIconVisibility();
+}
+
+void DialogModConflictView::applyWarningIconVisibility()
+{
+    if (!m_warningIconAvailable) {
+        return;
+    }
+
+    // The lists only borrow the image lists (LVS_SHAREIMAGELISTS), so detaching is safe and
+    // removes the reserved icon space entirely
+    m_meshListCtrl->SetImageList(m_showMismatches ? &m_meshWarningImages : nullptr, wxIMAGE_LIST_SMALL);
+    m_matchListCtrl->SetImageList(m_showMismatches ? &m_matchWarningImages : nullptr, wxIMAGE_LIST_SMALL);
+
+    if (!m_showMismatches) {
+        // Motion events no longer update tooltips while hidden, so clear any tooltip that was
+        // set during a hover to avoid stale warning text
+        m_meshListCtrl->UnsetToolTip();
+        m_matchListCtrl->UnsetToolTip();
+    }
+
+    m_meshListCtrl->Refresh();
+    m_matchListCtrl->Refresh();
+}
+
+auto DialogModConflictView::getMeshWarningTooltip(const filesystem::path& meshPath) const -> wxString
+{
+    if (m_filterMods.empty() || !PGGlobals::isPGMMSet()) {
+        return {};
+    }
+
+    // Vanilla/untracked meshes are assumed correct, so only warn for meshes from other tracked mods
+    const auto meshMod = PGGlobals::getPGMM()->getModByFileSmart(meshPath);
+    if (meshMod == nullptr || m_filterMods.contains(meshMod->name)) {
+        return {};
+    }
+
+    return wxString::Format(PGTr("matchViewer.warnings.meshFromOtherMod", "Mesh is from %s, verify UVs match"),
+                            wxString(meshMod->name));
+}
+
+auto DialogModConflictView::buildResultTexturesTooltip(const MatchView& match) -> wxString
+{
+    unordered_set<shared_ptr<PGModManager::Mod>, PGModManager::Mod::ModHash> distinctMods;
+    for (const auto& [slot, slotMod] : match.resultTextureMods) {
+        (void)slot;
+        distinctMods.insert(slotMod);
+    }
+
+    if (distinctMods.size() < 2) {
+        return {};
+    }
+
+    wxString tooltip = PGTr("matchViewer.warnings.resultTexturesFromDifferentMods",
+                            "Resultant textures come from multiple mods, verify this is correct:");
+    for (const auto& [slot, slotMod] : match.resultTextureMods) {
+        tooltip += "\n" + getSlotDisplayName(slot) + " - " + wxString(slotMod->name);
+    }
+
+    return tooltip;
+}
+
+auto DialogModConflictView::getSlotDisplayName(PGEnums::TextureSlots slot) -> wxString
+{
+    switch (slot) {
+    case PGEnums::TextureSlots::DIFFUSE:
+        return PGTr("matchViewer.slots.diffuse", "Diffuse");
+    case PGEnums::TextureSlots::NORMAL:
+        return PGTr("matchViewer.slots.normal", "Normal");
+    case PGEnums::TextureSlots::GLOW:
+        return PGTr("matchViewer.slots.glow", "Glow");
+    case PGEnums::TextureSlots::PARALLAX:
+        return PGTr("matchViewer.slots.parallax", "Parallax");
+    case PGEnums::TextureSlots::CUBEMAP:
+        return PGTr("matchViewer.slots.cubemap", "Cubemap");
+    case PGEnums::TextureSlots::ENVMASK:
+        return PGTr("matchViewer.slots.envMask", "Environment Mask");
+    case PGEnums::TextureSlots::MULTILAYER:
+        return PGTr("matchViewer.slots.multilayer", "Multilayer");
+    case PGEnums::TextureSlots::BACKLIGHT:
+        return PGTr("matchViewer.slots.backlight", "Backlight");
+    case PGEnums::TextureSlots::UNUSED:
+        return PGTr("matchViewer.slots.unused", "Unused");
+    case PGEnums::TextureSlots::UNKNOWN:
+    default:
+        return PGTr("matchViewer.slots.unknown", "Unknown");
+    }
+}
+
+void DialogModConflictView::updateHoverTooltip(wxListCtrl* list,
+                                               const std::vector<wxString>& tooltips,
+                                               wxMouseEvent& event)
+{
+    int hitFlags = 0;
+    const long item = list->HitTest(event.GetPosition(), hitFlags);
+
+    wxString tooltip;
+    if (item != wxNOT_FOUND && (hitFlags & wxLIST_HITTEST_ONITEMICON) != 0
+        && static_cast<size_t>(item) < tooltips.size()) {
+        tooltip = tooltips.at(static_cast<size_t>(item));
+    }
+
+    if (list->GetToolTipText() != tooltip) {
+        if (tooltip.IsEmpty()) {
+            list->UnsetToolTip();
+        } else {
+            list->SetToolTip(tooltip);
+        }
+    }
+
+    event.Skip();
+}
+
 void DialogModConflictView::rebuildMeshList()
 {
     Freeze();
@@ -428,6 +604,8 @@ void DialogModConflictView::rebuildMeshList()
     m_filteredMeshes.clear();
     m_filteredMeshLabels.clear();
     m_filteredMeshLabels.reserve(m_patchMeta.size());
+    m_meshRowTooltips.clear();
+    m_matchRowTooltips.clear();
 
     const wxString searchTerm = m_meshSearchCtrl->GetValue().Lower();
 
@@ -473,8 +651,16 @@ void DialogModConflictView::rebuildMeshList()
     m_filteredMeshes = std::move(sortedMeshes);
     m_filteredMeshLabels = std::move(sortedLabels);
 
-    for (const auto& meshLabel : m_filteredMeshLabels) {
-        m_meshListCtrl->InsertItem(m_meshListCtrl->GetItemCount(), meshLabel);
+    m_meshRowTooltips.reserve(m_filteredMeshLabels.size());
+    for (size_t i = 0; i < m_filteredMeshLabels.size(); ++i) {
+        const long row = m_meshListCtrl->InsertItem(m_meshListCtrl->GetItemCount(), m_filteredMeshLabels.at(i));
+
+        // Flag meshes that are owned by a mod outside the filtered mods (potential UV mismatch)
+        wxString warningTooltip = getMeshWarningTooltip(m_filteredMeshes.at(i));
+        if (!warningTooltip.IsEmpty() && m_warningIconAvailable) {
+            m_meshListCtrl->SetItemImage(row, WARNING_ICON_IMAGE_INDEX);
+        }
+        m_meshRowTooltips.push_back(std::move(warningTooltip));
     }
 
     Thaw();
@@ -568,6 +754,7 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
                                               size_t idx3D)
 {
     m_matchListCtrl->DeleteAllItems();
+    m_matchRowTooltips.clear();
 
     const auto meshIt = m_patchMeta.find(meshPath);
     if (meshIt == m_patchMeta.end()) {
@@ -617,6 +804,7 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
                 PGTr("matchViewer.noMatches", "[No matches - this shape cannot be patched]"));
             m_matchListCtrl->SetItemTextColour(
                 row, wxColour(DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL));
+            m_matchRowTooltips.emplace_back();
         }
         return;
     }
@@ -636,6 +824,13 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
         const long row = m_matchListCtrl->InsertItem(m_matchListCtrl->GetItemCount(), modName);
         m_matchListCtrl->SetItem(row, 1, shaderStr);
         m_matchListCtrl->SetItem(row, 2, matchedFile);
+
+        // Flag matches whose result textures come from more than one mod
+        wxString warningTooltip = buildResultTexturesTooltip(match);
+        if (!warningTooltip.IsEmpty() && m_warningIconAvailable) {
+            m_matchListCtrl->SetItemImage(row, WARNING_ICON_IMAGE_INDEX);
+        }
+        m_matchRowTooltips.push_back(std::move(warningTooltip));
 
         // Highlight the top displayed row (winner after filtering/visibility rules).
         if (static_cast<int>(i) == topVisibleMatchIdx) {
@@ -1339,6 +1534,13 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
     }
 
     Thaw();
+    event.Skip();
+}
+
+void DialogModConflictView::onShowMismatchesChanged(wxCommandEvent& event)
+{
+    m_showMismatches = m_showMismatchesCheckbox->IsChecked();
+    applyWarningIconVisibility();
     event.Skip();
 }
 

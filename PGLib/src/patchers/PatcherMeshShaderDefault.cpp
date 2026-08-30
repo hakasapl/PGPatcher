@@ -69,7 +69,6 @@ auto PatcherMeshShaderDefault::shouldApply(const PGTypes::TextureSet& oldSlots,
         // Add match
         PatcherMatch curMatch;
         curMatch.matchedPath = oldSlots.at(slot);
-        curMatch.matchedFrom.insert(static_cast<PGEnums::TextureSlots>(slot));
         matches.push_back(curMatch);
     }
 

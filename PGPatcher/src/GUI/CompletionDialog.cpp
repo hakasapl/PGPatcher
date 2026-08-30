@@ -85,7 +85,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                PGTr("completion.title", "PGPatcher Generation Complete"),
                wxDefaultPosition,
                wxDefaultSize,
-               wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER | wxMINIMIZE_BOX)
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     // Get config
     const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;

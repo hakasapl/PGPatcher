@@ -134,7 +134,6 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& ol
     static const vector<int> slotSearch = {1, 0}; // Diffuse first, then normal
     filesystem::path baseMap;
     vector<PGTypes::PGTexture> foundMatches;
-    PGEnums::TextureSlots matchedFromSlot = PGEnums::TextureSlots::NORMAL;
     for (const int& slot : slotSearch) {
         baseMap = oldSlots.at(slot);
         if (baseMap.empty() || !pgd->isFile(baseMap)) {
@@ -146,7 +145,6 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& ol
 
         if (!foundMatches.empty()) {
             // TODO should we be trying diffuse after normal too and present all options?
-            matchedFromSlot = static_cast<PGEnums::TextureSlots>(slot);
             break;
         }
     }
@@ -157,7 +155,6 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& ol
         if (pgd3d->checkIfAspectRatioMatches(baseMap, match.path)) {
             PatcherMatch curMatch;
             curMatch.matchedPath = match.path;
-            curMatch.matchedFrom.insert(matchedFromSlot);
             if (match.path == oldSlots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)]) {
                 lastMatch = curMatch; // Save the match that equals OldSlots[Slot]
             } else {

@@ -30,6 +30,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 class PGPatcher {
@@ -40,6 +41,8 @@ public:
         PGEnums::ShapeShader shader {};
         PGEnums::ShapeShader shaderTransformTo {};
         std::filesystem::path matchedPath;
+        /// Owning mod of each non-empty result texture slot if this match is applied (tracked mods only)
+        std::vector<std::pair<PGEnums::TextureSlots, std::shared_ptr<PGModManager::Mod>>> resultTextureMods;
     };
     struct MeshShapeMeta {
         uint32_t blockID;

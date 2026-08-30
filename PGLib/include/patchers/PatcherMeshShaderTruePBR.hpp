@@ -301,9 +301,7 @@ private:
      * @param[out] truePBRData Data that matched
      * @param texName Texture name to match
      * @param lookup Lookup table to use
-     * @param slotLabel Slot label to use
      * @param nifPath NIF path to use
-     * @param slot Slot that matched (for metadata, optional)
      */
     static void getSlotMatch(std::map<size_t,
                                       std::tuple<nlohmann::json,
@@ -311,8 +309,7 @@ private:
                              const std::wstring& texName,
                              const std::map<std::wstring,
                                             std::vector<size_t>>& lookup,
-                             const std::wstring& nifPath,
-                             const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::UNKNOWN);
+                             const std::wstring& nifPath);
 
     /**
      * @brief Get path contains match for diffuse
@@ -347,13 +344,11 @@ private:
      * @param texName Texture name to insert
      * @param cfg Config ID
      * @param nifPath NIF path to use
-     * @param slot Slot that matched (for metadata, optional)
      */
     static void insertTruePBRData(std::map<size_t,
                                            std::tuple<nlohmann::json,
                                                       std::wstring>>& truePBRData,
                                   const std::wstring& texName,
                                   size_t cfg,
-                                  const std::wstring& nifPath,
-                                  const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::UNKNOWN);
+                                  const std::wstring& nifPath);
 };

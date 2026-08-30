@@ -132,7 +132,6 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& ol
     static const vector<int> slotSearch = {1, 0}; // Diffuse first, then normal
     filesystem::path baseMap;
     vector<PGTypes::PGTexture> foundMatches;
-    PGEnums::TextureSlots matchedFromSlot = PGEnums::TextureSlots::NORMAL;
     for (const int& slot : slotSearch) {
         baseMap = oldSlots.at(slot);
         if (baseMap.empty() || !pgd->isFile(baseMap)) {
@@ -144,7 +143,6 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& ol
             = PGNIFUtil::getTexMatch(searchPrefixes.at(slot), PGEnums::TextureType::COMPLEXMATERIAL, cmBaseMap);
 
         if (!foundMatches.empty()) {
-            matchedFromSlot = static_cast<PGEnums::TextureSlots>(slot);
             break;
         }
     }
@@ -154,7 +152,6 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& ol
         if (pgd3d->checkIfAspectRatioMatches(baseMap, match.path)) {
             PatcherMatch curMatch;
             curMatch.matchedPath = match.path;
-            curMatch.matchedFrom.insert(matchedFromSlot);
 
             // get extra metadata and add to match extra data
             const auto meta = getMaterialMeta(match.path);
