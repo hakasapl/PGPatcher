@@ -45,6 +45,7 @@ private:
     constexpr static int BORDER_SIZE = 5;
     constexpr static int BUTTON_FONT_SIZE = 12;
     constexpr static int HELPBTN_SIZE = 30;
+    constexpr static int SETTINGSBTN_ICON_SIZE = 16;
 
     PGConfig& m_pgc; /** Reference to the PGConfig object */
 

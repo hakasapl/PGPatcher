@@ -13,6 +13,8 @@
 #include "common/BethesdaGame.hpp"
 
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <wx/bmpbndl.h>
 #include <wx/event.h>
 #include <wx/listctrl.h>
 #include <wx/msw/colour.h>
@@ -21,6 +23,8 @@
 #include <wx/wx.h>
 
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -465,11 +469,29 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     });
 
     // Settings (gear) button next to the help button
-    auto* settingsButton = new wxButton(this, wxID_ANY, wxString(wxUniChar(0x2699)));
-    wxFont settingsButtonFont = settingsButton->GetFont();
-    settingsButtonFont.SetPointSize(BUTTON_FONT_SIZE);
-    settingsButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
-    settingsButton->SetFont(settingsButtonFont);
+    auto* settingsButton = new wxButton(this, wxID_ANY, wxEmptyString);
+
+    wxBitmapBundle settingsIconBundle;
+    const filesystem::path settingsSVGPath = PGPatcherGlobals::getEXEPath() / "resources" / "settings.svg";
+    if (filesystem::exists(settingsSVGPath)) {
+        ifstream settingsSVGStream(settingsSVGPath);
+        string settingsSVGData(istreambuf_iterator<char> { settingsSVGStream }, istreambuf_iterator<char> {});
+        // the SVG fill is currentColor, which the wx SVG renderer cannot resolve, so substitute the theme color
+        boost::replace_all(settingsSVGData, "currentColor", PGPatcherGlobals::isDarkMode() ? "#ffffff" : "#000000");
+        settingsIconBundle = wxBitmapBundle::FromSVG(
+            settingsSVGData.c_str(), wxSize(SETTINGSBTN_ICON_SIZE, SETTINGSBTN_ICON_SIZE));
+    }
+    if (settingsIconBundle.IsOk()) {
+        settingsButton->SetBitmap(settingsIconBundle);
+    } else {
+        // fall back to the gear glyph if the SVG resource is unavailable
+        settingsButton->SetLabel(wxString(wxUniChar(0x2699)));
+        wxFont settingsButtonFont = settingsButton->GetFont();
+        settingsButtonFont.SetPointSize(BUTTON_FONT_SIZE);
+        settingsButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
+        settingsButton->SetFont(settingsButtonFont);
+    }
+
     settingsButton->SetToolTip(PGTr("launcher.settingsButton.tooltip", "Open PGPatcher settings"));
     settingsButton->SetMinSize(helpBtnSize);
     settingsButton->SetMaxSize(helpBtnSize);
