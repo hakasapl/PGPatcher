@@ -238,6 +238,10 @@
       "label": "Search:",
       "hint": "Search mods by name..."
     },
+    "highlightNewMods": {
+      "label": "Highlight New Mods",
+      "tooltip": "Highlight mods that PGPatcher is seeing for the first time"
+    },
     "winningModsOnTop": "Winning Mods on Top",
     "losingModsOnBottom": "Losing Mods on Bottom",
     "restoreDefaultOrder": {

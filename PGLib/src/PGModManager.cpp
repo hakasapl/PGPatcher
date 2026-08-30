@@ -175,6 +175,8 @@ void PGModManager::loadJSON(const nlohmann::json& json)
         throw runtime_error("JSON is not an object");
     }
 
+    m_modRulesLoaded = true;
+
     for (const auto& [modName, properties] : json.items()) {
         if (modName.empty()) {
             continue;
@@ -228,6 +230,8 @@ void PGModManager::loadJSON(const nlohmann::json& json)
         modPtr->areMeshesIgnored = areMeshesIgnored;
     }
 }
+
+auto PGModManager::hasLoadedModRules() const -> bool { return m_modRulesLoaded; }
 
 auto PGModManager::getJSON() -> nlohmann::json
 {

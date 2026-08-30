@@ -32,6 +32,7 @@ private:
     wxButton* m_showAllMeshesButton = nullptr; /** Show all meshes/shapes/matches button */
     wxButton* m_rerunPatchingButton = nullptr; /** Re-run patching button */
     wxCheckBox* m_checkBoxMO2 = nullptr; /** Checkbox to use MO2 loose file order */
+    wxCheckBox* m_checkBoxHighlightNewMods = nullptr; /** Checkbox to highlight mods PG is seeing for the first time */
     wxTextCtrl* m_searchCtrl = nullptr; /** Search box used to quickly find mods by name */
 
     struct CachedModRow {
@@ -56,6 +57,7 @@ private:
 
     static inline const wxColour s_LOSING_MOD_COLOR {255, 102, 102};
     static inline const wxColour s_WINNING_MOD_COLOR {204, 255, 102};
+    static inline const wxColour s_NEW_MOD_COLOR {204, 153, 255};
 
     static inline wxColour s_BASE_ITEM_BG_COLOR = *wxWHITE;
     static inline wxColour s_BASE_ITEM_FG_COLOR = *wxBLACK;
@@ -204,6 +206,13 @@ private:
     void onSearchTextChanged(wxCommandEvent& event);
 
     /**
+     * @brief Event handler that triggers when the "Highlight New Mods" checkbox is changed
+     *
+     * @param event wxWidgets event object
+     */
+    void onHighlightNewModsChange(wxCommandEvent& event);
+
+    /**
      * @brief Open a modeless conflict view dialog and track it for live updates.
      */
     void openConflictView(const std::unordered_set<std::wstring>& selectedMods,
@@ -244,6 +253,12 @@ private:
      * @brief Clear all yellow highlights from the list
      */
     void clearAllHighlights();
+
+    /**
+     * @brief Highlights mods PG is seeing for the first time (not in modrules.json) in purple.
+     *        No-op when the "Highlight New Mods" checkbox is unchecked or modrules.json did not exist at startup.
+     */
+    void applyNewModHighlights();
 
     /**
      * @brief Updates the mods in the PGModManager based on the current state of the list control

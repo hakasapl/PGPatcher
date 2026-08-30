@@ -209,6 +209,14 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     searchSizer->Add(m_searchCtrl, 1, wxEXPAND, 0);
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
 
+    // Add "Highlight New Mods" checkbox below the search bar
+    m_checkBoxHighlightNewMods
+        = new wxCheckBox(this, wxID_ANY, PGTr("conflictManager.highlightNewMods.label", "Highlight New Mods"));
+    m_checkBoxHighlightNewMods->SetToolTip(PGTr("conflictManager.highlightNewMods.tooltip",
+                                                "Highlight mods that PGPatcher is seeing for the first time"));
+    m_checkBoxHighlightNewMods->Bind(wxEVT_CHECKBOX, &ModSortDialog::onHighlightNewModsChange, this);
+    mainSizer->Add(m_checkBoxHighlightNewMods, 0, wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
+
     // FONT for rects
     wxFont rectFont = GetFont(); // start with current font
     static constexpr int RECT_LABEL_FONT_SIZE = 20;
@@ -685,6 +693,14 @@ void ModSortDialog::onSearchTextChanged(wxCommandEvent& event)
     event.Skip();
 }
 
+void ModSortDialog::onHighlightNewModsChange(wxCommandEvent& event)
+{
+    // Reapplies base colors, new-mod highlights, and conflict highlights for the current selection
+    highlightConflictingItems();
+
+    event.Skip();
+}
+
 // HELPERS
 
 void ModSortDialog::setMO2LooseFileOrderCheckboxState()
@@ -789,6 +805,32 @@ void ModSortDialog::clearAllHighlights()
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         m_listCtrl->SetItemBackgroundColour(i, s_BASE_ITEM_BG_COLOR);
         m_listCtrl->SetItemTextColour(i, s_BASE_ITEM_FG_COLOR);
+    }
+
+    // New-mod highlights are the base layer; conflict highlights are applied over them afterwards
+    applyNewModHighlights();
+}
+
+void ModSortDialog::applyNewModHighlights()
+{
+    if (m_checkBoxHighlightNewMods == nullptr || !m_checkBoxHighlightNewMods->IsChecked()) {
+        return;
+    }
+
+    auto* pgmm = PGGlobals::getPGMM();
+    if (pgmm == nullptr || !pgmm->hasLoadedModRules()) {
+        // modrules.json did not exist when PG started, so every mod would be "new"; highlight nothing
+        return;
+    }
+
+    for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
+        const auto mod = pgmm->getMod(m_listCtrl->GetItemText(i).ToStdWstring());
+        if (mod == nullptr || !mod->isNew) {
+            continue;
+        }
+
+        m_listCtrl->SetItemBackgroundColour(i, s_NEW_MOD_COLOR);
+        m_listCtrl->SetItemTextColour(i, *wxBLACK);
     }
 }
 
@@ -1134,6 +1176,9 @@ void ModSortDialog::rebuildListCtrlFromCache()
     }
 
     m_listCtrl->Thaw();
+
+    // Rebuilding drops all item colors, so reapply the new-mod highlights
+    applyNewModHighlights();
 
     if (savedTopItem > 0 && savedTopItem < m_listCtrl->GetItemCount()) {
         m_listCtrl->EnsureVisible(m_listCtrl->GetItemCount() - 1);
