@@ -9,7 +9,11 @@
 #include <wx/settings.h>
 #include <wx/wx.h>
 
+#include <windows.h>
+
+#include <cstdlib>
 #include <stdexcept>
+#include <string>
 
 using namespace std;
 
@@ -23,16 +27,47 @@ void PGUI::init(bool forceDarkMode,
         throw runtime_error("Failed to initialize wxWidgets");
     }
 
-    if (forceDarkMode && !forceLightMode) {
-        wxTheApp->SetAppearance(wxApp::Appearance::Dark);
-        PGPatcherGlobals::setIsDarkMode(true);
-    } else if (forceLightMode && !forceDarkMode) {
-        wxTheApp->SetAppearance(wxApp::Appearance::Light);
-        PGPatcherGlobals::setIsDarkMode(false);
-    } else {
-        wxTheApp->SetAppearance(wxApp::Appearance::System);
-        PGPatcherGlobals::setIsDarkMode(wxSystemSettings::GetAppearance().IsSystemDark());
+    s_forceDarkMode = forceDarkMode;
+    s_forceLightMode = forceLightMode;
+    applyTheme();
+}
+
+auto PGUI::applyTheme() -> bool
+{
+    // CLI flags take precedence over the configured theme
+    string theme = "system";
+    if (s_forceDarkMode && !s_forceLightMode) {
+        theme = "dark";
+    } else if (s_forceLightMode && !s_forceDarkMode) {
+        theme = "light";
+    } else if (PGPatcherGlobals::getPGC() != nullptr) {
+        theme = PGPatcherGlobals::getPGC()->getUITheme();
     }
+
+    if (theme != "light" && theme != "dark") {
+        theme = "system";
+    }
+
+    if (theme != s_appliedTheme) {
+        wxApp::AppearanceResult result {};
+        if (theme == "dark") {
+            result = wxTheApp->SetAppearance(wxApp::Appearance::Dark);
+        } else if (theme == "light") {
+            result = wxTheApp->SetAppearance(wxApp::Appearance::Light);
+        } else {
+            result = wxTheApp->SetAppearance(wxApp::Appearance::System);
+        }
+
+        if (result != wxApp::AppearanceResult::Ok) {
+            return false;
+        }
+
+        s_appliedTheme = theme;
+    }
+
+    PGPatcherGlobals::setIsDarkMode(theme == "dark"
+                                    || (theme == "system" && wxSystemSettings::GetAppearance().IsSystemDark()));
+    return true;
 }
 
 void PGUI::showLauncher(PGConfig& pgc,
@@ -46,7 +81,20 @@ void PGUI::showLauncher(PGConfig& pgc,
             launcher->getParams(params);
         }
         launcher->Destroy();
-    } while (result == LauncherWindow::RESULT_RELAUNCH); // rebuild the launcher after a language change
+
+        if (result == LauncherWindow::RESULT_RELAUNCH) {
+            // The theme may have changed in settings; the appearance can only change while no
+            // top-level windows exist, so flush the just-destroyed launcher first (ProcessIdle
+            // deletes the objects pending destruction)
+            wxTheApp->ProcessIdle();
+            if (!applyTheme()) {
+                // wxMSW cannot leave dark mode within the same process, so restart PGPatcher
+                // with the same command line to apply the new theme (already saved to config)
+                wxExecute(wxString(GetCommandLineW()), wxEXEC_ASYNC);
+                exit(0);
+            }
+        }
+    } while (result == LauncherWindow::RESULT_RELAUNCH); // rebuild the launcher after a language/theme change
 }
 
 void PGUI::selectModOrder()

@@ -148,6 +148,8 @@ private:
 
     std::string m_uiLanguage = "en"; /** Stores the GUI language code (not a patching param) */
 
+    std::string m_uiTheme = "system"; /** Stores the GUI theme: "light", "dark", or "system" (not a patching param) */
+
     nlohmann::json m_userConfig; /** Stores the user config JSON object */
 
 public:
@@ -207,6 +209,16 @@ public:
      * @brief Set the GUI language code (persisted on the next saveUserConfig)
      */
     void setUILanguage(const std::string& lang);
+
+    /**
+     * @brief Get the GUI theme ("light", "dark", or "system")
+     */
+    [[nodiscard]] auto getUITheme() const -> std::string;
+
+    /**
+     * @brief Set the GUI theme (persisted on the next saveUserConfig)
+     */
+    void setUITheme(const std::string& theme);
 
     /**
      * @brief Validates a given param struct

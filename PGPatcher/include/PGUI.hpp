@@ -2,7 +2,24 @@
 
 #include "PGConfig.hpp"
 
+#include <string>
+
 class PGUI {
+private:
+    static inline bool s_forceDarkMode = false; /** CLI --force-dark override */
+    static inline bool s_forceLightMode = false; /** CLI --force-light override */
+    static inline std::string s_appliedTheme; /** Theme last applied to the native appearance */
+
+    /**
+     * @brief Applies the theme from the CLI overrides (if any) or the configured GUI theme.
+     *        Must be called with no live top-level windows for the native appearance to change.
+     *
+     * @return true if the native appearance matches the requested theme; false if it could not be
+     *         changed (wxMSW refuses appearance changes once dark mode was enabled in this process,
+     *         so leaving dark/system mode requires a full application restart)
+     */
+    static auto applyTheme() -> bool;
+
 public:
     /**
      * @brief Initialize the wxWidgets UI framwork
