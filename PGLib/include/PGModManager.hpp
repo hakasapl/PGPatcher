@@ -91,6 +91,7 @@ private:
 
     ModManagerType m_mmType;
     std::filesystem::path m_stagingLocation;
+    bool m_modRulesLoaded = false;
 
     static constexpr const char* MO2INI_PROFILESDIR_KEY = "profiles_directory=";
     static constexpr const char* MO2INI_MODDIR_KEY = "mod_directory=";
@@ -172,6 +173,13 @@ public:
      * @throws std::runtime_error if the JSON structure is invalid.
      */
     void loadJSON(const nlohmann::json& json);
+
+    /**
+     * @brief Returns whether mod rules were loaded from an existing modrules.json via loadJSON().
+     *
+     * @return true if loadJSON() has been called (modrules.json existed at startup); false otherwise.
+     */
+    [[nodiscard]] auto hasLoadedModRules() const -> bool;
 
     /**
      * @brief Serializes all mods' priority and enabled state to a JSON object.
