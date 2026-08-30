@@ -9,7 +9,7 @@
 
 /**
  * @class DialogSettings
- * @brief Application settings dialog (currently GUI language selection)
+ * @brief Application settings dialog (GUI language and theme selection)
  */
 class DialogSettings : public wxDialog {
 public:
@@ -21,11 +21,18 @@ public:
      */
     [[nodiscard]] auto languageChanged() const -> bool;
 
+    /**
+     * @brief Whether the theme was changed (the GUI needs to be rebuilt to apply it)
+     */
+    [[nodiscard]] auto themeChanged() const -> bool;
+
 private:
     PGConfig& m_pgc;
     wxComboBox* m_languageCombo;
+    wxRadioBox* m_themeRadioBox;
     std::vector<PGLocale::Language> m_languages;
     bool m_languageChanged = false;
+    bool m_themeChanged = false;
 
     void onOkButtonPressed(wxCommandEvent& event);
 };

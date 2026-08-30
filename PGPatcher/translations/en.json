@@ -15,6 +15,13 @@
     "language": {
       "label": "Language",
       "tooltip": "Languages are read from the \"translations\" folder"
+    },
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "tooltip": "\"System\" follows the Windows theme. Applied when the launcher restarts."
     }
   },
   "launcher": {

@@ -1002,7 +1002,7 @@ void LauncherWindow::onSettingsButtonPressed([[maybe_unused]] wxCommandEvent& ev
     DialogSettings dialog(this, m_pgc);
     dialog.ShowModal();
 
-    if (dialog.languageChanged()) {
+    if (dialog.languageChanged() || dialog.themeChanged()) {
         // Preserve the current (possibly unsaved) UI state in memory so the rebuilt launcher shows the same values
         auto curParams = m_pgc.getParams();
         getParams(curParams);
