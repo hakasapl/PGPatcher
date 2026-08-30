@@ -10,6 +10,7 @@
 - Fixed broken wiki link in conflict manager
 - Change wording in output settings
 - Change wording in mod manager settings
+- Mistmatch warnings no longer appear, instead the conflict viewer has an option to show potential conflicts more granularly
 
 ## [1.2.0] - UNRELEASED
 
