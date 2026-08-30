@@ -656,9 +656,18 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
 
             if (PGGlobals::isPGMMSet()) {
                 // Record which mod supplies each result texture so the conflict viewer can flag
-                // matches whose result textures come from different mods
+                // matches whose result textures come from different mods. Transformed matches get
+                // their slots from the transform's target shader (running the actual transform here
+                // would schedule texture generation); the source match path is kept for attribution
+                // since transform-generated files belong to no mod anyway.
+                auto resultShader = match.shader;
+                if (match.shaderTransformTo != PGEnums::ShapeShader::UNKNOWN
+                    && patchers.shaderPatchers.contains(match.shaderTransformTo)) {
+                    resultShader = match.shaderTransformTo;
+                }
+
                 PGTypes::TextureSet resultSlots = slots;
-                patchers.shaderPatchers.at(match.shader)->applyPatchSlots(resultSlots, match.match);
+                patchers.shaderPatchers.at(resultShader)->applyPatchSlots(resultSlots, match.match);
                 for (size_t slot = 0; slot < resultSlots.size(); slot++) {
                     if (resultSlots.at(slot).empty()) {
                         continue;

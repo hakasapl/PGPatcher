@@ -495,6 +495,14 @@ void DialogModConflictView::applyWarningIconVisibility()
     // removes the reserved icon space entirely
     m_meshListCtrl->SetImageList(m_showMismatches ? &m_meshWarningImages : nullptr, wxIMAGE_LIST_SMALL);
     m_matchListCtrl->SetImageList(m_showMismatches ? &m_matchWarningImages : nullptr, wxIMAGE_LIST_SMALL);
+
+    if (!m_showMismatches) {
+        // Motion events no longer update tooltips while hidden, so clear any tooltip that was
+        // set during a hover to avoid stale warning text
+        m_meshListCtrl->UnsetToolTip();
+        m_matchListCtrl->UnsetToolTip();
+    }
+
     m_meshListCtrl->Refresh();
     m_matchListCtrl->Refresh();
 }
