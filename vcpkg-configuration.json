@@ -9,6 +9,14 @@
       "kind": "artifact",
       "location": "https://github.com/microsoft/vcpkg-ce-catalog/archive/refs/heads/main.zip",
       "name": "microsoft"
+    },
+    {
+      "kind": "git",
+      "repository": "https://github.com/microsoft/vcpkg",
+      "baseline": "9e593bb18ea69cc5095e012465dcd675a822ed0d",
+      "packages": [
+        "json-schema-validator"
+      ]
     }
   ],
   "overlay-triplets": [
