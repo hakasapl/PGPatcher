@@ -270,7 +270,9 @@ public:
      *
      * Reconstructs visual ordering as enabled mods first, disabled mods second while preserving the
      * relative order from either priority order or default mod-manager order. Enabled entries then get
-     * reassigned contiguous descending priority values.
+     * reassigned contiguous descending priority values. Only mods the mod sort dialog displays (mods
+     * with shaders or meshes) participate in the numbering, matching the dialog's own priority
+     * assignment; hidden mods keep their stored priority.
      *
      * @param useDefaultOrder If true, base ordering uses getModsByDefaultOrder(); otherwise getModsByPriority().
      */

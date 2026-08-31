@@ -13,6 +13,8 @@
 - Mistmatch warnings no longer appear, instead the conflict viewer has an option to show potential conflicts more granularly
 - Added "Highlight New Mods" checkbox to the conflict manager
 - Fixed weight mismatch error showing when weighted mesh was used in both weighted and non-weighted contexts
+- Fixed conflict manager always reporting unsaved changes after a run even when nothing was changed
+- modrules.json is now only written when saving changes from the conflict manager, no longer on every run
 
 ## [1.2.0] - UNRELEASED
 

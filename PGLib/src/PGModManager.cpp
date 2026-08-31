@@ -584,21 +584,33 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     }
 
     for (auto& newModEntry : std::ranges::reverse_view(autoEnabledNewMods)) {
+        const unique_lock<shared_mutex> modLock(newModEntry->mutex);
         newModEntry->priority = ++highestAssignedPriority;
     }
 
     const vector<shared_ptr<Mod>> modsSortedBySelectedBaseOrder
         = useDefaultOrder && m_mmType == ModManagerType::MODORGANIZER2 ? getModsByDefaultOrder() : getModsByPriority();
 
+    // The mod sort dialog only displays mods with shaders or meshes and assigns priorities over those
+    // rows alone. Number the same subset here; including hidden mods would offset every priority by the
+    // hidden-mod count and make the dialog report unsaved changes when the user changed nothing.
+    vector<shared_ptr<Mod>> displayedMods;
+    displayedMods.reserve(modsSortedBySelectedBaseOrder.size());
+    for (const auto& modEntry : modsSortedBySelectedBaseOrder) {
+        if (!modEntry->shaders.empty() || modEntry->hasMeshes) {
+            displayedMods.push_back(modEntry);
+        }
+    }
+
     // Rebuild ordering to enabled-first while preserving relative order within each group.
-    vector<shared_ptr<Mod>> modsWithEnabledFirst = modsSortedBySelectedBaseOrder;
-    std::ranges::stable_partition(modsWithEnabledFirst,
+    std::ranges::stable_partition(displayedMods,
                                   [](const auto& modEntry) -> bool { return modEntry->isEnabled; });
 
-    const int modCount = static_cast<int>(modsWithEnabledFirst.size());
+    const int modCount = static_cast<int>(displayedMods.size());
     for (int orderedIndex = 0; orderedIndex < modCount; ++orderedIndex) {
-        const auto& modEntry = modsWithEnabledFirst.at(static_cast<size_t>(orderedIndex));
+        const auto& modEntry = displayedMods.at(static_cast<size_t>(orderedIndex));
         if (modEntry->isEnabled) {
+            const unique_lock<shared_mutex> modLock(modEntry->mutex);
             modEntry->priority = modCount - orderedIndex;
         }
     }

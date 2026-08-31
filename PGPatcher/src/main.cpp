@@ -594,10 +594,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // Assign new mod priorities for new mods
     pgmm->updateStateFromModlist(params.ModManager.mo2UseLooseFileOrder);
 
-    // Persist computed mod order so non-dialog flows still keep modrules.json in sync.
-    if (!PGConfig::saveModConfig()) {
-        Logger::critical("Failed to save mod configuration to modrules.json");
-    }
+    // modrules.json is deliberately not saved here: the state computed above is re-derived on every
+    // run, and the file must only change when the user applies changes in the conflict manager.
 }
 
 void mainRunnerPatch(const ParallaxGenCLIArgs& args,
