@@ -584,6 +584,7 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     }
 
     for (auto& newModEntry : std::ranges::reverse_view(autoEnabledNewMods)) {
+        const unique_lock<shared_mutex> modLock(newModEntry->mutex);
         newModEntry->priority = ++highestAssignedPriority;
     }
 
@@ -609,6 +610,7 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     for (int orderedIndex = 0; orderedIndex < modCount; ++orderedIndex) {
         const auto& modEntry = displayedMods.at(static_cast<size_t>(orderedIndex));
         if (modEntry->isEnabled) {
+            const unique_lock<shared_mutex> modLock(modEntry->mutex);
             modEntry->priority = modCount - orderedIndex;
         }
     }
