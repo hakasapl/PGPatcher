@@ -72,8 +72,6 @@ using namespace std;
 struct ParallaxGenCLIArgs {
     bool autostart = false;
     bool console = false;
-    bool forceLight = false;
-    bool forceDark = false;
     bool considerAllMeshes = false;
     bool ignoreMO2Check = false;
     bool disableDynCubemap = false;
@@ -778,7 +776,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
     PGLocale::init(exePath / "translations", pgc.getUILanguage());
 
     // Initialize UI
-    PGUI::init(args.forceDark, args.forceLight);
+    PGUI::init();
 
     auto params = pgc.getParams();
 
@@ -906,12 +904,6 @@ void addArguments(CLI::App& app,
     // Logging
     app.add_flag("--autostart", args.autostart, "Start generation without user input");
     app.add_flag("--console", args.console, "Show console in the background");
-    auto* const forceLightFlag
-        = app.add_flag("--force-light", args.forceLight, "Force light theme instead of following the system theme");
-    auto* const forceDarkFlag
-        = app.add_flag("--force-dark", args.forceDark, "Force dark theme instead of following the system theme");
-    forceLightFlag->excludes(forceDarkFlag);
-    forceDarkFlag->excludes(forceLightFlag);
     app.add_flag(
         "--consider-allmeshes", args.considerAllMeshes, "Consider all meshes, even those not in plugins, for patching");
     app.add_flag("--ignore-mo2vfscheck", args.ignoreMO2Check, "Ignore MO2 VFS check - might be useful for Linux users");

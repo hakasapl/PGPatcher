@@ -19,28 +19,20 @@ using namespace std;
 
 // PGUI class
 
-void PGUI::init(bool forceDarkMode,
-                bool forceLightMode)
+void PGUI::init()
 {
     wxApp::SetInstance(new wxApp()); // NOLINT(cppcoreguidelines-owning-memory)
     if (!wxEntryStart(nullptr, nullptr)) {
         throw runtime_error("Failed to initialize wxWidgets");
     }
 
-    s_forceDarkMode = forceDarkMode;
-    s_forceLightMode = forceLightMode;
     applyTheme();
 }
 
 auto PGUI::applyTheme() -> bool
 {
-    // CLI flags take precedence over the configured theme
     string theme = "system";
-    if (s_forceDarkMode && !s_forceLightMode) {
-        theme = "dark";
-    } else if (s_forceLightMode && !s_forceDarkMode) {
-        theme = "light";
-    } else if (PGPatcherGlobals::getPGC() != nullptr) {
+    if (PGPatcherGlobals::getPGC() != nullptr) {
         theme = PGPatcherGlobals::getPGC()->getUITheme();
     }
 
