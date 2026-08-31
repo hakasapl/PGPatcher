@@ -280,7 +280,12 @@ void addArguments(CLI::App& app,
                  args.verbosity,
                  "Verbosity level -v for DEBUG data or -vv for TRACE data "
                  "(warning: TRACE data is very verbose)");
-    app.add_flag("--no-multithreading", args.multithreading, "Disable multithreading");
+    // CLI11's add_flag on a bool just sets the bound variable to true whenever the flag is present --
+    // it does not infer "disable" semantics from the flag's own name. Since args.multithreading
+    // already defaults to true, passing --no-multithreading was a complete no-op. The `{false}`
+    // suffix is CLI11's own syntax for "set to this value when the flag is passed" -- this is what
+    // actually wires --no-multithreading to its own stated meaning.
+    app.add_flag("--no-multithreading{false}", args.multithreading, "Disable multithreading");
     app.add_flag("--shortcut",
                  args.shortcut,
                  "Keep pgtools running at the end (useful if you are running not in a terminal directly)");
