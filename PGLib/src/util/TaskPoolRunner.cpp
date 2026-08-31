@@ -91,9 +91,15 @@ void TaskPoolRunner::runTasks()
             break;
         }
 
-        // If exception stop thread pool and throw
+        // If exception stop thread pool and throw. stop() only prevents NOT-YET-STARTED tasks from
+        // running -- it does not (and cannot) retroactively mark them as completed, so
+        // m_completedTasks can never reach m_tasks.size() once even one task is abandoned this way.
+        // Without the break below, any exception thrown anywhere in a multithreaded run turns a
+        // real, reportable error into a silent, permanent hang instead: the caller waiting on this
+        // function never gets a chance to run, since the loop never returns.
         if (ExceptionHandler::hasException()) {
             m_threadPool.stop();
+            break;
         }
 
         // Sleep in between loops
