@@ -1,22 +1,21 @@
 # Changelog
 
-## [1.3.0] - UNRELEASED
+## [1.3.0] - 2026-08-31
 
-- GUI now follows the system light/dark theme by default (--force-light and --force-dark still override)
-- Fixed message box popups and the completion dialog collapse arrows not rendering in dark mode
-- Removed the ESMify Plugin option from the launcher, replaced by the --esm-all CLI argument
-- Added --no-esm CLI argument to disable the ESM flag on PGPatcher.esp
+- GUI now follows the system light/dark theme by default, theme can be set from the new settings dialog
+- Mistmatch warnings no longer appear, instead the conflict viewer has an option to show potential conflicts
 - Added GUI localization system with JSON translation files in the "translations" folder, selectable via the new settings (gear) button in the launcher
-- Fixed broken wiki link in conflict manager
-- Change wording in output settings
-- Change wording in mod manager settings
-- Mistmatch warnings no longer appear, instead the conflict viewer has an option to show potential conflicts more granularly
 - Added "Highlight New Mods" checkbox to the conflict manager
+- Added --no-esm CLI argument to disable the ESM flag on PGPatcher.esp
+- Removed the ESMify Plugin option from the launcher, replaced by the --esm-all CLI argument
+- Removed --force-light and --force-dark (replaced by GUI setting)
+- Changed wording for some GUI strings
+- Fixed broken wiki link in conflict manager
+- Fixed message box popups and the completion dialog collapse arrows not rendering in dark mode
 - Fixed weight mismatch error showing when weighted mesh was used in both weighted and non-weighted contexts
 - Fixed conflict manager always reporting unsaved changes after a run even when nothing was changed
-- modrules.json is now only written when saving changes from the conflict manager, no longer on every run
 
-## [1.2.0] - UNRELEASED
+## [1.2.0] - 2026-07-21
 
 - Added Conflict viewer dialog to see any matching conflicts
 - Conflict manager will no longer appear during patching, it is accessible from the completion dialog
