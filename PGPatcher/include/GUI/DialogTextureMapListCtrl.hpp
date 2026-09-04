@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GUI/components/PGTextureMapListCtrl.hpp"
+#include "GUI/components/PGWrappingStaticText.hpp"
 
 #include "pgutil/PGEnums.hpp"
 
@@ -21,7 +22,7 @@
 class DialogTextureMapListCtrl : public wxDialog {
 private:
     PGTextureMapListCtrl* m_listCtrl;
-    wxStaticText* m_helpText;
+    PGWrappingStaticText* m_helpText;
 
 public:
     /**
