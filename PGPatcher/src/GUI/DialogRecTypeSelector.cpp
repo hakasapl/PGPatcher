@@ -1,5 +1,6 @@
 #include "GUI/DialogRecTypeSelector.hpp"
 
+#include "GUI/components/PGWrappingStaticText.hpp"
 #include "PGLocale.hpp"
 #include "PGPlugin.hpp"
 
@@ -10,29 +11,37 @@
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
+namespace {
+constexpr int DIALOG_WIDTH = 300;
+constexpr int DIALOG_HEIGHT = 400;
+constexpr int DIALOG_MIN_HEIGHT = 300;
+constexpr int DIALOG_MAX_HEIGHT = 1000;
+constexpr int BORDER_SIZE = 10;
+// Initial wrap width, kept just under the client width so the first wrap is never narrower than the final one
+constexpr int TEXT_WRAP_WIDTH = DIALOG_WIDTH - (4 * BORDER_SIZE);
+} // namespace
+
 DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
                                              const wxString& title)
     : wxDialog(parent,
                wxID_ANY,
                title,
                wxDefaultPosition,
-               wxSize(300,
-                      400),
+               wxSize(DIALOG_WIDTH,
+                      DIALOG_HEIGHT),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Add static text for instructions
-    auto* instructionText = new wxStaticText(
+    // Add static text for instructions - wraps to the dialog width so that longer translations stay visible
+    auto* instructionText = new PGWrappingStaticText(
         this,
         wxID_ANY,
         PGTr("dialogs.recTypeSelector.description",
              "Unchecking a record type will exclude it and its associated meshes from being patched. Only record types "
-             "with models are shown."));
-    // wrap text around 300 px
-    instructionText->Wrap(260);
-    instructionText->SetMinSize(wxSize(-1, 50));
-    mainSizer->Add(instructionText, 0, wxALL, 10);
+             "with models are shown."),
+        TEXT_WRAP_WIDTH);
+    mainSizer->Add(instructionText, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     m_listCtrl = new wxListCtrl(
         this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_ALIGN_LEFT | wxLC_NO_HEADER);
@@ -85,16 +94,16 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
         event.Skip(); // important
     });
 
-    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, 10);
+    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, BORDER_SIZE);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
     btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel")));
     btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok", "OK")));
     btnSizer->Realize();
 
-    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, 10);
+    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, BORDER_SIZE);
 
-    SetSizeHints(wxSize(300, 300), wxSize(300, -1));
+    SetSizeHints(wxSize(DIALOG_WIDTH, DIALOG_MIN_HEIGHT), wxSize(DIALOG_WIDTH, -1));
     SetSizer(mainSizer);
     Layout();
     Fit();
@@ -113,12 +122,20 @@ void DialogRecTypeSelector::populateList(const std::unordered_set<PGPlugin::Mode
     }
 
     // Set height of dialog to show all items without scrolling (with some padding)
+    Layout();
+
     wxRect rect;
-    m_listCtrl->GetItemRect(0, rect, wxLIST_RECT_BOUNDS);
-    const int itemHeight = rect.GetHeight(); // add some padding
-    const int desiredHeight
-        = static_cast<int>(m_listCtrl->GetItemCount() * itemHeight) + 180; // 100 for padding and buttons
-    SetSize(wxSize(GetSize().x, std::min(desiredHeight, 1000))); // cap height at 600 to avoid excessively large dialog
+    if (!m_listCtrl->GetItemRect(0, rect, wxLIST_RECT_BOUNDS)) {
+        return;
+    }
+
+    // Everything that is not the list itself (instruction text, buttons, borders) - measured rather than assumed
+    // because the instruction text needs a different number of lines in each language
+    const int chromeHeight = GetSize().GetHeight() - m_listCtrl->GetSize().GetHeight();
+    const int itemHeight = rect.GetHeight();
+    const int desiredHeight = static_cast<int>(m_listCtrl->GetItemCount() * itemHeight) + chromeHeight + BORDER_SIZE;
+    // Cap the height to avoid an excessively large dialog
+    SetSize(wxSize(GetSize().x, std::min(desiredHeight, DIALOG_MAX_HEIGHT)));
 }
 
 auto DialogRecTypeSelector::getSelectedRecordTypes() const -> std::unordered_set<PGPlugin::ModelRecordType>

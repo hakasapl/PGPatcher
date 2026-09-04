@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.0] - UNRELEASED
+
+- Fixed some labels being cut off in dialogs for certain translations
+
 ## [1.3.0] - 2026-08-31
 
 - GUI now follows the system light/dark theme by default, theme can be set from the new settings dialog

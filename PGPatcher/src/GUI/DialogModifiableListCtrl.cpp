@@ -2,6 +2,7 @@
 
 #include "GUI/components/PGCustomListctrlChangedEvent.hpp"
 #include "GUI/components/PGModifiableListCtrl.hpp"
+#include "GUI/components/PGWrappingStaticText.hpp"
 #include "PGLocale.hpp"
 
 #include <string>
@@ -11,6 +12,15 @@
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
+namespace {
+constexpr int DIALOG_WIDTH = 300;
+constexpr int DIALOG_HEIGHT = 400;
+constexpr int DIALOG_MIN_HEIGHT = 300;
+constexpr int BORDER_SIZE = 10;
+// Initial wrap width, kept just under the client width so the first wrap is never narrower than the final one
+constexpr int TEXT_WRAP_WIDTH = DIALOG_WIDTH - (4 * BORDER_SIZE);
+} // namespace
+
 DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
                                                    const wxString& title,
                                                    const wxString& text)
@@ -18,8 +28,8 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
                wxID_ANY,
                title,
                wxDefaultPosition,
-               wxSize(300,
-                      400),
+               wxSize(DIALOG_WIDTH,
+                      DIALOG_HEIGHT),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
     , m_listCtrl(new PGModifiableListCtrl(this,
                                           wxID_ANY,
@@ -29,12 +39,9 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Add static text for instructions
-    m_helpText = new wxStaticText(this, wxID_ANY, text);
-    // wrap text around 300 px
-    m_helpText->Wrap(260);
-    m_helpText->SetMinSize(wxSize(-1, 60)); // TODO can this be dynamic?
-    mainSizer->Add(m_helpText, 0, wxALL, 10);
+    // Add static text for instructions - wraps to the dialog width so that longer translations stay visible
+    m_helpText = new PGWrappingStaticText(this, wxID_ANY, text, TEXT_WRAP_WIDTH);
+    mainSizer->Add(m_helpText, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     m_listCtrl->AppendColumn("Item", wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
     m_listCtrl->SetColumnWidth(0, wxLIST_AUTOSIZE_USEHEADER);
@@ -49,16 +56,16 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
         event.Skip();
     });
 
-    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, 10);
+    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, BORDER_SIZE);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
     btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel")));
     btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok", "OK")));
     btnSizer->Realize();
 
-    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, 10);
+    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, BORDER_SIZE);
 
-    SetSizeHints(wxSize(300, 300), wxSize(-1, -1));
+    SetSizeHints(wxSize(DIALOG_WIDTH, DIALOG_MIN_HEIGHT), wxSize(-1, -1));
     SetSizer(mainSizer);
     Layout();
     Fit();
