@@ -1,6 +1,7 @@
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 
 #include "PGGlobals.hpp"
+#include "PGRunCache.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -29,11 +30,31 @@ auto PatcherTextureHookConvertToCM::addToProcessList(const filesystem::path& tex
 {
     auto* pgd = PGGlobals::getPGD();
 
+    // record registration for incremental runs (no-op unless a mesh is being recorded on this thread)
+    PGRunCache::recordHookRegistration(PGRunCache::HookKind::CONVERT_TO_CM, texPath);
+
+    // reuse the output of a previous run if the source texture did not change
+    if (PGRunCache::tryReuseHookOutput(PGRunCache::HookKind::CONVERT_TO_CM, texPath)) {
+        return;
+    }
+
     const unique_lock lock(s_texToProcessMutex);
     if (s_texToProcess.insert(texPath).second) {
         // only add if not present before
         pgd->addGeneratedFile(getOutputFilename(texPath));
     }
+}
+
+void PatcherTextureHookConvertToCM::replayGenerated(const filesystem::path& texPath)
+{
+    auto* pgd = PGGlobals::getPGD();
+
+    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::PARALLAX);
+    const auto newPath = texBase + L"_m.dds";
+
+    pgd->getTextureMap(PGEnums::TextureSlots::ENVMASK)[texBase].insert(
+        {newPath, PGEnums::TextureType::COMPLEXMATERIAL});
+    pgd->setTextureType(newPath, PGEnums::TextureType::COMPLEXMATERIAL);
 }
 
 auto PatcherTextureHookConvertToCM::isInProcessList(const filesystem::path& texPath) -> bool
@@ -120,6 +141,9 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
     pgd->getTextureMap(PGEnums::TextureSlots::ENVMASK)[texBase].insert(
         {newPath, PGEnums::TextureType::COMPLEXMATERIAL});
     pgd->setTextureType(newPath, PGEnums::TextureType::COMPLEXMATERIAL);
+
+    // record generated output for incremental runs
+    PGRunCache::recordHookOutput(PGRunCache::HookKind::CONVERT_TO_CM, getDDSPath(), newPath);
 
     return true;
 }

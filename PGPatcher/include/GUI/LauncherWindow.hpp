@@ -37,6 +37,13 @@ public:
      */
     void getParams(PGConfig::PGParams& params) const;
 
+    /**
+     * @brief Whether the user chose "Update Output" (only re-patch what changed since the previous output in the
+     * output location) instead of "Start Patching" (regenerate everything). Meant to be called after ShowModal returns
+     * wxID_OK.
+     */
+    [[nodiscard]] auto isUpdateRequested() const -> bool;
+
 private:
     constexpr static int MIN_WIDTH = 750;
     constexpr static int DEFAULT_HEIGHT = 800;
@@ -193,9 +200,13 @@ private:
     // Validation
     //
     wxButton* m_okButton; /** Stores the OKButton as a member var in case it needs to be disabled/enabled */
+    wxButton* m_updateOutputButton; /** "Update Output" button, only enabled when the output location holds a previous
+                                       output that can be updated */
     wxButton*
         m_saveConfigButton; /** Stores the SaveConfigButton as a member var in case it needs to be disabled/enabled */
     wxButton* m_loadConfigButton;
+
+    bool m_updateRequested = false; /** True when the dialog was closed via "Update Output" */
 
     /**
      * @brief Event handler that triggers when the user presses "Start Patching" - performs validation
@@ -203,6 +214,13 @@ private:
      * @param event wxWidgets event object
      */
     void onOkButtonPressed(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler that triggers when the user presses "Update Output" - performs validation
+     *
+     * @param event wxWidgets event object
+     */
+    void onUpdateOutputButtonPressed(wxCommandEvent& event);
 
     /**
      * @brief Event handler that triggers when the user presses the "Cancel" button

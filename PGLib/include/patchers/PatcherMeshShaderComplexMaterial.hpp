@@ -132,6 +132,11 @@ public:
      */
     void applyShader(nifly::NiShape& nifShape) override;
 
+    /**
+     * @brief Hash of the material meta JSON attached to a match
+     */
+    [[nodiscard]] auto getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t override;
+
 private:
     static auto getMaterialMeta(const std::filesystem::path& envMaskPath) -> nlohmann::json;
 };

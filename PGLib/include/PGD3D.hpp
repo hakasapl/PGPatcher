@@ -331,6 +331,23 @@ public:
                         DirectX::TexMetadata& ddsMeta) -> bool;
 
     /**
+     * @brief Pre-populate the DDS metadata cache with known metadata (from a previous run) so the file is not read
+     *
+     * @param ddsPath path of DDS file (relative to data)
+     * @param ddsMeta metadata of the DDS file
+     */
+    void seedDDSMetadata(const std::filesystem::path& ddsPath,
+                         const DirectX::TexMetadata& ddsMeta);
+
+    /**
+     * @brief Get a copy of the DDS metadata cache
+     *
+     * @return std::unordered_map<std::filesystem::path, DirectX::TexMetadata> metadata by DDS path
+     */
+    [[nodiscard]] auto getDDSMetadataCacheSnapshot() -> std::unordered_map<std::filesystem::path,
+                                                                           DirectX::TexMetadata>;
+
+    /**
      * @brief Check if aspect ratio between two textures matches
      *
      * @param ddsPath1 path of dds file 1

@@ -6,11 +6,12 @@
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "PGHandlers.hpp"
-#include "PGModManager.hpp"
 #include "PGLocale.hpp"
+#include "PGModManager.hpp"
 #include "PGPatcher.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "PGPlugin.hpp"
+#include "PGRunCache.hpp"
 #include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
@@ -28,6 +29,7 @@
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/ExceptionHandler.hpp"
 #include "util/FileUtil.hpp"
+#include "util/HashUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 #include "util/TaskPoolRunner.hpp"
@@ -51,6 +53,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -60,6 +63,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <system_error>
 #include <unordered_map>
 #include <vector>
 #include <windows.h>
@@ -71,6 +75,7 @@ constexpr unsigned MAX_LOG_FILES = 1000;
 using namespace std;
 struct ParallaxGenCLIArgs {
     bool autostart = false;
+    bool autostartUpdate = false;
     bool console = false;
     bool considerAllMeshes = false;
     bool ignoreMO2Check = false;
@@ -252,10 +257,113 @@ constexpr auto NUM_PREPARING_STEPS = 10;
 constexpr auto NUM_FINALIZING_STEPS = 5;
 constexpr auto NUM_TOTAL_STEPS = 6;
 
+/**
+ * @brief Fingerprint of every run setting that influences what is written for a mesh.
+ *
+ * When this differs from the fingerprint stored in the update cache, every mesh is re-patched (the classification
+ * caches, which do not depend on settings, are still reused). Settings that only influence plugin saving or logging
+ * are excluded on purpose.
+ */
+auto computeConfigFingerprint(const PGConfig::PGParams& params,
+                              const ParallaxGenCLIArgs& args) -> uint64_t
+{
+    HashUtil::Fnv1a64 hasher;
+
+    hasher.add(std::string(PG_FULL_VERSION));
+
+    hasher.add(params.Game.type);
+    hasher.add(StringUtil::toLowerASCII(params.Game.dir.wstring()));
+
+    hasher.add(params.ModManager.type);
+    hasher.add(StringUtil::toLowerASCII(params.ModManager.mo2InstanceDir.wstring()));
+
+    hasher.add(params.Processing.enableModDevMode);
+
+    vector<uint8_t> recTypes;
+    for (const auto& recType : params.Processing.allowedModelRecordTypes) {
+        recTypes.push_back(static_cast<uint8_t>(recType));
+    }
+    std::ranges::sort(recTypes);
+    hasher.add(static_cast<uint64_t>(recTypes.size()));
+    for (const auto& recType : recTypes) {
+        hasher.add(recType);
+    }
+
+    hasher.add(static_cast<uint64_t>(params.Processing.vanillaBSAList.size()));
+    for (const auto& bsa : params.Processing.vanillaBSAList) {
+        hasher.add(StringUtil::toLowerASCII(bsa));
+    }
+
+    hasher.add(static_cast<uint64_t>(params.Processing.textureMaps.size()));
+    for (const auto& [texture, type] : params.Processing.textureMaps) {
+        hasher.add(StringUtil::toLowerASCII(texture));
+        hasher.add(type);
+    }
+
+    hasher.add(static_cast<uint64_t>(params.Processing.allowList.size()));
+    for (const auto& entry : params.Processing.allowList) {
+        hasher.add(StringUtil::toLowerASCII(entry));
+    }
+
+    hasher.add(static_cast<uint64_t>(params.Processing.blockList.size()));
+    for (const auto& entry : params.Processing.blockList) {
+        hasher.add(StringUtil::toLowerASCII(entry));
+    }
+
+    hasher.add(params.PrePatcher.fixMeshLighting);
+    hasher.add(params.ShaderPatcher.parallax);
+    hasher.add(params.ShaderPatcher.complexMaterial);
+    hasher.add(params.ShaderPatcher.truePBR);
+    hasher.add(params.ShaderTransforms.parallaxToCM);
+    hasher.add(params.PostPatcher.disablePrePatchedMaterials);
+    hasher.add(params.PostPatcher.fixSSS);
+    hasher.add(params.PostPatcher.hairFlowMap);
+
+    hasher.add(args.considerAllMeshes);
+    hasher.add(args.disableDynCubemap);
+    hasher.add(args.forceAlwaysCM);
+    hasher.add(args.excludeFacegens);
+
+    return hasher.value();
+}
+
+/**
+ * @brief Fingerprint of the active plugin load order: plugin names in order plus each plugin's size and write time.
+ */
+auto computePluginFingerprint(const BethesdaGame& bg,
+                              const vector<wstring>& activePlugins) -> uint64_t
+{
+    HashUtil::Fnv1a64 hasher;
+    hasher.add(bg.getGameType());
+    hasher.add(static_cast<uint64_t>(activePlugins.size()));
+
+    for (const auto& plugin : activePlugins) {
+        hasher.add(StringUtil::toLowerASCII(plugin));
+
+        const auto pluginPath = bg.getGameDataPath() / plugin;
+        std::error_code ec;
+        const auto mtime = filesystem::last_write_time(pluginPath, ec);
+        if (ec) {
+            hasher.add(static_cast<uint8_t>(0));
+            continue;
+        }
+
+        hasher.add(static_cast<uint8_t>(1));
+        hasher.add(static_cast<int64_t>(mtime.time_since_epoch().count()));
+
+        ec.clear();
+        const auto size = filesystem::file_size(pluginPath, ec);
+        hasher.add(static_cast<uint64_t>(ec ? 0 : size));
+    }
+
+    return hasher.value();
+}
+
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
 void mainRunnerPrep(const ParallaxGenCLIArgs& args,
                     const PGConfig::PGParams& params,
+                    const bool& updateOutput,
                     const filesystem::path& exePath,
                     const std::filesystem::path& cfgDir,
                     ProgressWindow* progressWindow,
@@ -329,6 +437,14 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         return;
     }
 
+    // Update cache: "Update Output" re-patches only what changed since the previous output in the output directory,
+    // "Start Patching" regenerates everything. Zipped outputs are always generated from scratch and leave no cache.
+    if (updateOutput && params.Output.zip) {
+        Logger::warn("Zip output is enabled, so the previous output cannot be updated and is generated from scratch");
+    }
+    PGRunCache::initialize(params.Output.dir / PGRunCache::CACHE_FILENAME, !params.Output.zip, !updateOutput);
+    PGRunCache::setConfigFingerprint(computeConfigFingerprint(params, args));
+
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, NUM_PREPARING_STEPS); });
     //
     // END OUTPUT DIRECTORY INITIALIZATION
@@ -352,6 +468,9 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     const wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
     Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
 
+    // Update cache: mesh uses can be reused from the previous run if no plugin changed
+    PGRunCache::setPluginFingerprint(computePluginFingerprint(*bg, activePlugins));
+
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, NUM_PREPARING_STEPS); });
     //
     // END PLUGIN VALIDATION
@@ -366,15 +485,18 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     TaskQueue pluginInit;
 
     // Init PGP library
+    // When no plugin changed since the previous run, mesh uses come from the update cache, so reading every model
+    // record of the load order is deferred until (and unless) a mesh not in the cache needs it
+    const bool lazyModelUses = PGRunCache::arePreviousMeshUsesValid();
     Logger::info("Initializing plugin patching");
     if (params.Processing.multithread) {
-        pluginInit.queueTask([&bg, &exePath, &params]() -> void {
+        pluginInit.queueTask([&bg, &exePath, &params, lazyModelUses]() -> void {
             PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp", lazyModelUses);
         });
     } else {
         PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp", lazyModelUses);
     }
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_PREPARING_STEPS); });
@@ -433,6 +555,9 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Init file map
     pgd->populateFileMap(true);
+
+    // Update cache: texture metadata of unchanged textures does not need to be read again
+    PGRunCache::seedTextureMetadata();
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_PREPARING_STEPS); });
     //
@@ -608,6 +733,10 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     PGPlugin::resetPatchingState();
     PGGlobals::getPGD()->clearGeneratedFiles();
     PGPatcherGlobals::getWXLoggerSink()->resetToRunStart();
+    // Messages of a previous patching step must be logged again when the step is re-run (the completion dialog only
+    // shows messages of the latest step), including messages replayed for meshes that did not need re-patching
+    Logger::resetToRunStart();
+    PGRunCache::beginRun();
 
     //
     // OUTPUT DIRECTORY CLEANUP
@@ -615,7 +744,18 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
 
     // delete existing output
     // we delete after pluginInit is done because we need to make sure it had a chance to read the old plugin
-    PGPatcher::deleteOutputDir();
+    if (PGRunCache::hasPreviousRun()) {
+        // Updating a previous output: meshes and textures are kept and pruned per mesh during patching
+        PGPatcher::deleteOutputDir(true, true);
+        PGRunCache::snapshotOutputDirectory();
+    } else {
+        PGPatcher::deleteOutputDir();
+    }
+
+    if (params.ShaderPatcher.complexMaterial && !args.disableDynCubemap) {
+        // deployed after patching, must not be treated as a stale output
+        PGRunCache::addProtectedOutput(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
+    }
 
     progressWindow->CallAfter([progressWindow]() -> void {
         progressWindow->setMainLabel(PGTr("progress.steps.patchingMeshes", "Patching meshes"));
@@ -667,7 +807,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
 
     // Check for empty output
     if (PGPatcher::isOutputEmpty()) {
-        // output is empty
+        // output is empty, there is no previous output to update anymore
+        PGRunCache::discard();
         Logger::warn("Output directory is empty. No files were generated.");
         return;
     }
@@ -726,6 +867,19 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     // END SAVING DIFF JSON
     //
 
+    //
+    // SAVING UPDATE CACHE
+    //
+    // Describes this output so the next run into this directory only re-patches what changed (disabled when zipping)
+    progressWindow->CallAfter([progressWindow]() -> void {
+        progressWindow->setStepLabel(PGTr("progress.steps.savingUpdateCache", "Saving Update Cache"));
+    });
+
+    PGRunCache::finishRun(!params.Output.zip);
+    //
+    // END SAVING UPDATE CACHE
+    //
+
     // archive
     if (params.Output.zip) {
         //
@@ -780,9 +934,12 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     auto params = pgc.getParams();
 
-    // Show launcher UI
-    if (!args.autostart) {
-        PGUI::showLauncher(pgc, params);
+    // Show launcher UI. "Update Output" (or --autostart-update) updates the previous output in the output location in
+    // place, "Start Patching" (or --autostart) regenerates it from scratch
+    const bool autostart = args.autostart || args.autostartUpdate;
+    bool updateOutput = args.autostartUpdate;
+    if (!autostart) {
+        updateOutput = PGUI::showLauncher(pgc, params);
     }
 
     // Validate config
@@ -844,17 +1001,19 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     // Dispatch the pre-generation task
     TaskQueue backgroundRunners;
-    backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
-        mainRunnerPrep(args, params, exePath, cfgDir, progressWindow, progressCallback);
+    backgroundRunners.queueTask(
+        [&args, &params, &updateOutput, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
+            mainRunnerPrep(args, params, updateOutput, exePath, cfgDir, progressWindow, progressCallback);
 
-        // Snapshot message counts after prep so re-runs of the patching step can discard
-        // messages from a previous patch run while keeping preparation-phase messages
-        PGPatcherGlobals::getWXLoggerSink()->markRunStart();
+            // Snapshot message counts after prep so re-runs of the patching step can discard
+            // messages from a previous patch run while keeping preparation-phase messages
+            PGPatcherGlobals::getWXLoggerSink()->markRunStart();
+            Logger::markRunStart();
 
-        mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
-        auto* const progressWindowPtr = progressWindow;
-        progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
-    });
+            mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
+            auto* const progressWindowPtr = progressWindow;
+            progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
+        });
 
     // Show progress dialog (this will block until closed by one of the callafters)
     progressWindow->ShowModal();
@@ -902,7 +1061,15 @@ void addArguments(CLI::App& app,
                   ParallaxGenCLIArgs& args)
 {
     // Logging
-    app.add_flag("--autostart", args.autostart, "Start generation without user input");
+    auto* const autostartFlag = app.add_flag(
+        "--autostart", args.autostart, "Start generation without user input (regenerates the output from scratch)");
+    auto* const autostartUpdateFlag
+        = app.add_flag("--autostart-update",
+                       args.autostartUpdate,
+                       "Start updating the previous output in the output location without user input, like the "
+                       "\"Update Output\" button (generates from scratch if there is no previous output)");
+    autostartFlag->excludes(autostartUpdateFlag);
+    autostartUpdateFlag->excludes(autostartFlag);
     app.add_flag("--console", args.console, "Show console in the background");
     app.add_flag(
         "--consider-allmeshes", args.considerAllMeshes, "Consider all meshes, even those not in plugins, for patching");

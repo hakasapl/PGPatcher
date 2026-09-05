@@ -211,6 +211,11 @@ public:
     void applyShader(nifly::NiShape& nifShape) override;
 
     /**
+     * @brief Hash of the PBR config entries and matched prefixes attached to a match (in application order)
+     */
+    [[nodiscard]] auto getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t override;
+
+    /**
      * @brief Load PBR options string
      *
      * @param optionsStr string to load

@@ -153,11 +153,12 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
     }
 }
 
-void PGMutagenWrapper::libPopulateObjs(const filesystem::path& existingModPath)
+void PGMutagenWrapper::libPopulateObjs(const filesystem::path& existingModPath,
+                                       bool lazyModelUses)
 {
     const lock_guard<mutex> lock(s_libMutex);
 
-    PopulateObjs(existingModPath.wstring().c_str());
+    PopulateObjs(existingModPath.wstring().c_str(), lazyModelUses ? 1 : 0);
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 }

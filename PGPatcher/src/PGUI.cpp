@@ -62,15 +62,17 @@ auto PGUI::applyTheme() -> bool
     return true;
 }
 
-void PGUI::showLauncher(PGConfig& pgc,
-                        PGConfig::PGParams& params)
+auto PGUI::showLauncher(PGConfig& pgc,
+                        PGConfig::PGParams& params) -> bool
 {
+    bool updateRequested = false;
     int result = wxID_CANCEL;
     do {
         auto* launcher = new LauncherWindow(pgc); // NOLINT(cppcoreguidelines-owning-memory)
         result = launcher->ShowModal();
         if (result == wxID_OK) {
             launcher->getParams(params);
+            updateRequested = launcher->isUpdateRequested();
         }
         launcher->Destroy();
 
@@ -87,6 +89,8 @@ void PGUI::showLauncher(PGConfig& pgc,
             }
         }
     } while (result == LauncherWindow::RESULT_RELAUNCH); // rebuild the launcher after a language/theme change
+
+    return updateRequested;
 }
 
 void PGUI::selectModOrder()
