@@ -8,6 +8,7 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -20,6 +21,57 @@
 constexpr unsigned ASCII_UPPER_BOUND = 127;
 
 class BethesdaDirectory {
+public:
+    /**
+     * @struct FileIdentity
+     * @brief Cheap, content-free description of where a file in the load order comes from and when it last changed.
+     *
+     * Two identities compare equal when the file almost certainly has the same content: for loose files the
+     * modification time and size must match, for BSA-packed files the containing archive's name, modification time
+     * and size must match. This is what incremental runs use to decide whether a source file changed without reading
+     * it.
+     */
+    struct FileIdentity {
+        enum class Kind : uint8_t { NONE, LOOSE, BSA, GENERATED };
+
+        Kind kind = Kind::NONE;
+        int64_t mtime = 0; /**< Loose files: last write time (file_time_type ticks) */
+        uint64_t size = 0; /**< Loose files: size in bytes */
+        std::wstring bsaRelPath; /**< BSA files: lowercase archive name */
+        int64_t bsaMtime = 0; /**< BSA files: archive last write time (file_time_type ticks) */
+        uint64_t bsaSize = 0; /**< BSA files: archive size in bytes */
+
+        auto operator==(const FileIdentity& other) const -> bool = default;
+    };
+
+    /**
+     * @brief Observer interface for file map queries. Set per thread; used to record what a computation depended on.
+     */
+    class FileQueryObserver {
+    public:
+        virtual ~FileQueryObserver() = default;
+        FileQueryObserver() = default;
+        FileQueryObserver(const FileQueryObserver&) = default;
+        auto operator=(const FileQueryObserver&) -> FileQueryObserver& = default;
+        FileQueryObserver(FileQueryObserver&&) = default;
+        auto operator=(FileQueryObserver&&) -> FileQueryObserver& = default;
+
+        /**
+         * @brief Called whenever isFile() is answered on the observing thread.
+         */
+        virtual void onIsFile(const std::filesystem::path& relPath,
+                              bool exists,
+                              bool generated)
+            = 0;
+
+        /**
+         * @brief Called whenever getFile() successfully resolves a file on the observing thread.
+         */
+        virtual void onGetFile(const std::filesystem::path& relPath,
+                               const FileIdentity& identity)
+            = 0;
+    };
+
 private:
     /**
      * @struct BSAFile
@@ -33,11 +85,15 @@ private:
         BSAFile(std::filesystem::path p,
                 std::filesystem::path rp,
                 bsa::tes4::version v,
-                bsa::tes4::archive a)
+                bsa::tes4::archive a,
+                int64_t mt,
+                uint64_t sz)
             : path(std::move(p))
             , relPath(std::move(rp))
             , version(v)
             , archive(std::move(a))
+            , mtime(mt)
+            , size(sz)
         {
         }
 
@@ -45,6 +101,8 @@ private:
         std::filesystem::path relPath;
         bsa::tes4::version version;
         bsa::tes4::archive archive;
+        int64_t mtime; /**< Archive last write time (file_time_type ticks) */
+        uint64_t size; /**< Archive size in bytes */
     };
 
     /**
@@ -59,7 +117,9 @@ private:
     struct BethesdaFile {
         std::filesystem::path path;
         std::shared_ptr<BSAFile> bsaFile;
-        bool generated;
+        bool generated = false;
+        int64_t mtime = 0; /**< Loose files: last write time (file_time_type ticks) */
+        uint64_t size = 0; /**< Loose files: size in bytes */
 
         [[nodiscard]] auto getDiagJSON() const -> nlohmann::json
         {
@@ -90,6 +150,8 @@ private:
     BethesdaGame* m_bg; /** < BethesdaGame which stores a BethesdaGame object
                         corresponding to this load order */
 
+    inline thread_local static FileQueryObserver* s_threadQueryObserver = nullptr;
+
     /**
      * @brief Returns a vector of strings that represent the fields in the INI
      * file that store information about BSA file loading
@@ -97,6 +159,11 @@ private:
      * @return std::vector<std::string>
      */
     static auto getINIBSAFields() -> std::vector<std::string>;
+
+    /**
+     * @brief Builds the identity for a file map entry
+     */
+    static auto buildIdentity(const BethesdaFile& file) -> FileIdentity;
     /**
      * @brief Gets a list of extensions to ignore when populating the file map
      *
@@ -232,6 +299,21 @@ public:
     [[nodiscard]] auto getLooseFileFullPath(const std::filesystem::path& relPath) -> std::filesystem::path;
 
     /**
+     * @brief Get the identity (source + modification time + size) of a file in the load order without reading it
+     *
+     * @param relPath path to the file relative to the data directory
+     * @return FileIdentity identity, kind is NONE if the file does not exist in the load order
+     */
+    [[nodiscard]] auto getFileIdentity(const std::filesystem::path& relPath) -> FileIdentity;
+
+    /**
+     * @brief Sets (or clears with nullptr) the file query observer for the calling thread
+     *
+     * @param observer observer to notify of file map queries made on this thread
+     */
+    static void setThreadFileQueryObserver(FileQueryObserver* observer);
+
+    /**
      * @brief Get the load order of BSAs
      *
      * @return std::vector<std::wstring> Names of BSA files ordered by load order.
@@ -359,10 +441,14 @@ private:
      *
      * @param filePath path to update or add
      * @param bsaFile BSA file or nullptr if it doesn't exist
+     * @param mtime loose file last write time (file_time_type ticks), 0 if unknown
+     * @param size loose file size in bytes, 0 if unknown
      */
     void updateFileMap(const std::filesystem::path& filePath,
                        std::shared_ptr<BSAFile> bsaFile,
-                       const bool& generated = false);
+                       const bool& generated = false,
+                       const int64_t& mtime = 0,
+                       const uint64_t& size = 0);
 
     /**
      * @brief Convert a list of wstrings to a LPCWSTRs

@@ -2,6 +2,11 @@
 
 ## [1.4.0] - UNRELEASED
 
+- Added "Update Output" button to the launcher which will be available if your output location has a previous output with a cache in it
+- Added --autostart-update CLI argument, which updates the previous output like the "Update Output" button (--autostart keeps regenerating from scratch)
+- The conflict manager's "Save Changes and Update Output" now only re-patches meshes affected by the changed mod order or mod state
+- Improved plugin patching performance by copying records only when a mesh actually changes them (lazy loading)
+- Fixed warnings and errors of the previous patching step not being shown again after re-running from the conflict manager
 - Fixed some labels being cut off in dialogs for certain translations
 
 ## [1.3.0] - 2026-08-31

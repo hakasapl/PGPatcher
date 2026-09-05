@@ -66,8 +66,11 @@ public:
      * @brief Populates the internal plugin object graph, optionally merging an existing output mod.
      *
      * @param existingModPath Path to an existing output mod to merge into the session; empty to start fresh.
+     * @param lazyModelUses When true, enumerating the model records of the load order is deferred until the first
+     * libGetModelUses call (the caller expects to answer model uses from its own cache).
      */
-    static void libPopulateObjs(const std::filesystem::path& existingModPath = {});
+    static void libPopulateObjs(const std::filesystem::path& existingModPath = {},
+                                bool lazyModelUses = false);
 
     /**
      * @brief Resets mutable plugin-patching state to the post-populate baseline.

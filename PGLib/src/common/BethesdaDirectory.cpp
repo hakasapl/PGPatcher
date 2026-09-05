@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -35,6 +36,7 @@
 #include <shlwapi.h>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -138,6 +140,10 @@ auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::
         throw runtime_error("File not found in file map");
     }
 
+    if (s_threadQueryObserver != nullptr) {
+        s_threadQueryObserver->onGetFile(relPath, buildIdentity(file));
+    }
+
     vector<std::byte> outFileBytes;
     const shared_ptr<BSAFile> bsaStruct = file.bsaFile;
     if (bsaStruct == nullptr) {
@@ -194,7 +200,7 @@ void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath)
         m_generatedFileRestoreMap[relPath] = existingIt->second;
     }
 
-    const BethesdaFile generatedFile = {.path = relPath, .bsaFile = nullptr, .generated = true};
+    const BethesdaFile generatedFile = {.path = relPath, .bsaFile = nullptr, .generated = true, .mtime = 0, .size = 0};
     m_fileMap[relPath] = generatedFile;
 }
 
@@ -244,8 +250,50 @@ auto BethesdaDirectory::isFile(const filesystem::path& relPath) -> bool
     }
 
     const BethesdaFile file = getFileFromMap(relPath);
-    return !file.path.empty();
+    const bool exists = !file.path.empty();
+
+    if (s_threadQueryObserver != nullptr) {
+        s_threadQueryObserver->onIsFile(relPath, exists, exists && file.generated);
+    }
+
+    return exists;
 }
+
+auto BethesdaDirectory::buildIdentity(const BethesdaFile& file) -> FileIdentity
+{
+    FileIdentity identity;
+
+    if (file.path.empty()) {
+        identity.kind = FileIdentity::Kind::NONE;
+        return identity;
+    }
+
+    if (file.generated) {
+        identity.kind = FileIdentity::Kind::GENERATED;
+        return identity;
+    }
+
+    if (file.bsaFile != nullptr) {
+        identity.kind = FileIdentity::Kind::BSA;
+        identity.bsaRelPath = file.bsaFile->relPath.wstring();
+        identity.bsaMtime = file.bsaFile->mtime;
+        identity.bsaSize = file.bsaFile->size;
+        return identity;
+    }
+
+    identity.kind = FileIdentity::Kind::LOOSE;
+    identity.mtime = file.mtime;
+    identity.size = file.size;
+    return identity;
+}
+
+auto BethesdaDirectory::getFileIdentity(const filesystem::path& relPath) -> FileIdentity
+{
+    const BethesdaFile file = getFileFromMap(relPath);
+    return buildIdentity(file);
+}
+
+void BethesdaDirectory::setThreadFileQueryObserver(FileQueryObserver* observer) { s_threadQueryObserver = observer; }
 
 auto BethesdaDirectory::isGenerated(const filesystem::path& relPath) -> bool
 {
@@ -317,7 +365,13 @@ void BethesdaDirectory::addLooseFilesToMap()
             continue;
         }
 
-        updateFileMap(relativePath, nullptr);
+        // directory_entry caches size and write time from the directory listing so these are free
+        error_code ec;
+        const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
+        ec.clear();
+        const auto size = entry.file_size(ec);
+
+        updateFileMap(relativePath, nullptr, false, static_cast<int64_t>(mtime), ec ? 0 : size);
     }
 
     // loop through each folder to map
@@ -351,7 +405,13 @@ void BethesdaDirectory::addLooseFilesToMap()
                 continue;
             }
 
-            updateFileMap(relativePath, nullptr);
+            // directory_entry caches size and write time from the directory listing so these are free
+            error_code ec;
+            const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
+            ec.clear();
+            const auto size = entry.is_directory() ? 0 : entry.file_size(ec);
+
+            updateFileMap(relativePath, nullptr, false, static_cast<int64_t>(mtime), ec ? 0 : size);
         }
     }
 }
@@ -379,8 +439,15 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
         return;
     }
 
+    // Archive identity (used to detect changed archives without reading their contents)
+    error_code ec;
+    const auto bsaMtime = static_cast<int64_t>(filesystem::last_write_time(bsaPath, ec).time_since_epoch().count());
+    ec.clear();
+    const auto bsaSizeRaw = filesystem::file_size(bsaPath, ec);
+    const uint64_t bsaSize = ec ? 0 : bsaSizeRaw;
+
     const shared_ptr<BSAFile> bsaStructPtr
-        = make_shared<BSAFile>(bsaPath, boost::to_lower_copy(bsaName), bsaVersion, bsaObj);
+        = make_shared<BSAFile>(bsaPath, boost::to_lower_copy(bsaName), bsaVersion, bsaObj, bsaMtime, bsaSize);
 
     // loop iterator
     for (auto& fileEntry : bsaObj) {
@@ -597,7 +664,7 @@ auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> Beth
 
     const shared_lock lock(m_fileMapMutex);
     if (!m_fileMap.contains(filePath)) {
-        return BethesdaFile {.path = filesystem::path(), .bsaFile = nullptr};
+        return BethesdaFile {.path = filesystem::path(), .bsaFile = nullptr, .generated = false, .mtime = 0, .size = 0};
     }
 
     return m_fileMap.at(filePath);
@@ -605,13 +672,16 @@ auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> Beth
 
 void BethesdaDirectory::updateFileMap(const filesystem::path& filePath,
                                       shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
-                                      const bool& generated)
+                                      const bool& generated,
+                                      const int64_t& mtime,
+                                      const uint64_t& size)
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
     const unique_lock lock(m_fileMapMutex);
 
-    const BethesdaFile newBFile = {.path = filePath, .bsaFile = std::move(bsaFile), .generated = generated};
+    const BethesdaFile newBFile
+        = {.path = filePath, .bsaFile = std::move(bsaFile), .generated = generated, .mtime = mtime, .size = size};
 
     m_fileMap[filePath] = newBFile;
 }

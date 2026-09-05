@@ -182,6 +182,8 @@ public:
         ModelRecordType recType;
         /// @brief Map from alternate texture set index to the overriding TextureSet.
         std::unordered_map<unsigned int, PGTypes::TextureSet> alternateTextures;
+
+        auto operator==(const MeshUseAttributes& other) const -> bool = default;
     };
 
     /**
@@ -254,8 +256,11 @@ public:
      * @brief Populates the internal object cache by reading all 3D model records from the loaded plugins.
      *
      * @param existingModPath Optional path to a pre-existing PGPatcher output plugin to merge with.
+     * @param lazyModelUses When true, reading the model records is deferred until getModelUses() is first called.
+     * Use when model uses are expected to come from the update cache so the plugins never need to be enumerated.
      */
-    static void populateObjs(const std::filesystem::path& existingModPath = {});
+    static void populateObjs(const std::filesystem::path& existingModPath = {},
+                             bool lazyModelUses = false);
 
     /**
      * @brief Resets plugin patching state to the baseline captured after populateObjs().

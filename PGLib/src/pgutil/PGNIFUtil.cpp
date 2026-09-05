@@ -2,6 +2,7 @@
 
 #include "BasicTypes.hpp"
 #include "ExtraData.hpp"
+#include "PGRunCache.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/StringUtil.hpp"
@@ -431,31 +432,19 @@ auto PGNIFUtil::getTexMatch(const wstring& base,
     const wstring baseLower = StringUtil::toLowerASCIIFast(base);
     const auto it = searchMap.find(baseLower);
 
-    if (it != searchMap.end()) {
-        // Found a match
-        if (!boost::equals(it->first, baseLower)) {
-            // No exact match
-            return {};
-        }
-
-        if (it->second.empty()) {
-            // No textures
-            return {};
-        }
-
-        vector<PGTypes::PGTexture> outTex;
+    vector<PGTypes::PGTexture> outTex;
+    if (it != searchMap.end() && boost::equals(it->first, baseLower)) {
         for (const auto& texture : it->second) {
             if (texture.type == desiredType) {
                 outTex.push_back(texture);
-            } else {
-                continue;
             }
         }
-
-        return outTex;
     }
 
-    return {};
+    // record lookup for incremental runs (no-op unless a mesh is being recorded on this thread)
+    PGRunCache::recordTexMatch(baseLower, desiredType, outTex);
+
+    return outTex;
 }
 
 auto PGNIFUtil::getSearchPrefixes(NifFile const& nif,

@@ -181,8 +181,19 @@ public:
 
     /**
      * @brief Validates all weighted mesh variants across all trackers, ensuring _0/_1 pairs are consistent.
+     *
+     * @return Errors that were logged, as (mesh path the error is about, message) pairs.
      */
-    static void validateWeightedVariants();
+    static auto validateWeightedVariants() -> std::vector<std::pair<std::filesystem::path,
+                                                                    std::wstring>>;
+
+    /**
+     * @brief Resolves the path of the corresponding weighted variant (_0/_1) for a given NIF.
+     *
+     * @param nifPath Path of the current NIF (e.g., the _1 variant).
+     * @return Path of the other weight variant (e.g., the _0 variant), or the same path if it is not a weight variant.
+     */
+    static auto getOtherWeightVariant(const std::filesystem::path& nifPath) -> std::filesystem::path;
 
 private:
     /**
@@ -307,12 +318,4 @@ private:
                                            const std::unordered_map<nifly::NiObject*,
                                                                     int>& original3DIndices) -> std::unordered_map<int,
                                                                                                                    int>;
-
-    /**
-     * @brief Resolves the path of the corresponding weighted variant (_0/_1) for a given NIF.
-     *
-     * @param nifPath Path of the current NIF (e.g., the _1 variant).
-     * @return Path of the other weight variant (e.g., the _0 variant).
-     */
-    static auto getOtherWeightVariant(const std::filesystem::path& nifPath) -> std::filesystem::path;
 };

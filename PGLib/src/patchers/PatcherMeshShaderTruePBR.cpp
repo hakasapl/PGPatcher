@@ -6,6 +6,7 @@
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
+#include "util/HashUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
@@ -27,6 +28,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <iterator>
@@ -618,6 +620,27 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_DETAIL_MAP);
+}
+
+auto PatcherMeshShaderTruePBR::getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t
+{
+    if (match.extraData == nullptr) {
+        return 0;
+    }
+
+    const auto extraData = static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(match.extraData);
+
+    // Config indices depend on the global order of PBR JSONs, which can shift when JSONs are added or removed
+    // without changing how this shape is patched. Only the content and the relative order matter, so hash the entries
+    // in map (application) order without their indices.
+    HashUtil::Fnv1a64 hasher;
+    hasher.add(static_cast<uint64_t>(extraData->size()));
+    for (const auto& [sequence, data] : *extraData) {
+        hasher.add(get<0>(data).dump());
+        hasher.add(get<1>(data));
+    }
+
+    return hasher.value();
 }
 
 void PatcherMeshShaderTruePBR::loadOptions(unordered_map<string,

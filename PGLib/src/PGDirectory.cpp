@@ -3,6 +3,7 @@
 #include "PGD3D.hpp"
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
+#include "PGRunCache.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -253,6 +254,13 @@ auto PGDirectory::mapFiles(const vector<wstring>& nifBlocklist,
         // extended classification
         // check if CM
         if (winningType == PGEnums::TextureType::ENVIRONMENTMASK && !isFileInBSA(texture, parallaxBSAExcludes)) {
+            // reuse the classification of a previous run if the texture did not change
+            PGTypes::CMClassification cachedClassification;
+            if (PGRunCache::tryGetCachedCMClassification(texture, getFileIdentity(texture), cachedClassification)) {
+                applyCMClassification(texture, winningSlot, cachedClassification);
+                continue;
+            }
+
             if (multithreading) {
                 m_CMClassificationQueue.queueTask(
                     [this, texture, winningSlot]() -> void { checkIfCMAddToMap(texture, winningSlot); });
@@ -280,14 +288,15 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
                                     const PGEnums::TextureSlots& winningSlot)
 {
     // classify as CM or not
-    bool hasMetalness = false;
-    bool hasGlosiness = false;
-    bool hasEnvMask = false;
-    bool result = false;
+    PGTypes::CMClassification classification;
 
     bool success = false;
     try {
-        success = PGGlobals::getPGD3D()->checkIfCM(texture, result, hasEnvMask, hasGlosiness, hasMetalness);
+        success = PGGlobals::getPGD3D()->checkIfCM(texture,
+                                                   classification.isCM,
+                                                   classification.hasEnvMask,
+                                                   classification.hasGlossiness,
+                                                   classification.hasMetalness);
     } catch (...) {
         success = false;
     }
@@ -297,20 +306,30 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
         return;
     }
 
-    if (!result) {
+    // remember the result for incremental runs
+    PGRunCache::storeCMClassification(texture, getFileIdentity(texture), classification);
+
+    applyCMClassification(texture, winningSlot, classification);
+}
+
+void PGDirectory::applyCMClassification(const std::filesystem::path& texture,
+                                        const PGEnums::TextureSlots& winningSlot,
+                                        const PGTypes::CMClassification& classification)
+{
+    if (!classification.isCM) {
         // regular env mask
         addToTextureMaps(texture, winningSlot, PGEnums::TextureType::ENVIRONMENTMASK, {});
         return;
     }
 
     unordered_set<PGEnums::TextureAttribute> attributes;
-    if (hasEnvMask) {
+    if (classification.hasEnvMask) {
         attributes.insert(PGEnums::TextureAttribute::CM_ENVMASK);
     }
-    if (hasGlosiness) {
+    if (classification.hasGlossiness) {
         attributes.insert(PGEnums::TextureAttribute::CM_GLOSSINESS);
     }
-    if (hasMetalness) {
+    if (classification.hasMetalness) {
         attributes.insert(PGEnums::TextureAttribute::CM_METALNESS);
     }
 
@@ -332,6 +351,53 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
 {
     auto result = TaskTracker::Result::SUCCESS;
 
+    // Texture votes: reuse the votes of a previous run when the NIF did not change, otherwise read the NIF
+    const auto nifIdentity = getFileIdentity(nifPath);
+    vector<PGTypes::TextureVote> votes;
+    if (!PGRunCache::tryGetCachedMeshVotes(nifPath, nifIdentity, votes)) {
+        if (!readTextureVotesFromNIF(nifPath, votes)) {
+            Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
+            return TaskTracker::Result::FAILURE;
+        }
+
+        PGRunCache::storeMeshVotes(nifPath, nifIdentity, votes);
+    }
+
+    for (const auto& vote : votes) {
+        updateUnconfirmedTexturesMap(vote.texture, vote.slot, vote.type);
+    }
+
+    // Mesh uses: reuse the previous run's uses when no plugin changed, otherwise ask the plugin library
+    PGRunCache::MeshUses cachedUses;
+    if (PGRunCache::tryGetCachedMeshUses(nifPath, cachedUses)) {
+        updateNifCache(nifPath, cachedUses);
+    } else if (multithreading) {
+        m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
+            // send job to find mesh uses for this mesh
+            const auto modelUses = PGPlugin::getModelUses(nifPath);
+            updateNifCache(nifPath, modelUses);
+        });
+    } else {
+        // send job to find mesh uses for this mesh
+        const auto modelUses = PGPlugin::getModelUses(nifPath);
+        updateNifCache(nifPath, modelUses);
+    }
+
+    // find mod of this mesh
+    if (PGGlobals::isPGMMSet()) {
+        auto mod = PGGlobals::getPGMM()->getModByFileSmart(nifPath);
+        if (mod != nullptr) {
+            const unique_lock<shared_mutex> lock(mod->mutex);
+            mod->hasMeshes = true;
+        }
+    }
+
+    return result;
+}
+
+auto PGDirectory::readTextureVotesFromNIF(const filesystem::path& nifPath,
+                                          vector<PGTypes::TextureVote>& votes) -> bool
+{
     // Load NIF
     shared_ptr<nifly::NifFile> nif = nullptr;
     vector<std::byte> nifBytes;
@@ -339,17 +405,15 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
         try {
             nifBytes = getFile(nifPath);
         } catch (...) {
-            Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
-            return TaskTracker::Result::FAILURE;
+            return false;
         }
 
         try {
             // Attempt to load NIF file
             nif = make_shared<nifly::NifFile>(PGNIFUtil::loadNIFFromBytes(nifBytes));
         } catch (...) {
-            // Unable to read NIF, delete from Meshes set
-            Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
-            return TaskTracker::Result::FAILURE;
+            // Unable to read NIF
+            return false;
         }
     }
 
@@ -513,33 +577,14 @@ auto PGDirectory::mapTexturesFromNIF(const filesystem::path& nifPath,
                 textureType = PGEnums::TextureType::UNKNOWN;
             }
 
-            // Update unconfirmed textures map
-            updateUnconfirmedTexturesMap(texture, static_cast<PGEnums::TextureSlots>(slot), textureType);
+            // Record vote (applied by the caller)
+            votes.push_back({.texture = utf8toUTF16(texture),
+                             .slot = static_cast<PGEnums::TextureSlots>(slot),
+                             .type = textureType});
         }
     }
 
-    if (multithreading) {
-        m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
-            // send job to find mesh uses for this mesh
-            const auto modelUses = PGPlugin::getModelUses(nifPath);
-            updateNifCache(nifPath, modelUses);
-        });
-    } else {
-        // send job to find mesh uses for this mesh
-        const auto modelUses = PGPlugin::getModelUses(nifPath);
-        updateNifCache(nifPath, modelUses);
-    }
-
-    // find mod of this mesh
-    if (PGGlobals::isPGMMSet()) {
-        auto mod = PGGlobals::getPGMM()->getModByFileSmart(nifPath);
-        if (mod != nullptr) {
-            const unique_lock<shared_mutex> lock(mod->mutex);
-            mod->hasMeshes = true;
-        }
-    }
-
-    return result;
+    return true;
 }
 
 auto PGDirectory::updateUnconfirmedTexturesMap(const filesystem::path& path,
@@ -672,24 +717,34 @@ auto PGDirectory::removeTextureAttribute(const filesystem::path& path,
 auto PGDirectory::hasTextureAttribute(const filesystem::path& path,
                                       const PGEnums::TextureAttribute& attribute) -> bool
 {
-    const shared_lock lock(m_textureTypesMutex);
-
-    if (m_textureTypes.contains(path)) {
-        return m_textureTypes.at(path).attributes.contains(attribute);
+    bool result = false;
+    {
+        const shared_lock lock(m_textureTypesMutex);
+        if (m_textureTypes.contains(path)) {
+            result = m_textureTypes.at(path).attributes.contains(attribute);
+        }
     }
 
-    return false;
+    // record lookup for incremental runs (no-op unless a mesh is being recorded on this thread)
+    PGRunCache::recordTextureAttribute(path, attribute, result);
+
+    return result;
 }
 
 auto PGDirectory::getTextureAttributes(const filesystem::path& path) -> unordered_set<PGEnums::TextureAttribute>
 {
-    const shared_lock lock(m_textureTypesMutex);
-
-    if (m_textureTypes.contains(path)) {
-        return m_textureTypes.at(path).attributes;
+    unordered_set<PGEnums::TextureAttribute> result;
+    {
+        const shared_lock lock(m_textureTypesMutex);
+        if (m_textureTypes.contains(path)) {
+            result = m_textureTypes.at(path).attributes;
+        }
     }
 
-    return {};
+    // record lookup for incremental runs (no-op unless a mesh is being recorded on this thread)
+    PGRunCache::recordTextureAttributes(path, result);
+
+    return result;
 }
 
 void PGDirectory::setTextureType(const filesystem::path& path,
@@ -701,11 +756,16 @@ void PGDirectory::setTextureType(const filesystem::path& path,
 
 auto PGDirectory::getTextureType(const filesystem::path& path) -> PGEnums::TextureType
 {
-    const shared_lock lock(m_textureTypesMutex);
-
-    if (m_textureTypes.contains(path)) {
-        return m_textureTypes.at(path).type;
+    auto result = PGEnums::TextureType::UNKNOWN;
+    {
+        const shared_lock lock(m_textureTypesMutex);
+        if (m_textureTypes.contains(path)) {
+            result = m_textureTypes.at(path).type;
+        }
     }
 
-    return PGEnums::TextureType::UNKNOWN;
+    // record lookup for incremental runs (no-op unless a mesh is being recorded on this thread)
+    PGRunCache::recordTextureType(path, result);
+
+    return result;
 }

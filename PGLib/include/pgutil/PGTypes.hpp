@@ -59,6 +59,23 @@ auto getTextureSlotsFromStr(const std::string& slots) -> TextureSet;
  */
 auto getStrFromTextureSlots(const TextureSet& slots) -> std::string;
 
+/// @brief A single (texture, slot, type) vote produced by reading a shape of a NIF during texture classification
+struct TextureVote {
+    std::wstring texture; /**< lowercase relative texture path */
+    PGEnums::TextureSlots slot {};
+    PGEnums::TextureType type {};
+};
+
+/// @brief Result of the complex material classification of an environment mask texture
+struct CMClassification {
+    bool isCM = false;
+    bool hasEnvMask = false;
+    bool hasGlossiness = false;
+    bool hasMetalness = false;
+
+    auto operator==(const CMClassification& other) const -> bool = default;
+};
+
 /// @brief texture used by parallaxgen with type
 struct PGTexture {
     /// @brief relative path in the data directory

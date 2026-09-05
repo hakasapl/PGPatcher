@@ -127,6 +127,10 @@ public class PGMutagen
     private static SkyrimMod? OutMod;
     private static IGameEnvironment<ISkyrimMod, ISkyrimModGetter>? Env;
     private static Dictionary<string, List<Tuple<FormKey, string>>> ModelUses = [];
+    // Winning model records by form key, filled together with ModelUses. Resolving an untyped major record through the
+    // link cache is very slow, and every model use needs its record.
+    private static Dictionary<FormKey, IMajorRecordGetter> ModelRecords = [];
+    private static bool ModelUsesPopulated = false;
     private static Dictionary<FormKey, IMajorRecord?> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
     private static SortedSet<uint> allocatedFormIDs = [];
@@ -281,8 +285,10 @@ public class PGMutagen
         }
     }
 
+    // lazyModelUses: when non-zero, the (expensive) enumeration of every model record in the load order is deferred
+    // until GetModelUses is first called. Used when the caller expects to answer model uses from its own cache.
     [UnmanagedCallersOnly(EntryPoint = "PopulateObjs", CallConvs = [typeof(CallConvCdecl)])]
-    public static void PopulateObjs([DNNE.C99Type("const wchar_t*")] IntPtr oldPGPluginPath)
+    public static void PopulateObjs([DNNE.C99Type("const wchar_t*")] IntPtr oldPGPluginPath, [DNNE.C99Type("const int")] int lazyModelUses)
     {
         try
         {
@@ -320,92 +326,11 @@ public class PGMutagen
                 }
             }
 
-            foreach (var modelMajorRec in EnumerateModelRecordsSafe())
+            ModelUses = [];
+            ModelUsesPopulated = false;
+            if (lazyModelUses == 0)
             {
-                if (modelMajorRec.FormKey.ModKey == ModKey.Null)
-                {
-                    // null modkey, this is invalid and we should skip
-                    continue;
-                }
-
-                // Will store models to check later
-                var ModelRecs = GetModelElems(modelMajorRec);
-
-                if (ModelRecs.Count == 0)
-                {
-                    // Skip if there are no MODL records in this record
-                    continue;
-                }
-
-                foreach (var modelRec in ModelRecs)
-                {
-                    // add to model uses
-                    string meshName;
-                    try
-                    {
-                        if (modelRec.Item1.File.IsNullOrEmpty())
-                        {
-                            continue;
-                        }
-                        meshName = modelRec.Item1.File.ToString().ToLowerInvariant();
-                    }
-                    catch (Exception)
-                    {
-                        MessageHandler.Log("Unable to read model path: " + GetRecordDesc(modelMajorRec), 3);
-                        continue;
-                    }
-
-                    var curTuple = new Tuple<FormKey, string>(modelMajorRec.FormKey, modelRec.Item2);
-
-                    // Check if we need to also add the weight counterpart
-                    bool isWeighted = false;
-                    if (modelMajorRec is IArmorAddonGetter armorAddonGetter)
-                    {
-                        if (((modelRec.Item2 == "MALE" || modelRec.Item2 == "1STMALE") && armorAddonGetter.WeightSliderEnabled.Male) || ((modelRec.Item2 == "FEMALE" || modelRec.Item2 == "1STFEMALE") && armorAddonGetter.WeightSliderEnabled.Female))
-                        {
-                            isWeighted = true;
-                        }
-                    }
-                    if (isWeighted)
-                    {
-                        // weight slider is enabled
-                        string weightMeshName = string.Empty;
-                        if (meshName.EndsWith("_0.nif"))
-                        {
-                            // replace _0.nif with _1.nif
-                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
-                        }
-                        else if (meshName.EndsWith("_1.nif"))
-                        {
-                            // replace _1.nif with _0.nif
-                            weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
-                        }
-                        else
-                        {
-                            MessageHandler.Log("Weight slider enabled but mesh name doesn't end with _0.nif or _1.nif: " + GetRecordDesc(modelMajorRec), 3);
-                            continue;
-                        }
-
-                        if (!weightMeshName.IsNullOrEmpty())
-                        {
-                            // Add weighted model use
-                            if (!ModelUses.ContainsKey(weightMeshName))
-                            {
-                                ModelUses[weightMeshName] = [];
-                            }
-
-                            ModelUses[weightMeshName].Add(curTuple);
-                        }
-                    }
-
-                    // Add regular model use
-                    if (!ModelUses.ContainsKey(meshName))
-                    {
-                        ModelUses[meshName] = [];
-                    }
-
-                    ModelUses[meshName].Add(curTuple);
-                }
+                PopulateModelUses();
             }
 
             // Capture baseline immediately after PopulateObjs so reruns can reset to this state.
@@ -415,6 +340,129 @@ public class PGMutagen
         {
             ExceptionHandler.SetLastException(ex);
         }
+    }
+
+    private static void PopulateModelUses()
+    {
+        if (ModelUsesPopulated)
+        {
+            return;
+        }
+
+        MessageHandler.Log("Reading model records from plugins", 1);
+
+        ModelUses = [];
+        ModelRecords = [];
+
+        foreach (var modelMajorRec in EnumerateModelRecordsSafe())
+        {
+            if (modelMajorRec.FormKey.ModKey == ModKey.Null)
+            {
+                // null modkey, this is invalid and we should skip
+                continue;
+            }
+
+            // Will store models to check later
+            var ModelRecs = GetModelElems(modelMajorRec);
+
+            if (ModelRecs.Count == 0)
+            {
+                // Skip if there are no MODL records in this record
+                continue;
+            }
+
+            ModelRecords[modelMajorRec.FormKey] = modelMajorRec;
+
+            foreach (var modelRec in ModelRecs)
+            {
+                // add to model uses
+                string meshName;
+                try
+                {
+                    if (modelRec.Item1.File.IsNullOrEmpty())
+                    {
+                        continue;
+                    }
+                    meshName = modelRec.Item1.File.ToString().ToLowerInvariant();
+                }
+                catch (Exception)
+                {
+                    MessageHandler.Log("Unable to read model path: " + GetRecordDesc(modelMajorRec), 3);
+                    continue;
+                }
+
+                var curTuple = new Tuple<FormKey, string>(modelMajorRec.FormKey, modelRec.Item2);
+
+                // Check if we need to also add the weight counterpart
+                bool isWeighted = false;
+                if (modelMajorRec is IArmorAddonGetter armorAddonGetter)
+                {
+                    if (((modelRec.Item2 == "MALE" || modelRec.Item2 == "1STMALE") && armorAddonGetter.WeightSliderEnabled.Male) || ((modelRec.Item2 == "FEMALE" || modelRec.Item2 == "1STFEMALE") && armorAddonGetter.WeightSliderEnabled.Female))
+                    {
+                        isWeighted = true;
+                    }
+                }
+                if (isWeighted)
+                {
+                    // weight slider is enabled
+                    string weightMeshName = string.Empty;
+                    if (meshName.EndsWith("_0.nif"))
+                    {
+                        // replace _0.nif with _1.nif
+                        weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_1.nif");
+                    }
+                    else if (meshName.EndsWith("_1.nif"))
+                    {
+                        // replace _1.nif with _0.nif
+                        weightMeshName = string.Concat(meshName.AsSpan(0, meshName.Length - 6), "_0.nif");
+                    }
+                    else
+                    {
+                        MessageHandler.Log("Weight slider enabled but mesh name doesn't end with _0.nif or _1.nif: " + GetRecordDesc(modelMajorRec), 3);
+                        continue;
+                    }
+
+                    if (!weightMeshName.IsNullOrEmpty())
+                    {
+                        // Add weighted model use
+                        if (!ModelUses.ContainsKey(weightMeshName))
+                        {
+                            ModelUses[weightMeshName] = [];
+                        }
+
+                        ModelUses[weightMeshName].Add(curTuple);
+                    }
+                }
+
+                // Add regular model use
+                if (!ModelUses.ContainsKey(meshName))
+                {
+                    ModelUses[meshName] = [];
+                }
+
+                ModelUses[meshName].Add(curTuple);
+            }
+        }
+
+        ModelUsesPopulated = true;
+    }
+
+    private static bool ResolveModelRecord(FormKey formKey, out IMajorRecordGetter modelRec)
+    {
+        if (ModelRecords.TryGetValue(formKey, out var knownRec))
+        {
+            modelRec = knownRec;
+            return true;
+        }
+
+        if (Env is not null && Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var resolvedRec))
+        {
+            modelRec = resolvedRec;
+            return true;
+        }
+
+        modelRec = null!;
+        return false;
     }
 
     [UnmanagedCallersOnly(EntryPoint = "ResetPatchingState", CallConvs = [typeof(CallConvCdecl)])]
@@ -765,6 +813,9 @@ public class PGMutagen
             // Get the lowercase nifname (with meshes\ prefix) from C++
             string nifName = Marshal.PtrToStringUni(modelPathPtr)?.ToLowerInvariant() ?? string.Empty;
 
+            // Model uses may have been deferred by PopulateObjs
+            PopulateModelUses();
+
             // find all uses
             if (!ModelUses.TryGetValue(nifName, out List<Tuple<FormKey, string>>? modelRecUsesList))
             {
@@ -782,7 +833,7 @@ public class PGMutagen
                 var subModel = modelRecUsesList[i].Item2;
 
                 // Try to resolve the model record and submodel
-                if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(formKey, out var modelRec) ||
+                if (!ResolveModelRecord(formKey, out var modelRec) ||
                     GetModelElemBySubModel(modelRec, subModel) is not { } matchedModel)
                 {
                     MessageHandler.Log($"Failed to resolve model record: {GetRecordDesc(formKey)}", 4);
@@ -940,6 +991,9 @@ public class PGMutagen
             var buffer = new ByteBuffer(bufferSpan.ToArray());
             var modelUses = PGMutagenBuffers.ModelUses.GetRootAsModelUses(buffer);
 
+            // Model records may have been deferred by PopulateObjs
+            PopulateModelUses();
+
             // Loop through each model use
             for (int i = 0; i < modelUses.UsesLength; i++)
             {
@@ -953,10 +1007,98 @@ public class PGMutagen
                 var searchFormKey = new FormKey(modelUse.ModName, modelUse.FormId);
 
                 // Find winning record for this formkey
-                if (!Env.LinkCache.TryResolve<IMajorRecordGetter>(searchFormKey, out var existingRecord))
+                if (!ResolveModelRecord(searchFormKey, out var existingRecord))
                 {
                     // Record doesn't exist, skip
                     throw new Exception("Failed to resolve model record for formkey: " + searchFormKey);
+                }
+
+                // Find model record this use refers to
+                var matchExistingElem = GetModelElemBySubModel(existingRecord, modelUse.SubModel);
+                if (matchExistingElem is null)
+                {
+                    throw new Exception("Failed to find submodel: " + modelUse.SubModel + " in record: " + GetRecordDesc(existingRecord));
+                }
+
+                // Check model major record if it is addon node and weight slider is enabled
+                string newMeshFile = modelUse.MeshFile;
+                if (existingRecord is IArmorAddonGetter armorAddonRec)
+                {
+                    // if weight slider is enabled, do not update the file if it is either _1 or _0 variant
+                    if (((modelUse.SubModel == "MALE" || modelUse.SubModel == "1STMALE") && armorAddonRec.WeightSliderEnabled.Male) ||
+                        ((modelUse.SubModel == "FEMALE" || modelUse.SubModel == "1STFEMALE") && armorAddonRec.WeightSliderEnabled.Female))
+                    {
+                        string existingFile = matchExistingElem.File.ToString();
+                        // add other variant to check list
+                        if (existingFile.EndsWith("_0.nif", StringComparison.OrdinalIgnoreCase) && newMeshFile.EndsWith("_1.nif", StringComparison.OrdinalIgnoreCase))
+                        {
+                            newMeshFile = string.Concat(newMeshFile.AsSpan(0, newMeshFile.Length - 6), "_0.nif");
+                        }
+                        else if (existingFile.EndsWith("_1.nif", StringComparison.OrdinalIgnoreCase) && newMeshFile.EndsWith("_0.nif", StringComparison.OrdinalIgnoreCase))
+                        {
+                            newMeshFile = string.Concat(newMeshFile.AsSpan(0, newMeshFile.Length - 6), "_1.nif");
+                        }
+                    }
+                }
+
+                // Create dictionary of old alternate texture idx to buffer entry
+                Dictionary<int, PGMutagenBuffers.AlternateTexture> altTexDict = [];
+                for (int j = 0; j < modelUse.AlternateTexturesLength; j++)
+                {
+                    var curAltTex = modelUse.AlternateTextures(j);
+                    if (!curAltTex.HasValue)
+                    {
+                        continue;
+                    }
+
+                    altTexDict[curAltTex.Value.SlotId] = curAltTex.Value;
+                }
+
+                // Determine whether this use changes anything BEFORE copying the record: deep copying a record is
+                // expensive and most uses (base meshes that keep their path and texture sets) change nothing
+                bool needsChange = !string.Equals(matchExistingElem.File.ToString(), newMeshFile, StringComparison.OrdinalIgnoreCase);
+                if (!needsChange && matchExistingElem.AlternateTextures is not null)
+                {
+                    foreach (var curAltTex in matchExistingElem.AlternateTextures)
+                    {
+                        if (!altTexDict.TryGetValue(curAltTex.Index, out var bufAltTex))
+                        {
+                            continue;
+                        }
+
+                        if (curAltTex.Index != bufAltTex.SlotIdNew)
+                        {
+                            needsChange = true;
+                            break;
+                        }
+
+                        if (bufAltTex.Slots is null || !bufAltTex.Slots.HasValue || bufAltTex.Slots.Value.TexturesLength != 8)
+                        {
+                            continue;
+                        }
+
+                        string[] existingTextures;
+                        if (Env.LinkCache.TryResolve<ITextureSetGetter>(curAltTex.NewTexture.FormKey, out var existingTXSTRec))
+                        {
+                            existingTextures = GetTextureSet(existingTXSTRec);
+                        }
+                        else
+                        {
+                            existingTextures = [.. Enumerable.Repeat(string.Empty, 8)];
+                        }
+
+                        if (!existingTextures.SequenceEqual(GetBufferTextureSet(bufAltTex), StringComparer.OrdinalIgnoreCase))
+                        {
+                            needsChange = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!needsChange)
+                {
+                    // nothing to do for this use
+                    continue;
                 }
 
                 // check if we already modified this record
@@ -987,36 +1129,14 @@ public class PGMutagen
                 }
 
                 // Find model record to modify
-                var matchExistingElem = GetModelElemBySubModel(existingRecord, modelUse.SubModel);
                 var matchModElem = GetModelElemBySubModel(modRecord, modelUse.SubModel);
-                if (matchExistingElem is null || matchModElem is null)
+                if (matchModElem is null)
                 {
                     throw new Exception("Failed to find submodel: " + modelUse.SubModel + " in record: " + GetRecordDesc(existingRecord));
                 }
 
                 // Actual changes starting
                 bool changed = false;
-
-                // Check model major record if it is addon node and weight slider is enabled
-                string newMeshFile = modelUse.MeshFile;
-                if (modRecord is IArmorAddon armorAddonRec)
-                {
-                    // if weight slider is enabled, do not update the file if it is either _1 or _0 variant
-                    if (((modelUse.SubModel == "MALE" || modelUse.SubModel == "1STMALE") && armorAddonRec.WeightSliderEnabled.Male) ||
-                        ((modelUse.SubModel == "FEMALE" || modelUse.SubModel == "1STFEMALE") && armorAddonRec.WeightSliderEnabled.Female))
-                    {
-                        string existingFile = matchExistingElem.File.ToString();
-                        // add other variant to check list
-                        if (existingFile.EndsWith("_0.nif", StringComparison.OrdinalIgnoreCase) && newMeshFile.EndsWith("_1.nif", StringComparison.OrdinalIgnoreCase))
-                        {
-                            newMeshFile = string.Concat(newMeshFile.AsSpan(0, newMeshFile.Length - 6), "_0.nif");
-                        }
-                        else if (existingFile.EndsWith("_1.nif", StringComparison.OrdinalIgnoreCase) && newMeshFile.EndsWith("_0.nif", StringComparison.OrdinalIgnoreCase))
-                        {
-                            newMeshFile = string.Concat(newMeshFile.AsSpan(0, newMeshFile.Length - 6), "_1.nif");
-                        }
-                    }
-                }
 
                 // Mesh path
                 if (!string.Equals(matchExistingElem.File.ToString(), newMeshFile, StringComparison.OrdinalIgnoreCase))
@@ -1028,18 +1148,6 @@ public class PGMutagen
 
                 if (matchExistingElem.AlternateTextures is not null && matchModElem.AlternateTextures is not null)
                 {
-                    // Create dictionary of old alternate texture idx to buffer entry
-                    Dictionary<int, PGMutagenBuffers.AlternateTexture> altTexDict = [];
-                    for (int j = 0; j < modelUse.AlternateTexturesLength; j++)
-                    {
-                        var curAltTex = modelUse.AlternateTextures(j);
-                        if (!curAltTex.HasValue)
-                        {
-                            continue;
-                        }
-
-                        altTexDict[curAltTex.Value.SlotId] = curAltTex.Value;
-                    }
                     // Loop through existing alternate textures
                     for (int j = 0; j < matchModElem.AlternateTextures.Count; j++)
                     {
@@ -1077,16 +1185,7 @@ public class PGMutagen
                         }
 
                         // get texture set array from buffer
-                        string[] bufTextures = [
-                            bufAltTex.Slots.Value.Textures(0) ?? string.Empty,
-                        bufAltTex.Slots.Value.Textures(1) ?? string.Empty,
-                        bufAltTex.Slots.Value.Textures(2) ?? string.Empty,
-                        bufAltTex.Slots.Value.Textures(3) ?? string.Empty,
-                        bufAltTex.Slots.Value.Textures(4) ?? string.Empty,
-                        bufAltTex.Slots.Value.Textures(5) ?? string.Empty,
-                        bufAltTex.Slots.Value.Textures(6) ?? string.Empty,
-                        bufAltTex.Slots.Value.Textures(7) ?? string.Empty
-                        ];
+                        string[] bufTextures = GetBufferTextureSet(bufAltTex);
 
                         string[] existingTextures;
                         // find existing texture set record
@@ -1631,6 +1730,23 @@ public class PGMutagen
                     yield return enumerator.Current;
             }
         }
+    }
+
+    private static string[] GetBufferTextureSet(PGMutagenBuffers.AlternateTexture bufAltTex)
+    {
+        // caller guarantees Slots has a value with 8 textures
+        var slots = bufAltTex.Slots!.Value;
+        return
+        [
+            slots.Textures(0) ?? string.Empty,
+            slots.Textures(1) ?? string.Empty,
+            slots.Textures(2) ?? string.Empty,
+            slots.Textures(3) ?? string.Empty,
+            slots.Textures(4) ?? string.Empty,
+            slots.Textures(5) ?? string.Empty,
+            slots.Textures(6) ?? string.Empty,
+            slots.Textures(7) ?? string.Empty
+        ];
     }
 
     private static string[] GetTextureSet(ITextureSetGetter textureSet)
