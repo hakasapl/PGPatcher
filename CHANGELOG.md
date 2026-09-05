@@ -2,6 +2,8 @@
 
 ## [1.4.0] - UNRELEASED
 
+- Added Turkish localization (khanblood007)
+- Added Russian localization (enbl1tenment)
 - Fixed some labels being cut off in dialogs for certain translations
 
 ## [1.3.0] - 2026-08-31
