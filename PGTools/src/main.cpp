@@ -258,7 +258,7 @@ void mainRunner(PGToolsCLIArgs& args)
             const filesystem::path outputCubemapPath = args.Patch.output / dynCubeMapPath.parent_path();
             filesystem::create_directories(outputCubemapPath);
 
-            const filesystem::path assetPath = filesystem::path(exePath) / "assets/dynamic1pxcubemap_black_ENB.dds";
+            const filesystem::path assetPath = filesystem::path(exePath) / "assets/dynamic1pxcubemap_black.dds";
             const filesystem::path outputPath = filesystem::path(args.Patch.output) / dynCubeMapPath;
 
             // Move File
