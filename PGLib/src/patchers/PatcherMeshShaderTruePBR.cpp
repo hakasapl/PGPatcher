@@ -326,7 +326,8 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
         // loop through json data
         bool deleteShape = false;
         for (const auto& [sequence, data] : jsonData) {
-            if (get<0>(data).contains("delete") && get<0>(data)["delete"].get<bool>()) {
+            if (get<0>(data).contains("delete") && get<0>(data)["delete"].is_boolean()
+                && get<0>(data)["delete"].get<bool>()) {
                 // marked for deletion, skip slot checks
                 deleteShape = true;
                 break;
@@ -678,21 +679,21 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     const bool enableEnvMapping = truePBRData.contains("env_mapping") && truePBRData["env_mapping"] && !enableTruePBR;
 
     // "delete" attribute
-    if (truePBRData.contains("delete") && truePBRData["delete"]) {
+    if (truePBRData.contains("delete") && truePBRData["delete"].is_boolean() && truePBRData["delete"]) {
         getNIF()->DeleteShape(nifShape);
         changed = true;
         return changed;
     }
 
     // "smooth_angle" attribute
-    if (truePBRData.contains("smooth_angle")) {
+    if (truePBRData.contains("smooth_angle") && truePBRData["smooth_angle"].is_number()) {
         getNIF()->CalcNormalsForShape(nifShape, true, true, truePBRData["smooth_angle"]);
         getNIF()->CalcTangentsForShape(nifShape);
         changed = true;
     }
 
     // "auto_uv" attribute
-    if (truePBRData.contains("auto_uv")) {
+    if (truePBRData.contains("auto_uv") && truePBRData["auto_uv"].is_number()) {
         vector<Triangle> tris;
         nifShape->GetTriangles(tris);
         auto newUVScale = autoUVScale(getNIF()->GetUvsForShape(nifShape), getNIF()->GetVertsForShape(nifShape), tris)
@@ -701,7 +702,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "vertex_colors" attribute
-    if (truePBRData.contains("vertex_colors")) {
+    if (truePBRData.contains("vertex_colors") && truePBRData["vertex_colors"].is_boolean()) {
         auto newVertexColors = truePBRData["vertex_colors"].get<bool>();
         if (nifShape->HasVertexColors() != newVertexColors) {
             nifShape->SetVertexColors(newVertexColors);
@@ -716,7 +717,8 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
 
     // "vertex_color_lum_mult" and "vertex_color_sat_mult" attribute
     if (nifShape->HasVertexColors()
-        && (truePBRData.contains("vertex_color_lum_mult") || truePBRData.contains("vertex_color_sat_mult"))) {
+        && ((truePBRData.contains("vertex_color_lum_mult") && truePBRData["vertex_color_lum_mult"].is_number())
+            || truePBRData.contains("vertex_color_sat_mult") && truePBRData["vertex_color_sat_mult"].is_number())) {
         vector<BSVertexData>* vertData = nullptr;
         if (dynamic_cast<nifly::BSTriShape*>(nifShape) != nullptr) {
             vertData = &dynamic_cast<nifly::BSTriShape*>(nifShape)->vertData;
@@ -732,13 +734,13 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
                 boost::gil::color_convert(vertRGB, vertHSL);
 
                 float newLVal = vertHSL[2];
-                if (truePBRData.contains("vertex_color_lum_mult")) {
+                if (truePBRData.contains("vertex_color_lum_mult") && truePBRData["vertex_color_lum_mult"].is_number()) {
                     const auto newVertexColorMult = truePBRData["vertex_color_lum_mult"].get<float>();
                     newLVal = 1 - ((1 - vertHSL[2]) * newVertexColorMult);
                 }
 
                 float newSVal = vertHSL[1];
-                if (truePBRData.contains("vertex_color_sat_mult")) {
+                if (truePBRData.contains("vertex_color_sat_mult") && truePBRData["vertex_color_sat_mult"].is_number()) {
                     const auto newVertexColorMult = truePBRData["vertex_color_sat_mult"].get<float>();
                     newSVal = vertHSL[1] * newVertexColorMult;
                 }
@@ -766,13 +768,13 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "zbuffer_write" attribute
-    if (truePBRData.contains("zbuffer_write")) {
+    if (truePBRData.contains("zbuffer_write") && truePBRData["zbuffer_write"].is_boolean()) {
         auto newZBufferWrite = truePBRData["zbuffer_write"].get<bool>();
         changed |= PGNIFUtil::configureShaderFlag(nifShaderBSLSP, SLSF2_ZBUFFER_WRITE, newZBufferWrite);
     }
 
     // "specular_level" attribute
-    if (truePBRData.contains("specular_level")) {
+    if (truePBRData.contains("specular_level") && truePBRData["specular_level"].is_number()) {
         auto newSpecularLevel = truePBRData["specular_level"].get<float>();
         if (nifShader->GetGlossiness() != newSpecularLevel) {
             nifShader->SetGlossiness(newSpecularLevel);
@@ -781,7 +783,9 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "subsurface_color" attribute
-    if (truePBRData.contains("subsurface_color") && truePBRData["subsurface_color"].size() >= 3) {
+    if (truePBRData.contains("subsurface_color") && truePBRData["subsurface_color"].is_array()
+        && truePBRData["subsurface_color"].size() >= 3 && truePBRData["subsurface_color"][0].is_number()
+        && truePBRData["subsurface_color"][1].is_number() && truePBRData["subsurface_color"][2].is_number()) {
         auto newSpecularColor = Vector3(truePBRData["subsurface_color"][0].get<float>(),
                                         truePBRData["subsurface_color"][1].get<float>(),
                                         truePBRData["subsurface_color"][2].get<float>());
@@ -792,7 +796,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "roughness_scale" attribute
-    if (truePBRData.contains("roughness_scale")) {
+    if (truePBRData.contains("roughness_scale") && truePBRData["roughness_scale"].is_number()) {
         auto newRoughnessScale = truePBRData["roughness_scale"].get<float>();
         if (nifShader->GetSpecularStrength() != newRoughnessScale) {
             nifShader->SetSpecularStrength(newRoughnessScale);
@@ -801,13 +805,13 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "subsurface_opacity" attribute
-    if (truePBRData.contains("subsurface_opacity")) {
+    if (truePBRData.contains("subsurface_opacity") && truePBRData["subsurface_opacity"].is_number()) {
         auto newSubsurfaceOpacity = truePBRData["subsurface_opacity"].get<float>();
         changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newSubsurfaceOpacity);
     }
 
     // "displacement_scale" attribute
-    if (truePBRData.contains("displacement_scale")) {
+    if (truePBRData.contains("displacement_scale") && truePBRData["displacement_scale"].is_number()) {
         auto newDisplacementScale = truePBRData["displacement_scale"].get<float>();
         changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
     }
@@ -832,7 +836,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "emmissive_scale" attribute
-    if (truePBRData.contains("emissive_scale")) {
+    if (truePBRData.contains("emissive_scale") && truePBRData["emissive_scale"].is_number()) {
         auto newEmissiveScale = truePBRData["emissive_scale"].get<float>();
         if (nifShader->GetEmissiveMultiple() != newEmissiveScale) {
             nifShader->SetEmissiveMultiple(newEmissiveScale);
@@ -841,7 +845,10 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "emmissive_color" attribute
-    if (truePBRData.contains("emissive_color") && truePBRData["emissive_color"].size() >= 4) {
+    if (truePBRData.contains("emissive_color") && truePBRData["emissive_color"].is_array()
+        && truePBRData["emissive_color"].size() >= 4 && truePBRData["emissive_color"][0].is_number()
+        && truePBRData["emissive_color"][1].is_number() && truePBRData["emissive_color"][2].is_number()
+        && truePBRData["emissive_color"][3].is_number()) {
         auto newEmissiveColor = Color4(truePBRData["emissive_color"][0].get<float>(),
                                        truePBRData["emissive_color"][1].get<float>(),
                                        truePBRData["emissive_color"][2].get<float>(),
@@ -853,7 +860,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "uv_scale" attribute
-    if (truePBRData.contains("uv_scale")) {
+    if (truePBRData.contains("uv_scale") && truePBRData["uv_scale"].is_number()) {
         auto newUVScale = Vector2(truePBRData["uv_scale"].get<float>(), truePBRData["uv_scale"].get<float>());
         changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
     }
@@ -876,19 +883,23 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "lock_diffuse" attribute
-    if (!flag(truePBRData, "lock_diffuse")) {
+    if (!(truePBRData.contains("lock_diffuse") && truePBRData["lock_diffuse"].is_boolean()
+          && truePBRData["lock_diffuse"].get<bool>())) {
         auto newDiffuse = matchedPath + L".dds";
         slots[static_cast<size_t>(PGEnums::TextureSlots::DIFFUSE)] = newDiffuse;
     }
 
     // "lock_normal" attribute
-    if (!flag(truePBRData, "lock_normal")) {
+    if (!(truePBRData.contains("lock_normal") && truePBRData["lock_normal"].is_boolean()
+          && truePBRData["lock_normal"].get<bool>())) {
         auto newNormal = matchedPath + L"_n.dds";
         slots[static_cast<size_t>(PGEnums::TextureSlots::NORMAL)] = newNormal;
     }
 
     // "emissive" attribute
-    if (truePBRData.contains("emissive") && !flag(truePBRData, "lock_emissive")) {
+    if (truePBRData.contains("emissive") && truePBRData["emissive"].is_boolean()
+        && !(truePBRData.contains("lock_emissive") && truePBRData["lock_emissive"].is_boolean()
+             && truePBRData["lock_emissive"].get<bool>())) {
         wstring newGlow;
         if (truePBRData["emissive"].get<bool>()) {
             newGlow = matchedPath + L"_g.dds";
@@ -898,7 +909,9 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "parallax" attribute
-    if (truePBRData.contains("parallax") && !flag(truePBRData, "lock_parallax")) {
+    if (truePBRData.contains("parallax") && truePBRData["parallax"].is_boolean()
+        && !(truePBRData.contains("lock_parallax") && truePBRData["lock_parallax"].is_boolean()
+             && truePBRData["lock_parallax"].get<bool>())) {
         wstring newParallax;
         if (truePBRData["parallax"].get<bool>()) {
             newParallax = matchedPath + L"_p.dds";
@@ -908,7 +921,9 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "cubemap" attribute
-    if (truePBRData.contains("cubemap") && !flag(truePBRData, "lock_cubemap")) {
+    if (truePBRData.contains("cubemap") && truePBRData["cubemap"].is_string()
+        && !(truePBRData.contains("lock_cubemap") && truePBRData["lock_cubemap"].is_boolean()
+             && truePBRData["lock_cubemap"].get<bool>())) {
         auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
         slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = newCubemap;
     } else {
@@ -916,21 +931,25 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "lock_rmaos" attribute
-    if (!flag(truePBRData, "lock_rmaos")) {
+    if (!(truePBRData.contains("lock_rmaos") && truePBRData["lock_rmaos"].is_boolean()
+          && truePBRData["lock_rmaos"].get<bool>())) {
         auto newRMAOS = matchedPath + L"_rmaos.dds";
         slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = newRMAOS;
     }
 
     // "lock_cnr" attribute
-    if (!flag(truePBRData, "lock_cnr")) {
+    if (!(truePBRData.contains("lock_cnr") && truePBRData["lock_cnr"].is_boolean()
+          && truePBRData["lock_cnr"].get<bool>())) {
         // "coat_normal" attribute
         wstring newCNR;
-        if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].get<bool>()) {
+        if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].is_boolean()
+            && truePBRData["coat_normal"].get<bool>()) {
             newCNR = matchedPath + L"_cnr.dds";
         }
 
         // Fuzz texture slot
-        if (truePBRData.contains("fuzz") && flag(truePBRData["fuzz"], "texture")) {
+        if (truePBRData.contains("fuzz") && truePBRData["fuzz"].is_object() && truePBRData["fuzz"].contains("texture")
+            && truePBRData["fuzz"]["texture"].is_boolean() && truePBRData["fuzz"]["texture"].get<bool>()) {
             newCNR = matchedPath + L"_f.dds";
         }
 
@@ -938,12 +957,16 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "lock_subsurface" attribute
-    if (!flag(truePBRData, "lock_subsurface")) {
+    if (!(truePBRData.contains("lock_subsurface") && truePBRData["lock_subsurface"].is_boolean()
+          && truePBRData["lock_subsurface"].get<bool>())) {
         // "subsurface_foliage" attribute
         wstring newSubsurface;
-        if ((truePBRData.contains("subsurface_foliage") && truePBRData["subsurface_foliage"].get<bool>())
-            || (truePBRData.contains("subsurface") && truePBRData["subsurface"].get<bool>())
-            || (truePBRData.contains("coat_diffuse") && truePBRData["coat_diffuse"].get<bool>())) {
+        if ((truePBRData.contains("subsurface_foliage") && truePBRData["subsurface_foliage"].is_boolean()
+             && truePBRData["subsurface_foliage"].get<bool>())
+            || (truePBRData.contains("subsurface") && truePBRData["subsurface"].is_boolean()
+                && truePBRData["subsurface"].get<bool>())
+            || (truePBRData.contains("coat_diffuse") && truePBRData["coat_diffuse"].is_boolean()
+                && truePBRData["coat_diffuse"].get<bool>())) {
             newSubsurface = matchedPath + L"_s.dds";
         }
 
@@ -955,7 +978,7 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
         std::string slotName("slot");
         slotName += std::to_string(i + 1);
 
-        if (truePBRData.contains(slotName)) {
+        if (truePBRData.contains(slotName) && truePBRData[slotName].is_string()) {
             std::string newSlot = truePBRData[slotName].get<std::string>();
             StringUtil::toLowerASCIIFastInPlace(newSlot);
 
@@ -980,7 +1003,7 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
     applyOnePatchSlots(newSlots, truePBRData, matchedPath);
 
     // "emissive" attribute
-    if (truePBRData.contains("emissive")) {
+    if (truePBRData.contains("emissive") && truePBRData["emissive"].is_boolean()) {
         changed |= PGNIFUtil::configureShaderFlag(
             nifShaderBSLSP, SLSF1_EXTERNAL_EMITTANCE, truePBRData["emissive"].get<bool>());
     }
@@ -999,26 +1022,29 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
     changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_EYE_ENVIRONMENT_MAPPING);
 
     // "subsurface" attribute
-    if (truePBRData.contains("subsurface")) {
+    if (truePBRData.contains("subsurface") && truePBRData["subsurface"].is_boolean()) {
         changed |= PGNIFUtil::configureShaderFlag(
             nifShaderBSLSP, SLSF2_RIM_LIGHTING, truePBRData["subsurface"].get<bool>());
     }
 
     // "hair" attribute
-    if (flag(truePBRData, "hair")) {
+    if (truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>()) {
         changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
     }
 
     // "multilayer" attribute
     bool enableMultiLayer = false;
-    if (truePBRData.contains("multilayer") && truePBRData["multilayer"]) {
+    if (truePBRData.contains("multilayer") && truePBRData["multilayer"].is_boolean()
+        && truePBRData["multilayer"].get<bool>()) {
         enableMultiLayer = true;
 
         changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
         changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
 
         // "coat_color" attribute
-        if (truePBRData.contains("coat_color") && truePBRData["coat_color"].size() >= 3) {
+        if (truePBRData.contains("coat_color") && truePBRData["coat_color"].size() >= 3
+            && truePBRData["coat_color"][0].is_number() && truePBRData["coat_color"][1].is_number()
+            && truePBRData["coat_color"][2].is_number()) {
             auto newCoatColor = Vector3(truePBRData["coat_color"][0].get<float>(),
                                         truePBRData["coat_color"][1].get<float>(),
                                         truePBRData["coat_color"][2].get<float>());
@@ -1029,48 +1055,48 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
         }
 
         // "coat_specular_level" attribute
-        if (truePBRData.contains("coat_specular_level")) {
+        if (truePBRData.contains("coat_specular_level") && truePBRData["coat_specular_level"].is_number()) {
             auto newCoatSpecularLevel = truePBRData["coat_specular_level"].get<float>();
             changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, newCoatSpecularLevel);
         }
 
         // "coat_roughness" attribute
-        if (truePBRData.contains("coat_roughness")) {
+        if (truePBRData.contains("coat_roughness") && truePBRData["coat_roughness"].is_number()) {
             auto newCoatRoughness = truePBRData["coat_roughness"].get<float>();
             changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, newCoatRoughness);
         }
 
         // "coat_strength" attribute
-        if (truePBRData.contains("coat_strength")) {
+        if (truePBRData.contains("coat_strength") && truePBRData["coat_strength"].is_number()) {
             auto newCoatStrength = truePBRData["coat_strength"].get<float>();
             changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newCoatStrength);
         }
 
         // "coat_diffuse" attribute
-        if (truePBRData.contains("coat_diffuse")) {
+        if (truePBRData.contains("coat_diffuse") && truePBRData["coat_diffuse"].is_boolean()) {
             changed |= PGNIFUtil::configureShaderFlag(
                 nifShaderBSLSP, SLSF2_EFFECT_LIGHTING, truePBRData["coat_diffuse"].get<bool>());
         }
 
         // "coat_parallax" attribute
-        if (truePBRData.contains("coat_parallax")) {
+        if (truePBRData.contains("coat_parallax") && truePBRData["coat_parallax"].is_boolean()) {
             changed |= PGNIFUtil::configureShaderFlag(
                 nifShaderBSLSP, SLSF2_SOFT_LIGHTING, truePBRData["coat_parallax"].get<bool>());
         }
 
         // "coat_normal" attribute
-        if (truePBRData.contains("coat_normal")) {
+        if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].is_boolean()) {
             changed |= PGNIFUtil::configureShaderFlag(
                 nifShaderBSLSP, SLSF2_BACK_LIGHTING, truePBRData["coat_normal"].get<bool>());
         }
 
         // "inner_uv_scale" attribute
-        if (truePBRData.contains("inner_uv_scale")) {
+        if (truePBRData.contains("inner_uv_scale") && truePBRData["inner_uv_scale"].is_number()) {
             auto newInnerUVScale
                 = Vector2(truePBRData["inner_uv_scale"].get<float>(), truePBRData["inner_uv_scale"].get<float>());
             changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->parallaxInnerLayerTextureScale, newInnerUVScale);
         }
-    } else if (truePBRData.contains("glint")) {
+    } else if (truePBRData.contains("glint") && truePBRData["glint"].is_object()) {
         // glint is enabled
         const auto& glintParams = truePBRData["glint"];
 
@@ -1080,26 +1106,26 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
         changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_FIT_SLOPE);
 
         // Glint parameters
-        if (glintParams.contains("screen_space_scale")) {
+        if (glintParams.contains("screen_space_scale") && glintParams["screen_space_scale"].is_number()) {
             changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness,
                                                  glintParams["screen_space_scale"]);
         }
 
-        if (glintParams.contains("log_microfacet_density")) {
+        if (glintParams.contains("log_microfacet_density") && glintParams["log_microfacet_density"].is_number()) {
             changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale,
                                                  glintParams["log_microfacet_density"]);
         }
 
-        if (glintParams.contains("microfacet_roughness")) {
+        if (glintParams.contains("microfacet_roughness") && glintParams["microfacet_roughness"].is_number()) {
             changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u,
                                                  glintParams["microfacet_roughness"]);
         }
 
-        if (glintParams.contains("density_randomization")) {
+        if (glintParams.contains("density_randomization") && glintParams["density_randomization"].is_number()) {
             changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v,
                                                  glintParams["density_randomization"]);
         }
-    } else if (truePBRData.contains("fuzz")) {
+    } else if (truePBRData.contains("fuzz") && truePBRData["fuzz"].is_object()) {
         // fuzz is enabled
         const auto& fuzzParams = truePBRData["fuzz"];
 
@@ -1110,7 +1136,9 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
 
         // get color
         auto fuzzColor = vector<float> {0.0F, 0.0F, 0.0F};
-        if (fuzzParams.contains("color")) {
+        if (fuzzParams.contains("color") && fuzzParams["color"].is_array() && fuzzParams["color"].size() == 3
+            && fuzzParams["color"][0].is_number() && fuzzParams["color"][1].is_number()
+            && fuzzParams["color"][2].is_number()) {
             fuzzColor = fuzzParams["color"].get<vector<float>>();
         }
 
@@ -1120,7 +1148,7 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
 
         // get weight
         auto fuzzWeight = 1.0F;
-        if (fuzzParams.contains("weight")) {
+        if (fuzzParams.contains("weight") && fuzzParams["weight"].is_number()) {
             fuzzWeight = fuzzParams["weight"].get<float>();
         }
 
@@ -1134,11 +1162,11 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
         // Clear multilayer flags
         changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
 
-        if (!flag(truePBRData, "hair")) {
+        if (!(truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>())) {
             changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
         }
 
-        if (!truePBRData.contains("fuzz")) {
+        if (!truePBRData.contains("fuzz") || !truePBRData["fuzz"].is_object()) {
             changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING);
         }
     }
@@ -1178,9 +1206,3 @@ auto PatcherMeshShaderTruePBR::autoUVScale(const vector<Vector2>* uvs,
     return scale;
 }
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
-
-auto PatcherMeshShaderTruePBR::flag(const nlohmann::json& json,
-                                    const char* key) -> bool
-{
-    return json.contains(key) && json[key];
-}

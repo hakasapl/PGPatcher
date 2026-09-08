@@ -290,17 +290,6 @@ private:
                             std::vector<nifly::Triangle>& tris) -> nifly::Vector2;
 
     /**
-     * @brief Checks if a JSON field has a key and that key is true
-     *
-     * @param json JSON to check
-     * @param key Key to check
-     * @return true has key and is true
-     * @return false does not have key or is not true
-     */
-    static auto flag(const nlohmann::json& json,
-                     const char* key) -> bool;
-
-    /**
      * @brief Get the Slot Match for a given lookup (diffuse or normal)
      *
      * @param[out] truePBRData Data that matched

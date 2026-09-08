@@ -7,7 +7,10 @@
 - The conflict manager's "Save Changes and Update Output" now only re-patches meshes affected by the changed mod order or mod state
 - Improved plugin patching performance by copying records only when a mesh actually changes them (lazy loading)
 - Fixed warnings and errors of the previous patching step not being shown again after re-running from the conflict manager
+- Added Turkish localization (khanblood007)
+- Added Russian localization (enbl1tenment)
 - Fixed some labels being cut off in dialogs for certain translations
+- PBR json fields will now be validated by data type. Fields with wrong type will be silently ignored.
 
 ## [1.3.0] - 2026-08-31
 
