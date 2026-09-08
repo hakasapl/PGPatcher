@@ -669,7 +669,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "auto_uv" attribute
-    if (truePBRData.contains("auto_uv") && truePBRData["auto_uv"].is_boolean()) {
+    if (truePBRData.contains("auto_uv") && truePBRData["auto_uv"].is_boolean() && truePBRData["auto_uv"].get<bool>()) {
         vector<Triangle> tris;
         nifShape->GetTriangles(tris);
         auto newUVScale = autoUVScale(getNIF()->GetUvsForShape(nifShape), getNIF()->GetVertsForShape(nifShape), tris)
@@ -710,13 +710,13 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
                 boost::gil::color_convert(vertRGB, vertHSL);
 
                 float newLVal = vertHSL[2];
-                if (truePBRData.contains("vertex_color_lum_mult")) {
+                if (truePBRData.contains("vertex_color_lum_mult") && truePBRData["vertex_color_lum_mult"].is_number()) {
                     const auto newVertexColorMult = truePBRData["vertex_color_lum_mult"].get<float>();
                     newLVal = 1 - ((1 - vertHSL[2]) * newVertexColorMult);
                 }
 
                 float newSVal = vertHSL[1];
-                if (truePBRData.contains("vertex_color_sat_mult")) {
+                if (truePBRData.contains("vertex_color_sat_mult") && truePBRData["vertex_color_sat_mult"].is_number()) {
                     const auto newVertexColorMult = truePBRData["vertex_color_sat_mult"].get<float>();
                     newSVal = vertHSL[1] * newVertexColorMult;
                 }
@@ -760,7 +760,8 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
 
     // "subsurface_color" attribute
     if (truePBRData.contains("subsurface_color") && truePBRData["subsurface_color"].is_array()
-        && truePBRData["subsurface_color"].size() >= 3) {
+        && truePBRData["subsurface_color"].size() >= 3 && truePBRData["subsurface_color"][0].is_number()
+        && truePBRData["subsurface_color"][1].is_number() && truePBRData["subsurface_color"][2].is_number()) {
         auto newSpecularColor = Vector3(truePBRData["subsurface_color"][0].get<float>(),
                                         truePBRData["subsurface_color"][1].get<float>(),
                                         truePBRData["subsurface_color"][2].get<float>());
@@ -821,7 +822,9 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
 
     // "emmissive_color" attribute
     if (truePBRData.contains("emissive_color") && truePBRData["emissive_color"].is_array()
-        && truePBRData["emissive_color"].size() >= 4) {
+        && truePBRData["emissive_color"].size() >= 4 && truePBRData["emissive_color"][0].is_number()
+        && truePBRData["emissive_color"][1].is_number() && truePBRData["emissive_color"][2].is_number()
+        && truePBRData["emissive_color"][3].is_number()) {
         auto newEmissiveColor = Color4(truePBRData["emissive_color"][0].get<float>(),
                                        truePBRData["emissive_color"][1].get<float>(),
                                        truePBRData["emissive_color"][2].get<float>(),
@@ -915,12 +918,13 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
           && truePBRData["lock_cnr"].get<bool>())) {
         // "coat_normal" attribute
         wstring newCNR;
-        if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].get<bool>()) {
+        if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].is_boolean()
+            && truePBRData["coat_normal"].get<bool>()) {
             newCNR = matchedPath + L"_cnr.dds";
         }
 
         // Fuzz texture slot
-        if (truePBRData.contains("fuzz") && truePBRData["fuzz"].contains("texture")
+        if (truePBRData.contains("fuzz") && truePBRData["fuzz"].is_object() && truePBRData["fuzz"].contains("texture")
             && truePBRData["fuzz"]["texture"].is_boolean() && truePBRData["fuzz"]["texture"].get<bool>()) {
             newCNR = matchedPath + L"_f.dds";
         }
