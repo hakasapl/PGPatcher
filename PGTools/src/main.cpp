@@ -280,7 +280,7 @@ void addArguments(CLI::App& app,
                  args.verbosity,
                  "Verbosity level -v for DEBUG data or -vv for TRACE data "
                  "(warning: TRACE data is very verbose)");
-    app.add_flag("--no-multithreading", args.multithreading, "Disable multithreading");
+    app.add_flag("--no-multithreading{false}", args.multithreading, "Disable multithreading");
     app.add_flag("--shortcut",
                  args.shortcut,
                  "Keep pgtools running at the end (useful if you are running not in a terminal directly)");
