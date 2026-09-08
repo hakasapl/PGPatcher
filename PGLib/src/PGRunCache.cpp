@@ -105,14 +105,36 @@ public:
     [[nodiscard]] auto getNarrow(uint32_t id) const -> string { return StringUtil::utf16toUTF8(get(id)); }
 };
 
-template <typename T> auto readCount(BinaryIO::Reader& reader) -> T
+/// Upper bound for any element count stored in the cache (far above what a real load order produces)
+constexpr uint32_t MAX_ELEMENT_COUNT = 16'000'000;
+
+/// Upper bound for reserve() calls driven by counts read from the file, so a corrupt count cannot request a huge
+/// allocation before the (bounds-checked) element reads fail
+constexpr size_t MAX_RESERVE_ELEMENTS = 1'000'000;
+
+/**
+ * @brief Reads an element count and validates it against the data that is left.
+ *
+ * Every element consumes at least minElementBytes when serialized, so a count that cannot fit in the remaining bytes
+ * means the file is corrupt. Checking this before callers allocate keeps a malformed file from requesting
+ * multi-gigabyte allocations.
+ */
+template <typename T>
+auto readCount(BinaryIO::Reader& reader,
+               size_t minElementBytes) -> T
 {
     const auto count = reader.read<uint32_t>();
-    static constexpr uint32_t MAX_REASONABLE_COUNT = 50'000'000;
-    if (count > MAX_REASONABLE_COUNT) {
-        throw runtime_error("Update cache: unreasonable element count");
+    if (count > MAX_ELEMENT_COUNT || static_cast<size_t>(count) > reader.remaining() / minElementBytes) {
+        throw runtime_error("Update cache: element count exceeds the remaining data");
     }
     return static_cast<T>(count);
+}
+
+template <typename Container>
+void reserveBounded(Container& container,
+                    size_t count)
+{
+    container.reserve(std::min(count, MAX_RESERVE_ELEMENTS));
 }
 
 void writeIdentity(BinaryIO::Writer& w,
@@ -226,8 +248,8 @@ auto readUses(BinaryIO::Reader& r,
               const StringTable& st) -> PGRunCache::MeshUses
 {
     PGRunCache::MeshUses uses;
-    const auto count = readCount<size_t>(r);
-    uses.reserve(count);
+    const auto count = readCount<size_t>(r, 18);
+    reserveBounded(uses, count);
     for (size_t i = 0; i < count; i++) {
         auto formKey = readFormKey(r, st);
 
@@ -240,7 +262,7 @@ auto readUses(BinaryIO::Reader& r,
         attrs.isDummyUse = (flags & 16U) != 0U;
         attrs.recType = static_cast<PGPlugin::ModelRecordType>(r.read<uint8_t>());
 
-        const auto altCount = readCount<size_t>(r);
+        const auto altCount = readCount<size_t>(r, 8);
         for (size_t j = 0; j < altCount; j++) {
             const auto slotIdx = r.read<uint32_t>();
             attrs.alternateTextures[slotIdx] = readTextureSet(r, st);
@@ -266,7 +288,7 @@ auto readIntMap(BinaryIO::Reader& r) -> unordered_map<int,
                                                       int>
 {
     unordered_map<int, int> map;
-    const auto count = readCount<size_t>(r);
+    const auto count = readCount<size_t>(r, 8);
     for (size_t i = 0; i < count; i++) {
         const auto key = r.read<int32_t>();
         const auto value = r.read<int32_t>();
@@ -301,11 +323,11 @@ auto readMeshResult(BinaryIO::Reader& r,
     PGMeshPermutationTracker::MeshResult result;
     result.meshPath = st.get(r.read<uint32_t>());
 
-    const auto altCount = readCount<size_t>(r);
+    const auto altCount = readCount<size_t>(r, 16);
     for (size_t i = 0; i < altCount; i++) {
         auto formKey = readFormKey(r, st);
         unordered_map<unsigned int, PGTypes::TextureSet> altTexMap;
-        const auto mapCount = readCount<size_t>(r);
+        const auto mapCount = readCount<size_t>(r, 8);
         for (size_t j = 0; j < mapCount; j++) {
             const auto slotIdx = r.read<uint32_t>();
             altTexMap[slotIdx] = readTextureSet(r, st);
@@ -332,8 +354,8 @@ auto readStringList(BinaryIO::Reader& r,
                     const StringTable& st) -> vector<string>
 {
     vector<string> list;
-    const auto count = readCount<size_t>(r);
-    list.reserve(count);
+    const auto count = readCount<size_t>(r, 4);
+    reserveBounded(list, count);
     for (size_t i = 0; i < count; i++) {
         list.push_back(st.getNarrow(r.read<uint32_t>()));
     }
@@ -384,13 +406,13 @@ auto readMeta(BinaryIO::Reader& r,
     PGRunCache::MeshMetaRecord meta;
     meta.globalPatchersApplied = readStringList(r, st);
 
-    const auto formKeyCount = readCount<size_t>(r);
-    meta.formKeys.reserve(formKeyCount);
+    const auto formKeyCount = readCount<size_t>(r, 12);
+    reserveBounded(meta.formKeys, formKeyCount);
     for (size_t i = 0; i < formKeyCount; i++) {
         meta.formKeys.push_back(readFormKey(r, st));
     }
 
-    const auto shapeCount = readCount<size_t>(r);
+    const auto shapeCount = readCount<size_t>(r, 28);
     for (size_t i = 0; i < shapeCount; i++) {
         const auto idx = static_cast<size_t>(r.read<uint64_t>());
         PGRunCache::MeshShapeMetaRecord shapeMeta;
@@ -399,19 +421,19 @@ auto readMeta(BinaryIO::Reader& r,
         shapeMeta.prePatchersApplied = readStringList(r, st);
         shapeMeta.postPatchersApplied = readStringList(r, st);
 
-        const auto matchGroupCount = readCount<size_t>(r);
+        const auto matchGroupCount = readCount<size_t>(r, 16);
         for (size_t j = 0; j < matchGroupCount; j++) {
             auto formKey = readFormKey(r, st);
             vector<PGRunCache::MatchMetaRecord> matchMetas;
-            const auto matchCount = readCount<size_t>(r);
-            matchMetas.reserve(matchCount);
+            const auto matchCount = readCount<size_t>(r, 14);
+            reserveBounded(matchMetas, matchCount);
             for (size_t k = 0; k < matchCount; k++) {
                 PGRunCache::MatchMetaRecord matchMeta;
                 matchMeta.modName = st.get(r.read<uint32_t>());
                 matchMeta.shader = static_cast<PGEnums::ShapeShader>(r.read<uint8_t>());
                 matchMeta.shaderTransformTo = static_cast<PGEnums::ShapeShader>(r.read<uint8_t>());
                 matchMeta.matchedPath = st.get(r.read<uint32_t>());
-                const auto resultModCount = readCount<size_t>(r);
+                const auto resultModCount = readCount<size_t>(r, 5);
                 for (size_t m = 0; m < resultModCount; m++) {
                     const auto slot = static_cast<PGEnums::TextureSlots>(r.read<uint8_t>());
                     matchMeta.resultTextureMods.emplace_back(slot, st.get(r.read<uint32_t>()));
@@ -493,9 +515,10 @@ void writeRecord(BinaryIO::Writer& w,
     }
 
     w.write<uint32_t>(static_cast<uint32_t>(record.outputFiles.size()));
-    for (const auto& [path, size] : record.outputFiles) {
+    for (const auto& [path, identity] : record.outputFiles) {
         w.write<uint32_t>(st.id(path));
-        w.write<uint64_t>(size);
+        w.write<uint64_t>(identity.size);
+        w.write<int64_t>(identity.mtime);
     }
 
     w.write<uint32_t>(static_cast<uint32_t>(record.meshResults.size()));
@@ -528,32 +551,32 @@ auto readRecord(BinaryIO::Reader& r,
     PGRunCache::MeshRecord record;
     record.uses = readUses(r, st);
 
-    auto count = readCount<size_t>(r);
-    record.fileIdentityDeps.reserve(count);
+    auto count = readCount<size_t>(r, 5);
+    reserveBounded(record.fileIdentityDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto path = st.get(r.read<uint32_t>());
         auto identity = readIdentity(r, st);
         record.fileIdentityDeps.emplace_back(std::move(path), std::move(identity));
     }
 
-    count = readCount<size_t>(r);
-    record.fileExistsDeps.reserve(count);
+    count = readCount<size_t>(r, 5);
+    reserveBounded(record.fileExistsDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto path = st.get(r.read<uint32_t>());
         const auto state = static_cast<PGRunCache::FileExistsState>(r.read<uint8_t>());
         record.fileExistsDeps.emplace_back(std::move(path), state);
     }
 
-    count = readCount<size_t>(r);
-    record.textureTypeDeps.reserve(count);
+    count = readCount<size_t>(r, 5);
+    reserveBounded(record.textureTypeDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto path = st.get(r.read<uint32_t>());
         const auto type = static_cast<PGEnums::TextureType>(r.read<uint8_t>());
         record.textureTypeDeps.emplace_back(std::move(path), type);
     }
 
-    count = readCount<size_t>(r);
-    record.textureAttributeDeps.reserve(count);
+    count = readCount<size_t>(r, 6);
+    reserveBounded(record.textureAttributeDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto path = st.get(r.read<uint32_t>());
         const auto attribute = static_cast<PGEnums::TextureAttribute>(r.read<uint8_t>());
@@ -561,16 +584,16 @@ auto readRecord(BinaryIO::Reader& r,
         record.textureAttributeDeps.emplace_back(std::move(path), attribute, value);
     }
 
-    count = readCount<size_t>(r);
-    record.textureAttributesDeps.reserve(count);
+    count = readCount<size_t>(r, 5);
+    reserveBounded(record.textureAttributesDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto path = st.get(r.read<uint32_t>());
         const auto mask = r.read<uint8_t>();
         record.textureAttributesDeps.emplace_back(std::move(path), mask);
     }
 
-    count = readCount<size_t>(r);
-    record.texMatchDeps.reserve(count);
+    count = readCount<size_t>(r, 13);
+    reserveBounded(record.texMatchDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto base = st.get(r.read<uint32_t>());
         const auto type = static_cast<PGEnums::TextureType>(r.read<uint8_t>());
@@ -578,16 +601,16 @@ auto readRecord(BinaryIO::Reader& r,
         record.texMatchDeps.emplace_back(std::move(base), type, hash);
     }
 
-    count = readCount<size_t>(r);
-    record.modOfFileDeps.reserve(count);
+    count = readCount<size_t>(r, 8);
+    reserveBounded(record.modOfFileDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto path = st.get(r.read<uint32_t>());
         auto modName = st.get(r.read<uint32_t>());
         record.modOfFileDeps.emplace_back(std::move(path), std::move(modName));
     }
 
-    count = readCount<size_t>(r);
-    record.modStateDeps.reserve(count);
+    count = readCount<size_t>(r, 6);
+    reserveBounded(record.modStateDeps, count);
     for (size_t i = 0; i < count; i++) {
         auto modName = st.get(r.read<uint32_t>());
         const auto enabled = r.readBool();
@@ -595,8 +618,8 @@ auto readRecord(BinaryIO::Reader& r,
         record.modStateDeps.emplace_back(std::move(modName), enabled, ignored);
     }
 
-    count = readCount<size_t>(r);
-    record.matchesDeps.reserve(count);
+    count = readCount<size_t>(r, 14);
+    reserveBounded(record.matchesDeps, count);
     for (size_t i = 0; i < count; i++) {
         PGRunCache::MatchesDep dep;
         dep.slots = readTextureSet(r, st);
@@ -606,16 +629,18 @@ auto readRecord(BinaryIO::Reader& r,
         record.matchesDeps.push_back(std::move(dep));
     }
 
-    count = readCount<size_t>(r);
-    record.outputFiles.reserve(count);
+    count = readCount<size_t>(r, 20);
+    reserveBounded(record.outputFiles, count);
     for (size_t i = 0; i < count; i++) {
         auto path = st.get(r.read<uint32_t>());
-        const auto size = r.read<uint64_t>();
-        record.outputFiles.emplace_back(std::move(path), size);
+        PGRunCache::OutputIdentity identity;
+        identity.size = r.read<uint64_t>();
+        identity.mtime = r.read<int64_t>();
+        record.outputFiles.emplace_back(std::move(path), identity);
     }
 
-    count = readCount<size_t>(r);
-    record.meshResults.reserve(count);
+    count = readCount<size_t>(r, 16);
+    reserveBounded(record.meshResults, count);
     for (size_t i = 0; i < count; i++) {
         record.meshResults.push_back(readMeshResult(r, st));
     }
@@ -626,16 +651,16 @@ auto readRecord(BinaryIO::Reader& r,
 
     record.meta = readMeta(r, st);
 
-    count = readCount<size_t>(r);
-    record.hookRegistrations.reserve(count);
+    count = readCount<size_t>(r, 5);
+    reserveBounded(record.hookRegistrations, count);
     for (size_t i = 0; i < count; i++) {
         const auto kind = static_cast<PGRunCache::HookKind>(r.read<uint8_t>());
         auto tex = st.get(r.read<uint32_t>());
         record.hookRegistrations.emplace_back(kind, std::move(tex));
     }
 
-    count = readCount<size_t>(r);
-    record.messages.reserve(count);
+    count = readCount<size_t>(r, 5);
+    reserveBounded(record.messages, count);
     for (size_t i = 0; i < count; i++) {
         PGRunCache::Message message;
         message.level = static_cast<spdlog::level::level_enum>(r.read<uint8_t>());
@@ -886,7 +911,8 @@ void PGRunCache::MeshRecorder::recordHookRegistration(const HookKind& kind,
 void PGRunCache::MeshRecorder::recordOutputFile(const filesystem::path& relPath,
                                                 uint64_t size)
 {
-    m_record.outputFiles.emplace_back(pathKey(relPath), size);
+    // The modification time is filled in by finishRun() once the asynchronous file saver has written the file
+    m_record.outputFiles.emplace_back(pathKey(relPath), OutputIdentity {.size = size, .mtime = 0});
 }
 
 void PGRunCache::MeshRecorder::recordMessage(const spdlog::level::level_enum& level,
@@ -1141,10 +1167,79 @@ auto PGRunCache::outputRoot() -> filesystem::path
     return root;
 }
 
-void PGRunCache::snapshotOutputDirectory()
+auto PGRunCache::isSafeRelativePath(const wstring& relPath) -> bool
 {
-    const lock_guard<mutex> lock(s_runMutex);
-    s_outputSnapshot.clear();
+    if (relPath.empty()) {
+        return false;
+    }
+
+    const filesystem::path path(relPath);
+    if (path.has_root_name() || path.has_root_directory()) {
+        // absolute, drive-relative (C:foo) and UNC paths
+        return false;
+    }
+
+    for (const auto& part : path) {
+        if (part == L"..") {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+auto PGRunCache::hasSafePaths(const CacheData& data) -> bool
+{
+    for (const auto& [output, record] : data.hookOutputs) {
+        if (!isSafeRelativePath(output) || !isSafeRelativePath(record.output) || !isSafeRelativePath(record.source)) {
+            return false;
+        }
+    }
+
+    for (const auto& [mesh, record] : data.meshRecords) {
+        if (!isSafeRelativePath(mesh)) {
+            return false;
+        }
+
+        for (const auto& [output, identity] : record.outputFiles) {
+            if (!isSafeRelativePath(output)) {
+                return false;
+            }
+        }
+
+        for (const auto& [kind, tex] : record.hookRegistrations) {
+            if (!isSafeRelativePath(tex)) {
+                return false;
+            }
+        }
+
+        for (const auto& result : record.meshResults) {
+            if (!isSafeRelativePath(static_cast<wstring>(result.meshPath))) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+auto PGRunCache::removeOutputFile(const filesystem::path& generatedPath,
+                                  const wstring& relPath) -> bool
+{
+    // Paths from the cache file were validated on load; check again right before deleting anything
+    if (!isSafeRelativePath(relPath)) {
+        Logger::warn(L"Update cache: refusing to delete a file outside of the output directory: {}", relPath);
+        return false;
+    }
+
+    error_code ec;
+    return filesystem::remove(generatedPath / relPath, ec) && !ec;
+}
+
+auto PGRunCache::collectOutputIdentities() -> unordered_map<wstring,
+                                                            OutputIdentity>
+{
+    unordered_map<wstring, OutputIdentity> identities;
 
     const auto generatedPath = outputRoot();
     for (const auto& folder : {L"meshes", L"textures"}) {
@@ -1169,16 +1264,33 @@ void PGRunCache::snapshotOutputDirectory()
                 continue;
             }
 
+            // directory_entry caches size and write time from the directory listing so these are free
             const auto relPath = entry.path().lexically_relative(generatedPath);
-            const auto size = entry.file_size(ec);
+            OutputIdentity identity;
+            identity.size = entry.file_size(ec);
+            if (ec) {
+                ec.clear();
+                continue;
+            }
+            identity.mtime = entry.last_write_time(ec).time_since_epoch().count();
             if (ec) {
                 ec.clear();
                 continue;
             }
 
-            s_outputSnapshot[pathKey(relPath)] = size;
+            identities[pathKey(relPath)] = identity;
         }
     }
+
+    return identities;
+}
+
+void PGRunCache::snapshotOutputDirectory()
+{
+    auto identities = collectOutputIdentities();
+
+    const lock_guard<mutex> lock(s_runMutex);
+    s_outputSnapshot = std::move(identities);
 
     Logger::debug("Update cache: {} files currently in the output directory", s_outputSnapshot.size());
 }
@@ -1243,8 +1355,29 @@ auto PGRunCache::finishRun(bool save) -> bool
         }
     }
 
+    // Identities of the outputs on disk. Mesh saving is asynchronous, so output identities are captured here (after
+    // the file saver was drained) rather than when the outputs were recorded. Outputs of skipped meshes were not
+    // rewritten, so this simply re-reads their unchanged identity.
+    const auto onDisk = collectOutputIdentities();
+
     {
         const lock_guard<mutex> runLock(s_runMutex);
+
+        for (auto& [mesh, record] : s_currentRecords) {
+            for (auto& [output, identity] : record.outputFiles) {
+                const auto it = onDisk.find(output);
+                // A recorded output that is not on disk gets an identity nothing can match, so the mesh is re-patched
+                identity = it != onDisk.end() ? it->second : OutputIdentity {};
+            }
+        }
+
+        for (auto& [output, record] : s_currentHookOutputs) {
+            const auto it = onDisk.find(output);
+            if (it != onDisk.end()) {
+                record.identity = it->second;
+            }
+        }
+
         data->hookOutputs = std::move(s_currentHookOutputs);
         data->meshRecords = std::move(s_currentRecords);
         s_currentHookOutputs.clear();
@@ -1463,7 +1596,12 @@ void PGRunCache::recordHookOutput(const HookKind& kind,
     auto* const pgd = PGGlobals::getPGD();
 
     error_code ec;
-    const auto size = filesystem::file_size(pgd->getGeneratedPath() / output, ec);
+    const auto outputPath = pgd->getGeneratedPath() / output;
+    const auto size = filesystem::file_size(outputPath, ec);
+    if (ec) {
+        return;
+    }
+    const auto mtime = filesystem::last_write_time(outputPath, ec);
     if (ec) {
         return;
     }
@@ -1473,7 +1611,7 @@ void PGRunCache::recordHookOutput(const HookKind& kind,
     record.source = pathKey(source);
     record.sourceIdentity = pgd->getFileIdentity(source);
     record.output = pathKey(output);
-    record.size = size;
+    record.identity = OutputIdentity {.size = size, .mtime = mtime.time_since_epoch().count()};
 
     const lock_guard<mutex> lock(s_runMutex);
     s_currentHookOutputs[record.output] = std::move(record);
@@ -1641,9 +1779,9 @@ auto PGRunCache::evaluateMesh(const filesystem::path& nifPath,
     }
 
     // Outputs must still be present and intact
-    for (const auto& [output, size] : record.outputFiles) {
+    for (const auto& [output, identity] : record.outputFiles) {
         const auto it = s_outputSnapshot.find(output);
-        if (it == s_outputSnapshot.end() || it->second != size) {
+        if (it == s_outputSnapshot.end() || it->second != identity) {
             Logger::trace(L"Re-patching: output file missing or modified: {}", output);
             return false;
         }
@@ -1751,7 +1889,7 @@ void PGRunCache::pruneStaleOutputs(const unordered_set<filesystem::path>& skippa
             continue;
         }
 
-        for (const auto& [output, size] : it->second.outputFiles) {
+        for (const auto& [output, identity] : it->second.outputFiles) {
             keep.insert(output);
         }
     }
@@ -1770,12 +1908,10 @@ void PGRunCache::pruneStaleOutputs(const unordered_set<filesystem::path>& skippa
                 continue;
             }
 
-            error_code ec;
-            filesystem::remove(generatedPath / it->first, ec);
-            if (ec) {
-                Logger::warn(L"Failed to remove stale output file: {}", it->first);
-            } else {
+            if (removeOutputFile(generatedPath, it->first)) {
                 removed++;
+            } else {
+                Logger::warn(L"Failed to remove stale output file: {}", it->first);
             }
 
             it = s_outputSnapshot.erase(it);
@@ -1875,7 +2011,7 @@ auto PGRunCache::tryReuseHookOutput(const HookKind& kind,
         const lock_guard<mutex> lock(s_runMutex);
 
         const auto snapshotIt = s_outputSnapshot.find(outputKey);
-        if (snapshotIt == s_outputSnapshot.end() || snapshotIt->second != previousRecord.size) {
+        if (snapshotIt == s_outputSnapshot.end() || snapshotIt->second != previousRecord.identity) {
             return false;
         }
 
@@ -1943,8 +2079,7 @@ void PGRunCache::finalizeHooks()
                 continue;
             }
 
-            error_code ec;
-            if (filesystem::remove(generatedPath / output, ec)) {
+            if (removeOutputFile(generatedPath, output)) {
                 removed++;
             }
         }
@@ -2096,17 +2231,17 @@ auto PGRunCache::loadFromFile(const filesystem::path& cacheFile) -> unique_ptr<C
         data->pluginFingerprint = reader.read<uint64_t>();
 
         // String table
-        const auto stringCount = readCount<size_t>(reader);
+        const auto stringCount = readCount<size_t>(reader, 4);
         vector<wstring> strings;
-        strings.reserve(stringCount);
+        reserveBounded(strings, stringCount);
         for (size_t i = 0; i < stringCount; i++) {
             strings.push_back(reader.readWString());
         }
         const StringTable st(std::move(strings));
 
         // Textures
-        auto count = readCount<size_t>(reader);
-        data->textures.reserve(count);
+        auto count = readCount<size_t>(reader, 6);
+        reserveBounded(data->textures, count);
         for (size_t i = 0; i < count; i++) {
             const auto path = st.get(reader.read<uint32_t>());
             TextureInfo info;
@@ -2125,14 +2260,14 @@ auto PGRunCache::loadFromFile(const filesystem::path& cacheFile) -> unique_ptr<C
         }
 
         // Mesh votes
-        count = readCount<size_t>(reader);
-        data->meshVotes.reserve(count);
+        count = readCount<size_t>(reader, 9);
+        reserveBounded(data->meshVotes, count);
         for (size_t i = 0; i < count; i++) {
             const auto path = st.get(reader.read<uint32_t>());
             MeshVotes votes;
             votes.identity = readIdentity(reader, st);
-            const auto voteCount = readCount<size_t>(reader);
-            votes.votes.reserve(voteCount);
+            const auto voteCount = readCount<size_t>(reader, 6);
+            reserveBounded(votes.votes, voteCount);
             for (size_t j = 0; j < voteCount; j++) {
                 TextureVote vote;
                 vote.texture = st.get(reader.read<uint32_t>());
@@ -2144,29 +2279,30 @@ auto PGRunCache::loadFromFile(const filesystem::path& cacheFile) -> unique_ptr<C
         }
 
         // Mesh uses
-        count = readCount<size_t>(reader);
-        data->meshUses.reserve(count);
+        count = readCount<size_t>(reader, 8);
+        reserveBounded(data->meshUses, count);
         for (size_t i = 0; i < count; i++) {
             const auto path = st.get(reader.read<uint32_t>());
             data->meshUses.emplace(path, readUses(reader, st));
         }
 
         // Hook outputs
-        count = readCount<size_t>(reader);
-        data->hookOutputs.reserve(count);
+        count = readCount<size_t>(reader, 26);
+        reserveBounded(data->hookOutputs, count);
         for (size_t i = 0; i < count; i++) {
             HookOutputRecord record;
             record.kind = static_cast<HookKind>(reader.read<uint8_t>());
             record.source = st.get(reader.read<uint32_t>());
             record.sourceIdentity = readIdentity(reader, st);
             record.output = st.get(reader.read<uint32_t>());
-            record.size = reader.read<uint64_t>();
+            record.identity.size = reader.read<uint64_t>();
+            record.identity.mtime = reader.read<int64_t>();
             data->hookOutputs.emplace(record.output, std::move(record));
         }
 
         // Mesh records
-        count = readCount<size_t>(reader);
-        data->meshRecords.reserve(count);
+        count = readCount<size_t>(reader, 64);
+        reserveBounded(data->meshRecords, count);
         for (size_t i = 0; i < count; i++) {
             const auto path = st.get(reader.read<uint32_t>());
             data->meshRecords.emplace(path, readRecord(reader, st));
@@ -2174,6 +2310,13 @@ auto PGRunCache::loadFromFile(const filesystem::path& cacheFile) -> unique_ptr<C
 
         if (!reader.atEnd()) {
             Logger::debug("Update cache file has trailing data");
+            return nullptr;
+        }
+
+        // Paths from the cache address files in the output directory (including deletions), so a cache that could
+        // point anywhere else is not trusted at all
+        if (!hasSafePaths(*data)) {
+            Logger::warn("Update cache contains invalid output paths and is ignored, performing a full run");
             return nullptr;
         }
 
@@ -2236,7 +2379,8 @@ auto PGRunCache::saveToFile(const filesystem::path& cacheFile,
             body.write<uint32_t>(st.id(record.source));
             writeIdentity(body, st, record.sourceIdentity);
             body.write<uint32_t>(st.id(record.output));
-            body.write<uint64_t>(record.size);
+            body.write<uint64_t>(record.identity.size);
+            body.write<int64_t>(record.identity.mtime);
         }
 
         // Mesh records

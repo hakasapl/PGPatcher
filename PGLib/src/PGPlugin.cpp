@@ -112,10 +112,9 @@ void PGPlugin::initialize(const BethesdaGame& game,
     s_initialized = true;
 }
 
-void PGPlugin::populateObjs(const filesystem::path& existingModPath,
-                            bool lazyModelUses)
+void PGPlugin::populateObjs(const filesystem::path& existingModPath)
 {
-    PGMutagenWrapper::libPopulateObjs(existingModPath, lazyModelUses);
+    PGMutagenWrapper::libPopulateObjs(existingModPath);
 }
 
 void PGPlugin::resetPatchingState()

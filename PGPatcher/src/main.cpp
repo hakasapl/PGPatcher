@@ -485,18 +485,15 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     TaskQueue pluginInit;
 
     // Init PGP library
-    // When no plugin changed since the previous run, mesh uses come from the update cache, so reading every model
-    // record of the load order is deferred until (and unless) a mesh not in the cache needs it
-    const bool lazyModelUses = PGRunCache::arePreviousMeshUsesValid();
     Logger::info("Initializing plugin patching");
     if (params.Processing.multithread) {
-        pluginInit.queueTask([&bg, &exePath, &params, lazyModelUses]() -> void {
+        pluginInit.queueTask([&bg, &exePath, &params]() -> void {
             PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp", lazyModelUses);
+            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
         });
     } else {
         PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp", lazyModelUses);
+        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
     }
 
     progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_PREPARING_STEPS); });

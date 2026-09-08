@@ -130,7 +130,6 @@ public class PGMutagen
     // Winning model records by form key, filled together with ModelUses. Resolving an untyped major record through the
     // link cache is very slow, and every model use needs its record.
     private static Dictionary<FormKey, IMajorRecordGetter> ModelRecords = [];
-    private static bool ModelUsesPopulated = false;
     private static Dictionary<FormKey, IMajorRecord?> ModifiedRecords = [];
     private static Dictionary<string[], Tuple<ITextureSet, bool>> NewTextureSets = new(new StructuralArrayComparer());
     private static SortedSet<uint> allocatedFormIDs = [];
@@ -285,10 +284,8 @@ public class PGMutagen
         }
     }
 
-    // lazyModelUses: when non-zero, the (expensive) enumeration of every model record in the load order is deferred
-    // until GetModelUses is first called. Used when the caller expects to answer model uses from its own cache.
     [UnmanagedCallersOnly(EntryPoint = "PopulateObjs", CallConvs = [typeof(CallConvCdecl)])]
-    public static void PopulateObjs([DNNE.C99Type("const wchar_t*")] IntPtr oldPGPluginPath, [DNNE.C99Type("const int")] int lazyModelUses)
+    public static void PopulateObjs([DNNE.C99Type("const wchar_t*")] IntPtr oldPGPluginPath)
     {
         try
         {
@@ -326,12 +323,7 @@ public class PGMutagen
                 }
             }
 
-            ModelUses = [];
-            ModelUsesPopulated = false;
-            if (lazyModelUses == 0)
-            {
-                PopulateModelUses();
-            }
+            PopulateModelUses();
 
             // Capture baseline immediately after PopulateObjs so reruns can reset to this state.
             SavePatchingBaselineFromCurrentOutMod();
@@ -344,11 +336,6 @@ public class PGMutagen
 
     private static void PopulateModelUses()
     {
-        if (ModelUsesPopulated)
-        {
-            return;
-        }
-
         MessageHandler.Log("Reading model records from plugins", 1);
 
         ModelUses = [];
@@ -443,8 +430,6 @@ public class PGMutagen
                 ModelUses[meshName].Add(curTuple);
             }
         }
-
-        ModelUsesPopulated = true;
     }
 
     private static bool ResolveModelRecord(FormKey formKey, out IMajorRecordGetter modelRec)
@@ -813,9 +798,6 @@ public class PGMutagen
             // Get the lowercase nifname (with meshes\ prefix) from C++
             string nifName = Marshal.PtrToStringUni(modelPathPtr)?.ToLowerInvariant() ?? string.Empty;
 
-            // Model uses may have been deferred by PopulateObjs
-            PopulateModelUses();
-
             // find all uses
             if (!ModelUses.TryGetValue(nifName, out List<Tuple<FormKey, string>>? modelRecUsesList))
             {
@@ -990,9 +972,6 @@ public class PGMutagen
             // Load onto buffer
             var buffer = new ByteBuffer(bufferSpan.ToArray());
             var modelUses = PGMutagenBuffers.ModelUses.GetRootAsModelUses(buffer);
-
-            // Model records may have been deferred by PopulateObjs
-            PopulateModelUses();
 
             // Loop through each model use
             for (int i = 0; i < modelUses.UsesLength; i++)
