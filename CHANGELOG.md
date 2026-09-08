@@ -5,6 +5,7 @@
 - Added Turkish localization (khanblood007)
 - Added Russian localization (enbl1tenment)
 - Fixed some labels being cut off in dialogs for certain translations
+- PBR json fields will now be validated by data type. Fields with wrong type will be silently ignored.
 
 ## [1.3.0] - 2026-08-31
 
