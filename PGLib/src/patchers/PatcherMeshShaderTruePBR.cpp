@@ -670,7 +670,7 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     }
 
     // "auto_uv" attribute
-    if (truePBRData.contains("auto_uv") && truePBRData["auto_uv"].is_boolean() && truePBRData["auto_uv"].get<bool>()) {
+    if (truePBRData.contains("auto_uv") && truePBRData["auto_uv"].is_number()) {
         vector<Triangle> tris;
         nifShape->GetTriangles(tris);
         auto newUVScale = autoUVScale(getNIF()->GetUvsForShape(nifShape), getNIF()->GetVertsForShape(nifShape), tris)
