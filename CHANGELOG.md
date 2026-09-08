@@ -6,6 +6,8 @@
 - Added Russian localization (enbl1tenment)
 - Fixed some labels being cut off in dialogs for certain translations
 - PBR json fields will now be validated by data type. Fields with wrong type will be silently ignored.
+- Fixed pgtools dynamic cubemap file copy exception
+- Fixed pgtools --no-multithreading CLI argument not behaving correctly
 
 ## [1.3.0] - 2026-08-31
 
