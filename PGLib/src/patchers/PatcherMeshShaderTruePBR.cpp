@@ -856,20 +856,23 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "lock_diffuse" attribute
-    if (!flag(truePBRData, "lock_diffuse")) {
+    if (!(truePBRData.contains("lock_diffuse") && truePBRData["lock_diffuse"].is_boolean()
+          && truePBRData["lock_diffuse"].get<bool>())) {
         auto newDiffuse = matchedPath + L".dds";
         slots[static_cast<size_t>(PGEnums::TextureSlots::DIFFUSE)] = newDiffuse;
     }
 
     // "lock_normal" attribute
-    if (!flag(truePBRData, "lock_normal")) {
+    if (!(truePBRData.contains("lock_normal") && truePBRData["lock_normal"].is_boolean()
+          && truePBRData["lock_normal"].get<bool>())) {
         auto newNormal = matchedPath + L"_n.dds";
         slots[static_cast<size_t>(PGEnums::TextureSlots::NORMAL)] = newNormal;
     }
 
     // "emissive" attribute
     if (truePBRData.contains("emissive") && truePBRData["emissive"].is_boolean()
-        && !flag(truePBRData, "lock_emissive")) {
+        && !(truePBRData.contains("lock_emissive") && truePBRData["lock_emissive"].is_boolean()
+             && truePBRData["lock_emissive"].get<bool>())) {
         wstring newGlow;
         if (truePBRData["emissive"].get<bool>()) {
             newGlow = matchedPath + L"_g.dds";
@@ -880,7 +883,8 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
 
     // "parallax" attribute
     if (truePBRData.contains("parallax") && truePBRData["parallax"].is_boolean()
-        && !flag(truePBRData, "lock_parallax")) {
+        && !(truePBRData.contains("lock_parallax") && truePBRData["lock_parallax"].is_boolean()
+             && truePBRData["lock_parallax"].get<bool>())) {
         wstring newParallax;
         if (truePBRData["parallax"].get<bool>()) {
             newParallax = matchedPath + L"_p.dds";
@@ -890,7 +894,9 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "cubemap" attribute
-    if (truePBRData.contains("cubemap") && truePBRData["cubemap"].is_string() && !flag(truePBRData, "lock_cubemap")) {
+    if (truePBRData.contains("cubemap") && truePBRData["cubemap"].is_string()
+        && !(truePBRData.contains("lock_cubemap") && truePBRData["lock_cubemap"].is_boolean()
+             && truePBRData["lock_cubemap"].get<bool>())) {
         auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
         slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = newCubemap;
     } else {
@@ -898,13 +904,15 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "lock_rmaos" attribute
-    if (!flag(truePBRData, "lock_rmaos")) {
+    if (!(truePBRData.contains("lock_rmaos") && truePBRData["lock_rmaos"].is_boolean()
+          && truePBRData["lock_rmaos"].get<bool>())) {
         auto newRMAOS = matchedPath + L"_rmaos.dds";
         slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = newRMAOS;
     }
 
     // "lock_cnr" attribute
-    if (!flag(truePBRData, "lock_cnr")) {
+    if (!(truePBRData.contains("lock_cnr") && truePBRData["lock_cnr"].is_boolean()
+          && truePBRData["lock_cnr"].get<bool>())) {
         // "coat_normal" attribute
         wstring newCNR;
         if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].get<bool>()) {
@@ -912,7 +920,8 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
         }
 
         // Fuzz texture slot
-        if (truePBRData.contains("fuzz") && flag(truePBRData["fuzz"], "texture")) {
+        if (truePBRData.contains("fuzz") && truePBRData["fuzz"].contains("texture")
+            && truePBRData["fuzz"]["texture"].is_boolean() && truePBRData["fuzz"]["texture"].get<bool>()) {
             newCNR = matchedPath + L"_f.dds";
         }
 
@@ -920,7 +929,8 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
     }
 
     // "lock_subsurface" attribute
-    if (!flag(truePBRData, "lock_subsurface")) {
+    if (!(truePBRData.contains("lock_subsurface") && truePBRData["lock_subsurface"].is_boolean()
+          && truePBRData["lock_subsurface"].get<bool>())) {
         // "subsurface_foliage" attribute
         wstring newSubsurface;
         if ((truePBRData.contains("subsurface_foliage") && truePBRData["subsurface_foliage"].get<bool>())
@@ -987,7 +997,7 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
     }
 
     // "hair" attribute
-    if (flag(truePBRData, "hair")) {
+    if (truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>()) {
         changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
     }
 
@@ -1117,7 +1127,7 @@ auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
         // Clear multilayer flags
         changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
 
-        if (!flag(truePBRData, "hair")) {
+        if (!(truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>())) {
             changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
         }
 
@@ -1161,9 +1171,3 @@ auto PatcherMeshShaderTruePBR::autoUVScale(const vector<Vector2>* uvs,
     return scale;
 }
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
-
-auto PatcherMeshShaderTruePBR::flag(const nlohmann::json& json,
-                                    const char* key) -> bool
-{
-    return json.contains(key) && json[key].is_boolean() && json[key];
-}
