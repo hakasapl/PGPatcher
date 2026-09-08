@@ -1056,6 +1056,10 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
                 }
                 ++it;
             }
+
+            // canApply assigned the transform targets above and those take part in the ranking, so sort again to
+            // restore the final order the patchers rely on (the match at index 0 wins)
+            sortMatches(matches);
         }
     }
 

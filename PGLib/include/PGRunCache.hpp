@@ -317,7 +317,8 @@ private:
     static auto hasSafePaths(const CacheData& data) -> bool;
 
     /**
-     * @brief Deletes a file inside the output directory. Refuses paths that could escape the output directory.
+     * @brief Deletes a file inside the output directory. Callers must only pass paths listed by
+     * collectOutputIdentities(); rooted paths and parent traversal are refused as well.
      *
      * @return true if the file was removed.
      */
@@ -325,7 +326,8 @@ private:
                                  const std::wstring& relPath) -> bool;
 
     /**
-     * @brief Lists every file currently in the output meshes and textures folders with its identity.
+     * @brief Lists every file currently in the output meshes and textures folders with its identity. Symlinks and
+     * junctions are skipped and never followed, so the listing only covers the real output directory tree.
      */
     static auto collectOutputIdentities() -> std::unordered_map<std::wstring,
                                                                 OutputIdentity>;

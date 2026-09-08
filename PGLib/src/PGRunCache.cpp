@@ -1226,7 +1226,8 @@ auto PGRunCache::hasSafePaths(const CacheData& data) -> bool
 auto PGRunCache::removeOutputFile(const filesystem::path& generatedPath,
                                   const wstring& relPath) -> bool
 {
-    // Paths from the cache file were validated on load; check again right before deleting anything
+    // Callers only pass paths that the output directory walk listed (see collectOutputIdentities); the lexical check
+    // is a second line of defense right before deleting anything
     if (!isSafeRelativePath(relPath)) {
         Logger::warn(L"Update cache: refusing to delete a file outside of the output directory: {}", relPath);
         return false;
@@ -1259,6 +1260,20 @@ auto PGRunCache::collectOutputIdentities() -> unordered_map<wstring,
             }
 
             const auto& entry = *it;
+
+            // PGPatcher never creates symlinks or junctions, so anything behind one is not an output this cache
+            // manages: it is neither listed nor descended into. Deletions are limited to what this walk lists, which
+            // keeps them inside the real output directory tree.
+            if (entry.is_symlink(ec)) {
+                ec.clear();
+                if (entry.is_directory(ec)) {
+                    it.disable_recursion_pending();
+                }
+                ec.clear();
+                continue;
+            }
+            ec.clear();
+
             if (!entry.is_regular_file(ec)) {
                 ec.clear();
                 continue;
@@ -2070,13 +2085,26 @@ void PGRunCache::finalizeHooks()
         }
     }
 
-    // Delete generated textures from the previous run that no mesh needs anymore
+    // Delete generated textures from the previous run that no mesh needs anymore. These paths come from the cache
+    // file, so only files that the output directory walk listed are deleted: the walk never follows symlinks or
+    // junctions, which keeps every deletion inside the real output directory tree.
     if (s_previous != nullptr) {
         const auto generatedPath = PGGlobals::getPGD()->getGeneratedPath();
         size_t removed = 0;
         for (const auto& [output, record] : s_previous->hookOutputs) {
             if (needed.contains(output)) {
                 continue;
+            }
+
+            {
+                const lock_guard<mutex> lock(s_runMutex);
+                const auto snapshotIt = s_outputSnapshot.find(output);
+                if (snapshotIt == s_outputSnapshot.end()) {
+                    Logger::trace(L"Update cache: generated texture {} is not in the output directory, not deleting",
+                                  output);
+                    continue;
+                }
+                s_outputSnapshot.erase(snapshotIt);
             }
 
             if (removeOutputFile(generatedPath, output)) {
