@@ -349,7 +349,9 @@ auto PGConfig::validateParams(const PGParams& rawParams,
     if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2 && !params.Game.dir.empty()
         && params.Game.dir.is_relative()) {
         // MO2 stores the game path relative to its own folder, which PGPatcher finds through the MO2 VFS it was launched
-        // from or, for portable instances, the instance folder (see PGModManager::findMO2Dir). Neither worked here.
+        // from or, for portable instances, the instance folder (see PGModManager::findMO2Dir). Neither worked here:
+        // resolveRelativePaths() never resolves a game path that comes from modorganizer.ini against the PGPatcher
+        // folder, so a game path that is still relative at this point can only be that unresolved MO2 value.
         errors.emplace_back(PGTr("launcher.validation.mo2RelativeGamePath",
                                  "Unable to resolve the relative game path from MO2 - make sure you launched PGPatcher "
                                  "from MO2")

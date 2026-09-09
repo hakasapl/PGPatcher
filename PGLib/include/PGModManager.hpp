@@ -28,6 +28,10 @@ class PGModManager {
 private:
     constexpr static uint8_t HEX_ALPHA_BASE = 10U;
 
+    /// @brief CreateToolhelp32Snapshot() fails with ERROR_BAD_LENGTH when the module list changes while the snapshot
+    /// is taken; the documented handling is to retry, this bounds the retries.
+    constexpr static unsigned MODULE_SNAPSHOT_MAX_ATTEMPTS = 16U;
+
     /**
      * @brief Converts a single hexadecimal character to its integer value.
      *

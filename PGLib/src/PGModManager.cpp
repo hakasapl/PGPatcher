@@ -697,7 +697,15 @@ auto PGModManager::getMO2DirFromUSVFS() -> filesystem::path
 {
     // MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that
     // loaded module is the folder containing ModOrganizer.exe
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+    HANDLE hSnapshot = INVALID_HANDLE_VALUE;
+    for (unsigned attempt = 0; attempt < MODULE_SNAPSHOT_MAX_ATTEMPTS; ++attempt) {
+        hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+        if (hSnapshot != INVALID_HANDLE_VALUE || GetLastError() != ERROR_BAD_LENGTH) {
+            break;
+        }
+        // transient: the module list changed while the snapshot was taken, retry
+    }
+
     if (hSnapshot == INVALID_HANDLE_VALUE) {
         return {};
     }
