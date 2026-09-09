@@ -29,7 +29,7 @@ namespace {
 
 auto buildCompletionMessage(const long long& timeTaken) -> wxString
 {
-    const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
     return wxString::Format(
         PGTr("completion.message",
              "PGPatcher has completed generating output.\n\nProcessing Time: %lld seconds\nOutput Location:\n%s"),
@@ -88,7 +88,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     // Get config
-    const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
 
     // Calculate required width based on path length
     const wxClientDC dc(this);
@@ -367,7 +367,7 @@ void CompletionDialog::onOpenOutputLocation([[maybe_unused]] wxCommandEvent& eve
 {
     saveIgnoredMessagesToConfig();
 
-    const auto outputPath = PGPatcherGlobals::getPGC()->getParams().Output.dir;
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
     wxLaunchDefaultApplication(outputPath.wstring());
 
     // Close dialog

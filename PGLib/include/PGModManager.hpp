@@ -28,6 +28,10 @@ class PGModManager {
 private:
     constexpr static uint8_t HEX_ALPHA_BASE = 10U;
 
+    /// @brief CreateToolhelp32Snapshot() fails with ERROR_BAD_LENGTH when the module list changes while the snapshot
+    /// is taken; the documented handling is to retry, this bounds the retries.
+    constexpr static unsigned MODULE_SNAPSHOT_MAX_ATTEMPTS = 16U;
+
     /**
      * @brief Converts a single hexadecimal character to its integer value.
      *
@@ -104,6 +108,10 @@ private:
 
     static constexpr const char* MO2INI_BYTEARRAYPREFIX = "@ByteArray(";
     static constexpr const char* MO2INI_BYTEARRAYSUFFIX = ")";
+
+    /// @brief MO2's virtual filesystem DLL, injected from the MO2 install folder into every process MO2 launches.
+    static constexpr const wchar_t* MO2_USVFS_DLL_NAME = L"usvfs_x64.dll";
+    static constexpr const wchar_t* MO2_EXE_FILENAME = L"ModOrganizer.exe";
 
 public:
     /**
@@ -199,10 +207,55 @@ public:
     /**
      * @brief Reads the game installation path from the MO2 instance's modorganizer.ini.
      *
+     * A relative gamePath value is resolved with resolveMO2GamePath(). If the MO2 folder cannot be found, the relative
+     * value is returned as-is so that PGConfig::validateParams() can report it.
+     *
      * @param instanceDir Path to the MO2 instance directory.
-     * @return Absolute path to the game directory.
+     * @return Game directory (absolute unless a relative value could not be resolved), or empty if modorganizer.ini
+     * has no gamePath.
      */
     static auto getGamePathFromInstanceDir(const std::filesystem::path& instanceDir) -> std::filesystem::path;
+
+    /**
+     * @brief Finds the folder containing ModOrganizer.exe of the MO2 that launched this process.
+     *
+     * MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that
+     * loaded module is the MO2 install folder. A non-empty result also means the process runs under MO2's virtual
+     * filesystem.
+     *
+     * @return Folder containing ModOrganizer.exe, or empty if usvfs_x64.dll is not loaded (PGPatcher was not launched
+     * from MO2).
+     */
+    [[nodiscard]] static auto getMO2DirFromUSVFS() -> std::filesystem::path;
+
+    /**
+     * @brief Finds the folder containing ModOrganizer.exe for the given instance.
+     *
+     * The primary source is the usvfs DLL MO2 injected into this process (getMO2DirFromUSVFS()), which is exact for
+     * portable and global instances alike. If PGPatcher was not launched from MO2, the instance folder is used when it
+     * contains ModOrganizer.exe (portable instance). Global (%LOCALAPPDATA%) instances record nothing about the MO2
+     * folder, so for those it is unknown unless PGPatcher was launched from MO2.
+     *
+     * @param instanceDir Path to the MO2 instance directory (folder containing modorganizer.ini).
+     * @return Absolute path to the folder containing ModOrganizer.exe, or empty if it cannot be determined.
+     */
+    [[nodiscard]] static auto findMO2Dir(const std::filesystem::path& instanceDir) -> std::filesystem::path;
+
+    /**
+     * @brief Resolves a gamePath value from modorganizer.ini to an absolute path the way MO2 does.
+     *
+     * MO2 sets its working directory to the folder containing ModOrganizer.exe (MOApplication constructor,
+     * QDir::setCurrent(applicationDirPath())) and hands gamePath to the game plugin unchanged (Instance::setup ->
+     * IPluginGame::setGamePath), so a relative gamePath is relative to the folder containing ModOrganizer.exe, which
+     * is taken from findMO2Dir().
+     *
+     * @param gamePath gamePath value as stored in modorganizer.ini (absolute or relative).
+     * @param instanceDir Path to the MO2 instance directory (folder containing modorganizer.ini).
+     * @return Absolute, lexically normalized game path. Empty and absolute inputs are returned unchanged, and so is a
+     * relative input when findMO2Dir() cannot find the MO2 folder.
+     */
+    [[nodiscard]] static auto resolveMO2GamePath(const std::filesystem::path& gamePath,
+                                                 const std::filesystem::path& instanceDir) -> std::filesystem::path;
 
     /**
      * @brief Determines the BethesdaGame::GameType from the MO2 instance's modorganizer.ini.
