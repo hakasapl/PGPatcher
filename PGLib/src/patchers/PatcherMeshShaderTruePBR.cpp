@@ -560,12 +560,9 @@ auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
         }
     }
 
-    // Check if named_field is a directory
-    wstring matchedPath = StringUtil::toLowerASCIIFast(texPath + matchedField);
-    const bool enableTruePBR = (!curCfg.contains("pbr") || curCfg["pbr"]) && !matchedPath.empty();
-    if (!enableTruePBR) {
-        matchedPath = L"";
-    }
+    // PBR prefix path for the shape. PBR is always enabled for a matched entry: the legacy "pbr" JSON field is
+    // ignored if present.
+    const wstring matchedPath = StringUtil::toLowerASCIIFast(texPath + matchedField);
 
     truePBRData.insert({cfg, {curCfg, matchedPath}});
 }
@@ -675,8 +672,6 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
     // Prep
     auto* nifShader = getNIF()->GetShader(nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
-    const bool enableTruePBR = !matchedPath.empty();
-    const bool enableEnvMapping = truePBRData.contains("env_mapping") && truePBRData["env_mapping"] && !enableTruePBR;
 
     // "delete" attribute
     if (truePBRData.contains("delete") && truePBRData["delete"].is_boolean() && truePBRData["delete"]) {
@@ -816,25 +811,6 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
         changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
     }
 
-    // "EnvMapping" attribute
-    if (enableEnvMapping) {
-        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_ENVMAP);
-        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
-    }
-
-    // "EnvMap_scale" attribute
-    if (truePBRData.contains("env_map_scale") && enableEnvMapping) {
-        auto newEnvMapScale = truePBRData["env_map_scale"].get<float>();
-        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->environmentMapScale, newEnvMapScale);
-    }
-
-    // "EnvMap_scale_mult" attribute
-    if (truePBRData.contains("env_map_scale_mult") && enableEnvMapping) {
-        nifShaderBSLSP->environmentMapScale *= truePBRData["env_map_scale_mult"].get<float>();
-        changed = true;
-    }
-
     // "emmissive_scale" attribute
     if (truePBRData.contains("emissive_scale") && truePBRData["emissive_scale"].is_number()) {
         auto newEmissiveScale = truePBRData["emissive_scale"].get<float>();
@@ -865,11 +841,8 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
         changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
     }
 
-    // "pbr" attribute
-    if (enableTruePBR) {
-        // no pbr, we can return here
-        changed |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
-    }
+    // Enable PBR on the shape (always on, the legacy "pbr" JSON field is ignored)
+    changed |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
 
     return changed;
 }
@@ -878,10 +851,6 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
                                                   const nlohmann::json& truePBRData,
                                                   const std::wstring& matchedPath)
 {
-    if (matchedPath.empty()) {
-        return;
-    }
-
     // "lock_diffuse" attribute
     if (!(truePBRData.contains("lock_diffuse") && truePBRData["lock_diffuse"].is_boolean()
           && truePBRData["lock_diffuse"].get<bool>())) {

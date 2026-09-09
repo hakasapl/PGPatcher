@@ -253,7 +253,7 @@ private:
                                    const std::wstring& matchedPath);
 
     /**
-     * @brief Enables truepbr on a shape (pbr: true in JSON)
+     * @brief Enables truepbr on a shape (always applied for a matched JSON entry)
      *
      * @param nifShader Shader of shape
      * @param nifShaderBSLSP Properties of shader
