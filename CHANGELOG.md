@@ -15,6 +15,8 @@
 - Fixed pgtools --no-multithreading CLI argument not behaving correctly
 - Added support for relative game paths in modorganizer.ini
 - Added support for relative paths for MO2 instance location, game path, and output path
+- Removed the "pbr" PBR json field
+- Removed the "env_mapping", "env_map_scale", and "env_map_scale_mult" PBR json fields
 
 ## [1.3.0] - 2026-08-31
 
