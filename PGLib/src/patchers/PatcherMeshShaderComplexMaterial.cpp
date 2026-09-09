@@ -8,6 +8,7 @@
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/FileUtil.hpp"
+#include "util/HashUtil.hpp"
 #include "util/Logger.hpp"
 
 #include "Geometry.hpp"
@@ -16,9 +17,11 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -281,6 +284,19 @@ void PatcherMeshShaderComplexMaterial::applyShader(NiShape& nifShape)
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
     PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
+}
+
+auto PatcherMeshShaderComplexMaterial::getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t
+{
+    if (match.extraData == nullptr) {
+        return 0;
+    }
+
+    const auto meta = static_pointer_cast<decltype(nlohmann::json())>(match.extraData);
+
+    HashUtil::Fnv1a64 hasher;
+    hasher.add(meta->dump());
+    return hasher.value();
 }
 
 auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const filesystem::path& envMaskPath) -> nlohmann::json

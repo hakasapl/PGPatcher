@@ -1,10 +1,13 @@
 #include "pgutil/PGMeshPermutationTracker.hpp"
 
 #include "PGGlobals.hpp"
+#include "PGRunCache.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
+
+#include <fmt/xchar.h>
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
@@ -288,6 +291,9 @@ auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
         // tell PGD that this is a generated file
         pgd->addGeneratedFile(meshRelPath);
 
+        // record the output for incremental runs
+        PGRunCache::recordOutputFile(meshRelPath, data.size());
+
         output.push_back(meshResult);
     }
 
@@ -298,8 +304,11 @@ auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
     return {output, {m_origCrc32, baseCrc32}};
 }
 
-void PGMeshPermutationTracker::validateWeightedVariants()
+auto PGMeshPermutationTracker::validateWeightedVariants() -> std::vector<std::pair<std::filesystem::path,
+                                                                                   std::wstring>>
 {
+    std::vector<std::pair<std::filesystem::path, std::wstring>> errors;
+
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
     for (const auto& [key, nifFile] : s_otherWeightVariants) {
         // A mesh being used weighted in one place while its counterpart is never patched as weighted (not used
@@ -313,11 +322,16 @@ void PGMeshPermutationTracker::validateWeightedVariants()
             continue;
         }
 
-        Logger::error(L"Weighted mesh variant for '{}' not created. Weight variants (_0 and _1) do not match.",
-                      key.first.wstring());
+        const auto message
+            = fmt::format(L"Weighted mesh variant for '{}' not created. Weight variants (_0 and _1) do not match.",
+                          key.first.wstring());
+        Logger::error(L"{}", message);
+        errors.emplace_back(key.first, message);
     }
     s_otherWeightVariants.clear();
     s_weightVariantProcessedPaths.clear();
+
+    return errors;
 }
 
 void PGMeshPermutationTracker::processWeightVariant(const nifly::NifFile& mesh, const std::size_t dupIdx)

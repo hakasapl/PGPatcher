@@ -10,6 +10,7 @@
 #include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "PGPlugin.hpp"
+#include "PGRunCache.hpp"
 #include "common/BethesdaGame.hpp"
 
 #include <boost/algorithm/string/join.hpp>
@@ -367,9 +368,25 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     okButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     okButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     m_okButton->SetFont(okButtonFont);
+    m_okButton->SetToolTip(PGTr("launcher.buttons.startPatchingTooltip",
+                                "Generate the output from scratch (any previous output in the output location is "
+                                "replaced)"));
     m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
     Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
     rightSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+
+    // Update Output button below it (only enabled when the output location holds a previous output)
+    m_updateOutputButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.updateOutput", "Update Output"));
+    wxFont updateOutputButtonFont = m_updateOutputButton->GetFont();
+    updateOutputButtonFont.SetPointSize(BUTTON_FONT_SIZE);
+    m_updateOutputButton->SetFont(updateOutputButtonFont);
+    m_updateOutputButton->SetToolTip(
+        PGTr("launcher.buttons.updateOutputTooltip",
+             "Update the previous output in the output location: only meshes whose inputs changed since that output "
+             "was generated are patched again. Available when the output location contains a previous output and zip "
+             "output is disabled."));
+    m_updateOutputButton->Bind(wxEVT_BUTTON, &LauncherWindow::onUpdateOutputButtonPressed, this);
+    rightSizer->Add(m_updateOutputButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
 
     //
     // Processing
@@ -927,6 +944,9 @@ void LauncherWindow::updateDisabledElements()
     // save button
     m_saveConfigButton->Enable(curParams != m_pgc.getParams());
 
+    // update output button: only when the current output location holds a previous output that can be updated
+    m_updateOutputButton->Enable(!curParams.Output.zip && PGRunCache::isUpdateAvailable(curParams.Output.dir));
+
     // logging checkboxes
     if (curParams.Processing.enableDebugLogging) {
         m_processingEnableTraceLoggingCheckbox->Enable(true);
@@ -940,9 +960,20 @@ void LauncherWindow::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)
 {
     if (saveConfig()) {
         // All validation passed, proceed with OK actions
+        m_updateRequested = false;
         EndModal(wxID_OK);
     }
 }
+
+void LauncherWindow::onUpdateOutputButtonPressed([[maybe_unused]] wxCommandEvent& event)
+{
+    if (saveConfig()) {
+        m_updateRequested = true;
+        EndModal(wxID_OK);
+    }
+}
+
+auto LauncherWindow::isUpdateRequested() const -> bool { return m_updateRequested; }
 
 void LauncherWindow::onCancelButtonPressed([[maybe_unused]] wxCommandEvent& event) { wxTheApp->Exit(); }
 

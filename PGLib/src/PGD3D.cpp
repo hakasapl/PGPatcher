@@ -2,6 +2,7 @@
 
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "PGRunCache.hpp"
 #include "util/Logger.hpp"
 
 #include <DirectXMath.h>
@@ -870,6 +871,10 @@ auto PGD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readability-conver
 {
     auto* const pgd = PGGlobals::getPGD();
 
+    // Texture pixel data never influences mesh output directly (only derived classification does), so reading it
+    // must not register the texture as a dependency of the mesh being patched
+    const PGRunCache::SuspendRecording suspendRecording;
+
     HRESULT hr {};
 
     if (pgd->isLooseFile(ddsPath)) {
@@ -899,6 +904,22 @@ auto PGD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readability-conver
     return true;
 }
 
+void PGD3D::seedDDSMetadata(const std::filesystem::path& ddsPath,
+                            const DirectX::TexMetadata& ddsMeta)
+{
+    const unique_lock lock(m_ddsMetaDataMutex);
+    if (!m_ddsMetaDataCache.contains(ddsPath)) {
+        m_ddsMetaDataCache[ddsPath] = ddsMeta;
+    }
+}
+
+auto PGD3D::getDDSMetadataCacheSnapshot() -> std::unordered_map<std::filesystem::path,
+                                                                DirectX::TexMetadata>
+{
+    const shared_lock lock(m_ddsMetaDataMutex);
+    return m_ddsMetaDataCache;
+}
+
 auto PGD3D::getDDSMetadata(const filesystem::path& ddsPath,
                            DirectX::TexMetadata& ddsMeta) -> bool
 {
@@ -912,6 +933,9 @@ auto PGD3D::getDDSMetadata(const filesystem::path& ddsPath,
             return true;
         }
     }
+
+    // See getDDS for why recording is suspended here
+    const PGRunCache::SuspendRecording suspendRecording;
 
     HRESULT hr {};
 

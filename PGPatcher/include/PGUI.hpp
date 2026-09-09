@@ -27,11 +27,12 @@ public:
     /**
      * @brief Shows the launcher dialog to the user (Hangs thread until user presses okay)
      *
-     * @param OldParams Params to show in the UI
-     * @return PGConfig::PGParams Params set by the user
+     * @param pgc Config object backing the UI
+     * @param[in,out] params Params to show in the UI, updated with the values set by the user
+     * @return true if the user chose "Update Output" (update the previous output in place), false for "Start Patching"
      */
-    static void showLauncher(PGConfig& pgc,
-                             PGConfig::PGParams& params);
+    static auto showLauncher(PGConfig& pgc,
+                             PGConfig::PGParams& params) -> bool;
 
     /**
      * @brief Shows the mod selection dialog to the user (Hangs thread until user presses okay)

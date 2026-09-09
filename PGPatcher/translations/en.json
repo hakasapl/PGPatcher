@@ -114,7 +114,10 @@
       "restoreDefaults": "Restore Defaults",
       "loadConfig": "Load Config",
       "saveConfig": "Save Config",
-      "startPatching": "Start Patching"
+      "startPatching": "Start Patching",
+      "startPatchingTooltip": "Generate the output from scratch (any previous output in the output location is replaced)",
+      "updateOutput": "Update Output",
+      "updateOutputTooltip": "Update the previous output in the output location: only meshes whose inputs changed since that output was generated are patched again. Available when the output location contains a previous output and zip output is disabled."
     },
     "processing": {
       "title": "Processing",
@@ -200,6 +203,7 @@
       "savingPlugins": "Saving Plugins",
       "deployingAssets": "Deploying Assets",
       "savingDiffJson": "Saving Diff Json",
+      "savingUpdateCache": "Saving Update Cache",
       "creatingZipArchive": "Creating Zip Archive"
     }
   },

@@ -26,6 +26,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
@@ -148,8 +149,11 @@ public:
      * @brief Delets output directory in a smart way
      *
      * @param preOutput whether this is being called pre or post output
+     * @param keepIncrementalOutput when true, the meshes and textures folders and the update cache are kept so the
+     * previous output can be updated incrementally
      */
-    static void deleteOutputDir(const bool& preOutput = true);
+    static void deleteOutputDir(const bool& preOutput = true,
+                                const bool& keepIncrementalOutput = false);
 
     /**
      * @brief Check if the output directory is empty
@@ -160,6 +164,22 @@ public:
     static auto isOutputEmpty() -> bool;
 
     static auto getDiffJSON() -> nlohmann::json;
+
+    /**
+     * @brief Computes the digest of the shader matches a shape with the given texture slots would receive, using the
+     * registered shader patchers and the current load order. Used by incremental runs to detect changed matches
+     * without loading the mesh.
+     *
+     * @param nifPath relative path of the NIF the shape belongs to
+     * @param slots texture slots of the shape
+     * @param singlepassMATO whether the plugin use is a single pass material object
+     * @param modelRecordType plugin record type of the use
+     * @return uint64_t digest of the ordered match list
+     */
+    static auto computeMatchesDigest(const std::filesystem::path& nifPath,
+                                     const PGTypes::TextureSet& slots,
+                                     bool singlepassMATO,
+                                     const PGPlugin::ModelRecordType& modelRecordType) -> uint64_t;
 
 private:
     // NIF Runners
@@ -176,6 +196,25 @@ private:
                          const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
                          const bool& checkAllowedRecTypes = false,
                          const bool& excludeFacegens = false) -> TaskTracker::Result;
+
+    /**
+     * @brief Replays the side effects of patching a NIF whose output from the previous run is still valid
+     *
+     * @param nifPath relative path to the NIF file
+     * @param replayedMeshResults collects the mesh results of all replayed NIFs so their plugin model uses can be
+     * applied in a single batch
+     * @param replayedMeshResultsMutex mutex protecting replayedMeshResults
+     * @return TaskTracker::Result result of the replay
+     */
+    static auto replayNIF(const std::filesystem::path& nifPath,
+                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
+                          std::mutex& replayedMeshResultsMutex) -> TaskTracker::Result;
+
+    /**
+     * @brief Computes the digest of an ordered match list (see computeMatchesDigest)
+     */
+    static auto digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
+                              const PatcherUtil::PatcherMeshObjectSet& patchers) -> uint64_t;
 
     // NIF Helpers
 

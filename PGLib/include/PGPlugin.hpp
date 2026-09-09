@@ -182,6 +182,8 @@ public:
         ModelRecordType recType;
         /// @brief Map from alternate texture set index to the overriding TextureSet.
         std::unordered_map<unsigned int, PGTypes::TextureSet> alternateTextures;
+
+        auto operator==(const MeshUseAttributes& other) const -> bool = default;
     };
 
     /**

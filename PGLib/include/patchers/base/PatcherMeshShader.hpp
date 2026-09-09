@@ -8,6 +8,7 @@
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -89,4 +90,18 @@ public:
     /// @brief apply the shader to the shape
     /// @param[in] nifShape shape to apply the shader to
     virtual void applyShader(nifly::NiShape& nifShape) = 0;
+
+    /**
+     * @brief Deterministic hash of everything in a match's extraData that influences the patch result.
+     *
+     * Incremental runs use this to detect that a shape's matches changed without re-reading the mesh, so any patcher
+     * that stores data in PatcherMatch::extraData must override this and hash that data.
+     *
+     * @param match match whose extra data should be hashed
+     * @return uint64_t hash (0 if the patcher does not use extra data)
+     */
+    [[nodiscard]] virtual auto getMatchExtraDataHash([[maybe_unused]] const PatcherMatch& match) const -> uint64_t
+    {
+        return 0;
+    }
 };

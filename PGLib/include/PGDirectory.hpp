@@ -130,6 +130,24 @@ private:
     auto mapTexturesFromNIF(const std::filesystem::path& nifPath,
                             const bool& multithreading = true) -> TaskTracker::Result;
 
+    /**
+     * @brief Reads a NIF and collects the (texture, slot, type) votes of every shader patchable shape
+     *
+     * @param nifPath Relative path of the NIF
+     * @param[out] votes Collected votes
+     * @return true if the NIF could be read
+     * @return false if the NIF could not be read
+     */
+    auto readTextureVotesFromNIF(const std::filesystem::path& nifPath,
+                                 std::vector<PGTypes::TextureVote>& votes) -> bool;
+
+    /**
+     * @brief Adds an environment mask texture to the texture maps according to its complex material classification
+     */
+    void applyCMClassification(const std::filesystem::path& texture,
+                               const PGEnums::TextureSlots& winningSlot,
+                               const PGTypes::CMClassification& classification);
+
     auto updateUnconfirmedTexturesMap(const std::filesystem::path& path,
                                       const PGEnums::TextureSlots& slot,
                                       const PGEnums::TextureType& type) -> void;

@@ -58,6 +58,14 @@ public:
     static auto getOutputFilename(const std::filesystem::path& texPath) -> std::filesystem::path;
 
     /**
+     * @brief Re-applies the texture map side effects of a previously generated output that is being reused
+     * (incremental runs) without regenerating the texture.
+     *
+     * @param texPath Path to the source diffuse texture.
+     */
+    static void replayGenerated(const std::filesystem::path& texPath);
+
+    /**
      * @brief Initializes the DirectX compute shader used for the SSS fix.
      *
      * @return true if the shader was successfully initialized; false otherwise.

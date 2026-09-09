@@ -1,6 +1,7 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 
 #include "PGGlobals.hpp"
+#include "PGRunCache.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -31,11 +32,30 @@ auto PatcherTextureHookFixSSS::addToProcessList(const filesystem::path& texPath)
 {
     auto* pgd = PGGlobals::getPGD();
 
+    // record registration for incremental runs (no-op unless a mesh is being recorded on this thread)
+    PGRunCache::recordHookRegistration(PGRunCache::HookKind::FIX_SSS, texPath);
+
+    // reuse the output of a previous run if the source texture did not change
+    if (PGRunCache::tryReuseHookOutput(PGRunCache::HookKind::FIX_SSS, texPath)) {
+        return;
+    }
+
     const unique_lock lock(s_texToProcessMutex);
     if (s_texToProcess.insert(texPath).second) {
         // only add if not present before
         pgd->addGeneratedFile(getOutputFilename(texPath));
     }
+}
+
+void PatcherTextureHookFixSSS::replayGenerated(const filesystem::path& texPath)
+{
+    auto* pgd = PGGlobals::getPGD();
+
+    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::DIFFUSE);
+    const auto newPath = texBase + L"_s.dds";
+
+    pgd->getTextureMap(PGEnums::TextureSlots::GLOW)[texBase].insert({newPath, PGEnums::TextureType::SUBSURFACECOLOR});
+    pgd->setTextureType(newPath, PGEnums::TextureType::SUBSURFACECOLOR);
 }
 
 auto PatcherTextureHookFixSSS::isInProcessList(const filesystem::path& texPath) -> bool
@@ -133,6 +153,9 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
     // add newly created file to complexMaterialMaps for later processing
     pgd->getTextureMap(PGEnums::TextureSlots::GLOW)[texBase].insert({newPath, PGEnums::TextureType::SUBSURFACECOLOR});
     pgd->setTextureType(newPath, PGEnums::TextureType::SUBSURFACECOLOR);
+
+    // record generated output for incremental runs
+    PGRunCache::recordHookOutput(PGRunCache::HookKind::FIX_SSS, getDDSPath(), newPath);
 
     return true;
 }

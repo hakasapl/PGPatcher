@@ -30,6 +30,10 @@ private:
     inline static std::unordered_set<std::wstring> s_existingMessages;
     inline static std::shared_mutex s_existingMessagesMutex;
 
+    // Snapshot of s_existingMessages taken by markRunStart()
+    inline static std::unordered_set<std::wstring> s_runStartMessages;
+    inline static bool s_runStartMarked = false;
+
     inline static std::shared_mutex s_mtLogLock;
     inline thread_local static std::vector<
         std::pair<spdlog::level::level_enum, std::variant<std::wstring, std::string>>>
@@ -39,6 +43,32 @@ private:
     thread_local static std::vector<std::wstring> s_prefixStack;
     static auto buildPrefixWString() -> std::wstring;
     static auto buildPrefixString() -> std::string;
+
+public:
+    /**
+     * @brief Callback type for capturing warning/error/critical messages emitted on the current thread.
+     */
+    using MessageCaptureFn = void (*)(spdlog::level::level_enum,
+                                      const std::wstring&);
+
+private:
+    inline thread_local static MessageCaptureFn s_threadMessageCapture = nullptr;
+
+    static void captureMessage(const spdlog::level::level_enum& level,
+                               const std::wstring& message)
+    {
+        if (s_threadMessageCapture != nullptr) {
+            s_threadMessageCapture(level, message);
+        }
+    }
+
+    static void captureMessage(const spdlog::level::level_enum& level,
+                               const std::string& message)
+    {
+        if (s_threadMessageCapture != nullptr) {
+            s_threadMessageCapture(level, StringUtil::utf8toUTF16(message));
+        }
+    }
 
     static auto processMessage(const std::wstring& message) -> bool
     {
@@ -102,6 +132,30 @@ public:
     };
 
     /**
+     * @brief Remembers the current set of suppressed duplicate messages as the start-of-run baseline.
+     *
+     * Call right before the patching step so a re-run of the patching step (see resetToRunStart()) can log the same
+     * messages again while messages from the preparation phase stay suppressed.
+     */
+    static void markRunStart();
+
+    /**
+     * @brief Restores duplicate suppression to the state captured by markRunStart(), so messages logged during a
+     * previous patching step are logged again when the step is re-run. No-op if markRunStart() was never called.
+     */
+    static void resetToRunStart();
+
+    /**
+     * @brief Sets (or clears with nullptr) a capture callback for the current thread.
+     *
+     * While set, every warning, error, and critical message logged on this thread is passed to the callback before
+     * duplicate suppression and buffering, so the callback sees every message the thread attempted to log.
+     *
+     * @param captureFn Callback to invoke, or nullptr to disable capturing on this thread.
+     */
+    static void setThreadMessageCapture(MessageCaptureFn captureFn);
+
+    /**
      * @brief Activates the thread-local buffered logging mode and clears any previous buffer contents.
      *
      * While active, all log calls on the current thread are stored in a per-thread buffer instead
@@ -131,6 +185,7 @@ public:
         const std::shared_lock lock(s_mtLogLock);
 
         const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        captureMessage(spdlog::level::critical, resolvedStr);
         if (!shouldLogString(resolvedStr)) {
             return;
         }
@@ -157,6 +212,7 @@ public:
         const std::shared_lock lock(s_mtLogLock);
 
         const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        captureMessage(spdlog::level::err, resolvedStr);
         if (!shouldLogString(resolvedStr)) {
             return;
         }
@@ -183,6 +239,7 @@ public:
         const std::shared_lock lock(s_mtLogLock);
 
         const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        captureMessage(spdlog::level::warn, resolvedStr);
         if (!shouldLogString(resolvedStr)) {
             return;
         }
@@ -275,6 +332,7 @@ public:
         const std::shared_lock lock(s_mtLogLock);
 
         const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        captureMessage(spdlog::level::critical, resolvedStr);
         if (!shouldLogString(resolvedStr)) {
             return;
         }
@@ -301,6 +359,7 @@ public:
         const std::shared_lock lock(s_mtLogLock);
 
         const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        captureMessage(spdlog::level::err, resolvedStr);
         if (!shouldLogString(resolvedStr)) {
             return;
         }
@@ -327,6 +386,7 @@ public:
         const std::shared_lock lock(s_mtLogLock);
 
         const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
+        captureMessage(spdlog::level::warn, resolvedStr);
         if (!shouldLogString(resolvedStr)) {
             return;
         }

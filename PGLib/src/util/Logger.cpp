@@ -50,6 +50,25 @@ Logger::Prefix::~Prefix()
     }
 }
 
+void Logger::setThreadMessageCapture(MessageCaptureFn captureFn) { s_threadMessageCapture = captureFn; }
+
+void Logger::markRunStart()
+{
+    const std::unique_lock lock(s_existingMessagesMutex);
+    s_runStartMessages = s_existingMessages;
+    s_runStartMarked = true;
+}
+
+void Logger::resetToRunStart()
+{
+    const std::unique_lock lock(s_existingMessagesMutex);
+    if (!s_runStartMarked) {
+        return;
+    }
+
+    s_existingMessages = s_runStartMessages;
+}
+
 void Logger::startThreadedBuffer()
 {
     s_isThreadedBufferActive = true;
