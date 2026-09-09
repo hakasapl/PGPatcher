@@ -1,5 +1,7 @@
 #pragma once
 
+#include "PGModManager.hpp"
+
 #include <array>
 #include <atomic>
 #include <ctime>
@@ -12,7 +14,6 @@
 #include <windows.h>
 
 #include <minidumpapiset.h>
-#include <tlhelp32.h>
 
 /**
  * @brief Provides static handlers for Windows exception handling and utility methods.
@@ -114,33 +115,10 @@ public:
     /**
      * @brief Check whether the process is running under Mod Organizer 2's virtual filesystem.
      *
-     * Enumerates loaded modules of the current process and looks for "usvfs_x64.dll", which
-     * is injected by MO2's USVFS layer.
+     * Looks for "usvfs_x64.dll", which MO2's USVFS layer injects, among the loaded modules of the
+     * current process (see PGModManager::getMO2DirFromUSVFS()).
      *
      * @return true if usvfs_x64.dll is loaded in the process, false otherwise.
      */
-    static auto isUnderUSVFS() -> bool
-    {
-        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
-        if (hSnapshot == INVALID_HANDLE_VALUE) {
-            return false;
-        }
-
-        MODULEENTRY32W me32;
-        me32.dwSize = sizeof(MODULEENTRY32W);
-
-        if (Module32FirstW(hSnapshot, &me32) != 0) {
-            do { // NOLINT(cppcoreguidelines-avoid-do-while)
-                const std::wstring moduleName(
-                    me32.szModule); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
-                if (moduleName == L"usvfs_x64.dll") {
-                    CloseHandle(hSnapshot);
-                    return true;
-                }
-            } while (Module32NextW(hSnapshot, &me32) != 0);
-        }
-
-        CloseHandle(hSnapshot);
-        return false;
-    }
+    static auto isUnderUSVFS() -> bool { return !PGModManager::getMO2DirFromUSVFS().empty(); }
 };

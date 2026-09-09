@@ -939,6 +939,10 @@ void mainRunner(ParallaxGenCLIArgs& args,
         updateOutput = PGUI::showLauncher(pgc, params);
     }
 
+    // Paths in the config may be relative to the PGPatcher.exe folder: the config keeps them as typed, the run uses
+    // the resolved paths
+    PGConfig::resolveRelativePaths(params);
+
     // Validate config
     vector<string> errors;
     if (!PGConfig::validateParams(params, errors)) {

@@ -182,6 +182,30 @@ public:
     [[nodiscard]] static auto getIgnoredMessagesConfigFile() -> std::filesystem::path;
 
     /**
+     * @brief Resolves a path from the config that may be relative to the PGPatcher.exe folder
+     *
+     * Relative paths in settings.json (e.g. an MO2 instance location of "..\\MO2") are relative to the folder
+     * containing PGPatcher.exe rather than to the working directory, so a PGPatcher shipped inside a modlist folder
+     * keeps working when that folder is moved. The stored value is left as-is; call this where the path is used.
+     *
+     * @param path Path from the config (absolute or relative)
+     * @return std::filesystem::path Absolute, lexically normalized path; empty and absolute inputs are returned
+     * unchanged
+     */
+    [[nodiscard]] static auto resolveExeRelativePath(const std::filesystem::path& path) -> std::filesystem::path;
+
+    /**
+     * @brief Resolves the paths in params that may be relative to the PGPatcher.exe folder, in place
+     *
+     * Applies resolveExeRelativePath() to the MO2 instance location, the output location and the game location. The
+     * game location is skipped when MO2 provides it (the launcher locks it to the value from modorganizer.ini): that
+     * value is relative to the MO2 folder instead and is resolved by PGModManager::resolveMO2GamePath() when read.
+     *
+     * @param params Params to resolve (the stored config keeps the values as typed; call this on the copy that is used)
+     */
+    static void resolveRelativePaths(PGParams& params);
+
+    /**
      * @brief Loads the config files in the `cfg` folder
      */
     void loadConfig();
@@ -223,12 +247,14 @@ public:
     /**
      * @brief Validates a given param struct
      *
-     * @param params Params to validate
-     * @param errors Error messages
+     * Paths are validated after resolveRelativePaths(), so relative paths are accepted (see resolveExeRelativePath()).
+     *
+     * @param rawParams Params to validate, as stored in the config
+     * @param errors Error messages (UTF-8)
      * @return true no validation errors
      * @return false validation errors
      */
-    [[nodiscard]] static auto validateParams(const PGParams& params,
+    [[nodiscard]] static auto validateParams(const PGParams& rawParams,
                                              std::vector<std::string>& errors) -> bool;
 
     /**

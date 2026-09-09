@@ -155,6 +155,9 @@
     "confirmRestoreDefaults": {
       "title": "Confirm Restore Defaults",
       "message": "Are you sure you want to restore the default settings? This action cannot be undone."
+    },
+    "validation": {
+      "mo2RelativeGamePath": "Unable to resolve the relative game path from MO2 - make sure you launched PGPatcher from MO2"
     }
   },
   "dialogs": {

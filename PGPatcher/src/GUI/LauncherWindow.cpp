@@ -845,8 +845,9 @@ void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event
         return;
     }
 
-    wxDirDialog dialog(
-        this, PGTr("launcher.browse.gameLocation", "Select Game Location"), m_gameLocationTextbox->GetValue());
+    wxDirDialog dialog(this,
+                       PGTr("launcher.browse.gameLocation", "Select Game Location"),
+                       PGConfig::resolveExeRelativePath(m_gameLocationTextbox->GetValue().ToStdWstring()).wstring());
     if (dialog.ShowModal() == wxID_OK) {
         m_gameLocationTextbox->SetValue(dialog.GetPath());
     }
@@ -854,9 +855,10 @@ void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event
 
 void LauncherWindow::onBrowseMO2InstanceLocation([[maybe_unused]] wxCommandEvent& event)
 {
-    wxDirDialog dialog(this,
-                       PGTr("launcher.browse.mo2InstanceLocation", "Select MO2 Instance Location"),
-                       m_mo2InstanceLocationTextbox->GetValue());
+    wxDirDialog dialog(
+        this,
+        PGTr("launcher.browse.mo2InstanceLocation", "Select MO2 Instance Location"),
+        PGConfig::resolveExeRelativePath(m_mo2InstanceLocationTextbox->GetValue().ToStdWstring()).wstring());
     if (dialog.ShowModal() == wxID_OK) {
         m_mo2InstanceLocationTextbox->SetValue(dialog.GetPath());
     }
@@ -880,7 +882,9 @@ void LauncherWindow::updateMO2Items()
         return;
     }
 
-    const auto instanceDir = m_mo2InstanceLocationTextbox->GetValue().ToStdWstring();
+    // may be relative to the PGPatcher.exe folder (kept as typed in the textbox and the config)
+    const auto instanceDir
+        = PGConfig::resolveExeRelativePath(m_mo2InstanceLocationTextbox->GetValue().ToStdWstring());
 
     // Get game path
     const auto gamePathMO2 = PGModManager::getGamePathFromInstanceDir(instanceDir);
@@ -915,8 +919,9 @@ void LauncherWindow::onMO2InstanceLocationChange([[maybe_unused]] wxCommandEvent
 
 void LauncherWindow::onBrowseOutputLocation([[maybe_unused]] wxCommandEvent& event)
 {
-    wxDirDialog dialog(
-        this, PGTr("launcher.browse.outputLocation", "Select Output Location"), m_outputLocationTextbox->GetValue());
+    wxDirDialog dialog(this,
+                       PGTr("launcher.browse.outputLocation", "Select Output Location"),
+                       PGConfig::resolveExeRelativePath(m_outputLocationTextbox->GetValue().ToStdWstring()).wstring());
     if (dialog.ShowModal() == wxID_OK) {
         m_outputLocationTextbox->SetValue(dialog.GetPath());
     }
@@ -945,7 +950,8 @@ void LauncherWindow::updateDisabledElements()
     m_saveConfigButton->Enable(curParams != m_pgc.getParams());
 
     // update output button: only when the current output location holds a previous output that can be updated
-    m_updateOutputButton->Enable(!curParams.Output.zip && PGRunCache::isUpdateAvailable(curParams.Output.dir));
+    m_updateOutputButton->Enable(
+        !curParams.Output.zip && PGRunCache::isUpdateAvailable(PGConfig::resolveExeRelativePath(curParams.Output.dir)));
 
     // logging checkboxes
     if (curParams.Processing.enableDebugLogging) {
@@ -1050,7 +1056,11 @@ auto LauncherWindow::saveConfig() -> bool
 
     // Validate the parameters
     if (!PGConfig::validateParams(params, errors)) {
-        PGMessageBox(boost::algorithm::join(errors, "\n"), PGTr("common.errors", "Errors"), wxOK | wxICON_ERROR, this);
+        // validation errors are UTF-8 (translated strings)
+        PGMessageBox(wxString::FromUTF8(boost::algorithm::join(errors, "\n")),
+                     PGTr("common.errors", "Errors"),
+                     wxOK | wxICON_ERROR,
+                     this);
         return false;
     }
 

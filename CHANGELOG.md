@@ -13,6 +13,8 @@
 - PBR json fields will now be validated by data type. Fields with wrong type will be silently ignored.
 - Fixed pgtools dynamic cubemap file copy exception
 - Fixed pgtools --no-multithreading CLI argument not behaving correctly
+- Added support for relative game paths in modorganizer.ini
+- Added support for relative paths for MO2 instance location, game path, and output path
 
 ## [1.3.0] - 2026-08-31
 

@@ -1,6 +1,7 @@
 #include "PGConfig.hpp"
 
 #include "PGGlobals.hpp"
+#include "PGLocale.hpp"
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
@@ -68,6 +69,35 @@ auto PGConfig::getIgnoredMessagesConfigFile() -> filesystem::path
     // Get ignored messages config file
     static const filesystem::path ignoredMessagesConfigFile = s_exePath / "cfg" / "ignored_messages.json";
     return ignoredMessagesConfigFile;
+}
+
+auto PGConfig::resolveExeRelativePath(const filesystem::path& path) -> filesystem::path
+{
+    if (path.empty() || path.is_absolute() || s_exePath.empty()) {
+        return path;
+    }
+
+    auto resolved = (s_exePath / path).lexically_normal();
+    if (!resolved.has_filename()) {
+        // drop the trailing separator left behind by values such as "." or "..\MO2\"
+        resolved = resolved.parent_path();
+    }
+
+    return resolved;
+}
+
+void PGConfig::resolveRelativePaths(PGParams& params)
+{
+    params.ModManager.mo2InstanceDir = resolveExeRelativePath(params.ModManager.mo2InstanceDir);
+    params.Output.dir = resolveExeRelativePath(params.Output.dir);
+
+    // The game location is only user-editable when MO2 does not provide it. A game path from modorganizer.ini is
+    // relative to the MO2 folder instead and is resolved by PGModManager::resolveMO2GamePath when it is read.
+    const bool gameDirFromMO2 = params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2
+        && !PGModManager::getGamePathFromInstanceDir(params.ModManager.mo2InstanceDir).empty();
+    if (!gameDirFromMO2) {
+        params.Game.dir = resolveExeRelativePath(params.Game.dir);
+    }
 }
 
 auto PGConfig::getDefaultParams() -> PGParams
@@ -301,9 +331,13 @@ auto PGConfig::getUITheme() const -> string { return m_uiTheme; }
 
 void PGConfig::setUITheme(const string& theme) { m_uiTheme = theme; }
 
-auto PGConfig::validateParams(const PGParams& params,
+auto PGConfig::validateParams(const PGParams& rawParams,
                               vector<string>& errors) -> bool
 {
+    // Paths may be relative to the PGPatcher.exe folder; validate the resolved ones
+    PGParams params = rawParams;
+    resolveRelativePaths(params);
+
     // Helpers
     unordered_set<wstring> checkSet;
 
@@ -312,7 +346,15 @@ auto PGConfig::validateParams(const PGParams& params,
         errors.emplace_back("Game Location is required");
     }
 
-    if (!BethesdaGame::isGamePathValid(params.Game.dir, params.Game.type)) {
+    if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2 && !params.Game.dir.empty()
+        && params.Game.dir.is_relative()) {
+        // MO2 stores the game path relative to its own folder, which PGPatcher finds through the MO2 VFS it was launched
+        // from or, for portable instances, the instance folder (see PGModManager::findMO2Dir). Neither worked here.
+        errors.emplace_back(PGTr("launcher.validation.mo2RelativeGamePath",
+                                 "Unable to resolve the relative game path from MO2 - make sure you launched PGPatcher "
+                                 "from MO2")
+                                .utf8_string());
+    } else if (!BethesdaGame::isGamePathValid(params.Game.dir, params.Game.type)) {
         errors.emplace_back("Game Location is not valid. Verify your game type and location are correct.");
     }
 

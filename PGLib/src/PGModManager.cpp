@@ -31,10 +31,14 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <windows.h>
+
+#include <tlhelp32.h>
 
 using namespace std;
 
@@ -609,8 +613,7 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     }
 
     // Rebuild ordering to enabled-first while preserving relative order within each group.
-    std::ranges::stable_partition(displayedMods,
-                                  [](const auto& modEntry) -> bool { return modEntry->isEnabled; });
+    std::ranges::stable_partition(displayedMods, [](const auto& modEntry) -> bool { return modEntry->isEnabled; });
 
     const int modCount = static_cast<int>(displayedMods.size());
     for (int orderedIndex = 0; orderedIndex < modCount; ++orderedIndex) {
@@ -687,7 +690,84 @@ auto PGModManager::getMO2INIField(const std::filesystem::path& instanceDir,
 
 auto PGModManager::getGamePathFromInstanceDir(const filesystem::path& instanceDir) -> filesystem::path
 {
-    return getMO2INIField(instanceDir, MO2INI_GAMEDIR_KEY, true);
+    return resolveMO2GamePath(getMO2INIField(instanceDir, MO2INI_GAMEDIR_KEY, true), instanceDir);
+}
+
+auto PGModManager::getMO2DirFromUSVFS() -> filesystem::path
+{
+    // MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that
+    // loaded module is the folder containing ModOrganizer.exe
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        return {};
+    }
+
+    filesystem::path mo2Dir;
+    MODULEENTRY32W me32 {};
+    me32.dwSize = sizeof(MODULEENTRY32W);
+    if (Module32FirstW(hSnapshot, &me32) != 0) {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+            if (boost::iequals(wstring(me32.szModule), wstring(MO2_USVFS_DLL_NAME))) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+                mo2Dir = filesystem::path(me32.szExePath).parent_path();
+                break;
+            }
+        } while (Module32NextW(hSnapshot, &me32) != 0);
+    }
+
+    CloseHandle(hSnapshot);
+    return mo2Dir;
+}
+
+auto PGModManager::findMO2Dir(const filesystem::path& instanceDir) -> filesystem::path
+{
+    // Primary source: the usvfs DLL MO2 injected into this process, exact for portable and global instances alike
+    auto mo2Dir = getMO2DirFromUSVFS();
+    if (!mo2Dir.empty()) {
+        return mo2Dir;
+    }
+
+    // Fallback: a portable instance lives in the MO2 folder itself
+    error_code ec;
+    if (instanceDir.empty() || !filesystem::exists(instanceDir / MO2_EXE_FILENAME, ec)) {
+        return {};
+    }
+
+    mo2Dir = instanceDir;
+    if (mo2Dir.is_relative()) {
+        // keep the result absolute even if the instance folder was given as a relative path
+        const auto absMO2Dir = filesystem::absolute(mo2Dir, ec);
+        if (!ec) {
+            mo2Dir = absMO2Dir;
+        }
+    }
+
+    return mo2Dir;
+}
+
+auto PGModManager::resolveMO2GamePath(const filesystem::path& gamePath,
+                                      const filesystem::path& instanceDir) -> filesystem::path
+{
+    if (gamePath.empty() || gamePath.is_absolute()) {
+        // Returned untouched so existing configs (and the update cache keys derived from them) keep their exact value
+        return gamePath;
+    }
+
+    // MO2 sets its working directory to the folder containing ModOrganizer.exe and uses gamePath as-is, so a relative
+    // gamePath is relative to that folder
+    const auto mo2Dir = findMO2Dir(instanceDir);
+    if (mo2Dir.empty()) {
+        return gamePath;
+    }
+
+    auto resolved = (mo2Dir / gamePath).lexically_normal();
+    if (!resolved.has_filename()) {
+        // drop the trailing separator left behind by values such as "." or "Stock Game\"
+        resolved = resolved.parent_path();
+    }
+
+    return resolved;
 }
 
 auto PGModManager::getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring
