@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.1.0] - UNRELEASED
+
+- Removed restriction that prevents grass meshes from being patched for PBR (CS will now support PBR grass)
+
 ## [2.0.0] - 2026-09-10
 
 - Added "Update Output" button to the launcher which will be available if your output location has a previous output with a cache in it
