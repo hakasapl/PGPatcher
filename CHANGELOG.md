@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.0] - UNRELEASED
+## [2.0.0] - 2026-09-10
 
 - Added "Update Output" button to the launcher which will be available if your output location has a previous output with a cache in it
 - Added --autostart-update CLI argument, which updates the previous output like the "Update Output" button (--autostart keeps regenerating from scratch)
@@ -8,15 +8,15 @@
 - Improved plugin patching performance by copying records only when a mesh actually changes them (lazy loading)
 - Added support for relative game paths in modorganizer.ini
 - Added support for relative paths for MO2 instance location, game path, and output path
-- Fixed warnings and errors of the previous patching step not being shown again after re-running from the conflict manager
 - PBR json fields will now be validated by data type. Fields with wrong type will be silently ignored.
 - Added Turkish localization (khanblood007)
 - Added Russian localization (enbl1tenment)
+- Fixed warnings and errors of the previous patching step not being shown again after re-running from the conflict manager
 - Fixed some labels being cut off in dialogs for certain translations
 - Fixed pgtools dynamic cubemap file copy exception
 - Fixed pgtools --no-multithreading CLI argument not behaving correctly
-- Removed the "pbr" PBR json field
-- Removed the "env_mapping", "env_map_scale", and "env_map_scale_mult" PBR json fields
+- BREAKING CHANGE Removed the "pbr" PBR json field
+- BREAKING CHANGE Removed the "env_mapping", "env_map_scale", and "env_map_scale_mult" PBR json fields
 
 ## [1.3.0] - 2026-08-31
 
