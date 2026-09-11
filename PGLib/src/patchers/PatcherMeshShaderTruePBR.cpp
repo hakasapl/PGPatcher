@@ -232,11 +232,6 @@ auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShap
                                         [[maybe_unused]] bool singlepassMATO,
                                         const PGPlugin::ModelRecordType& modelRecordType) -> bool
 {
-    if (modelRecordType == PGPlugin::ModelRecordType::GRASS) {
-        // grass is not supported
-        return false;
-    }
-
     auto* const nifShader = getNIF()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
 
