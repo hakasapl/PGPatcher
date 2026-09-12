@@ -42,8 +42,7 @@ using namespace std;
 ModSortDialog::ModSortDialog(wxWindow* parent)
     : wxDialog(parent,
                wxID_ANY,
-               PGTr("conflictManager.title",
-                    "Conflict Manager"),
+               PGTr("conflictManager.title"),
                wxDefaultPosition,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
@@ -64,8 +63,8 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     // Create the m_listCtrl
     m_listCtrl = new PGCheckedDragListCtrl(
         this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)), wxLC_REPORT);
-    m_listCtrl->InsertColumn(0, PGTr("conflictManager.columns.mod", "Mod"));
-    m_listCtrl->InsertColumn(1, PGTr("conflictManager.columns.shader", "Shader"));
+    m_listCtrl->InsertColumn(0, PGTr("conflictManager.columns.mod"));
+    m_listCtrl->InsertColumn(1, PGTr("conflictManager.columns.shader"));
 
     // Listctrl events
     m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
@@ -91,13 +90,10 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
             selectedModName = m_listCtrl->GetItemText(selectedIndices.front()).ToStdWstring();
         }
 
-        auto* showConflictsItem
-            = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.showConflicts", "Show Conflicts..."));
-        auto* showMatchesItem
-            = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.showMatches", "Show Matches..."));
+        auto* showConflictsItem = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.showConflicts"));
+        auto* showMatchesItem = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.showMatches"));
         menu.AppendSeparator();
-        auto* openModFolderItem
-            = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.openModFolder", "Open Mod Folder"));
+        auto* openModFolderItem = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.openModFolder"));
         if (!PGPatcher::hasConflictData()) {
             showConflictsItem->Enable(false);
             showMatchesItem->Enable(false);
@@ -148,10 +144,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     wxSizer* helpSizer = new wxBoxSizer(wxHORIZONTAL);
 
     // Add message at the top
-    const wxString message = PGTr(
-        "conflictManager.help",
-        "Please sort your mods to determine what mod PGPatcher uses to patch meshes where. Selecting mods will show "
-        "conflicts. The mod you have selected wins over mods that are green, and loses over mods that are red.");
+    const wxString message = PGTr("conflictManager.help");
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     messageText->Wrap(FromDIP(DEFAULT_WIDTH - (2 * DEFAULT_PADDING) - HELPBTN_SIZE
                               - DEFAULT_PADDING)); // Wrap text based on dialog width with some padding
@@ -164,7 +157,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     helpButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     helpButton->SetFont(helpButtonFont);
 
-    helpButton->SetToolTip(PGTr("conflictManager.helpButton.tooltip", "Open the PGPatcher Mod Window wiki"));
+    helpButton->SetToolTip(PGTr("conflictManager.helpButton.tooltip"));
 
     const wxSize helpBtnSize = FromDIP(wxSize(HELPBTN_SIZE, HELPBTN_SIZE));
     helpButton->SetMinSize(helpBtnSize);
@@ -179,24 +172,16 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     mainSizer->Add(helpSizer, 0, wxEXPAND | wxALL, 0);
 
     // Add "Show All Meshes" button below top help text and span dialog width
-    m_showAllMeshesButton
-        = new wxButton(this, wxID_ANY, PGTr("conflictManager.showAllMeshes.label", "Show All Meshes"));
-    m_showAllMeshesButton->SetToolTip(
-        PGTr("conflictManager.showAllMeshes.tooltip", "View all meshes, shapes, and matches regardless of conflicts"));
+    m_showAllMeshesButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.showAllMeshes.label"));
+    m_showAllMeshesButton->SetToolTip(PGTr("conflictManager.showAllMeshes.tooltip"));
     m_showAllMeshesButton->Bind(wxEVT_BUTTON, &ModSortDialog::onShowAllMeshes, this);
     mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // Add "Use MO2 Loose File Order" checkbox
     if (pgc->getParams().ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
         // Only show checkbox for MO2 users
-        m_checkBoxMO2 = new wxCheckBox(this,
-                                       wxID_ANY,
-                                       PGTr("conflictManager.lockMO2Order.label", "Lock to MO2 Loose File Order"),
-                                       wxDefaultPosition);
-        m_checkBoxMO2->SetToolTip(
-            PGTr("conflictManager.lockMO2Order.tooltip",
-                 "Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts "
-                 "are not the same as loose file conflicts."));
+        m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, PGTr("conflictManager.lockMO2Order.label"), wxDefaultPosition);
+        m_checkBoxMO2->SetToolTip(PGTr("conflictManager.lockMO2Order.tooltip"));
         m_checkBoxMO2->Bind(wxEVT_CHECKBOX, &ModSortDialog::onUseMO2LooseFileOrderChange, this);
 
         // Add to main sizer
@@ -205,20 +190,18 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     // Add search box for quick contains-match filtering/selection.
     auto* searchSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* searchLabel = new wxStaticText(this, wxID_ANY, PGTr("conflictManager.search.label", "Search:"));
+    auto* searchLabel = new wxStaticText(this, wxID_ANY, PGTr("conflictManager.search.label"));
     searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
 
     m_searchCtrl = new wxTextCtrl(this, wxID_ANY);
-    m_searchCtrl->SetHint(PGTr("conflictManager.search.hint", "Search mods by name..."));
+    m_searchCtrl->SetHint(PGTr("conflictManager.search.hint"));
     m_searchCtrl->Bind(wxEVT_TEXT, &ModSortDialog::onSearchTextChanged, this);
     searchSizer->Add(m_searchCtrl, 1, wxEXPAND, 0);
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // Add "Highlight New Mods" checkbox below the search bar
-    m_checkBoxHighlightNewMods
-        = new wxCheckBox(this, wxID_ANY, PGTr("conflictManager.highlightNewMods.label", "Highlight New Mods"));
-    m_checkBoxHighlightNewMods->SetToolTip(PGTr("conflictManager.highlightNewMods.tooltip",
-                                                "Highlight mods that PGPatcher is seeing for the first time"));
+    m_checkBoxHighlightNewMods = new wxCheckBox(this, wxID_ANY, PGTr("conflictManager.highlightNewMods.label"));
+    m_checkBoxHighlightNewMods->SetToolTip(PGTr("conflictManager.highlightNewMods.tooltip"));
     m_checkBoxHighlightNewMods->Bind(wxEVT_CHECKBOX, &ModSortDialog::onHighlightNewModsChange, this);
     mainSizer->Add(m_checkBoxHighlightNewMods, 0, wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
@@ -232,12 +215,8 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     topPanel->SetForegroundColour(*wxBLACK);
     topPanel->SetBackgroundColour(s_WINNING_MOD_COLOR);
-    auto* topLabel = new wxStaticText(topPanel,
-                                      wxID_ANY,
-                                      PGTr("conflictManager.winningModsOnTop", "Winning Mods on Top"),
-                                      wxDefaultPosition,
-                                      wxDefaultSize,
-                                      wxALIGN_CENTER);
+    auto* topLabel = new wxStaticText(
+        topPanel, wxID_ANY, PGTr("conflictManager.winningModsOnTop"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
     topLabel->SetFont(rectFont);
 
     // Use a box sizer to center the text in the panel
@@ -257,7 +236,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     bottomPanel->SetBackgroundColour(s_LOSING_MOD_COLOR);
     auto* bottomLabel = new wxStaticText(bottomPanel,
                                          wxID_ANY,
-                                         PGTr("conflictManager.losingModsOnBottom", "Losing Mods on Bottom"),
+                                         PGTr("conflictManager.losingModsOnBottom"),
                                          wxDefaultPosition,
                                          wxDefaultSize,
                                          wxALIGN_CENTER);
@@ -273,8 +252,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     mainSizer->Add(bottomPanel, 0, wxEXPAND | wxTOP, 0); // No top border so it touches the list
 
     // Add re-run patching button above bottom action buttons
-    m_rerunPatchingButton = new wxButton(
-        this, wxID_ANY, PGTr("conflictManager.buttons.saveAndUpdateOutput", "Save Changes and Update Output"));
+    m_rerunPatchingButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.buttons.saveAndUpdateOutput"));
     wxFont rerunButtonFont = m_rerunPatchingButton->GetFont();
     rerunButtonFont.SetPointSize(12);
     rerunButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
@@ -289,32 +267,28 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     const int bottomButtonSpacing = FromDIP(BOTTOM_BUTTON_SPACING);
 
     // Add "Restore to Default Order" button
-    m_restoreButton
-        = new wxButton(this, wxID_ANY, PGTr("conflictManager.restoreDefaultOrder.label", "Restore Default Order"));
+    m_restoreButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.restoreDefaultOrder.label"));
     buttonSizer->Add(m_restoreButton, 0, wxALL, bottomButtonSpacing);
     m_restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
-    m_restoreButton->SetToolTip(
-        PGTr("conflictManager.restoreDefaultOrder.tooltip",
-             "For MO2 default order is your loose file order. For vortex default order is by shader, "
-             "then by name alphabetically."));
+    m_restoreButton->SetToolTip(PGTr("conflictManager.restoreDefaultOrder.tooltip"));
 
     // Add stretchable space
     buttonSizer->AddStretchSpacer(1);
 
     // Add discard changes button
-    m_discardButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.buttons.discardChanges", "Discard Changes"));
+    m_discardButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.buttons.discardChanges"));
     buttonSizer->Add(m_discardButton, 0, wxALL, bottomButtonSpacing);
     m_discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
 
     m_discardButton->Enable(false);
 
     // Add cancel button
-    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel"));
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel"));
     buttonSizer->Add(cancelButton, 0, wxALL, bottomButtonSpacing);
     cancelButton->Bind(wxEVT_BUTTON, &ModSortDialog::onBtnClose, this);
 
     // Add apply button
-    m_applyButton = new wxButton(this, wxID_APPLY, PGTr("conflictManager.buttons.apply", "Apply"));
+    m_applyButton = new wxButton(this, wxID_APPLY, PGTr("conflictManager.buttons.apply"));
     buttonSizer->Add(m_applyButton, 0, wxALL, bottomButtonSpacing);
     m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
 
@@ -322,7 +296,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     m_applyButton->Enable(false);
 
     // Add OK button
-    auto* okButton = new wxButton(this, wxID_OK, PGTr("conflictManager.buttons.okay", "Okay"));
+    auto* okButton = new wxButton(this, wxID_OK, PGTr("conflictManager.buttons.okay"));
     buttonSizer->Add(okButton, 0, wxALL, bottomButtonSpacing);
     okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
 
@@ -524,9 +498,8 @@ auto ModSortDialog::confirmDiscardUnsavedChanges() -> bool
         return true;
     }
 
-    const int response = PGMessageBox(PGTr("conflictManager.confirmUnsavedChanges.message",
-                                           "You have unsaved changes, are you sure you want to close?"),
-                                      PGTr("conflictManager.confirmUnsavedChanges.title", "Unsaved Changes"),
+    const int response = PGMessageBox(PGTr("conflictManager.confirmUnsavedChanges.message"),
+                                      PGTr("conflictManager.confirmUnsavedChanges.title"),
                                       wxYES_NO | wxICON_QUESTION,
                                       this);
     return response == wxYES;
@@ -537,12 +510,10 @@ void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods
 void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
 {
     // confirm with modal
-    const int response = PGMessageBox(
-        PGTr("conflictManager.confirmRestoreDefaultOrder.message",
-             "Are you sure you want to restore default mod order and enable any manually disabled mods?"),
-        PGTr("conflictManager.confirmRestoreDefaultOrder.title", "Confirm Restore Default Order"),
-        wxYES_NO | wxICON_QUESTION,
-        this);
+    const int response = PGMessageBox(PGTr("conflictManager.confirmRestoreDefaultOrder.message"),
+                                      PGTr("conflictManager.confirmRestoreDefaultOrder.title"),
+                                      wxYES_NO | wxICON_QUESTION,
+                                      this);
 
     if (response == wxYES) {
         auto* pgmm = PGGlobals::getPGMM();
@@ -620,11 +591,10 @@ auto ModSortDialog::getLiveModPriorityList() const -> std::vector<std::shared_pt
 
 void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
 {
-    const int response = PGMessageBox(
-        PGTr("conflictManager.confirmRerunPatching.message", "Are you sure you want to re-run the patching step?"),
-        PGTr("conflictManager.confirmRerunPatching.title", "Re-run Patching"),
-        wxYES_NO | wxICON_QUESTION,
-        this);
+    const int response = PGMessageBox(PGTr("conflictManager.confirmRerunPatching.message"),
+                                      PGTr("conflictManager.confirmRerunPatching.title"),
+                                      wxYES_NO | wxICON_QUESTION,
+                                      this);
     if (response != wxYES) {
         return;
     }
@@ -638,11 +608,10 @@ void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
 
 void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
 {
-    const int response = PGMessageBox(
-        PGTr("conflictManager.confirmDiscardChanges.message", "Are you sure you want to discard all changes?"),
-        PGTr("conflictManager.confirmDiscardChanges.title", "Confirm Discard Changes"),
-        wxYES_NO | wxICON_QUESTION,
-        this);
+    const int response = PGMessageBox(PGTr("conflictManager.confirmDiscardChanges.message"),
+                                      PGTr("conflictManager.confirmDiscardChanges.title"),
+                                      wxYES_NO | wxICON_QUESTION,
+                                      this);
 
     if (response == wxYES) {
         // restore checkbox state
@@ -876,10 +845,7 @@ void ModSortDialog::updateMods()
 
     if (!PGConfig::saveModConfig()) {
         // critical dialog
-        PGMessageBox(PGTr("conflictManager.errors.saveModConfig", "Failed to save mod configuration to modrules.json"),
-                     PGTr("common.error", "Error"),
-                     wxOK | wxICON_ERROR,
-                     this);
+        PGMessageBox(PGTr("conflictManager.errors.saveModConfig"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
     }
 
     auto currentParams = pgc->getParams();
@@ -887,10 +853,7 @@ void ModSortDialog::updateMods()
     pgc->setParams(currentParams);
     if (!pgc->saveUserConfig()) {
         // critical dialog
-        PGMessageBox(PGTr("conflictManager.errors.saveUserConfig", "Failed to save user configuration to user.json"),
-                     PGTr("common.error", "Error"),
-                     wxOK | wxICON_ERROR,
-                     this);
+        PGMessageBox(PGTr("conflictManager.errors.saveUserConfig"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
     }
 
     updateApplyButtonState();

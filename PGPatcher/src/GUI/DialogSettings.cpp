@@ -27,7 +27,9 @@ constexpr int THEME_IDX_SYSTEM = 2;
 
 DialogSettings::DialogSettings(wxWindow* parent,
                                PGConfig& pgc)
-    : wxDialog(parent, wxID_ANY, PGTr("settings.title", "Settings"))
+    : wxDialog(parent,
+               wxID_ANY,
+               PGTr("settings.title"))
     , m_pgc(pgc)
 {
     SetIcons(PGUI::getAppIcons());
@@ -39,7 +41,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
 
     // Language selection
     auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* langLabel = new wxStaticText(this, wxID_ANY, PGTr("settings.language.label", "Language"));
+    auto* langLabel = new wxStaticText(this, wxID_ANY, PGTr("settings.language.label"));
     langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, borderSize);
 
     m_languages = PGLocale::getAvailableLanguages();
@@ -52,8 +54,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
     m_languageCombo = new wxComboBox(
         this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, langNames, wxCB_READONLY);
     m_languageCombo->SetMinSize(wxSize(FromDIP(COMBO_MIN_WIDTH), -1));
-    m_languageCombo->SetToolTip(
-        PGTr("settings.language.tooltip", "Languages are read from the \"translations\" folder"));
+    m_languageCombo->SetToolTip(PGTr("settings.language.tooltip"));
 
     // Select the currently active language
     const auto currentLang = m_pgc.getUILanguage();
@@ -69,20 +70,19 @@ DialogSettings::DialogSettings(wxWindow* parent,
 
     // Theme selection (light/dark/system)
     wxArrayString themeChoices;
-    themeChoices.Add(PGTr("settings.theme.light", "Light"));
-    themeChoices.Add(PGTr("settings.theme.dark", "Dark"));
-    themeChoices.Add(PGTr("settings.theme.system", "System"));
+    themeChoices.Add(PGTr("settings.theme.light"));
+    themeChoices.Add(PGTr("settings.theme.dark"));
+    themeChoices.Add(PGTr("settings.theme.system"));
 
     m_themeRadioBox = new wxRadioBox(this,
                                      wxID_ANY,
-                                     PGTr("settings.theme.label", "Theme"),
+                                     PGTr("settings.theme.label"),
                                      wxDefaultPosition,
                                      wxDefaultSize,
                                      themeChoices,
                                      1,
                                      wxRA_SPECIFY_ROWS);
-    m_themeRadioBox->SetToolTip(PGTr("settings.theme.tooltip",
-                                     "\"System\" follows the Windows theme. Applied when the launcher restarts."));
+    m_themeRadioBox->SetToolTip(PGTr("settings.theme.tooltip"));
 
     // Select the currently configured theme
     const auto currentTheme = m_pgc.getUITheme();
@@ -99,9 +99,9 @@ DialogSettings::DialogSettings(wxWindow* parent,
     // Buttons
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
     buttonSizer->AddStretchSpacer(1);
-    auto* okButton = new wxButton(this, wxID_OK, PGTr("common.ok", "OK"));
+    auto* okButton = new wxButton(this, wxID_OK, PGTr("common.ok"));
     okButton->Bind(wxEVT_BUTTON, &DialogSettings::onOkButtonPressed, this);
-    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel"));
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel"));
     buttonSizer->Add(okButton, 0, wxRIGHT, borderSize);
     buttonSizer->Add(cancelButton, 0, 0, 0);
     mainSizer->Add(buttonSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, borderSize);

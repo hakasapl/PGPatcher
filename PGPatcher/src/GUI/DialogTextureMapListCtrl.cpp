@@ -70,8 +70,8 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, borderSize);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
-    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel")));
-    btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok", "OK")));
+    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel")));
+    btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok")));
     btnSizer->Realize();
 
     mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, borderSize);

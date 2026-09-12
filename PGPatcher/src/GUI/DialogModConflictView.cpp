@@ -57,8 +57,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
                                              bool showAllMeshes)
     : wxDialog(nullptr,
                wxID_ANY,
-               PGTr("matchViewer.title",
-                    "Match Viewer"),
+               PGTr("matchViewer.title"),
                wxDefaultPosition,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
@@ -91,23 +90,19 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
         }
         if (m_showOnlyConflicts) {
             if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allConflicts", "Showing all conflicts");
+                label = PGTr("matchViewer.filterLabel.allConflicts");
             } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(
-                    PGTr("matchViewer.filterLabel.conflictsForMod", "Showing conflicts for mod: %s"), names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsForMod"), names);
             } else {
-                label = wxString::Format(
-                    PGTr("matchViewer.filterLabel.conflictsBetweenMods", "Showing conflicts between mods: %s"), names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsBetweenMods"), names);
             }
         } else {
             if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allMatches", "Showing all matches");
+                label = PGTr("matchViewer.filterLabel.allMatches");
             } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMod", "Showing matches for mod: %s"),
-                                         names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMod"), names);
             } else {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMods", "Showing matches for mods: %s"),
-                                         names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMods"), names);
             }
         }
         m_filterLabel->SetLabel(label);
@@ -117,30 +112,26 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     // ---- Search bar --------------------------------------------------------
     auto* searchSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* searchLabel = new wxStaticText(this, wxID_ANY, PGTr("matchViewer.search.label", "Search:"));
+    auto* searchLabel = new wxStaticText(this, wxID_ANY, PGTr("matchViewer.search.label"));
     m_meshSearchCtrl = new wxTextCtrl(this, wxID_ANY);
-    m_meshSearchCtrl->SetHint(PGTr("matchViewer.search.hint", "Search by mesh path..."));
+    m_meshSearchCtrl->SetHint(PGTr("matchViewer.search.hint"));
     m_meshSearchCtrl->Bind(wxEVT_TEXT, &DialogModConflictView::onSearchChanged, this);
     searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
     searchSizer->Add(m_meshSearchCtrl, 1, wxEXPAND);
 
-    m_showDisabledCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showDisabledMods", "Show Disabled Mods"));
+    m_showDisabledCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showDisabledMods"));
     m_showDisabledCheckbox->SetValue(false); // default: hide disabled-mod matches
     m_showDisabledCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowDisabledChanged, this);
     searchSizer->Add(m_showDisabledCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
 
-    m_showOnlyConflictsCheckbox
-        = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.onlyShowConflicts", "Only Show Conflicts"));
+    m_showOnlyConflictsCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.onlyShowConflicts"));
     m_showOnlyConflictsCheckbox->SetValue(m_showOnlyConflicts);
     m_showOnlyConflictsCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowOnlyConflictsChanged, this);
     searchSizer->Add(m_showOnlyConflictsCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
 
-    m_showMismatchesCheckbox
-        = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showMismatches", "Show Potential Mismatches"));
+    m_showMismatchesCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showMismatches"));
     m_showMismatchesCheckbox->SetValue(m_showMismatches);
-    m_showMismatchesCheckbox->SetToolTip(PGTr("matchViewer.showMismatchesTooltip",
-                                              "Show warning icons for meshes and matches with potential mod "
-                                              "mismatches"));
+    m_showMismatchesCheckbox->SetToolTip(PGTr("matchViewer.showMismatchesTooltip"));
     m_showMismatchesCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowMismatchesChanged, this);
     searchSizer->Add(m_showMismatchesCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxALL, defaultBorder);
@@ -157,7 +148,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     auto* meshPanel = new wxPanel(outerSplitter);
     auto* meshSizer = new wxBoxSizer(wxVERTICAL);
 
-    auto* meshLabel = new wxStaticText(meshPanel, wxID_ANY, PGTr("matchViewer.panels.meshes", "Meshes"));
+    auto* meshLabel = new wxStaticText(meshPanel, wxID_ANY, PGTr("matchViewer.panels.meshes"));
     wxFont boldFont = meshLabel->GetFont();
     boldFont.SetWeight(wxFONTWEIGHT_BOLD);
     meshLabel->SetFont(boldFont);
@@ -165,7 +156,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     m_meshListCtrl
         = new wxListCtrl(meshPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_meshListCtrl->InsertColumn(0, PGTr("matchViewer.columns.meshPath", "Mesh Path"));
+    m_meshListCtrl->InsertColumn(0, PGTr("matchViewer.columns.meshPath"));
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &DialogModConflictView::onMeshSelected, this);
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &DialogModConflictView::onMeshDeselected, this);
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &DialogModConflictView::onMeshActivated, this);
@@ -185,13 +176,13 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     auto* shapePanel = new wxPanel(innerSplitter);
     auto* shapeSizer = new wxBoxSizer(wxVERTICAL);
 
-    auto* shapeLabel = new wxStaticText(shapePanel, wxID_ANY, PGTr("matchViewer.panels.shapes", "Shapes"));
+    auto* shapeLabel = new wxStaticText(shapePanel, wxID_ANY, PGTr("matchViewer.panels.shapes"));
     shapeLabel->SetFont(boldFont);
     shapeSizer->Add(shapeLabel, 0, wxALL, FromDIP(2));
 
     m_shapeListCtrl
         = new wxListCtrl(shapePanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_shapeListCtrl->InsertColumn(0, PGTr("matchViewer.columns.shape", "Shape"));
+    m_shapeListCtrl->InsertColumn(0, PGTr("matchViewer.columns.shape"));
     m_shapeListCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &DialogModConflictView::onShapeSelected, this);
     m_shapeListCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &DialogModConflictView::onShapeDeselected, this);
     m_shapeListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onShapeContextMenu, this);
@@ -203,17 +194,16 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     auto* matchPanel = new wxPanel(innerSplitter);
     auto* matchSizer = new wxBoxSizer(wxVERTICAL);
 
-    auto* matchLabel = new wxStaticText(matchPanel, wxID_ANY, PGTr("matchViewer.panels.matches", "Matches"));
+    auto* matchLabel = new wxStaticText(matchPanel, wxID_ANY, PGTr("matchViewer.panels.matches"));
     matchLabel->SetFont(boldFont);
     matchSizer->Add(matchLabel, 0, wxALL, FromDIP(2));
 
     // Plugin use filter dropdown (above match list)
     auto* pluginUseSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* pluginUseLabel
-        = new wxStaticText(matchPanel, wxID_ANY, PGTr("matchViewer.pluginUse.label", "Filter by Plugin Use:"));
+    auto* pluginUseLabel = new wxStaticText(matchPanel, wxID_ANY, PGTr("matchViewer.pluginUse.label"));
     m_pluginUseCombo = new wxComboBox(
         matchPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_READONLY | wxCB_DROPDOWN);
-    m_pluginUseCombo->Append(PGTr("matchViewer.pluginUse.noneSelected", "(No Plugin Use Selected)"));
+    m_pluginUseCombo->Append(PGTr("matchViewer.pluginUse.noneSelected"));
     m_pluginUseCombo->SetSelection(0);
     m_pluginUseCombo->Bind(wxEVT_COMBOBOX, &DialogModConflictView::onPluginUseSelected, this);
     pluginUseSizer->Add(pluginUseLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
@@ -222,9 +212,9 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     m_matchListCtrl
         = new wxListCtrl(matchPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_matchListCtrl->InsertColumn(0, PGTr("matchViewer.columns.mod", "Mod"));
-    m_matchListCtrl->InsertColumn(1, PGTr("matchViewer.columns.shader", "Shader"));
-    m_matchListCtrl->InsertColumn(2, PGTr("matchViewer.columns.matchedFile", "Matched File"));
+    m_matchListCtrl->InsertColumn(0, PGTr("matchViewer.columns.mod"));
+    m_matchListCtrl->InsertColumn(1, PGTr("matchViewer.columns.shader"));
+    m_matchListCtrl->InsertColumn(2, PGTr("matchViewer.columns.matchedFile"));
     m_matchListCtrl->Bind(wxEVT_SIZE, &DialogModConflictView::onMatchListResize, this);
     m_matchListCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &DialogModConflictView::onMatchActivated, this);
     m_matchListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onMatchContextMenu, this);
@@ -249,7 +239,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     mainSizer->Add(outerSplitter, 1, wxEXPAND | wxALL, defaultBorder);
 
     // ---- Close button ------------------------------------------------------
-    auto* closeButton = new wxButton(this, wxID_CLOSE, PGTr("common.close", "Close"));
+    auto* closeButton = new wxButton(this, wxID_CLOSE, PGTr("common.close"));
     closeButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& /*event*/) {
         if (IsModal()) {
             cleanupTempFiles();
@@ -527,8 +517,7 @@ auto DialogModConflictView::getMeshWarningTooltip(const filesystem::path& meshPa
         return {};
     }
 
-    return wxString::Format(PGTr("matchViewer.warnings.meshFromOtherMod", "Mesh is from %s, verify UVs match"),
-                            wxString(meshMod->name));
+    return wxString::Format(PGTr("matchViewer.warnings.meshFromOtherMod"), wxString(meshMod->name));
 }
 
 auto DialogModConflictView::buildResultTexturesTooltip(const MatchView& match) -> wxString
@@ -543,8 +532,7 @@ auto DialogModConflictView::buildResultTexturesTooltip(const MatchView& match) -
         return {};
     }
 
-    wxString tooltip = PGTr("matchViewer.warnings.resultTexturesFromDifferentMods",
-                            "Resultant textures come from multiple mods, verify this is correct:");
+    wxString tooltip = PGTr("matchViewer.warnings.resultTexturesFromDifferentMods");
     for (const auto& [slot, slotMod] : match.resultTextureMods) {
         tooltip += "\n" + getSlotDisplayName(slot) + " - " + wxString(slotMod->name);
     }
@@ -556,26 +544,26 @@ auto DialogModConflictView::getSlotDisplayName(PGEnums::TextureSlots slot) -> wx
 {
     switch (slot) {
     case PGEnums::TextureSlots::DIFFUSE:
-        return PGTr("matchViewer.slots.diffuse", "Diffuse");
+        return PGTr("matchViewer.slots.diffuse");
     case PGEnums::TextureSlots::NORMAL:
-        return PGTr("matchViewer.slots.normal", "Normal");
+        return PGTr("matchViewer.slots.normal");
     case PGEnums::TextureSlots::GLOW:
-        return PGTr("matchViewer.slots.glow", "Glow");
+        return PGTr("matchViewer.slots.glow");
     case PGEnums::TextureSlots::PARALLAX:
-        return PGTr("matchViewer.slots.parallax", "Parallax");
+        return PGTr("matchViewer.slots.parallax");
     case PGEnums::TextureSlots::CUBEMAP:
-        return PGTr("matchViewer.slots.cubemap", "Cubemap");
+        return PGTr("matchViewer.slots.cubemap");
     case PGEnums::TextureSlots::ENVMASK:
-        return PGTr("matchViewer.slots.envMask", "Environment Mask");
+        return PGTr("matchViewer.slots.envMask");
     case PGEnums::TextureSlots::MULTILAYER:
-        return PGTr("matchViewer.slots.multilayer", "Multilayer");
+        return PGTr("matchViewer.slots.multilayer");
     case PGEnums::TextureSlots::BACKLIGHT:
-        return PGTr("matchViewer.slots.backlight", "Backlight");
+        return PGTr("matchViewer.slots.backlight");
     case PGEnums::TextureSlots::UNUSED:
-        return PGTr("matchViewer.slots.unused", "Unused");
+        return PGTr("matchViewer.slots.unused");
     case PGEnums::TextureSlots::UNKNOWN:
     default:
-        return PGTr("matchViewer.slots.unknown", "Unknown");
+        return PGTr("matchViewer.slots.unknown");
     }
 }
 
@@ -721,7 +709,7 @@ void DialogModConflictView::populateShapeList(long meshIdx)
 
     for (const auto& [idx3D, shapeInfo] : sortedShapes) {
         (void)idx3D;
-        const wxString baseShapeName = shapeInfo->shapeName.empty() ? PGTr("matchViewer.unnamedShape", "[ Unnamed ]")
+        const wxString baseShapeName = shapeInfo->shapeName.empty() ? PGTr("matchViewer.unnamedShape")
                                                                     : wxString::FromUTF8(shapeInfo->shapeName);
         const wxString shapeLabelText = wxString::Format("%s (%u)", baseShapeName, shapeInfo->blockID);
 
@@ -807,9 +795,8 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
     if (matches.empty()) {
         if (!m_showOnlyConflicts) {
             // In "show all" mode, show explanatory text
-            const long row = m_matchListCtrl->InsertItem(
-                m_matchListCtrl->GetItemCount(),
-                PGTr("matchViewer.noMatches", "[No matches - this shape cannot be patched]"));
+            const long row
+                = m_matchListCtrl->InsertItem(m_matchListCtrl->GetItemCount(), PGTr("matchViewer.noMatches"));
             m_matchListCtrl->SetItemTextColour(
                 row, wxColour(DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL));
             m_matchRowTooltips.emplace_back();
@@ -824,8 +811,7 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
             continue;
         }
 
-        const wxString modName = match.mod != nullptr ? wxString(match.mod->name)
-                                                      : PGTr("matchViewer.untrackedMod", "[Untracked Mod/Vanilla]");
+        const wxString modName = match.mod != nullptr ? wxString(match.mod->name) : PGTr("matchViewer.untrackedMod");
         const wxString shaderStr = wxString::FromUTF8(PGEnums::getStrFromShader(match.shader));
         const wxString matchedFile = wxString(match.matchedPath.wstring());
 
@@ -903,23 +889,14 @@ void DialogModConflictView::openPathWithDefaultApp(const filesystem::path& path)
 void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        PGMessageBox(
-            PGTr("matchViewer.errors.dataDirUnavailable", "Cannot open file: data directory is not available."),
-            PGTr("common.error", "Error"),
-            wxOK | wxICON_ERROR,
-            this);
+        PGMessageBox(PGTr("matchViewer.errors.dataDirUnavailable"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
         return;
     }
 
-    const int result
-        = PGMessageBox(wxString::Format(PGTr("matchViewer.extraction.message",
-                                             "This file is inside a BSA archive:\n%s\n\nWould you "
-                                             "like to extract it to a read-only temporary location and open "
-                                             "it? It will be deleted when you close this dialog."),
-                                        relPath.wstring().c_str()),
-                       PGTr("matchViewer.extraction.title", "File Extraction"),
-                       wxYES_NO | wxICON_QUESTION,
-                       this);
+    const int result = PGMessageBox(wxString::Format(PGTr("matchViewer.extraction.message"), relPath.wstring().c_str()),
+                                    PGTr("matchViewer.extraction.title"),
+                                    wxYES_NO | wxICON_QUESTION,
+                                    this);
 
     if (result != wxYES) {
         return;
@@ -934,8 +911,8 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
 
         std::vector<std::byte> fileBytes = PGGlobals::getPGD()->getFile(relPath);
         if (fileBytes.empty()) {
-            PGMessageBox(PGTr("matchViewer.extraction.readFailed", "Error: Failed to read file."),
-                         PGTr("matchViewer.extraction.errorTitle", "Extraction Error"),
+            PGMessageBox(PGTr("matchViewer.extraction.readFailed"),
+                         PGTr("matchViewer.extraction.errorTitle"),
                          wxOK | wxICON_ERROR,
                          this);
             return;
@@ -943,17 +920,15 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
 
         std::ofstream outFile(tempFile, std::ios::binary);
         if (!outFile) {
-            PGMessageBox(wxString::Format(PGTr("matchViewer.extraction.createTempFailed",
-                                               "Error: Failed to create temporary file at %s"),
-                                          tempFile.wstring().c_str()),
-                         PGTr("matchViewer.extraction.errorTitle", "Extraction Error"),
+            PGMessageBox(wxString::Format(PGTr("matchViewer.extraction.createTempFailed"), tempFile.wstring().c_str()),
+                         PGTr("matchViewer.extraction.errorTitle"),
                          wxOK | wxICON_ERROR,
                          this);
             return;
         }
         if (fileBytes.size() > static_cast<size_t>(numeric_limits<streamsize>::max())) {
-            PGMessageBox(PGTr("matchViewer.extraction.fileTooLarge", "Error: File is too large to extract."),
-                         PGTr("matchViewer.extraction.errorTitle", "Extraction Error"),
+            PGMessageBox(PGTr("matchViewer.extraction.fileTooLarge"),
+                         PGTr("matchViewer.extraction.errorTitle"),
                          wxOK | wxICON_ERROR,
                          this);
             return;
@@ -971,23 +946,18 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
         m_tempFiles.push_back(tempFile);
         openPathWithDefaultApp(tempFile);
     } catch (const exception& ex) {
-        PGMessageBox(wxString::Format(PGTr("matchViewer.extraction.extractOpenFailed",
-                                           "Error attempting to extract and open file: %s"),
-                                      StringUtil::utf8toUTF16(ex.what())),
-                     PGTr("matchViewer.extraction.errorTitle", "Extraction Error"),
-                     wxOK | wxICON_ERROR,
-                     this);
+        PGMessageBox(
+            wxString::Format(PGTr("matchViewer.extraction.extractOpenFailed"), StringUtil::utf8toUTF16(ex.what())),
+            PGTr("matchViewer.extraction.errorTitle"),
+            wxOK | wxICON_ERROR,
+            this);
     }
 }
 
 void DialogModConflictView::openMeshFile(const filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        PGMessageBox(
-            PGTr("matchViewer.errors.dataDirUnavailable", "Cannot open file: data directory is not available."),
-            PGTr("common.error", "Error"),
-            wxOK | wxICON_ERROR,
-            this);
+        PGMessageBox(PGTr("matchViewer.errors.dataDirUnavailable"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
         return;
     }
 
@@ -1014,11 +984,7 @@ void DialogModConflictView::openMatchFile(const wxString& modNameStr,
                                           const filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        PGMessageBox(
-            PGTr("matchViewer.errors.dataDirUnavailable", "Cannot open file: data directory is not available."),
-            PGTr("common.error", "Error"),
-            wxOK | wxICON_ERROR,
-            this);
+        PGMessageBox(PGTr("matchViewer.errors.dataDirUnavailable"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
         return;
     }
 
@@ -1053,8 +1019,8 @@ void DialogModConflictView::onMeshContextMenu(wxContextMenuEvent& event)
 
     const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     wxMenu menu;
-    auto* copyName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyName", "Copy Name"));
-    auto* openItem = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.open", "Open"));
+    auto* copyName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyName"));
+    auto* openItem = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.open"));
 
     menu.Bind(
         wxEVT_MENU,
@@ -1076,7 +1042,7 @@ void DialogModConflictView::onShapeContextMenu(wxContextMenuEvent& event)
 
     const wxString shapeName = m_shapeListCtrl->GetItemText(shapeRow, 0);
     wxMenu menu;
-    auto* copyName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyName", "Copy Name"));
+    auto* copyName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyName"));
 
     menu.Bind(wxEVT_MENU, [this, shapeName](wxCommandEvent&) { copyTextToClipboard(shapeName); }, copyName->GetId());
 
@@ -1099,10 +1065,9 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
     }
 
     wxMenu menu;
-    auto* copyModName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyModName", "Copy Mod Name"));
-    auto* openModFolder = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.openModFolder", "Open Mod Folder"));
-    auto* openMatchingFile
-        = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.openMatchingFile", "Open Matching File"));
+    auto* copyModName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyModName"));
+    auto* openModFolder = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.openModFolder"));
+    auto* openMatchingFile = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.openMatchingFile"));
 
     menu.Bind(
         wxEVT_MENU, [this, modNameStr](wxCommandEvent&) { copyTextToClipboard(modNameStr); }, copyModName->GetId());
@@ -1110,7 +1075,7 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
     menu.Bind(
         wxEVT_MENU,
         [this, modNameStr](wxCommandEvent&) {
-            if (modNameStr.IsEmpty() || modNameStr == PGTr("matchViewer.untrackedMod", "[Untracked Mod/Vanilla]")) {
+            if (modNameStr.IsEmpty() || modNameStr == PGTr("matchViewer.untrackedMod")) {
                 return;
             }
 
@@ -1463,23 +1428,19 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
         wxString label;
         if (m_showOnlyConflicts) {
             if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allConflicts", "Showing all conflicts");
+                label = PGTr("matchViewer.filterLabel.allConflicts");
             } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(
-                    PGTr("matchViewer.filterLabel.conflictsForMod", "Showing conflicts for mod: %s"), names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsForMod"), names);
             } else {
-                label = wxString::Format(
-                    PGTr("matchViewer.filterLabel.conflictsBetweenMods", "Showing conflicts between mods: %s"), names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsBetweenMods"), names);
             }
         } else {
             if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allMatches", "Showing all matches");
+                label = PGTr("matchViewer.filterLabel.allMatches");
             } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMod", "Showing matches for mod: %s"),
-                                         names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMod"), names);
             } else {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMods", "Showing matches for mods: %s"),
-                                         names);
+                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMods"), names);
             }
         }
         m_filterLabel->SetLabel(label);
@@ -1648,10 +1609,9 @@ void DialogModConflictView::cleanupTempFiles()
                 filesystem::remove(tempPath);
             }
         } catch (const exception& ex) {
-            wxLogError(
-                wxString::Format(PGTr("matchViewer.errors.deleteTempFailed", "Failed to delete temporary file %s: %s"),
-                                 tempPath.wstring().c_str(),
-                                 StringUtil::utf8toUTF16(ex.what())));
+            wxLogError(wxString::Format(PGTr("matchViewer.errors.deleteTempFailed"),
+                                        tempPath.wstring().c_str(),
+                                        StringUtil::utf8toUTF16(ex.what())));
         }
     }
     m_tempFiles.clear();
