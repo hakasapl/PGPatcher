@@ -9,6 +9,7 @@
 #include <wx/listctrl.h>
 #include <wx/wx.h>
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -26,9 +27,12 @@ public:
     /**
      * @brief Construct a new Launcher Window object
      *
-     * @param pgc PGC object for UI to use
+     * @param pgc PGC object for UI to use (holds the saved config, which "Save Config" / "Load Config" work against)
+     * @param initialParams params to show instead of the saved config, used to carry the unsaved UI state over when
+     *                      the launcher is rebuilt after a language or theme change
      */
-    LauncherWindow(PGConfig& pgc);
+    explicit LauncherWindow(PGConfig& pgc,
+                            std::optional<PGConfig::PGParams> initialParams = std::nullopt);
 
     /**
      * @brief Get the Params object (meant to be called after the user presses okay)
@@ -54,7 +58,8 @@ private:
     constexpr static int HELPBTN_SIZE = 30;
     constexpr static int SETTINGSBTN_ICON_SIZE = 16;
 
-    PGConfig& m_pgc; /** Reference to the PGConfig object */
+    PGConfig& m_pgc; /** Reference to the PGConfig object, holds the saved config (never unsaved UI state) */
+    std::optional<PGConfig::PGParams> m_initialParams; /** Unsaved UI state to show instead of the saved config */
 
     /**
      * @brief Runs immediately after the wxDialog gets constructed, intended to set the UI elements to the initial
@@ -65,9 +70,16 @@ private:
     void onInitDialog(wxInitDialogEvent& event);
 
     /**
-     * @brief Loads config from PGC
+     * @brief Shows the saved config (the PGC params) in the UI, discarding unsaved changes
      */
     void loadConfig();
+
+    /**
+     * @brief Sets the UI elements to the given params without changing the saved config in PGC
+     *
+     * @param params Params to show
+     */
+    void setUIParams(const PGConfig::PGParams& params);
 
     //
     // UI Param Elements

@@ -13,6 +13,7 @@
 #include <windows.h>
 
 #include <cstdlib>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -68,12 +69,18 @@ auto PGUI::showLauncher(PGConfig& pgc,
 {
     bool updateRequested = false;
     int result = wxID_CANCEL;
+    // Unsaved UI state carried over to the rebuilt launcher after a language or theme change
+    std::optional<PGConfig::PGParams> unsavedParams;
     do {
-        auto* launcher = new LauncherWindow(pgc); // NOLINT(cppcoreguidelines-owning-memory)
+        auto* launcher = new LauncherWindow(pgc, unsavedParams); // NOLINT(cppcoreguidelines-owning-memory)
         result = launcher->ShowModal();
         if (result == wxID_OK) {
             launcher->getParams(params);
             updateRequested = launcher->isUpdateRequested();
+        } else if (result == LauncherWindow::RESULT_RELAUNCH) {
+            PGConfig::PGParams curParams = pgc.getParams();
+            launcher->getParams(curParams);
+            unsavedParams = curParams;
         }
         launcher->Destroy();
 
