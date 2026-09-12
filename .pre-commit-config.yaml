@@ -7,7 +7,7 @@ repos:
       - id: mixed-line-ending
       - id: check-json
       - id: pretty-format-json
-        args: [--autofix, --indent=2, --no-sort-keys]
+        args: [--autofix, --indent=2, --no-sort-keys, --no-ensure-ascii]
       - id: check-yaml
       - id: end-of-file-fixer
       - id: check-case-conflict

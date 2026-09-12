@@ -157,7 +157,22 @@
       "message": "Are you sure you want to restore the default settings? This action cannot be undone."
     },
     "validation": {
-      "mo2RelativeGamePath": "Unable to resolve the relative game path from MO2 - make sure you launched PGPatcher from MO2"
+      "gameLocationRequired": "Game Location is required",
+      "gameLocationInvalid": "Game Location is not valid. Verify your game type and location are correct.",
+      "mo2RelativeGamePath": "Unable to resolve the relative game path from MO2 - make sure you launched PGPatcher from MO2",
+      "mo2InstanceRequired": "MO2 Instance Location is required",
+      "mo2InstanceMissing": "MO2 Instance Location does not exist",
+      "mo2InstanceInvalid": "MO2 Instance Location is not valid. Verify modorganizer.ini exists in the directory.",
+      "outputLocationRequired": "Output Location is required",
+      "parallaxToCMRequiresPatchers": "Upgrade Parallax to Complex Material requires both the Complex Material and Parallax shader patchers",
+      "meshAllowListEmptyEntry": "Empty entry in Mesh Allow List",
+      "meshAllowListDuplicate": "Duplicate entry in Mesh Allow List: %s",
+      "meshBlockListEmptyEntry": "Empty entry in Mesh Block List",
+      "meshBlockListDuplicate": "Duplicate entry in Mesh Block List: %s",
+      "textureRulesEmptyKey": "Empty key in Texture Rules",
+      "textureRulesDuplicate": "Duplicate entry in Texture Rules: %s",
+      "vanillaBSAListEmptyEntry": "Empty entry in Vanilla BSA List",
+      "vanillaBSAListDuplicate": "Duplicate entry in Vanilla BSA List: %s"
     }
   },
   "dialogs": {
