@@ -8,6 +8,8 @@
 - Fixed restore defaults/load config logic mismatching with enable state of save config button
 - Changed layout of some buttons in the launcher window
 - Fixed some strings not in the localization files
+- Updated Russian localization with new strings
+- Added Chinese simplified localization (LoyiNuts)
 
 ## [2.0.0] - 2026-09-10
 
