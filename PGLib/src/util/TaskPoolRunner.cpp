@@ -94,6 +94,8 @@ void TaskPoolRunner::runTasks()
         // If exception stop thread pool and throw
         if (ExceptionHandler::hasException()) {
             m_threadPool.stop();
+            m_threadPool.join();
+            break;
         }
 
         // Sleep in between loops
