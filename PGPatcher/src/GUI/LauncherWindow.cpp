@@ -37,7 +37,8 @@ using namespace std;
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 // class LauncherWindow
-LauncherWindow::LauncherWindow(PGConfig& pgc)
+LauncherWindow::LauncherWindow(PGConfig& pgc,
+                               std::optional<PGConfig::PGParams> initialParams)
     : wxDialog(nullptr,
                wxID_ANY,
                wxString::Format(PGTr("launcher.title",
@@ -47,6 +48,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
     , m_pgc(pgc)
+    , m_initialParams(std::move(initialParams))
     , m_gameLocationLocked(false)
     , m_gameLocationLockedByInstallLocation(false)
 {
@@ -545,7 +547,12 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 
 void LauncherWindow::onInitDialog(wxInitDialogEvent& event)
 {
-    loadConfig();
+    if (m_initialParams.has_value()) {
+        // Launcher rebuilt after a language or theme change: show the unsaved UI state of the previous launcher
+        setUIParams(*m_initialParams);
+    } else {
+        loadConfig();
+    }
 
     // Trigger the updateDeps event to update the dependencies
     updateDisabledElements();
@@ -555,11 +562,10 @@ void LauncherWindow::onInitDialog(wxInitDialogEvent& event)
     event.Skip();
 }
 
-void LauncherWindow::loadConfig()
-{
-    // This is where we populate existing params
-    const auto initParams = m_pgc.getParams();
+void LauncherWindow::loadConfig() { setUIParams(m_pgc.getParams()); }
 
+void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
+{
     // Game
     if (!m_gameLocationLocked) {
         m_gameLocationTextbox->SetValue(initParams.Game.dir.wstring());
@@ -1031,10 +1037,9 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
         return;
     }
 
-    // Reset the config to the default
-    m_pgc.setParams(PGConfig::getDefaultParams());
-
-    loadConfig();
+    // Show the defaults in the UI only: the saved config is untouched, so "Save Config" is offered to persist them
+    // and "Load Config" still goes back to the saved config
+    setUIParams(PGConfig::getDefaultParams());
 
     updateDisabledElements();
 }
@@ -1045,11 +1050,8 @@ void LauncherWindow::onSettingsButtonPressed([[maybe_unused]] wxCommandEvent& ev
     dialog.ShowModal();
 
     if (dialog.languageChanged() || dialog.themeChanged()) {
-        // Preserve the current (possibly unsaved) UI state in memory so the rebuilt launcher shows the same values
-        auto curParams = m_pgc.getParams();
-        getParams(curParams);
-        m_pgc.setParams(curParams);
-
+        // PGUI::showLauncher reads the current (possibly unsaved) UI state with getParams and passes it to the rebuilt
+        // launcher, so the saved config in PGC stays untouched
         EndModal(RESULT_RELAUNCH);
     }
 }
