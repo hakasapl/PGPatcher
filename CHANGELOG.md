@@ -6,6 +6,7 @@
 - All windows now show the PGPatcher icon in their title bar
 - Removed restriction that prevents grass meshes from being patched for PBR (CS will now support PBR grass)
 - Fixed restore defaults/load config logic mismatching with enable state of save config button
+- Changed layout of some buttons in the launcher window
 
 ## [2.0.0] - 2026-09-10
 

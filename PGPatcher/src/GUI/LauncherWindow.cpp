@@ -332,22 +332,20 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     // Processing and RUN buttons
     //
 
-    // Restore defaults button
+    // Restore defaults and load config buttons: default (smaller) font, side by side in one row above the save config
+    // button
     auto* restoreDefaultsButton
         = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.restoreDefaults", "Restore Defaults"));
-    wxFont restoreDefaultsButtonFont = restoreDefaultsButton->GetFont();
-    restoreDefaultsButtonFont.SetPointSize(BUTTON_FONT_SIZE);
-    restoreDefaultsButton->SetFont(restoreDefaultsButtonFont);
     restoreDefaultsButton->Bind(wxEVT_BUTTON, &LauncherWindow::onRestoreDefaultsButtonPressed, this);
-    rightSizer->Add(restoreDefaultsButton, 0, wxEXPAND | wxALL, borderSize);
 
-    // Load config button
     m_loadConfigButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.loadConfig", "Load Config"));
-    wxFont loadConfigButtonFont = m_loadConfigButton->GetFont();
-    loadConfigButtonFont.SetPointSize(BUTTON_FONT_SIZE);
-    m_loadConfigButton->SetFont(loadConfigButtonFont);
     m_loadConfigButton->Bind(wxEVT_BUTTON, &LauncherWindow::onLoadConfigButtonPressed, this);
-    rightSizer->Add(m_loadConfigButton, 0, wxEXPAND | wxALL, borderSize);
+
+    // A grid sizer gives both buttons the same width
+    auto* configButtonsSizer = new wxGridSizer(1, 2, 0, borderSize);
+    configButtonsSizer->Add(restoreDefaultsButton, 0, wxEXPAND);
+    configButtonsSizer->Add(m_loadConfigButton, 0, wxEXPAND);
+    rightSizer->Add(configButtonsSizer, 0, wxEXPAND | wxALL, borderSize);
 
     // Save config button
     m_saveConfigButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.saveConfig", "Save Config"));
