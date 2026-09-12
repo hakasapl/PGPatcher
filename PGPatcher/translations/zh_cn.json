@@ -1,0 +1,382 @@
+{
+  "_language": "简体中文",
+  "common": {
+    "browse": "浏览",
+    "cancel": "取消",
+    "ok": "确定",
+    "close": "关闭",
+    "errors": "错误",
+    "error": "错误",
+    "enable": "启用",
+    "disable": "禁用"
+  },
+  "settings": {
+    "title": "设置",
+    "language": {
+      "label": "语言",
+      "tooltip": "语言文件从 \"translations\" 文件夹中读取"
+    },
+    "theme": {
+      "label": "主题",
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统",
+      "tooltip": "\"跟随系统\" 会遵循 Windows 主题。重启程序后生效。"
+    }
+  },
+  "launcher": {
+    "title": "PGPatcher %s 启动器",
+    "settingsButton": {
+      "tooltip": "打开 PGPatcher 设置"
+    },
+    "helpButton": {
+      "tooltip": "打开 PGPatcher Wiki"
+    },
+    "game": {
+      "title": "游戏",
+      "location": {
+        "label": "位置",
+        "tooltip": "游戏文件夹的路径（不是 Data 文件夹）"
+      },
+      "type": {
+        "label": "类型"
+      }
+    },
+    "modManager": {
+      "title": "Mod 管理器",
+      "noneSuffix": "（无冲突处理）"
+    },
+    "mo2Options": {
+      "title": "MO2 选项",
+      "instanceLocation": {
+        "label": "实例位置",
+        "tooltip": "MO2 实例文件夹的路径（在 MO2 中：文件夹图标 > 打开实例文件夹）"
+      }
+    },
+    "output": {
+      "title": "输出",
+      "location": {
+        "help": "位置",
+        "tooltip": "输出文件夹的路径 - 此文件夹应专用于 PGPatcher，建议设为一个 Mod 文件夹"
+      },
+      "zip": {
+        "label": "压缩输出（若输出到 Mod 文件夹请保持禁用）",
+        "tooltip": "处理完成后将输出文件夹压缩为 Zip"
+      },
+      "pluginLang": {
+        "label": "插件语言",
+        "placeholder": "语言",
+        "tooltip": "输出插件中内嵌字符串的语言。若某条记录没有该语言的翻译，将使用默认语言（通常是英语）。"
+      }
+    },
+    "prePatchers": {
+      "title": "预处理补丁",
+      "fixMeshLighting": {
+        "label": "修复网格光照（仅 ENB）",
+        "tooltip": "修复发光的网格（仅限 ENB 用户！）"
+      }
+    },
+    "shaderPatchers": {
+      "title": "着色器补丁",
+      "parallax": {
+        "label": "视差"
+      },
+      "complexMaterial": {
+        "label": "复杂材质（Complex Material, CM）"
+      },
+      "truePBR": {
+        "label": "TruePBR（仅 CS）"
+      }
+    },
+    "shaderTransforms": {
+      "title": "着色器转换",
+      "parallaxToCM": {
+        "label": "将视差升级为复杂材质",
+        "tooltip": "在需要兼容时，将视差贴图和网格升级为复杂材质（强烈推荐）"
+      }
+    },
+    "postPatchers": {
+      "title": "后处理补丁",
+      "disablePrePatchedMaterials": {
+        "label": "禁用预打补丁材质",
+        "tooltip": "当缺少视差或复杂材质贴图时，将着色器恢复为默认（强烈推荐，替代自动视差功能）"
+      },
+      "fixSSS": {
+        "label": "修复原版次表面散射",
+        "tooltip": "修复网格中的次表面散射问题，尤其是植被"
+      },
+      "hairFlowMap": {
+        "label": "添加头发流向贴图（仅 CS）",
+        "tooltip": "为法线贴图匹配的贴图集添加流向贴图"
+      }
+    },
+    "buttons": {
+      "restoreDefaults": "恢复默认",
+      "loadConfig": "加载配置",
+      "saveConfig": "保存配置",
+      "startPatching": "开始补丁",
+      "startPatchingTooltip": "从零开始生成输出（输出位置中原有的输出会被替换）",
+      "updateOutput": "更新输出",
+      "updateOutputTooltip": "更新输出位置中原有的输出：仅重新打补丁自上次输出以来输入发生变化的网格。仅当输出位置包含先前的输出且未启用压缩输出时可用。"
+    },
+    "processing": {
+      "title": "处理",
+      "help": "这些选项用于自定义输出生成。除非你知道自己在做什么，否则请勿更改。",
+      "allowedRecordTypes": "允许的记录类型",
+      "meshAllowlist": "网格白名单",
+      "meshBlocklist": "网格黑名单",
+      "textureRules": "贴图规则",
+      "multithreading": {
+        "label": "多线程",
+        "tooltip": "以占用更多资源为代价提升运行速度"
+      },
+      "devMode": {
+        "label": "启用 Mod 开发模式",
+        "tooltip": "启用某些警告，帮助开发 Mod 的用户适配 PGPatcher"
+      },
+      "debugLogging": {
+        "label": "启用调试日志",
+        "tooltip": "在输出日志中启用调试日志"
+      },
+      "traceLogging": {
+        "label": "启用追踪日志",
+        "tooltip": "在输出日志中启用追踪日志（非常详细）"
+      }
+    },
+    "browse": {
+      "gameLocation": "选择游戏位置",
+      "mo2InstanceLocation": "选择 MO2 实例位置",
+      "outputLocation": "选择输出位置"
+    },
+    "confirmLoadConfig": {
+      "title": "确认加载配置",
+      "message": "确定要从文件加载配置吗？此操作会覆盖当前所有未保存的设置。"
+    },
+    "confirmRestoreDefaults": {
+      "title": "确认恢复默认",
+      "message": "确定要恢复默认设置吗？此操作无法撤销。"
+    },
+    "validation": {
+      "mo2RelativeGamePath": "无法从 MO2 解析相对游戏路径 - 请确保你已从 MO2 启动 PGPatcher"
+    }
+  },
+  "dialogs": {
+    "meshAllowlist": {
+      "title": "网格规则白名单",
+      "description": "如果此处存在任何规则，则只有匹配规则的网格才会被打补丁。输入网格路径，如 \"meshes/armor/helmet.nif\"，或使用通配符（* 为通配符）将整个文件夹/文件加入白名单。右键单击可添加/删除条目。"
+    },
+    "meshBlocklist": {
+      "title": "网格规则黑名单",
+      "description": "匹配此处规则的网格将不会被打补丁。输入网格路径，如 \"meshes/armor/helmet.nif\"，或使用通配符（* 为通配符）将整个文件夹/文件加入黑名单。右键单击可添加/删除条目。"
+    },
+    "textureRules": {
+      "title": "贴图规则",
+      "description": "当自动检测出错时（极少发生），可用此功能告诉 PGPatcher 某张贴图的类型。输入贴图的完整路径，如 \"textures/armor/helmet.dds\"，然后选择贴图类型。此处不支持通配符。将贴图设为 \"unknown\" 可将其忽略。右键单击可添加/删除条目。"
+    },
+    "recTypeSelector": {
+      "title": "允许的记录类型",
+      "description": "取消勾选某个记录类型将使其自身及其关联的网格不被打补丁。仅显示带有模型的记录类型。"
+    }
+  },
+  "progress": {
+    "title": "PGPatcher 生成进度",
+    "overall": "总体进度：",
+    "stopButton": "停止生成 / 退出",
+    "steps": {
+      "preparing": "准备中",
+      "initGpu": "初始化 GPU",
+      "outputDir": "创建并验证输出目录",
+      "validatingPlugins": "验证插件",
+      "initPluginPatching": "初始化插件补丁",
+      "initModManager": "初始化 Mod 管理器",
+      "populatingFileMap": "生成文件映射",
+      "validatingDataFiles": "验证数据文件",
+      "initPatchers": "初始化补丁工具",
+      "waitPluginInit": "等待插件初始化",
+      "waitModManagerInit": "等待 Mod 管理器初始化",
+      "loadingMeshes": "加载网格",
+      "readingNifs": "读取 NIF",
+      "classifyingTextures": "分类贴图",
+      "patchingMeshes": "为网格打补丁",
+      "processingNifs": "处理 NIF",
+      "patchingTextures": "为贴图打补丁",
+      "processingTextures": "处理贴图",
+      "finalizing": "完成中",
+      "finishingWritingFiles": "完成文件写入",
+      "savingPlugins": "保存插件",
+      "deployingAssets": "部署资源",
+      "savingDiffJson": "保存 Diff Json",
+      "savingUpdateCache": "保存更新缓存",
+      "creatingZipArchive": "创建 Zip 压缩包"
+    }
+  },
+  "completion": {
+    "title": "PGPatcher 生成完成",
+    "message": "PGPatcher 输出生成已完成。\n\n处理时间：%lld 秒\n输出位置：\n%s",
+    "showWarnings": "显示警告",
+    "showWarningsCount": "显示警告（%d）",
+    "showErrors": "显示错误",
+    "showErrorsCount": "显示错误（%d）",
+    "showIgnoredWarnings": "显示已忽略的警告",
+    "conflictManager": "冲突管理器",
+    "helpButton": {
+      "tooltip": "打开 PGPatcher 错误信息 Wiki"
+    },
+    "openOutputLocation": "打开输出位置",
+    "openLogFile": "打开日志文件"
+  },
+  "conflictManager": {
+    "title": "冲突管理器",
+    "help": "请对你的 Mod 排序，以决定 PGPatcher 在各处使用哪个 Mod 来为网格打补丁。选中 Mod 后会显示冲突。你选中的 Mod 优先于绿色 Mod，低于红色 Mod。",
+    "helpButton": {
+      "tooltip": "打开 PGPatcher Mod 窗口 Wiki"
+    },
+    "columns": {
+      "mod": "Mod",
+      "shader": "着色器"
+    },
+    "contextMenu": {
+      "showConflicts": "显示冲突...",
+      "showMatches": "显示匹配...",
+      "openModFolder": "打开 Mod 文件夹"
+    },
+    "showAllMeshes": {
+      "label": "显示所有网格",
+      "tooltip": "查看所有网格、形状和匹配，无论是否存在冲突"
+    },
+    "lockMO2Order": {
+      "label": "锁定为 MO2 松散文件顺序",
+      "tooltip": "将顺序锁定为 MO2 的顺序。仍可启用/禁用。请注意 PG 冲突与散文件冲突并不相同。"
+    },
+    "search": {
+      "label": "搜索：",
+      "hint": "按名称搜索 Mod..."
+    },
+    "highlightNewMods": {
+      "label": "高亮新 Mod",
+      "tooltip": "高亮显示 PGPatcher 首次看到的 Mod"
+    },
+    "winningModsOnTop": "胜出的 Mod 在上",
+    "losingModsOnBottom": "被覆盖的 Mod 在下",
+    "restoreDefaultOrder": {
+      "label": "恢复默认顺序",
+      "tooltip": "对于 MO2，默认顺序即你的松散文件顺序。对于 Vortex，默认顺序为先按着色器、再按名称字母排序。"
+    },
+    "buttons": {
+      "saveAndUpdateOutput": "保存更改并更新输出",
+      "discardChanges": "放弃更改",
+      "apply": "应用",
+      "okay": "确定"
+    },
+    "confirmUnsavedChanges": {
+      "title": "未保存的更改",
+      "message": "你有未保存的更改，确定要关闭吗？"
+    },
+    "confirmRestoreDefaultOrder": {
+      "title": "确认恢复默认顺序",
+      "message": "确定要恢复默认 Mod 顺序，并重新启用所有手动禁用的 Mod 吗？"
+    },
+    "confirmRerunPatching": {
+      "title": "重新运行打补丁",
+      "message": "确定要重新运行打补丁步骤吗？"
+    },
+    "confirmDiscardChanges": {
+      "title": "确认放弃更改",
+      "message": "确定要放弃所有更改吗？"
+    },
+    "errors": {
+      "saveModConfig": "无法将 Mod 配置保存到 modrules.json",
+      "saveUserConfig": "无法将用户配置保存到 user.json"
+    }
+  },
+  "matchViewer": {
+    "title": "匹配查看器",
+    "filterLabel": {
+      "allConflicts": "正在显示所有冲突",
+      "conflictsForMod": "正在显示 Mod 的冲突：%s",
+      "conflictsBetweenMods": "正在显示 Mod 之间的冲突：%s",
+      "allMatches": "正在显示所有匹配",
+      "matchesForMod": "正在显示 Mod 的匹配：%s",
+      "matchesForMods": "正在显示这些 Mod 的匹配：%s"
+    },
+    "search": {
+      "label": "搜索：",
+      "hint": "按网格路径搜索..."
+    },
+    "showDisabledMods": "显示已禁用的 Mod",
+    "onlyShowConflicts": "仅显示冲突",
+    "showMismatches": "显示潜在不匹配",
+    "showMismatchesTooltip": "为可能存在 Mod 不匹配的网格和匹配显示警告图标",
+    "panels": {
+      "meshes": "网格",
+      "shapes": "形状",
+      "matches": "匹配"
+    },
+    "columns": {
+      "meshPath": "网格路径",
+      "shape": "形状",
+      "mod": "Mod",
+      "shader": "着色器",
+      "matchedFile": "匹配的文件"
+    },
+    "pluginUse": {
+      "label": "按插件用途筛选：",
+      "noneSelected": "（未选择插件用途）"
+    },
+    "unnamedShape": "[ 未命名 ]",
+    "noMatches": "[无匹配 - 此形状无法打补丁]",
+    "untrackedMod": "[未追踪的 Mod/原版]",
+    "warnings": {
+      "meshFromOtherMod": "网格来自 %s，请核对 UV 是否匹配",
+      "resultTexturesFromDifferentMods": "结果贴图来自多个 Mod，请确认这是否正确："
+    },
+    "slots": {
+      "diffuse": "漫反射",
+      "normal": "法线",
+      "glow": "发光",
+      "parallax": "视差",
+      "cubemap": "立方体贴图",
+      "envMask": "环境遮罩",
+      "multilayer": "多层",
+      "backlight": "背光",
+      "unused": "未使用",
+      "unknown": "未知"
+    },
+    "contextMenu": {
+      "copyName": "复制名称",
+      "open": "打开",
+      "copyModName": "复制 Mod 名称",
+      "openModFolder": "打开 Mod 文件夹",
+      "openMatchingFile": "打开匹配的文件"
+    },
+    "extraction": {
+      "title": "文件提取",
+      "message": "此文件位于 BSA 压缩包内：\n%s\n\n是否要将其提取到只读的临时位置并打开？关闭此对话框时它将被删除。",
+      "errorTitle": "提取错误",
+      "readFailed": "错误：读取文件失败。",
+      "createTempFailed": "错误：在 %s 创建临时文件失败",
+      "fileTooLarge": "错误：文件过大，无法提取。",
+      "extractOpenFailed": "尝试提取并打开文件时出错：%s"
+    },
+    "errors": {
+      "dataDirUnavailable": "无法打开文件：数据目录不可用。",
+      "deleteTempFailed": "删除临时文件 %s 失败：%s"
+    }
+  },
+  "components": {
+    "modifiableList": {
+      "add": "添加",
+      "remove": "移除"
+    },
+    "logMessageList": {
+      "ignore": "忽略",
+      "unignore": "取消忽略"
+    },
+    "checkedDragList": {
+      "moveToTop": "移至顶部",
+      "moveToBottom": "移至底部",
+      "patchMeshes": "为网格打补丁",
+      "ignoreMeshes": "忽略网格"
+    }
+  }
+}
