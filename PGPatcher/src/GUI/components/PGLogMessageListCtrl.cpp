@@ -25,7 +25,7 @@ PGLogMessageListCtrl::PGLogMessageListCtrl(wxWindow* parent,
 
     Bind(wxEVT_SIZE, [this](wxSizeEvent& evt) -> void {
         const int width = GetClientSize().GetWidth();
-        const int vsWidth = GetScrollThumb(wxVERTICAL) > 0 ? wxSystemSettings::GetMetric(wxSYS_VSCROLL_X) : 0;
+        const int vsWidth = GetScrollThumb(wxVERTICAL) > 0 ? wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, this) : 0;
 
         SetColumnWidth(0, width - vsWidth);
         evt.Skip();

@@ -14,7 +14,9 @@ private:
     std::vector<wxString> m_lines;
 
     static constexpr wxByte ALPHA = 200;
-    static constexpr int PADDING = 8;
+    static constexpr int PADDING = 8; /** Horizontal padding around the text in DIPs */
+    static constexpr int TEXT_INDENT = 4; /** Left indent of the text in DIPs */
+    static constexpr int LINE_SPACING = 2; /** Vertical spacing around every line in DIPs */
 
     static constexpr unsigned char DARK_GHOST_BOOST = 50;
     static constexpr int MAX_RGB_VALUE = 255;

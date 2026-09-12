@@ -46,6 +46,7 @@ private:
 
     std::unordered_set<DialogModConflictView*> m_openConflictDialogs; /** Modeless conflict windows currently open */
 
+    // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
     constexpr static int DEFAULT_WIDTH = 600;
     constexpr static int DEFAULT_HEIGHT = 600;
     constexpr static int MIN_WIDTH = 600;

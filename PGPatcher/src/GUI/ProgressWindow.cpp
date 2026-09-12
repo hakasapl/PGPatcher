@@ -1,4 +1,5 @@
 #include "GUI/ProgressWindow.hpp"
+#include "GUI/components/PGAnimationCtrl.hpp"
 #include "PGLocale.hpp"
 #include "PGPatcherGlobals.hpp"
 
@@ -6,6 +7,7 @@
 #include <wx/button.h>
 #include <wx/dialog.h>
 #include <wx/gauge.h>
+#include <wx/iconbndl.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
@@ -27,8 +29,12 @@ ProgressWindow::ProgressWindow()
                       150),
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
 {
-    const wxIcon icon(wxICON(IDI_ICON1));
-    SetIcon(icon);
+    // Every size of the icon resource, so that the title bar and the taskbar get the size matching the monitor's DPI
+    SetIcons(wxIconBundle("IDI_ICON1", nullptr));
+
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the window
+    const int border = FromDIP(10);
+    const int spacing = FromDIP(5);
 
     // Main sizer
     auto* mainSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -42,29 +48,29 @@ ProgressWindow::ProgressWindow()
         gifPath = resourcesPath / "runningparallaxgen.gif";
     }
     if (anim.LoadFile(gifPath.wstring(), wxANIMATION_TYPE_GIF)) {
-        auto* animCtrl = new wxAnimationCtrl(this, wxID_ANY, anim);
+        auto* animCtrl = new PGAnimationCtrl(this, wxID_ANY, anim);
         animCtrl->Play(); // start playing
-        mainSizer->Add(animCtrl, 0, wxALL | wxALIGN_CENTER_VERTICAL, 10);
+        mainSizer->Add(animCtrl, 0, wxALL | wxALIGN_CENTER_VERTICAL, border);
     }
 
     // Right Side (main progress area)
     auto* rightSizer = new wxBoxSizer(wxVERTICAL);
 
     m_mainStatusText = new wxStaticText(this, wxID_ANY, PGTr("progress.overall", "Overall Progress:"));
-    m_progressBarMain = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, wxSize(300, 20));
+    m_progressBarMain = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, FromDIP(wxSize(300, 20)));
 
     m_stepStatusText = new wxStaticText(this, wxID_ANY, "");
-    m_progressBarStep = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, wxSize(300, 20));
+    m_progressBarStep = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, FromDIP(wxSize(300, 20)));
 
-    rightSizer->Add(m_mainStatusText, 0, wxEXPAND | wxBOTTOM, 5);
-    rightSizer->Add(m_progressBarMain, 0, wxEXPAND | wxBOTTOM, 5);
-    rightSizer->Add(m_stepStatusText, 0, wxEXPAND | wxBOTTOM, 5);
-    rightSizer->Add(m_progressBarStep, 0, wxEXPAND | wxBOTTOM, 5);
+    rightSizer->Add(m_mainStatusText, 0, wxEXPAND | wxBOTTOM, spacing);
+    rightSizer->Add(m_progressBarMain, 0, wxEXPAND | wxBOTTOM, spacing);
+    rightSizer->Add(m_stepStatusText, 0, wxEXPAND | wxBOTTOM, spacing);
+    rightSizer->Add(m_progressBarStep, 0, wxEXPAND | wxBOTTOM, spacing);
 
     auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("progress.stopButton", "Stop Generation / Quit"));
-    rightSizer->Add(cancelButton, 0, wxEXPAND | wxTOP, 5);
+    rightSizer->Add(cancelButton, 0, wxEXPAND | wxTOP, spacing);
 
-    mainSizer->Add(rightSizer, 1, wxEXPAND | wxALL, 10);
+    mainSizer->Add(rightSizer, 1, wxEXPAND | wxALL, border);
 
     // Bind the Stop button
     cancelButton->Bind(wxEVT_BUTTON, [](wxCommandEvent&) -> void { wxTheApp->Exit(); });

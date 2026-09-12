@@ -90,10 +90,14 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     // Get config
     const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
 
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
+    const int borderSize = FromDIP(BORDER_SIZE);
+
     // Calculate required width based on path length
     const wxClientDC dc(this);
     const wxSize pathSize = dc.GetTextExtent(outputPath.wstring());
-    const int requiredWidth = std::max(MIN_WIDTH, pathSize.GetWidth() + 60); // +60 for icon and padding
+    const int requiredWidth
+        = std::max(FromDIP(MIN_WIDTH), pathSize.GetWidth() + FromDIP(60)); // +60 for icon and padding
 
     // Main sizer
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
@@ -101,14 +105,16 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     // Horizontal sizer for icon and text
     auto* contentSizer = new wxBoxSizer(wxHORIZONTAL);
 
-    // Add information icon
-    auto* icon = new wxStaticBitmap(this, wxID_ANY, wxArtProvider::GetIcon(wxART_INFORMATION, wxART_MESSAGE_BOX));
-    contentSizer->Add(icon, 0, wxTOP | wxLEFT | wxBOTTOM | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
+    // Add information icon (a bitmap bundle, so that it is rendered at the size matching the monitor's DPI)
+    auto* icon
+        = new wxStaticBitmap(this, wxID_ANY, wxArtProvider::GetBitmapBundle(wxART_INFORMATION, wxART_MESSAGE_BOX));
+    contentSizer->Add(icon, 0, wxTOP | wxLEFT | wxBOTTOM | wxALIGN_CENTER_VERTICAL, borderSize);
 
     // Text
     m_completionText = new wxStaticText(this, wxID_ANY, buildCompletionMessage(timeTaken));
-    m_completionText->Wrap(requiredWidth - 80 - HELPBTN_SIZE - (BORDER_SIZE * 2)); // Wrap based on calculated width
-    contentSizer->Add(m_completionText, 1, wxALL | wxALIGN_CENTER_VERTICAL, 15);
+    m_completionText->Wrap(requiredWidth
+                           - FromDIP(80 + HELPBTN_SIZE + (BORDER_SIZE * 2))); // Wrap based on calculated width
+    contentSizer->Add(m_completionText, 1, wxALL | wxALIGN_CENTER_VERTICAL, FromDIP(15));
 
     mainSizer->Add(contentSizer, 0, wxEXPAND);
 
@@ -168,7 +174,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
         auto* showModConflictsButton
             = new wxButton(this, wxID_ANY, PGTr("completion.conflictManager", "Conflict Manager"));
         showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
-        mainSizer->Add(showModConflictsButton, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, BORDER_SIZE);
+        mainSizer->Add(showModConflictsButton, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, borderSize);
     }
 
     // Buttons sizer
@@ -182,7 +188,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     helpButton->SetToolTip(PGTr("completion.helpButton.tooltip", "Open the PGPatcher Error Message wiki"));
 
-    const wxSize helpBtnSize = wxSize(HELPBTN_SIZE, helpButton->GetSize().GetHeight());
+    const wxSize helpBtnSize = wxSize(FromDIP(HELPBTN_SIZE), helpButton->GetSize().GetHeight());
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
@@ -190,7 +196,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
         wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Error-Message-Guide");
     });
 
-    buttonSizer->Add(helpButton, 0, wxALL, BORDER_SIZE);
+    buttonSizer->Add(helpButton, 0, wxALL, borderSize);
 
     // OK button
     auto* okButton = new wxButton(this, wxID_ANY, PGTr("common.ok", "OK"));
@@ -198,18 +204,18 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
         saveIgnoredMessagesToConfig();
         EndModal(wxID_OK); // then close
     });
-    buttonSizer->Add(okButton, 0, wxALL, BORDER_SIZE);
+    buttonSizer->Add(okButton, 0, wxALL, borderSize);
 
     // Open File Location button
     auto* openFileLocationButton
         = new wxButton(this, wxID_ANY, PGTr("completion.openOutputLocation", "Open Output Location"));
     openFileLocationButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenOutputLocation, this);
-    buttonSizer->Add(openFileLocationButton, 0, wxALL, BORDER_SIZE);
+    buttonSizer->Add(openFileLocationButton, 0, wxALL, borderSize);
 
     // Open Log file button
     auto* openLogFileButton = new wxButton(this, wxID_ANY, PGTr("completion.openLogFile", "Open Log File"));
     openLogFileButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenLogFile, this);
-    buttonSizer->Add(openLogFileButton, 0, wxALL, BORDER_SIZE);
+    buttonSizer->Add(openLogFileButton, 0, wxALL, borderSize);
 
     mainSizer->Add(buttonSizer, 0, wxALIGN_CENTER_HORIZONTAL);
 
@@ -283,9 +289,12 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
         throw std::invalid_argument("pane and listCtrl cannot be null");
     }
 
-    // Limit number of visible items before scrolling
+    // Limit number of visible items before scrolling (sizes in DIPs, scaled to the monitor's DPI)
     static constexpr int LIST_SIZE = 150;
-    listCtrl->SetMinSize(wxSize(-1, LIST_SIZE));
+    static constexpr int CHECKBOX_BORDER = 5;
+    const int listSize = FromDIP(LIST_SIZE);
+    const int checkboxBorder = FromDIP(CHECKBOX_BORDER);
+    listCtrl->SetMinSize(wxSize(-1, listSize));
 
     // Sizer for collapsible pane
     auto* parentSizer = new wxBoxSizer(wxVERTICAL);
@@ -302,13 +311,13 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
             wxEVT_CHECKBOX, [listCtrl](wxCommandEvent& evt) -> void { listCtrl->setShowIgnored(evt.IsChecked()); });
 
         // add checkbox to the sizer first, so it appears above the list
-        parentSizer->Add(checkboxShowIgnored, 0, wxALL | wxEXPAND, 5);
+        parentSizer->Add(checkboxShowIgnored, 0, wxALL | wxEXPAND, checkboxBorder);
 
         // get height for later size calculations
-        checkboxHeight = checkboxShowIgnored->GetSize().GetHeight() + 10;
+        checkboxHeight = checkboxShowIgnored->GetSize().GetHeight() + (2 * checkboxBorder);
     }
 
-    const int expandDelta = LIST_SIZE + 5 + checkboxHeight;
+    const int expandDelta = listSize + checkboxBorder + checkboxHeight;
 
     // add the list control below
     parentSizer->Add(listCtrl, 1, wxEXPAND);

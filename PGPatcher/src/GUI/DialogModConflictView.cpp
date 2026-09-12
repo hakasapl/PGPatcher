@@ -40,6 +40,7 @@ using namespace std;
 using namespace StringUtil;
 
 namespace {
+// Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
 constexpr int FILTER_LABEL_TOP_SPACER = 10;
 constexpr int OUTER_SPLITTER_MIN_PANE_SIZE = 100;
 constexpr int INNER_SPLITTER_MIN_PANE_SIZE = 80;
@@ -58,12 +59,16 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
                PGTr("matchViewer.title",
                     "Match Viewer"),
                wxDefaultPosition,
-               wxSize(DEFAULT_WIDTH,
-                      DEFAULT_HEIGHT),
+               wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
     , m_filterMods(filterMods)
     , m_showOnlyConflicts(!showAllMeshes)
 {
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
+    const wxSize defaultSize = FromDIP(wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT));
+    SetSize(defaultSize);
+    const int defaultBorder = FromDIP(DEFAULT_BORDER);
+
     // Take a fresh snapshot of the mesh patch metadata based on current mod state.
     // This ensures we reflect any mod priority changes made without saving.
     m_patchMeta = PGPatcher::getPatchMeta();
@@ -104,8 +109,8 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
         }
         m_filterLabel->SetLabel(label);
     }
-    mainSizer->AddSpacer(FILTER_LABEL_TOP_SPACER);
-    mainSizer->Add(m_filterLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
+    mainSizer->AddSpacer(FromDIP(FILTER_LABEL_TOP_SPACER));
+    mainSizer->Add(m_filterLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // ---- Search bar --------------------------------------------------------
     auto* searchSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -113,19 +118,19 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     m_meshSearchCtrl = new wxTextCtrl(this, wxID_ANY);
     m_meshSearchCtrl->SetHint(PGTr("matchViewer.search.hint", "Search by mesh path..."));
     m_meshSearchCtrl->Bind(wxEVT_TEXT, &DialogModConflictView::onSearchChanged, this);
-    searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, DEFAULT_BORDER);
+    searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
     searchSizer->Add(m_meshSearchCtrl, 1, wxEXPAND);
 
     m_showDisabledCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showDisabledMods", "Show Disabled Mods"));
     m_showDisabledCheckbox->SetValue(false); // default: hide disabled-mod matches
     m_showDisabledCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowDisabledChanged, this);
-    searchSizer->Add(m_showDisabledCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, DEFAULT_BORDER * 2);
+    searchSizer->Add(m_showDisabledCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
 
     m_showOnlyConflictsCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.onlyShowConflicts", "Only Show Conflicts"));
     m_showOnlyConflictsCheckbox->SetValue(m_showOnlyConflicts);
     m_showOnlyConflictsCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowOnlyConflictsChanged, this);
-    searchSizer->Add(m_showOnlyConflictsCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, DEFAULT_BORDER * 2);
+    searchSizer->Add(m_showOnlyConflictsCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
 
     m_showMismatchesCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showMismatches", "Show Potential Mismatches"));
@@ -134,8 +139,8 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
                                               "Show warning icons for meshes and matches with potential mod "
                                               "mismatches"));
     m_showMismatchesCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowMismatchesChanged, this);
-    searchSizer->Add(m_showMismatchesCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, DEFAULT_BORDER * 2);
-    mainSizer->Add(searchSizer, 0, wxEXPAND | wxALL, DEFAULT_BORDER);
+    searchSizer->Add(m_showMismatchesCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
+    mainSizer->Add(searchSizer, 0, wxEXPAND | wxALL, defaultBorder);
 
     // ---- Three-panel split area --------------------------------------------
     // outerSplitter: meshPanel (left) | innerSplitter (right)
@@ -153,7 +158,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     wxFont boldFont = meshLabel->GetFont();
     boldFont.SetWeight(wxFONTWEIGHT_BOLD);
     meshLabel->SetFont(boldFont);
-    meshSizer->Add(meshLabel, 0, wxALL, 2);
+    meshSizer->Add(meshLabel, 0, wxALL, FromDIP(2));
 
     m_meshListCtrl
         = new wxListCtrl(meshPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
@@ -179,7 +184,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     auto* shapeLabel = new wxStaticText(shapePanel, wxID_ANY, PGTr("matchViewer.panels.shapes", "Shapes"));
     shapeLabel->SetFont(boldFont);
-    shapeSizer->Add(shapeLabel, 0, wxALL, 2);
+    shapeSizer->Add(shapeLabel, 0, wxALL, FromDIP(2));
 
     m_shapeListCtrl
         = new wxListCtrl(shapePanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
@@ -197,7 +202,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     auto* matchLabel = new wxStaticText(matchPanel, wxID_ANY, PGTr("matchViewer.panels.matches", "Matches"));
     matchLabel->SetFont(boldFont);
-    matchSizer->Add(matchLabel, 0, wxALL, 2);
+    matchSizer->Add(matchLabel, 0, wxALL, FromDIP(2));
 
     // Plugin use filter dropdown (above match list)
     auto* pluginUseSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -208,9 +213,9 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     m_pluginUseCombo->Append(PGTr("matchViewer.pluginUse.noneSelected", "(No Plugin Use Selected)"));
     m_pluginUseCombo->SetSelection(0);
     m_pluginUseCombo->Bind(wxEVT_COMBOBOX, &DialogModConflictView::onPluginUseSelected, this);
-    pluginUseSizer->Add(pluginUseLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, DEFAULT_BORDER);
+    pluginUseSizer->Add(pluginUseLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
     pluginUseSizer->Add(m_pluginUseCombo, 1, wxEXPAND);
-    matchSizer->Add(pluginUseSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
+    matchSizer->Add(pluginUseSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     m_matchListCtrl
         = new wxListCtrl(matchPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
@@ -233,12 +238,12 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     setupWarningIcons();
 
     // -- Wire up splitters ---------------------------------------------------
-    innerSplitter->SplitVertically(shapePanel, matchPanel, MID_PANE_WIDTH);
-    outerSplitter->SplitVertically(meshPanel, innerSplitter, LEFT_PANE_WIDTH);
-    outerSplitter->SetMinimumPaneSize(OUTER_SPLITTER_MIN_PANE_SIZE);
-    innerSplitter->SetMinimumPaneSize(INNER_SPLITTER_MIN_PANE_SIZE);
+    innerSplitter->SplitVertically(shapePanel, matchPanel, FromDIP(MID_PANE_WIDTH));
+    outerSplitter->SplitVertically(meshPanel, innerSplitter, FromDIP(LEFT_PANE_WIDTH));
+    outerSplitter->SetMinimumPaneSize(FromDIP(OUTER_SPLITTER_MIN_PANE_SIZE));
+    innerSplitter->SetMinimumPaneSize(FromDIP(INNER_SPLITTER_MIN_PANE_SIZE));
 
-    mainSizer->Add(outerSplitter, 1, wxEXPAND | wxALL, DEFAULT_BORDER);
+    mainSizer->Add(outerSplitter, 1, wxEXPAND | wxALL, defaultBorder);
 
     // ---- Close button ------------------------------------------------------
     auto* closeButton = new wxButton(this, wxID_CLOSE, PGTr("common.close", "Close"));
@@ -250,7 +255,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
         }
         Close();
     });
-    mainSizer->Add(closeButton, 0, wxALIGN_LEFT | wxALL, DEFAULT_BORDER);
+    mainSizer->Add(closeButton, 0, wxALIGN_LEFT | wxALL, defaultBorder);
 
     // Bind window close event for cleanup when closed via other means (e.g., X button).
     Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
@@ -264,7 +269,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     });
 
     SetSizer(mainSizer);
-    SetMinSize(wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT));
+    SetMinSize(defaultSize);
 
     rebuildMeshList();
 }
@@ -1622,11 +1627,13 @@ void DialogModConflictView::onShapeListResize(wxSizeEvent& event)
 void DialogModConflictView::onMatchListResize(wxSizeEvent& event)
 {
     const int totalWidth = m_matchListCtrl->GetClientSize().GetWidth();
-    const int col2Width = totalWidth - MATCH_LIST_MOD_COL_WIDTH - MATCH_LIST_SHADER_COL_WIDTH - 2;
-    m_matchListCtrl->SetColumnWidth(0, MATCH_LIST_MOD_COL_WIDTH);
-    m_matchListCtrl->SetColumnWidth(1, MATCH_LIST_SHADER_COL_WIDTH);
-    m_matchListCtrl->SetColumnWidth(
-        2, col2Width > MATCH_LIST_MIN_PATH_COL_WIDTH ? col2Width : MATCH_LIST_MIN_PATH_COL_WIDTH);
+    const int modColWidth = FromDIP(MATCH_LIST_MOD_COL_WIDTH);
+    const int shaderColWidth = FromDIP(MATCH_LIST_SHADER_COL_WIDTH);
+    const int minPathColWidth = FromDIP(MATCH_LIST_MIN_PATH_COL_WIDTH);
+    const int col2Width = totalWidth - modColWidth - shaderColWidth - 2;
+    m_matchListCtrl->SetColumnWidth(0, modColWidth);
+    m_matchListCtrl->SetColumnWidth(1, shaderColWidth);
+    m_matchListCtrl->SetColumnWidth(2, col2Width > minPathColWidth ? col2Width : minPathColWidth);
     event.Skip();
 }
 

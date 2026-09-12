@@ -14,6 +14,7 @@
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 namespace {
+// Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
 constexpr int BORDER_SIZE = 10;
 constexpr int COMBO_MIN_WIDTH = 200;
 
@@ -28,12 +29,15 @@ DialogSettings::DialogSettings(wxWindow* parent,
     : wxDialog(parent, wxID_ANY, PGTr("settings.title", "Settings"))
     , m_pgc(pgc)
 {
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
+    const int borderSize = FromDIP(BORDER_SIZE);
+
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
     // Language selection
     auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
     auto* langLabel = new wxStaticText(this, wxID_ANY, PGTr("settings.language.label", "Language"));
-    langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
+    langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, borderSize);
 
     m_languages = PGLocale::getAvailableLanguages();
 
@@ -44,7 +48,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
 
     m_languageCombo = new wxComboBox(
         this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, langNames, wxCB_READONLY);
-    m_languageCombo->SetMinSize(wxSize(COMBO_MIN_WIDTH, -1));
+    m_languageCombo->SetMinSize(wxSize(FromDIP(COMBO_MIN_WIDTH), -1));
     m_languageCombo->SetToolTip(
         PGTr("settings.language.tooltip", "Languages are read from the \"translations\" folder"));
 
@@ -58,7 +62,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
     }
 
     langSizer->Add(m_languageCombo, 1, wxEXPAND, 0);
-    mainSizer->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    mainSizer->Add(langSizer, 0, wxEXPAND | wxALL, borderSize);
 
     // Theme selection (light/dark/system)
     wxArrayString themeChoices;
@@ -87,7 +91,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
         m_themeRadioBox->SetSelection(THEME_IDX_SYSTEM);
     }
 
-    mainSizer->Add(m_themeRadioBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, BORDER_SIZE);
+    mainSizer->Add(m_themeRadioBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, borderSize);
 
     // Buttons
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -95,9 +99,9 @@ DialogSettings::DialogSettings(wxWindow* parent,
     auto* okButton = new wxButton(this, wxID_OK, PGTr("common.ok", "OK"));
     okButton->Bind(wxEVT_BUTTON, &DialogSettings::onOkButtonPressed, this);
     auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel"));
-    buttonSizer->Add(okButton, 0, wxRIGHT, BORDER_SIZE);
+    buttonSizer->Add(okButton, 0, wxRIGHT, borderSize);
     buttonSizer->Add(cancelButton, 0, 0, 0);
-    mainSizer->Add(buttonSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, BORDER_SIZE);
+    mainSizer->Add(buttonSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, borderSize);
 
     okButton->SetDefault();
 

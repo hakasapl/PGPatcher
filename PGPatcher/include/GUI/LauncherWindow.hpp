@@ -45,8 +45,8 @@ public:
     [[nodiscard]] auto isUpdateRequested() const -> bool;
 
 private:
+    // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
     constexpr static int MIN_WIDTH = 750;
-    constexpr static int DEFAULT_HEIGHT = 800;
     constexpr static int LEFTSIZER_MIN_SIZE = 440;
     constexpr static int LEFTSIZER_WRAP_SIZE = 400;
     constexpr static int BORDER_SIZE = 5;
