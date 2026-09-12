@@ -341,9 +341,15 @@ auto PGConfig::validateParams(const PGParams& rawParams,
     // Helpers
     unordered_set<wstring> checkSet;
 
+    // Validation messages are shown in the launcher's error dialog, so they are localized like every other GUI string
+    const auto addError = [&errors](const string& key) -> void { errors.emplace_back(PGTr(key).utf8_string()); };
+    const auto addErrorWithItem = [&errors](const string& key, const wstring& item) -> void {
+        errors.emplace_back(wxString::Format(PGTr(key), wxString(item)).utf8_string());
+    };
+
     // Game
     if (params.Game.dir.empty()) {
-        errors.emplace_back("Game Location is required");
+        addError("launcher.validation.gameLocationRequired");
     }
 
     if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2 && !params.Game.dir.empty()
@@ -352,32 +358,29 @@ auto PGConfig::validateParams(const PGParams& rawParams,
         // from or, for portable instances, the instance folder (see PGModManager::findMO2Dir). Neither worked here:
         // resolveRelativePaths() never resolves a game path that comes from modorganizer.ini against the PGPatcher
         // folder, so a game path that is still relative at this point can only be that unresolved MO2 value.
-        errors.emplace_back(PGTr("launcher.validation.mo2RelativeGamePath",
-                                 "Unable to resolve the relative game path from MO2 - make sure you launched PGPatcher "
-                                 "from MO2")
-                                .utf8_string());
+        addError("launcher.validation.mo2RelativeGamePath");
     } else if (!BethesdaGame::isGamePathValid(params.Game.dir, params.Game.type)) {
-        errors.emplace_back("Game Location is not valid. Verify your game type and location are correct.");
+        addError("launcher.validation.gameLocationInvalid");
     }
 
     // Mod Manager
     if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
         if (params.ModManager.mo2InstanceDir.empty()) {
-            errors.emplace_back("MO2 Instance Location is required");
+            addError("launcher.validation.mo2InstanceRequired");
         }
 
         if (!filesystem::exists(params.ModManager.mo2InstanceDir)) {
-            errors.emplace_back("MO2 Instance Location does not exist");
+            addError("launcher.validation.mo2InstanceMissing");
         }
 
         if (!PGModManager::isValidMO2InstanceDir(params.ModManager.mo2InstanceDir)) {
-            errors.emplace_back("MO2 Instance Location is not valid. Verify modorganizer.ini exists in the directory.");
+            addError("launcher.validation.mo2InstanceInvalid");
         }
     }
 
     // Output
     if (params.Output.dir.empty()) {
-        errors.emplace_back("Output Location is required");
+        addError("launcher.validation.outputLocationRequired");
     }
 
     // Processing
@@ -389,8 +392,7 @@ auto PGConfig::validateParams(const PGParams& rawParams,
     // Shader Transforms
     if (params.ShaderTransforms.parallaxToCM
         && (!params.ShaderPatcher.parallax || !params.ShaderPatcher.complexMaterial)) {
-        errors.emplace_back(
-            "Upgrade Parallax to Complex Material requires both the Complex Material and Parallax shader patchers");
+        addError("launcher.validation.parallaxToCMRequiresPatchers");
     }
 
     // Post-Patchers
@@ -399,22 +401,22 @@ auto PGConfig::validateParams(const PGParams& rawParams,
     checkSet.clear();
     for (const auto& item : params.Processing.allowList) {
         if (item.empty()) {
-            errors.emplace_back("Empty entry in Mesh Allow List");
+            addError("launcher.validation.meshAllowListEmptyEntry");
         }
 
         if (!checkSet.insert(item).second) {
-            errors.emplace_back("Duplicate entry in Mesh Allow List: " + utf16toUTF8(item));
+            addErrorWithItem("launcher.validation.meshAllowListDuplicate", item);
         }
     }
 
     checkSet.clear();
     for (const auto& item : params.Processing.blockList) {
         if (item.empty()) {
-            errors.emplace_back("Empty entry in Mesh Block List");
+            addError("launcher.validation.meshBlockListEmptyEntry");
         }
 
         if (!checkSet.insert(item).second) {
-            errors.emplace_back("Duplicate entry in Mesh Block List: " + utf16toUTF8(item));
+            addErrorWithItem("launcher.validation.meshBlockListDuplicate", item);
         }
     }
 
@@ -423,22 +425,22 @@ auto PGConfig::validateParams(const PGParams& rawParams,
     checkSet.clear();
     for (const auto& [key, value] : params.Processing.textureMaps) {
         if (key.empty()) {
-            errors.emplace_back("Empty key in Texture Rules");
+            addError("launcher.validation.textureRulesEmptyKey");
         }
 
         if (!checkSet.insert(key).second) {
-            errors.emplace_back("Duplicate entry in Texture Rules: " + utf16toUTF8(key));
+            addErrorWithItem("launcher.validation.textureRulesDuplicate", key);
         }
     }
 
     checkSet.clear();
     for (const auto& item : params.Processing.vanillaBSAList) {
         if (item.empty()) {
-            errors.emplace_back("Empty entry in Vanilla BSA List");
+            addError("launcher.validation.vanillaBSAListEmptyEntry");
         }
 
         if (!checkSet.insert(item).second) {
-            errors.emplace_back("Duplicate entry in Vanilla BSA List: " + utf16toUTF8(item));
+            addErrorWithItem("launcher.validation.vanillaBSAListDuplicate", item);
         }
     }
 

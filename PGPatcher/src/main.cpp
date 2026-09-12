@@ -372,7 +372,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 {
     // Initialize "Preparing" Step
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.preparing", "Preparing"));
+        progressWindow->setMainLabel(PGTr("progress.steps.preparing"));
         progressWindow->setStepLabel("");
         progressWindow->setMainProgress(0, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, NUM_PREPARING_STEPS);
@@ -386,7 +386,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     // GPU INITIALIZATION
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initGpu", "Initializing GPU")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initGpu")); });
 
     // Check if GPU needs to be initialized
     Logger::info("Initializing GPU");
@@ -409,7 +410,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // OUTPUT DIRECTORY INITIALIZATION
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.outputDir", "Creating and validating output directory")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.outputDir")); });
 
     // print output location
     Logger::info(L"PGPatcher output directory: {}", params.Output.dir.wstring());
@@ -453,7 +454,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     // PlUGIN VALIDATION
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.validatingPlugins", "Validating plugins")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.validatingPlugins")); });
 
     // Check if dyndolod.esp exists
     const auto activePlugins = bg->getActivePlugins(false, true);
@@ -480,7 +482,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // PLUGIN INITIALIZATION
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initPluginPatching", "Initializing plugin patching")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initPluginPatching")); });
 
     TaskQueue pluginInit;
 
@@ -504,7 +506,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     // MOD MANAGER INITIALIZATION
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initModManager", "Initializing mod manager")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initModManager")); });
 
     // Populate mod info
     nlohmann::json modJSON;
@@ -548,7 +551,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     // POPULATING FILE MAP
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.populatingFileMap", "Populating file map")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.populatingFileMap")); });
 
     // Init file map
     pgd->populateFileMap(true);
@@ -564,7 +568,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     //  VALIDATING DATA FILES
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.validatingDataFiles", "Validating data files")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.validatingDataFiles")); });
 
     // Check if PGPatcheroutput already exists in data directory
     // TODO check using PGD instead
@@ -589,7 +594,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     // PATCHER INITIALIZATION
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initPatchers", "Initializing patchers")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initPatchers")); });
 
     // Create patcher factory
     PatcherUtil::PatcherMeshSet meshPatchers;
@@ -662,7 +668,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.waitPluginInit", "Waiting for plugin initialization")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.waitPluginInit")); });
 
     // Plugins required for map files
     pluginInit.waitForCompletion();
@@ -675,7 +681,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.waitModManagerInit", "Waiting for mod manager initialization")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.waitModManagerInit")); });
 
     // Mods required for map files
     modManagerInit.waitForCompletion();
@@ -685,8 +691,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Initialize "Loading meshes" Step
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.loadingMeshes", "Loading meshes"));
-        progressWindow->setStepLabel(PGTr("progress.steps.readingNifs", "Reading NIFs"));
+        progressWindow->setMainLabel(PGTr("progress.steps.loadingMeshes"));
+        progressWindow->setStepLabel(PGTr("progress.steps.readingNifs"));
         progressWindow->setMainProgress(1, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
@@ -708,7 +714,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // queue and adds shader types to mods as it completes. Wait for it here so mod enable
     // state and priorities below are computed from complete shader data, and so we do not
     // race the classification threads while reading mod shader sets.
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.classifyingTextures", "Classifying textures")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.classifyingTextures")); });
     pgd->waitForCMClassification();
 
     // Assign new mod priorities for new mods
@@ -755,13 +762,14 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     }
 
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.patchingMeshes", "Patching meshes"));
+        progressWindow->setMainLabel(PGTr("progress.steps.patchingMeshes"));
         progressWindow->setStepLabel("");
         progressWindow->setMainProgress(3, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.processingNifs", "Processing NIFs")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.processingNifs")); });
 
     PGPatcher::patchMeshes(params.Processing.multithread,
                            args.considerAllMeshes,
@@ -771,8 +779,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                            progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.patchingTextures", "Patching textures"));
-        progressWindow->setStepLabel(PGTr("progress.steps.processingTextures", "Processing textures"));
+        progressWindow->setMainLabel(PGTr("progress.steps.patchingTextures"));
+        progressWindow->setStepLabel(PGTr("progress.steps.processingTextures"));
         progressWindow->setMainProgress(4, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, 1);
     });
@@ -780,7 +788,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     PGPatcher::patchTextures(params.Processing.multithread, progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.finalizing", "Finalizing"));
+        progressWindow->setMainLabel(PGTr("progress.steps.finalizing"));
         progressWindow->setStepLabel("");
         progressWindow->setMainProgress(5, NUM_TOTAL_STEPS, true);
         progressWindow->setStepProgress(0, NUM_FINALIZING_STEPS);
@@ -789,7 +797,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     //
     // FINISH WRITING FILES
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.finishingWritingFiles", "Finishing writing files")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.finishingWritingFiles")); });
 
     // Wait for file saver to complete
     if (PGGlobals::getFileSaver().isWorking()) {
@@ -813,7 +822,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     //
     // SAVING PLUGINS
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingPlugins", "Saving Plugins")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingPlugins")); });
 
     Logger::info("Saving Plugins");
     auto esmMode = PGPlugin::ESMMode::PGPATCHER_ONLY;
@@ -833,7 +843,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     //
     // DEPLOY ASSETS
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.deployingAssets", "Deploying Assets")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.deployingAssets")); });
 
     if (params.ShaderPatcher.complexMaterial && !args.disableDynCubemap) {
         // Deploy Assets
@@ -848,7 +859,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     //
     // SAVING DIFF JSON
     //
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingDiffJson", "Saving Diff Json")); });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingDiffJson")); });
 
     // Save diff json
     const auto diffJSON = PGPatcher::getDiffJSON();
@@ -868,9 +880,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     // SAVING UPDATE CACHE
     //
     // Describes this output so the next run into this directory only re-patches what changed (disabled when zipping)
-    progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setStepLabel(PGTr("progress.steps.savingUpdateCache", "Saving Update Cache"));
-    });
+    progressWindow->CallAfter(
+        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingUpdateCache")); });
 
     PGRunCache::finishRun(!params.Output.zip);
     //
@@ -882,7 +893,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
         //
         // OUTPUT ZIP
         //
-        progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.creatingZipArchive", "Creating Zip Archive")); });
+        progressWindow->CallAfter(
+            [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.creatingZipArchive")); });
 
         Logger::info("Creating output Zip archive");
         const auto zipPath = params.Output.dir / "PGPatcher_Output.zip";

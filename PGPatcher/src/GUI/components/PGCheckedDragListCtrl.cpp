@@ -351,14 +351,14 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     static constexpr int ID_ENABLE_MESHES = 1005;
     static constexpr int ID_DISABLE_MESHES = 1006;
 
-    menu.Append(ID_MOVE_TOP, PGTr("components.checkedDragList.moveToTop", "Move to Top"));
-    menu.Append(ID_MOVE_BOTTOM, PGTr("components.checkedDragList.moveToBottom", "Move to Bottom"));
+    menu.Append(ID_MOVE_TOP, PGTr("components.checkedDragList.moveToTop"));
+    menu.Append(ID_MOVE_BOTTOM, PGTr("components.checkedDragList.moveToBottom"));
     menu.AppendSeparator();
-    menu.Append(ID_ENABLE, PGTr("common.enable", "Enable"));
-    menu.Append(ID_DISABLE, PGTr("common.disable", "Disable"));
+    menu.Append(ID_ENABLE, PGTr("common.enable"));
+    menu.Append(ID_DISABLE, PGTr("common.disable"));
     menu.AppendSeparator();
-    menu.Append(ID_ENABLE_MESHES, PGTr("components.checkedDragList.patchMeshes", "Patch Meshes"));
-    menu.Append(ID_DISABLE_MESHES, PGTr("components.checkedDragList.ignoreMeshes", "Ignore Meshes"));
+    menu.Append(ID_ENABLE_MESHES, PGTr("components.checkedDragList.patchMeshes"));
+    menu.Append(ID_DISABLE_MESHES, PGTr("components.checkedDragList.ignoreMeshes"));
 
     // Gather all selected items
     std::vector<long> selectedItems = getSelectedItems();

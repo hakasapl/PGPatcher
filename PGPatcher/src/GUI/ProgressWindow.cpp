@@ -23,7 +23,7 @@
 ProgressWindow::ProgressWindow()
     : wxDialog(nullptr,
                wxID_ANY,
-               PGTr("progress.title", "PGPatcher Generation Progress"),
+               PGTr("progress.title"),
                wxDefaultPosition,
                wxSize(300,
                       150),
@@ -55,7 +55,7 @@ ProgressWindow::ProgressWindow()
     // Right Side (main progress area)
     auto* rightSizer = new wxBoxSizer(wxVERTICAL);
 
-    m_mainStatusText = new wxStaticText(this, wxID_ANY, PGTr("progress.overall", "Overall Progress:"));
+    m_mainStatusText = new wxStaticText(this, wxID_ANY, PGTr("progress.overall"));
     m_progressBarMain = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, FromDIP(wxSize(300, 20)));
 
     m_stepStatusText = new wxStaticText(this, wxID_ANY, "");
@@ -66,7 +66,7 @@ ProgressWindow::ProgressWindow()
     rightSizer->Add(m_stepStatusText, 0, wxEXPAND | wxBOTTOM, spacing);
     rightSizer->Add(m_progressBarStep, 0, wxEXPAND | wxBOTTOM, spacing);
 
-    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("progress.stopButton", "Stop Generation / Quit"));
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("progress.stopButton"));
     rightSizer->Add(cancelButton, 0, wxEXPAND | wxTOP, spacing);
 
     mainSizer->Add(rightSizer, 1, wxEXPAND | wxALL, border);

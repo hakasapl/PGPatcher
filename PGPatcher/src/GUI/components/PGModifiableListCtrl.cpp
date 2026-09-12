@@ -68,9 +68,9 @@ void PGModifiableListCtrl::onListItemActivated(wxListEvent& event)
 void PGModifiableListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& event)
 {
     wxMenu menu;
-    menu.Append(static_cast<int>(ContextMenu::ID_PG_ADD_ITEM), PGTr("components.modifiableList.add", "Add"));
-    auto* removeItem = menu.Append(static_cast<int>(ContextMenu::ID_PG_REMOVE_ITEM),
-                                   PGTr("components.modifiableList.remove", "Remove"));
+    menu.Append(static_cast<int>(ContextMenu::ID_PG_ADD_ITEM), PGTr("components.modifiableList.add"));
+    auto* removeItem
+        = menu.Append(static_cast<int>(ContextMenu::ID_PG_REMOVE_ITEM), PGTr("components.modifiableList.remove"));
 
     const long lastIndex = GetItemCount() - 1; // trailing blank row
     const long selectedCount = GetSelectedItemCount();

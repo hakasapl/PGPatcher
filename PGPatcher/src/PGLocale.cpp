@@ -15,8 +15,11 @@ using namespace std;
 
 namespace {
 
+/** Language whose translation file is always loaded underneath the active language */
+constexpr const char* FALLBACK_LANGUAGE = "en";
+
 filesystem::path s_translationsDir;
-string s_currentLanguage = "en";
+string s_currentLanguage = FALLBACK_LANGUAGE;
 unordered_map<string, wxString> s_strings;
 
 auto parseTranslationFile(const filesystem::path& file,
@@ -45,8 +48,28 @@ void flattenJSON(const nlohmann::json& j,
         if (value.is_object()) {
             flattenJSON(value, fullKey, out);
         } else if (value.is_string()) {
-            out[fullKey] = wxString::FromUTF8(value.get<string>());
+            const auto str = value.get<string>();
+            if (!str.empty()) {
+                // an empty value keeps whatever the fallback language already provided for this key
+                out[fullKey] = wxString::FromUTF8(str);
+            }
         }
+    }
+}
+
+/**
+ * @brief Merges <langCode>.json into the string table, overwriting keys that are already present
+ */
+void loadLanguage(const string& langCode)
+{
+    const auto translationFile = s_translationsDir / (langCode + ".json");
+    if (!filesystem::exists(translationFile)) {
+        return;
+    }
+
+    nlohmann::json j;
+    if (parseTranslationFile(translationFile, j)) {
+        flattenJSON(j, "", s_strings);
     }
 }
 
@@ -75,29 +98,26 @@ void PGLocale::init(const filesystem::path& translationsDir,
                     const string& langCode)
 {
     s_translationsDir = translationsDir;
-    s_currentLanguage = langCode.empty() ? "en" : langCode;
+    s_currentLanguage = langCode.empty() ? FALLBACK_LANGUAGE : langCode;
     s_strings.clear();
 
-    const auto translationFile = s_translationsDir / (s_currentLanguage + ".json");
-    if (!filesystem::exists(translationFile)) {
-        return;
-    }
-
-    nlohmann::json j;
-    if (parseTranslationFile(translationFile, j)) {
-        flattenJSON(j, "", s_strings);
+    // English is always the base layer so that keys missing from the active translation still resolve
+    loadLanguage(FALLBACK_LANGUAGE);
+    if (s_currentLanguage != FALLBACK_LANGUAGE) {
+        loadLanguage(s_currentLanguage);
     }
 }
 
-auto PGLocale::tr(const string& key,
-                  const char* defaultValue) -> wxString
+auto PGLocale::tr(const string& key) -> wxString
 {
     const auto it = s_strings.find(key);
-    if (it != s_strings.end() && !it->second.empty()) {
+    if (it != s_strings.end()) {
         return it->second;
     }
 
-    return wxString::FromUTF8(defaultValue);
+    // Neither the active language nor en.json provides this key: the translations folder is missing or broken. Show
+    // the key itself so the problem is visible rather than masked by a hardcoded string.
+    return wxString::FromUTF8(key);
 }
 
 auto PGLocale::getCurrentLanguage() -> string { return s_currentLanguage; }
