@@ -5,6 +5,7 @@
 - Added DPI awareness for all GUI components
 - All windows now show the PGPatcher icon in their title bar
 - Removed restriction that prevents grass meshes from being patched for PBR (CS will now support PBR grass)
+- Removed restriction that prevents rgb tint flag shapes from being patched for PBR
 - Fixed restore defaults/load config logic mismatching with enable state of save config button
 - Changed layout of some buttons in the launcher window
 - Fixed some strings not in the localization files

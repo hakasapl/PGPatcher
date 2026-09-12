@@ -232,10 +232,7 @@ auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShap
                                         [[maybe_unused]] bool singlepassMATO,
                                         const PGPlugin::ModelRecordType& modelRecordType) -> bool
 {
-    auto* const nifShader = getNIF()->GetShader(&nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
-
-    return !PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_RGB_TINT);
+    return true;
 }
 
 auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
