@@ -44,8 +44,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
                PGTr("conflictManager.title",
                     "Conflict Manager"),
                wxDefaultPosition,
-               wxSize(DEFAULT_WIDTH,
-                      DEFAULT_HEIGHT),
+               wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
     auto* pgc = PGPatcherGlobals::getPGC();
@@ -53,12 +52,15 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
         throw runtime_error("PGConfig is null");
     }
 
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
+    const int defaultBorder = FromDIP(DEFAULT_BORDER);
+
     // Main sizer for the window
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
     // Create the m_listCtrl
     m_listCtrl = new PGCheckedDragListCtrl(
-        this, wxID_ANY, wxDefaultPosition, wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT), wxLC_REPORT);
+        this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)), wxLC_REPORT);
     m_listCtrl->InsertColumn(0, PGTr("conflictManager.columns.mod", "Mod"));
     m_listCtrl->InsertColumn(1, PGTr("conflictManager.columns.shader", "Shader"));
 
@@ -148,9 +150,9 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
         "Please sort your mods to determine what mod PGPatcher uses to patch meshes where. Selecting mods will show "
         "conflicts. The mod you have selected wins over mods that are green, and loses over mods that are red.");
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    messageText->Wrap(DEFAULT_WIDTH - (2 * DEFAULT_PADDING) - HELPBTN_SIZE
-                      - DEFAULT_PADDING); // Wrap text based on dialog width with some padding
-    helpSizer->Add(messageText, 0, wxALL, DEFAULT_BORDER);
+    messageText->Wrap(FromDIP(DEFAULT_WIDTH - (2 * DEFAULT_PADDING) - HELPBTN_SIZE
+                              - DEFAULT_PADDING)); // Wrap text based on dialog width with some padding
+    helpSizer->Add(messageText, 0, wxALL, defaultBorder);
 
     // Add help ? button to the bottom right of the whole window that opens the wiki URL on click
     auto* helpButton = new wxButton(this, wxID_ANY, "?");
@@ -161,7 +163,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     helpButton->SetToolTip(PGTr("conflictManager.helpButton.tooltip", "Open the PGPatcher Mod Window wiki"));
 
-    const wxSize helpBtnSize = wxSize(HELPBTN_SIZE, HELPBTN_SIZE);
+    const wxSize helpBtnSize = FromDIP(wxSize(HELPBTN_SIZE, HELPBTN_SIZE));
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
@@ -169,7 +171,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
         wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Conflict-Manager");
     });
 
-    helpSizer->Add(helpButton, 0, wxLEFT | wxTOP | wxBOTTOM, DEFAULT_BORDER);
+    helpSizer->Add(helpButton, 0, wxLEFT | wxTOP | wxBOTTOM, defaultBorder);
 
     mainSizer->Add(helpSizer, 0, wxEXPAND | wxALL, 0);
 
@@ -179,7 +181,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     m_showAllMeshesButton->SetToolTip(
         PGTr("conflictManager.showAllMeshes.tooltip", "View all meshes, shapes, and matches regardless of conflicts"));
     m_showAllMeshesButton->Bind(wxEVT_BUTTON, &ModSortDialog::onShowAllMeshes, this);
-    mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
+    mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // Add "Use MO2 Loose File Order" checkbox
     if (pgc->getParams().ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
@@ -195,19 +197,19 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
         m_checkBoxMO2->Bind(wxEVT_CHECKBOX, &ModSortDialog::onUseMO2LooseFileOrderChange, this);
 
         // Add to main sizer
-        mainSizer->Add(m_checkBoxMO2, 0, wxALL, DEFAULT_BORDER);
+        mainSizer->Add(m_checkBoxMO2, 0, wxALL, defaultBorder);
     }
 
     // Add search box for quick contains-match filtering/selection.
     auto* searchSizer = new wxBoxSizer(wxHORIZONTAL);
     auto* searchLabel = new wxStaticText(this, wxID_ANY, PGTr("conflictManager.search.label", "Search:"));
-    searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, DEFAULT_BORDER);
+    searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
 
     m_searchCtrl = new wxTextCtrl(this, wxID_ANY);
     m_searchCtrl->SetHint(PGTr("conflictManager.search.hint", "Search mods by name..."));
     m_searchCtrl->Bind(wxEVT_TEXT, &ModSortDialog::onSearchTextChanged, this);
     searchSizer->Add(m_searchCtrl, 1, wxEXPAND, 0);
-    mainSizer->Add(searchSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
+    mainSizer->Add(searchSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // Add "Highlight New Mods" checkbox below the search bar
     m_checkBoxHighlightNewMods
@@ -215,7 +217,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     m_checkBoxHighlightNewMods->SetToolTip(PGTr("conflictManager.highlightNewMods.tooltip",
                                                 "Highlight mods that PGPatcher is seeing for the first time"));
     m_checkBoxHighlightNewMods->Bind(wxEVT_CHECKBOX, &ModSortDialog::onHighlightNewModsChange, this);
-    mainSizer->Add(m_checkBoxHighlightNewMods, 0, wxLEFT | wxRIGHT | wxBOTTOM, DEFAULT_BORDER);
+    mainSizer->Add(m_checkBoxHighlightNewMods, 0, wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // FONT for rects
     wxFont rectFont = GetFont(); // start with current font
@@ -237,7 +239,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     // Use a box sizer to center the text in the panel
     auto* topSizer = new wxBoxSizer(wxHORIZONTAL);
-    topSizer->Add(topLabel, 1, wxALIGN_CENTER | wxALL, 2);
+    topSizer->Add(topLabel, 1, wxALIGN_CENTER | wxALL, FromDIP(2));
     topPanel->SetSizer(topSizer);
 
     // Add top rectangle to main sizer
@@ -261,7 +263,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     // Center the text in the panel
     auto* bottomSizer = new wxBoxSizer(wxHORIZONTAL);
-    bottomSizer->Add(bottomLabel, 1, wxALIGN_CENTER | wxALL, 2);
+    bottomSizer->Add(bottomLabel, 1, wxALIGN_CENTER | wxALL, FromDIP(2));
     bottomPanel->SetSizer(bottomSizer);
 
     // Add bottom rectangle to main sizer
@@ -275,17 +277,18 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     rerunButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     m_rerunPatchingButton->SetFont(rerunButtonFont);
     m_rerunPatchingButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRerunPatching, this);
-    mainSizer->Add(m_rerunPatchingButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, DEFAULT_BORDER);
+    mainSizer->Add(m_rerunPatchingButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, defaultBorder);
 
     // Create button sizer for horizontal layout
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
     static constexpr int BOTTOM_BUTTON_SPACING = 8;
+    const int bottomButtonSpacing = FromDIP(BOTTOM_BUTTON_SPACING);
 
     // Add "Restore to Default Order" button
     m_restoreButton
         = new wxButton(this, wxID_ANY, PGTr("conflictManager.restoreDefaultOrder.label", "Restore Default Order"));
-    buttonSizer->Add(m_restoreButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    buttonSizer->Add(m_restoreButton, 0, wxALL, bottomButtonSpacing);
     m_restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
     m_restoreButton->SetToolTip(
         PGTr("conflictManager.restoreDefaultOrder.tooltip",
@@ -297,19 +300,19 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     // Add discard changes button
     m_discardButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.buttons.discardChanges", "Discard Changes"));
-    buttonSizer->Add(m_discardButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    buttonSizer->Add(m_discardButton, 0, wxALL, bottomButtonSpacing);
     m_discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
 
     m_discardButton->Enable(false);
 
     // Add cancel button
     auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel"));
-    buttonSizer->Add(cancelButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    buttonSizer->Add(cancelButton, 0, wxALL, bottomButtonSpacing);
     cancelButton->Bind(wxEVT_BUTTON, &ModSortDialog::onBtnClose, this);
 
     // Add apply button
     m_applyButton = new wxButton(this, wxID_APPLY, PGTr("conflictManager.buttons.apply", "Apply"));
-    buttonSizer->Add(m_applyButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    buttonSizer->Add(m_applyButton, 0, wxALL, bottomButtonSpacing);
     m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
 
     // Disable apply button by default
@@ -317,7 +320,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     // Add OK button
     auto* okButton = new wxButton(this, wxID_OK, PGTr("conflictManager.buttons.okay", "Okay"));
-    buttonSizer->Add(okButton, 0, wxALL, BOTTOM_BUTTON_SPACING);
+    buttonSizer->Add(okButton, 0, wxALL, bottomButtonSpacing);
     okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
 
     // Add to main sizer
@@ -338,13 +341,13 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     // Calculate minimum width for each column
     const int col1Width = calculateColumnWidth(1);
     m_listCtrl->SetColumnWidth(1, col1Width);
-    const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
+    const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, this);
     const int totalWidth
-        = calculateColumnWidth(0) + col1Width + (DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
+        = calculateColumnWidth(0) + col1Width + FromDIP(DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
 
     // Adjust dialog width to match the total width of columns and padding
-    SetSizeHints(MIN_WIDTH, MIN_HEIGHT, wxDefaultCoord, wxDefaultCoord); // Adjust minimum width and height
-    SetSize(totalWidth, DEFAULT_HEIGHT); // Set dialog size
+    SetSizeHints(FromDIP(MIN_WIDTH), FromDIP(MIN_HEIGHT), wxDefaultCoord, wxDefaultCoord); // Minimum width and height
+    SetSize(totalWidth, FromDIP(DEFAULT_HEIGHT)); // Set dialog size
 
     SetSizer(mainSizer);
 }
@@ -480,7 +483,7 @@ void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
     // Calculate remaining width for first column
     int col0Width = totalWidth - col1Width - 2; // optional small padding for borders
 
-    col0Width = std::max(col0Width, MIN_COL_WIDTH); // minimum width to avoid clipping
+    col0Width = std::max(col0Width, FromDIP(MIN_COL_WIDTH)); // minimum width to avoid clipping
 
     m_listCtrl->SetColumnWidth(0, col0Width);
 
@@ -740,7 +743,7 @@ auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
         dc.GetTextExtent(itemText, &width, &height);
         maxWidth = std::max(width, maxWidth);
     }
-    return maxWidth + DEFAULT_PADDING; // Add some padding
+    return maxWidth + FromDIP(DEFAULT_PADDING); // Add some padding
 }
 
 void ModSortDialog::highlightConflictingItems()

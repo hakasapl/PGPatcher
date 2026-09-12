@@ -23,6 +23,8 @@ add_executable(${EXE_NAME} WIN32
     ${HEADERS}
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.rc
     ${CMAKE_CURRENT_BINARY_DIR}/resources/meta.rc
+    # Merged into the embedded manifest by mt.exe at link time: declares the process DPI aware (see the file)
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/PGPatcher.manifest
 )
 
 #

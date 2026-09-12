@@ -31,16 +31,18 @@ PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* par
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetTransparent(ALPHA); // semi-transparent
 
-    // Compute size based on text
+    // Compute size based on text (sizes in DIPs, scaled to the monitor's DPI)
     wxClientDC dc(this);
     dc.SetFont(GetFont());
 
+    const int padding = FromDIP(PADDING);
+    const int lineSpacing = FromDIP(LINE_SPACING);
     int width = 0;
     int height = 0;
     for (const auto& line : m_lines) {
         const wxSize sz = dc.GetTextExtent(line);
-        width = std::max(width, sz.x + PADDING); // horizontal padding
-        height += sz.y + 2; // vertical padding
+        width = std::max(width, sz.x + padding); // horizontal padding
+        height += sz.y + lineSpacing; // vertical padding
     }
     SetSize(width, height);
 
@@ -60,10 +62,12 @@ void PGCheckedDragListCtrlGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& ev
     const wxSize sz = GetClientSize();
     dc.DrawRectangle(0, 0, sz.x, sz.y);
 
-    int offsetY = 2;
+    const int textIndent = FromDIP(TEXT_INDENT);
+    const int lineSpacing = FromDIP(LINE_SPACING);
+    int offsetY = lineSpacing;
     for (const auto& line : m_lines) {
-        dc.DrawText(line, 4, offsetY);
-        offsetY += dc.GetTextExtent(line).y + 2;
+        dc.DrawText(line, textIndent, offsetY);
+        offsetY += dc.GetTextExtent(line).y + lineSpacing;
     }
 }
 

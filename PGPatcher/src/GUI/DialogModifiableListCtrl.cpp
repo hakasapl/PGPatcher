@@ -13,8 +13,8 @@
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
 namespace {
+// Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
 constexpr int DIALOG_WIDTH = 300;
-constexpr int DIALOG_HEIGHT = 400;
 constexpr int DIALOG_MIN_HEIGHT = 300;
 constexpr int BORDER_SIZE = 10;
 // Initial wrap width, kept just under the client width so the first wrap is never narrower than the final one
@@ -28,8 +28,7 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
                wxID_ANY,
                title,
                wxDefaultPosition,
-               wxSize(DIALOG_WIDTH,
-                      DIALOG_HEIGHT),
+               wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
     , m_listCtrl(new PGModifiableListCtrl(this,
                                           wxID_ANY,
@@ -37,11 +36,14 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
                                           wxDefaultSize,
                                           wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
 {
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
+    const int borderSize = FromDIP(BORDER_SIZE);
+
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
     // Add static text for instructions - wraps to the dialog width so that longer translations stay visible
-    m_helpText = new PGWrappingStaticText(this, wxID_ANY, text, TEXT_WRAP_WIDTH);
-    mainSizer->Add(m_helpText, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    m_helpText = new PGWrappingStaticText(this, wxID_ANY, text, FromDIP(TEXT_WRAP_WIDTH));
+    mainSizer->Add(m_helpText, 0, wxEXPAND | wxALL, borderSize);
 
     m_listCtrl->AppendColumn("Item", wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
     m_listCtrl->SetColumnWidth(0, wxLIST_AUTOSIZE_USEHEADER);
@@ -56,16 +58,16 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
         event.Skip();
     });
 
-    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, BORDER_SIZE);
+    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, borderSize);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
     btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel")));
     btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok", "OK")));
     btnSizer->Realize();
 
-    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, BORDER_SIZE);
+    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, borderSize);
 
-    SetSizeHints(wxSize(DIALOG_WIDTH, DIALOG_MIN_HEIGHT), wxSize(-1, -1));
+    SetSizeHints(FromDIP(wxSize(DIALOG_WIDTH, DIALOG_MIN_HEIGHT)), wxSize(-1, -1));
     SetSizer(mainSizer);
     Layout();
     Fit();

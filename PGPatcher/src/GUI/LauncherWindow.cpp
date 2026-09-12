@@ -43,8 +43,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
                                      "PGPatcher %s Launcher"),
                                 PG_FULL_VERSION),
                wxDefaultPosition,
-               wxSize(MIN_WIDTH,
-                      DEFAULT_HEIGHT),
+               wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
     , m_pgc(pgc)
     , m_gameLocationLocked(false)
@@ -52,6 +51,9 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 {
     // Calculate the scrollbar width (if visible)
     static const int scrollbarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
+
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the launcher
+    const int borderSize = FromDIP(BORDER_SIZE);
 
     // Main sizer
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
@@ -61,7 +63,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 
     // Left/Right sizers
     auto* leftSizer = new wxBoxSizer(wxVERTICAL);
-    leftSizer->SetMinSize(wxSize(LEFTSIZER_MIN_SIZE, -1));
+    leftSizer->SetMinSize(wxSize(FromDIP(LEFTSIZER_MIN_SIZE), -1));
     auto* rightSizer = new wxBoxSizer(wxVERTICAL);
 
     //
@@ -83,15 +85,15 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     m_gameLocationBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseGameLocation, this);
 
     auto* gameLocationSizer = new wxBoxSizer(wxHORIZONTAL);
-    gameLocationSizer->Add(m_gameLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
-    gameLocationSizer->Add(m_gameLocationBrowseButton, 0, wxALL, BORDER_SIZE);
+    gameLocationSizer->Add(m_gameLocationTextbox, 1, wxEXPAND | wxALL, borderSize);
+    gameLocationSizer->Add(m_gameLocationBrowseButton, 0, wxALL, borderSize);
 
-    gameSizer->Add(gameLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
+    gameSizer->Add(gameLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, borderSize);
     gameSizer->Add(gameLocationSizer, 0, wxEXPAND);
 
     // Game Type
     auto* gameTypeLabel = new wxStaticText(this, wxID_ANY, PGTr("launcher.game.type.label", "Type"));
-    gameSizer->Add(gameTypeLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
+    gameSizer->Add(gameTypeLabel, 0, wxLEFT | wxRIGHT | wxTOP, borderSize);
 
     bool isFirst = true;
     for (const auto& gameType : BethesdaGame::getGameTypes()) {
@@ -104,10 +106,10 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         radio->Bind(wxEVT_RADIOBUTTON, &LauncherWindow::onGameTypeChange, this);
         isFirst = false;
         m_gameTypeRadios[gameType] = radio;
-        gameSizer->Add(radio, 0, wxALL, BORDER_SIZE);
+        gameSizer->Add(radio, 0, wxALL, borderSize);
     }
 
-    leftSizer->Add(gameSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    leftSizer->Add(gameSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Mod Manager
@@ -125,11 +127,11 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
             = new wxRadioButton(this, wxID_ANY, mmString, wxDefaultPosition, wxDefaultSize, isFirst ? wxRB_GROUP : 0);
         isFirst = false;
         m_modManagerRadios[mmType] = radio;
-        modManagerSizer->Add(radio, 0, wxALL, BORDER_SIZE);
+        modManagerSizer->Add(radio, 0, wxALL, borderSize);
         radio->Bind(wxEVT_RADIOBUTTON, &LauncherWindow::onModManagerChange, this);
     }
 
-    leftSizer->Add(modManagerSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    leftSizer->Add(modManagerSizer, 0, wxEXPAND | wxALL, borderSize);
 
     // MO2-specific controls (initially hidden)
     m_mo2OptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, PGTr("launcher.mo2Options.title", "MO2 Options"));
@@ -147,15 +149,15 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     m_mo2InstanceBrowseButton = new wxButton(this, wxID_ANY, PGTr("common.browse", "Browse"));
     m_mo2InstanceBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseMO2InstanceLocation, this);
 
-    mo2InstanceLocationSizer->Add(m_mo2InstanceLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
-    mo2InstanceLocationSizer->Add(m_mo2InstanceBrowseButton, 0, wxALL, BORDER_SIZE);
+    mo2InstanceLocationSizer->Add(m_mo2InstanceLocationTextbox, 1, wxEXPAND | wxALL, borderSize);
+    mo2InstanceLocationSizer->Add(m_mo2InstanceBrowseButton, 0, wxALL, borderSize);
 
     // Add the label and dropdown to MO2 options sizer
-    m_mo2OptionsSizer->Add(mo2InstanceLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
+    m_mo2OptionsSizer->Add(mo2InstanceLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, borderSize);
     m_mo2OptionsSizer->Add(mo2InstanceLocationSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 0);
 
     // Add MO2 options to leftSizer but hide it initially
-    modManagerSizer->Add(m_mo2OptionsSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    modManagerSizer->Add(m_mo2OptionsSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Output
@@ -167,7 +169,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         wxID_ANY,
         PGTr("launcher.output.location.help",
              "Location"));
-    outputLocationLabel->Wrap(LEFTSIZER_WRAP_SIZE);
+    outputLocationLabel->Wrap(FromDIP(LEFTSIZER_WRAP_SIZE));
     m_outputLocationTextbox = new wxTextCtrl(this, wxID_ANY);
     m_outputLocationTextbox->SetToolTip(
         PGTr("launcher.output.location.tooltip",
@@ -178,10 +180,10 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     outputLocationBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseOutputLocation, this);
 
     auto* outputLocationSizer = new wxBoxSizer(wxHORIZONTAL);
-    outputLocationSizer->Add(m_outputLocationTextbox, 1, wxEXPAND | wxALL, BORDER_SIZE);
-    outputLocationSizer->Add(outputLocationBrowseButton, 0, wxALL, BORDER_SIZE);
+    outputLocationSizer->Add(m_outputLocationTextbox, 1, wxEXPAND | wxALL, borderSize);
+    outputLocationSizer->Add(outputLocationBrowseButton, 0, wxALL, borderSize);
 
-    outputSizer->Add(outputLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
+    outputSizer->Add(outputLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, borderSize);
     outputSizer->Add(outputLocationSizer, 0, wxEXPAND);
 
     m_outputZipCheckbox = new wxCheckBox(
@@ -189,14 +191,14 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     m_outputZipCheckbox->SetToolTip(PGTr("launcher.output.zip.tooltip", "Zip the output folder after processing"));
     m_outputZipCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onOutputZipChange, this);
 
-    outputSizer->Add(m_outputZipCheckbox, 0, wxALL, BORDER_SIZE);
+    outputSizer->Add(m_outputZipCheckbox, 0, wxALL, borderSize);
 
     // Create horizontal sizer for label + combo
     auto* langSizer = new wxBoxSizer(wxHORIZONTAL);
 
     // Add label
     auto* langLabel = new wxStaticText(this, wxID_ANY, PGTr("launcher.output.pluginLang.label", "Plugin Language"));
-    langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, BORDER_SIZE);
+    langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, borderSize);
 
     wxArrayString pluginLangs;
     for (const auto& lang : PGPlugin::getAvailablePluginLangStrs()) {
@@ -214,11 +216,11 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         PGTr("launcher.output.pluginLang.tooltip",
              "Language of embedded strings in output plugin. If a translation for this language is not available for "
              "a record, the default will be used which is usually English."));
-    langSizer->Add(m_outputPluginLangCombo, 1, wxEXPAND | wxLEFT, BORDER_SIZE);
+    langSizer->Add(m_outputPluginLangCombo, 1, wxEXPAND | wxLEFT, borderSize);
 
-    outputSizer->Add(langSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    outputSizer->Add(langSizer, 0, wxEXPAND | wxALL, borderSize);
 
-    leftSizer->Add(outputSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    leftSizer->Add(outputSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Right Panel
@@ -234,9 +236,9 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     m_prePatcherFixMeshLightingCheckbox->SetToolTip(
         PGTr("launcher.prePatchers.fixMeshLighting.tooltip", "Fixes glowing meshes (For ENB users only!)"));
     m_prePatcherFixMeshLightingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPrePatcherFixMeshLightingChange, this);
-    prePatcherSizer->Add(m_prePatcherFixMeshLightingCheckbox, 0, wxALL, BORDER_SIZE);
+    prePatcherSizer->Add(m_prePatcherFixMeshLightingCheckbox, 0, wxALL, borderSize);
 
-    rightSizer->Add(prePatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(prePatcherSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Shader Patchers
@@ -247,20 +249,20 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     m_shaderPatcherParallaxCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("launcher.shaderPatchers.parallax.label", "Parallax"));
     m_shaderPatcherParallaxCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherParallaxChange, this);
-    shaderPatcherSizer->Add(m_shaderPatcherParallaxCheckbox, 0, wxALL, BORDER_SIZE);
+    shaderPatcherSizer->Add(m_shaderPatcherParallaxCheckbox, 0, wxALL, borderSize);
 
     m_shaderPatcherComplexMaterialCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("launcher.shaderPatchers.complexMaterial.label", "Complex Material"));
     m_shaderPatcherComplexMaterialCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherComplexMaterialChange, this);
-    shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialCheckbox, 0, wxALL, BORDER_SIZE);
+    shaderPatcherSizer->Add(m_shaderPatcherComplexMaterialCheckbox, 0, wxALL, borderSize);
 
     m_shaderPatcherTruePBRCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("launcher.shaderPatchers.truePBR.label", "TruePBR (CS Only)"));
     m_shaderPatcherTruePBRCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onShaderPatcherTruePBRChange, this);
-    shaderPatcherSizer->Add(m_shaderPatcherTruePBRCheckbox, 0, wxALL, BORDER_SIZE);
+    shaderPatcherSizer->Add(m_shaderPatcherTruePBRCheckbox, 0, wxALL, borderSize);
 
-    rightSizer->Add(shaderPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(shaderPatcherSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Shader Transforms
@@ -276,9 +278,9 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
              "recommended)"));
     m_shaderTransformParallaxToCMCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onShaderTransformParallaxToCMChange, this);
-    shaderTransformSizer->Add(m_shaderTransformParallaxToCMCheckbox, 0, wxALL, BORDER_SIZE);
+    shaderTransformSizer->Add(m_shaderTransformParallaxToCMCheckbox, 0, wxALL, borderSize);
 
-    rightSizer->Add(shaderTransformSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(shaderTransformSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Post-Patchers
@@ -296,14 +298,14 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
              "replaces auto parallax functionality)"));
     m_postPatcherRestoreDefaultShadersCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherRestoreDefaultShadersChange, this);
-    postPatcherSizer->Add(m_postPatcherRestoreDefaultShadersCheckbox, 0, wxALL, BORDER_SIZE);
+    postPatcherSizer->Add(m_postPatcherRestoreDefaultShadersCheckbox, 0, wxALL, borderSize);
 
     m_postPatcherFixSSSCheckbox = new wxCheckBox(
         this, wxID_ANY, PGTr("launcher.postPatchers.fixSSS.label", "Fix Vanilla Subsurface Scattering"));
     m_postPatcherFixSSSCheckbox->SetToolTip(
         PGTr("launcher.postPatchers.fixSSS.tooltip", "Fixes subsurface scattering in meshes, especially foliage"));
     m_postPatcherFixSSSCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherFixSSSChange, this);
-    postPatcherSizer->Add(m_postPatcherFixSSSCheckbox, 0, wxALL, BORDER_SIZE);
+    postPatcherSizer->Add(m_postPatcherFixSSSCheckbox, 0, wxALL, borderSize);
 
     m_postPatcherHairFlowMapCheckbox = new wxCheckBox(
         this, wxID_ANY, PGTr("launcher.postPatchers.hairFlowMap.label", "Add Hair Flow Map (CS Only)"));
@@ -311,15 +313,15 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         PGTr("launcher.postPatchers.hairFlowMap.tooltip",
              "Adds flow maps to texture sets for those that match the normal texture"));
     m_postPatcherHairFlowMapCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onPostPatcherHairFlowMapChange, this);
-    postPatcherSizer->Add(m_postPatcherHairFlowMapCheckbox, 0, wxALL, BORDER_SIZE);
+    postPatcherSizer->Add(m_postPatcherHairFlowMapCheckbox, 0, wxALL, borderSize);
 
-    rightSizer->Add(postPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(postPatcherSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Global Patchers
     //
     // auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
-    // rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    // rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Processing and RUN buttons
@@ -332,7 +334,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     restoreDefaultsButtonFont.SetPointSize(BUTTON_FONT_SIZE);
     restoreDefaultsButton->SetFont(restoreDefaultsButtonFont);
     restoreDefaultsButton->Bind(wxEVT_BUTTON, &LauncherWindow::onRestoreDefaultsButtonPressed, this);
-    rightSizer->Add(restoreDefaultsButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(restoreDefaultsButton, 0, wxEXPAND | wxALL, borderSize);
 
     // Load config button
     m_loadConfigButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.loadConfig", "Load Config"));
@@ -340,7 +342,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     loadConfigButtonFont.SetPointSize(BUTTON_FONT_SIZE);
     m_loadConfigButton->SetFont(loadConfigButtonFont);
     m_loadConfigButton->Bind(wxEVT_BUTTON, &LauncherWindow::onLoadConfigButtonPressed, this);
-    rightSizer->Add(m_loadConfigButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(m_loadConfigButton, 0, wxEXPAND | wxALL, borderSize);
 
     // Save config button
     m_saveConfigButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.saveConfig", "Save Config"));
@@ -348,11 +350,11 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     saveConfigButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     m_saveConfigButton->SetFont(saveConfigButtonFont);
     m_saveConfigButton->Bind(wxEVT_BUTTON, &LauncherWindow::onSaveConfigButtonPressed, this);
-    rightSizer->Add(m_saveConfigButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(m_saveConfigButton, 0, wxEXPAND | wxALL, borderSize);
 
     // Add a horizontal line
     auto* separatorLine = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
-    rightSizer->Add(separatorLine, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(separatorLine, 0, wxEXPAND | wxALL, borderSize);
 
     // cancel button on the right side
     auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel"));
@@ -360,7 +362,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     cancelButtonFont.SetPointSize(BUTTON_FONT_SIZE); // Set font size to 12
     cancelButton->SetFont(cancelButtonFont);
     cancelButton->Bind(wxEVT_BUTTON, &LauncherWindow::onCancelButtonPressed, this);
-    rightSizer->Add(cancelButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(cancelButton, 0, wxEXPAND | wxALL, borderSize);
 
     // Start Patching button on the right side
     m_okButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.startPatching", "Start Patching"));
@@ -373,7 +375,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
                                 "replaced)"));
     m_okButton->Bind(wxEVT_BUTTON, &LauncherWindow::onOkButtonPressed, this);
     Bind(wxEVT_CLOSE_WINDOW, &LauncherWindow::onClose, this);
-    rightSizer->Add(m_okButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(m_okButton, 0, wxEXPAND | wxALL, borderSize);
 
     // Update Output button below it (only enabled when the output location holds a previous output)
     m_updateOutputButton = new wxButton(this, wxID_ANY, PGTr("launcher.buttons.updateOutput", "Update Output"));
@@ -386,7 +388,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
              "was generated are patched again. Available when the output location contains a previous output and zip "
              "output is disabled."));
     m_updateOutputButton->Bind(wxEVT_BUTTON, &LauncherWindow::onUpdateOutputButtonPressed, this);
-    rightSizer->Add(m_updateOutputButton, 0, wxEXPAND | wxALL, BORDER_SIZE);
+    rightSizer->Add(m_updateOutputButton, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Processing
@@ -399,8 +401,8 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         PGTr("launcher.processing.help",
              "These options are used to customize output generation. Avoid changing these unless you know what you "
              "are doing."));
-    processingHelpText->Wrap(LEFTSIZER_WRAP_SIZE);
-    m_processingOptionsSizer->Add(processingHelpText, 0, wxLEFT | wxRIGHT | wxTOP, BORDER_SIZE);
+    processingHelpText->Wrap(FromDIP(LEFTSIZER_WRAP_SIZE));
+    m_processingOptionsSizer->Add(processingHelpText, 0, wxLEFT | wxRIGHT | wxTOP, borderSize);
 
     auto* processingOptionsHorizontalSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -409,22 +411,22 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     auto* btnOpenDialogRecTypeSelector
         = new wxButton(this, wxID_ANY, PGTr("launcher.processing.allowedRecordTypes", "Allowed Record Types"));
     btnOpenDialogRecTypeSelector->Bind(wxEVT_BUTTON, &LauncherWindow::onSelectPluginTypesBtn, this);
-    processingButtonsSizer->Add(btnOpenDialogRecTypeSelector, 0, wxALL | wxEXPAND, BORDER_SIZE);
+    processingButtonsSizer->Add(btnOpenDialogRecTypeSelector, 0, wxALL | wxEXPAND, borderSize);
 
     auto* btnOpenDialogMeshAllowlist
         = new wxButton(this, wxID_ANY, PGTr("launcher.processing.meshAllowlist", "Mesh Allowlist"));
     btnOpenDialogMeshAllowlist->Bind(wxEVT_BUTTON, &LauncherWindow::onMeshRulesAllowBtn, this);
-    processingButtonsSizer->Add(btnOpenDialogMeshAllowlist, 0, wxALL | wxEXPAND, BORDER_SIZE);
+    processingButtonsSizer->Add(btnOpenDialogMeshAllowlist, 0, wxALL | wxEXPAND, borderSize);
 
     auto* btnOpenDialogMeshBlocklist
         = new wxButton(this, wxID_ANY, PGTr("launcher.processing.meshBlocklist", "Mesh Blocklist"));
     btnOpenDialogMeshBlocklist->Bind(wxEVT_BUTTON, &LauncherWindow::onMeshRulesBlockBtn, this);
-    processingButtonsSizer->Add(btnOpenDialogMeshBlocklist, 0, wxALL | wxEXPAND, BORDER_SIZE);
+    processingButtonsSizer->Add(btnOpenDialogMeshBlocklist, 0, wxALL | wxEXPAND, borderSize);
 
     auto* btnOpenDialogTextureMaps
         = new wxButton(this, wxID_ANY, PGTr("launcher.processing.textureRules", "Texture Rules"));
     btnOpenDialogTextureMaps->Bind(wxEVT_BUTTON, &LauncherWindow::onTextureRulesTextureMapsBtn, this);
-    processingButtonsSizer->Add(btnOpenDialogTextureMaps, 0, wxALL | wxEXPAND, BORDER_SIZE);
+    processingButtonsSizer->Add(btnOpenDialogTextureMaps, 0, wxALL | wxEXPAND, borderSize);
 
     processingOptionsHorizontalSizer->Add(processingButtonsSizer, 0, wxALL, 0);
 
@@ -435,7 +437,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     m_processingMultithreadingCheckbox->SetToolTip(
         PGTr("launcher.processing.multithreading.tooltip", "Speeds up runtime at the cost of using more resources"));
     m_processingMultithreadingCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingMultithreadingChange, this);
-    processingCheckboxSizer->Add(m_processingMultithreadingCheckbox, 0, wxALL, BORDER_SIZE);
+    processingCheckboxSizer->Add(m_processingMultithreadingCheckbox, 0, wxALL, borderSize);
 
     m_processingEnableDevModeCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("launcher.processing.devMode.label", "Enable Mod Dev Mode"));
@@ -443,7 +445,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         PGTr("launcher.processing.devMode.tooltip",
              "Enables certain warnings to help those developing mods to work with PGPatcher"));
     m_processingEnableDevModeCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDevModeChange, this);
-    processingCheckboxSizer->Add(m_processingEnableDevModeCheckbox, 0, wxALL, BORDER_SIZE);
+    processingCheckboxSizer->Add(m_processingEnableDevModeCheckbox, 0, wxALL, borderSize);
 
     m_processingEnableDebugLoggingCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("launcher.processing.debugLogging.label", "Enable Debug Logging"));
@@ -451,7 +453,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         PGTr("launcher.processing.debugLogging.tooltip", "Enables debug logging in the output log"));
     m_processingEnableDebugLoggingCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableDebugLoggingChange, this);
-    processingCheckboxSizer->Add(m_processingEnableDebugLoggingCheckbox, 0, wxALL, BORDER_SIZE);
+    processingCheckboxSizer->Add(m_processingEnableDebugLoggingCheckbox, 0, wxALL, borderSize);
 
     m_processingEnableTraceLoggingCheckbox
         = new wxCheckBox(this, wxID_ANY, PGTr("launcher.processing.traceLogging.label", "Enable Trace Logging"));
@@ -459,13 +461,13 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
         PGTr("launcher.processing.traceLogging.tooltip", "Enables trace logging in the output log (very verbose)"));
     m_processingEnableTraceLoggingCheckbox->Bind(
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableTraceLoggingChange, this);
-    processingCheckboxSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, BORDER_SIZE);
+    processingCheckboxSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, borderSize);
 
-    processingOptionsHorizontalSizer->Add(processingCheckboxSizer, 0, wxALL, BORDER_SIZE);
+    processingOptionsHorizontalSizer->Add(processingCheckboxSizer, 0, wxALL, borderSize);
 
     m_processingOptionsSizer->Add(processingOptionsHorizontalSizer, 0, wxALL, 0);
 
-    leftSizer->Add(m_processingOptionsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
+    leftSizer->Add(m_processingOptionsSizer, 1, wxEXPAND | wxALL, borderSize);
 
     // Add help ? button to the bottom right of the whole window that opens the wiki URL on click
     auto* helpButton = new wxButton(this, wxID_ANY, "?");
@@ -476,7 +478,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
 
     helpButton->SetToolTip(PGTr("launcher.helpButton.tooltip", "Open the PGPatcher wiki"));
 
-    const wxSize helpBtnSize = wxSize(HELPBTN_SIZE, HELPBTN_SIZE);
+    const wxSize helpBtnSize = FromDIP(wxSize(HELPBTN_SIZE, HELPBTN_SIZE));
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
@@ -514,11 +516,11 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     settingsButton->Bind(wxEVT_BUTTON, &LauncherWindow::onSettingsButtonPressed, this);
 
     auto* bottomButtonSizer = new wxBoxSizer(wxHORIZONTAL);
-    bottomButtonSizer->Add(helpButton, 0, wxRIGHT, BORDER_SIZE);
+    bottomButtonSizer->Add(helpButton, 0, wxRIGHT, borderSize);
     bottomButtonSizer->Add(settingsButton, 0, 0, 0);
 
     rightSizer->AddStretchSpacer(1);
-    rightSizer->Add(bottomButtonSizer, 0, wxALL | wxALIGN_LEFT, BORDER_SIZE);
+    rightSizer->Add(bottomButtonSizer, 0, wxALL | wxALIGN_LEFT, borderSize);
 
     //
     // Finalize
@@ -527,12 +529,13 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     columnsSizer->Add(leftSizer, 1, wxEXPAND | wxALL, 0);
     columnsSizer->Add(rightSizer, 0, wxEXPAND | wxALL, 0);
 
-    mainSizer->Add(columnsSizer, 1, wxEXPAND | wxALL, BORDER_SIZE);
+    mainSizer->Add(columnsSizer, 1, wxEXPAND | wxALL, borderSize);
 
     SetSizerAndFit(mainSizer);
     const auto curSize = GetSize();
-    SetSize(MIN_WIDTH, curSize.GetY());
-    SetSizeHints(wxSize(MIN_WIDTH, curSize.GetY()), wxSize(-1, curSize.GetY()));
+    const int minWidth = FromDIP(MIN_WIDTH);
+    SetSize(minWidth, curSize.GetY());
+    SetSizeHints(wxSize(minWidth, curSize.GetY()), wxSize(-1, curSize.GetY()));
 
     Bind(wxEVT_INIT_DIALOG, &LauncherWindow::onInitDialog, this);
 }

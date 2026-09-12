@@ -12,8 +12,8 @@
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
 
 namespace {
+// Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
 constexpr int DIALOG_WIDTH = 300;
-constexpr int DIALOG_HEIGHT = 400;
 constexpr int DIALOG_MIN_HEIGHT = 300;
 constexpr int DIALOG_MAX_HEIGHT = 1000;
 constexpr int BORDER_SIZE = 10;
@@ -27,10 +27,12 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
                wxID_ANY,
                title,
                wxDefaultPosition,
-               wxSize(DIALOG_WIDTH,
-                      DIALOG_HEIGHT),
+               wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
+    const int borderSize = FromDIP(BORDER_SIZE);
+
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
     // Add static text for instructions - wraps to the dialog width so that longer translations stay visible
@@ -40,8 +42,8 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
         PGTr("dialogs.recTypeSelector.description",
              "Unchecking a record type will exclude it and its associated meshes from being patched. Only record types "
              "with models are shown."),
-        TEXT_WRAP_WIDTH);
-    mainSizer->Add(instructionText, 0, wxEXPAND | wxALL, BORDER_SIZE);
+        FromDIP(TEXT_WRAP_WIDTH));
+    mainSizer->Add(instructionText, 0, wxEXPAND | wxALL, borderSize);
 
     m_listCtrl = new wxListCtrl(
         this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_ALIGN_LEFT | wxLC_NO_HEADER);
@@ -94,16 +96,17 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
         event.Skip(); // important
     });
 
-    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, BORDER_SIZE);
+    mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, borderSize);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
     btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel", "Cancel")));
     btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok", "OK")));
     btnSizer->Realize();
 
-    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, BORDER_SIZE);
+    mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, borderSize);
 
-    SetSizeHints(wxSize(DIALOG_WIDTH, DIALOG_MIN_HEIGHT), wxSize(DIALOG_WIDTH, -1));
+    const int dialogWidth = FromDIP(DIALOG_WIDTH);
+    SetSizeHints(wxSize(dialogWidth, FromDIP(DIALOG_MIN_HEIGHT)), wxSize(dialogWidth, -1));
     SetSizer(mainSizer);
     Layout();
     Fit();
@@ -133,9 +136,10 @@ void DialogRecTypeSelector::populateList(const std::unordered_set<PGPlugin::Mode
     // because the instruction text needs a different number of lines in each language
     const int chromeHeight = GetSize().GetHeight() - m_listCtrl->GetSize().GetHeight();
     const int itemHeight = rect.GetHeight();
-    const int desiredHeight = static_cast<int>(m_listCtrl->GetItemCount() * itemHeight) + chromeHeight + BORDER_SIZE;
+    const int desiredHeight
+        = static_cast<int>(m_listCtrl->GetItemCount() * itemHeight) + chromeHeight + FromDIP(BORDER_SIZE);
     // Cap the height to avoid an excessively large dialog
-    SetSize(wxSize(GetSize().x, std::min(desiredHeight, DIALOG_MAX_HEIGHT)));
+    SetSize(wxSize(GetSize().x, std::min(desiredHeight, FromDIP(DIALOG_MAX_HEIGHT))));
 }
 
 auto DialogRecTypeSelector::getSelectedRecordTypes() const -> std::unordered_set<PGPlugin::ModelRecordType>

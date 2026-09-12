@@ -110,6 +110,7 @@ private:
     /// default).
     bool m_showMismatches = false;
 
+    // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
     constexpr static int DEFAULT_WIDTH = 1100;
     constexpr static int DEFAULT_HEIGHT = 650;
     constexpr static int DEFAULT_BORDER = 5;

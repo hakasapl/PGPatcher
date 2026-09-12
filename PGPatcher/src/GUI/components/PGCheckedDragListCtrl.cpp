@@ -200,7 +200,7 @@ void PGCheckedDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
         }
 
         m_ghost = new PGCheckedDragListCtrlGhostWindow(nullptr, combinedText);
-        const wxPoint pos = ClientToScreen(event.GetPosition() + wxPoint(4, 4));
+        const wxPoint pos = ClientToScreen(event.GetPosition() + FromDIP(wxPoint(4, 4)));
         m_ghost->Move(pos);
 
         // We initially hide the ghost until we start moving
@@ -224,7 +224,7 @@ void PGCheckedDragListCtrl::onMouseMotion(wxMouseEvent& event)
 
     // Update ghost position
     if (m_ghost != nullptr) {
-        const wxPoint pos = ClientToScreen(event.GetPosition() + wxPoint(4, 4));
+        const wxPoint pos = ClientToScreen(event.GetPosition() + FromDIP(wxPoint(4, 4)));
         m_ghost->updatePosition(pos);
         m_ghost->Show();
     }
@@ -307,8 +307,10 @@ void PGCheckedDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
 
 void PGCheckedDragListCtrl::onAutoscrollTimer([[maybe_unused]] wxTimerEvent& event)
 {
-    static constexpr int AUTOSCROLL_MARGIN = 30; /** Margin in pixels to trigger autoscroll */
-    static constexpr int AUTOSCROLL_HEADER_SIZE = 30; /** Header size in pixels to offset autoscroll */
+    static constexpr int AUTOSCROLL_MARGIN = 30; /** Margin in DIPs to trigger autoscroll */
+    static constexpr int AUTOSCROLL_HEADER_SIZE = 30; /** Header size in DIPs to offset autoscroll */
+    const int autoscrollMargin = FromDIP(AUTOSCROLL_MARGIN);
+    const int autoscrollHeaderSize = FromDIP(AUTOSCROLL_HEADER_SIZE);
 
     // Get the current mouse position relative to the m_listCtrl
     const wxPoint mousePos = ScreenToClient(wxGetMousePosition());
@@ -318,10 +320,10 @@ void PGCheckedDragListCtrl::onAutoscrollTimer([[maybe_unused]] wxTimerEvent& eve
     if (listCtrlRect.Contains(mousePos)) {
         const int mouseY = mousePos.y;
 
-        if (mouseY < listCtrlRect.GetTop() + AUTOSCROLL_MARGIN + AUTOSCROLL_HEADER_SIZE) {
+        if (mouseY < listCtrlRect.GetTop() + autoscrollMargin + autoscrollHeaderSize) {
             // Scroll up if the mouse is near the top edge
             ScrollLines(-1);
-        } else if (mouseY > listCtrlRect.GetBottom() - AUTOSCROLL_MARGIN) {
+        } else if (mouseY > listCtrlRect.GetBottom() - autoscrollMargin) {
             // Scroll down if the mouse is near the bottom edge
             ScrollLines(1);
         }
