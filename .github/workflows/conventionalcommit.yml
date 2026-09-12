@@ -1,10 +1,17 @@
 name: Conventional Commit Validation
 
+# pull_request_target, not pull_request, so that labelling also works on pull
+# requests from forks, where GITHUB_TOKEN is read only. Nothing here checks out
+# or runs the pull request's code - it only reads the title from the event
+# payload - so the usual pull_request_target risk does not apply.
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - main
     types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: write
 
 jobs:
   validate-pr-title:
