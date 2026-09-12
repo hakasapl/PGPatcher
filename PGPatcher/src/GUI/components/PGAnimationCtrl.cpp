@@ -1,9 +1,8 @@
 #include "GUI/components/PGAnimationCtrl.hpp"
 
+#include <wx/bitmap.h>
 #include <wx/dcclient.h>
-#include <wx/graphics.h>
-
-#include <memory>
+#include <wx/image.h>
 
 // Disable convert member functions to static because these functions need to be non-static for wxWidgets
 // NOLINTBEGIN(readability-convert-member-functions-to-static)
@@ -39,13 +38,14 @@ void PGAnimationCtrl::onPaint([[maybe_unused]] wxPaintEvent& event)
     if (m_backingStore.IsOk()) {
         // The backing store always holds the current frame at the animation's own size
         const wxSize drawSize = FromDIP(m_backingStore.GetSize());
-        const std::unique_ptr<wxGraphicsContext> gc(wxGraphicsContext::Create(dc));
-        if (gc != nullptr) {
-            gc->SetInterpolationQuality(wxINTERPOLATION_BEST);
-            gc->DrawBitmap(m_backingStore, 0, 0, drawSize.GetWidth(), drawSize.GetHeight());
-        } else {
-            dc.SetUserScale(GetDPIScaleFactor(), GetDPIScaleFactor());
+        if (drawSize == m_backingStore.GetSize()) {
             dc.DrawBitmap(m_backingStore, 0, 0, false);
+        } else {
+            // Scaled with wxImage rather than with a wxGraphicsContext: GDI+ blends the edge pixels of the source with
+            // the transparent area outside of it, which draws a visible one pixel fringe around the animation
+            const wxImage scaledFrame = m_backingStore.ConvertToImage().Scale(
+                drawSize.GetWidth(), drawSize.GetHeight(), wxIMAGE_QUALITY_HIGH);
+            dc.DrawBitmap(wxBitmap(scaledFrame), 0, 0, false);
         }
     } else {
         // No valid animation, so no backing store: clear to the background colour

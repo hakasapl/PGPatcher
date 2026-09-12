@@ -23,7 +23,8 @@ add_executable(${EXE_NAME} WIN32
     ${HEADERS}
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.rc
     ${CMAKE_CURRENT_BINARY_DIR}/resources/meta.rc
-    # Merged into the embedded manifest by mt.exe at link time: declares the process DPI aware (see the file)
+    # Declares the process DPI aware (see the file). CMake passes .manifest sources of an executable to mt.exe, which
+    # merges them into the manifest embedded at link time; this works with every generator (Ninja included)
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/PGPatcher.manifest
 )
 
