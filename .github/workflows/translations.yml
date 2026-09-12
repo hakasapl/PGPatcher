@@ -1,0 +1,61 @@
+name: Translation Badges
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "PGPatcher/translations/**"
+      - "scripts/translation_badges.py"
+      - ".github/workflows/translations.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: translation-badges-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  badges:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Pull Request Branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Regenerate Badges
+        run: |
+          python scripts/translation_badges.py --write --summary >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_ENV"
+          else
+            echo "changed=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Commit Badges To Pull Request
+        if: env.changed == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: update translation coverage badges"
+          git push origin HEAD:"${{ github.event.pull_request.head.ref }}"
+
+      - name: Report Fork Pull Request
+        if: env.changed == 'true' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          {
+            echo ""
+            echo "> This pull request changes translation coverage, but badges cannot be"
+            echo "> committed to a fork branch. Run \`python scripts/translation_badges.py --write\`"
+            echo "> locally, or regenerate them after merging."
+          } >> "$GITHUB_STEP_SUMMARY"
+          git --no-pager diff
