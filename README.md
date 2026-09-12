@@ -1,10 +1,12 @@
 <p align="center"><img width="200" alt="image" src="https://raw.githubusercontent.com/hakasapl/PGPatcher/refs/heads/main/nexus/icon-highres.png" /></p>
 
-<h1 align="center">PGPatcher - Mesh and Texture Patcher for Skyrim</h1>
+# PGPatcher
+
+PGPatcher is a mesh and texture dynamic patcher for the Elder Scrolls V: Skyrim Special Edition. A more detailed description can be found on [Nexus Mods](https://www.nexusmods.com/skyrimspecialedition/mods/120946).
 
 ## Resources and Documentation
 
-### [Nexus Mods](https://www.nexusmods.com/skyrimspecialedition/mods/120946) - A better user-facing description is available on Nexus.
+### [Nexus Mods](https://www.nexusmods.com/skyrimspecialedition/mods/120946)
 ### [Wiki](https://github.com/hakasapl/PGPatcher/wiki)
 
 ## Contributing
