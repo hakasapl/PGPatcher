@@ -31,7 +31,7 @@ PGPatcher has several non-English localizations supported by the community. Engl
 <!-- translations:start -->
 [![Русский translation coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhakasapl%2FPGPatcher%2Fmain%2F.github%2Fbadges%2Ftranslations%2Fru.json)](https://github.com/hakasapl/PGPatcher/blob/main/.github/badges/translations/ru.md)  
 [![Türkçe translation coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhakasapl%2FPGPatcher%2Fmain%2F.github%2Fbadges%2Ftranslations%2Ftr.json)](https://github.com/hakasapl/PGPatcher/blob/main/.github/badges/translations/tr.md)  
-[![简体中文 translation coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhakasapl%2FPGPatcher%2Fmain%2F.github%2Fbadges%2Ftranslations%2Fzh_cn.json)](https://github.com/hakasapl/PGPatcher/blob/main/.github/badges/translations/zh_cn.md)  
+[![简体中文 translation coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhakasapl%2FPGPatcher%2Fmain%2F.github%2Fbadges%2Ftranslations%2Fzh_cn.json)](https://github.com/hakasapl/PGPatcher/blob/main/.github/badges/translations/zh_cn.md)
 <!-- translations:end -->
 
 ## Contributors

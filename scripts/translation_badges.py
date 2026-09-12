@@ -160,7 +160,11 @@ def collect() -> list[Language]:
 
 
 def render_readme_block(languages: list[Language]) -> str:
-    badges = "\n".join(language.markdown() for language in languages)
+    # A markdown hard line break after each badge, so they stack instead of being
+    # soft wrapped into one paragraph. The trailing spaces are load bearing: the
+    # trailing-whitespace hook is configured with --markdown-linebreak-ext=md to
+    # keep them.
+    badges = "  \n".join(language.markdown() for language in languages)
     return f"{MARKER_START}\n{badges}\n{MARKER_END}"
 
 
