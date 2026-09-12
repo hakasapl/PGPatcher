@@ -23,4 +23,4 @@ PGPatcher has several non-English localizations supported by the community. Engl
 [![简体中文 translation coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhakasapl%2FPGPatcher%2Fmain%2F.github%2Fbadges%2Ftranslations%2Fzh_cn.json)](https://github.com/hakasapl/PGPatcher/blob/main/.github/badges/translations/zh_cn.md)
 <!-- translations:end -->
 
-<p align="center"><img width="150" alt="image" src="https://raw.githubusercontent.com/hakasapl/PGPatcher/refs/heads/main/nexus/icon-highres.png" /></p>
+<p align="center"><img width="150" alt="image" src="https://raw.githubusercontent.com/hakasapl/PGPatcher/refs/heads/main/nexus/icon-highres.png" /><img width="150" alt="image" src="https://raw.githubusercontent.com/hakasapl/PGPatcher/refs/heads/upddocs/PGPatcher/resources/runningparallaxgen.gif" /></p>
