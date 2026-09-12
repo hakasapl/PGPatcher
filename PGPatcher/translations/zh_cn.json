@@ -157,7 +157,22 @@
       "message": "确定要恢复默认设置吗？此操作无法撤销。"
     },
     "validation": {
-      "mo2RelativeGamePath": "无法从 MO2 解析相对游戏路径 - 请确保你已从 MO2 启动 PGPatcher"
+      "gameLocationRequired": "游戏位置为必填项",
+      "gameLocationInvalid": "游戏位置无效。请确认游戏类型和位置正确。",
+      "mo2RelativeGamePath": "无法从 MO2 解析相对游戏路径 - 请确保你已从 MO2 启动 PGPatcher",
+      "mo2InstanceRequired": "MO2 实例位置为必填项",
+      "mo2InstanceMissing": "MO2 实例位置不存在",
+      "mo2InstanceInvalid": "MO2 实例位置无效。请确认目录中存在 modorganizer.ini。",
+      "outputLocationRequired": "输出位置为必填项",
+      "parallaxToCMRequiresPatchers": "将视差升级为复杂材质需要同时启用复杂材质和视差着色器补丁",
+      "meshAllowListEmptyEntry": "网格白名单中存在空条目",
+      "meshAllowListDuplicate": "网格白名单中存在重复条目：%s",
+      "meshBlockListEmptyEntry": "网格黑名单中存在空条目",
+      "meshBlockListDuplicate": "网格黑名单中存在重复条目：%s",
+      "textureRulesEmptyKey": "贴图规则中存在空键",
+      "textureRulesDuplicate": "贴图规则中存在重复条目：%s",
+      "vanillaBSAListEmptyEntry": "原版 BSA 列表中存在空条目",
+      "vanillaBSAListDuplicate": "原版 BSA 列表中存在重复条目：%s"
     }
   },
   "dialogs": {
