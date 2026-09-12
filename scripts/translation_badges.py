@@ -160,7 +160,9 @@ def collect() -> list[Language]:
 
 
 def render_readme_block(languages: list[Language]) -> str:
-    badges = "\n".join(language.markdown() for language in languages)
+    # Blank lines between the badges, so each one renders on its own line rather
+    # than being soft wrapped into a single paragraph.
+    badges = "\n\n".join(language.markdown() for language in languages)
     return f"{MARKER_START}\n{badges}\n{MARKER_END}"
 
 
