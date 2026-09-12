@@ -6,6 +6,7 @@
 #include "PGModManager.hpp"
 #include "PGPatcher.hpp"
 #include "PGPatcherGlobals.hpp"
+#include "PGUI.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "util/StringUtil.hpp"
@@ -64,6 +65,8 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     , m_filterMods(filterMods)
     , m_showOnlyConflicts(!showAllMeshes)
 {
+    SetIcons(PGUI::getAppIcons());
+
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
     const wxSize defaultSize = FromDIP(wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT));
     SetSize(defaultSize);

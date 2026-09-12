@@ -4,6 +4,7 @@
 #include "GUI/components/PGModifiableListCtrl.hpp"
 #include "GUI/components/PGWrappingStaticText.hpp"
 #include "PGLocale.hpp"
+#include "PGUI.hpp"
 
 #include <string>
 #include <vector>
@@ -36,6 +37,8 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
                                           wxDefaultSize,
                                           wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
 {
+    SetIcons(PGUI::getAppIcons());
+
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
     const int borderSize = FromDIP(BORDER_SIZE);
 

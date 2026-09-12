@@ -12,6 +12,7 @@
 #include "PGModManager.hpp"
 #include "PGPatcher.hpp"
 #include "PGPatcherGlobals.hpp"
+#include "PGUI.hpp"
 #include "pgutil/PGEnums.hpp"
 
 #include <wx/gdicmn.h>
@@ -51,6 +52,8 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     if (pgc == nullptr) {
         throw runtime_error("PGConfig is null");
     }
+
+    SetIcons(PGUI::getAppIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
     const int defaultBorder = FromDIP(DEFAULT_BORDER);

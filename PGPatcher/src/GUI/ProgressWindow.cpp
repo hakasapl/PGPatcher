@@ -2,12 +2,12 @@
 #include "GUI/components/PGAnimationCtrl.hpp"
 #include "PGLocale.hpp"
 #include "PGPatcherGlobals.hpp"
+#include "PGUI.hpp"
 
 #include <wx/animate.h>
 #include <wx/button.h>
 #include <wx/dialog.h>
 #include <wx/gauge.h>
-#include <wx/iconbndl.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
@@ -29,8 +29,7 @@ ProgressWindow::ProgressWindow()
                       150),
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
 {
-    // Every size of the icon resource, so that the title bar and the taskbar get the size matching the monitor's DPI
-    SetIcons(wxIconBundle("IDI_ICON1", nullptr));
+    SetIcons(PGUI::getAppIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the window
     const int border = FromDIP(10);

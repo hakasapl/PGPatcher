@@ -2,6 +2,8 @@
 
 #include "PGConfig.hpp"
 
+#include <wx/iconbndl.h>
+
 #include <string>
 
 class PGUI {
@@ -38,4 +40,12 @@ public:
      * @brief Shows the mod selection dialog to the user (Hangs thread until user presses okay)
      */
     static void selectModOrder();
+
+    /**
+     * @brief PGPatcher application icon in every size of the icon resource, meant for wxTopLevelWindow::SetIcons so
+     *        that the title bar and the taskbar entry of a window get the size matching the monitor's DPI
+     *
+     * @return wxIconBundle application icons
+     */
+    static auto getAppIcons() -> wxIconBundle;
 };

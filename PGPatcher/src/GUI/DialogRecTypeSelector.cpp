@@ -3,6 +3,7 @@
 #include "GUI/components/PGWrappingStaticText.hpp"
 #include "PGLocale.hpp"
 #include "PGPlugin.hpp"
+#include "PGUI.hpp"
 
 #include <algorithm>
 #include <unordered_set>
@@ -30,6 +31,8 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
+    SetIcons(PGUI::getAppIcons());
+
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
     const int borderSize = FromDIP(BORDER_SIZE);
 
