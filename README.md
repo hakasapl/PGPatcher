@@ -1,5 +1,3 @@
-<p align="center"><img width="200" alt="image" src="https://raw.githubusercontent.com/hakasapl/PGPatcher/refs/heads/main/nexus/icon-highres.png" /></p>
-
 # PGPatcher
 
 A dynamic mesh and texture patcher for the Elder Scrolls V: Skyrim.
