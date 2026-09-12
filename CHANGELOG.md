@@ -3,6 +3,7 @@
 ## [2.1.0] - UNRELEASED
 
 - Added DPI awareness for all GUI components
+- All windows now show the PGPatcher icon in their title bar
 - Removed restriction that prevents grass meshes from being patched for PBR (CS will now support PBR grass)
 
 ## [2.0.0] - 2026-09-10

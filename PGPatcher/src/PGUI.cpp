@@ -6,6 +6,7 @@
 #include "PGPatcherGlobals.hpp"
 
 #include <boost/algorithm/string/join.hpp>
+#include <wx/iconbndl.h>
 #include <wx/settings.h>
 #include <wx/wx.h>
 
@@ -97,4 +98,10 @@ void PGUI::selectModOrder()
 {
     ModSortDialog dialog;
     dialog.ShowModal();
+}
+
+auto PGUI::getAppIcons() -> wxIconBundle
+{
+    // Loaded from the icon resource of the executable (see resources/icon.rc), which holds every icon size
+    return wxIconBundle("IDI_ICON1", nullptr);
 }

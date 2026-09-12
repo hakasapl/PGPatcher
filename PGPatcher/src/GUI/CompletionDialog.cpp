@@ -5,6 +5,7 @@
 #include "PGConfig.hpp"
 #include "PGLocale.hpp"
 #include "PGPatcherGlobals.hpp"
+#include "PGUI.hpp"
 
 #include <wx/artprov.h>
 #include <wx/collpane.h>
@@ -87,6 +88,8 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
+    SetIcons(PGUI::getAppIcons());
+
     // Get config
     const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
 

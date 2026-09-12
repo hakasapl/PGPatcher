@@ -1,6 +1,7 @@
 #include "GUI/PGMessageBox.hpp"
 
 #include "PGPatcherGlobals.hpp"
+#include "PGUI.hpp"
 
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -24,6 +25,8 @@ public:
                         int style)
         : wxDialog(parent, wxID_ANY, caption)
     {
+        SetIcons(PGUI::getAppIcons());
+
         auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
         auto* text = new wxStaticText(this, wxID_ANY, message);

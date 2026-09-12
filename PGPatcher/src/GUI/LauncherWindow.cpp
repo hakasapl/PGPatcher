@@ -11,6 +11,7 @@
 #include "PGPatcherGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "PGRunCache.hpp"
+#include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
 
 #include <boost/algorithm/string/join.hpp>
@@ -49,6 +50,8 @@ LauncherWindow::LauncherWindow(PGConfig& pgc)
     , m_gameLocationLocked(false)
     , m_gameLocationLockedByInstallLocation(false)
 {
+    SetIcons(PGUI::getAppIcons());
+
     // Calculate the scrollbar width (if visible)
     static const int scrollbarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
 

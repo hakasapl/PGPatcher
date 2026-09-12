@@ -2,6 +2,7 @@
 
 #include "PGLocale.hpp"
 #include "PGPatcherGlobals.hpp"
+#include "PGUI.hpp"
 
 #include <wx/radiobox.h>
 #include <wx/sizer.h>
@@ -29,6 +30,8 @@ DialogSettings::DialogSettings(wxWindow* parent,
     : wxDialog(parent, wxID_ANY, PGTr("settings.title", "Settings"))
     , m_pgc(pgc)
 {
+    SetIcons(PGUI::getAppIcons());
+
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
     const int borderSize = FromDIP(BORDER_SIZE);
 
