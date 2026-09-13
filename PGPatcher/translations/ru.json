@@ -157,7 +157,22 @@
       "message": "Вы уверены, что хотите восстановить стандартные настройки? Это действие нельзя отменить."
     },
     "validation": {
-      "mo2RelativeGamePath": "Не удалось обработать относительный путь к игре из MO2 - убедитесь, что PGPatcher был запущен из MO2"
+      "gameLocationRequired": "Требуется расположение игры",
+      "gameLocationInvalid": "Расположение игры некорректно. Убедитесь, что тип игры и расположение верны.",
+      "mo2RelativeGamePath": "Не удалось обработать относительный путь к игре из MO2 - убедитесь, что PGPatcher был запущен из MO2",
+      "mo2InstanceRequired": "Требуется расположение Instance MO2 Instance",
+      "mo2InstanceMissing": "Расположение Instance MO2 не существует",
+      "mo2InstanceInvalid": "Расположение Instance MO2 некорректно. Убедитесь, что modorganizer.ini существует в указанном расположении.",
+      "outputLocationRequired": "Требуется расположение вывода",
+      "parallaxToCMRequiresPatchers": "Улучшение Parallax до Complex Material требует как патчер Complex Material, так и Parallax",
+      "meshAllowListEmptyEntry": "Пустая запись в списке разрешённых мешей",
+      "meshAllowListDuplicate": "Дублирующая запись в списке разрешённых мешей: %s",
+      "meshBlockListEmptyEntry": "Пустая запись в списке запрещённых мешей",
+      "meshBlockListDuplicate": "Дублирующая запись в списке запрещённых мешей: %s",
+      "textureRulesEmptyKey": "Пустая запись в правилах текстур",
+      "textureRulesDuplicate": "Дублирующая запись в правилах текстур: %s",
+      "vanillaBSAListEmptyEntry": "Пустая запись в списке ванильных BSA",
+      "vanillaBSAListDuplicate": "Дублирующая запись в списке ванильных BSA: %s"
     }
   },
   "dialogs": {
