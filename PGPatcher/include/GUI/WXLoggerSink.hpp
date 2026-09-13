@@ -23,13 +23,13 @@
  *
  * @tparam Mutex Mutex type used by the base spdlog sink (e.g., std::mutex).
  */
-template <typename Mutex> class WXLoggerSink : public spdlog::sinks::base_sink<Mutex> {
+template<typename Mutex> class WXLoggerSink : public spdlog::sinks::base_sink<Mutex> {
 private:
     std::vector<wxString> m_errorMessages;
     std::vector<wxString> m_warningMessages;
 
-    // Message counts captured at the start of the patching step. Used to discard
-    // messages of a previous patch run when the patching step is re-run.
+    // Message counts captured at the start of the patching step. Used to discard.
+    // Messages of a previous patch run when the patching step is re-run.
     size_t m_runStartErrorCount = 0;
     size_t m_runStartWarningCount = 0;
 
@@ -44,22 +44,23 @@ protected:
      */
     void sink_it_(const spdlog::details::log_msg& msg) override
     {
-        // Format message
+        // Format message.
         spdlog::memory_buf_t formatted;
         this->formatter_->format(msg, formatted);
 
         if (msg.level == spdlog::level::critical) {
-            // Convert to wxString
+            // Convert to wxString.
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
 
             wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR);
             exit(1);
-        } else if (msg.level == spdlog::level::err) {
-            // Convert to wxString
+        }
+        if (msg.level == spdlog::level::err) {
+            // Convert to wxString.
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
             m_errorMessages.push_back(wxMsg);
         } else if (msg.level == spdlog::level::warn) {
-            // Convert to wxString
+            // Convert to wxString.
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
             m_warningMessages.push_back(wxMsg);
         }
@@ -99,7 +100,7 @@ public:
      */
     [[nodiscard]] auto getErrorMessages() -> std::vector<wxString>
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
+        const std::scoped_lock<Mutex> lock(this->mutex_);
         return m_errorMessages;
     }
     /**
@@ -109,7 +110,7 @@ public:
      */
     [[nodiscard]] auto getWarningMessages() -> std::vector<wxString>
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
+        const std::scoped_lock<Mutex> lock(this->mutex_);
         return m_warningMessages;
     }
 
@@ -122,7 +123,7 @@ public:
      */
     void markRunStart()
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
+        const std::scoped_lock<Mutex> lock(this->mutex_);
         m_runStartErrorCount = m_errorMessages.size();
         m_runStartWarningCount = m_warningMessages.size();
     }
@@ -135,12 +136,10 @@ public:
      */
     void resetToRunStart()
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
-        if (m_errorMessages.size() > m_runStartErrorCount) {
+        const std::scoped_lock<Mutex> lock(this->mutex_);
+        if (m_errorMessages.size() > m_runStartErrorCount)
             m_errorMessages.resize(m_runStartErrorCount);
-        }
-        if (m_warningMessages.size() > m_runStartWarningCount) {
+        if (m_warningMessages.size() > m_runStartWarningCount)
             m_warningMessages.resize(m_runStartWarningCount);
-        }
     }
 };

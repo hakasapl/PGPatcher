@@ -26,11 +26,11 @@ private:
     static std::shared_mutex s_metaCacheMutex; /** Mutex for material meta cache */
     static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
 
-    // Options
+    // Options.
     inline static bool s_disableDynCubemap = false;
 
 public:
-    static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures\\cubemaps\\dynamic1pxcubemap_black.dds";
+    static inline const std::filesystem::path s_dynCubemapPath = "textures\\cubemaps\\dynamic1pxcubemap_black.dds";
 
     /**
      * @brief Get the Factory object

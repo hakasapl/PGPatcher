@@ -18,8 +18,8 @@ private:
         nlohmann::json jsonData;
         bool changed = false;
 
-        LPJSON(std::filesystem::path path,
-               nlohmann::json data = {})
+        explicit LPJSON(std::filesystem::path path,
+                        nlohmann::json data = { })
             : jsonPath(std::move(path))
             , jsonData(std::move(data))
         {

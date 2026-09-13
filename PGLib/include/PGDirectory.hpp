@@ -48,19 +48,19 @@ private:
         std::unordered_map<PGEnums::TextureType, size_t> types;
     };
 
-    // Temp Structures
+    // Temp Structures.
     std::unordered_map<std::filesystem::path, UnconfirmedTextureProperty> m_unconfirmedTextures;
     std::mutex m_unconfirmedTexturesMutex;
     std::unordered_set<std::filesystem::path> m_unconfirmedMeshes;
 
     struct TextureDetails {
-        PGEnums::TextureType type;
+        PGEnums::TextureType type = PGEnums::TextureType::Unknown;
         std::unordered_set<PGEnums::TextureAttribute> attributes;
     };
 
-    // Structures to store relevant files (sometimes their contents)
+    // Structures to store relevant files (sometimes their contents).
     std::array<std::map<std::wstring, std::unordered_set<PGTypes::PGTexture, PGTypes::PGTextureHasher>>,
-               NUM_TEXTURE_SLOTS>
+               numTextureSlots>
         m_textureMaps;
     std::unordered_map<std::filesystem::path, TextureDetails> m_textureTypes;
     std::unordered_map<std::filesystem::path, NifCache> m_meshes;
@@ -68,14 +68,14 @@ private:
     std::vector<std::filesystem::path> m_pbrJSONs;
     std::vector<std::filesystem::path> m_lightPlacerJSONs;
 
-    // Mutexes
+    // Mutexes.
     std::shared_mutex m_textureMapsMutex;
     std::shared_mutex m_textureTypesMutex;
     std::shared_mutex m_meshesMutex;
     std::shared_mutex m_texturesMutex;
 
     TaskQueue m_meshUseMappingQueue;
-    TaskQueue m_CMClassificationQueue;
+    TaskQueue m_cmClassificationQueue;
 
 public:
     /**
@@ -84,8 +84,8 @@ public:
      * @param bg Pointer to the BethesdaGame instance providing game/data paths.
      * @param outputPath Optional output directory path; defaults to empty (use game data path).
      */
-    PGDirectory(BethesdaGame* bg,
-                std::filesystem::path outputPath = "");
+    explicit PGDirectory(BethesdaGame* bg,
+                         std::filesystem::path outputPath = "");
 
     /**
      * @brief Constructs a PGDirectory using an explicit data directory path.
@@ -93,8 +93,8 @@ public:
      * @param dataPath Absolute path to the Bethesda data directory.
      * @param outputPath Optional output directory path; defaults to empty (use dataPath).
      */
-    PGDirectory(std::filesystem::path dataPath,
-                std::filesystem::path outputPath = "");
+    explicit PGDirectory(std::filesystem::path dataPath,
+                         std::filesystem::path outputPath = "");
 
     /// @brief Map all files in the load order to their type
     ///
@@ -111,7 +111,7 @@ public:
                   const std::vector<std::wstring>& parallaxBSAExcludes,
                   const bool& multithreading = true,
                   const std::function<void(size_t,
-                                           size_t)>& progressCallback = {}) -> void;
+                                           size_t)>& progressCallback = { }) -> void;
 
     /**
      * @brief Blocks until all background plugin mesh-use mapping tasks have completed, then shuts down the queue.
@@ -281,7 +281,7 @@ public:
      * @brief Returns the texture type assigned to the specified texture path.
      *
      * @param path Relative texture path.
-     * @return The assigned TextureType, or TextureType::UNKNOWN if the path is not tracked.
+     * @return The assigned TextureType, or TextureType::Unknown if the path is not tracked.
      */
     auto getTextureType(const std::filesystem::path& path) -> PGEnums::TextureType;
 };

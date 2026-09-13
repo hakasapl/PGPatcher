@@ -32,41 +32,38 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
-
-// Disable owning memory checks because wxWidgets will take care of deleting the objects
-// Disable convert member functions to static because these functions need to be non-static for wxWidgets
+// Disable owning memory checks because wxWidgets will take care of deleting the objects.
+// Disable convert member functions to static because these functions need to be non-static for wxWidgets.
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
-// class ModSortDialog
+// Class ModSortDialog.
 ModSortDialog::ModSortDialog(wxWindow* parent)
     : wxDialog(parent,
                wxID_ANY,
-               PGTr("conflictManager.title"),
+               pgTr("conflictManager.title"),
                wxDefaultPosition,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
-    auto* pgc = PGPatcherGlobals::getPGC();
-    if (pgc == nullptr) {
-        throw runtime_error("PGConfig is null");
-    }
+    const auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr)
+        throw std::runtime_error("PGConfig is null");
 
     SetIcons(PGUI::getAppIcons());
 
-    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
-    const int defaultBorder = FromDIP(DEFAULT_BORDER);
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
+    const int defaultBorder = FromDIP(defaultBorderDIP);
 
-    // Main sizer for the window
+    // Main sizer for the window.
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Create the m_listCtrl
+    // Create the m_listCtrl.
     m_listCtrl = new PGCheckedDragListCtrl(
-        this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)), wxLC_REPORT);
-    m_listCtrl->InsertColumn(0, PGTr("conflictManager.columns.mod"));
-    m_listCtrl->InsertColumn(1, PGTr("conflictManager.columns.shader"));
+        this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(defaultWidth, defaultHeight)), wxLC_REPORT);
+    m_listCtrl->InsertColumn(0, pgTr("conflictManager.columns.mod"));
+    m_listCtrl->InsertColumn(1, pgTr("conflictManager.columns.shader"));
 
-    // Listctrl events
+    // Listctrl events.
     m_listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &ModSortDialog::onItemSelected, this);
     m_listCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &ModSortDialog::onItemDeselected, this);
     m_listCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &ModSortDialog::onItemActivated, this);
@@ -79,28 +76,25 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     // Extend the list's own context menu with conflict/match actions.
     m_listCtrl->setContextMenuExtension([this](wxMenu& menu, const std::vector<long>& selectedIndices) {
-        // Collect selected mod names
+        // Collect selected mod names.
         std::unordered_set<std::wstring> selectedMods;
-        for (const long idx : selectedIndices) {
+        for (const long idx : selectedIndices)
             selectedMods.insert(m_listCtrl->GetItemText(idx).ToStdWstring());
-        }
 
         std::wstring selectedModName;
-        if (selectedIndices.size() == 1) {
+        if (selectedIndices.size() == 1)
             selectedModName = m_listCtrl->GetItemText(selectedIndices.front()).ToStdWstring();
-        }
 
-        auto* showConflictsItem = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.showConflicts"));
-        auto* showMatchesItem = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.showMatches"));
+        auto* showConflictsItem = menu.Append(wxID_ANY, pgTr("conflictManager.contextMenu.showConflicts"));
+        auto* showMatchesItem = menu.Append(wxID_ANY, pgTr("conflictManager.contextMenu.showMatches"));
         menu.AppendSeparator();
-        auto* openModFolderItem = menu.Append(wxID_ANY, PGTr("conflictManager.contextMenu.openModFolder"));
+        auto* openModFolderItem = menu.Append(wxID_ANY, pgTr("conflictManager.contextMenu.openModFolder"));
         if (!PGPatcher::hasConflictData()) {
             showConflictsItem->Enable(false);
             showMatchesItem->Enable(false);
         }
-        if (selectedIndices.size() != 1) {
+        if (selectedIndices.size() != 1)
             openModFolderItem->Enable(false);
-        }
 
         menu.Bind(
             wxEVT_MENU,
@@ -113,20 +107,17 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
         menu.Bind(
             wxEVT_MENU,
             [this, selectedModName](wxCommandEvent& /*evt*/) {
-                if (selectedModName.empty()) {
+                if (selectedModName.empty())
                     return;
-                }
 
                 try {
-                    auto* pgmm = PGGlobals::getPGMM();
-                    if (pgmm == nullptr) {
+                    const auto* pgmm = PGGlobals::getPGMM();
+                    if (pgmm == nullptr)
                         return;
-                    }
 
                     const auto mod = pgmm->getMod(selectedModName);
-                    if (mod != nullptr && !mod->folder.empty()) {
+                    if (mod != nullptr && !mod->folder.empty())
                         wxLaunchDefaultApplication(wxString(mod->folder.wstring()));
-                    }
                 } catch (...) {
                     // Ignore lookup failures.
                 }
@@ -134,32 +125,32 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
             openModFolderItem->GetId());
     });
 
-    // define base item BG color, which should always be the background color of the listbox (theme agnostic)
-    s_BASE_ITEM_BG_COLOR = m_listCtrl->GetBackgroundColour();
-    s_BASE_ITEM_FG_COLOR = m_listCtrl->GetForegroundColour();
+    // Define base item BG color, which should always be the background color of the listbox (theme agnostic).
+    s_baseItemBgColor = m_listCtrl->GetBackgroundColour();
+    s_baseItemFgColor = m_listCtrl->GetForegroundColour();
 
-    // Global events
+    // Global events.
     Bind(wxEVT_CLOSE_WINDOW, &ModSortDialog::onClose, this);
 
     wxSizer* helpSizer = new wxBoxSizer(wxHORIZONTAL);
 
-    // Add message at the top
-    const wxString message = PGTr("conflictManager.help");
+    // Add message at the top.
+    const wxString message = pgTr("conflictManager.help");
     auto* messageText = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    messageText->Wrap(FromDIP(DEFAULT_WIDTH - (2 * DEFAULT_PADDING) - HELPBTN_SIZE
-                              - DEFAULT_PADDING)); // Wrap text based on dialog width with some padding
+    messageText->Wrap(FromDIP(defaultWidth - (2 * defaultPadding) - helpButtonSize
+                              - defaultPadding)); // Wrap text based on dialog width with some padding
     helpSizer->Add(messageText, 0, wxALL, defaultBorder);
 
-    // Add help ? button to the bottom right of the whole window that opens the wiki URL on click
+    // Add help ? button to the bottom right of the whole window that opens the wiki URL on click.
     auto* helpButton = new wxButton(this, wxID_ANY, "?");
     wxFont helpButtonFont = helpButton->GetFont();
-    helpButtonFont.SetPointSize(HELPBTN_FONT_SIZE); // Set font size to 12
+    helpButtonFont.SetPointSize(helpButtonFontSize); // Set font size to 12
     helpButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     helpButton->SetFont(helpButtonFont);
 
-    helpButton->SetToolTip(PGTr("conflictManager.helpButton.tooltip"));
+    helpButton->SetToolTip(pgTr("conflictManager.helpButton.tooltip"));
 
-    const wxSize helpBtnSize = FromDIP(wxSize(HELPBTN_SIZE, HELPBTN_SIZE));
+    const wxSize helpBtnSize = FromDIP(wxSize(helpButtonSize, helpButtonSize));
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
@@ -171,88 +162,88 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 
     mainSizer->Add(helpSizer, 0, wxEXPAND | wxALL, 0);
 
-    // Add "Show All Meshes" button below top help text and span dialog width
-    m_showAllMeshesButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.showAllMeshes.label"));
-    m_showAllMeshesButton->SetToolTip(PGTr("conflictManager.showAllMeshes.tooltip"));
+    // Add "Show All Meshes" button below top help text and span dialog width.
+    m_showAllMeshesButton = new wxButton(this, wxID_ANY, pgTr("conflictManager.showAllMeshes.label"));
+    m_showAllMeshesButton->SetToolTip(pgTr("conflictManager.showAllMeshes.tooltip"));
     m_showAllMeshesButton->Bind(wxEVT_BUTTON, &ModSortDialog::onShowAllMeshes, this);
     mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
-    // Add "Use MO2 Loose File Order" checkbox
-    if (pgc->getParams().ModManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
-        // Only show checkbox for MO2 users
-        m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, PGTr("conflictManager.lockMO2Order.label"), wxDefaultPosition);
-        m_checkBoxMO2->SetToolTip(PGTr("conflictManager.lockMO2Order.tooltip"));
+    // Add "Use MO2 Loose File Order" checkbox.
+    if (pgc->getParams().modManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
+        // Only show checkbox for MO2 users.
+        m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, pgTr("conflictManager.lockMO2Order.label"), wxDefaultPosition);
+        m_checkBoxMO2->SetToolTip(pgTr("conflictManager.lockMO2Order.tooltip"));
         m_checkBoxMO2->Bind(wxEVT_CHECKBOX, &ModSortDialog::onUseMO2LooseFileOrderChange, this);
 
-        // Add to main sizer
+        // Add to main sizer.
         mainSizer->Add(m_checkBoxMO2, 0, wxALL, defaultBorder);
     }
 
     // Add search box for quick contains-match filtering/selection.
     auto* searchSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* searchLabel = new wxStaticText(this, wxID_ANY, PGTr("conflictManager.search.label"));
+    auto* searchLabel = new wxStaticText(this, wxID_ANY, pgTr("conflictManager.search.label"));
     searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
 
     m_searchCtrl = new wxTextCtrl(this, wxID_ANY);
-    m_searchCtrl->SetHint(PGTr("conflictManager.search.hint"));
+    m_searchCtrl->SetHint(pgTr("conflictManager.search.hint"));
     m_searchCtrl->Bind(wxEVT_TEXT, &ModSortDialog::onSearchTextChanged, this);
     searchSizer->Add(m_searchCtrl, 1, wxEXPAND, 0);
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
-    // Add "Highlight New Mods" checkbox below the search bar
-    m_checkBoxHighlightNewMods = new wxCheckBox(this, wxID_ANY, PGTr("conflictManager.highlightNewMods.label"));
-    m_checkBoxHighlightNewMods->SetToolTip(PGTr("conflictManager.highlightNewMods.tooltip"));
+    // Add "Highlight New Mods" checkbox below the search bar.
+    m_checkBoxHighlightNewMods = new wxCheckBox(this, wxID_ANY, pgTr("conflictManager.highlightNewMods.label"));
+    m_checkBoxHighlightNewMods->SetToolTip(pgTr("conflictManager.highlightNewMods.tooltip"));
     m_checkBoxHighlightNewMods->Bind(wxEVT_CHECKBOX, &ModSortDialog::onHighlightNewModsChange, this);
     mainSizer->Add(m_checkBoxHighlightNewMods, 0, wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
-    // FONT for rects
+    // FONT for rects.
     wxFont rectFont = GetFont(); // start with current font
-    static constexpr int RECT_LABEL_FONT_SIZE = 20;
-    rectFont.SetPointSize(RECT_LABEL_FONT_SIZE); // increase by 4 points
+    static constexpr int rectLabelFontSize = 20;
+    rectFont.SetPointSize(rectLabelFontSize); // increase by 4 points
     rectFont.SetWeight(wxFONTWEIGHT_BOLD);
 
-    // TOP RECTANGLE
+    // TOP RECTANGLE.
     auto* topPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     topPanel->SetForegroundColour(*wxBLACK);
-    topPanel->SetBackgroundColour(s_WINNING_MOD_COLOR);
+    topPanel->SetBackgroundColour(s_winningModColor);
     auto* topLabel = new wxStaticText(
-        topPanel, wxID_ANY, PGTr("conflictManager.winningModsOnTop"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
+        topPanel, wxID_ANY, pgTr("conflictManager.winningModsOnTop"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
     topLabel->SetFont(rectFont);
 
-    // Use a box sizer to center the text in the panel
+    // Use a box sizer to center the text in the panel.
     auto* topSizer = new wxBoxSizer(wxHORIZONTAL);
     topSizer->Add(topLabel, 1, wxALIGN_CENTER | wxALL, FromDIP(2));
     topPanel->SetSizer(topSizer);
 
-    // Add top rectangle to main sizer
+    // Add top rectangle to main sizer.
     mainSizer->Add(topPanel, 0, wxEXPAND | wxBOTTOM, 0); // No bottom border so it touches the list
 
-    // Add List control
+    // Add List control.
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, 0);
 
-    // BOTTOM RECTANGLE
+    // BOTTOM RECTANGLE.
     auto* bottomPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     bottomPanel->SetForegroundColour(*wxBLACK);
-    bottomPanel->SetBackgroundColour(s_LOSING_MOD_COLOR);
+    bottomPanel->SetBackgroundColour(s_losingModColor);
     auto* bottomLabel = new wxStaticText(bottomPanel,
                                          wxID_ANY,
-                                         PGTr("conflictManager.losingModsOnBottom"),
+                                         pgTr("conflictManager.losingModsOnBottom"),
                                          wxDefaultPosition,
                                          wxDefaultSize,
                                          wxALIGN_CENTER);
 
     bottomLabel->SetFont(rectFont);
 
-    // Center the text in the panel
+    // Center the text in the panel.
     auto* bottomSizer = new wxBoxSizer(wxHORIZONTAL);
     bottomSizer->Add(bottomLabel, 1, wxALIGN_CENTER | wxALL, FromDIP(2));
     bottomPanel->SetSizer(bottomSizer);
 
-    // Add bottom rectangle to main sizer
+    // Add bottom rectangle to main sizer.
     mainSizer->Add(bottomPanel, 0, wxEXPAND | wxTOP, 0); // No top border so it touches the list
 
-    // Add re-run patching button above bottom action buttons
-    m_rerunPatchingButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.buttons.saveAndUpdateOutput"));
+    // Add re-run patching button above bottom action buttons.
+    m_rerunPatchingButton = new wxButton(this, wxID_ANY, pgTr("conflictManager.buttons.saveAndUpdateOutput"));
     wxFont rerunButtonFont = m_rerunPatchingButton->GetFont();
     rerunButtonFont.SetPointSize(12);
     rerunButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
@@ -260,101 +251,101 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     m_rerunPatchingButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRerunPatching, this);
     mainSizer->Add(m_rerunPatchingButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, defaultBorder);
 
-    // Create button sizer for horizontal layout
+    // Create button sizer for horizontal layout.
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
-    static constexpr int BOTTOM_BUTTON_SPACING = 8;
-    const int bottomButtonSpacing = FromDIP(BOTTOM_BUTTON_SPACING);
+    static constexpr int bottomButtonSpacingDIP = 8;
+    const int bottomButtonSpacing = FromDIP(bottomButtonSpacingDIP);
 
-    // Add "Restore to Default Order" button
-    m_restoreButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.restoreDefaultOrder.label"));
+    // Add "Restore to Default Order" button.
+    m_restoreButton = new wxButton(this, wxID_ANY, pgTr("conflictManager.restoreDefaultOrder.label"));
     buttonSizer->Add(m_restoreButton, 0, wxALL, bottomButtonSpacing);
     m_restoreButton->Bind(wxEVT_BUTTON, &ModSortDialog::onRestoreDefault, this);
-    m_restoreButton->SetToolTip(PGTr("conflictManager.restoreDefaultOrder.tooltip"));
+    m_restoreButton->SetToolTip(pgTr("conflictManager.restoreDefaultOrder.tooltip"));
 
-    // Add stretchable space
+    // Add stretchable space.
     buttonSizer->AddStretchSpacer(1);
 
-    // Add discard changes button
-    m_discardButton = new wxButton(this, wxID_ANY, PGTr("conflictManager.buttons.discardChanges"));
+    // Add discard changes button.
+    m_discardButton = new wxButton(this, wxID_ANY, pgTr("conflictManager.buttons.discardChanges"));
     buttonSizer->Add(m_discardButton, 0, wxALL, bottomButtonSpacing);
     m_discardButton->Bind(wxEVT_BUTTON, &ModSortDialog::onDiscardChanges, this);
 
     m_discardButton->Enable(false);
 
-    // Add cancel button
-    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("common.cancel"));
+    // Add cancel button.
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, pgTr("common.cancel"));
     buttonSizer->Add(cancelButton, 0, wxALL, bottomButtonSpacing);
     cancelButton->Bind(wxEVT_BUTTON, &ModSortDialog::onBtnClose, this);
 
-    // Add apply button
-    m_applyButton = new wxButton(this, wxID_APPLY, PGTr("conflictManager.buttons.apply"));
+    // Add apply button.
+    m_applyButton = new wxButton(this, wxID_APPLY, pgTr("conflictManager.buttons.apply"));
     buttonSizer->Add(m_applyButton, 0, wxALL, bottomButtonSpacing);
     m_applyButton->Bind(wxEVT_BUTTON, &ModSortDialog::onApply, this);
 
-    // Disable apply button by default
+    // Disable apply button by default.
     m_applyButton->Enable(false);
 
-    // Add OK button
-    auto* okButton = new wxButton(this, wxID_OK, PGTr("conflictManager.buttons.okay"));
+    // Add OK button.
+    auto* okButton = new wxButton(this, wxID_OK, pgTr("conflictManager.buttons.okay"));
     buttonSizer->Add(okButton, 0, wxALL, bottomButtonSpacing);
     okButton->Bind(wxEVT_BUTTON, &ModSortDialog::onOkay, this);
 
-    // Add to main sizer
+    // Add to main sizer.
     mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 0);
 
-    // Fill contents
-    auto* pgmm = PGGlobals::getPGMM();
+    // Fill contents.
+    const auto* pgmm = PGGlobals::getPGMM();
     fillListCtrl(pgmm->getModsByPriority(), false);
 
-    // Set checkbox state based on current config
-    if (m_checkBoxMO2 != nullptr) {
-        m_checkBoxMO2->SetValue(pgc->getParams().ModManager.mo2UseLooseFileOrder);
-    }
+    // Set checkbox state based on current config.
+    if (m_checkBoxMO2 != nullptr)
+        m_checkBoxMO2->SetValue(pgc->getParams().modManager.mo2UseLooseFileOrder);
     setMO2LooseFileOrderCheckboxState();
     rebuildCacheFromListCtrl();
     rebuildListCtrlFromCache();
 
-    // Calculate minimum width for each column
+    // Calculate minimum width for each column.
     const int col1Width = calculateColumnWidth(1);
     m_listCtrl->SetColumnWidth(1, col1Width);
     const int scrollBarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, this);
     const int totalWidth
-        = calculateColumnWidth(0) + col1Width + FromDIP(DEFAULT_PADDING * 2) + scrollBarWidth; // Extra padding
+        = calculateColumnWidth(0) + col1Width + FromDIP(defaultPadding * 2) + scrollBarWidth; // Extra padding
 
-    // Adjust dialog width to match the total width of columns and padding
-    SetSizeHints(FromDIP(MIN_WIDTH), FromDIP(MIN_HEIGHT), wxDefaultCoord, wxDefaultCoord); // Minimum width and height
-    SetSize(totalWidth, FromDIP(DEFAULT_HEIGHT)); // Set dialog size
+    // Adjust dialog width to match the total width of columns and padding.
+    SetSizeHints(FromDIP(minWidthDIP), FromDIP(minHeight), wxDefaultCoord, wxDefaultCoord); // Minimum width and height
+    SetSize(totalWidth, FromDIP(defaultHeight)); // Set dialog size
 
     SetSizer(mainSizer);
 }
 
 ModSortDialog::~ModSortDialog()
 {
-    // Conflict viewers are modeless and parentless, so they are not destroyed with this
-    // dialog automatically. They hold callbacks that capture "this" (the mod order
-    // provider and the destroy-event handler), so they must be neutralized and closed
-    // here to prevent use-after-free once this dialog is gone.
+    // Conflict viewers are modeless and parentless, so they are not destroyed with this.
+    // Dialog automatically. They hold callbacks that capture "this" (the mod order.
+    // Provider and the destroy-event handler), so they must be neutralized and closed.
+    // Here to prevent use-after-free once this dialog is gone.
     for (auto* dlg : m_openConflictDialogs) {
-        if (dlg == nullptr) {
+        if (dlg == nullptr)
             continue;
-        }
 
         dlg->Unbind(wxEVT_DESTROY, &ModSortDialog::onConflictViewDestroyed, this);
-        dlg->setModOrderProvider({});
-        if (!dlg->IsBeingDeleted()) {
+        dlg->setModOrderProvider({ });
+        if (!dlg->IsBeingDeleted())
             dlg->Destroy();
-        }
     }
 
     m_openConflictDialogs.clear();
 }
 
-// EVENT HANDLERS
+// EVENT HANDLERS.
 
 void ModSortDialog::onConflictViewDestroyed(wxWindowDestroyEvent& event)
 {
-    m_openConflictDialogs.erase(static_cast<DialogModConflictView*>(event.GetWindow()));
+    // Compare as wxWindow*: by the time this fires the viewer may already be partway through.
+    // Destruction, so a downcast back to DialogModConflictView* is not guaranteed to succeed.
+    const auto* const window = event.GetWindow();
+    std::erase_if(m_openConflictDialogs, [window](const DialogModConflictView* dlg) { return dlg == window; });
     event.Skip();
 }
 
@@ -411,18 +402,18 @@ void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
 
 void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
 {
-    // Check if lock mo2 order is on
+    // Check if lock mo2 order is on.
     if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
         // Persist the just-updated visible check/ignore state before we rebuild from MO2 order.
         syncCacheFromListCtrl();
 
-        // Save scroll position before any list operations reset it, then wrap the entire
-        // rebuild sequence in a single Freeze/Thaw so the intermediate full-list state
+        // Save scroll position before any list operations reset it, then wrap the entire.
+        // Rebuild sequence in a single Freeze/Thaw so the intermediate full-list state.
         // (from fillListCtrl inside setMO2LooseFileOrderCheckboxState) is never painted.
         const long topItem = m_listCtrl->GetTopItem();
         m_listCtrl->Freeze();
 
-        // reset indices to MO2 state for enabled items
+        // Reset indices to MO2 state for enabled items.
         setMO2LooseFileOrderCheckboxState();
         rebuildCacheFromListCtrl();
         rebuildListCtrlFromCache();
@@ -450,17 +441,17 @@ void ModSortDialog::onMeshesIgnoredChanged(PGCheckedDragListCtrlEvtMeshesIgnored
 
 void ModSortDialog::onListCtrlResize(wxSizeEvent& event)
 {
-    static constexpr int MIN_COL_WIDTH = 50;
+    static constexpr int minColWidth = 50;
 
     const int totalWidth = m_listCtrl->GetClientSize().GetWidth();
 
-    // Get the widths of the fixed columns
+    // Get the widths of the fixed columns.
     const int col1Width = m_listCtrl->GetColumnWidth(1);
 
-    // Calculate remaining width for first column
+    // Calculate remaining width for first column.
     int col0Width = totalWidth - col1Width - 2; // optional small padding for borders
 
-    col0Width = std::max(col0Width, FromDIP(MIN_COL_WIDTH)); // minimum width to avoid clipping
+    col0Width = std::max(col0Width, FromDIP(minColWidth)); // minimum width to avoid clipping
 
     m_listCtrl->SetColumnWidth(0, col0Width);
 
@@ -485,21 +476,19 @@ void ModSortDialog::onOkay([[maybe_unused]] wxCommandEvent& event)
 
 void ModSortDialog::onBtnClose([[maybe_unused]] wxCommandEvent& event)
 {
-    if (!confirmDiscardUnsavedChanges()) {
+    if (!confirmDiscardUnsavedChanges())
         return;
-    }
 
     EndModal(wxID_CANCEL);
 }
 
 auto ModSortDialog::confirmDiscardUnsavedChanges() -> bool
 {
-    if (!hasUnsavedChanges()) {
+    if (!hasUnsavedChanges())
         return true;
-    }
 
-    const int response = PGMessageBox(PGTr("conflictManager.confirmUnsavedChanges.message"),
-                                      PGTr("conflictManager.confirmUnsavedChanges.title"),
+    const int response = pgMessageBox(pgTr("conflictManager.confirmUnsavedChanges.message"),
+                                      pgTr("conflictManager.confirmUnsavedChanges.title"),
                                       wxYES_NO | wxICON_QUESTION,
                                       this);
     return response == wxYES;
@@ -509,14 +498,14 @@ void ModSortDialog::onApply([[maybe_unused]] wxCommandEvent& event) { updateMods
 
 void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
 {
-    // confirm with modal
-    const int response = PGMessageBox(PGTr("conflictManager.confirmRestoreDefaultOrder.message"),
-                                      PGTr("conflictManager.confirmRestoreDefaultOrder.title"),
+    // Confirm with modal.
+    const int response = pgMessageBox(pgTr("conflictManager.confirmRestoreDefaultOrder.message"),
+                                      pgTr("conflictManager.confirmRestoreDefaultOrder.title"),
                                       wxYES_NO | wxICON_QUESTION,
                                       this);
 
     if (response == wxYES) {
-        auto* pgmm = PGGlobals::getPGMM();
+        const auto* pgmm = PGGlobals::getPGMM();
         fillListCtrl(pgmm->getModsByDefaultOrder(), true);
         rebuildCacheFromListCtrl();
         rebuildListCtrlFromCache();
@@ -525,19 +514,19 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
 
 void ModSortDialog::onShowAllMeshes([[maybe_unused]] wxCommandEvent& event)
 {
-    // Open conflict viewer in "show all meshes" mode
-    openConflictView({}, true);
+    // Open conflict viewer in "show all meshes" mode.
+    openConflictView({ }, true);
 }
 
 void ModSortDialog::openConflictView(const std::unordered_set<std::wstring>& selectedMods,
                                      bool showAllMeshes)
 {
     auto* dlg = new DialogModConflictView(selectedMods, showAllMeshes);
-    dlg->setModOrderProvider([this]() { return getLiveModPriorityList(); });
+    dlg->setModOrderProvider([this] { return getLiveModPriorityList(); });
     m_openConflictDialogs.insert(dlg);
 
-    // Member-function handler (not a lambda) so the destructor can Unbind it when this
-    // dialog is destroyed before the viewer.
+    // Member-function handler (not a lambda) so the destructor can Unbind it when this.
+    // Dialog is destroyed before the viewer.
     dlg->Bind(wxEVT_DESTROY, &ModSortDialog::onConflictViewDestroyed, this);
 
     dlg->Show();
@@ -557,33 +546,30 @@ void ModSortDialog::refreshConflictViews()
         dlg->refreshDisplay();
     }
 
-    for (auto* staleDialog : staleDialogs) {
+    for (auto* staleDialog : staleDialogs)
         m_openConflictDialogs.erase(staleDialog);
-    }
 }
 
 auto ModSortDialog::getLiveModPriorityList() const -> std::vector<std::shared_ptr<PGModManager::Mod>>
 {
-    auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::getPGMM();
     std::vector<std::shared_ptr<PGModManager::Mod>> result;
     result.reserve(m_cachedRows.size());
 
-    // Enabled mods first, in visual order
+    // Enabled mods first, in visual order.
     for (const auto& row : m_cachedRows) {
         if (row.isChecked) {
             auto mod = pgmm->getMod(row.modName);
-            if (mod != nullptr) {
+            if (mod != nullptr)
                 result.push_back(std::move(mod));
-            }
         }
     }
-    // Disabled mods after, in visual order
+    // Disabled mods after, in visual order.
     for (const auto& row : m_cachedRows) {
         if (!row.isChecked) {
             auto mod = pgmm->getMod(row.modName);
-            if (mod != nullptr) {
+            if (mod != nullptr)
                 result.push_back(std::move(mod));
-            }
         }
     }
     return result;
@@ -591,13 +577,12 @@ auto ModSortDialog::getLiveModPriorityList() const -> std::vector<std::shared_pt
 
 void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
 {
-    const int response = PGMessageBox(PGTr("conflictManager.confirmRerunPatching.message"),
-                                      PGTr("conflictManager.confirmRerunPatching.title"),
+    const int response = pgMessageBox(pgTr("conflictManager.confirmRerunPatching.message"),
+                                      pgTr("conflictManager.confirmRerunPatching.title"),
                                       wxYES_NO | wxICON_QUESTION,
                                       this);
-    if (response != wxYES) {
+    if (response != wxYES)
         return;
-    }
 
     // Persist current mod state before re-running.
     updateMods();
@@ -608,30 +593,28 @@ void ModSortDialog::onRerunPatching([[maybe_unused]] wxCommandEvent& event)
 
 void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
 {
-    const int response = PGMessageBox(PGTr("conflictManager.confirmDiscardChanges.message"),
-                                      PGTr("conflictManager.confirmDiscardChanges.title"),
+    const int response = pgMessageBox(pgTr("conflictManager.confirmDiscardChanges.message"),
+                                      pgTr("conflictManager.confirmDiscardChanges.title"),
                                       wxYES_NO | wxICON_QUESTION,
                                       this);
 
     if (response == wxYES) {
-        // restore checkbox state
-        auto* pgc = PGPatcherGlobals::getPGC();
-        if (pgc == nullptr) {
-            throw runtime_error("PGConfig is null");
-        }
+        // Restore checkbox state.
+        const auto* pgc = PGPatcherGlobals::getPGC();
+        if (pgc == nullptr)
+            throw std::runtime_error("PGConfig is null");
 
         const auto currentParams = pgc->getParams();
-        if (m_checkBoxMO2 != nullptr) {
-            m_checkBoxMO2->SetValue(currentParams.ModManager.mo2UseLooseFileOrder);
-        }
+        if (m_checkBoxMO2 != nullptr)
+            m_checkBoxMO2->SetValue(currentParams.modManager.mo2UseLooseFileOrder);
 
-        auto* pgmm = PGGlobals::getPGMM();
+        const auto* pgmm = PGGlobals::getPGMM();
 
         if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
-            // If MO2 loose file order is checked, reset to that
+            // If MO2 loose file order is checked, reset to that.
             fillListCtrl(pgmm->getModsByDefaultOrder(), false);
         } else {
-            // Otherwise reset to current priority order
+            // Otherwise reset to current priority order.
             fillListCtrl(pgmm->getModsByPriority(), false);
         }
 
@@ -651,9 +634,8 @@ void ModSortDialog::onUseMO2LooseFileOrderChange(wxCommandEvent& event)
 
     // Only rebuild cache directly from the list when the list is full/unfiltered.
     // Rebuilding from a filtered search view would drop hidden rows and corrupt states.
-    if (!searchActive || mo2Locked) {
+    if (!searchActive || mo2Locked)
         rebuildCacheFromListCtrl();
-    }
 
     rebuildListCtrlFromCache();
     updateApplyButtonState();
@@ -670,30 +652,29 @@ void ModSortDialog::onSearchTextChanged(wxCommandEvent& event)
 
 void ModSortDialog::onHighlightNewModsChange(wxCommandEvent& event)
 {
-    // Reapplies base colors, new-mod highlights, and conflict highlights for the current selection
+    // Reapplies base colors, new-mod highlights, and conflict highlights for the current selection.
     highlightConflictingItems();
 
     event.Skip();
 }
 
-// HELPERS
+// HELPERS.
 
 void ModSortDialog::setMO2LooseFileOrderCheckboxState()
 {
-    if (m_checkBoxMO2 == nullptr) {
+    if (m_checkBoxMO2 == nullptr)
         return;
-    }
 
     const bool isChecked = m_checkBoxMO2->IsChecked();
     if (isChecked) {
-        auto* pgmm = PGGlobals::getPGMM();
+        const auto* pgmm = PGGlobals::getPGMM();
         const auto modListByLooseOrder = pgmm->getModsByDefaultOrder();
         fillListCtrl(modListByLooseOrder, false, true);
 
-        // disable restore order button
+        // Disable restore order button.
         m_restoreButton->Enable(false);
     } else {
-        // enable restore order button
+        // Enable restore order button.
         m_restoreButton->Enable(true);
     }
 
@@ -715,24 +696,23 @@ auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
         dc.GetTextExtent(itemText, &width, &height);
         maxWidth = std::max(width, maxWidth);
     }
-    return maxWidth + FromDIP(DEFAULT_PADDING); // Add some padding
+    return maxWidth + FromDIP(defaultPadding); // Add some padding
 }
 
 void ModSortDialog::highlightConflictingItems()
 {
-    // clear previous highlights
+    // Clear previous highlights.
     clearAllHighlights();
 
-    // Find all selected items
+    // Find all selected items.
     std::vector<std::wstring> selectedMods;
     long selIdx = -1;
     long selectionIdx = -1;
     while ((selIdx = m_listCtrl->GetNextItem(selIdx, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND) {
         selectedMods.push_back(m_listCtrl->GetItemText(selIdx).ToStdWstring());
 
-        if (selectionIdx == -1) {
+        if (selectionIdx == -1)
             selectionIdx = selIdx;
-        }
     }
 
     if (selectedMods.empty()) {
@@ -740,36 +720,32 @@ void ModSortDialog::highlightConflictingItems()
         return;
     }
 
-    auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::getPGMM();
     for (const auto& selectedMod : selectedMods) {
-        // Highlight selected item and its conflicts
-        auto mod = pgmm->getMod(selectedMod);
-        if (mod == nullptr) {
+        // Highlight selected item and its conflicts.
+        const auto mod = pgmm->getMod(selectedMod);
+        if (mod == nullptr)
             continue;
-        }
 
-        auto conflictSet = mod->conflicts;
+        const auto conflictSet = mod->conflicts;
 
-        // convert conflictSet to unordered set of strings
-        unordered_set<std::wstring> conflictSetStr;
-        for (const auto& conflict : conflictSet) {
+        // Convert conflictSet to unordered set of strings.
+        std::unordered_set<std::wstring> conflictSetStr;
+        for (const auto& conflict : conflictSet)
             conflictSetStr.insert(conflict->name);
-        }
 
-        // Apply highlights
+        // Apply highlights.
         for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
             const std::wstring itemText = m_listCtrl->GetItemText(i).ToStdWstring();
-            if (!conflictSetStr.contains(itemText)) {
+            if (!conflictSetStr.contains(itemText))
                 continue; // Skip non-conflicting items
-            }
 
             if (std::ranges::find(selectedMods, itemText) == selectedMods.end()) {
                 m_listCtrl->SetItemTextColour(i, *wxBLACK);
-                if (i < selectionIdx) {
-                    m_listCtrl->SetItemBackgroundColour(i, s_LOSING_MOD_COLOR); // Red-ish for conflicts above
-                } else {
-                    m_listCtrl->SetItemBackgroundColour(i, s_WINNING_MOD_COLOR); // Yellow-ish for conflicts below
-                }
+                if (i < selectionIdx)
+                    m_listCtrl->SetItemBackgroundColour(i, s_losingModColor); // Red-ish for conflicts above
+                else
+                    m_listCtrl->SetItemBackgroundColour(i, s_winningModColor); // Yellow-ish for conflicts below
             }
         }
     }
@@ -778,8 +754,8 @@ void ModSortDialog::highlightConflictingItems()
 void ModSortDialog::clearAllHighlights()
 {
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        m_listCtrl->SetItemBackgroundColour(i, s_BASE_ITEM_BG_COLOR);
-        m_listCtrl->SetItemTextColour(i, s_BASE_ITEM_FG_COLOR);
+        m_listCtrl->SetItemBackgroundColour(i, s_baseItemBgColor);
+        m_listCtrl->SetItemTextColour(i, s_baseItemFgColor);
     }
 
     // New-mod highlights are the base layer; conflict highlights are applied over them afterwards
@@ -788,11 +764,10 @@ void ModSortDialog::clearAllHighlights()
 
 void ModSortDialog::applyNewModHighlights()
 {
-    if (m_checkBoxHighlightNewMods == nullptr || !m_checkBoxHighlightNewMods->IsChecked()) {
+    if (m_checkBoxHighlightNewMods == nullptr || !m_checkBoxHighlightNewMods->IsChecked())
         return;
-    }
 
-    auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::getPGMM();
     if (pgmm == nullptr || !pgmm->hasLoadedModRules()) {
         // modrules.json did not exist when PG started, so every mod would be "new"; highlight nothing
         return;
@@ -800,11 +775,10 @@ void ModSortDialog::applyNewModHighlights()
 
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         const auto mod = pgmm->getMod(m_listCtrl->GetItemText(i).ToStdWstring());
-        if (mod == nullptr || !mod->isNew) {
+        if (mod == nullptr || !mod->isNew)
             continue;
-        }
 
-        m_listCtrl->SetItemBackgroundColour(i, s_NEW_MOD_COLOR);
+        m_listCtrl->SetItemBackgroundColour(i, s_newModColor);
         m_listCtrl->SetItemTextColour(i, *wxBLACK);
     }
 }
@@ -817,43 +791,40 @@ void ModSortDialog::updateMods()
     const auto orderedRows = getOrderedCachedRows();
 
     // Loop through each cached element and update the mod manager directory.
-    auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::getPGMM();
     const int itemCount = static_cast<int>(orderedRows.size());
     for (int i = 0; i < itemCount; ++i) {
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
-        auto mod = pgmm->getMod(row.modName);
-        if (mod == nullptr) {
+        const auto mod = pgmm->getMod(row.modName);
+        if (mod == nullptr)
             continue;
-        }
 
-        // Acquire lock to prevent data race with conflict viewer reading these fields
+        // Acquire lock to prevent data race with conflict viewer reading these fields.
         const std::unique_lock lock(mod->mutex);
         mod->isEnabled = row.isChecked;
 
-        if (mod->isEnabled) {
-            mod->priority = static_cast<int>(itemCount - i);
-        }
+        if (mod->isEnabled)
+            mod->priority = itemCount - i;
 
         mod->areMeshesIgnored = row.areMeshesIgnored;
     }
 
-    // save configs
+    // Save configs.
     auto* pgc = PGPatcherGlobals::getPGC();
-    if (pgc == nullptr) {
-        throw runtime_error("PGConfig is null");
-    }
+    if (pgc == nullptr)
+        throw std::runtime_error("PGConfig is null");
 
     if (!PGConfig::saveModConfig()) {
-        // critical dialog
-        PGMessageBox(PGTr("conflictManager.errors.saveModConfig"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
+        // Critical dialog.
+        pgMessageBox(pgTr("conflictManager.errors.saveModConfig"), pgTr("common.error"), wxOK | wxICON_ERROR, this);
     }
 
     auto currentParams = pgc->getParams();
-    currentParams.ModManager.mo2UseLooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
+    currentParams.modManager.mo2UseLooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
     pgc->setParams(currentParams);
     if (!pgc->saveUserConfig()) {
-        // critical dialog
-        PGMessageBox(PGTr("conflictManager.errors.saveUserConfig"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
+        // Critical dialog.
+        pgMessageBox(pgTr("conflictManager.errors.saveUserConfig"), pgTr("common.error"), wxOK | wxICON_ERROR, this);
     }
 
     updateApplyButtonState();
@@ -869,22 +840,20 @@ void ModSortDialog::updateModStatesLive()
     const auto orderedRows = getOrderedCachedRows();
 
     // Loop through each cached element and update the mod manager directory.
-    auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::getPGMM();
     const int itemCount = static_cast<int>(orderedRows.size());
     for (int i = 0; i < itemCount; ++i) {
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
-        auto mod = pgmm->getMod(row.modName);
-        if (mod == nullptr) {
+        const auto mod = pgmm->getMod(row.modName);
+        if (mod == nullptr)
             continue;
-        }
 
-        // aquire lock
+        // Aquire lock.
         const std::unique_lock lock(mod->mutex);
         mod->isEnabled = row.isChecked;
 
-        if (mod->isEnabled) {
-            mod->priority = static_cast<int>(itemCount - i);
-        }
+        if (mod->isEnabled)
+            mod->priority = itemCount - i;
 
         mod->areMeshesIgnored = row.areMeshesIgnored;
     }
@@ -898,27 +867,23 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
                                  bool autoEnable,
                                  bool preserveChecks)
 {
-    // get unordered set of currently checked mods if preserveChecks is true from existing list ctrl
+    // Get unordered set of currently checked mods if preserveChecks is true from existing list ctrl.
     std::unordered_set<std::wstring> currentlyCheckedMods;
     std::unordered_set<std::wstring> currentlyIgnoredMeshMods;
     if (preserveChecks) {
         if (!m_cachedRows.empty()) {
             for (const auto& row : m_cachedRows) {
-                if (row.isChecked) {
+                if (row.isChecked)
                     currentlyCheckedMods.insert(row.modName);
-                }
-                if (row.areMeshesIgnored) {
+                if (row.areMeshesIgnored)
                     currentlyIgnoredMeshMods.insert(row.modName);
-                }
             }
         } else {
             for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-                if (m_listCtrl->isChecked(i)) {
+                if (m_listCtrl->isChecked(i))
                     currentlyCheckedMods.insert(m_listCtrl->GetItemText(i).ToStdWstring());
-                }
-                if (m_listCtrl->areMeshesIgnored(i)) {
+                if (m_listCtrl->areMeshesIgnored(i))
                     currentlyIgnoredMeshMods.insert(m_listCtrl->GetItemText(i).ToStdWstring());
-                }
             }
         }
     }
@@ -933,31 +898,29 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
     for (const auto& mod : modList) {
         const auto shaders = mod->shaders;
         if (shaders.empty() && !mod->hasMeshes) {
-            // no shaders or meshes, so no need to include in list
+            // No shaders or meshes, so no need to include in list.
             continue;
         }
 
         bool modEnabled = mod->isEnabled;
         if (mod->isEnabled) {
-            // mod is enabled, check if it is currently checked
+            // Mod is enabled, check if it is currently checked.
             if (preserveChecks && !currentlyCheckedMods.contains(mod->name)) {
-                // mod was previously unchecked, so disable it
+                // Mod was previously unchecked, so disable it.
                 modEnabled = false;
             }
         } else {
-            // see if we need to autoenable (max variant is greater than 1 which is NONE shader)
+            // See if we need to autoenable (max variant is greater than 1 which is NONE shader).
             if (autoEnable) {
                 const bool hasNonNone = std::ranges::any_of(
                     shaders, [](PGEnums::ShapeShader s) -> bool { return s != PGEnums::ShapeShader::NONE; });
-                if (hasNonNone) {
+                if (hasNonNone)
                     modEnabled = true;
-                }
             }
 
-            // see if we need to preserve checks and if this mod was previously checked
-            if (preserveChecks && currentlyCheckedMods.contains(mod->name)) {
+            // See if we need to preserve checks and if this mod was previously checked.
+            if (preserveChecks && currentlyCheckedMods.contains(mod->name))
                 modEnabled = true;
-            }
         }
 
         if (!modEnabled) {
@@ -965,48 +928,48 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
             continue;
         }
 
-        // Anything past this point the mod is assumed to be enabled
+        // Anything past this point the mod is assumed to be enabled.
 
         const long index = m_listCtrl->InsertItem(listIdx, mod->name);
 
-        // Shader Column
+        // Shader Column.
         m_listCtrl->SetItem(index, 1, constructShaderString(shaders));
 
-        // Enable checkbox
+        // Enable checkbox.
         m_listCtrl->check(index, true);
 
-        // Set ignore meshes checkbox
+        // Set ignore meshes checkbox.
         if ((preserveChecks && currentlyIgnoredMeshMods.contains(mod->name))
             || (!preserveChecks && mod->areMeshesIgnored)) {
-            // if preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes
+            // If preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes.
             m_listCtrl->ignoreMeshes(index, true);
         }
 
-        // iterate listIdx
+        // Iterate listIdx.
         listIdx++;
     }
 
-    // Set cutoff line
+    // Set cutoff line.
     m_listCtrl->setCutoffLine(listIdx);
 
-    // loop through inactive mods
+    // Loop through inactive mods.
     for (const auto& mod : disabledMods) {
         const long index = m_listCtrl->InsertItem(listIdx, mod->name);
 
-        // Shader Column
+        // Shader Column.
         m_listCtrl->SetItem(index, 1, constructShaderString(mod->shaders));
 
-        // Disable checkbox
+        // Disable checkbox.
         m_listCtrl->check(index, false);
 
-        // Set ignore meshes checkbox
+        // Set ignore meshes checkbox.
         if ((preserveChecks && currentlyIgnoredMeshMods.contains(mod->name))
             || (!preserveChecks && mod->areMeshesIgnored)) {
-            // if preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes
+            // If preserving checks and mod is disabled but was previously ignoring meshes, keep it ignoring meshes.
             m_listCtrl->ignoreMeshes(index, true);
         }
 
-        // iterate listIdx
+        // Iterate listIdx.
         listIdx++;
     }
 
@@ -1022,10 +985,12 @@ void ModSortDialog::rebuildCacheFromListCtrl()
 
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
         const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
-        m_cachedRows.push_back({.modName = modName,
-                                .shaderString = m_listCtrl->GetItemText(i, 1),
-                                .isChecked = m_listCtrl->isChecked(i),
-                                .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i)});
+        m_cachedRows.push_back({
+            .modName = modName,
+            .shaderString = m_listCtrl->GetItemText(i, 1),
+            .isChecked = m_listCtrl->isChecked(i),
+            .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i),
+        });
     }
 }
 
@@ -1046,17 +1011,18 @@ void ModSortDialog::syncCacheFromListCtrl()
         const std::wstring modName = m_listCtrl->GetItemText(i, 0).ToStdWstring();
         visibleOrder.push_back(modName);
 
-        visibleState[modName] = {.modName = modName,
-                                 .shaderString = m_listCtrl->GetItemText(i, 1),
-                                 .isChecked = m_listCtrl->isChecked(i),
-                                 .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i)};
+        visibleState[modName] = {
+            .modName = modName,
+            .shaderString = m_listCtrl->GetItemText(i, 1),
+            .isChecked = m_listCtrl->isChecked(i),
+            .areMeshesIgnored = m_listCtrl->areMeshesIgnored(i),
+        };
     }
 
     // First, merge visible row state.
     for (auto& row : m_cachedRows) {
-        if (!visibleState.contains(row.modName)) {
+        if (!visibleState.contains(row.modName))
             continue;
-        }
 
         const auto& visibleRow = visibleState.at(row.modName);
         row.shaderString = visibleRow.shaderString;
@@ -1068,23 +1034,20 @@ void ModSortDialog::syncCacheFromListCtrl()
         // Unfiltered mode: list control is authoritative for full order.
         std::unordered_map<std::wstring, CachedModRow> rowMap;
         rowMap.reserve(m_cachedRows.size());
-        for (const auto& row : m_cachedRows) {
+        for (const auto& row : m_cachedRows)
             rowMap[row.modName] = row;
-        }
 
         std::vector<CachedModRow> newOrder;
         newOrder.reserve(m_cachedRows.size());
-        for (const auto& modName : visibleOrder) {
-            if (rowMap.contains(modName)) {
+        for (const auto& modName : visibleOrder)
+            if (rowMap.contains(modName))
                 newOrder.push_back(rowMap.at(modName));
-            }
-        }
 
         m_cachedRows = std::move(newOrder);
         return;
     }
 
-    // Filtered mode: dragging is disabled during search, so the visible order cannot diverge from the
+    // Filtered mode: dragging is disabled during search, so the visible order cannot diverge from the.
     // cached order. State has already been merged above; no reordering is needed.
 }
 
@@ -1101,9 +1064,8 @@ void ModSortDialog::rebuildListCtrlFromCache()
         }
 
         const wxString modName = wxString(row.modName).Lower();
-        if (modName.Contains(searchTerm)) {
+        if (modName.Contains(searchTerm))
             matchingRows.push_back(&row);
-        }
     }
 
     std::vector<const CachedModRow*> activeRows;
@@ -1111,13 +1073,11 @@ void ModSortDialog::rebuildListCtrlFromCache()
     activeRows.reserve(matchingRows.size());
     inactiveRows.reserve(matchingRows.size());
 
-    for (const auto* row : matchingRows) {
-        if (row->isChecked) {
+    for (const auto* row : matchingRows)
+        if (row->isChecked)
             activeRows.push_back(row);
-        } else {
+        else
             inactiveRows.push_back(row);
-        }
-    }
 
     const long savedTopItem = m_listCtrl->GetTopItem();
     m_listCtrl->Freeze();
@@ -1146,7 +1106,7 @@ void ModSortDialog::rebuildListCtrlFromCache()
 
     m_listCtrl->Thaw();
 
-    // Rebuilding drops all item colors, so reapply the new-mod highlights
+    // Rebuilding drops all item colors, so reapply the new-mod highlights.
     applyNewModHighlights();
 
     if (savedTopItem > 0 && savedTopItem < m_listCtrl->GetItemCount()) {
@@ -1155,9 +1115,8 @@ void ModSortDialog::rebuildListCtrlFromCache()
     }
 
     const bool mo2Locked = m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked();
-    if (m_restoreButton != nullptr) {
+    if (m_restoreButton != nullptr)
         m_restoreButton->Enable(!mo2Locked);
-    }
 
     m_listCtrl->setDraggingEnabled(!mo2Locked && searchTerm.IsEmpty());
     m_listCtrl->setContextMoveEnabled(!mo2Locked);
@@ -1165,9 +1124,8 @@ void ModSortDialog::rebuildListCtrlFromCache()
 
 auto ModSortDialog::getActiveSearchTerm() const -> wxString
 {
-    if (m_searchCtrl == nullptr) {
-        return {};
-    }
+    if (m_searchCtrl == nullptr)
+        return { };
 
     wxString term = m_searchCtrl->GetValue();
     term.Trim(true);
@@ -1180,16 +1138,12 @@ auto ModSortDialog::getOrderedCachedRows() const -> std::vector<const CachedModR
     std::vector<const CachedModRow*> orderedRows;
     orderedRows.reserve(m_cachedRows.size());
 
-    for (const auto& row : m_cachedRows) {
-        if (row.isChecked) {
+    for (const auto& row : m_cachedRows)
+        if (row.isChecked)
             orderedRows.push_back(&row);
-        }
-    }
-    for (const auto& row : m_cachedRows) {
-        if (!row.isChecked) {
+    for (const auto& row : m_cachedRows)
+        if (!row.isChecked)
             orderedRows.push_back(&row);
-        }
-    }
 
     return orderedRows;
 }
@@ -1197,9 +1151,8 @@ auto ModSortDialog::getOrderedCachedRows() const -> std::vector<const CachedModR
 void ModSortDialog::reorderCachedRowsFromFilteredMove(const std::vector<std::wstring>& selectedModNames,
                                                       bool moveToTop)
 {
-    if (selectedModNames.empty() || m_cachedRows.empty()) {
+    if (selectedModNames.empty() || m_cachedRows.empty())
         return;
-    }
 
     const std::unordered_set<std::wstring> selectedMods(selectedModNames.begin(), selectedModNames.end());
 
@@ -1216,11 +1169,10 @@ void ModSortDialog::reorderCachedRowsFromFilteredMove(const std::vector<std::wst
             continue;
         }
 
-        if (selectedMods.contains(row.modName)) {
+        if (selectedMods.contains(row.modName))
             selectedEnabledRows.push_back(row);
-        } else {
+        else
             unselectedEnabledRows.push_back(row);
-        }
     }
 
     std::vector<CachedModRow> reorderedRows;
@@ -1246,40 +1198,31 @@ auto ModSortDialog::hasUnsavedChanges() -> bool
     const auto orderedRows = getOrderedCachedRows();
 
     // Compare cached UI state against PGModManager baseline.
-    auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::getPGMM();
     const int itemCount = static_cast<int>(orderedRows.size());
     for (int i = 0; i < itemCount; ++i) {
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
-        auto mod = pgmm->getMod(row.modName);
-        if (mod == nullptr) {
+        const auto mod = pgmm->getMod(row.modName);
+        if (mod == nullptr)
             return true;
-        }
 
-        if (mod->isEnabled != row.isChecked) {
+        if (mod->isEnabled != row.isChecked)
             return true;
-        }
 
-        if (mod->isEnabled && mod->priority != static_cast<int>(itemCount - i)) {
+        if (mod->isEnabled && mod->priority != itemCount - i)
             return true;
-        }
 
-        if (mod->areMeshesIgnored != row.areMeshesIgnored) {
+        if (mod->areMeshesIgnored != row.areMeshesIgnored)
             return true;
-        }
     }
 
-    // Check any pgc settings
-    auto* pgc = PGPatcherGlobals::getPGC();
-    if (pgc == nullptr) {
-        throw runtime_error("PGConfig is null");
-    }
+    // Check any pgc settings.
+    const auto* pgc = PGPatcherGlobals::getPGC();
+    if (pgc == nullptr)
+        throw std::runtime_error("PGConfig is null");
 
     const auto currentParams = pgc->getParams();
-    if (m_checkBoxMO2 != nullptr && currentParams.ModManager.mo2UseLooseFileOrder != m_checkBoxMO2->IsChecked()) {
-        return true;
-    }
-
-    return false;
+    return m_checkBoxMO2 != nullptr && currentParams.modManager.mo2UseLooseFileOrder != m_checkBoxMO2->IsChecked();
 }
 
 void ModSortDialog::updateApplyButtonState()
@@ -1294,13 +1237,11 @@ auto ModSortDialog::constructShaderString(const std::set<PGEnums::ShapeShader>& 
 {
     wxString shaderStr;
     for (const auto& shader : shaders) {
-        if (shader == PGEnums::ShapeShader::NONE) {
+        if (shader == PGEnums::ShapeShader::NONE)
             continue;
-        }
 
-        if (!shaderStr.empty()) {
+        if (!shaderStr.empty())
             shaderStr += ", ";
-        }
         shaderStr += PGEnums::getStrFromShader(shader);
     }
     return shaderStr;

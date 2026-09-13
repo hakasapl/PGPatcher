@@ -18,14 +18,14 @@
  */
 class PGGlobals {
 private:
-    static BethesdaGame* s_BG;
-    static PGDirectory* s_PGD;
-    static PGD3D* s_PGD3D;
-    static PGModManager* s_PGMM;
+    static BethesdaGame* s_bg;
+    static PGDirectory* s_pgd;
+    static PGD3D* s_pgD3D;
+    static PGModManager* s_pgmm;
 
 public:
     const static inline std::unordered_set<std::filesystem::path> s_foldersToMap
-        = {"meshes", "textures", "pbrnifpatcher", "lightplacer"};
+        = { "meshes", "textures", "pbrnifpatcher", "lightplacer" };
 
     /**
      * @brief Returns the global BethesdaGame instance.

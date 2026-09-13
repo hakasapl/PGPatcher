@@ -13,7 +13,7 @@
  */
 class PatcherTexture : public Patcher {
 private:
-    // Instance vars
+    // Instance vars.
     std::filesystem::path m_ddsPath; /** Stores the path to the NIF file currently being patched */
     DirectX::ScratchImage* m_dds; /** Stores the NIF object itself */
 

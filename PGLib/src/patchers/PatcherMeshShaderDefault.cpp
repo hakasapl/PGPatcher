@@ -16,18 +16,16 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
-
 auto PatcherMeshShaderDefault::getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory
 {
-    return [](const filesystem::path& nifPath, nifly::NifFile* nif) -> unique_ptr<PatcherMeshShader> {
-        return make_unique<PatcherMeshShaderDefault>(nifPath, nif);
+    return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshShader> {
+        return std::make_unique<PatcherMeshShaderDefault>(nifPath, nif);
     };
 }
 
 auto PatcherMeshShaderDefault::getShaderType() -> PGEnums::ShapeShader { return PGEnums::ShapeShader::NONE; }
 
-PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath,
+PatcherMeshShaderDefault::PatcherMeshShaderDefault(std::filesystem::path nifPath,
                                                    nifly::NifFile* nif)
     : PatcherMeshShader(std::move(nifPath),
                         nif,
@@ -35,7 +33,7 @@ PatcherMeshShaderDefault::PatcherMeshShaderDefault(filesystem::path nifPath,
 {
 }
 
-auto PatcherMeshShaderDefault::canApply([[maybe_unused]] NiShape& nifShape,
+auto PatcherMeshShaderDefault::canApply([[maybe_unused]] nifly::NiShape& nifShape,
                                         [[maybe_unused]] bool singlepassMATO,
                                         [[maybe_unused]] const PGPlugin::ModelRecordType& modelRecordType) -> bool
 {
@@ -55,18 +53,16 @@ auto PatcherMeshShaderDefault::shouldApply(const PGTypes::TextureSet& oldSlots,
 
     matches.clear();
 
-    // Loop through slots (only diffuse and normal)
+    // Loop through slots (only diffuse and normal).
     for (size_t slot = 0; slot <= 1; slot++) {
-        if (oldSlots.at(slot).empty()) {
+        if (oldSlots.at(slot).empty())
             continue;
-        }
 
-        // Check if file exists
-        if (!pgd->isFile(oldSlots.at(slot))) {
+        // Check if file exists.
+        if (!pgd->isFile(oldSlots.at(slot)))
             continue;
-        }
 
-        // Add match
+        // Add match.
         PatcherMatch curMatch;
         curMatch.matchedPath = oldSlots.at(slot);
         matches.push_back(curMatch);

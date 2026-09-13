@@ -15,12 +15,12 @@
  */
 class PatcherTextureGlobal : public PatcherTexture {
 public:
-    // type definitions
+    // Type definitions.
     using PatcherGlobalFactory
         = std::function<std::unique_ptr<PatcherTextureGlobal>(std::filesystem::path, DirectX::ScratchImage*)>;
     using PatcherGlobalObject = std::unique_ptr<PatcherTextureGlobal>;
 
-    // Constructors
+    // Constructors.
     PatcherTextureGlobal(std::filesystem::path texPath,
                          DirectX::ScratchImage* tex,
                          std::string patcherName);

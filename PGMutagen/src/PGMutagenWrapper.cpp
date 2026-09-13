@@ -25,76 +25,73 @@
 #include <winbase.h>
 #include <winnls.h>
 
-using namespace std;
-
 namespace {
-constexpr auto DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE
-    = "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}).";
+constexpr auto dotnetRuntimePreloadErrorMessage = "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}).";
 
 void dnneFailure(enum failure_type type,
                  int errorCode)
 {
     switch (type) {
     case failure_load_runtime:
-        spdlog::critical(DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE, static_cast<unsigned int>(errorCode));
+        spdlog::critical(dotnetRuntimePreloadErrorMessage, static_cast<unsigned>(errorCode));
         break;
     case failure_load_export:
         spdlog::critical("DotNet Wrapper failed to load a managed export (error: 0x{:08X}). "
                          "Ensure PGMutagen.dll is present and matches the expected version.",
-                         static_cast<unsigned int>(errorCode));
+                         static_cast<unsigned>(errorCode));
         break;
     default:
         spdlog::critical("DotNet Wrapper failed with unknown type {} (error: 0x{:08X}).",
                          static_cast<int>(type),
-                         static_cast<unsigned int>(errorCode));
+                         static_cast<unsigned>(errorCode));
         break;
     }
 }
 } // namespace
 
-mutex PGMutagenWrapper::s_libMutex;
+std::mutex PGMutagenWrapper::s_libMutex;
 
 void PGMutagenWrapper::libLogMessageIfExists()
 {
-    static constexpr unsigned int TRACE_LOG = 0;
-    static constexpr unsigned int DEBUG_LOG = 1;
-    static constexpr unsigned int INFO_LOG = 2;
-    static constexpr unsigned int WARN_LOG = 3;
-    static constexpr unsigned int ERROR_LOG = 4;
-    static constexpr unsigned int CRITICAL_LOG = 5;
+    static constexpr unsigned traceLog = 0;
+    static constexpr unsigned debugLog = 1;
+    static constexpr unsigned infoLog = 2;
+    static constexpr unsigned warnLog = 3;
+    static constexpr unsigned errorLog = 4;
+    static constexpr unsigned criticalLog = 5;
 
     int level = 0;
     wchar_t* message = nullptr;
     GetLogMessage(&message, &level);
 
     while (message != nullptr) {
-        const wstring messageOut(message);
+        const std::wstring messageOut(message);
         LocalFree(static_cast<HGLOBAL>(message)); // Only free if memory was allocated.
         message = nullptr;
 
-        // log the message
+        // Log the message.
         switch (level) {
-        case TRACE_LOG:
+        case traceLog:
             spdlog::trace(L"{}", messageOut);
             break;
-        case DEBUG_LOG:
+        case debugLog:
             spdlog::debug(L"{}", messageOut);
             break;
-        case INFO_LOG:
+        case infoLog:
             spdlog::info(L"{}", messageOut);
             break;
-        case WARN_LOG:
+        case warnLog:
             spdlog::warn(L"{}", messageOut);
             break;
-        case ERROR_LOG:
+        case errorLog:
             spdlog::error(L"{}", messageOut);
             break;
-        case CRITICAL_LOG:
+        case criticalLog:
             spdlog::critical(L"{}", messageOut);
             break;
         }
 
-        // Get the next message
+        // Get the next message.
         GetLogMessage(&message, &level);
     }
 }
@@ -104,48 +101,46 @@ void PGMutagenWrapper::libThrowExceptionIfExists()
     wchar_t* message = nullptr;
     GetLastException(&message);
 
-    if (message == nullptr) {
+    if (message == nullptr)
         return;
-    }
 
-    const wstring messageOut(message);
+    const std::wstring messageOut(message);
     LocalFree(static_cast<HGLOBAL>(message)); // Only free if memory was allocated.
 
-    throw runtime_error("PGMutagenWrapper: " + utf16toUTF8(messageOut));
+    throw std::runtime_error("PGMutagenWrapper: " + utf16toUTF8(messageOut));
 }
 
 void PGMutagenWrapper::libInitialize(const int& gameType,
                                      const std::wstring& exePath,
-                                     const wstring& dataPath,
-                                     const vector<wstring>& loadOrder,
-                                     const unsigned int& lang)
+                                     const std::wstring& dataPath,
+                                     const std::vector<std::wstring>& loadOrder,
+                                     const unsigned& lang)
 {
     // Proactively try to load the .NET runtime. try_preload_runtime() returns an error
     // code on failure instead of calling abort(), giving us the chance to surface a
     // proper exception to the caller.
     const int runtimeRC = try_preload_runtime();
     if (runtimeRC != 0) {
-        spdlog::critical(DOTNET_RUNTIME_PRELOAD_ERROR_MESSAGE, static_cast<unsigned int>(runtimeRC));
-        throw runtime_error("PGMutagenWrapper: .NET runtime failed to initialize. "
-                            "Check the log for details.");
+        spdlog::critical(dotnetRuntimePreloadErrorMessage, static_cast<unsigned>(runtimeRC));
+        throw std::runtime_error("PGMutagenWrapper: .NET runtime failed to initialize. "
+                                 "Check the log for details.");
     }
 
     set_failure_callback(dnneFailure);
 
-    // Use vector to manage the memory for LoadOrderArr
-    vector<const wchar_t*> loadOrderArr;
+    // Use vector to manage the memory for LoadOrderArr.
+    std::vector<const wchar_t*> loadOrderArr;
     if (!loadOrder.empty()) {
         loadOrderArr.reserve(loadOrder.size()); // Pre-allocate the vector size
-        for (const auto& mod : loadOrder) {
+        for (const auto& mod : loadOrder)
             loadOrderArr.push_back(mod.c_str()); // Populate the vector with the c_str pointers
-        }
     }
 
-    // Add the null terminator to the end
+    // Add the null terminator to the end.
     loadOrderArr.push_back(nullptr);
 
     {
-        const lock_guard<mutex> lock(s_libMutex);
+        const std::scoped_lock lock(s_libMutex);
 
         Initialize(gameType, exePath.c_str(), dataPath.c_str(), loadOrderArr.data(), lang);
         libLogMessageIfExists();
@@ -153,9 +148,9 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
     }
 }
 
-void PGMutagenWrapper::libPopulateObjs(const filesystem::path& existingModPath)
+void PGMutagenWrapper::libPopulateObjs(const std::filesystem::path& existingModPath)
 {
-    const lock_guard<mutex> lock(s_libMutex);
+    const std::scoped_lock lock(s_libMutex);
 
     PopulateObjs(existingModPath.wstring().c_str());
     libLogMessageIfExists();
@@ -164,17 +159,17 @@ void PGMutagenWrapper::libPopulateObjs(const filesystem::path& existingModPath)
 
 void PGMutagenWrapper::libResetPatchingState()
 {
-    const lock_guard<mutex> lock(s_libMutex);
+    const std::scoped_lock lock(s_libMutex);
 
     ResetPatchingState(0);
     libLogMessageIfExists();
     libThrowExceptionIfExists();
 }
 
-void PGMutagenWrapper::libFinalize(const filesystem::path& outputPath,
+void PGMutagenWrapper::libFinalize(const std::filesystem::path& outputPath,
                                    int esmMode)
 {
-    const lock_guard<mutex> lock(s_libMutex);
+    const std::scoped_lock lock(s_libMutex);
 
     Finalize(outputPath.c_str(), esmMode);
     libLogMessageIfExists();
@@ -187,51 +182,47 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
     uint32_t length = 0;
 
     {
-        const lock_guard<mutex> lock(s_libMutex);
+        const std::scoped_lock lock(s_libMutex);
         GetModelUses(modelPath.c_str(), &length, &buffer);
         libLogMessageIfExists();
         libThrowExceptionIfExists();
     }
 
-    if ((buffer == nullptr) || length == 0) {
-        return {};
-    }
+    if ((buffer == nullptr) || length == 0)
+        return { };
 
     flatbuffers::Verifier verifier(buffer, length);
-    if (!PGMutagenBuffers::VerifyModelUsesBuffer(verifier)) {
-        return {};
-    }
+    if (!PGMutagenBuffers::VerifyModelUsesBuffer(verifier))
+        return { };
 
-    vector<ModelUse> modelUsesOut;
+    std::vector<ModelUse> modelUsesOut;
 
     const auto* const modelUses = PGMutagenBuffers::GetModelUses(buffer);
     for (const auto* const mu : *modelUses->uses()) {
         auto curUse = ModelUse();
 
-        curUse.modName = wstring(mu->mod_name()->begin(), mu->mod_name()->end());
+        curUse.modName = std::wstring(mu->mod_name()->begin(), mu->mod_name()->end());
         curUse.formID = mu->form_id();
-        curUse.subModel = string(mu->sub_model()->begin(), mu->sub_model()->end());
+        curUse.subModel = std::string(mu->sub_model()->begin(), mu->sub_model()->end());
         curUse.isWeighted = mu->is_weighted();
         curUse.singlepassMATO = mu->singlepass_mato();
         curUse.isIgnored = mu->is_ignored();
-        curUse.type = string(mu->type()->begin(), mu->type()->end());
+        curUse.type = std::string(mu->type()->begin(), mu->type()->end());
 
         for (const auto* const altTex : *mu->alternate_textures()) {
             auto curAltTex = AlternateTexture();
             curAltTex.slotID = altTex->slot_id();
 
-            // no slots
-            if (altTex->slots() == nullptr || altTex->slots()->textures() == nullptr) {
+            // No slots.
+            if (altTex->slots() == nullptr || altTex->slots()->textures() == nullptr)
                 continue;
-            }
 
-            auto slots = array<wstring, NUM_PLUGIN_TEXTURE_SLOTS> {};
+            auto slots = std::array<std::wstring, numPluginTextureSlots> { };
             const auto* textures = altTex->slots()->textures();
-            for (int i = 0; std::cmp_less(i, NUM_PLUGIN_TEXTURE_SLOTS) && std::cmp_less(i, textures->size()); ++i) {
+            for (int i = 0; std::cmp_less(i, numPluginTextureSlots) && std::cmp_less(i, textures->size()); ++i) {
                 const auto* texStr = textures->Get(i);
-                if (texStr != nullptr) {
-                    slots.at(i) = wstring(texStr->begin(), texStr->end());
-                }
+                if (texStr != nullptr)
+                    slots.at(i) = std::wstring(texStr->begin(), texStr->end());
             }
 
             curAltTex.slots = slots;
@@ -249,9 +240,9 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
 
 void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
 {
-    flatbuffers::FlatBufferBuilder builder(DEFAULT_BUFFER_SIZE);
+    flatbuffers::FlatBufferBuilder builder(defaultBufferSize);
 
-    vector<flatbuffers::Offset<PGMutagenBuffers::ModelUse>> modelUsesOffsets;
+    std::vector<flatbuffers::Offset<PGMutagenBuffers::ModelUse>> modelUsesOffsets;
     modelUsesOffsets.reserve(modelUses.size());
 
     for (const auto& mu : modelUses) {
@@ -259,16 +250,15 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
         const auto subModelOffset = builder.CreateString(mu.subModel);
         const auto meshFileOffset = builder.CreateString(utf16toUTF8(mu.meshFile));
 
-        vector<flatbuffers::Offset<PGMutagenBuffers::AlternateTexture>> altTexOffsets;
+        std::vector<flatbuffers::Offset<PGMutagenBuffers::AlternateTexture>> altTexOffsets;
         altTexOffsets.reserve(mu.alternateTextures.size());
 
         for (const auto& altTex : mu.alternateTextures) {
-            vector<flatbuffers::Offset<flatbuffers::String>> texOffsets;
-            texOffsets.reserve(NUM_PLUGIN_TEXTURE_SLOTS);
+            std::vector<flatbuffers::Offset<flatbuffers::String>> texOffsets;
+            texOffsets.reserve(numPluginTextureSlots);
 
-            for (const auto& tex : altTex.slots) {
+            for (const auto& tex : altTex.slots)
                 texOffsets.push_back(builder.CreateString(utf16toUTF8(tex)));
-            }
 
             const auto slotsOffset = PGMutagenBuffers::CreateTextureSet(builder, builder.CreateVector(texOffsets));
 
@@ -287,7 +277,7 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
                                                                      meshFileOffset,
                                                                      false,
                                                                      false,
-                                                                     {},
+                                                                     { },
                                                                      altTexVectorOffset);
         modelUsesOffsets.push_back(modelUseOffset);
     }
@@ -297,42 +287,42 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
     builder.Finish(modelUsesRoot);
 
     uint8_t const* buf = builder.GetBufferPointer();
-    unsigned int const size = builder.GetSize();
+    unsigned const size = builder.GetSize();
 
     {
-        const lock_guard<mutex> lock(s_libMutex);
+        const std::scoped_lock lock(s_libMutex);
         SetModelUses(size, buf);
         libLogMessageIfExists();
         libThrowExceptionIfExists();
     }
 }
 
-auto PGMutagenWrapper::utf8toUTF16(const string& str) -> wstring
+auto PGMutagenWrapper::utf8toUTF16(const std::string& str) -> std::wstring
 {
-    // Just return empty string if empty
-    if (str.empty()) {
-        return {};
-    }
+    // Just return empty string if empty.
+    if (str.empty())
+        return { };
 
-    // Convert string > wstring
-    const int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.length(), nullptr, 0);
+    // Convert string > wstring.
+    const int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), nullptr, 0);
     std::wstring wStr(sizeNeeded, 0);
-    MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.length(), wStr.data(), sizeNeeded);
+    MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.length()), wStr.data(), sizeNeeded);
 
     return wStr;
 }
 
-auto PGMutagenWrapper::utf16toUTF8(const wstring& wStr) -> string
+auto PGMutagenWrapper::utf16toUTF8(const std::wstring& wStr) -> std::string
 {
-    // Just return empty string if empty
-    if (wStr.empty()) {
-        return {};
-    }
+    // Just return empty string if empty.
+    if (wStr.empty())
+        return { };
 
-    // Convert wstring > string
-    const int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wStr.data(), (int)wStr.size(), nullptr, 0, nullptr, nullptr);
-    string str(sizeNeeded, 0);
-    WideCharToMultiByte(CP_UTF8, 0, wStr.data(), (int)wStr.size(), str.data(), sizeNeeded, nullptr, nullptr);
+    // Convert wstring > string.
+    const int sizeNeeded
+        = WideCharToMultiByte(CP_UTF8, 0, wStr.data(), static_cast<int>(wStr.size()), nullptr, 0, nullptr, nullptr);
+    std::string str(sizeNeeded, 0);
+    WideCharToMultiByte(
+        CP_UTF8, 0, wStr.data(), static_cast<int>(wStr.size()), str.data(), sizeNeeded, nullptr, nullptr);
 
     return str;
 }

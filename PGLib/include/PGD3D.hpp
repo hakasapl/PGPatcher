@@ -21,13 +21,13 @@ class PGD3D {
 private:
     std::mutex m_d3dMutex;
 
-    static constexpr unsigned NUM_GPU_THREADS = 16;
-    static constexpr unsigned GPU_BUFFER_SIZE_MULTIPLE = 16;
-    static constexpr unsigned MAX_CHANNEL_VALUE = 255;
+    static constexpr unsigned numGPUThreads = 16;
+    static constexpr unsigned gpuBufferSizeMultiple = 16;
+    static constexpr unsigned maxChannelValue = 255;
 
     std::filesystem::path m_shaderPath;
 
-    // GPU objects
+    // GPU objects.
     Microsoft::WRL::ComPtr<ID3D11Device> m_ptrDevice; // GPU device
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_ptrContext; // GPU context
 
@@ -36,12 +36,12 @@ private:
     std::unordered_map<std::filesystem::path, DirectX::TexMetadata> m_ddsMetaDataCache;
     std::shared_mutex m_ddsMetaDataMutex;
 
-    // Global shader storage
+    // Global shader storage.
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> m_shaderCountAlphaValues;
 
 public:
     //
-    // Static Helpers
+    // Static Helpers.
     //
 
     /**
@@ -61,7 +61,7 @@ public:
     static auto getDXGIFormatFromString(const std::string& format) -> DXGI_FORMAT;
 
     //
-    // Instance Functions
+    // Instance Functions.
     //
 
     /**
@@ -70,7 +70,7 @@ public:
      * @param pgd Pointer to the PGDirectory object
      * @param shaderPath Path to shader folder
      */
-    PGD3D(std::filesystem::path shaderPath);
+    explicit PGD3D(std::filesystem::path shaderPath);
 
     /**
      * @brief Initialize GPU. This must be called before any other GPU functions
@@ -89,7 +89,7 @@ public:
     auto initShaders() -> bool;
 
     //
-    // Global Runners (they use helpers below)
+    // Global Runners (they use helpers below).
     //
 
     /**
@@ -130,7 +130,7 @@ public:
                                      4>& outData) -> bool;
 
     //
-    // GPU Helpers
+    // GPU Helpers.
     //
 
     /**
@@ -279,7 +279,7 @@ public:
      * @return true on success
      * @return false on failure
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] auto readBack(const Microsoft::WRL::ComPtr<ID3D11Buffer>& gpuResource,
                                 std::vector<T>& outData) -> bool;
 
@@ -305,7 +305,7 @@ public:
     void flushGPU();
 
     //
-    // Texture helpers
+    // Texture helpers.
     //
 
     /**
@@ -360,9 +360,9 @@ public:
 
 private:
     //
-    // Private Helpers
+    // Private Helpers.
     //
-    static auto isPowerOfTwo(unsigned int x) -> bool;
+    static auto isPowerOfTwo(unsigned x) -> bool;
 
     static auto loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPixels,
                                             const size_t& width,

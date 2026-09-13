@@ -6,13 +6,13 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
-// Disable owning memory checks because wxWidgets will take care of deleting the objects
+// Disable owning memory checks because wxWidgets will take care of deleting the objects.
 // NOLINTBEGIN(cppcoreguidelines-owning-memory)
 
 namespace {
 
-constexpr int DIALOG_BORDER = 10;
-constexpr int TEXT_WRAP_WIDTH = 400;
+constexpr int dialogBorder = 10;
+constexpr int textWrapWidth = 400;
 
 /**
  * @brief Minimal wx-drawn message dialog used in dark mode (message text and standard buttons only)
@@ -23,28 +23,28 @@ public:
                         const wxString& message,
                         const wxString& caption,
                         int style)
-        : wxDialog(parent, wxID_ANY, caption)
+        : wxDialog(parent,
+                   wxID_ANY,
+                   caption)
     {
         SetIcons(PGUI::getAppIcons());
 
         auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
         auto* text = new wxStaticText(this, wxID_ANY, message);
-        text->Wrap(FromDIP(TEXT_WRAP_WIDTH));
-        mainSizer->Add(text, 1, wxALL | wxEXPAND, FromDIP(DIALOG_BORDER));
+        text->Wrap(FromDIP(textWrapWidth));
+        mainSizer->Add(text, 1, wxALL | wxEXPAND, FromDIP(dialogBorder));
 
-        auto* btnSizer
-            = CreateStdDialogButtonSizer(style & (wxOK | wxCANCEL | wxYES | wxNO | wxHELP | wxNO_DEFAULT));
-        mainSizer->Add(btnSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, FromDIP(DIALOG_BORDER));
+        auto* btnSizer = CreateStdDialogButtonSizer(style & (wxOK | wxCANCEL | wxYES | wxNO | wxHELP | wxNO_DEFAULT));
+        mainSizer->Add(btnSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, FromDIP(dialogBorder));
 
-        // Yes/No buttons do not end the modal loop by default (OK/Cancel are handled by wxDialog)
+        // Yes/No buttons do not end the modal loop by default (OK/Cancel are handled by wxDialog).
         Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void { EndModal(wxID_YES); }, wxID_YES);
         Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void { EndModal(wxID_NO); }, wxID_NO);
 
-        // Let ESC / the close box act as "No" when there is no cancel button
-        if ((style & wxNO) != 0 && (style & wxCANCEL) == 0) {
+        // Let ESC / the close box act as "No" when there is no cancel button.
+        if ((style & wxNO) != 0 && (style & wxCANCEL) == 0)
             SetEscapeId(wxID_NO);
-        }
 
         SetSizerAndFit(mainSizer);
         CentreOnParent();
@@ -53,14 +53,13 @@ public:
 
 } // namespace
 
-auto PGMessageBox(const wxString& message,
+auto pgMessageBox(const wxString& message,
                   const wxString& caption,
                   int style,
                   wxWindow* parent) -> int
 {
-    if (!PGPatcherGlobals::isDarkMode()) {
+    if (!PGPatcherGlobals::isDarkMode())
         return wxMessageBox(message, caption, style, parent);
-    }
 
     PGDarkMessageDialog dialog(parent, message, caption, style);
 

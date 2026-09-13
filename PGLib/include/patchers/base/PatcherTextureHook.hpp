@@ -19,12 +19,12 @@ protected:
     static inline std::mutex s_generatedFileTrackerMutex;
 
 public:
-    // type definitions
+    // Type definitions.
     using PatcherGlobalFactory
         = std::function<std::unique_ptr<PatcherTextureHook>(std::filesystem::path, DirectX::ScratchImage*)>;
     using PatcherGlobalObject = std::unique_ptr<PatcherTextureHook>;
 
-    // Constructors
+    // Constructors.
     PatcherTextureHook(std::filesystem::path texPath,
                        DirectX::ScratchImage* tex,
                        std::string patcherName);

@@ -8,12 +8,10 @@
 #include <string>
 #include <utility>
 
-using namespace std;
-
-// Constructor
-PatcherMeshShader::PatcherMeshShader(filesystem::path nifPath,
+// Constructor.
+PatcherMeshShader::PatcherMeshShader(std::filesystem::path nifPath,
                                      nifly::NifFile* nif,
-                                     string patcherName)
+                                     std::string patcherName)
     : PatcherMesh(std::move(nifPath),
                   nif,
                   std::move(patcherName))

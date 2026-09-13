@@ -18,12 +18,10 @@
 #include <memory>
 #include <utility>
 
-using namespace std;
-
 auto PatcherMeshPostRestoreDefaultShaders::getFactory() -> PatcherMeshPost::PatcherMeshPostFactory
 {
-    return [](const filesystem::path& nifPath, nifly::NifFile* nif) -> unique_ptr<PatcherMeshPost> {
-        return make_unique<PatcherMeshPostRestoreDefaultShaders>(nifPath, nif);
+    return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPost> {
+        return std::make_unique<PatcherMeshPostRestoreDefaultShaders>(nifPath, nif);
     };
 }
 
@@ -39,18 +37,15 @@ auto PatcherMeshPostRestoreDefaultShaders::applyPatch(PGTypes::TextureSet& slots
                                                       nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
-    if (nifShaderBSLSP == nullptr) {
+    auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
+    if (nifShaderBSLSP == nullptr)
         return false;
-    }
 
-    if (restoreDefaultShaderFromParallax(slots, *nifShaderBSLSP)) {
+    if (restoreDefaultShaderFromParallax(slots, *nifShaderBSLSP))
         return true;
-    }
 
-    if (restoreDefaultShaderFromComplexMaterial(slots, *nifShaderBSLSP)) {
+    if (restoreDefaultShaderFromComplexMaterial(slots, *nifShaderBSLSP))
         return true;
-    }
 
     return false;
 }
@@ -61,24 +56,23 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(PGTy
 {
     auto* pgd = PGGlobals::getPGD();
 
-    if (shaderProp.GetShaderType() != BSLSP_PARALLAX) {
+    if (shaderProp.GetShaderType() != nifly::BSLSP_PARALLAX)
         return false;
-    }
 
-    // this is parallax type, check the _p texture to see if it exists
-    const auto& parallaxTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::PARALLAX)));
+    // This is parallax type, check the _p texture to see if it exists.
+    const auto& parallaxTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::Parallax)));
 
     if (pgd->isFile(parallaxTex)) {
-        // definitely a parallax map, no need to disable
+        // Definitely a parallax map, no need to disable.
         return false;
     }
 
-    // not a parallax map, restore to default shader
-    shaderProp.SetShaderType(BSLSP_DEFAULT);
-    PGNIFUtil::clearShaderFlag(&shaderProp, SLSF1_PARALLAX);
+    // Not a parallax map, restore to default shader.
+    shaderProp.SetShaderType(nifly::BSLSP_DEFAULT);
+    PGNIFUtil::clearShaderFlag(&shaderProp, nifly::SLSF1_PARALLAX);
 
-    // clear parallax texture slot
-    slots.at(static_cast<int>(PGEnums::TextureSlots::PARALLAX)).clear();
+    // Clear parallax texture slot.
+    slots.at(static_cast<int>(PGEnums::TextureSlots::Parallax)).clear();
 
     return true;
 }
@@ -89,29 +83,28 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMateri
 {
     auto* pgd = PGGlobals::getPGD();
 
-    if (shaderProp.GetShaderType() != BSLSP_ENVMAP) {
+    if (shaderProp.GetShaderType() != nifly::BSLSP_ENVMAP)
         return false;
-    }
 
-    // this is complex material type, check the _cm texture to see if it exists
-    const auto& envTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::CUBEMAP)));
-    const auto& envMaskTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::ENVMASK)));
+    // This is complex material type, check the _cm texture to see if it exists.
+    const auto& envTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::Cubemap)));
+    const auto& envMaskTex = StringUtil::toLowerASCIIFast(slots.at(static_cast<int>(PGEnums::TextureSlots::EnvMask)));
 
     const bool envValid = envTex.empty() || pgd->isFile(envTex)
-        || StringUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
+        || StringUtil::asciiFastIEquals(envTex, PatcherMeshShaderComplexMaterial::s_dynCubemapPath);
     const bool envMaskValid = envMaskTex.empty() || pgd->isFile(envMaskTex);
     if (envValid && envMaskValid) {
-        // cubemap and env mask valid, no need to disable
+        // Cubemap and env mask valid, no need to disable.
         return false;
     }
 
-    // not a complex material map, restore to default shader
-    shaderProp.SetShaderType(BSLSP_DEFAULT);
-    PGNIFUtil::clearShaderFlag(&shaderProp, SLSF1_ENVIRONMENT_MAPPING);
+    // Not a complex material map, restore to default shader.
+    shaderProp.SetShaderType(nifly::BSLSP_DEFAULT);
+    PGNIFUtil::clearShaderFlag(&shaderProp, nifly::SLSF1_ENVIRONMENT_MAPPING);
 
-    // clear complex material texture slot
-    slots.at(static_cast<int>(PGEnums::TextureSlots::CUBEMAP)).clear();
-    slots.at(static_cast<int>(PGEnums::TextureSlots::ENVMASK)).clear();
+    // Clear complex material texture slot.
+    slots.at(static_cast<int>(PGEnums::TextureSlots::Cubemap)).clear();
+    slots.at(static_cast<int>(PGEnums::TextureSlots::EnvMask)).clear();
 
     return true;
 }

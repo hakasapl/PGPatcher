@@ -182,8 +182,8 @@ auto toLowerASCIIFastInPlace(std::wstring& str) -> void;
  * @param str2 Second string to compare.
  * @return true if both strings are equal when compared in lower-case ASCII, false otherwise.
  */
-template <typename StringType1,
-          typename StringType2>
+template<typename StringType1,
+         typename StringType2>
 auto asciiFastIEquals(const StringType1& str1,
                       const StringType2& str2) -> bool
 {

@@ -17,8 +17,8 @@
  */
 class PatcherTextureHookFixSSS : public PatcherTextureHook {
 private:
-    static constexpr const float SHADER_ALBEDO_SAT_POWER = 0.5F;
-    static constexpr const float SHADER_ALBEDO_NORM = 1.8F;
+    static constexpr const float shaderAlbedoSatPower = 0.5;
+    static constexpr const float shaderAlbedoNorm = 1.8;
 
     struct ShaderParams {
         float fAlbedoSatPower;
@@ -26,7 +26,7 @@ private:
     };
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* SHADER_NAME = "SSSFix.hlsl";
+    static constexpr const char* shaderName = "SSSFix.hlsl";
 
     static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;

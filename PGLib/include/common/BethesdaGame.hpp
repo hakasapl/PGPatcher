@@ -6,14 +6,14 @@
 #include <vector>
 #include <windows.h>
 
-// Steam game ID definitions
+// Steam game ID definitions.
 enum class SteamGameID : int {
-    STEAMGAMEID_SKYRIM_SE = 489830,
-    STEAMGAMEID_SKYRIM_VR = 611670,
-    STEAMGAMEID_ENDERAL_SE = 976620
+    SkyrimSE = 489830,
+    SkyrimVR = 611670,
+    EnderalSE = 976620,
 };
 
-constexpr unsigned REG_BUFFER_SIZE = 1024;
+constexpr unsigned regBufferSize = 1024;
 
 /**
  * @brief Represents a Bethesda RPG game installation, tracking the game type and paths,
@@ -25,30 +25,30 @@ public:
      * @brief Identifies the specific Bethesda game variant.
      */
     enum class GameType : uint8_t {
-        SKYRIM_SE,    ///< Skyrim Special Edition (Steam)
-        SKYRIM_GOG,   ///< Skyrim Special Edition (GOG)
-        SKYRIM_VR,    ///< Skyrim VR (Steam)
-        ENDERAL_SE,   ///< Enderal Special Edition (Steam)
-        UNKNOWN       ///< Unknown or unsupported game type
+        SkyrimSE, ///< Skyrim Special Edition (Steam)
+        SkyrimGOG, ///< Skyrim Special Edition (GOG)
+        SkyrimVR, ///< Skyrim VR (Steam)
+        EnderalSE, ///< Enderal Special Edition (Steam)
+        Unknown, ///< Unknown or unsupported game type
     };
 
     /**
      * @brief Identifies the store/platform through which the game was purchased.
      */
     enum class StoreType : uint8_t {
-        STEAM,              ///< Steam store
-        WINDOWS_STORE,      ///< Microsoft / Windows Store
-        EPIC_GAMES_STORE,   ///< Epic Games Store
-        GOG                 ///< GOG (Good Old Games)
+        Steam, ///< Steam store
+        WindowsStore, ///< Microsoft / Windows Store
+        EpicGamesStore, ///< Epic Games Store
+        GOG, ///< GOG (Good Old Games)
     };
 
     /**
      * @brief Holds the paths to a game's INI configuration files.
      */
     struct ININame {
-        std::filesystem::path ini;        ///< Path to the primary INI file (e.g. skyrim.ini)
-        std::filesystem::path iniPrefs;   ///< Path to the preferences INI file (e.g. skyrimprefs.ini)
-        std::filesystem::path iniCustom;  ///< Path to the custom INI file (e.g. skyrimcustom.ini)
+        std::filesystem::path ini; ///< Path to the primary INI file (e.g. skyrim.ini)
+        std::filesystem::path iniPrefs; ///< Path to the preferences INI file (e.g. skyrimprefs.ini)
+        std::filesystem::path iniCustom; ///< Path to the custom INI file (e.g. skyrimcustom.ini)
     };
 
 private:
@@ -58,10 +58,10 @@ private:
     [[nodiscard]] auto getSteamGameID() const -> int;
     [[nodiscard]] static auto getDataCheckFile(const GameType& type) -> std::filesystem::path;
 
-    // stores the game type
+    // Stores the game type.
     GameType m_objGameType;
 
-    // stores game path and game data path (game path / data)
+    // Stores game path and game data path (game path / data).
     std::filesystem::path m_gamePath;
     std::filesystem::path m_gameDataPath;
     std::filesystem::path m_gameAppDataPath;
@@ -76,10 +76,10 @@ public:
      * @param appDataPath Path to the game's AppData directory. If empty, the system default is used.
      * @param documentPath Path to the game's Documents directory. If empty, the system default is used.
      */
-    BethesdaGame(GameType gameType,
-                 const std::filesystem::path& gamePath = "",
-                 const std::filesystem::path& appDataPath = "",
-                 const std::filesystem::path& documentPath = "");
+    explicit BethesdaGame(GameType gameType,
+                          const std::filesystem::path& gamePath = "",
+                          const std::filesystem::path& appDataPath = "",
+                          const std::filesystem::path& documentPath = "");
 
     /**
      * @brief Returns the game type of this instance.
@@ -171,7 +171,7 @@ private:
     [[nodiscard]] auto getGameDocumentSystemPath() const -> std::filesystem::path;
     [[nodiscard]] static auto getGameAppdataSystemPath(const GameType& type) -> std::filesystem::path;
 
-    // gets the system path for a folder (from windows.h)
+    // Gets the system path for a folder (from windows.h).
     static auto getSystemPath(const GUID& folderID) -> std::filesystem::path;
 
     [[nodiscard]] static auto getGameRegistryPath(const GameType& type) -> std::string;

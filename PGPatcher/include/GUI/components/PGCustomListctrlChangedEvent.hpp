@@ -20,15 +20,15 @@ public:
      * @param id Window or event ID.
      * @param item Item index that changed.
      */
-    PGCustomListctrlChangedEvent(long id = wxID_ANY,
-                                 long item = -1)
+    explicit PGCustomListctrlChangedEvent(long id = wxID_ANY,
+                                          long item = -1)
         : wxCommandEvent(pgEVT_LISTCTRL_CHANGED,
                          id)
         , m_itemIndex(item)
     {
     }
 
-    // Getters
+    // Getters.
     /**
      * @brief Get the index of the item that changed.
      *
@@ -36,7 +36,7 @@ public:
      */
     [[nodiscard]] auto getItemIndex() const -> long { return m_itemIndex; }
 
-    // Required for sending with wxPostEvent
+    // Required for sending with wxPostEvent.
     /**
      * @brief Create a heap-allocated copy of this event (required for wxPostEvent).
      *

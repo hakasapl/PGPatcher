@@ -12,8 +12,8 @@ class PGCheckedDragListCtrl : public wxListCtrl {
 private:
     wxImageList* m_imagelist; /** Image list for checkboxes */
 
-    bool m_draggingEnabled = true; /** True if user can drag, false otherwise */
-    bool m_contextMoveEnabled = true; /** True if move-to-top/bottom menu actions are enabled */
+    bool m_isDraggingEnabled = true; /** True if user can drag, false otherwise */
+    bool m_isContextMoveEnabled = true; /** True if move-to-top/bottom menu actions are enabled */
 
     /**
      * @brief Optional callback invoked at the end of the context menu, after a separator.
@@ -23,7 +23,7 @@ private:
     std::function<void(wxMenu&, const std::vector<long>&)> m_contextMenuExtension;
 
     wxTimer m_autoscrollTimer; /** Timer that is responsible for autoscroll */
-    static constexpr int AUTOSCROLL_TIMER_INTERVAL = 250; /** Scroll every this amount in ms when autoscrolling */
+    static constexpr int autoscrollTimerInterval = 250; /** Scroll every this amount in ms when autoscrolling */
 
     /**
      * @brief Struct that represents a row being dragged
@@ -35,7 +35,7 @@ private:
 
     int m_targetLineIndex = -1; /** Stores the index of the element where an element is being dropped */
     std::vector<Row> m_draggedRows; /** Stores rows currently being dragged */
-    PGCheckedDragListCtrlGhostWindow* m_ghost; /** Ghost frame for render while dragging */
+    PGCheckedDragListCtrlGhostWindow* m_ghost { nullptr }; /** Ghost frame for render while dragging */
 
     int m_cutoffLine = -1; /** Cutoff line, below which dragging is disabled */
 
@@ -60,7 +60,7 @@ public:
      */
     ~PGCheckedDragListCtrl() override;
 
-    // Disable copy and move constructors and assignment operators
+    // Disable copy and move constructors and assignment operators.
     PGCheckedDragListCtrl(const PGCheckedDragListCtrl&) = delete;
     auto operator=(const PGCheckedDragListCtrl&) -> PGCheckedDragListCtrl& = delete;
     PGCheckedDragListCtrl(PGCheckedDragListCtrl&&) = delete;
@@ -158,7 +158,7 @@ public:
                                                     const std::vector<long>&)> extension);
 
 private:
-    // Event Handlers
+    // Event Handlers.
 
     /**
      * @brief Event handler that triggers when the left mouse button is pressed down (dragging or checking)
@@ -195,7 +195,7 @@ private:
      */
     void onContextMenu(wxContextMenuEvent& event);
 
-    // Helpers
+    // Helpers.
 
     /**
      * @brief Process an item being checked (movement about the cutoff line)

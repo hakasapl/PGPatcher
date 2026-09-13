@@ -14,12 +14,10 @@
 #include <memory>
 #include <utility>
 
-using namespace std;
-
 auto PatcherMeshPostHairFlowMap::getFactory() -> PatcherMeshPost::PatcherMeshPostFactory
 {
-    return [](const filesystem::path& nifPath, nifly::NifFile* nif) -> unique_ptr<PatcherMeshPost> {
-        return make_unique<PatcherMeshPostHairFlowMap>(nifPath, nif);
+    return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPost> {
+        return std::make_unique<PatcherMeshPostHairFlowMap>(nifPath, nif);
     };
 }
 
@@ -37,45 +35,45 @@ auto PatcherMeshPostHairFlowMap::applyPatch(PGTypes::TextureSet& slots,
     auto* pgd = PGGlobals::getPGD();
 
     auto* nifShader = getNIF()->GetShader(&nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
+    auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr) {
-        // not a BSLightingShaderProperty
+        // Not a BSLightingShaderProperty.
         return false;
     }
 
-    if (nifShaderBSLSP->GetShaderType() != BSLightingShaderPropertyShaderType::BSLSP_HAIRTINT) {
-        // not a Hair specular shader
+    if (nifShaderBSLSP->GetShaderType() != nifly::BSLightingShaderPropertyShaderType::BSLSP_HAIRTINT) {
+        // Not a Hair specular shader.
         return false;
     }
 
-    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING)) {
-        // already has back lighting flag, don't touch it
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_BACK_LIGHTING)) {
+        // Already has back lighting flag, don't touch it.
         return false;
     }
 
-    // Search prefixes
-    const auto& normalMap = slots.at(static_cast<int>(PGEnums::TextureSlots::NORMAL));
+    // Search prefixes.
+    const auto& normalMap = slots.at(static_cast<int>(PGEnums::TextureSlots::Normal));
     if (normalMap.empty() || !pgd->isFile(normalMap)) {
-        // no normal map, nothing to do
+        // No normal map, nothing to do.
         return false;
     }
 
-    static const auto flowMapBase = pgd->getTextureMapConst(PGEnums::TextureSlots::BACKLIGHT);
+    static const auto flowMapBase = pgd->getTextureMapConst(PGEnums::TextureSlots::Backlight);
 
-    const auto normalMapBase = PGNIFUtil::getTexBase(normalMap, PGEnums::TextureSlots::NORMAL);
-    const auto foundMatches = PGNIFUtil::getTexMatch(normalMapBase, PGEnums::TextureType::HAIR_FLOWMAP, flowMapBase);
+    const auto normalMapBase = PGNIFUtil::getTexBase(normalMap, PGEnums::TextureSlots::Normal);
+    const auto foundMatches = PGNIFUtil::getTexMatch(normalMapBase, PGEnums::TextureType::HairFlowMap, flowMapBase);
     if (foundMatches.empty()) {
-        // no flow map found, nothing to do
+        // No flow map found, nothing to do.
         return false;
     }
 
-    // use first match, there shouldn't be more than 1 for this case anyway
+    // Use first match, there shouldn't be more than 1 for this case anyway.
     const auto& foundMatch = foundMatches[0];
-    // Set the flow map texture slot
-    slots[static_cast<int>(PGEnums::TextureSlots::BACKLIGHT)] = foundMatch.path;
+    // Set the flow map texture slot.
+    slots[static_cast<int>(PGEnums::TextureSlots::Backlight)] = foundMatch.path;
 
-    // Set the back lighting flag
-    PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
+    // Set the back lighting flag.
+    PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_BACK_LIGHTING);
 
     return true;
 }

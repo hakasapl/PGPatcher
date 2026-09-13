@@ -22,10 +22,10 @@ private:
     static nlohmann::json s_lpJsonData; /** < LP JSON data */
     static std::mutex s_lpJsonDataMutex; /** < Mutex for LP JSON data */
 
-    static constexpr int PARTICLE_LIGHT_FLAGS = 4109; /** < Particle light flags */
-    static constexpr int WHITE_COLOR = 255; /** < White color */
-    static constexpr double MIN_VALUE = 1e-5; /** < Minimum value */
-    static constexpr float ROUNDING_VALUE = 1000000.0; /** < Rounding value */
+    static constexpr int particleLightFlags = 4109; /** < Particle light flags */
+    static constexpr int whiteColor = 255; /** < White color */
+    static constexpr double minValue = 1e-5; /** < Minimum value */
+    static constexpr float roundingValue = 1000000; /** < Rounding value */
 
 public:
     /**

@@ -37,27 +37,26 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
 using namespace StringUtil;
 
 namespace {
 // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
-constexpr int FILTER_LABEL_TOP_SPACER = 10;
-constexpr int OUTER_SPLITTER_MIN_PANE_SIZE = 100;
-constexpr int INNER_SPLITTER_MIN_PANE_SIZE = 80;
-constexpr int DISABLED_TEXT_COLOR_CHANNEL = 160;
-constexpr int MATCH_LIST_MOD_COL_WIDTH = 200;
-constexpr int MATCH_LIST_SHADER_COL_WIDTH = 130;
-constexpr int MATCH_LIST_MIN_PATH_COL_WIDTH = 40;
+constexpr int filterLabelTopSpacer = 10;
+constexpr int outerSplitterMinPaneSize = 100;
+constexpr int innerSplitterMinPaneSize = 80;
+constexpr int disabledTextColorChannel = 160;
+constexpr int matchListModColWidth = 200;
+constexpr int matchListShaderColWidth = 130;
+constexpr int matchListMinPathColWidth = 40;
 }
 
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
-DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filterMods,
+DialogModConflictView::DialogModConflictView(const std::unordered_set<std::wstring>& filterMods,
                                              bool showAllMeshes)
     : wxDialog(nullptr,
                wxID_ANY,
-               PGTr("matchViewer.title"),
+               pgTr("matchViewer.title"),
                wxDefaultPosition,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
@@ -66,10 +65,10 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 {
     SetIcons(PGUI::getAppIcons());
 
-    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
-    const wxSize defaultSize = FromDIP(wxSize(DEFAULT_WIDTH, DEFAULT_HEIGHT));
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
+    const wxSize defaultSize = FromDIP(wxSize(defaultWidth, defaultHeight));
     SetSize(defaultSize);
-    const int defaultBorder = FromDIP(DEFAULT_BORDER);
+    const int defaultBorder = FromDIP(defaultBorderDIP);
 
     // Take a fresh snapshot of the mesh patch metadata based on current mod state.
     // This ensures we reflect any mod priority changes made without saving.
@@ -83,62 +82,59 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
         wxString label;
         wxString names;
         for (const auto& mod : m_filterMods) {
-            if (!names.IsEmpty()) {
+            if (!names.IsEmpty())
                 names += ", ";
-            }
             names += wxString(mod);
         }
         if (m_showOnlyConflicts) {
-            if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allConflicts");
-            } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsForMod"), names);
-            } else {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsBetweenMods"), names);
-            }
+            if (names.IsEmpty())
+                label = pgTr("matchViewer.filterLabel.allConflicts");
+            else if (m_filterMods.size() == 1)
+                label = wxString::Format(pgTr("matchViewer.filterLabel.conflictsForMod"), names);
+            else
+                label = wxString::Format(pgTr("matchViewer.filterLabel.conflictsBetweenMods"), names);
         } else {
-            if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allMatches");
-            } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMod"), names);
-            } else {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMods"), names);
-            }
+            if (names.IsEmpty())
+                label = pgTr("matchViewer.filterLabel.allMatches");
+            else if (m_filterMods.size() == 1)
+                label = wxString::Format(pgTr("matchViewer.filterLabel.matchesForMod"), names);
+            else
+                label = wxString::Format(pgTr("matchViewer.filterLabel.matchesForMods"), names);
         }
         m_filterLabel->SetLabel(label);
     }
-    mainSizer->AddSpacer(FromDIP(FILTER_LABEL_TOP_SPACER));
+    mainSizer->AddSpacer(FromDIP(filterLabelTopSpacer));
     mainSizer->Add(m_filterLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // ---- Search bar --------------------------------------------------------
     auto* searchSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* searchLabel = new wxStaticText(this, wxID_ANY, PGTr("matchViewer.search.label"));
+    auto* searchLabel = new wxStaticText(this, wxID_ANY, pgTr("matchViewer.search.label"));
     m_meshSearchCtrl = new wxTextCtrl(this, wxID_ANY);
-    m_meshSearchCtrl->SetHint(PGTr("matchViewer.search.hint"));
+    m_meshSearchCtrl->SetHint(pgTr("matchViewer.search.hint"));
     m_meshSearchCtrl->Bind(wxEVT_TEXT, &DialogModConflictView::onSearchChanged, this);
     searchSizer->Add(searchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
     searchSizer->Add(m_meshSearchCtrl, 1, wxEXPAND);
 
-    m_showDisabledCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showDisabledMods"));
+    m_showDisabledCheckbox = new wxCheckBox(this, wxID_ANY, pgTr("matchViewer.showDisabledMods"));
     m_showDisabledCheckbox->SetValue(false); // default: hide disabled-mod matches
     m_showDisabledCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowDisabledChanged, this);
     searchSizer->Add(m_showDisabledCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
 
-    m_showOnlyConflictsCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.onlyShowConflicts"));
+    m_showOnlyConflictsCheckbox = new wxCheckBox(this, wxID_ANY, pgTr("matchViewer.onlyShowConflicts"));
     m_showOnlyConflictsCheckbox->SetValue(m_showOnlyConflicts);
     m_showOnlyConflictsCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowOnlyConflictsChanged, this);
     searchSizer->Add(m_showOnlyConflictsCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
 
-    m_showMismatchesCheckbox = new wxCheckBox(this, wxID_ANY, PGTr("matchViewer.showMismatches"));
+    m_showMismatchesCheckbox = new wxCheckBox(this, wxID_ANY, pgTr("matchViewer.showMismatches"));
     m_showMismatchesCheckbox->SetValue(m_showMismatches);
-    m_showMismatchesCheckbox->SetToolTip(PGTr("matchViewer.showMismatchesTooltip"));
+    m_showMismatchesCheckbox->SetToolTip(pgTr("matchViewer.showMismatchesTooltip"));
     m_showMismatchesCheckbox->Bind(wxEVT_CHECKBOX, &DialogModConflictView::onShowMismatchesChanged, this);
     searchSizer->Add(m_showMismatchesCheckbox, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 2 * defaultBorder);
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxALL, defaultBorder);
 
     // ---- Three-panel split area --------------------------------------------
-    // outerSplitter: meshPanel (left) | innerSplitter (right)
-    // innerSplitter: shapePanel (left) | matchPanel (right)
+    // OuterSplitter: meshPanel (left) | innerSplitter (right).
+    // InnerSplitter: shapePanel (left) | matchPanel (right).
     auto* outerSplitter
         = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_LIVE_UPDATE | wxSP_3D);
     auto* innerSplitter
@@ -148,7 +144,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     auto* meshPanel = new wxPanel(outerSplitter);
     auto* meshSizer = new wxBoxSizer(wxVERTICAL);
 
-    auto* meshLabel = new wxStaticText(meshPanel, wxID_ANY, PGTr("matchViewer.panels.meshes"));
+    auto* meshLabel = new wxStaticText(meshPanel, wxID_ANY, pgTr("matchViewer.panels.meshes"));
     wxFont boldFont = meshLabel->GetFont();
     boldFont.SetWeight(wxFONTWEIGHT_BOLD);
     meshLabel->SetFont(boldFont);
@@ -156,7 +152,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     m_meshListCtrl
         = new wxListCtrl(meshPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_meshListCtrl->InsertColumn(0, PGTr("matchViewer.columns.meshPath"));
+    m_meshListCtrl->InsertColumn(0, pgTr("matchViewer.columns.meshPath"));
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &DialogModConflictView::onMeshSelected, this);
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &DialogModConflictView::onMeshDeselected, this);
     m_meshListCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &DialogModConflictView::onMeshActivated, this);
@@ -176,13 +172,13 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     auto* shapePanel = new wxPanel(innerSplitter);
     auto* shapeSizer = new wxBoxSizer(wxVERTICAL);
 
-    auto* shapeLabel = new wxStaticText(shapePanel, wxID_ANY, PGTr("matchViewer.panels.shapes"));
+    auto* shapeLabel = new wxStaticText(shapePanel, wxID_ANY, pgTr("matchViewer.panels.shapes"));
     shapeLabel->SetFont(boldFont);
     shapeSizer->Add(shapeLabel, 0, wxALL, FromDIP(2));
 
     m_shapeListCtrl
         = new wxListCtrl(shapePanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_shapeListCtrl->InsertColumn(0, PGTr("matchViewer.columns.shape"));
+    m_shapeListCtrl->InsertColumn(0, pgTr("matchViewer.columns.shape"));
     m_shapeListCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &DialogModConflictView::onShapeSelected, this);
     m_shapeListCtrl->Bind(wxEVT_LIST_ITEM_DESELECTED, &DialogModConflictView::onShapeDeselected, this);
     m_shapeListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onShapeContextMenu, this);
@@ -194,16 +190,16 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     auto* matchPanel = new wxPanel(innerSplitter);
     auto* matchSizer = new wxBoxSizer(wxVERTICAL);
 
-    auto* matchLabel = new wxStaticText(matchPanel, wxID_ANY, PGTr("matchViewer.panels.matches"));
+    auto* matchLabel = new wxStaticText(matchPanel, wxID_ANY, pgTr("matchViewer.panels.matches"));
     matchLabel->SetFont(boldFont);
     matchSizer->Add(matchLabel, 0, wxALL, FromDIP(2));
 
-    // Plugin use filter dropdown (above match list)
+    // Plugin use filter dropdown (above match list).
     auto* pluginUseSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* pluginUseLabel = new wxStaticText(matchPanel, wxID_ANY, PGTr("matchViewer.pluginUse.label"));
+    auto* pluginUseLabel = new wxStaticText(matchPanel, wxID_ANY, pgTr("matchViewer.pluginUse.label"));
     m_pluginUseCombo = new wxComboBox(
         matchPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_READONLY | wxCB_DROPDOWN);
-    m_pluginUseCombo->Append(PGTr("matchViewer.pluginUse.noneSelected"));
+    m_pluginUseCombo->Append(pgTr("matchViewer.pluginUse.noneSelected"));
     m_pluginUseCombo->SetSelection(0);
     m_pluginUseCombo->Bind(wxEVT_COMBOBOX, &DialogModConflictView::onPluginUseSelected, this);
     pluginUseSizer->Add(pluginUseLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder);
@@ -212,9 +208,9 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 
     m_matchListCtrl
         = new wxListCtrl(matchPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_matchListCtrl->InsertColumn(0, PGTr("matchViewer.columns.mod"));
-    m_matchListCtrl->InsertColumn(1, PGTr("matchViewer.columns.shader"));
-    m_matchListCtrl->InsertColumn(2, PGTr("matchViewer.columns.matchedFile"));
+    m_matchListCtrl->InsertColumn(0, pgTr("matchViewer.columns.mod"));
+    m_matchListCtrl->InsertColumn(1, pgTr("matchViewer.columns.shader"));
+    m_matchListCtrl->InsertColumn(2, pgTr("matchViewer.columns.matchedFile"));
     m_matchListCtrl->Bind(wxEVT_SIZE, &DialogModConflictView::onMatchListResize, this);
     m_matchListCtrl->Bind(wxEVT_LIST_ITEM_ACTIVATED, &DialogModConflictView::onMatchActivated, this);
     m_matchListCtrl->Bind(wxEVT_CONTEXT_MENU, &DialogModConflictView::onMatchContextMenu, this);
@@ -231,15 +227,15 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
     setupWarningIcons();
 
     // -- Wire up splitters ---------------------------------------------------
-    innerSplitter->SplitVertically(shapePanel, matchPanel, FromDIP(MID_PANE_WIDTH));
-    outerSplitter->SplitVertically(meshPanel, innerSplitter, FromDIP(LEFT_PANE_WIDTH));
-    outerSplitter->SetMinimumPaneSize(FromDIP(OUTER_SPLITTER_MIN_PANE_SIZE));
-    innerSplitter->SetMinimumPaneSize(FromDIP(INNER_SPLITTER_MIN_PANE_SIZE));
+    innerSplitter->SplitVertically(shapePanel, matchPanel, FromDIP(midPaneWidth));
+    outerSplitter->SplitVertically(meshPanel, innerSplitter, FromDIP(leftPaneWidth));
+    outerSplitter->SetMinimumPaneSize(FromDIP(outerSplitterMinPaneSize));
+    innerSplitter->SetMinimumPaneSize(FromDIP(innerSplitterMinPaneSize));
 
     mainSizer->Add(outerSplitter, 1, wxEXPAND | wxALL, defaultBorder);
 
     // ---- Close button ------------------------------------------------------
-    auto* closeButton = new wxButton(this, wxID_CLOSE, PGTr("common.close"));
+    auto* closeButton = new wxButton(this, wxID_CLOSE, pgTr("common.close"));
     closeButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& /*event*/) {
         if (IsModal()) {
             cleanupTempFiles();
@@ -268,7 +264,7 @@ DialogModConflictView::DialogModConflictView(const unordered_set<wstring>& filte
 }
 
 // ============================================================================
-// Helpers
+// Helpers.
 // ============================================================================
 
 auto DialogModConflictView::PluginUseInfo::displayString() const -> wxString
@@ -281,29 +277,26 @@ auto DialogModConflictView::PluginUseInfo::displayString() const -> wxString
 
 auto DialogModConflictView::isMatchVisible(const MatchView& match) const -> bool
 {
-    if (m_showDisabledCheckbox->IsChecked()) {
+    if (m_showDisabledCheckbox->IsChecked())
         return true; // show everything
-    }
-    if (match.mod == nullptr) {
+    if (match.mod == nullptr)
         return false; // hide untracked/vanilla when checkbox is off
-    }
-    const shared_lock lock(match.mod->mutex);
+    const std::shared_lock lock(match.mod->mutex);
     return match.mod->isEnabled;
 }
 
 auto DialogModConflictView::buildDisplayMatches(
     const PGPatcher::MeshShapeMeta& shapeMeta,
-    const optional<PGMeshPermutationTracker::FormKey>& selectedFormKey) const -> vector<MatchView>
+    const std::optional<PGMeshPermutationTracker::FormKey>& selectedFormKey) const -> std::vector<MatchView>
 {
-    vector<MatchView> matches;
+    std::vector<MatchView> matches;
 
     if (selectedFormKey.has_value()) {
         const auto matchIt = shapeMeta.matches.find(selectedFormKey.value());
         if (matchIt != shapeMeta.matches.end()) {
             matches.reserve(matchIt->second.size());
-            for (const auto& match : matchIt->second) {
+            for (const auto& match : matchIt->second)
                 matches.push_back(match);
-            }
         }
         return matches;
     }
@@ -320,81 +313,76 @@ auto DialogModConflictView::buildDisplayMatches(
                 }
             }
 
-            if (!duplicate) {
+            if (!duplicate)
                 matches.push_back(match);
-            }
         }
     }
 
     return matches;
 }
 
-auto DialogModConflictView::shapeHasActualConflict(const vector<MatchView>& matches) const -> bool
+auto DialogModConflictView::shapeHasActualConflict(const std::vector<MatchView>& matches) const -> bool
 {
-    // Count distinct visible sources (mods + untracked treated as one source)
-    unordered_set<shared_ptr<PGModManager::Mod>, PGModManager::Mod::ModHash> visibleMods;
+    // Count distinct visible sources (mods + untracked treated as one source).
+    std::unordered_set<std::shared_ptr<PGModManager::Mod>, PGModManager::Mod::ModHash> visibleMods;
     bool hasUntracked = false;
     for (const auto& match : matches) {
-        if (!isMatchVisible(match)) {
+        if (!isMatchVisible(match))
             continue;
-        }
-        if (match.mod == nullptr) {
+        if (match.mod == nullptr)
             hasUntracked = true;
-        } else {
+        else
             visibleMods.insert(match.mod);
-        }
     }
     return (visibleMods.size() + (hasUntracked ? 1 : 0)) >= 2;
 }
 
 auto DialogModConflictView::meshPassesModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool
 {
-    return ranges::any_of(meshMeta.shapeMeta,
-                          [this](const auto& shapeEntry) { return shapePassesIntersectionFilter(shapeEntry.second); });
+    return std::ranges::any_of(meshMeta.shapeMeta, [this](const auto& shapeEntry) {
+        return shapePassesIntersectionFilter(shapeEntry.second);
+    });
 }
 
 auto DialogModConflictView::meshPassesAnyModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool
 {
-    return ranges::any_of(meshMeta.shapeMeta,
-                          [this](const auto& shapeEntry) { return shapePassesAnyModFilter(shapeEntry.second); });
+    return std::ranges::any_of(meshMeta.shapeMeta,
+                               [this](const auto& shapeEntry) { return shapePassesAnyModFilter(shapeEntry.second); });
 }
 
 auto DialogModConflictView::shapePassesAnyModFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool
 {
-    if (m_filterMods.empty()) {
+    if (m_filterMods.empty())
         return true;
-    }
     for (const auto& [formKey, shapeMatches] : shape.matches) {
         (void)formKey;
-        for (const auto& match : shapeMatches) {
-            if (match.mod != nullptr && m_filterMods.contains(match.mod->name)) {
+        for (const auto& match : shapeMatches)
+            if (match.mod != nullptr && m_filterMods.contains(match.mod->name))
                 return true;
-            }
-        }
     }
     return false;
 }
 
 auto DialogModConflictView::shapePassesIntersectionFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool
 {
-    vector<MatchView> matches;
+    std::vector<MatchView> matches;
     for (const auto& [formKey, shapeMatches] : shape.matches) {
         (void)formKey;
         for (const auto& match : shapeMatches) {
-            matches.push_back({.mod = match.mod,
-                               .shader = match.shader,
-                               .shaderTransformTo = match.shaderTransformTo,
-                               .matchedPath = match.matchedPath});
+            matches.push_back({
+                .mod = match.mod,
+                .shader = match.shader,
+                .shaderTransformTo = match.shaderTransformTo,
+                .matchedPath = match.matchedPath,
+            });
         }
     }
 
-    if (!shapeHasActualConflict(matches)) {
+    if (!shapeHasActualConflict(matches))
         return false;
-    }
-    if (m_filterMods.empty()) {
+    if (m_filterMods.empty())
         return true;
-    }
-    // Every mod in the filter set must have a visible match on this shape
+    // Every mod in the filter set must have a visible match on this shape.
     for (const auto& modName : m_filterMods) {
         bool found = false;
         for (const auto& match : matches) {
@@ -403,41 +391,37 @@ auto DialogModConflictView::shapePassesIntersectionFilter(const PGPatcher::MeshS
                 break;
             }
         }
-        if (!found) {
+        if (!found)
             return false;
-        }
     }
     return true;
 }
 
-auto DialogModConflictView::computeWinningMatchIdx(const vector<MatchView>& matches) -> int
+auto DialogModConflictView::computeWinningMatchIdx(const std::vector<MatchView>& matches) -> int
 {
     int maxPriority = -1;
     int winnerIdx = -1;
 
     for (size_t i = 0; i < matches.size(); ++i) {
         const auto& match = matches.at(i);
-        if (match.mod == nullptr) {
+        if (match.mod == nullptr)
             continue;
-        }
 
         bool isEnabled = false;
         int curPriority = -1;
         {
-            const shared_lock lock(match.mod->mutex);
+            const std::shared_lock lock(match.mod->mutex);
             isEnabled = match.mod->isEnabled;
             curPriority = match.mod->priority;
         }
 
-        if (!isEnabled) {
+        if (!isEnabled)
             continue;
-        }
 
-        // Match the patching logic: if priority is not less than current max, update winner
-        // This means last match with max priority wins (same as getWinningMatch in PGPatcher)
-        if (curPriority < maxPriority) {
+        // Match the patching logic: if priority is not less than current max, update winner.
+        // This means last match with max priority wins (same as getWinningMatch in PGPatcher).
+        if (curPriority < maxPriority)
             continue; // skip if lower priority
-        }
 
         maxPriority = curPriority;
         winnerIdx = static_cast<int>(i);
@@ -448,27 +432,24 @@ auto DialogModConflictView::computeWinningMatchIdx(const vector<MatchView>& matc
 
 void DialogModConflictView::setupWarningIcons()
 {
-    const wxSize iconSize = FromDIP(wxSize(WARNING_ICON_SIZE, WARNING_ICON_SIZE));
+    const wxSize iconSize = FromDIP(wxSize(warningIconSize, warningIconSize));
 
     wxBitmapBundle warningBundle;
-    const filesystem::path svgPath = PGPatcherGlobals::getEXEPath() / "resources" / "warning.svg";
-    if (filesystem::exists(svgPath)) {
+    const std::filesystem::path svgPath = PGPatcherGlobals::getEXEPath() / "resources" / "warning.svg";
+    if (std::filesystem::exists(svgPath))
         warningBundle = wxBitmapBundle::FromSVGFile(wxString(svgPath.wstring()), iconSize);
-    }
-    if (!warningBundle.IsOk()) {
+    if (!warningBundle.IsOk())
         warningBundle = wxArtProvider::GetBitmapBundle(wxART_WARNING, wxART_LIST, iconSize);
-    }
-    if (!warningBundle.IsOk()) {
+    if (!warningBundle.IsOk())
         return; // no icon available; warning indicators are simply not shown
-    }
 
     const wxBitmap warningBitmap = warningBundle.GetBitmap(iconSize);
 
-    // Rows inserted without an explicit image index render image 0 on Windows, so index 0 must
+    // Rows inserted without an explicit image index render image 0 on Windows, so index 0 must.
     // be a fully transparent placeholder; the actual warning icon lives at WARNING_ICON_IMAGE_INDEX
     wxImage blankImage(iconSize.GetWidth(), iconSize.GetHeight());
     blankImage.InitAlpha();
-    fill_n(blankImage.GetAlpha(), static_cast<size_t>(iconSize.GetWidth()) * iconSize.GetHeight(), 0);
+    std::fill_n(blankImage.GetAlpha(), static_cast<size_t>(iconSize.GetWidth()) * iconSize.GetHeight(), 0);
     const wxBitmap blankBitmap(blankImage);
 
     m_meshWarningImages.Create(iconSize.GetWidth(), iconSize.GetHeight(), true, 2);
@@ -485,18 +466,17 @@ void DialogModConflictView::setupWarningIcons()
 
 void DialogModConflictView::applyWarningIconVisibility()
 {
-    if (!m_warningIconAvailable) {
+    if (!m_warningIconAvailable)
         return;
-    }
 
-    // The lists only borrow the image lists (LVS_SHAREIMAGELISTS), so detaching is safe and
-    // removes the reserved icon space entirely
+    // The lists only borrow the image lists (LVS_SHAREIMAGELISTS), so detaching is safe and.
+    // Removes the reserved icon space entirely.
     m_meshListCtrl->SetImageList(m_showMismatches ? &m_meshWarningImages : nullptr, wxIMAGE_LIST_SMALL);
     m_matchListCtrl->SetImageList(m_showMismatches ? &m_matchWarningImages : nullptr, wxIMAGE_LIST_SMALL);
 
     if (!m_showMismatches) {
-        // Motion events no longer update tooltips while hidden, so clear any tooltip that was
-        // set during a hover to avoid stale warning text
+        // Motion events no longer update tooltips while hidden, so clear any tooltip that was.
+        // Set during a hover to avoid stale warning text.
         m_meshListCtrl->UnsetToolTip();
         m_matchListCtrl->UnsetToolTip();
     }
@@ -505,37 +485,33 @@ void DialogModConflictView::applyWarningIconVisibility()
     m_matchListCtrl->Refresh();
 }
 
-auto DialogModConflictView::getMeshWarningTooltip(const filesystem::path& meshPath) const -> wxString
+auto DialogModConflictView::getMeshWarningTooltip(const std::filesystem::path& meshPath) const -> wxString
 {
-    if (m_filterMods.empty() || !PGGlobals::isPGMMSet()) {
-        return {};
-    }
+    if (m_filterMods.empty() || !PGGlobals::isPGMMSet())
+        return { };
 
-    // Vanilla/untracked meshes are assumed correct, so only warn for meshes from other tracked mods
+    // Vanilla/untracked meshes are assumed correct, so only warn for meshes from other tracked mods.
     const auto meshMod = PGGlobals::getPGMM()->getModByFileSmart(meshPath);
-    if (meshMod == nullptr || m_filterMods.contains(meshMod->name)) {
-        return {};
-    }
+    if (meshMod == nullptr || m_filterMods.contains(meshMod->name))
+        return { };
 
-    return wxString::Format(PGTr("matchViewer.warnings.meshFromOtherMod"), wxString(meshMod->name));
+    return wxString::Format(pgTr("matchViewer.warnings.meshFromOtherMod"), wxString(meshMod->name));
 }
 
 auto DialogModConflictView::buildResultTexturesTooltip(const MatchView& match) -> wxString
 {
-    unordered_set<shared_ptr<PGModManager::Mod>, PGModManager::Mod::ModHash> distinctMods;
+    std::unordered_set<std::shared_ptr<PGModManager::Mod>, PGModManager::Mod::ModHash> distinctMods;
     for (const auto& [slot, slotMod] : match.resultTextureMods) {
         (void)slot;
         distinctMods.insert(slotMod);
     }
 
-    if (distinctMods.size() < 2) {
-        return {};
-    }
+    if (distinctMods.size() < 2)
+        return { };
 
-    wxString tooltip = PGTr("matchViewer.warnings.resultTexturesFromDifferentMods");
-    for (const auto& [slot, slotMod] : match.resultTextureMods) {
+    wxString tooltip = pgTr("matchViewer.warnings.resultTexturesFromDifferentMods");
+    for (const auto& [slot, slotMod] : match.resultTextureMods)
         tooltip += "\n" + getSlotDisplayName(slot) + " - " + wxString(slotMod->name);
-    }
 
     return tooltip;
 }
@@ -543,27 +519,27 @@ auto DialogModConflictView::buildResultTexturesTooltip(const MatchView& match) -
 auto DialogModConflictView::getSlotDisplayName(PGEnums::TextureSlots slot) -> wxString
 {
     switch (slot) {
-    case PGEnums::TextureSlots::DIFFUSE:
-        return PGTr("matchViewer.slots.diffuse");
-    case PGEnums::TextureSlots::NORMAL:
-        return PGTr("matchViewer.slots.normal");
-    case PGEnums::TextureSlots::GLOW:
-        return PGTr("matchViewer.slots.glow");
-    case PGEnums::TextureSlots::PARALLAX:
-        return PGTr("matchViewer.slots.parallax");
-    case PGEnums::TextureSlots::CUBEMAP:
-        return PGTr("matchViewer.slots.cubemap");
-    case PGEnums::TextureSlots::ENVMASK:
-        return PGTr("matchViewer.slots.envMask");
-    case PGEnums::TextureSlots::MULTILAYER:
-        return PGTr("matchViewer.slots.multilayer");
-    case PGEnums::TextureSlots::BACKLIGHT:
-        return PGTr("matchViewer.slots.backlight");
-    case PGEnums::TextureSlots::UNUSED:
-        return PGTr("matchViewer.slots.unused");
-    case PGEnums::TextureSlots::UNKNOWN:
+    case PGEnums::TextureSlots::Diffuse:
+        return pgTr("matchViewer.slots.diffuse");
+    case PGEnums::TextureSlots::Normal:
+        return pgTr("matchViewer.slots.normal");
+    case PGEnums::TextureSlots::Glow:
+        return pgTr("matchViewer.slots.glow");
+    case PGEnums::TextureSlots::Parallax:
+        return pgTr("matchViewer.slots.parallax");
+    case PGEnums::TextureSlots::Cubemap:
+        return pgTr("matchViewer.slots.cubemap");
+    case PGEnums::TextureSlots::EnvMask:
+        return pgTr("matchViewer.slots.envMask");
+    case PGEnums::TextureSlots::MultiLayer:
+        return pgTr("matchViewer.slots.multilayer");
+    case PGEnums::TextureSlots::Backlight:
+        return pgTr("matchViewer.slots.backlight");
+    case PGEnums::TextureSlots::Unused:
+        return pgTr("matchViewer.slots.unused");
+    case PGEnums::TextureSlots::Unknown:
     default:
-        return PGTr("matchViewer.slots.unknown");
+        return pgTr("matchViewer.slots.unknown");
     }
 }
 
@@ -581,11 +557,10 @@ void DialogModConflictView::updateHoverTooltip(wxListCtrl* list,
     }
 
     if (list->GetToolTipText() != tooltip) {
-        if (tooltip.IsEmpty()) {
+        if (tooltip.IsEmpty())
             list->UnsetToolTip();
-        } else {
+        else
             list->SetToolTip(tooltip);
-        }
     }
 
     event.Skip();
@@ -607,36 +582,31 @@ void DialogModConflictView::rebuildMeshList()
 
     for (const auto& [meshPath, meshData] : m_patchMeta) {
         // When "show only conflicts" is on, apply mod/conflict filter. Otherwise show all meshes.
-        if (m_showOnlyConflicts && !meshPassesModFilter(meshData)) {
+        if (m_showOnlyConflicts && !meshPassesModFilter(meshData))
             continue;
-        }
         // When filter mods are set but NOT in conflicts-only mode, still restrict to meshes containing those mods.
-        if (!m_showOnlyConflicts && !m_filterMods.empty() && !meshPassesAnyModFilter(meshData)) {
+        if (!m_showOnlyConflicts && !m_filterMods.empty() && !meshPassesAnyModFilter(meshData))
             continue;
-        }
 
         const wxString meshStr = wxString(meshPath.wstring());
-        if (!searchTerm.IsEmpty() && !meshStr.Lower().Contains(searchTerm)) {
+        if (!searchTerm.IsEmpty() && !meshStr.Lower().Contains(searchTerm))
             continue;
-        }
 
         m_filteredMeshes.push_back(meshPath);
         m_filteredMeshLabels.push_back(meshStr);
     }
 
-    // Stable sort so the list order is deterministic
-    vector<size_t> sortedIndices;
+    // Stable sort so the list order is deterministic.
+    std::vector<size_t> sortedIndices;
     sortedIndices.reserve(m_filteredMeshes.size());
-    for (size_t i = 0; i < m_filteredMeshes.size(); ++i) {
+    for (size_t i = 0; i < m_filteredMeshes.size(); ++i)
         sortedIndices.push_back(i);
-    }
 
-    sort(sortedIndices.begin(), sortedIndices.end(), [&](size_t a, size_t b) {
-        return m_filteredMeshes.at(a) < m_filteredMeshes.at(b);
-    });
+    std::ranges::sort(sortedIndices,
+                      [&](size_t a, size_t b) { return m_filteredMeshes.at(a) < m_filteredMeshes.at(b); });
 
-    vector<filesystem::path> sortedMeshes;
-    vector<wxString> sortedLabels;
+    std::vector<std::filesystem::path> sortedMeshes;
+    std::vector<wxString> sortedLabels;
     sortedMeshes.reserve(m_filteredMeshes.size());
     sortedLabels.reserve(m_filteredMeshLabels.size());
     for (const size_t idx : sortedIndices) {
@@ -651,11 +621,10 @@ void DialogModConflictView::rebuildMeshList()
     for (size_t i = 0; i < m_filteredMeshLabels.size(); ++i) {
         const long row = m_meshListCtrl->InsertItem(m_meshListCtrl->GetItemCount(), m_filteredMeshLabels.at(i));
 
-        // Flag meshes that are owned by a mod outside the filtered mods (potential UV mismatch)
+        // Flag meshes that are owned by a mod outside the filtered mods (potential UV mismatch).
         wxString warningTooltip = getMeshWarningTooltip(m_filteredMeshes.at(i));
-        if (!warningTooltip.IsEmpty() && m_warningIconAvailable) {
-            m_meshListCtrl->SetItemImage(row, WARNING_ICON_IMAGE_INDEX);
-        }
+        if (!warningTooltip.IsEmpty() && m_warningIconAvailable)
+            m_meshListCtrl->SetItemImage(row, warningIconImageIndex);
         m_meshRowTooltips.push_back(std::move(warningTooltip));
     }
 
@@ -667,49 +636,44 @@ void DialogModConflictView::populateShapeList(long meshIdx)
     m_shapeListCtrl->DeleteAllItems();
     m_matchListCtrl->DeleteAllItems();
 
-    if (meshIdx < 0 || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size()) {
+    if (meshIdx < 0 || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size())
         return;
-    }
 
     const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     const auto meshIt = m_patchMeta.find(meshPath);
-    if (meshIt == m_patchMeta.end()) {
+    if (meshIt == m_patchMeta.end())
         return;
-    }
 
     const auto& meshData = meshIt->second;
 
     // Sort shapes by map key so the list is stable.
-    vector<pair<int, const PGPatcher::MeshShapeMeta*>> sortedShapes;
+    std::vector<std::pair<int, const PGPatcher::MeshShapeMeta*>> sortedShapes;
     sortedShapes.reserve(meshData.shapeMeta.size());
     for (const auto& [shapeKey, shapeInfo] : meshData.shapeMeta) {
         // When "show only conflicts" is on:
-        //   - if filterMods set: shape must pass intersection filter
-        //   - if filterMods empty: shape must have an actual conflict
-        // When "show only conflicts" is off: show all shapes (but still filter to filterMods union if set)
+        // - if filterMods set: shape must pass intersection filter.
+        // - if filterMods empty: shape must have an actual conflict.
+        // When "show only conflicts" is off: show all shapes (but still filter to filterMods union if set).
         if (m_showOnlyConflicts) {
-            if (!m_filterMods.empty() && !shapePassesIntersectionFilter(shapeInfo)) {
+            if (!m_filterMods.empty() && !shapePassesIntersectionFilter(shapeInfo))
                 continue;
-            }
             if (m_filterMods.empty()) {
                 const auto allMatches = buildDisplayMatches(shapeInfo);
-                if (!shapeHasActualConflict(allMatches)) {
+                if (!shapeHasActualConflict(allMatches))
                     continue;
-                }
             }
-        } else if (!m_filterMods.empty()) {
-            // Union filter: at least one match from any of the filter mods must be on this shape
-            if (!shapePassesAnyModFilter(shapeInfo)) {
-                continue;
-            }
+        } else if ((!m_filterMods.empty()) && (!shapePassesAnyModFilter(shapeInfo))) {
+            // Union filter: at least one match from any of the filter mods must be on this shape.
+            continue;
         }
+
         sortedShapes.emplace_back(static_cast<int>(shapeKey), &shapeInfo);
     }
-    sort(sortedShapes.begin(), sortedShapes.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::ranges::sort(sortedShapes, [](const auto& a, const auto& b) { return a.first < b.first; });
 
     for (const auto& [idx3D, shapeInfo] : sortedShapes) {
         (void)idx3D;
-        const wxString baseShapeName = shapeInfo->shapeName.empty() ? PGTr("matchViewer.unnamedShape")
+        const wxString baseShapeName = shapeInfo->shapeName.empty() ? pgTr("matchViewer.unnamedShape")
                                                                     : wxString::FromUTF8(shapeInfo->shapeName);
         const wxString shapeLabelText = wxString::Format("%s (%u)", baseShapeName, shapeInfo->blockID);
 
@@ -718,25 +682,22 @@ void DialogModConflictView::populateShapeList(long meshIdx)
     }
 }
 
-void DialogModConflictView::populatePluginUseList(const filesystem::path& meshPath)
+void DialogModConflictView::populatePluginUseList(const std::filesystem::path& meshPath)
 {
     m_currentPluginUses.clear();
-    while (m_pluginUseCombo->GetCount() > 1) {
+    while (m_pluginUseCombo->GetCount() > 1)
         m_pluginUseCombo->Delete(1);
-    }
 
     m_pluginUseCombo->SetSelection(0);
     m_selectedPluginUseIdx = -1;
 
     const auto meshIt = m_patchMeta.find(meshPath);
-    if (meshIt == m_patchMeta.end()) {
+    if (meshIt == m_patchMeta.end())
         return;
-    }
 
     const auto& meshMeta = meshIt->second;
-    if (meshMeta.formKeys.empty()) {
+    if (meshMeta.formKeys.empty())
         return;
-    }
 
     for (const auto& formKey : meshMeta.formKeys) {
         PluginUseInfo info;
@@ -746,40 +707,36 @@ void DialogModConflictView::populatePluginUseList(const filesystem::path& meshPa
     }
 }
 
-void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
+void DialogModConflictView::populateMatchList(const std::filesystem::path& meshPath,
                                               size_t idx3D)
 {
     m_matchListCtrl->DeleteAllItems();
     m_matchRowTooltips.clear();
 
     const auto meshIt = m_patchMeta.find(meshPath);
-    if (meshIt == m_patchMeta.end()) {
+    if (meshIt == m_patchMeta.end())
         return;
-    }
 
     const auto& meshMeta = meshIt->second;
     const auto shapeIt = meshMeta.shapeMeta.find(idx3D);
-    if (shapeIt == meshMeta.shapeMeta.end()) {
+    if (shapeIt == meshMeta.shapeMeta.end())
         return;
-    }
 
     const auto& shapeMeta = shapeIt->second;
 
-    optional<PGMeshPermutationTracker::FormKey> selectedFormKey;
-    if (m_selectedPluginUseIdx >= 0 && static_cast<size_t>(m_selectedPluginUseIdx) < m_currentPluginUses.size()) {
+    std::optional<PGMeshPermutationTracker::FormKey> selectedFormKey;
+    if (m_selectedPluginUseIdx >= 0 && static_cast<size_t>(m_selectedPluginUseIdx) < m_currentPluginUses.size())
         selectedFormKey = m_currentPluginUses.at(static_cast<size_t>(m_selectedPluginUseIdx)).formKey;
-    }
 
     // Determine which matches to display based on plugin use filter.
     // The actual ordering is delegated to PGPatcher::sortMatches() using the live mod order.
-    vector<MatchView> matches = buildDisplayMatches(shapeMeta, selectedFormKey);
+    std::vector<MatchView> matches = buildDisplayMatches(shapeMeta, selectedFormKey);
 
     std::vector<std::shared_ptr<PGModManager::Mod>> modPriorityList;
-    if (m_modOrderProvider) {
+    if (m_modOrderProvider)
         modPriorityList = m_modOrderProvider();
-    } else if (PGGlobals::isPGMMSet()) {
+    else if (PGGlobals::isPGMMSet())
         modPriorityList = PGGlobals::getPGMM()->getModsByPriority();
-    }
     PGPatcher::sortMatches(matches, modPriorityList);
     int topVisibleMatchIdx = -1;
     if (m_selectedPluginUseIdx >= 0) {
@@ -791,14 +748,14 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
         }
     }
 
-    // Handle case where shape has no matches (common when not in conflicts-only mode)
+    // Handle case where shape has no matches (common when not in conflicts-only mode).
     if (matches.empty()) {
         if (!m_showOnlyConflicts) {
-            // In "show all" mode, show explanatory text
+            // In "show all" mode, show explanatory text.
             const long row
-                = m_matchListCtrl->InsertItem(m_matchListCtrl->GetItemCount(), PGTr("matchViewer.noMatches"));
+                = m_matchListCtrl->InsertItem(m_matchListCtrl->GetItemCount(), pgTr("matchViewer.noMatches"));
             m_matchListCtrl->SetItemTextColour(
-                row, wxColour(DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL));
+                row, wxColour(disabledTextColorChannel, disabledTextColorChannel, disabledTextColorChannel));
             m_matchRowTooltips.emplace_back();
         }
         return;
@@ -807,11 +764,10 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
     // Populate the list in helper-defined order.
     for (size_t i = 0; i < matches.size(); ++i) {
         const auto& match = matches.at(i);
-        if (!isMatchVisible(match)) {
+        if (!isMatchVisible(match))
             continue;
-        }
 
-        const wxString modName = match.mod != nullptr ? wxString(match.mod->name) : PGTr("matchViewer.untrackedMod");
+        const wxString modName = match.mod != nullptr ? wxString(match.mod->name) : pgTr("matchViewer.untrackedMod");
         const wxString shaderStr = wxString::FromUTF8(PGEnums::getStrFromShader(match.shader));
         const wxString matchedFile = wxString(match.matchedPath.wstring());
 
@@ -819,39 +775,38 @@ void DialogModConflictView::populateMatchList(const filesystem::path& meshPath,
         m_matchListCtrl->SetItem(row, 1, shaderStr);
         m_matchListCtrl->SetItem(row, 2, matchedFile);
 
-        // Flag matches whose result textures come from more than one mod
+        // Flag matches whose result textures come from more than one mod.
         wxString warningTooltip = buildResultTexturesTooltip(match);
-        if (!warningTooltip.IsEmpty() && m_warningIconAvailable) {
-            m_matchListCtrl->SetItemImage(row, WARNING_ICON_IMAGE_INDEX);
-        }
+        if (!warningTooltip.IsEmpty() && m_warningIconAvailable)
+            m_matchListCtrl->SetItemImage(row, warningIconImageIndex);
         m_matchRowTooltips.push_back(std::move(warningTooltip));
 
         // Highlight the top displayed row (winner after filtering/visibility rules).
-        if (static_cast<int>(i) == topVisibleMatchIdx) {
-            // Only highlight if the mod is enabled
+        if (std::cmp_equal(i, topVisibleMatchIdx)) {
+            // Only highlight if the mod is enabled.
             bool shouldHighlight = (match.mod != nullptr);
             if (shouldHighlight) {
-                const shared_lock lock(match.mod->mutex);
+                const std::shared_lock lock(match.mod->mutex);
                 shouldHighlight = match.mod->isEnabled;
             }
 
             if (shouldHighlight) {
-                m_matchListCtrl->SetItemBackgroundColour(row, s_WINNING_MATCH_COLOR);
+                m_matchListCtrl->SetItemBackgroundColour(row, s_winningMatchColor);
                 m_matchListCtrl->SetItemTextColour(row, *wxBLACK);
                 continue; // Only continue if we actually highlighted
             }
-            // If disabled, fall through to apply gray color
+            // If disabled, fall through to apply gray color.
         }
 
-        // Gray out disabled mods and untracked/vanilla sources
+        // Gray out disabled mods and untracked/vanilla sources.
         bool shouldGray = (match.mod == nullptr); // untracked always grayed
         if (!shouldGray && match.mod != nullptr) {
-            const shared_lock lock(match.mod->mutex);
+            const std::shared_lock lock(match.mod->mutex);
             shouldGray = !match.mod->isEnabled;
         }
         if (shouldGray) {
             m_matchListCtrl->SetItemTextColour(
-                row, wxColour(DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL, DISABLED_TEXT_COLOR_CHANNEL));
+                row, wxColour(disabledTextColorChannel, disabledTextColorChannel, disabledTextColorChannel));
         }
     }
 }
@@ -873,46 +828,45 @@ auto DialogModConflictView::getSelectedMatchRow() const -> long
 
 void DialogModConflictView::copyTextToClipboard(const wxString& text)
 {
-    if (!wxTheClipboard->Open()) {
+    if (!wxTheClipboard->Open())
         return;
-    }
 
     wxTheClipboard->SetData(new wxTextDataObject(text));
     wxTheClipboard->Close();
 }
 
-void DialogModConflictView::openPathWithDefaultApp(const filesystem::path& path)
+void DialogModConflictView::openPathWithDefaultApp(const std::filesystem::path& path)
 {
     wxLaunchDefaultApplication(wxString(path.wstring()));
 }
 
-void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& relPath)
+void DialogModConflictView::extractAndOpenVirtualFile(const std::filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        PGMessageBox(PGTr("matchViewer.errors.dataDirUnavailable"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
+        pgMessageBox(pgTr("matchViewer.errors.dataDirUnavailable"), pgTr("common.error"), wxOK | wxICON_ERROR, this);
         return;
     }
 
-    const int result = PGMessageBox(wxString::Format(PGTr("matchViewer.extraction.message"), relPath.wstring().c_str()),
-                                    PGTr("matchViewer.extraction.title"),
+    const int result = pgMessageBox(wxString::Format(pgTr("matchViewer.extraction.message"), relPath.wstring().c_str()),
+                                    pgTr("matchViewer.extraction.title"),
                                     wxYES_NO | wxICON_QUESTION,
                                     this);
 
-    if (result != wxYES) {
+    if (result != wxYES)
         return;
-    }
 
     try {
-        const filesystem::path tempDir = filesystem::temp_directory_path() / L"PGPatcher_Temp";
-        filesystem::create_directories(tempDir);
+        const std::filesystem::path tempDir = std::filesystem::temp_directory_path() / L"PGPatcher_Temp";
+        std::filesystem::create_directories(tempDir);
 
         const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-        const filesystem::path tempFile = tempDir / (std::to_wstring(timestamp) + L"_" + relPath.filename().wstring());
+        const std::filesystem::path tempFile
+            = tempDir / (std::to_wstring(timestamp) + L"_" + relPath.filename().wstring());
 
         std::vector<std::byte> fileBytes = PGGlobals::getPGD()->getFile(relPath);
         if (fileBytes.empty()) {
-            PGMessageBox(PGTr("matchViewer.extraction.readFailed"),
-                         PGTr("matchViewer.extraction.errorTitle"),
+            pgMessageBox(pgTr("matchViewer.extraction.readFailed"),
+                         pgTr("matchViewer.extraction.errorTitle"),
                          wxOK | wxICON_ERROR,
                          this);
             return;
@@ -920,57 +874,56 @@ void DialogModConflictView::extractAndOpenVirtualFile(const filesystem::path& re
 
         std::ofstream outFile(tempFile, std::ios::binary);
         if (!outFile) {
-            PGMessageBox(wxString::Format(PGTr("matchViewer.extraction.createTempFailed"), tempFile.wstring().c_str()),
-                         PGTr("matchViewer.extraction.errorTitle"),
+            pgMessageBox(wxString::Format(pgTr("matchViewer.extraction.createTempFailed"), tempFile.wstring().c_str()),
+                         pgTr("matchViewer.extraction.errorTitle"),
                          wxOK | wxICON_ERROR,
                          this);
             return;
         }
-        if (fileBytes.size() > static_cast<size_t>(numeric_limits<streamsize>::max())) {
-            PGMessageBox(PGTr("matchViewer.extraction.fileTooLarge"),
-                         PGTr("matchViewer.extraction.errorTitle"),
+        if (fileBytes.size() > static_cast<size_t>(std::numeric_limits<std::streamsize>::max())) {
+            pgMessageBox(pgTr("matchViewer.extraction.fileTooLarge"),
+                         pgTr("matchViewer.extraction.errorTitle"),
                          wxOK | wxICON_ERROR,
                          this);
             return;
         }
-        const auto bytesToWrite = static_cast<streamsize>(fileBytes.size());
+        const auto bytesToWrite = static_cast<std::streamsize>(fileBytes.size());
         const auto* fileData = static_cast<const char*>(static_cast<const void*>(fileBytes.data()));
         outFile.write(fileData, bytesToWrite);
         outFile.close();
 
-        filesystem::permissions(tempFile,
-                                filesystem::perms::owner_read | filesystem::perms::group_read
-                                    | filesystem::perms::others_read,
-                                filesystem::perm_options::replace);
+        std::filesystem::permissions(tempFile,
+                                     std::filesystem::perms::owner_read | std::filesystem::perms::group_read
+                                         | std::filesystem::perms::others_read,
+                                     std::filesystem::perm_options::replace);
 
         m_tempFiles.push_back(tempFile);
         openPathWithDefaultApp(tempFile);
-    } catch (const exception& ex) {
-        PGMessageBox(
-            wxString::Format(PGTr("matchViewer.extraction.extractOpenFailed"), StringUtil::utf8toUTF16(ex.what())),
-            PGTr("matchViewer.extraction.errorTitle"),
+    } catch (const std::exception& ex) {
+        pgMessageBox(
+            wxString::Format(pgTr("matchViewer.extraction.extractOpenFailed"), StringUtil::utf8toUTF16(ex.what())),
+            pgTr("matchViewer.extraction.errorTitle"),
             wxOK | wxICON_ERROR,
             this);
     }
 }
 
-void DialogModConflictView::openMeshFile(const filesystem::path& relPath)
+void DialogModConflictView::openMeshFile(const std::filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        PGMessageBox(PGTr("matchViewer.errors.dataDirUnavailable"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
+        pgMessageBox(pgTr("matchViewer.errors.dataDirUnavailable"), pgTr("common.error"), wxOK | wxICON_ERROR, this);
         return;
     }
 
-    auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::getPGMM();
     if (pgmm != nullptr) {
         const auto& mods = pgmm->getModsByPriority();
         for (const auto& mod : mods) {
-            if (!mod->isEnabled) {
+            if (!mod->isEnabled)
                 continue;
-            }
 
-            const filesystem::path absPath = mod->folder / relPath;
-            if (filesystem::exists(absPath)) {
+            const std::filesystem::path absPath = mod->folder / relPath;
+            if (std::filesystem::exists(absPath)) {
                 openPathWithDefaultApp(absPath);
                 return;
             }
@@ -981,10 +934,10 @@ void DialogModConflictView::openMeshFile(const filesystem::path& relPath)
 }
 
 void DialogModConflictView::openMatchFile(const wxString& modNameStr,
-                                          const filesystem::path& relPath)
+                                          const std::filesystem::path& relPath)
 {
     if (!PGGlobals::isPGDSet()) {
-        PGMessageBox(PGTr("matchViewer.errors.dataDirUnavailable"), PGTr("common.error"), wxOK | wxICON_ERROR, this);
+        pgMessageBox(pgTr("matchViewer.errors.dataDirUnavailable"), pgTr("common.error"), wxOK | wxICON_ERROR, this);
         return;
     }
 
@@ -994,12 +947,12 @@ void DialogModConflictView::openMatchFile(const wxString& modNameStr,
         try {
             mod = PGGlobals::getPGMM()->getMod(modNameStr.ToStdWstring());
         } catch (...) {
-            // ignore lookup failure and fall back to extraction
+            // Ignore lookup failure and fall back to extraction.
         }
 
         if (mod && !mod->folder.empty()) {
-            const filesystem::path absPath = mod->folder / relPath;
-            if (filesystem::exists(absPath)) {
+            const std::filesystem::path absPath = mod->folder / relPath;
+            if (std::filesystem::exists(absPath)) {
                 openPathWithDefaultApp(absPath);
                 return;
             }
@@ -1019,8 +972,8 @@ void DialogModConflictView::onMeshContextMenu(wxContextMenuEvent& event)
 
     const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     wxMenu menu;
-    auto* copyName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyName"));
-    auto* openItem = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.open"));
+    const auto* copyName = menu.Append(wxID_ANY, pgTr("matchViewer.contextMenu.copyName"));
+    const auto* openItem = menu.Append(wxID_ANY, pgTr("matchViewer.contextMenu.open"));
 
     menu.Bind(
         wxEVT_MENU,
@@ -1042,7 +995,7 @@ void DialogModConflictView::onShapeContextMenu(wxContextMenuEvent& event)
 
     const wxString shapeName = m_shapeListCtrl->GetItemText(shapeRow, 0);
     wxMenu menu;
-    auto* copyName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyName"));
+    const auto* copyName = menu.Append(wxID_ANY, pgTr("matchViewer.contextMenu.copyName"));
 
     menu.Bind(wxEVT_MENU, [this, shapeName](wxCommandEvent&) { copyTextToClipboard(shapeName); }, copyName->GetId());
 
@@ -1065,9 +1018,9 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
     }
 
     wxMenu menu;
-    auto* copyModName = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.copyModName"));
-    auto* openModFolder = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.openModFolder"));
-    auto* openMatchingFile = menu.Append(wxID_ANY, PGTr("matchViewer.contextMenu.openMatchingFile"));
+    const auto* copyModName = menu.Append(wxID_ANY, pgTr("matchViewer.contextMenu.copyModName"));
+    const auto* openModFolder = menu.Append(wxID_ANY, pgTr("matchViewer.contextMenu.openModFolder"));
+    const auto* openMatchingFile = menu.Append(wxID_ANY, pgTr("matchViewer.contextMenu.openMatchingFile"));
 
     menu.Bind(
         wxEVT_MENU, [this, modNameStr](wxCommandEvent&) { copyTextToClipboard(modNameStr); }, copyModName->GetId());
@@ -1075,20 +1028,17 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
     menu.Bind(
         wxEVT_MENU,
         [this, modNameStr](wxCommandEvent&) {
-            if (modNameStr.IsEmpty() || modNameStr == PGTr("matchViewer.untrackedMod")) {
+            if (modNameStr.IsEmpty() || modNameStr == pgTr("matchViewer.untrackedMod"))
                 return;
-            }
 
             try {
-                auto* pgmm = PGGlobals::getPGMM();
-                if (pgmm == nullptr) {
+                const auto* pgmm = PGGlobals::getPGMM();
+                if (pgmm == nullptr)
                     return;
-                }
 
                 const auto mod = pgmm->getMod(modNameStr.ToStdWstring());
-                if (mod != nullptr && !mod->folder.empty()) {
+                if (mod != nullptr && !mod->folder.empty())
                     openPathWithDefaultApp(mod->folder);
-                }
             } catch (...) {
                 // Ignore lookup failures.
             }
@@ -1098,7 +1048,7 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
     menu.Bind(
         wxEVT_MENU,
         [this, modNameStr, relPathStr](wxCommandEvent&) {
-            openMatchFile(modNameStr, filesystem::path(relPathStr.ToStdWstring()));
+            openMatchFile(modNameStr, std::filesystem::path(relPathStr.ToStdWstring()));
         },
         openMatchingFile->GetId());
 
@@ -1116,34 +1066,32 @@ void DialogModConflictView::refreshDisplay()
     // Refresh metadata and rebuild while preserving current selection state.
     m_patchMeta = PGPatcher::getPatchMeta();
 
-    const filesystem::path selectedMeshPath = [&] {
+    const std::filesystem::path selectedMeshPath = [&] {
         const long meshIdx = getSelectedMeshIndex();
-        if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size()) {
-            return filesystem::path {};
-        }
+        if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size())
+            return std::filesystem::path { };
         return m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     }();
 
     const int selectedIdx3D = [&] {
         const long shapeRow = getSelectedShapeIndex();
-        if (shapeRow == wxNOT_FOUND) {
+        if (shapeRow == wxNOT_FOUND)
             return -1;
-        }
         return static_cast<int>(m_shapeListCtrl->GetItemData(shapeRow));
     }();
 
     const int selectedPluginUseIdx = m_selectedPluginUseIdx;
     const wxString selectedMatchMod = [&] {
         const long row = getSelectedMatchRow();
-        return row == wxNOT_FOUND ? wxString {} : m_matchListCtrl->GetItemText(row, 0);
+        return row == wxNOT_FOUND ? wxString { } : m_matchListCtrl->GetItemText(row, 0);
     }();
     const wxString selectedMatchShader = [&] {
         const long row = getSelectedMatchRow();
-        return row == wxNOT_FOUND ? wxString {} : m_matchListCtrl->GetItemText(row, 1);
+        return row == wxNOT_FOUND ? wxString { } : m_matchListCtrl->GetItemText(row, 1);
     }();
     const wxString selectedMatchPath = [&] {
         const long row = getSelectedMatchRow();
-        return row == wxNOT_FOUND ? wxString {} : m_matchListCtrl->GetItemText(row, 2);
+        return row == wxNOT_FOUND ? wxString { } : m_matchListCtrl->GetItemText(row, 2);
     }();
 
     const long topMeshItem = m_meshListCtrl->GetTopItem();
@@ -1152,7 +1100,7 @@ void DialogModConflictView::refreshDisplay()
     rebuildMeshList();
 
     if (!selectedMeshPath.empty()) {
-        const auto meshIt = find(m_filteredMeshes.begin(), m_filteredMeshes.end(), selectedMeshPath);
+        const auto meshIt = std::ranges::find(m_filteredMeshes, selectedMeshPath);
         if (meshIt != m_filteredMeshes.end()) {
             const long restoredMeshIdx = static_cast<long>(meshIt - m_filteredMeshes.begin());
             m_meshListCtrl->SetItemState(restoredMeshIdx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
@@ -1160,7 +1108,7 @@ void DialogModConflictView::refreshDisplay()
             populateShapeList(restoredMeshIdx);
             populatePluginUseList(selectedMeshPath);
 
-            if (selectedPluginUseIdx >= 0 && selectedPluginUseIdx < static_cast<int>(m_currentPluginUses.size())) {
+            if (selectedPluginUseIdx >= 0 && std::cmp_less(selectedPluginUseIdx, m_currentPluginUses.size())) {
                 m_selectedPluginUseIdx = selectedPluginUseIdx;
                 m_pluginUseCombo->SetSelection(selectedPluginUseIdx + 1);
             } else {
@@ -1170,23 +1118,19 @@ void DialogModConflictView::refreshDisplay()
 
             if (selectedIdx3D >= 0) {
                 for (long i = 0; i < m_shapeListCtrl->GetItemCount(); ++i) {
-                    if (static_cast<int>(m_shapeListCtrl->GetItemData(i)) != selectedIdx3D) {
+                    if (std::cmp_not_equal(m_shapeListCtrl->GetItemData(i), selectedIdx3D))
                         continue;
-                    }
 
                     m_shapeListCtrl->SetItemState(i, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
                     populateMatchList(selectedMeshPath, static_cast<size_t>(selectedIdx3D));
 
                     for (long row = 0; row < m_matchListCtrl->GetItemCount(); ++row) {
-                        if (m_matchListCtrl->GetItemText(row, 0) != selectedMatchMod) {
+                        if (m_matchListCtrl->GetItemText(row, 0) != selectedMatchMod)
                             continue;
-                        }
-                        if (m_matchListCtrl->GetItemText(row, 1) != selectedMatchShader) {
+                        if (m_matchListCtrl->GetItemText(row, 1) != selectedMatchShader)
                             continue;
-                        }
-                        if (m_matchListCtrl->GetItemText(row, 2) != selectedMatchPath) {
+                        if (m_matchListCtrl->GetItemText(row, 2) != selectedMatchPath)
                             continue;
-                        }
 
                         m_matchListCtrl->SetItemState(row, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
                         break;
@@ -1199,7 +1143,7 @@ void DialogModConflictView::refreshDisplay()
 
     const long meshCount = m_meshListCtrl->GetItemCount();
     if (meshCount > 0 && topMeshItem >= 0) {
-        const long clampedTop = min(topMeshItem, meshCount - 1);
+        const long clampedTop = std::min(topMeshItem, meshCount - 1);
         m_meshListCtrl->EnsureVisible(meshCount - 1);
         m_meshListCtrl->EnsureVisible(clampedTop);
     }
@@ -1208,7 +1152,7 @@ void DialogModConflictView::refreshDisplay()
 }
 
 // ============================================================================
-// Event handlers
+// Event handlers.
 // ============================================================================
 
 void DialogModConflictView::onMeshDeselected(wxListEvent& event)
@@ -1218,9 +1162,8 @@ void DialogModConflictView::onMeshDeselected(wxListEvent& event)
     m_pluginUseCombo->SetSelection(0);
     m_selectedPluginUseIdx = -1;
     m_currentPluginUses.clear();
-    while (m_pluginUseCombo->GetCount() > 1) {
+    while (m_pluginUseCombo->GetCount() > 1)
         m_pluginUseCombo->Delete(1);
-    }
     event.Skip();
 }
 
@@ -1234,19 +1177,18 @@ void DialogModConflictView::onMeshSelected(wxListEvent& event)
 {
     const long meshIdx = event.GetIndex();
 
-    // Populate the shape list for this mesh
+    // Populate the shape list for this mesh.
     populateShapeList(meshIdx);
 
-    // Populate plugin use dropdown based on the selected mesh
+    // Populate plugin use dropdown based on the selected mesh.
     if (static_cast<size_t>(meshIdx) < m_filteredMeshes.size()) {
         const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
         if (m_patchMeta.contains(meshPath)) {
             populatePluginUseList(meshPath);
         } else {
             m_currentPluginUses.clear();
-            while (m_pluginUseCombo->GetCount() > 1) {
+            while (m_pluginUseCombo->GetCount() > 1)
                 m_pluginUseCombo->Delete(1);
-            }
             m_pluginUseCombo->SetSelection(0);
             m_selectedPluginUseIdx = -1;
         }
@@ -1277,19 +1219,17 @@ void DialogModConflictView::onShapeSelected(wxListEvent& event)
 
 void DialogModConflictView::onSearchChanged(wxCommandEvent& event)
 {
-    const filesystem::path selectedMeshPath = [&] {
+    const std::filesystem::path selectedMeshPath = [&] {
         const long meshIdx = m_meshListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-        if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size()) {
-            return filesystem::path {};
-        }
+        if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size())
+            return std::filesystem::path { };
         return m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     }();
 
     const int selectedIdx3D = [&] {
         const long shapeRow = m_shapeListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-        if (shapeRow == wxNOT_FOUND) {
+        if (shapeRow == wxNOT_FOUND)
             return -1;
-        }
         return static_cast<int>(m_shapeListCtrl->GetItemData(shapeRow));
     }();
 
@@ -1300,7 +1240,7 @@ void DialogModConflictView::onSearchChanged(wxCommandEvent& event)
     rebuildMeshList();
 
     if (!selectedMeshPath.empty()) {
-        const auto it = find(m_filteredMeshes.begin(), m_filteredMeshes.end(), selectedMeshPath);
+        const auto it = std::ranges::find(m_filteredMeshes, selectedMeshPath);
         if (it != m_filteredMeshes.end()) {
             const long newMeshIdx = static_cast<long>(it - m_filteredMeshes.begin());
             m_meshListCtrl->SetItemState(newMeshIdx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
@@ -1308,7 +1248,7 @@ void DialogModConflictView::onSearchChanged(wxCommandEvent& event)
 
             if (selectedIdx3D >= 0) {
                 for (long i = 0; i < m_shapeListCtrl->GetItemCount(); ++i) {
-                    if (static_cast<int>(m_shapeListCtrl->GetItemData(i)) == selectedIdx3D) {
+                    if (std::cmp_equal(m_shapeListCtrl->GetItemData(i), selectedIdx3D)) {
                         m_shapeListCtrl->SetItemState(i, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
                         break;
                     }
@@ -1316,7 +1256,7 @@ void DialogModConflictView::onSearchChanged(wxCommandEvent& event)
             }
 
             if (selectedIdx3D >= 0) {
-                if (selectedPluginUseIdx >= 0 && selectedPluginUseIdx < static_cast<int>(m_currentPluginUses.size())) {
+                if (selectedPluginUseIdx >= 0 && std::cmp_less(selectedPluginUseIdx, m_currentPluginUses.size())) {
                     m_selectedPluginUseIdx = selectedPluginUseIdx;
                     m_pluginUseCombo->SetSelection(selectedPluginUseIdx + 1);
                 } else {
@@ -1330,7 +1270,7 @@ void DialogModConflictView::onSearchChanged(wxCommandEvent& event)
 
     const long itemCount = m_meshListCtrl->GetItemCount();
     if (itemCount > 0 && topMeshItem >= 0) {
-        const long clampedTop = min(topMeshItem, itemCount - 1);
+        const long clampedTop = std::min(topMeshItem, itemCount - 1);
         m_meshListCtrl->EnsureVisible(itemCount - 1);
         m_meshListCtrl->EnsureVisible(clampedTop);
     }
@@ -1342,7 +1282,7 @@ void DialogModConflictView::onSearchChanged(wxCommandEvent& event)
 void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
 {
     // Remember what is currently selected so we can restore it after rebuilding.
-    filesystem::path selectedMeshPath;
+    std::filesystem::path selectedMeshPath;
     int selectedIdx3D = -1;
     const int selectedPluginUseIdx = m_selectedPluginUseIdx; // Save dropdown selection
 
@@ -1351,9 +1291,8 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
         selectedMeshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
 
         const long shapeRow = m_shapeListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-        if (shapeRow != wxNOT_FOUND) {
+        if (shapeRow != wxNOT_FOUND)
             selectedIdx3D = static_cast<int>(m_shapeListCtrl->GetItemData(shapeRow));
-        }
     }
 
     const long topMeshItem = m_meshListCtrl->GetTopItem();
@@ -1366,7 +1305,7 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
 
     long newMeshIdx = wxNOT_FOUND;
     if (!selectedMeshPath.empty()) {
-        const auto it = find(m_filteredMeshes.begin(), m_filteredMeshes.end(), selectedMeshPath);
+        const auto it = std::ranges::find(m_filteredMeshes, selectedMeshPath);
         if (it != m_filteredMeshes.end()) {
             newMeshIdx = static_cast<long>(it - m_filteredMeshes.begin());
             m_meshListCtrl->SetItemState(newMeshIdx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
@@ -1375,7 +1314,7 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
 
             if (selectedIdx3D >= 0) {
                 for (long i = 0; i < m_shapeListCtrl->GetItemCount(); ++i) {
-                    if (static_cast<int>(m_shapeListCtrl->GetItemData(i)) == selectedIdx3D) {
+                    if (std::cmp_equal(m_shapeListCtrl->GetItemData(i), selectedIdx3D)) {
                         m_shapeListCtrl->SetItemState(i, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
                         populateMatchList(selectedMeshPath, selectedIdx3D);
                         break;
@@ -1383,17 +1322,16 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
                 }
             }
 
-            // Restore the dropdown selection
-            if (selectedPluginUseIdx >= 0 && selectedPluginUseIdx < static_cast<int>(m_currentPluginUses.size())) {
+            // Restore the dropdown selection.
+            if (selectedPluginUseIdx >= 0 && std::cmp_less(selectedPluginUseIdx, m_currentPluginUses.size())) {
                 m_selectedPluginUseIdx = selectedPluginUseIdx;
                 m_pluginUseCombo->SetSelection(selectedPluginUseIdx + 1); // +1 for "no filter" entry
                 populateMatchList(selectedMeshPath, selectedIdx3D);
             } else {
                 m_selectedPluginUseIdx = -1;
                 m_pluginUseCombo->SetSelection(0);
-                if (selectedIdx3D >= 0) {
+                if (selectedIdx3D >= 0)
                     populateMatchList(selectedMeshPath, selectedIdx3D);
-                }
             }
         }
     }
@@ -1401,9 +1339,9 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
     // Restore the mesh list scroll position to where it was before the rebuild.
     const long itemCount = m_meshListCtrl->GetItemCount();
     if (itemCount > 0 && topMeshItem >= 0) {
-        const long clampedTop = min(topMeshItem, itemCount - 1);
-        // Standard wxListCtrl scroll trick: scroll to bottom then back to target
-        // so the target row ends up at the top of the visible area.
+        const long clampedTop = std::min(topMeshItem, itemCount - 1);
+        // Standard wxListCtrl scroll trick: scroll to bottom then back to target.
+        // So the target row ends up at the top of the visible area.
         m_meshListCtrl->EnsureVisible(itemCount - 1);
         m_meshListCtrl->EnsureVisible(clampedTop);
     }
@@ -1416,38 +1354,35 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
 {
     m_showOnlyConflicts = m_showOnlyConflictsCheckbox->IsChecked();
 
-    // Update filter label text to reflect new mode
+    // Update filter label text to reflect new mode.
     {
         wxString names;
         for (const auto& mod : m_filterMods) {
-            if (!names.IsEmpty()) {
+            if (!names.IsEmpty())
                 names += ", ";
-            }
             names += wxString(mod);
         }
         wxString label;
         if (m_showOnlyConflicts) {
-            if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allConflicts");
-            } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsForMod"), names);
-            } else {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.conflictsBetweenMods"), names);
-            }
+            if (names.IsEmpty())
+                label = pgTr("matchViewer.filterLabel.allConflicts");
+            else if (m_filterMods.size() == 1)
+                label = wxString::Format(pgTr("matchViewer.filterLabel.conflictsForMod"), names);
+            else
+                label = wxString::Format(pgTr("matchViewer.filterLabel.conflictsBetweenMods"), names);
         } else {
-            if (names.IsEmpty()) {
-                label = PGTr("matchViewer.filterLabel.allMatches");
-            } else if (m_filterMods.size() == 1) {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMod"), names);
-            } else {
-                label = wxString::Format(PGTr("matchViewer.filterLabel.matchesForMods"), names);
-            }
+            if (names.IsEmpty())
+                label = pgTr("matchViewer.filterLabel.allMatches");
+            else if (m_filterMods.size() == 1)
+                label = wxString::Format(pgTr("matchViewer.filterLabel.matchesForMod"), names);
+            else
+                label = wxString::Format(pgTr("matchViewer.filterLabel.matchesForMods"), names);
         }
         m_filterLabel->SetLabel(label);
     }
 
-    // Remember selection and rebuild
-    filesystem::path selectedMeshPath;
+    // Remember selection and rebuild.
+    std::filesystem::path selectedMeshPath;
     int selectedIdx3D = -1;
     const int selectedPluginUseIdx = m_selectedPluginUseIdx;
 
@@ -1455,9 +1390,8 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
     if (meshIdx != wxNOT_FOUND && static_cast<size_t>(meshIdx) < m_filteredMeshes.size()) {
         selectedMeshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
         const long shapeRow = m_shapeListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-        if (shapeRow != wxNOT_FOUND) {
+        if (shapeRow != wxNOT_FOUND)
             selectedIdx3D = static_cast<int>(m_shapeListCtrl->GetItemData(shapeRow));
-        }
     }
 
     const long topMeshItem = m_meshListCtrl->GetTopItem();
@@ -1466,7 +1400,7 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
     rebuildMeshList();
 
     if (!selectedMeshPath.empty()) {
-        const auto it = find(m_filteredMeshes.begin(), m_filteredMeshes.end(), selectedMeshPath);
+        const auto it = std::ranges::find(m_filteredMeshes, selectedMeshPath);
         if (it != m_filteredMeshes.end()) {
             const long newMeshIdx = static_cast<long>(it - m_filteredMeshes.begin());
             m_meshListCtrl->SetItemState(newMeshIdx, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
@@ -1474,30 +1408,29 @@ void DialogModConflictView::onShowOnlyConflictsChanged(wxCommandEvent& event)
 
             if (selectedIdx3D >= 0) {
                 for (long i = 0; i < m_shapeListCtrl->GetItemCount(); ++i) {
-                    if (static_cast<int>(m_shapeListCtrl->GetItemData(i)) == selectedIdx3D) {
+                    if (std::cmp_equal(m_shapeListCtrl->GetItemData(i), selectedIdx3D)) {
                         m_shapeListCtrl->SetItemState(i, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
                         break;
                     }
                 }
             }
 
-            if (selectedPluginUseIdx >= 0 && selectedPluginUseIdx < static_cast<int>(m_currentPluginUses.size())) {
+            if (selectedPluginUseIdx >= 0 && std::cmp_less(selectedPluginUseIdx, m_currentPluginUses.size())) {
                 m_selectedPluginUseIdx = selectedPluginUseIdx;
                 m_pluginUseCombo->SetSelection(selectedPluginUseIdx + 1);
                 populateMatchList(selectedMeshPath, selectedIdx3D);
             } else {
                 m_selectedPluginUseIdx = -1;
                 m_pluginUseCombo->SetSelection(0);
-                if (selectedIdx3D >= 0) {
+                if (selectedIdx3D >= 0)
                     populateMatchList(selectedMeshPath, selectedIdx3D);
-                }
             }
         }
     }
 
     const long itemCount = m_meshListCtrl->GetItemCount();
     if (itemCount > 0 && topMeshItem >= 0) {
-        const long clampedTop = min(topMeshItem, itemCount - 1);
+        const long clampedTop = std::min(topMeshItem, itemCount - 1);
         m_meshListCtrl->EnsureVisible(itemCount - 1);
         m_meshListCtrl->EnsureVisible(clampedTop);
     }
@@ -1515,24 +1448,22 @@ void DialogModConflictView::onShowMismatchesChanged(wxCommandEvent& event)
 
 void DialogModConflictView::onPluginUseSelected(wxCommandEvent& /*event*/)
 {
-    // Get the currently selected shape
+    // Get the currently selected shape.
     const long meshIdx = m_meshListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size()) {
+    if (meshIdx == wxNOT_FOUND || static_cast<size_t>(meshIdx) >= m_filteredMeshes.size())
         return;
-    }
 
     const long shapeRow = m_shapeListCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    if (shapeRow == wxNOT_FOUND) {
+    if (shapeRow == wxNOT_FOUND)
         return;
-    }
 
     const auto& meshPath = m_filteredMeshes.at(static_cast<size_t>(meshIdx));
     const auto idx3D = static_cast<size_t>(m_shapeListCtrl->GetItemData(shapeRow));
 
-    // Update the selected plugin use index
+    // Update the selected plugin use index.
     m_selectedPluginUseIdx = m_pluginUseCombo->GetSelection() - 1; // -1 because first entry is "no filter"
 
-    // Repopulate the match list with the new filter
+    // Repopulate the match list with the new filter.
     populateMatchList(meshPath, idx3D);
 }
 
@@ -1551,9 +1482,9 @@ void DialogModConflictView::onMatchActivated(wxListEvent& event)
         return;
     }
 
-    const filesystem::path relPath(relPathStr.ToStdWstring());
+    const std::filesystem::path relPath(relPathStr.ToStdWstring());
 
-    // Get the mod name from column 0 (first column displays the mod)
+    // Get the mod name from column 0 (first column displays the mod).
     const wxString modNameStr = m_matchListCtrl->GetItemText(row, 0);
 
     openMatchFile(modNameStr, relPath);
@@ -1591,9 +1522,9 @@ void DialogModConflictView::onShapeListResize(wxSizeEvent& event)
 void DialogModConflictView::onMatchListResize(wxSizeEvent& event)
 {
     const int totalWidth = m_matchListCtrl->GetClientSize().GetWidth();
-    const int modColWidth = FromDIP(MATCH_LIST_MOD_COL_WIDTH);
-    const int shaderColWidth = FromDIP(MATCH_LIST_SHADER_COL_WIDTH);
-    const int minPathColWidth = FromDIP(MATCH_LIST_MIN_PATH_COL_WIDTH);
+    const int modColWidth = FromDIP(matchListModColWidth);
+    const int shaderColWidth = FromDIP(matchListShaderColWidth);
+    const int minPathColWidth = FromDIP(matchListMinPathColWidth);
     const int col2Width = totalWidth - modColWidth - shaderColWidth - 2;
     m_matchListCtrl->SetColumnWidth(0, modColWidth);
     m_matchListCtrl->SetColumnWidth(1, shaderColWidth);
@@ -1605,11 +1536,10 @@ void DialogModConflictView::cleanupTempFiles()
 {
     for (const auto& tempPath : m_tempFiles) {
         try {
-            if (filesystem::exists(tempPath)) {
-                filesystem::remove(tempPath);
-            }
-        } catch (const exception& ex) {
-            wxLogError(wxString::Format(PGTr("matchViewer.errors.deleteTempFailed"),
+            if (std::filesystem::exists(tempPath))
+                std::filesystem::remove(tempPath);
+        } catch (const std::exception& ex) {
+            wxLogError(wxString::Format(pgTr("matchViewer.errors.deleteTempFailed"),
                                         tempPath.wstring().c_str(),
                                         StringUtil::utf8toUTF16(ex.what())));
         }

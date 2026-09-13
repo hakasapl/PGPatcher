@@ -27,7 +27,7 @@ public:
         /// @brief Name of the mod file (plugin) that owns this form (e.g., L"Skyrim.esm").
         std::wstring modKey;
         /// @brief Numeric form ID of the record referencing this mesh.
-        unsigned int formID;
+        unsigned formID = 0;
         /// @brief Sub-model path within the record (empty for the primary model).
         std::string subMODL;
 
@@ -38,12 +38,10 @@ public:
 
         auto operator<(const FormKey& other) const -> bool
         {
-            if (modKey != other.modKey) {
+            if (modKey != other.modKey)
                 return modKey < other.modKey;
-            }
-            if (formID != other.formID) {
+            if (formID != other.formID)
                 return formID < other.formID;
-            }
             return subMODL < other.subMODL;
         }
     };
@@ -60,9 +58,9 @@ public:
          */
         auto operator()(const FormKey& key) const -> std::size_t
         {
-            const size_t h1 = std::hash<std::wstring> {}(key.modKey);
-            const size_t h2 = std::hash<unsigned int> {}(key.formID);
-            const size_t h3 = std::hash<std::string> {}(key.subMODL);
+            const size_t h1 = std::hash<std::wstring> { }(key.modKey);
+            const size_t h2 = std::hash<unsigned> { }(key.formID);
+            const size_t h3 = std::hash<std::string> { }(key.subMODL);
             return h1 ^ (h2 << 1) ^ (h3 << 2);
         }
     };
@@ -71,7 +69,7 @@ public:
         /// @brief Relative path (within the data directory) of the saved output mesh file.
         std::filesystem::path meshPath;
         /// @brief Alternate texture results keyed by FormKey; each maps shape index to a TextureSet.
-        std::vector<std::pair<FormKey, std::unordered_map<unsigned int, PGTypes::TextureSet>>> altTexResults;
+        std::vector<std::pair<FormKey, std::unordered_map<unsigned, PGTypes::TextureSet>>> altTexResults;
         /// @brief Index corrections mapping old 3D block indices to new indices after sorting.
         std::unordered_map<int, int> idxCorrections;
         /// @brief Index corrections mapping old 3D block indices to new indices after patching.
@@ -82,7 +80,7 @@ private:
     std::filesystem::path m_origMeshPath;
     nifly::NifFile m_origNifFile;
     std::unordered_set<int> m_origShapeIndices;
-    unsigned long long m_origCrc32;
+    unsigned long long m_origCrc32 { 0 };
     bool m_ignoreBaseMesh = false;
 
     std::vector<std::pair<MeshResult, nifly::NifFile>> m_outputMeshes;
@@ -91,21 +89,20 @@ private:
     std::unordered_set<std::size_t> m_weightProcessedOutputs;
 
     nifly::NifFile m_stagedMesh;
-    nifly::NifFile* m_stagedMeshPtr;
+    nifly::NifFile* m_stagedMeshPtr { nullptr };
     std::unordered_map<nifly::NiObject*, int> m_stagedMeshOriginal3DIdx;
 
-    using AltTex3DIndices = std::unordered_set<unsigned int>;
+    using AltTex3DIndices = std::unordered_set<unsigned>;
 
     struct PathSizeHash {
         auto operator()(const std::pair<std::filesystem::path,
                                         size_t>& key) const noexcept -> size_t
         {
-            const size_t h1 = std::hash<std::wstring> {}(key.first.wstring());
-            const size_t h2 = std::hash<size_t> {}(key.second);
+            const size_t h1 = std::hash<std::wstring> { }(key.first.wstring());
+            const size_t h2 = std::hash<size_t> { }(key.second);
 
-            // standard hash combine
-            return h1
-                ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2)); // NOLINT(cppcoreguidelines-avoid-magic-numbers)
+            // Standard hash combine.
+            return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
         }
     };
     static inline std::mutex s_otherWeightVariantsMutex;
@@ -122,9 +119,9 @@ public:
      * @param origMeshPath Relative path (within the data directory) to the source NIF file.
      * @throws std::runtime_error if the file does not exist in the directory.
      */
-    PGMeshPermutationTracker(const std::filesystem::path& origMeshPath);
+    explicit PGMeshPermutationTracker(const std::filesystem::path& origMeshPath);
 
-    // Plugin mesh staging
+    // Plugin mesh staging.
     /**
      * @brief Loads the original NIF file and computes its CRC32 from the game directory.
      */
@@ -166,9 +163,9 @@ public:
      */
     auto commitMesh(const FormKey& formKey,
                     bool isWeighted,
-                    const std::unordered_map<unsigned int,
+                    const std::unordered_map<unsigned,
                                              PGTypes::TextureSet>& altTexResults,
-                    const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
+                    const std::unordered_set<unsigned>& nonAltTexShapes) -> bool;
 
     /**
      * @brief Saves all committed output meshes to disk and returns their results with CRC statistics.
@@ -205,7 +202,7 @@ private:
     void processWeightVariant(const nifly::NifFile& mesh,
                               std::size_t dupIdx);
 
-    // Helpers
+    // Helpers.
     /**
      * @brief Compares two NIF files for equivalence, optionally restricting to specific shape texture sets.
      *
@@ -218,7 +215,7 @@ private:
      */
     static auto compareMesh(const nifly::NifFile& meshA,
                             const nifly::NifFile& meshB,
-                            const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA,
+                            const std::unordered_set<unsigned>& enforceCheckShapeTXSTA,
                             bool compareAllTXST = false,
                             bool checkOnlyWeighted = false,
                             const std::unordered_map<int,

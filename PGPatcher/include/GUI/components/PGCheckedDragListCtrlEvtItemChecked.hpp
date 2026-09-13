@@ -22,9 +22,9 @@ public:
      * @param item Item index of the checked item.
      * @param checked Whether the item is now checked or unchecked.
      */
-    PGCheckedDragListCtrlEvtItemChecked(long id = wxID_ANY,
-                                        long item = -1,
-                                        bool checked = false)
+    explicit PGCheckedDragListCtrlEvtItemChecked(long id = wxID_ANY,
+                                                 long item = -1,
+                                                 bool checked = false)
         : wxCommandEvent(pgEVT_CDLC_ITEM_CHECKED,
                          id)
         , m_itemIndex(item)
@@ -32,7 +32,7 @@ public:
     {
     }
 
-    // Getters
+    // Getters.
     /**
      * @brief Get the index of the checked item.
      *
@@ -46,7 +46,7 @@ public:
      */
     [[nodiscard]] auto isChecked() const -> bool { return m_checked; }
 
-    // Required for sending with wxPostEvent
+    // Required for sending with wxPostEvent.
     /**
      * @brief Create a heap-allocated copy of this event (required for wxPostEvent).
      *

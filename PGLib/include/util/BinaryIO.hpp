@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -24,13 +25,12 @@ public:
     /**
      * @brief Appends the raw representation of an integral, enum, or floating point value.
      */
-    template <typename T>
+    template<typename T>
         requires(std::is_integral_v<T> || std::is_enum_v<T> || std::is_floating_point_v<T>)
     void write(const T& value)
     {
-        const auto* bytes
-            = reinterpret_cast<const std::byte*>(&value); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        m_buffer.insert(m_buffer.end(), bytes, bytes + sizeof(T));
+        const auto bytes = std::as_bytes(std::span<const T, 1>(&value, 1));
+        m_buffer.insert(m_buffer.end(), bytes.begin(), bytes.end());
     }
 
     /**
@@ -78,7 +78,7 @@ public:
  */
 class Reader {
 private:
-    const std::vector<std::byte>& m_buffer;
+    std::span<const std::byte> m_buffer;
     size_t m_pos = 0;
 
     void ensureAvailable(size_t size) const;
@@ -87,18 +87,18 @@ public:
     /**
      * @brief Constructs a reader over an existing buffer. The buffer must outlive the reader.
      */
-    explicit Reader(const std::vector<std::byte>& buffer);
+    explicit Reader(std::span<const std::byte> buffer);
 
     /**
      * @brief Reads the raw representation of an integral, enum, or floating point value.
      */
-    template <typename T>
+    template<typename T>
         requires(std::is_integral_v<T> || std::is_enum_v<T> || std::is_floating_point_v<T>)
     auto read() -> T
     {
         ensureAvailable(sizeof(T));
-        T value {};
-        std::memcpy(&value, m_buffer.data() + m_pos, sizeof(T));
+        T value { };
+        std::memcpy(&value, m_buffer.subspan(m_pos, sizeof(T)).data(), sizeof(T));
         m_pos += sizeof(T);
         return value;
     }

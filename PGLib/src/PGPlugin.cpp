@@ -16,112 +16,110 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
-
 auto PGPlugin::getPluginLangFromString(const std::string& lang) -> PluginLang
 {
-    return EnumStringHelper::enumFromString(lang, PLUGINLANG_TABLE, PluginLang::ENGLISH);
+    return EnumStringHelper::enumFromString(lang, pluginLangTable, PluginLang::English);
 }
 
 auto PGPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::string
 {
-    return std::string(EnumStringHelper::stringFromEnum(lang, PLUGINLANG_TABLE, "English"));
+    return std::string(EnumStringHelper::stringFromEnum(lang, pluginLangTable, "English"));
 }
 
-auto PGPlugin::getAvailablePluginLangStrs() -> vector<string>
+auto PGPlugin::getAvailablePluginLangStrs() -> std::vector<std::string>
 {
-    return EnumStringHelper::allEnumStrings(PLUGINLANG_TABLE);
+    return EnumStringHelper::allEnumStrings(pluginLangTable);
 }
 
 auto PGPlugin::getRecTypeFromString(const std::string& recTypeStr) -> ModelRecordType
 {
-    return EnumStringHelper::enumFromString(recTypeStr, MODEL_RECORD_TYPE_TABLE, ModelRecordType::UNKNOWN);
+    return EnumStringHelper::enumFromString(recTypeStr, modelRecordTypeTable, ModelRecordType::Unknown);
 }
 
 auto PGPlugin::getStringFromRecType(const ModelRecordType& recType) -> std::string
 {
-    return std::string(EnumStringHelper::stringFromEnum(recType, MODEL_RECORD_TYPE_TABLE, ""));
+    return std::string(EnumStringHelper::stringFromEnum(recType, modelRecordTypeTable, ""));
 }
 
 auto PGPlugin::getAvailableRecTypeStrs() -> std::vector<std::string>
 {
-    return EnumStringHelper::allEnumStrings(MODEL_RECORD_TYPE_TABLE);
+    return EnumStringHelper::allEnumStrings(modelRecordTypeTable);
 }
 
 auto PGPlugin::getDefaultRecTypeSet() -> std::unordered_set<ModelRecordType>
 {
-    // these are enabled by default in the initial config
+    // These are enabled by default in the initial config.
     static const std::unordered_set<ModelRecordType> defaultSet = {
-        ModelRecordType::ACTIVATOR,
-        ModelRecordType::AMMUNITION,
-        ModelRecordType::ANIMATED_OBJECT,
-        ModelRecordType::ARMOR,
-        ModelRecordType::ARMOR_ADDON,
-        ModelRecordType::ART_OBJECT,
-        ModelRecordType::BODY_PART_DATA,
-        ModelRecordType::BOOK,
-        ModelRecordType::CAMERA_SHOT,
-        ModelRecordType::CLIMATE,
-        ModelRecordType::CONTAINER,
-        ModelRecordType::DOOR,
-        ModelRecordType::EXPLOSION,
-        ModelRecordType::FLORA,
-        ModelRecordType::FURNITURE,
-        ModelRecordType::GRASS,
-        ModelRecordType::HAZARD,
-        ModelRecordType::HEAD_PART,
-        ModelRecordType::IDLE_MARKER,
-        ModelRecordType::IMPACT,
-        ModelRecordType::INGESTIBLE,
-        ModelRecordType::INGREDIENT,
-        ModelRecordType::KEY,
-        ModelRecordType::LEVELED_NPC,
-        ModelRecordType::LIGHT,
-        ModelRecordType::MATERIAL_OBJECT,
-        ModelRecordType::MISC_ITEM,
-        ModelRecordType::MOVEABLE_STATIC,
-        ModelRecordType::PROJECTILE,
-        ModelRecordType::SCROLL,
-        ModelRecordType::SOUL_GEM,
-        ModelRecordType::STATIC_OBJECT,
-        ModelRecordType::TALKING_ACTIVATOR,
-        ModelRecordType::TREE,
-        ModelRecordType::WEAPON,
+        ModelRecordType::Activator,
+        ModelRecordType::Ammunition,
+        ModelRecordType::AnimatedObject,
+        ModelRecordType::Armor,
+        ModelRecordType::ArmorAddon,
+        ModelRecordType::ArtObject,
+        ModelRecordType::BodyPartData,
+        ModelRecordType::Book,
+        ModelRecordType::CameraShot,
+        ModelRecordType::Climate,
+        ModelRecordType::Container,
+        ModelRecordType::Door,
+        ModelRecordType::Explosion,
+        ModelRecordType::Flora,
+        ModelRecordType::Furniture,
+        ModelRecordType::Grass,
+        ModelRecordType::Hazard,
+        ModelRecordType::HeadPart,
+        ModelRecordType::IdleMarker,
+        ModelRecordType::Impact,
+        ModelRecordType::Ingestible,
+        ModelRecordType::Ingredient,
+        ModelRecordType::Key,
+        ModelRecordType::LeveledNPC,
+        ModelRecordType::Light,
+        ModelRecordType::MaterialObject,
+        ModelRecordType::MiscItem,
+        ModelRecordType::MoveableStatic,
+        ModelRecordType::Projectile,
+        ModelRecordType::Scroll,
+        ModelRecordType::SoulGem,
+        ModelRecordType::StaticObject,
+        ModelRecordType::TalkingActivator,
+        ModelRecordType::Tree,
+        ModelRecordType::Weapon,
     };
 
     return defaultSet;
 }
 
 void PGPlugin::initialize(const BethesdaGame& game,
-                          const filesystem::path& exePath,
+                          const std::filesystem::path& exePath,
                           const PluginLang& lang)
 {
     // Maps BethesdaGame::GameType to Mutagen game type
-    static const unordered_map<BethesdaGame::GameType, int> mutagenGameTypeMap
-        = {{BethesdaGame::GameType::SKYRIM_SE, 2},
-           {BethesdaGame::GameType::SKYRIM_VR, 3},
-           {BethesdaGame::GameType::ENDERAL_SE, 6},
-           {BethesdaGame::GameType::SKYRIM_GOG, 7}};
+    static const std::unordered_map<BethesdaGame::GameType, int> mutagenGameTypeMap = {
+        { BethesdaGame::GameType::SkyrimSE, 2 },
+        { BethesdaGame::GameType::SkyrimVR, 3 },
+        { BethesdaGame::GameType::EnderalSE, 6 },
+        { BethesdaGame::GameType::SkyrimGOG, 7 },
+    };
 
     PGMutagenWrapper::libInitialize(mutagenGameTypeMap.at(game.getGameType()),
                                     exePath,
                                     game.getGameDataPath().wstring(),
                                     game.getActivePlugins(),
-                                    static_cast<unsigned int>(lang));
+                                    static_cast<unsigned>(lang));
 
     s_initialized = true;
 }
 
-void PGPlugin::populateObjs(const filesystem::path& existingModPath)
+void PGPlugin::populateObjs(const std::filesystem::path& existingModPath)
 {
     PGMutagenWrapper::libPopulateObjs(existingModPath);
 }
 
 void PGPlugin::resetPatchingState()
 {
-    if (!s_initialized) {
+    if (!s_initialized)
         return;
-    }
 
     PGMutagenWrapper::libResetPatchingState();
 }
@@ -129,30 +127,25 @@ void PGPlugin::resetPatchingState()
 auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                                                     MeshUseAttributes>>
 {
-    vector<pair<PGMeshPermutationTracker::FormKey, MeshUseAttributes>> result;
+    std::vector<std::pair<PGMeshPermutationTracker::FormKey, MeshUseAttributes>> result;
 
-    if (!s_initialized) {
-        return {};
-    }
+    if (!s_initialized)
+        return { };
 
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
-    // sort modelUses by putting weighted ones first, then by mod name, then by
-    // formid, then by submodel
+    // Sort modelUses by putting weighted ones first, then by mod name, then by.
+    // Formid, then by submodel.
     std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) -> bool {
         const bool aHasAltTex = !a.alternateTextures.empty();
         const bool bHasAltTex = !b.alternateTextures.empty();
-        if (aHasAltTex != bHasAltTex) {
+        if (aHasAltTex != bHasAltTex)
             return !aHasAltTex; // no alternate textures first
-        }
-        if (a.isWeighted != b.isWeighted) {
+        if (a.isWeighted != b.isWeighted)
             return a.isWeighted > b.isWeighted; // weighted first
-        }
-        if (a.modName != b.modName) {
+        if (a.modName != b.modName)
             return a.modName < b.modName; // alphabetical mod name
-        }
-        if (a.formID != b.formID) {
+        if (a.formID != b.formID)
             return a.formID < b.formID; // ascending formid
-        }
         return a.subModel < b.subModel; // alphabetical submodel
     });
 
@@ -170,18 +163,10 @@ auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::p
         attributes.recType = getRecTypeFromString(modelUse.type);
 
         for (const auto& altTex : modelUse.alternateTextures) {
-            // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
             attributes.alternateTextures[altTex.slotID] = PGTypes::TextureSet {
-                altTex.slots[0],
-                altTex.slots[1],
-                altTex.slots[2],
-                altTex.slots[3],
-                altTex.slots[4],
-                altTex.slots[5],
-                altTex.slots[6],
-                altTex.slots[7],
+                altTex.slots[0], altTex.slots[1], altTex.slots[2], altTex.slots[3],
+                altTex.slots[4], altTex.slots[5], altTex.slots[6], altTex.slots[7],
             };
-            // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
         }
 
         result.emplace_back(formKey, attributes);
@@ -192,16 +177,15 @@ auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::p
 
 void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults)
 {
-    if (!s_initialized) {
+    if (!s_initialized)
         return;
-    }
 
-    vector<PGMutagenWrapper::ModelUse> modelUses;
+    std::vector<PGMutagenWrapper::ModelUse> modelUses;
 
     for (const auto& meshResult : meshResults) {
         for (const auto& [formKey, altTexMap] : meshResult.altTexResults) {
             if (formKey.modKey.empty() || formKey.formID == 0) {
-                // skip dummy use
+                // Skip dummy use.
                 continue;
             }
 
@@ -216,13 +200,11 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
             for (const auto& [slotID, textureSet] : altTexMap) {
                 PGMutagenWrapper::AlternateTexture altTex;
                 altTex.slotID = static_cast<int>(slotID);
-                if (idxCorr.contains(altTex.slotID)) {
+                if (idxCorr.contains(altTex.slotID))
                     altTex.slotIDNew = idxCorr.at(altTex.slotID);
-                } else {
+                else
                     altTex.slotIDNew = altTex.slotID; // No change
-                }
 
-                // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
                 altTex.slots[0] = textureSet[0];
                 altTex.slots[1] = textureSet[1];
                 altTex.slots[2] = textureSet[2];
@@ -231,7 +213,6 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
                 altTex.slots[5] = textureSet[5];
                 altTex.slots[6] = textureSet[6];
                 altTex.slots[7] = textureSet[7];
-                // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
 
                 modelUse.alternateTextures.push_back(altTex);
             }
@@ -243,34 +224,32 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
     PGMutagenWrapper::libSetModelUses(modelUses);
 }
 
-void PGPlugin::savePlugin(const filesystem::path& outputDir,
+void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
                           ESMMode esmMode)
 {
     PGMutagenWrapper::libFinalize(outputDir, static_cast<int>(esmMode));
-    // TODO add to generated files
+    // FIXME: Add to the generated files.
 }
 
-auto PGPlugin::getPluginPathFromDataPath(const filesystem::path& dataPath) -> filesystem::path
+auto PGPlugin::getPluginPathFromDataPath(const std::filesystem::path& dataPath) -> std::filesystem::path
 {
     static const std::filesystem::path meshesPrefix = "meshes";
     static const std::filesystem::path texturesPrefix = "textures";
 
     auto relativePath = dataPath;
 
-    // Check if the first component is "meshes" or "textures"
+    // Check if the first component is "meshes" or "textures".
     if (!dataPath.empty()) {
         auto iter = dataPath.begin();
         if (*iter == meshesPrefix) {
-            // Erase the first component
-            relativePath = std::filesystem::path {};
-            for (++iter; iter != dataPath.end(); ++iter) {
+            // Erase the first component.
+            relativePath = std::filesystem::path { };
+            for (++iter; iter != dataPath.end(); ++iter)
                 relativePath /= *iter;
-            }
         } else if (*iter == texturesPrefix) {
-            relativePath = std::filesystem::path {};
-            for (++iter; iter != dataPath.end(); ++iter) {
+            relativePath = std::filesystem::path { };
+            for (++iter; iter != dataPath.end(); ++iter)
                 relativePath /= *iter;
-            }
         } else {
             return dataPath;
         }

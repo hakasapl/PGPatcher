@@ -11,23 +11,31 @@
 #include <string>
 #include <unordered_map>
 
-using namespace std;
-
 namespace {
 
 /** Language whose translation file is always loaded underneath the active language */
-constexpr const char* FALLBACK_LANGUAGE = "en";
+constexpr const char* fallbackLanguage = "en";
 
-filesystem::path s_translationsDir;
-string s_currentLanguage = FALLBACK_LANGUAGE;
-unordered_map<string, wxString> s_strings;
+/** Mutable state of the loaded translation table */
+struct LocaleState {
+    std::filesystem::path translationsDir;
+    std::string currentLanguage = fallbackLanguage;
+    std::unordered_map<std::string, wxString> strings;
+};
 
-auto parseTranslationFile(const filesystem::path& file,
+/** Held in a function-local static rather than in globals so construction order is well defined */
+auto localeState() -> LocaleState&
+{
+    static LocaleState state;
+    return state;
+}
+
+auto parseTranslationFile(const std::filesystem::path& file,
                           nlohmann::json& j) -> bool
 {
     try {
         j = nlohmann::json::parse(FileUtil::getFileBytes(file));
-    } catch (const exception&) {
+    } catch (const std::exception&) {
         return false;
     }
 
@@ -35,22 +43,27 @@ auto parseTranslationFile(const filesystem::path& file,
 }
 
 void flattenJSON(const nlohmann::json& j,
-                 const string& prefix,
-                 unordered_map<string, wxString>& out)
+                 const std::string& prefix,
+                 std::unordered_map<std::string,
+                                    wxString>& out)
 {
     for (const auto& [key, value] : j.items()) {
-        if (prefix.empty() && key.starts_with("_")) {
-            // reserved metadata keys (e.g. "_language")
+        if (prefix.empty() && key.starts_with('_')) {
+            // Reserved metadata keys (e.g. "_language").
             continue;
         }
 
-        const string fullKey = prefix.empty() ? key : prefix + "." + key;
+        std::string fullKey = prefix;
+        if (!fullKey.empty())
+            fullKey += '.';
+        fullKey += key;
+
         if (value.is_object()) {
             flattenJSON(value, fullKey, out);
         } else if (value.is_string()) {
-            const auto str = value.get<string>();
+            const auto str = value.get<std::string>();
             if (!str.empty()) {
-                // an empty value keeps whatever the fallback language already provided for this key
+                // An empty value keeps whatever the fallback language already provided for this key.
                 out[fullKey] = wxString::FromUTF8(str);
             }
         }
@@ -60,87 +73,83 @@ void flattenJSON(const nlohmann::json& j,
 /**
  * @brief Merges <langCode>.json into the string table, overwriting keys that are already present
  */
-void loadLanguage(const string& langCode)
+void loadLanguage(const std::string& langCode)
 {
-    const auto translationFile = s_translationsDir / (langCode + ".json");
-    if (!filesystem::exists(translationFile)) {
+    const auto translationFile = localeState().translationsDir / (langCode + ".json");
+    if (!std::filesystem::exists(translationFile))
         return;
-    }
 
     nlohmann::json j;
-    if (parseTranslationFile(translationFile, j)) {
-        flattenJSON(j, "", s_strings);
-    }
+    if (parseTranslationFile(translationFile, j))
+        flattenJSON(j, "", localeState().strings);
 }
 
-auto getLanguageDisplayName(const filesystem::path& file,
-                            const string& code) -> wxString
+auto getLanguageDisplayName(const std::filesystem::path& file,
+                            const std::string& code) -> wxString
 {
     nlohmann::json j;
-    if (parseTranslationFile(file, j) && j.contains("_language") && j["_language"].is_string()) {
-        return wxString::FromUTF8(j["_language"].get<string>());
-    }
+    if (parseTranslationFile(file, j) && j.contains("_language") && j["_language"].is_string())
+        return wxString::FromUTF8(j["_language"].get<std::string>());
 
     // Fall back to the wx language database (e.g. "de" -> "Deutsch")
-    string canonical = code;
-    ranges::replace(canonical, '-', '_');
+    std::string canonical = code;
+    std::ranges::replace(canonical, '-', '_');
     const auto* langInfo = wxUILocale::FindLanguageInfo(wxString::FromUTF8(canonical));
-    if (langInfo != nullptr && !langInfo->DescriptionNative.empty()) {
+    if (langInfo != nullptr && !langInfo->DescriptionNative.empty())
         return langInfo->DescriptionNative;
-    }
 
     return wxString::FromUTF8(code);
 }
 
 } // namespace
 
-void PGLocale::init(const filesystem::path& translationsDir,
-                    const string& langCode)
+void PGLocale::init(const std::filesystem::path& translationsDir,
+                    const std::string& langCode)
 {
-    s_translationsDir = translationsDir;
-    s_currentLanguage = langCode.empty() ? FALLBACK_LANGUAGE : langCode;
-    s_strings.clear();
+    auto& state = localeState();
+    state.translationsDir = translationsDir;
+    state.currentLanguage = langCode.empty() ? fallbackLanguage : langCode;
+    state.strings.clear();
 
-    // English is always the base layer so that keys missing from the active translation still resolve
-    loadLanguage(FALLBACK_LANGUAGE);
-    if (s_currentLanguage != FALLBACK_LANGUAGE) {
-        loadLanguage(s_currentLanguage);
-    }
+    // English is always the base layer so that keys missing from the active translation still resolve.
+    loadLanguage(fallbackLanguage);
+    if (state.currentLanguage != fallbackLanguage)
+        loadLanguage(state.currentLanguage);
 }
 
-auto PGLocale::tr(const string& key) -> wxString
+auto PGLocale::tr(const std::string& key) -> wxString
 {
-    const auto it = s_strings.find(key);
-    if (it != s_strings.end()) {
+    const auto& strings = localeState().strings;
+    const auto it = strings.find(key);
+    if (it != strings.end())
         return it->second;
-    }
 
-    // Neither the active language nor en.json provides this key: the translations folder is missing or broken. Show
-    // the key itself so the problem is visible rather than masked by a hardcoded string.
+    // Neither the active language nor en.json provides this key: the translations folder is missing or broken. Show.
+    // The key itself so the problem is visible rather than masked by a hardcoded string.
     return wxString::FromUTF8(key);
 }
 
-auto PGLocale::getCurrentLanguage() -> string { return s_currentLanguage; }
+auto PGLocale::getCurrentLanguage() -> std::string { return localeState().currentLanguage; }
 
-auto PGLocale::getAvailableLanguages() -> vector<Language>
+auto PGLocale::getAvailableLanguages() -> std::vector<Language>
 {
-    vector<Language> languages;
+    std::vector<Language> languages;
 
-    if (s_translationsDir.empty() || !filesystem::exists(s_translationsDir)) {
+    const auto& translationsDir = localeState().translationsDir;
+    if (translationsDir.empty() || !std::filesystem::exists(translationsDir))
         return languages;
-    }
 
-    for (const auto& entry : filesystem::directory_iterator(s_translationsDir)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".json") {
+    for (const auto& entry : std::filesystem::directory_iterator(translationsDir)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".json")
             continue;
-        }
 
         const auto code = entry.path().stem().string();
-        languages.push_back({.code = code, .displayName = getLanguageDisplayName(entry.path(), code)});
+        languages.push_back({ .code = code, .displayName = getLanguageDisplayName(entry.path(), code) });
     }
 
-    ranges::sort(languages,
-                 [](const Language& a, const Language& b) -> bool { return a.displayName.CmpNoCase(b.displayName) < 0; });
+    std::ranges::sort(languages, [](const Language& a, const Language& b) -> bool {
+        return a.displayName.CmpNoCase(b.displayName) < 0;
+    });
 
     return languages;
 }

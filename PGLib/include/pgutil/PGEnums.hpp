@@ -12,17 +12,19 @@
  * attributes.
  */
 namespace PGEnums {
-// These need to be in the order of worst shader to best shader
+// These need to be in the order of worst shader to best shader.
 /// @brief Represents the shader type applied to a shape, ordered from worst to best quality.
-enum class ShapeShader : uint8_t { UNKNOWN, NONE, VANILLAPARALLAX, COMPLEXMATERIAL, TRUEPBR };
+enum class ShapeShader : uint8_t { Unknown, NONE, VANILLAPARALLAX, COMPLEXMATERIAL, TRUEPBR };
 
-static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 5> SHAPESHADER_TABLE {{
-    {.value = ShapeShader::NONE, .name = "Default"},
-    {.value = ShapeShader::UNKNOWN, .name = "Unknown"},
-    {.value = ShapeShader::TRUEPBR, .name = "PBR"},
-    {.value = ShapeShader::COMPLEXMATERIAL, .name = "Complex Material"},
-    {.value = ShapeShader::VANILLAPARALLAX, .name = "Parallax"},
-}};
+static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 5> shapeShaderTable {
+    {
+        { .value = ShapeShader::NONE, .name = "Default" },
+        { .value = ShapeShader::Unknown, .name = "Unknown" },
+        { .value = ShapeShader::TRUEPBR, .name = "PBR" },
+        { .value = ShapeShader::COMPLEXMATERIAL, .name = "Complex Material" },
+        { .value = ShapeShader::VANILLAPARALLAX, .name = "Parallax" },
+    },
+};
 
 /// @brief get a string that represents the given shader
 /// @param[in] shader shader type
@@ -37,66 +39,68 @@ auto getShaderFromStr(const std::string& shader) -> ShapeShader;
 /// @brief zero-based index of texture in BSShaderTextureSet
 /// there can be more than one type of textures assigned to a a texture slot, the slot name describes the default one
 enum class TextureSlots : uint8_t {
-    DIFFUSE,
-    NORMAL,
-    GLOW,
-    PARALLAX,
-    CUBEMAP,
-    ENVMASK,
-    MULTILAYER,
-    BACKLIGHT,
-    UNUSED,
-    UNKNOWN
+    Diffuse,
+    Normal,
+    Glow,
+    Parallax,
+    Cubemap,
+    EnvMask,
+    MultiLayer,
+    Backlight,
+    Unused,
+    Unknown,
 };
 
 /// @brief All known types of textures
 enum class TextureType : uint8_t {
-    DIFFUSE,
-    NORMAL,
-    MODELSPACENORMAL,
-    EMISSIVE,
-    SKINTINT,
-    SUBSURFACECOLOR,
-    HEIGHT,
-    HEIGHTPBR,
-    CUBEMAP,
-    ENVIRONMENTMASK,
-    COMPLEXMATERIAL,
+    Diffuse,
+    Normal,
+    ModelSpaceNormal,
+    Emissive,
+    SkinTint,
+    SubsurfaceColor,
+    Height,
+    HeightPBR,
+    Cubemap,
+    EnvironmentMask,
+    ComplexMaterial,
     RMAOS,
-    SUBSURFACETINT,
-    INNERLAYER,
-    FUZZPBR,
-    COATNORMALROUGHNESS,
-    BACKLIGHT,
-    HAIR_FLOWMAP,
-    SPECULAR,
-    SUBSURFACEPBR,
-    UNKNOWN
+    SubsurfaceTint,
+    InnerLayer,
+    FuzzPBR,
+    CoatNormalRoughness,
+    Backlight,
+    HairFlowMap,
+    Specular,
+    SubsurfacePBR,
+    Unknown,
 };
 
-static constexpr std::array<EnumStringHelper::EnumStringEntry<TextureType>, 21> TEXTURETYPE_TABLE {{
-    {.value = TextureType::DIFFUSE, .name = "diffuse"},
-    {.value = TextureType::NORMAL, .name = "normal"},
-    {.value = TextureType::MODELSPACENORMAL, .name = "model space normal"},
-    {.value = TextureType::EMISSIVE, .name = "emissive"},
-    {.value = TextureType::SKINTINT, .name = "skin tint"},
-    {.value = TextureType::SUBSURFACECOLOR, .name = "subsurface color"},
-    {.value = TextureType::HEIGHT, .name = "height"},
-    {.value = TextureType::HEIGHTPBR, .name = "height pbr"},
-    {.value = TextureType::CUBEMAP, .name = "cubemap"},
-    {.value = TextureType::ENVIRONMENTMASK, .name = "environment mask"},
-    {.value = TextureType::COMPLEXMATERIAL, .name = "complex material"},
-    {.value = TextureType::RMAOS, .name = "rmaos"},
-    {.value = TextureType::SUBSURFACETINT, .name = "subsurface tint"},
-    {.value = TextureType::INNERLAYER, .name = "inner layer"},
-    {.value = TextureType::FUZZPBR, .name = "fuzz pbr"},
-    {.value = TextureType::COATNORMALROUGHNESS, .name = "coat normal roughness"},
-    {.value = TextureType::BACKLIGHT, .name = "backlight"},
-    {.value = TextureType::SPECULAR, .name = "specular"},
-    {.value = TextureType::HAIR_FLOWMAP, .name = "hair flowmap"},
-    {.value = TextureType::SUBSURFACEPBR, .name = "subsurface pbr"},
-    {.value = TextureType::UNKNOWN, .name = "unknown"},
-}};
+static constexpr std::array<EnumStringHelper::EnumStringEntry<TextureType>, 21> textureTypeTable {
+    {
+        { .value = TextureType::Diffuse, .name = "diffuse" },
+        { .value = TextureType::Normal, .name = "normal" },
+        { .value = TextureType::ModelSpaceNormal, .name = "model space normal" },
+        { .value = TextureType::Emissive, .name = "emissive" },
+        { .value = TextureType::SkinTint, .name = "skin tint" },
+        { .value = TextureType::SubsurfaceColor, .name = "subsurface color" },
+        { .value = TextureType::Height, .name = "height" },
+        { .value = TextureType::HeightPBR, .name = "height pbr" },
+        { .value = TextureType::Cubemap, .name = "cubemap" },
+        { .value = TextureType::EnvironmentMask, .name = "environment mask" },
+        { .value = TextureType::ComplexMaterial, .name = "complex material" },
+        { .value = TextureType::RMAOS, .name = "rmaos" },
+        { .value = TextureType::SubsurfaceTint, .name = "subsurface tint" },
+        { .value = TextureType::InnerLayer, .name = "inner layer" },
+        { .value = TextureType::FuzzPBR, .name = "fuzz pbr" },
+        { .value = TextureType::CoatNormalRoughness, .name = "coat normal roughness" },
+        { .value = TextureType::Backlight, .name = "backlight" },
+        { .value = TextureType::Specular, .name = "specular" },
+        { .value = TextureType::HairFlowMap, .name = "hair flowmap" },
+        { .value = TextureType::SubsurfacePBR, .name = "subsurface pbr" },
+        { .value = TextureType::Unknown, .name = "unknown" },
+    },
+};
 
 /**
  * @brief Converts a TextureType enum value to its string representation.
@@ -110,7 +114,7 @@ auto getStrFromTexType(const TextureType& type) -> std::string;
  * @brief Converts a string name to the corresponding TextureType enum value.
  *
  * @param type String name of the texture type.
- * @return Corresponding TextureType, or TextureType::UNKNOWN if not found.
+ * @return Corresponding TextureType, or TextureType::Unknown if not found.
  */
 auto getTexTypeFromStr(const std::string& type) -> TextureType;
 
@@ -122,6 +126,6 @@ auto getTexTypeFromStr(const std::string& type) -> TextureType;
 auto getTexTypesStr() -> std::vector<std::string>;
 
 /// @brief Flags describing sub-channel properties within a Complex Material texture.
-enum class TextureAttribute : uint8_t { CM_ENVMASK, CM_GLOSSINESS, CM_METALNESS, CM_HEIGHT };
+enum class TextureAttribute : uint8_t { CMEnvMask, CMGlossiness, CMMetalness, CMHeight };
 
 }

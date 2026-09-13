@@ -5,28 +5,26 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
 namespace PGEnums {
-auto getStrFromShader(const ShapeShader& shader) -> string
+auto getStrFromShader(const ShapeShader& shader) -> std::string
 {
-    return std::string(EnumStringHelper::stringFromEnum(shader, SHAPESHADER_TABLE, "Unknown"));
+    return std::string(EnumStringHelper::stringFromEnum(shader, shapeShaderTable, "Unknown"));
 }
 
-auto getShaderFromStr(const string& shader) -> ShapeShader
+auto getShaderFromStr(const std::string& shader) -> ShapeShader
 {
-    return EnumStringHelper::enumFromString(shader, SHAPESHADER_TABLE, ShapeShader::UNKNOWN);
+    return EnumStringHelper::enumFromString(shader, shapeShaderTable, ShapeShader::Unknown);
 }
 
-auto getStrFromTexType(const TextureType& type) -> string
+auto getStrFromTexType(const TextureType& type) -> std::string
 {
-    return std::string(EnumStringHelper::stringFromEnum(type, TEXTURETYPE_TABLE, "unknown"));
+    return std::string(EnumStringHelper::stringFromEnum(type, textureTypeTable, "unknown"));
 }
 
-auto getTexTypeFromStr(const string& type) -> TextureType
+auto getTexTypeFromStr(const std::string& type) -> TextureType
 {
-    return EnumStringHelper::enumFromString(type, TEXTURETYPE_TABLE, TextureType::UNKNOWN);
+    return EnumStringHelper::enumFromString(type, textureTypeTable, TextureType::Unknown);
 }
 
-auto getTexTypesStr() -> std::vector<std::string> { return EnumStringHelper::allEnumStrings(TEXTURETYPE_TABLE); }
+auto getTexTypesStr() -> std::vector<std::string> { return EnumStringHelper::allEnumStrings(textureTypeTable); }
 }

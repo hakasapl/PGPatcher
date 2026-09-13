@@ -13,19 +13,19 @@
 #include <vector>
 #include <wx/listbase.h>
 
-// Disable owning memory checks because wxWidgets will take care of deleting the objects
-// Disable convert member functions to static because these functions need to be non-static for wxWidgets
-// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// Disable owning memory checks because wxWidgets will take care of deleting the objects.
+// Disable convert member functions to static because these functions need to be non-static for wxWidgets.
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 namespace {
 // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
-constexpr int DIALOG_WIDTH = 500;
-constexpr int DIALOG_MIN_HEIGHT = 300;
-constexpr int BORDER_SIZE = 10;
-constexpr int TYPE_COLUMN_WIDTH = 150;
-constexpr int PATH_COLUMN_MIN_WIDTH = 50;
-// Initial wrap width, kept just under the client width so the first wrap is never narrower than the final one
-constexpr int TEXT_WRAP_WIDTH = DIALOG_WIDTH - (4 * BORDER_SIZE);
+constexpr int dialogWidthDIP = 500;
+constexpr int dialogMinHeight = 300;
+constexpr int borderSizeDIP = 10;
+constexpr int typeColumnWidth = 150;
+constexpr int pathColumnMinWidth = 50;
+// Initial wrap width, kept just under the client width so the first wrap is never narrower than the final one.
+constexpr int textWrapWidth = dialogWidthDIP - (4 * borderSizeDIP);
 } // namespace
 
 DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
@@ -42,22 +42,26 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
                                           wxDefaultPosition,
                                           wxDefaultSize,
                                           wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+    , m_helpText(new PGWrappingStaticText(this,
+                                          wxID_ANY,
+                                          text,
+                                          FromDIP(textWrapWidth)))
 {
     SetIcons(PGUI::getAppIcons());
 
-    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
-    const int borderSize = FromDIP(BORDER_SIZE);
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
+    const int borderSize = FromDIP(borderSizeDIP);
 
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Add static text for instructions - wraps to the dialog width so that longer translations stay visible
-    m_helpText = new PGWrappingStaticText(this, wxID_ANY, text, FromDIP(TEXT_WRAP_WIDTH));
+    // Add static text for instructions - wraps to the dialog width so that longer translations stay visible.
+
     mainSizer->Add(m_helpText, 0, wxEXPAND | wxALL, borderSize);
 
     m_listCtrl->AppendColumn("Texture Maps");
-    m_listCtrl->AppendColumn("Type", wxLIST_FORMAT_LEFT, FromDIP(TYPE_COLUMN_WIDTH));
+    m_listCtrl->AppendColumn("Type", wxLIST_FORMAT_LEFT, FromDIP(typeColumnWidth));
 
-    // Bind resize
+    // Bind resize.
     Bind(wxEVT_SIZE, [this]([[maybe_unused]] wxSizeEvent& event) -> void {
         updateColumnWidths();
         event.Skip();
@@ -70,13 +74,13 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, borderSize);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
-    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel")));
-    btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok")));
+    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, pgTr("common.cancel")));
+    btnSizer->AddButton(new wxButton(this, wxID_OK, pgTr("common.ok")));
     btnSizer->Realize();
 
     mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, borderSize);
 
-    SetSizeHints(FromDIP(wxSize(DIALOG_WIDTH, DIALOG_MIN_HEIGHT)), wxSize(-1, -1));
+    SetSizeHints(FromDIP(wxSize(dialogWidthDIP, dialogMinHeight)), wxSize(-1, -1));
     SetSizer(mainSizer);
     Layout();
     Fit();
@@ -90,9 +94,8 @@ auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wst
     long item = -1;
     while ((item = m_listCtrl->GetNextItem(item)) != -1) {
         const wxString texturePath = m_listCtrl->GetItemText(item, 0);
-        if (texturePath.IsEmpty()) {
+        if (texturePath.IsEmpty())
             continue; // skip empty line
-        }
 
         const wxString textureTypeStr = m_listCtrl->GetItemText(item, 1);
         const auto textureType = PGEnums::getTexTypeFromStr(textureTypeStr.ToStdString());
@@ -116,21 +119,20 @@ void DialogTextureMapListCtrl::populateList(const std::vector<std::pair<std::wst
 
 void DialogTextureMapListCtrl::updateColumnWidths()
 {
-    if (m_listCtrl == nullptr) {
+    if (m_listCtrl == nullptr)
         return;
-    }
 
-    // Get current total width of the list control
+    // Get current total width of the list control.
     const int totalWidth = m_listCtrl->GetClientSize().GetWidth();
 
-    // Get current width of second column (assume fixed)
+    // Get current width of second column (assume fixed).
     int col1Width = 0;
     col1Width = m_listCtrl->GetColumnWidth(1);
 
-    // Set first column width to fill remaining space
+    // Set first column width to fill remaining space.
     int newCol0Width = totalWidth - col1Width;
-    newCol0Width = std::max(newCol0Width, FromDIP(PATH_COLUMN_MIN_WIDTH)); // optional minimum width
+    newCol0Width = std::max(newCol0Width, FromDIP(pathColumnMinWidth)); // optional minimum width
     m_listCtrl->SetColumnWidth(0, newCol0Width);
 }
 
-// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

@@ -15,28 +15,28 @@ PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* par
     , m_lines(lines)
 {
     //
-    // DARK MODE Adjustments
+    // DARK MODE Adjustments.
     //
     if (PGPatcherGlobals::isDarkMode()) {
         const static auto selfColor = GetBackgroundColour();
-        s_GhostBackground = wxColour(std::min(selfColor.Red() + DARK_GHOST_BOOST, MAX_RGB_VALUE),
-                                     std::min(selfColor.Green() + DARK_GHOST_BOOST, MAX_RGB_VALUE),
-                                     std::min(selfColor.Blue() + DARK_GHOST_BOOST, MAX_RGB_VALUE));
-        s_GhostForeground = *wxWHITE;
+        s_ghostBackground = wxColour(std::min(selfColor.Red() + darkGhostBoost, maxRGBValue),
+                                     std::min(selfColor.Green() + darkGhostBoost, maxRGBValue),
+                                     std::min(selfColor.Blue() + darkGhostBoost, maxRGBValue));
+        s_ghostForeground = *wxWHITE;
     } else {
-        s_GhostBackground = *wxWHITE;
-        s_GhostForeground = *wxBLACK;
+        s_ghostBackground = *wxWHITE;
+        s_ghostForeground = *wxBLACK;
     }
 
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetTransparent(ALPHA); // semi-transparent
+    SetTransparent(alpha); // semi-transparent
 
-    // Compute size based on text (sizes in DIPs, scaled to the monitor's DPI)
+    // Compute size based on text (sizes in DIPs, scaled to the monitor's DPI).
     wxClientDC dc(this);
     dc.SetFont(GetFont());
 
-    const int padding = FromDIP(PADDING);
-    const int lineSpacing = FromDIP(LINE_SPACING);
+    const int padding = FromDIP(paddingDIP);
+    const int lineSpacing = FromDIP(lineSpacingDIP);
     int width = 0;
     int height = 0;
     for (const auto& line : m_lines) {
@@ -56,14 +56,14 @@ void PGCheckedDragListCtrlGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& ev
 
     wxPaintDC dc(this);
     dc.SetPen(*wxTRANSPARENT_PEN); // Disables black border
-    dc.SetBrush(s_GhostBackground);
-    dc.SetTextForeground(s_GhostForeground);
+    dc.SetBrush(s_ghostBackground);
+    dc.SetTextForeground(s_ghostForeground);
 
     const wxSize sz = GetClientSize();
     dc.DrawRectangle(0, 0, sz.x, sz.y);
 
-    const int textIndent = FromDIP(TEXT_INDENT);
-    const int lineSpacing = FromDIP(LINE_SPACING);
+    const int textIndent = FromDIP(textIndentDIP);
+    const int lineSpacing = FromDIP(lineSpacingDIP);
     int offsetY = lineSpacing;
     for (const auto& line : m_lines) {
         dc.DrawText(line, textIndent, offsetY);

@@ -11,8 +11,6 @@
 #include <memory>
 #include <utility>
 
-using namespace std;
-
 void PatcherMeshShaderTransformParallaxToCM::loadOptions(const bool& onlyWhenRequired)
 {
     s_onlyWhenRequired = onlyWhenRequired;
@@ -21,8 +19,8 @@ void PatcherMeshShaderTransformParallaxToCM::loadOptions(const bool& onlyWhenReq
 auto PatcherMeshShaderTransformParallaxToCM::getFactory()
     -> PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory
 {
-    return [](filesystem::path nifPath, nifly::NifFile* nif) -> PatcherMeshShaderTransformObject {
-        return make_unique<PatcherMeshShaderTransformParallaxToCM>(std::move(nifPath), nif);
+    return [](std::filesystem::path nifPath, nifly::NifFile* nif) -> PatcherMeshShaderTransformObject {
+        return std::make_unique<PatcherMeshShaderTransformParallaxToCM>(std::move(nifPath), nif);
     };
 }
 
@@ -59,7 +57,7 @@ auto PatcherMeshShaderTransformParallaxToCM::transform(const PatcherMeshShader::
 
     result = fromMatch;
 
-    // create texture hook
+    // Create texture hook.
     PatcherTextureHookConvertToCM::addToProcessList(heightMap);
     result.matchedPath = PatcherTextureHookConvertToCM::getOutputFilename(heightMap);
 

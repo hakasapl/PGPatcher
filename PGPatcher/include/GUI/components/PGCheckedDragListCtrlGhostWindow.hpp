@@ -13,15 +13,15 @@ class PGCheckedDragListCtrlGhostWindow : public wxFrame {
 private:
     std::vector<wxString> m_lines;
 
-    static constexpr wxByte ALPHA = 200;
-    static constexpr int PADDING = 8; /** Horizontal padding around the text in DIPs */
-    static constexpr int TEXT_INDENT = 4; /** Left indent of the text in DIPs */
-    static constexpr int LINE_SPACING = 2; /** Vertical spacing around every line in DIPs */
+    static constexpr wxByte alpha = 200;
+    static constexpr int paddingDIP = 8; /** Horizontal paddingDIP around the text in DIPs */
+    static constexpr int textIndentDIP = 4; /** Left indent of the text in DIPs */
+    static constexpr int lineSpacingDIP = 2; /** Vertical spacing around every line in DIPs */
 
-    static constexpr unsigned char DARK_GHOST_BOOST = 50;
-    static constexpr int MAX_RGB_VALUE = 255;
-    static inline wxColour s_GhostBackground = *wxWHITE; /** Base ghost background color for light mode */
-    static inline wxColour s_GhostForeground = *wxBLACK;
+    static constexpr unsigned char darkGhostBoost = 50;
+    static constexpr int maxRGBValue = 255;
+    static inline wxColour s_ghostBackground = *wxWHITE; /** Base ghost background color for light mode */
+    static inline wxColour s_ghostForeground = *wxBLACK;
 
 public:
     /**

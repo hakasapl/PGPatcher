@@ -9,29 +9,24 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
 namespace PGTypes {
-auto getTextureSlotsFromStr(const string& slots) -> TextureSet
+auto getTextureSlotsFromStr(const std::string& slots) -> TextureSet
 {
     TextureSet textureSlots;
-    vector<string> splitSlots;
+    std::vector<std::string> splitSlots;
     boost::split(splitSlots, slots, boost::is_any_of(","));
-    for (size_t i = 0; i < splitSlots.size(); ++i) {
-        if (i < NUM_TEXTURE_SLOTS) {
+    for (size_t i = 0; i < splitSlots.size(); ++i)
+        if (i < numTextureSlots)
             textureSlots.at(i) = StringUtil::utf8toUTF16(splitSlots[i]);
-        }
-    }
     return textureSlots;
 }
 
-auto getStrFromTextureSlots(const TextureSet& slots) -> string
+auto getStrFromTextureSlots(const TextureSet& slots) -> std::string
 {
-    string strSlots;
+    std::string strSlots;
     for (const auto& slot : slots) {
-        if (!strSlots.empty()) {
-            strSlots += ",";
-        }
+        if (!strSlots.empty())
+            strSlots += ',';
         strSlots += StringUtil::utf16toUTF8(slot);
     }
     return strSlots;

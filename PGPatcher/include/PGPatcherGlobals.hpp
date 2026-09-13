@@ -15,10 +15,10 @@
  */
 class PGPatcherGlobals {
 private:
-    static PGConfig* s_PGC;
-    static std::shared_ptr<WXLoggerSink<std::mutex>> s_WXLoggerSink;
+    static PGConfig* s_pgc;
+    static std::shared_ptr<WXLoggerSink<std::mutex>> s_wxLoggerSink;
 
-    static std::filesystem::path s_EXE_PATH;
+    static std::filesystem::path s_exePath;
 
     static bool s_isDarkMode;
 

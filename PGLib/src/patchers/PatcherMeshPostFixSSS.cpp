@@ -15,12 +15,10 @@
 #include <memory>
 #include <utility>
 
-using namespace std;
-
 auto PatcherMeshPostFixSSS::getFactory() -> PatcherMeshPost::PatcherMeshPostFactory
 {
-    return [](const filesystem::path& nifPath, nifly::NifFile* nif) -> unique_ptr<PatcherMeshPost> {
-        return make_unique<PatcherMeshPostFixSSS>(nifPath, nif);
+    return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPost> {
+        return std::make_unique<PatcherMeshPostFixSSS>(nifPath, nif);
     };
 }
 
@@ -36,41 +34,38 @@ auto PatcherMeshPostFixSSS::applyPatch(PGTypes::TextureSet& slots,
                                        nifly::NiShape& nifShape) -> bool
 {
     auto* nifShader = getNIF()->GetShader(&nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
+    const auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr) {
-        // not a BSLightingShaderProperty
+        // Not a BSLightingShaderProperty.
         return false;
     }
 
     const auto shaderType = nifShaderBSLSP->GetShaderType();
-    if (shaderType != BSLSP_DEFAULT) {
-        // only patch the default shader type
+    if (shaderType != nifly::BSLSP_DEFAULT) {
+        // Only patch the default shader type.
         return false;
     }
 
-    if (!PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING)) {
-        // we don't care if it doesn't have soft lighting
+    if (!PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_SOFT_LIGHTING)) {
+        // We don't care if it doesn't have soft lighting.
         return false;
     }
 
-    // check if diffuse and glow are the same
-    const auto& diffuseMap = slots.at(static_cast<int>(PGEnums::TextureSlots::DIFFUSE));
-    auto& glowMap = slots.at(static_cast<int>(PGEnums::TextureSlots::GLOW));
+    // Check if diffuse and glow are the same.
+    const auto& diffuseMap = slots.at(static_cast<int>(PGEnums::TextureSlots::Diffuse));
+    auto& glowMap = slots.at(static_cast<int>(PGEnums::TextureSlots::Glow));
 
-    if (!boost::iequals(diffuseMap, glowMap)) {
+    if (!boost::iequals(diffuseMap, glowMap))
         return false;
-    }
 
-    if (diffuseMap.empty()) {
+    if (diffuseMap.empty())
         return false;
-    }
 
-    // verify that diffuseMap is a DDS file
-    if (!boost::iends_with(diffuseMap, ".dds")) {
+    // Verify that diffuseMap is a DDS file.
+    if (!boost::iends_with(diffuseMap, ".dds"))
         return false;
-    }
 
-    // create texture hook
+    // Create texture hook.
     PatcherTextureHookFixSSS::addToProcessList(diffuseMap);
 
     glowMap = PatcherTextureHookFixSSS::getOutputFilename(diffuseMap);

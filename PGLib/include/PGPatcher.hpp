@@ -36,17 +36,17 @@
 
 class PGPatcher {
 public:
-    // Mesh Patch Tracking structures (for meta info displayed to user later)
+    // Mesh Patch Tracking structures (for meta info displayed to user later).
     struct MatchMeta {
         std::shared_ptr<PGModManager::Mod> mod;
-        PGEnums::ShapeShader shader {};
-        PGEnums::ShapeShader shaderTransformTo {};
+        PGEnums::ShapeShader shader { };
+        PGEnums::ShapeShader shaderTransformTo { };
         std::filesystem::path matchedPath;
         /// Owning mod of each non-empty result texture slot if this match is applied (tracked mods only)
         std::vector<std::pair<PGEnums::TextureSlots, std::shared_ptr<PGModManager::Mod>>> resultTextureMods;
     };
     struct MeshShapeMeta {
-        uint32_t blockID;
+        uint32_t blockID = 0;
         std::string shapeName;
         std::vector<std::string> prePatchersApplied;
         std::vector<std::string> postPatchersApplied;
@@ -64,7 +64,7 @@ public:
     using MeshPatchInfo = std::map<std::filesystem::path, MeshMeta>;
 
 private:
-    // Registered Patchers
+    // Registered Patchers.
     static PatcherUtil::PatcherTextureSet s_texPatchers;
     static PatcherUtil::PatcherMeshSet s_meshPatchers;
 
@@ -92,11 +92,11 @@ public:
      */
     static void patchMeshes(const bool& multiThread = true,
                             const bool& forceBasePatch = false,
-                            const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
+                            const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                             const bool& checkAllowedRecTypes = false,
                             const bool& excludeFacegens = false,
                             const std::function<void(size_t,
-                                                     size_t)>& progressCallback = {});
+                                                     size_t)>& progressCallback = { });
 
     /**
      * @brief Run texture patcher
@@ -105,7 +105,7 @@ public:
      */
     static void patchTextures(const bool& multiThread = true,
                               const std::function<void(size_t,
-                                                       size_t)>& progressCallback = {});
+                                                       size_t)>& progressCallback = { });
 
     /**
      * @brief Get the Patch Meta object
@@ -182,7 +182,7 @@ public:
                                      const PGPlugin::ModelRecordType& modelRecordType) -> uint64_t;
 
 private:
-    // NIF Runners
+    // NIF Runners.
 
     /**
      * @brief Patch a single NIF file
@@ -193,7 +193,7 @@ private:
     static auto patchNIF(const std::filesystem::path& nifPath,
                          TaskQueue& setModelUsesQueue,
                          const bool& forceBasePatch = false,
-                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
+                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                          const bool& checkAllowedRecTypes = false,
                          const bool& excludeFacegens = false) -> TaskTracker::Result;
 
@@ -216,7 +216,7 @@ private:
     static auto digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
                               const PatcherUtil::PatcherMeshObjectSet& patchers) -> uint64_t;
 
-    // NIF Helpers
+    // NIF Helpers.
 
     /**
      * @brief Process a single NIF file
@@ -236,9 +236,9 @@ private:
                            bool singlepassMATO,
                            const PGMeshPermutationTracker::FormKey& formKey,
                            const PGPlugin::ModelRecordType& modelRecordType,
-                           std::unordered_map<unsigned int,
+                           std::unordered_map<unsigned,
                                               PGTypes::TextureSet>& alternateTextures,
-                           std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
+                           std::unordered_set<unsigned>& nonAltTexShapes) -> bool;
 
     /**
      * @brief Process a single NIF shape
@@ -284,7 +284,7 @@ private:
     static auto createNIFPatcherObjects(const std::filesystem::path& nifPath,
                                         nifly::NifFile* nif) -> PatcherUtil::PatcherMeshObjectSet;
 
-    // DDS Runners
+    // DDS Runners.
     static auto patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::Result;
 
     static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath,

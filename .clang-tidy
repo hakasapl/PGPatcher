@@ -1,42 +1,116 @@
 ---
+# Style reference: https://webkit.org/code-style-guidelines/
+#
+# Disabled because the check contradicts the guidelines:
+#   modernize-use-trailing-return-type - "Only use the arrow for function return types if
+#     it allows you to omit redundant information" (`auto foo() -> int` is listed as Wrong)
+#   readability-braces-around-statements - "One-line control clauses should not use braces
+#     unless comments are included or a single statement spans multiple lines"
+#
+# Disabled for reasons unrelated to the guidelines:
+#   cppcoreguidelines-avoid-magic-numbers is an alias of readability-magic-numbers, which is
+#     already off below
+#   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access fires on every operator[];
+#     nearly all hits are nlohmann::json, where at() is not an equivalent (it throws instead
+#     of inserting)
 Checks: "-*,
   cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
   llvm-include-order,
   misc-*,
   -misc-include-cleaner,
   -misc-no-recursion,
   modernize-*,
+  -modernize-use-trailing-return-type,
   performance-*,
   readability-*,
+  -readability-braces-around-statements,
   -readability-function-cognitive-complexity,
   -readability-identifier-length,
   -readability-magic-numbers"
-FormatStyle: webkit
+FormatStyle: file
 CheckOptions:
+  # Names: "Use CamelCase. Capitalize the first letter, including all letters in an acronym,
+  # in a class, struct, protocol, or namespace name."
   - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.NamespaceCase
     value: CamelCase
   - key: readability-identifier-naming.EnumCase
     value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+
+  # Names: "Lower-case the first letter, including all letters in an acronym, in a variable
+  # or function name."
   - key: readability-identifier-naming.FunctionCase
     value: camelBack
   - key: readability-identifier-naming.VariableCase
     value: camelBack
   - key: readability-identifier-naming.ParameterCase
     value: camelBack
+  - key: readability-identifier-naming.LocalVariableCase
+    value: camelBack
+  - key: readability-identifier-naming.StaticVariableCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: camelBack
 
+  # Names: "Static data members should be prefixed by 's_'. Other data members should be
+  # prefixed by 'm_'." (GlobalVariablePrefix extends s_ to file-scope state, which the
+  # guidelines do not cover)
   - key: readability-identifier-naming.PrivateMemberPrefix
     value: m_
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: camelBack
   - key: readability-identifier-naming.ProtectedMemberPrefix
     value: m_
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PublicMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ClassMemberPrefix
+    value: s_
+  - key: readability-identifier-naming.ClassMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ClassConstantPrefix
+    value: s_
+  - key: readability-identifier-naming.ClassConstantCase
+    value: camelBack
   - key: readability-identifier-naming.GlobalVariablePrefix
     value: s_
+  - key: readability-identifier-naming.GlobalVariableCase
+    value: camelBack
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: s_
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: camelBack
 
-  - key: readability-identifier-naming.ConstexprVariableCase
-    value: UPPER_CASE
+  # Names: "Enum members should use InterCaps with an initial capital letter."
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+
+  # Names: "#defined constants should use all uppercase names with words separated by
+  # underscores."
   - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
-  - key: readability-identifier-naming.EnumConstantCase
-    value: UPPER_CASE
 
+  # Names: "Data members in C++ classes should be private." (plain structs are exempt)
   - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value: true
+
+  # Null, false and zero: "Tests for true/false, null/non-null, and zero/non-zero should all
+  # be done without equality comparisons."  ->  if (ptr), if (!count)
+  # Without these the check demands the `ptr != nullptr` form the guidelines call Wrong.
+  - key: readability-implicit-bool-conversion.AllowPointerConditions
+    value: true
+  - key: readability-implicit-bool-conversion.AllowIntegerConditions
     value: true

@@ -25,8 +25,8 @@ public:
      * @param parent Parent wxWindow, or nullptr for a top-level dialog.
      * @param title  Title text shown in the dialog's title bar.
      */
-    DialogRecTypeSelector(wxWindow* parent,
-                          const wxString& title = "Allowed Record Types");
+    explicit DialogRecTypeSelector(wxWindow* parent,
+                                   const wxString& title = "Allowed Record Types");
 
     /**
      * @brief Retrieve the set of record types that are currently checked.

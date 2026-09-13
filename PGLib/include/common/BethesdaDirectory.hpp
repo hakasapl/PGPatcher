@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-constexpr unsigned ASCII_UPPER_BOUND = 127;
+constexpr unsigned asciiUpperBound = 127;
 
 class BethesdaDirectory {
 public:
@@ -32,9 +32,9 @@ public:
      * it.
      */
     struct FileIdentity {
-        enum class Kind : uint8_t { NONE, LOOSE, BSA, GENERATED };
+        enum class Kind : uint8_t { None, LOOSE, BSA, GENERATED };
 
-        Kind kind = Kind::NONE;
+        Kind kind = Kind::None;
         int64_t mtime = 0; /**< Loose files: last write time (file_time_type ticks) */
         uint64_t size = 0; /**< Loose files: size in bytes */
         std::wstring bsaRelPath; /**< BSA files: lowercase archive name */
@@ -61,15 +61,13 @@ public:
          */
         virtual void onIsFile(const std::filesystem::path& relPath,
                               bool exists,
-                              bool generated)
-            = 0;
+                              bool generated) = 0;
 
         /**
          * @brief Called whenever getFile() successfully resolves a file on the observing thread.
          */
         virtual void onGetFile(const std::filesystem::path& relPath,
-                               const FileIdentity& identity)
-            = 0;
+                               const FileIdentity& identity) = 0;
     };
 
 private:
@@ -125,15 +123,14 @@ private:
         {
             auto j = nlohmann::json::object();
 
-            if (bsaFile != nullptr) {
+            if (bsaFile != nullptr)
                 j["bsa"] = StringUtil::utf16toUTF8(bsaFile->path.wstring());
-            }
 
             return j;
         }
     };
 
-    // Class member variables
+    // Class member variables.
     std::filesystem::path m_dataDir; /**< Stores the path to the game data directory */
     std::filesystem::path m_generatedDir; /**< Stores the path to the generated directory */
     std::map<std::filesystem::path, BethesdaFile> m_fileMap; /** < Stores the file map for every file found in the load
@@ -323,7 +320,7 @@ public:
 
     [[nodiscard]] auto getModLookupFile(const std::filesystem::path& relPath) -> std::filesystem::path;
 
-    // Helpers
+    // Helpers.
 
     /**
      * @brief Checks if fs::path object has only ascii characters

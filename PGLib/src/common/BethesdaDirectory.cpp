@@ -42,157 +42,152 @@
 #include <vector>
 #include <winnt.h>
 
-using namespace std;
 using namespace StringUtil;
 
 BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg,
                                      std::unordered_set<std::filesystem::path> foldersToMap,
-                                     filesystem::path generatedPath)
+                                     std::filesystem::path generatedPath)
     : m_generatedDir(std::move(generatedPath))
     , m_bg(bg)
     , m_foldersToMap(std::move(foldersToMap))
 {
-    // Assign instance vars
-    m_dataDir = filesystem::path(this->m_bg->getGameDataPath());
+    // Assign instance vars.
+    m_dataDir = std::filesystem::path(this->m_bg->getGameDataPath());
 
-    // Log starting message
+    // Log starting message.
     Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
 }
 
-BethesdaDirectory::BethesdaDirectory(filesystem::path dataPath,
+BethesdaDirectory::BethesdaDirectory(std::filesystem::path dataPath,
                                      std::unordered_set<std::filesystem::path> foldersToMap,
-                                     filesystem::path generatedPath)
+                                     std::filesystem::path generatedPath)
     : m_dataDir(std::move(dataPath))
     , m_generatedDir(std::move(generatedPath))
     , m_foldersToMap(std::move(foldersToMap))
     , m_bg(nullptr)
 {
-    // Log starting message
+    // Log starting message.
     Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
 }
 
 //
-// Constant Definitions
+// Constant Definitions.
 //
-auto BethesdaDirectory::getINIBSAFields() -> vector<string>
+auto BethesdaDirectory::getINIBSAFields() -> std::vector<std::string>
 {
-    // these fields will be searched in ini files for manually specified BSA
-    // loading
-    const static vector<string> iniBSAFields
-        = {"sResourceArchiveList", "sResourceArchiveList2", "sResourceArchiveListBeta"};
+    // These fields will be searched in ini files for manually specified BSA.
+    // Loading.
+    const static std::vector<std::string> iniBSAFields
+        = { "sResourceArchiveList", "sResourceArchiveList2", "sResourceArchiveListBeta" };
 
     return iniBSAFields;
 }
 
-auto BethesdaDirectory::getExtensionBlocklist() -> vector<wstring>
+auto BethesdaDirectory::getExtensionBlocklist() -> std::vector<std::wstring>
 {
-    // any file that ends with these strings will be ignored
-    // allowed BSAs etc. to be hidden from the file map since this object is an
-    // abstraction of the data directory that no longer factors BSAs for
-    // downstream users
-    const static vector<wstring> extensionBlocklist = {L".bsa", L".esp", L".esl", L".esm"};
+    // Any file that ends with these strings will be ignored.
+    // Allowed BSAs etc. to be hidden from the file map since this object is an.
+    // Abstraction of the data directory that no longer factors BSAs for.
+    // Downstream users.
+    const static std::vector<std::wstring> extensionBlocklist = { L".bsa", L".esp", L".esl", L".esm" };
 
     return extensionBlocklist;
 }
 
-auto BethesdaDirectory::checkGlob(const wstring& str,
-                                  const vector<wstring>& globList) -> bool
+auto BethesdaDirectory::checkGlob(const std::wstring& str,
+                                  const std::vector<std::wstring>& globList) -> bool
 {
-    // convert wstring vector to LPCWSTR vector
-    vector<LPCWSTR> globListCstr = convertWStringToLPCWSTRVector(globList);
+    // Convert wstring vector to LPCWSTR vector.
+    std::vector<LPCWSTR> globListCstr = convertWStringToLPCWSTRVector(globList);
 
-    // convert wstring to LPCWSTR
+    // Convert wstring to LPCWSTR.
     LPCWSTR strCstr = str.c_str();
 
-    // check if string matches any glob
+    // Check if string matches any glob.
     return std::ranges::any_of(globListCstr, [&](LPCWSTR glob) { return PathMatchSpecW(strCstr, glob); });
 }
 
 void BethesdaDirectory::populateFileMap(bool includeBSAs)
 {
-    // clear map before populating
+    // Clear map before populating.
     {
-        const unique_lock lock(m_fileMapMutex);
+        const std::unique_lock lock(m_fileMapMutex);
         m_fileMap.clear();
         m_generatedFileRestoreMap.clear();
     }
 
     if (includeBSAs && m_bg != nullptr) {
-        // add BSA files to file map
+        // Add BSA files to file map.
         addBSAFilesToMap();
     }
 
-    // add loose files to file map
+    // Add loose files to file map.
     addLooseFilesToMap();
 }
 
-auto BethesdaDirectory::getFileMap() const -> const map<filesystem::path,
-                                                        BethesdaDirectory::BethesdaFile>&
+auto BethesdaDirectory::getFileMap() const -> const std::map<std::filesystem::path,
+                                                             BethesdaDirectory::BethesdaFile>&
 {
     return m_fileMap;
 }
 
-auto BethesdaDirectory::getFile(const filesystem::path& relPath) -> vector<std::byte>
+auto BethesdaDirectory::getFile(const std::filesystem::path& relPath) -> std::vector<std::byte>
 {
-    // find bsa/loose file to open
+    // Find bsa/loose file to open.
     const BethesdaFile& file = getFileFromMap(relPath);
-    if (file.path.empty()) {
-        throw runtime_error("File not found in file map");
-    }
+    if (file.path.empty())
+        throw std::runtime_error("File not found in file map");
 
-    if (s_threadQueryObserver != nullptr) {
+    if (s_threadQueryObserver != nullptr)
         s_threadQueryObserver->onGetFile(relPath, buildIdentity(file));
-    }
 
-    vector<std::byte> outFileBytes;
-    const shared_ptr<BSAFile> bsaStruct = file.bsaFile;
+    std::vector<std::byte> outFileBytes;
+    const std::shared_ptr<BSAFile> bsaStruct = file.bsaFile;
     if (bsaStruct == nullptr) {
-        filesystem::path filePath;
-        if (file.generated) {
+        std::filesystem::path filePath;
+        if (file.generated)
             filePath = m_generatedDir / relPath;
-        } else {
+        else
             filePath = m_dataDir / relPath;
-        }
 
         outFileBytes = FileUtil::getFileBytes(filePath);
     } else {
-        const filesystem::path bsaPath = bsaStruct->path;
+        const std::filesystem::path bsaPath = bsaStruct->path;
 
-        // this is a bsa archive file
+        // This is a bsa archive file.
         const bsa::tes4::version& bsaVersion = bsaStruct->version;
         const bsa::tes4::archive& bsaObj = bsaStruct->archive;
 
-        string parentPath = utf16toASCII(relPath.parent_path().wstring());
-        string filename = utf16toASCII(relPath.filename().wstring());
+        std::string parentPath = utf16toASCII(relPath.parent_path().wstring());
+        std::string filename = utf16toASCII(relPath.filename().wstring());
 
         const auto& file = bsaObj[parentPath][filename];
         if (file) {
-            binary_io::any_ostream aos {std::in_place_type<binary_io::memory_ostream>};
-            // read file from output stream
+            binary_io::any_ostream aos { std::in_place_type<binary_io::memory_ostream> };
+            // Read file from output stream.
             try {
                 file->write(aos, bsaVersion);
             } catch (...) {
                 Logger::error(L"Failed to read file: {}", relPath.wstring());
-                return {};
+                return { };
             }
 
             auto& s = aos.get<binary_io::memory_ostream>();
             outFileBytes = s.rdbuf();
         } else {
-            throw runtime_error("File not found in BSA archive");
+            throw std::runtime_error("File not found in BSA archive");
         }
     }
 
-    if (outFileBytes.empty()) {
-        return {};
-    }
+    if (outFileBytes.empty())
+        return { };
 
     return outFileBytes;
 }
 
-void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath)
+void BethesdaDirectory::addGeneratedFile(const std::filesystem::path& relPath)
 {
-    const unique_lock lock(m_fileMapMutex);
+    const std::unique_lock lock(m_fileMapMutex);
 
     const auto existingIt = m_fileMap.find(relPath);
     if (existingIt != m_fileMap.end() && !existingIt->second.generated) {
@@ -200,13 +195,14 @@ void BethesdaDirectory::addGeneratedFile(const filesystem::path& relPath)
         m_generatedFileRestoreMap[relPath] = existingIt->second;
     }
 
-    const BethesdaFile generatedFile = {.path = relPath, .bsaFile = nullptr, .generated = true, .mtime = 0, .size = 0};
+    const BethesdaFile generatedFile
+        = { .path = relPath, .bsaFile = nullptr, .generated = true, .mtime = 0, .size = 0 };
     m_fileMap[relPath] = generatedFile;
 }
 
 void BethesdaDirectory::clearGeneratedFiles()
 {
-    const unique_lock lock(m_fileMapMutex);
+    const std::unique_lock lock(m_fileMapMutex);
 
     for (auto it = m_fileMap.begin(); it != m_fileMap.end();) {
         if (it->second.generated) {
@@ -224,37 +220,33 @@ void BethesdaDirectory::clearGeneratedFiles()
     }
 }
 
-auto BethesdaDirectory::isLooseFile(const filesystem::path& relPath) -> bool
+auto BethesdaDirectory::isLooseFile(const std::filesystem::path& relPath) -> bool
 {
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
+    if (m_fileMap.empty())
+        throw std::runtime_error("File map was not populated");
     const BethesdaFile file = getFileFromMap(relPath);
     return !file.path.empty() && file.bsaFile == nullptr;
 }
 
-auto BethesdaDirectory::isBSAFile(const filesystem::path& relPath) -> bool
+auto BethesdaDirectory::isBSAFile(const std::filesystem::path& relPath) -> bool
 {
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
+    if (m_fileMap.empty())
+        throw std::runtime_error("File map was not populated");
 
     const BethesdaFile file = getFileFromMap(relPath);
     return !file.path.empty() && file.bsaFile != nullptr;
 }
 
-auto BethesdaDirectory::isFile(const filesystem::path& relPath) -> bool
+auto BethesdaDirectory::isFile(const std::filesystem::path& relPath) -> bool
 {
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
+    if (m_fileMap.empty())
+        throw std::runtime_error("File map was not populated");
 
     const BethesdaFile file = getFileFromMap(relPath);
     const bool exists = !file.path.empty();
 
-    if (s_threadQueryObserver != nullptr) {
+    if (s_threadQueryObserver != nullptr)
         s_threadQueryObserver->onIsFile(relPath, exists, exists && file.generated);
-    }
 
     return exists;
 }
@@ -264,7 +256,7 @@ auto BethesdaDirectory::buildIdentity(const BethesdaFile& file) -> FileIdentity
     FileIdentity identity;
 
     if (file.path.empty()) {
-        identity.kind = FileIdentity::Kind::NONE;
+        identity.kind = FileIdentity::Kind::None;
         return identity;
     }
 
@@ -287,7 +279,7 @@ auto BethesdaDirectory::buildIdentity(const BethesdaFile& file) -> FileIdentity
     return identity;
 }
 
-auto BethesdaDirectory::getFileIdentity(const filesystem::path& relPath) -> FileIdentity
+auto BethesdaDirectory::getFileIdentity(const std::filesystem::path& relPath) -> FileIdentity
 {
     const BethesdaFile file = getFileFromMap(relPath);
     return buildIdentity(file);
@@ -295,49 +287,45 @@ auto BethesdaDirectory::getFileIdentity(const filesystem::path& relPath) -> File
 
 void BethesdaDirectory::setThreadFileQueryObserver(FileQueryObserver* observer) { s_threadQueryObserver = observer; }
 
-auto BethesdaDirectory::isGenerated(const filesystem::path& relPath) -> bool
+auto BethesdaDirectory::isGenerated(const std::filesystem::path& relPath) -> bool
 {
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
+    if (m_fileMap.empty())
+        throw std::runtime_error("File map was not populated");
 
     const BethesdaFile file = getFileFromMap(relPath);
     return !file.path.empty() && file.generated;
 }
 
-auto BethesdaDirectory::getLooseFileFullPath(const filesystem::path& relPath) -> filesystem::path
+auto BethesdaDirectory::getLooseFileFullPath(const std::filesystem::path& relPath) -> std::filesystem::path
 {
-    if (m_fileMap.empty()) {
-        throw runtime_error("File map was not populated");
-    }
+    if (m_fileMap.empty())
+        throw std::runtime_error("File map was not populated");
 
     const BethesdaFile file = getFileFromMap(relPath);
 
-    if (file.generated) {
+    if (file.generated)
         return m_generatedDir / relPath;
-    }
 
     return m_dataDir / relPath;
 }
 
-auto BethesdaDirectory::getDataPath() const -> filesystem::path { return m_dataDir; }
+auto BethesdaDirectory::getDataPath() const -> std::filesystem::path { return m_dataDir; }
 
-auto BethesdaDirectory::getGeneratedPath() const -> filesystem::path { return m_generatedDir; }
+auto BethesdaDirectory::getGeneratedPath() const -> std::filesystem::path { return m_generatedDir; }
 
 void BethesdaDirectory::addBSAFilesToMap()
 {
-    if (m_bg == nullptr) {
-        throw runtime_error("BethesdaGame object is not set which is required to load BSA files");
-    }
+    if (m_bg == nullptr)
+        throw std::runtime_error("BethesdaGame object is not set which is required to load BSA files");
 
     Logger::info("Adding BSA files to file map.");
 
-    // Get list of BSA files
-    const vector<wstring> bsaFiles = getBSALoadOrder();
+    // Get list of BSA files.
+    const std::vector<std::wstring> bsaFiles = getBSALoadOrder();
 
-    // Loop through each BSA file
+    // Loop through each BSA file.
     for (const auto& bsaName : bsaFiles) {
-        // add bsa to file map
+        // Add bsa to file map.
         addBSAToFileMap(bsaName);
     }
 }
@@ -346,27 +334,26 @@ void BethesdaDirectory::addLooseFilesToMap()
 {
     Logger::info("Adding loose files to file map.");
 
-    // Map top level folder (not recursive)
-    for (auto it = filesystem::directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied);
-         it != filesystem::directory_iterator();
+    // Map top level folder (not recursive).
+    for (auto it
+         = std::filesystem::directory_iterator(m_dataDir, std::filesystem::directory_options::skip_permission_denied);
+         it != std::filesystem::directory_iterator();
          ++it) {
         const auto& entry = *it;
 
-        if (isHidden(entry.path()) || entry.is_directory()) {
+        if (isHidden(entry.path()) || entry.is_directory())
             continue;
-        }
 
-        const filesystem::path& filePath = entry.path();
-        filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
+        const std::filesystem::path& filePath = entry.path();
+        std::filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
         relativePath = boost::to_lower_copy(relativePath.wstring());
 
-        // check type of file, skip BSAs and ESPs
-        if (!isFileAllowed(filePath)) {
+        // Check type of file, skip BSAs and ESPs.
+        if (!isFileAllowed(filePath))
             continue;
-        }
 
-        // directory_entry caches size and write time from the directory listing so these are free
-        error_code ec;
+        // Directory_entry caches size and write time from the directory listing so these are free.
+        std::error_code ec;
         const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
         ec.clear();
         const auto size = entry.file_size(ec);
@@ -374,39 +361,37 @@ void BethesdaDirectory::addLooseFilesToMap()
         updateFileMap(relativePath, nullptr, false, static_cast<int64_t>(mtime), ec ? 0 : size);
     }
 
-    // loop through each folder to map
+    // Loop through each folder to map.
     for (const auto& folder : m_foldersToMap) {
-        // check if folder exists
+        // Check if folder exists.
         const auto curCheckFolder = m_dataDir / folder;
-        if (!filesystem::exists(curCheckFolder)) {
+        if (!std::filesystem::exists(curCheckFolder))
             continue;
-        }
 
-        for (auto it = filesystem::recursive_directory_iterator(curCheckFolder,
-                                                                filesystem::directory_options::skip_permission_denied);
-             it != filesystem::recursive_directory_iterator();
+        for (auto it = std::filesystem::recursive_directory_iterator(
+                 curCheckFolder, std::filesystem::directory_options::skip_permission_denied);
+             it != std::filesystem::recursive_directory_iterator();
              ++it) {
             const auto entry = *it;
 
             if (isHidden(entry.path())) {
                 if (entry.is_directory()) {
-                    // If it's a directory, don't recurse into it
+                    // If it's a directory, don't recurse into it.
                     it.disable_recursion_pending();
                 }
                 continue;
             }
 
-            const filesystem::path& filePath = entry.path();
-            filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
+            const std::filesystem::path& filePath = entry.path();
+            std::filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
             relativePath = boost::to_lower_copy(relativePath.wstring());
 
-            // check type of file, skip BSAs and ESPs
-            if (!isFileAllowed(filePath)) {
+            // Check type of file, skip BSAs and ESPs.
+            if (!isFileAllowed(filePath))
                 continue;
-            }
 
-            // directory_entry caches size and write time from the directory listing so these are free
-            error_code ec;
+            // Directory_entry caches size and write time from the directory listing so these are free.
+            std::error_code ec;
             const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
             ec.clear();
             const auto size = entry.is_directory() ? 0 : entry.file_size(ec);
@@ -416,17 +401,17 @@ void BethesdaDirectory::addLooseFilesToMap()
     }
 }
 
-void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
+void BethesdaDirectory::addBSAToFileMap(const std::wstring& bsaName)
 {
-    // log message
+    // Log message.
     Logger::debug(L"Adding files from {} to file map.", bsaName);
 
     bsa::tes4::archive bsaObj;
-    const filesystem::path bsaPath = m_dataDir / bsaName;
+    const std::filesystem::path bsaPath = m_dataDir / bsaName;
 
-    // skip BSA if it doesn't exist (can happen if it's in the ini but not in the
-    // data folder)
-    if (!filesystem::exists(bsaPath)) {
+    // Skip BSA if it doesn't exist (can happen if it's in the ini but not in the.
+    // Data folder).
+    if (!std::filesystem::exists(bsaPath)) {
         Logger::warn(L"BSA is in INI but does not exist: {}", bsaPath.wstring());
         return;
     }
@@ -439,55 +424,55 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
         return;
     }
 
-    // Archive identity (used to detect changed archives without reading their contents)
-    error_code ec;
-    const auto bsaMtime = static_cast<int64_t>(filesystem::last_write_time(bsaPath, ec).time_since_epoch().count());
+    // Archive identity (used to detect changed archives without reading their contents).
+    std::error_code ec;
+    const auto bsaMtime
+        = static_cast<int64_t>(std::filesystem::last_write_time(bsaPath, ec).time_since_epoch().count());
     ec.clear();
-    const auto bsaSizeRaw = filesystem::file_size(bsaPath, ec);
+    const auto bsaSizeRaw = std::filesystem::file_size(bsaPath, ec);
     const uint64_t bsaSize = ec ? 0 : bsaSizeRaw;
 
-    const shared_ptr<BSAFile> bsaStructPtr
-        = make_shared<BSAFile>(bsaPath, boost::to_lower_copy(bsaName), bsaVersion, bsaObj, bsaMtime, bsaSize);
+    const std::shared_ptr<BSAFile> bsaStructPtr
+        = std::make_shared<BSAFile>(bsaPath, boost::to_lower_copy(bsaName), bsaVersion, bsaObj, bsaMtime, bsaSize);
 
-    // loop iterator
-    for (auto& fileEntry : bsaObj) {
-        // get file entry from pointer
+    // Loop iterator.
+    for (const auto& fileEntry : bsaObj) {
+        // Get file entry from pointer.
         try {
-            // .second stores the files in the folder
+            // .second stores the files in the folder.
             const auto fileName = fileEntry.second;
 
-            // loop through files in folder
+            // Loop through files in folder.
             for (const auto& entry : fileName) {
 
-                if (!containsOnlyAscii(string(fileEntry.first.name()))
-                    || !containsOnlyAscii(string(entry.first.name()))) {
+                if (!containsOnlyAscii(std::string(fileEntry.first.name()))
+                    || !containsOnlyAscii(std::string(entry.first.name()))) {
                     Logger::warn(L"File {}\\{} in BSA {} contains non-ascii characters",
-                                 windows1252toUTF16(string(fileEntry.first.name())),
-                                 windows1252toUTF16(string(entry.first.name())),
+                                 windows1252toUTF16(std::string(fileEntry.first.name())),
+                                 windows1252toUTF16(std::string(entry.first.name())),
                                  bsaName);
 
                     continue;
                 }
 
-                // get folder name within the BSA vfs
-                const filesystem::path folderName = asciitoUTF16(string(fileEntry.first.name()));
+                // Get folder name within the BSA vfs.
+                const std::filesystem::path folderName = asciitoUTF16(std::string(fileEntry.first.name()));
 
                 if (!m_foldersToMap.contains(folderName.begin()->wstring())) {
-                    // skip if folder is not in the list of folders to map
+                    // Skip if folder is not in the list of folders to map.
                     continue;
                 }
 
-                // get name of file
-                const wstring curEntry = asciitoUTF16(string(entry.first.name()));
-                filesystem::path curPath = folderName / curEntry;
+                // Get name of file.
+                const std::wstring curEntry = asciitoUTF16(std::string(entry.first.name()));
+                std::filesystem::path curPath = folderName / curEntry;
                 curPath = boost::to_lower_copy(curPath.wstring());
 
-                // chekc if we should ignore this file
-                if (!isFileAllowed(curPath)) {
+                // Chekc if we should ignore this file.
+                if (!isFileAllowed(curPath))
                     continue;
-                }
 
-                // add to filemap
+                // Add to filemap.
                 updateFileMap(curPath, bsaStructPtr);
             }
         } catch (...) {
@@ -497,88 +482,82 @@ void BethesdaDirectory::addBSAToFileMap(const wstring& bsaName)
     }
 }
 
-auto BethesdaDirectory::getBSALoadOrder() const -> vector<wstring>
+auto BethesdaDirectory::getBSALoadOrder() const -> std::vector<std::wstring>
 {
-    // get bsa files not loaded from esp (also initializes output vector)
-    vector<wstring> outBSAOrder = getBSAFilesFromINIs();
+    // Get bsa files not loaded from esp (also initializes output vector).
+    std::vector<std::wstring> outBSAOrder = getBSAFilesFromINIs();
 
-    // get esp priority list
-    const vector<wstring> loadOrder = m_bg->getActivePlugins(true);
+    // Get esp priority list.
+    const std::vector<std::wstring> loadOrder = m_bg->getActivePlugins(true);
 
-    // list BSA files in data directory
-    const vector<wstring> allBSAFiles = getBSAFilesInDirectory();
+    // List BSA files in data directory.
+    const std::vector<std::wstring> allBSAFiles = getBSAFilesInDirectory();
 
-    // loop through each esp in the priority list
+    // Loop through each esp in the priority list.
     for (const auto& plugin : loadOrder) {
-        // add any BSAs to list
-        const vector<wstring> curFoundBSAs = findBSAFilesFromPluginName(allBSAFiles, plugin);
+        // Add any BSAs to list.
+        const std::vector<std::wstring> curFoundBSAs = findBSAFilesFromPluginName(allBSAFiles, plugin);
         ContainerUtil::concatenateVectorsWithoutDuplicates(outBSAOrder, curFoundBSAs);
     }
 
-    // log output
-    for (const auto& bsa : allBSAFiles) {
-        if (!ContainerUtil::isInVector(outBSAOrder, bsa)) {
+    // Log output.
+    for (const auto& bsa : allBSAFiles)
+        if (!ContainerUtil::isInVector(outBSAOrder, bsa))
             Logger::warn(L"BSA file {} not loaded by any active plugin or INI.", bsa);
-        }
-    }
 
     return outBSAOrder;
 }
 
-auto BethesdaDirectory::getModLookupFile(const filesystem::path& relPath) -> filesystem::path
+auto BethesdaDirectory::getModLookupFile(const std::filesystem::path& relPath) -> std::filesystem::path
 {
-    // get file
+    // Get file.
     const BethesdaFile& file = getFileFromMap(relPath);
-    if (file.bsaFile != nullptr) {
+    if (file.bsaFile != nullptr)
         return file.bsaFile->relPath;
-    }
 
     return relPath;
 }
 
-auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
+auto BethesdaDirectory::getBSAFilesFromINIs() const -> std::vector<std::wstring>
 {
-    // output vector
-    vector<wstring> bsaFiles;
+    // Output vector.
+    std::vector<std::wstring> bsaFiles;
 
-    // find ini paths
+    // Find ini paths.
     const BethesdaGame::ININame iniLocs = m_bg->getINIPaths();
 
-    vector<filesystem::path> iniFileOrder = {iniLocs.ini, iniLocs.iniCustom};
+    std::vector<std::filesystem::path> iniFileOrder = { iniLocs.ini, iniLocs.iniCustom };
 
-    // Find INIs in data folder
+    // Find INIs in data folder.
     for (const auto& entry :
-         filesystem::directory_iterator(m_dataDir, filesystem::directory_options::skip_permission_denied)) {
-        if (entry.is_regular_file() && toLowerASCII(entry.path().extension().wstring()) == L".ini") {
+         std::filesystem::directory_iterator(m_dataDir, std::filesystem::directory_options::skip_permission_denied)) {
+        if (entry.is_regular_file() && toLowerASCII(entry.path().extension().wstring()) == L".ini")
             iniFileOrder.push_back(entry.path());
-        }
     }
 
-    // loop through each field
+    // Loop through each field.
     for (const auto& field : getINIBSAFields()) {
-        // loop through each ini file
-        wstring iniVal;
+        // Loop through each ini file.
+        std::wstring iniVal;
         for (const auto& iniPath : iniFileOrder) {
-            const wstring curVal = readINIValue(iniPath, L"Archive", asciitoUTF16(field));
-            if (curVal.empty()) {
+            const std::wstring curVal = readINIValue(iniPath, L"Archive", asciitoUTF16(field));
+            if (curVal.empty())
                 continue;
-            }
 
             iniVal = curVal;
         }
 
-        if (iniVal.empty()) {
+        if (iniVal.empty())
             continue;
-        }
 
-        // split into components
-        vector<wstring> iniComponents;
+        // Split into components.
+        std::vector<std::wstring> iniComponents;
         boost::split(iniComponents, iniVal, boost::is_any_of(","));
         for (auto& bsa : iniComponents) {
-            // remove leading/trailing whitespace
+            // Remove leading/trailing whitespace.
             boost::trim(bsa);
 
-            // add to output
+            // Add to output.
             ContainerUtil::addUniqueElement(bsaFiles, bsa);
         }
     }
@@ -586,19 +565,18 @@ auto BethesdaDirectory::getBSAFilesFromINIs() const -> vector<wstring>
     return bsaFiles;
 }
 
-auto BethesdaDirectory::getBSAFilesInDirectory() const -> vector<wstring>
+auto BethesdaDirectory::getBSAFilesInDirectory() const -> std::vector<std::wstring>
 {
-    vector<wstring> bsaFiles;
+    std::vector<std::wstring> bsaFiles;
 
-    for (const auto& entry : filesystem::directory_iterator(this->m_dataDir)) {
+    for (const auto& entry : std::filesystem::directory_iterator(this->m_dataDir)) {
         if (entry.is_regular_file()) {
             const auto fileExtension = entry.path().extension().wstring();
-            // only interested in BSA files
-            if (!boost::iequals(fileExtension, ".bsa")) {
+            // Only interested in BSA files.
+            if (!boost::iequals(fileExtension, ".bsa"))
                 continue;
-            }
 
-            // add to output
+            // Add to output.
             bsaFiles.push_back(entry.path().filename().wstring());
         }
     }
@@ -606,35 +584,33 @@ auto BethesdaDirectory::getBSAFilesInDirectory() const -> vector<wstring>
     return bsaFiles;
 }
 
-auto BethesdaDirectory::findBSAFilesFromPluginName(const vector<wstring>& bsaFileList,
-                                                   const wstring& pluginPrefix) -> vector<wstring>
+auto BethesdaDirectory::findBSAFilesFromPluginName(const std::vector<std::wstring>& bsaFileList,
+                                                   const std::wstring& pluginPrefix) -> std::vector<std::wstring>
 {
-    vector<wstring> bsaFilesFound;
-    const wstring pluginPrefixLower = boost::to_lower_copy(pluginPrefix);
+    std::vector<std::wstring> bsaFilesFound;
+    const std::wstring pluginPrefixLower = boost::to_lower_copy(pluginPrefix);
 
-    for (const wstring& bsa : bsaFileList) {
-        const wstring bsaLower = boost::to_lower_copy(bsa);
+    for (const std::wstring& bsa : bsaFileList) {
+        const std::wstring bsaLower = boost::to_lower_copy(bsa);
         if (bsaLower.starts_with(pluginPrefixLower)) {
             if (bsaLower == pluginPrefixLower + L".bsa") {
-                // load bsa with the plugin name before any others
+                // Load bsa with the plugin name before any others.
                 bsaFilesFound.insert(bsaFilesFound.begin(), bsa);
                 continue;
             }
 
-            // skip any BSAs that may start with the prefix but belong to a different
-            // plugin
-            wstring afterPrefix = bsa.substr(pluginPrefix.length());
+            // Skip any BSAs that may start with the prefix but belong to a different.
+            // Plugin.
+            std::wstring afterPrefix = bsa.substr(pluginPrefix.length());
 
-            // todo: Is this actually how the game handles BSA files? Example:
+            // Todo: Is this actually how the game handles BSA files? Example:
             // 3DNPC0.bsa, 3DNPC1.bsa, 3DNPC2.bsa are loaded, todo: but 3DNPC -
-            // Textures.bsa is also loaded, whats the logic there?
-            if (afterPrefix.starts_with(L" ") && !afterPrefix.starts_with(L" -")) {
+            // textures.bsa is also loaded, whats the logic there?
+            if (afterPrefix.starts_with(L' ') && !afterPrefix.starts_with(L" -"))
                 continue;
-            }
 
-            if (!afterPrefix.starts_with(L" ") && (isdigit(afterPrefix[0]) == 0)) {
+            if (!afterPrefix.starts_with(L' ') && (isdigit(afterPrefix[0]) == 0))
                 continue;
-            }
 
             bsaFilesFound.push_back(bsa);
         }
@@ -643,50 +619,56 @@ auto BethesdaDirectory::findBSAFilesFromPluginName(const vector<wstring>& bsaFil
     return bsaFilesFound;
 }
 
-auto BethesdaDirectory::isFileAllowed(const filesystem::path& filePath) -> bool
+auto BethesdaDirectory::isFileAllowed(const std::filesystem::path& filePath) -> bool
 {
-    wstring fileExtension = filePath.extension().wstring();
+    std::wstring fileExtension = filePath.extension().wstring();
     boost::algorithm::to_lower(fileExtension);
 
-    return !(ContainerUtil::isInVector(getExtensionBlocklist(), fileExtension));
+    return !ContainerUtil::isInVector(getExtensionBlocklist(), fileExtension);
 }
 
-// helpers
+// Helpers.
 
-auto BethesdaDirectory::isPathAscii(const filesystem::path& path) -> bool
+auto BethesdaDirectory::isPathAscii(const std::filesystem::path& path) -> bool
 {
-    return ranges::all_of(path.wstring(), [](wchar_t wc) { return wc <= ASCII_UPPER_BOUND; });
+    return std::ranges::all_of(path.wstring(), [](wchar_t wc) { return wc <= asciiUpperBound; });
 }
 
-auto BethesdaDirectory::getFileFromMap(const filesystem::path& filePath) -> BethesdaDirectory::BethesdaFile
+auto BethesdaDirectory::getFileFromMap(const std::filesystem::path& filePath) -> BethesdaDirectory::BethesdaFile
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
-    const shared_lock lock(m_fileMapMutex);
+    const std::shared_lock lock(m_fileMapMutex);
     if (!m_fileMap.contains(filePath)) {
-        return BethesdaFile {.path = filesystem::path(), .bsaFile = nullptr, .generated = false, .mtime = 0, .size = 0};
+        return BethesdaFile {
+            .path = std::filesystem::path(),
+            .bsaFile = nullptr,
+            .generated = false,
+            .mtime = 0,
+            .size = 0,
+        };
     }
 
     return m_fileMap.at(filePath);
 }
 
-void BethesdaDirectory::updateFileMap(const filesystem::path& filePath,
-                                      shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
+void BethesdaDirectory::updateFileMap(const std::filesystem::path& filePath,
+                                      std::shared_ptr<BethesdaDirectory::BSAFile> bsaFile,
                                       const bool& generated,
                                       const int64_t& mtime,
                                       const uint64_t& size)
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
-    const unique_lock lock(m_fileMapMutex);
+    const std::unique_lock lock(m_fileMapMutex);
 
     const BethesdaFile newBFile
-        = {.path = filePath, .bsaFile = std::move(bsaFile), .generated = generated, .mtime = mtime, .size = size};
+        = { .path = filePath, .bsaFile = std::move(bsaFile), .generated = generated, .mtime = mtime, .size = size };
 
     m_fileMap[filePath] = newBFile;
 }
 
-auto BethesdaDirectory::isFileInBSA(const filesystem::path& file,
+auto BethesdaDirectory::isFileInBSA(const std::filesystem::path& file,
                                     const std::vector<std::wstring>& bsaFiles) -> bool
 {
     if (isBSAFile(file)) {
@@ -702,22 +684,21 @@ auto BethesdaDirectory::isFileInBSA(const filesystem::path& file,
     return false;
 }
 
-auto BethesdaDirectory::convertWStringToLPCWSTRVector(const vector<wstring>& original) -> vector<LPCWSTR>
+auto BethesdaDirectory::convertWStringToLPCWSTRVector(const std::vector<std::wstring>& original) -> std::vector<LPCWSTR>
 {
-    vector<LPCWSTR> output(original.size());
-    for (size_t i = 0; i < original.size(); i++) {
+    std::vector<LPCWSTR> output(original.size());
+    for (size_t i = 0; i < original.size(); i++)
         output[i] = original[i].c_str();
-    }
 
     return output;
 }
 
 auto BethesdaDirectory::checkGlob(const LPCWSTR& str,
                                   LPCWSTR& winningGlob,
-                                  const vector<LPCWSTR>& globList) -> bool
+                                  const std::vector<LPCWSTR>& globList) -> bool
 {
     if (!boost::equals(winningGlob, L"") && (PathMatchSpecW(str, winningGlob) != 0)) {
-        // no winning glob, check all globs
+        // No winning glob, check all globs.
         return true;
     }
 
@@ -731,79 +712,71 @@ auto BethesdaDirectory::checkGlob(const LPCWSTR& str,
     return false;
 }
 
-auto BethesdaDirectory::isHidden(const filesystem::path& path) -> bool
+auto BethesdaDirectory::isHidden(const std::filesystem::path& path) -> bool
 {
-    // check if file is hidden in filesystem
+    // Check if file is hidden in filesystem.
     DWORD const fileAttributes = GetFileAttributesW(path.c_str());
-    if (fileAttributes != INVALID_FILE_ATTRIBUTES && (fileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0) {
+    if (fileAttributes != INVALID_FILE_ATTRIBUTES && (fileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0)
         return true;
-    }
 
-    // check if file is a dotfile
-    if (path.filename().wstring().starts_with(L".")) {
+    // Check if file is a dotfile.
+    if (path.filename().wstring().starts_with(L'.'))
         return true;
-    }
 
-    // check if file ends in .mohidden (MO2 hidden file)
-    if (boost::iequals(path.extension().wstring(), ".mohidden")) {
+    // Check if file ends in .mohidden (MO2 hidden file).
+    if (boost::iequals(path.extension().wstring(), ".mohidden"))
         return true;
-    }
 
     return false;
 }
 
-auto BethesdaDirectory::readINIValue(const filesystem::path& iniPath,
-                                     const wstring& section,
-                                     const wstring& key) -> wstring
+auto BethesdaDirectory::readINIValue(const std::filesystem::path& iniPath,
+                                     const std::wstring& section,
+                                     const std::wstring& key) -> std::wstring
 {
-    if (!filesystem::exists(iniPath)) {
+    if (!std::filesystem::exists(iniPath))
         return L"";
-    }
 
-    ifstream f(iniPath);
-    if (!f.is_open()) {
+    std::ifstream f(iniPath);
+    if (!f.is_open())
         return L"";
-    }
 
-    string curLine;
-    string curSection;
+    std::string curLine;
+    std::string curSection;
     bool foundSection = false;
 
     while (getline(f, curLine)) {
         boost::trim(curLine);
 
-        // ignore comments
-        if (curLine.empty() || curLine[0] == ';' || curLine[0] == '#') {
+        // Ignore comments.
+        if (curLine.empty() || curLine[0] == ';' || curLine[0] == '#')
             continue;
-        }
 
-        // Check if it's a section
+        // Check if it's a section.
         if (curLine.front() == '[' && curLine.back() == ']') {
             curSection = curLine.substr(1, curLine.size() - 2);
             continue;
         }
 
-        // Check if it's the correct section
-        if (boost::iequals(curSection, section)) {
+        // Check if it's the correct section.
+        if (boost::iequals(curSection, section))
             foundSection = true;
-        }
 
         if (!boost::iequals(curSection, section)) {
-            // exit if already checked section
-            if (foundSection) {
+            // Exit if already checked section.
+            if (foundSection)
                 break;
-            }
             continue;
         }
 
-        // check key
+        // Check key.
         const size_t pos = curLine.find('=');
         if (pos != std::string::npos) {
-            // found key value pair
-            string curKey = curLine.substr(0, pos);
+            // Found key value pair.
+            std::string curKey = curLine.substr(0, pos);
             boost::trim(curKey);
             if (boost::iequals(curKey, key)) {
-                string curValue = curLine.substr(pos + 1);
+                std::string curValue = curLine.substr(pos + 1);
                 boost::trim(curValue);
                 return StringUtil::utf8toUTF16(curValue);
             }

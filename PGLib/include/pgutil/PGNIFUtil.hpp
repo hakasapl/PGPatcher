@@ -19,7 +19,7 @@
 
 namespace PGNIFUtil {
 
-static constexpr float MIN_FLOAT_COMPARISON = 10e-05F;
+static constexpr float minFloatComparison = 10e-05;
 
 auto getSlotFromTexType(const PGEnums::TextureType& type) -> PGEnums::TextureSlots;
 
@@ -64,14 +64,14 @@ auto setShaderVec2(nifly::Vector2& value,
 /// @param nifShaderBSLSP the shader to check
 /// @param[in] flag the flag to check
 /// @return if the flag is set
-auto hasShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+auto hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
                    const nifly::SkyrimShaderPropertyFlags1& flag) -> bool;
 
 /// @brief check if a given flag is set for a shader
 /// @param nifShaderBSLSP the shader to check
 /// @param[in] flag the flag to check
 /// @return if the flag is set
-auto hasShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+auto hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
                    const nifly::SkyrimShaderPropertyFlags2& flag) -> bool;
 
 /// @brief set a given shader flag 1 for a shader
@@ -147,7 +147,7 @@ auto setTextureSlots(nifly::NifFile* nif,
 /// @param nifShape the shape
 /// @param[in] slot the slot
 /// @return texture set in the slot
-auto getTextureSlot(nifly::NifFile* nif,
+auto getTextureSlot(const nifly::NifFile* nif,
                     nifly::NiShape* nifShape,
                     const PGEnums::TextureSlots& slot) -> std::string;
 
@@ -155,7 +155,7 @@ auto getTextureSlot(nifly::NifFile* nif,
 /// @param nif nif
 /// @param nifShape shape
 /// @return array of textures set in the slots
-auto getTextureSlots(nifly::NifFile* nif,
+auto getTextureSlots(const nifly::NifFile* nif,
                      nifly::NiShape* nifShape) -> PGTypes::TextureSet;
 
 auto textureSetToStr(const PGTypes::TextureSet& set) -> PGTypes::TextureSetStr;
@@ -164,7 +164,7 @@ auto textureSetToStr(const PGTypes::TextureSet& set) -> PGTypes::TextureSetStr;
 /// @param[in] texPath the path to get the base for
 /// @return base path
 auto getTexBase(const std::filesystem::path& texPath,
-                const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::UNKNOWN) -> std::wstring;
+                const PGEnums::TextureSlots& slot = PGEnums::TextureSlots::Unknown) -> std::wstring;
 
 /// @brief get the matching textures for a given base path
 /// @param[in] base base texture name
@@ -196,7 +196,7 @@ auto getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
 auto getShapesWith3DIdx(const nifly::NifFile* nif) -> std::vector<std::pair<nifly::NiShape*,
                                                                             int>>;
 
-auto isPatchableShape(nifly::NifFile& nif,
+auto isPatchableShape(const nifly::NifFile& nif,
                       nifly::NiShape& nifShape) -> bool;
 
 auto isShaderPatchableShape(nifly::NifFile& nif,

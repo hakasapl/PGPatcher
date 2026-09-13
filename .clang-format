@@ -1,8 +1,33 @@
+# Style reference: https://webkit.org/code-style-guidelines/
 BasedOnStyle: WebKit
+
+#
+# Rules the guidelines state explicitly but the clang-format WebKit preset does not apply
+#
+
+# Indentation: "The contents of namespaces should not be indented."
+# (the preset uses Inner, which indents the contents of nested namespaces)
+NamespaceIndentation: None
+
+# Spacing: "Do not place spaces between the identifier template and its angle brackets."
+#   template<typename T> T foo();
+SpaceAfterTemplateKeyword: false
+
+# Spacing: "When initializing an object, place a space before the leading brace as well as
+# between the braces and their content."   ->  Foo foo { bar };
+# Braces: "Any empty braces should contain a space."   ->  int x { };
+Cpp11BracedListStyle: Block
+
+# Braces: "One-line control clauses should not use braces unless comments are included or a
+# single statement spans multiple lines."
+RemoveBracesLLVM: true
+
+#
+# Not addressed by the guidelines - project conventions
+#
 ColumnLimit: 120
+AlignAfterOpenBracket: true
+AllowAllParametersOfDeclarationOnNextLine: false
 BinPackArguments: false
 BinPackParameters: AlwaysOnePerLine
 BinPackLongBracedList: false
-AlignAfterOpenBracket: true
-AllowAllParametersOfDeclarationOnNextLine: false
-Cpp11BracedListStyle: true

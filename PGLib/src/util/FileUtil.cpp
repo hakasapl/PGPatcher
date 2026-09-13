@@ -12,28 +12,26 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
 namespace FileUtil {
-auto getFileBytes(const filesystem::path& filePath) -> vector<std::byte>
+auto getFileBytes(const std::filesystem::path& filePath) -> std::vector<std::byte>
 {
-    ifstream inputFile(filePath, ios::binary | ios::ate);
+    std::ifstream inputFile(filePath, std::ios::binary | std::ios::ate);
     if (!inputFile.is_open()) {
-        // Unable to open file
-        return {};
+        // Unable to open file.
+        return { };
     }
 
-    auto length = inputFile.tellg();
+    const auto length = inputFile.tellg();
     if (length == -1) {
-        // Unable to find length
+        // Unable to find length.
         inputFile.close();
-        return {};
+        return { };
     }
 
-    inputFile.seekg(0, ios::beg);
+    inputFile.seekg(0, std::ios::beg);
 
     // Make a buffer of the exact size of the file and read the data into it.
-    vector<std::byte> buffer(length);
+    std::vector<std::byte> buffer(length);
     inputFile.read(reinterpret_cast<char*>(buffer.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
                    length);
 
@@ -45,16 +43,16 @@ auto getFileBytes(const filesystem::path& filePath) -> vector<std::byte>
 auto getJSON(const std::filesystem::path& filePath,
              nlohmann::json& json) -> bool
 {
-    ifstream inputFile(filePath);
+    std::ifstream inputFile(filePath);
     if (!inputFile.is_open()) {
-        // Unable to open file
+        // Unable to open file.
         return false;
     }
 
     try {
         inputFile >> json;
     } catch (...) {
-        // Handle JSON parsing error
+        // Handle JSON parsing error.
         return false;
     }
 
@@ -62,18 +60,18 @@ auto getJSON(const std::filesystem::path& filePath,
     return true;
 }
 
-auto getJSONFromBytes(const vector<std::byte>& bytes,
+auto getJSONFromBytes(const std::vector<std::byte>& bytes,
                       nlohmann::json& json) -> bool
 {
     try {
-        // Convert vector of bytes to string
+        // Convert vector of bytes to string.
         std::string jsonString(bytes.size(), '\0');
         std::memcpy(jsonString.data(), bytes.data(), bytes.size());
 
-        // Parse the JSON string
+        // Parse the JSON string.
         json = nlohmann::json::parse(jsonString);
     } catch (...) {
-        // Handle JSON parsing error
+        // Handle JSON parsing error.
         return false;
     }
 
@@ -84,19 +82,18 @@ auto saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
               const bool& readable) -> bool
 {
-    ofstream outputFile;
+    std::ofstream outputFile;
     outputFile.exceptions(std::ios::failbit | std::ios::badbit);
-    outputFile.open(filePath, ios::binary);
+    outputFile.open(filePath, std::ios::binary);
     if (!outputFile.is_open()) {
-        // Unable to open file
+        // Unable to open file.
         return false;
     }
 
-    if (readable) {
+    if (readable)
         outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);
-    } else {
+    else
         outputFile << json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
-    }
 
     outputFile.close();
     return true;

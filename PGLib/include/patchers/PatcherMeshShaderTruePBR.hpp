@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-constexpr unsigned TEXTURE_STR_LENGTH = 9;
+constexpr unsigned textureStrLength = 9;
 
 /**
  * @class PatcherMeshShaderTruePBR
@@ -30,7 +30,7 @@ constexpr unsigned TEXTURE_STR_LENGTH = 9;
  */
 class PatcherMeshShaderTruePBR : public PatcherMeshShader {
 private:
-    // Static caches
+    // Static caches.
 
     /**
      * @struct TupleStrHash
@@ -40,15 +40,15 @@ private:
         auto operator()(const std::tuple<std::wstring,
                                          std::wstring>& t) const -> std::size_t
         {
-            const std::size_t hash1 = std::hash<std::wstring> {}(std::get<0>(t));
-            const std::size_t hash2 = std::hash<std::wstring> {}(std::get<1>(t));
+            const std::size_t hash1 = std::hash<std::wstring> { }(std::get<0>(t));
+            const std::size_t hash2 = std::hash<std::wstring> { }(std::get<1>(t));
 
-            // Combine the two hash values
+            // Combine the two hash values.
             return hash1 ^ (hash2 << 1);
         }
     };
 
-    // Options
+    // Options.
     inline static bool s_checkPaths = true;
     inline static bool s_printNonExistentPaths = false;
 
@@ -267,7 +267,7 @@ private:
                                      const std::wstring& matchedPath,
                                      PGTypes::TextureSet& newSlots) -> bool;
 
-    // TruePBR Helpers
+    // TruePBR Helpers.
 
     /**
      * @brief Calculate ABS of 2-element vector

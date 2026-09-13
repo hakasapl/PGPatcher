@@ -10,7 +10,7 @@
 
 class PatcherMeshPreFixMeshLighting : public PatcherMeshPre {
 private:
-    constexpr static float SOFTLIGHTING_MAX = 0.6F;
+    constexpr static float softLightingMax = 0.6;
 
 public:
     /**

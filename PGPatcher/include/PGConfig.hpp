@@ -29,17 +29,17 @@ public:
      * @brief Struct that holds all the user-configurable parameters for ParallaxGen
      */
     struct PGParams {
-        // Game
+        // Game.
         struct Game {
             std::filesystem::path dir;
-            BethesdaGame::GameType type = BethesdaGame::GameType::SKYRIM_SE;
+            BethesdaGame::GameType type = BethesdaGame::GameType::SkyrimSE;
 
             auto operator==(const Game& other) const -> bool { return dir == other.dir && type == other.type; }
-        } Game;
+        } game;
 
-        // Mod Manager
+        // Mod Manager.
         struct ModManager {
-            PGModManager::ModManagerType type = PGModManager::ModManagerType::NONE;
+            PGModManager::ModManagerType type = PGModManager::ModManagerType::None;
             std::filesystem::path mo2InstanceDir;
             bool mo2UseLooseFileOrder = true;
 
@@ -48,21 +48,21 @@ public:
                 return type == other.type && mo2InstanceDir == other.mo2InstanceDir
                     && mo2UseLooseFileOrder == other.mo2UseLooseFileOrder;
             }
-        } ModManager;
+        } modManager;
 
-        // Output
+        // Output.
         struct Output {
             std::filesystem::path dir;
             bool zip = false;
-            PGPlugin::PluginLang pluginLang = PGPlugin::PluginLang::ENGLISH;
+            PGPlugin::PluginLang pluginLang = PGPlugin::PluginLang::English;
 
             auto operator==(const Output& other) const -> bool
             {
                 return dir == other.dir && zip == other.zip && pluginLang == other.pluginLang;
             }
-        } Output;
+        } output;
 
-        // Processing
+        // Processing.
         struct Processing {
             bool multithread = true;
             bool enableModDevMode = false;
@@ -76,23 +76,22 @@ public:
 
             auto operator==(const Processing& other) const -> bool
             {
-                return multithread == other.multithread
-                    && enableModDevMode == other.enableModDevMode && enableDebugLogging == other.enableDebugLogging
-                    && enableTraceLogging == other.enableTraceLogging
+                return multithread == other.multithread && enableModDevMode == other.enableModDevMode
+                    && enableDebugLogging == other.enableDebugLogging && enableTraceLogging == other.enableTraceLogging
                     && allowedModelRecordTypes == other.allowedModelRecordTypes
                     && vanillaBSAList == other.vanillaBSAList && textureMaps == other.textureMaps
                     && allowList == other.allowList && blockList == other.blockList;
             }
-        } Processing;
+        } processing;
 
-        // Pre-Patchers
+        // Pre-Patchers.
         struct PrePatcher {
             bool fixMeshLighting = false;
 
             auto operator==(const PrePatcher& other) const -> bool { return fixMeshLighting == other.fixMeshLighting; }
-        } PrePatcher;
+        } prePatcher;
 
-        // Shader Patchers
+        // Shader Patchers.
         struct ShaderPatcher {
             bool parallax = true;
             bool complexMaterial = true;
@@ -103,16 +102,16 @@ public:
                 return parallax == other.parallax && complexMaterial == other.complexMaterial
                     && truePBR == other.truePBR;
             }
-        } ShaderPatcher;
+        } shaderPatcher;
 
-        // Shader Transforms
+        // Shader Transforms.
         struct ShaderTransforms {
             bool parallaxToCM = false;
 
             auto operator==(const ShaderTransforms& other) const -> bool { return parallaxToCM == other.parallaxToCM; }
-        } ShaderTransforms;
+        } shaderTransforms;
 
-        // Post-Patchers
+        // Post-Patchers.
         struct PostPatcher {
             bool disablePrePatchedMaterials = true;
             bool fixSSS = false;
@@ -123,19 +122,19 @@ public:
                 return disablePrePatchedMaterials == other.disablePrePatchedMaterials && fixSSS == other.fixSSS
                     && hairFlowMap == other.hairFlowMap;
             }
-        } PostPatcher;
+        } postPatcher;
 
-        // Global Patchers
+        // Global Patchers.
         struct GlobalPatcher {
-            auto operator==(const GlobalPatcher& other) const -> bool { return true; }
-        } GlobalPatcher;
+            auto operator==([[maybe_unused]] const GlobalPatcher& other) const -> bool { return true; }
+        } globalPatcher;
 
         auto operator==(const PGParams& other) const -> bool
         {
-            return Game == other.Game && ModManager == other.ModManager && Output == other.Output
-                && Processing == other.Processing && PrePatcher == other.PrePatcher
-                && ShaderPatcher == other.ShaderPatcher && ShaderTransforms == other.ShaderTransforms
-                && PostPatcher == other.PostPatcher && GlobalPatcher == other.GlobalPatcher;
+            return game == other.game && modManager == other.modManager && output == other.output
+                && processing == other.processing && prePatcher == other.prePatcher
+                && shaderPatcher == other.shaderPatcher && shaderTransforms == other.shaderTransforms
+                && postPatcher == other.postPatcher && globalPatcher == other.globalPatcher;
         }
 
         auto operator!=(const PGParams& other) const -> bool { return !(*this == other); }

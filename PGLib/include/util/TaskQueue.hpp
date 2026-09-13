@@ -20,14 +20,14 @@
  */
 class TaskQueue {
 private:
-    static constexpr int LOOP_INTERVAL = 10; /** Worker loop interval in milliseconds */
+    static constexpr int loopInterval = 10; /** Worker loop interval in milliseconds */
 
     std::queue<std::function<void()>> m_taskQueue;
     std::mutex m_queueMutex;
     std::condition_variable m_cv;
-    std::atomic<bool> m_running {true};
-    std::atomic<bool> m_isBusy {false};
-    std::atomic<size_t> m_queuedTasks {0};
+    std::atomic<bool> m_running { true };
+    std::atomic<bool> m_isBusy { false };
+    std::atomic<size_t> m_queuedTasks { 0 };
     std::thread m_workerThread;
 
     static std::function<void()> s_exceptionCallback;
@@ -58,10 +58,10 @@ public:
      * @tparam Func Callable type (any invocable that takes no arguments).
      * @param func The callable to enqueue.
      */
-    template <typename Func> void queueTask(Func&& func)
+    template<typename Func> void queueTask(Func&& func)
     {
         if (ExceptionHandler::hasException()) {
-            // exception was thrown, don't allow any further queued tasks
+            // Exception was thrown, don't allow any further queued tasks.
             return;
         }
 

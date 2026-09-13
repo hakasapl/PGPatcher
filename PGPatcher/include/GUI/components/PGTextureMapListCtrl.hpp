@@ -7,7 +7,7 @@
 
 class PGTextureMapListCtrl : public PGModifiableListCtrl {
 private:
-    wxComboBox* m_textureMapTypeCombo; /** Stores the texture map type combo box */
+    wxComboBox* m_textureMapTypeCombo { nullptr }; /** Stores the texture map type combo box */
 
 public:
     /**

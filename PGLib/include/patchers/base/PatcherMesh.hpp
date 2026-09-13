@@ -38,7 +38,7 @@ public:
     static void clearTextureSets(const std::filesystem::path& nifPath);
 
 private:
-    // Instance vars
+    // Instance vars.
     std::filesystem::path m_nifPath; /** Stores the path to the NIF file currently being patched */
     nifly::NifFile* m_nif; /** Stores the NIF object itself */
 

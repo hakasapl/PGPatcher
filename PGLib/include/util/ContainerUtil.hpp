@@ -16,7 +16,7 @@ namespace ContainerUtil {
  * @param test The value to look for.
  * @return true if the value is found in the vector, false otherwise.
  */
-template <typename T>
+template<typename T>
 auto isInVector(const std::vector<T>& vec,
                 const T& test) -> bool
 {
@@ -30,7 +30,7 @@ auto isInVector(const std::vector<T>& vec,
  * @param vec1 Destination vector that receives unique elements from vec2.
  * @param vec2 Source vector whose elements are merged into vec1.
  */
-template <typename T>
+template<typename T>
 void concatenateVectorsWithoutDuplicates(std::vector<T>& vec1,
                                          const std::vector<T>& vec2)
 {
@@ -51,13 +51,12 @@ void concatenateVectorsWithoutDuplicates(std::vector<T>& vec1,
  * @param vec The vector to insert into.
  * @param element The element to add if not already present.
  */
-template <typename T>
+template<typename T>
 void addUniqueElement(std::vector<T>& vec,
                       const T& element)
 {
-    if (std::find(vec.begin(), vec.end(), element) == vec.end()) {
+    if (std::find(vec.begin(), vec.end(), element) == vec.end())
         vec.push_back(element);
-    }
 }
 
 }

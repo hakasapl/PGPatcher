@@ -64,8 +64,8 @@ public:
      */
     struct ShaderPatcherMatch {
         std::shared_ptr<PGModManager::Mod> mod;
-        PGEnums::ShapeShader shader {};
-        PatcherMeshShader::PatcherMatch match {};
-        PGEnums::ShapeShader shaderTransformTo {};
+        PGEnums::ShapeShader shader { };
+        PatcherMeshShader::PatcherMatch match { };
+        PGEnums::ShapeShader shaderTransformTo { };
     };
 };

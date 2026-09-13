@@ -12,42 +12,38 @@
 #include <variant>
 #include <vector>
 
-using namespace std;
+// Static thread-local variables.
+thread_local std::vector<std::wstring> Logger::s_prefixStack;
 
-// Static thread-local variables
-thread_local vector<wstring> Logger::s_prefixStack;
-
-// Helper function to build the full prefix string
-auto Logger::buildPrefixWString() -> wstring
+// Helper function to build the full prefix string.
+auto Logger::buildPrefixWString() -> std::wstring
 {
-    wstringstream fullPrefix;
-    for (const auto& block : Logger::s_prefixStack) {
+    std::wstringstream fullPrefix;
+    for (const auto& block : Logger::s_prefixStack)
         fullPrefix << L"[" << block << L"] ";
-    }
     return fullPrefix.str();
 }
 
-auto Logger::buildPrefixString() -> string { return StringUtil::utf16toUTF8(buildPrefixWString()); }
+auto Logger::buildPrefixString() -> std::string { return StringUtil::utf16toUTF8(buildPrefixWString()); }
 
-// ScopedPrefix class implementation
-Logger::Prefix::Prefix(const wstring& prefix)
+// ScopedPrefix class implementation.
+Logger::Prefix::Prefix(const std::wstring& prefix)
 {
-    // Add the new prefix block to the stack
+    // Add the new prefix block to the stack.
     s_prefixStack.push_back(prefix);
 }
 
-Logger::Prefix::Prefix(const string& prefix)
+Logger::Prefix::Prefix(const std::string& prefix)
 {
-    // Add the new prefix block to the stack
+    // Add the new prefix block to the stack.
     s_prefixStack.push_back(StringUtil::utf8toUTF16(prefix));
 }
 
 Logger::Prefix::~Prefix()
 {
-    // Remove the last prefix block
-    if (!s_prefixStack.empty()) {
+    // Remove the last prefix block.
+    if (!s_prefixStack.empty())
         s_prefixStack.pop_back();
-    }
 }
 
 void Logger::setThreadMessageCapture(MessageCaptureFn captureFn) { s_threadMessageCapture = captureFn; }
@@ -62,9 +58,8 @@ void Logger::markRunStart()
 void Logger::resetToRunStart()
 {
     const std::unique_lock lock(s_existingMessagesMutex);
-    if (!s_runStartMarked) {
+    if (!s_runStartMarked)
         return;
-    }
 
     s_existingMessages = s_runStartMessages;
 }
@@ -77,7 +72,7 @@ void Logger::startThreadedBuffer()
 
 void Logger::flushThreadedBuffer()
 {
-    // prevent any other log messages for the whole flush
+    // Prevent any other log messages for the whole flush.
     const std::unique_lock lock(s_mtLogLock);
 
     s_isThreadedBufferActive = false;
@@ -85,11 +80,10 @@ void Logger::flushThreadedBuffer()
         std::visit(
             [level](auto&& value) -> auto {
                 using T = std::decay_t<decltype(value)>;
-                if constexpr (std::is_same_v<T, std::wstring>) {
+                if constexpr (std::is_same_v<T, std::wstring>)
                     spdlog::log(level, L"{}", value);
-                } else {
+                else
                     spdlog::log(level, "{}", value);
-                }
             },
             message);
     }

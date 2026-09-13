@@ -65,4 +65,4 @@ public:
 /**
  * @brief Shorthand for PGLocale::tr
  */
-[[nodiscard]] inline auto PGTr(const std::string& key) -> wxString { return PGLocale::tr(key); }
+[[nodiscard]] inline auto pgTr(const std::string& key) -> wxString { return PGLocale::tr(key); }

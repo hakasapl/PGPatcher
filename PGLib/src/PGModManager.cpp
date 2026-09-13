@@ -40,19 +40,14 @@
 
 #include <tlhelp32.h>
 
-using namespace std;
-
 auto PGModManager::fromHexDigit(char c) -> uint8_t
 {
-    if (c >= '0' && c <= '9') {
+    if (c >= '0' && c <= '9')
         return static_cast<uint8_t>(c - '0');
-    }
-    if (c >= 'a' && c <= 'f') {
-        return static_cast<uint8_t>(HEX_ALPHA_BASE + (c - 'a'));
-    }
-    if (c >= 'A' && c <= 'F') {
-        return static_cast<uint8_t>(HEX_ALPHA_BASE + (c - 'A'));
-    }
+    if (c >= 'a' && c <= 'f')
+        return static_cast<uint8_t>(hexAlphaBase + (c - 'a'));
+    if (c >= 'A' && c <= 'F')
+        return static_cast<uint8_t>(hexAlphaBase + (c - 'A'));
     return 0;
 }
 
@@ -99,48 +94,45 @@ PGModManager::PGModManager(const ModManagerType& mmType)
 {
 }
 
-auto PGModManager::getModFileMap() const -> const unordered_map<filesystem::path,
-                                                                shared_ptr<Mod>>&
+auto PGModManager::getModFileMap() const -> const std::unordered_map<std::filesystem::path,
+                                                                     std::shared_ptr<Mod>>&
 {
     return m_modFileMap;
 }
 
-auto PGModManager::getModByFile(const filesystem::path& relPath) const -> shared_ptr<Mod>
+auto PGModManager::getModByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>
 {
-    if (m_modFileMap.contains(relPath)) {
+    if (m_modFileMap.contains(relPath))
         return m_modFileMap.at(relPath);
-    }
 
     return nullptr;
 }
 
-auto PGModManager::getModByFileSmart(const filesystem::path& relPath) const -> shared_ptr<Mod>
+auto PGModManager::getModByFileSmart(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>
 {
-    // accounts for files in BSAs
+    // Accounts for files in BSAs.
 
-    // get mod searchable file from PGD
+    // Get mod searchable file from PGD.
     auto* pgd = PGGlobals::getPGD();
-    if (pgd == nullptr) {
-        throw runtime_error("PGD is null");
-    }
+    if (pgd == nullptr)
+        throw std::runtime_error("PGD is null");
 
     const auto modSearchableFile = pgd->getModLookupFile(relPath);
 
     auto mod = getModByFile(modSearchableFile);
 
-    // record lookup for incremental runs (no-op unless a mesh is being recorded on this thread)
-    PGRunCache::recordModOfFile(relPath, mod == nullptr ? wstring() : mod->name);
+    // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
+    PGRunCache::recordModOfFile(relPath, mod == nullptr ? std::wstring() : mod->name);
 
     return mod;
 }
 
-auto PGModManager::getMods() const -> vector<shared_ptr<Mod>>
+auto PGModManager::getMods() const -> std::vector<std::shared_ptr<Mod>>
 {
-    vector<shared_ptr<Mod>> mods;
+    std::vector<std::shared_ptr<Mod>> mods;
     for (const auto& [modName, mod] : m_modMap) {
-        if (modName.empty()) {
+        if (modName.empty())
             continue; // skip empty mod
-        }
 
         mods.push_back(mod);
     }
@@ -148,86 +140,79 @@ auto PGModManager::getMods() const -> vector<shared_ptr<Mod>>
     return mods;
 }
 
-auto PGModManager::getModsByPriority() const -> vector<shared_ptr<Mod>>
+auto PGModManager::getModsByPriority() const -> std::vector<std::shared_ptr<Mod>>
 {
-    vector<shared_ptr<Mod>> mods = getMods();
+    std::vector<std::shared_ptr<Mod>> mods = getMods();
 
-    // Sort mods by priority (higher priority first), then by modManagerOrder (lower order first), then by name
+    // Sort mods by priority (higher priority first), then by modManagerOrder (lower order first), then by name.
     std::ranges::stable_sort(
         mods, [](const auto& a, const auto& b) -> auto { return PGModManager::compareMods(a, b, true); });
 
     return mods;
 }
 
-auto PGModManager::getModsByDefaultOrder() const -> vector<shared_ptr<Mod>>
+auto PGModManager::getModsByDefaultOrder() const -> std::vector<std::shared_ptr<Mod>>
 {
-    vector<shared_ptr<Mod>> mods = getMods();
+    std::vector<std::shared_ptr<Mod>> mods = getMods();
 
-    // Sort mods by modManagerOrder (lower order first), then by name
+    // Sort mods by modManagerOrder (lower order first), then by name.
     std::ranges::stable_sort(
         mods, [](const auto& a, const auto& b) -> auto { return PGModManager::compareMods(a, b, false); });
 
     return mods;
 }
 
-auto PGModManager::getMod(const wstring& modName) const -> shared_ptr<Mod>
+auto PGModManager::getMod(const std::wstring& modName) const -> std::shared_ptr<Mod>
 {
-    if (m_modMap.contains(modName)) {
+    if (m_modMap.contains(modName))
         return m_modMap.at(modName);
-    }
 
     return nullptr;
 }
 
 void PGModManager::loadJSON(const nlohmann::json& json)
 {
-    if (!json.is_object()) {
-        throw runtime_error("JSON is not an object");
-    }
+    if (!json.is_object())
+        throw std::runtime_error("JSON is not an object");
 
-    m_modRulesLoaded = true;
+    m_didLoadModRules = true;
 
     for (const auto& [modName, properties] : json.items()) {
-        if (modName.empty()) {
+        if (modName.empty())
             continue;
-        }
 
-        if (!properties.is_object()) {
-            throw runtime_error("JSON mod properties is not an object");
-        }
+        if (!properties.is_object())
+            throw std::runtime_error("JSON mod properties is not an object");
 
         int priority = -1;
         if (properties.contains("priority")) {
-            if (!properties["priority"].is_number_integer()) {
-                throw runtime_error("JSON mod priority is not an integer");
-            }
+            if (!properties["priority"].is_number_integer())
+                throw std::runtime_error("JSON mod priority is not an integer");
 
             priority = properties["priority"].get<int>();
         }
 
         bool isEnabled = false;
         if (properties.contains("enabled")) {
-            if (!properties["enabled"].is_boolean()) {
-                throw runtime_error("JSON mod enabled is not a boolean");
-            }
+            if (!properties["enabled"].is_boolean())
+                throw std::runtime_error("JSON mod enabled is not a boolean");
 
             isEnabled = properties["enabled"].get<bool>();
         }
 
         bool areMeshesIgnored = false;
         if (properties.contains("meshesignored")) {
-            if (!properties["meshesignored"].is_boolean()) {
-                throw runtime_error("JSON mod meshesignored is not a boolean");
-            }
+            if (!properties["meshesignored"].is_boolean())
+                throw std::runtime_error("JSON mod meshesignored is not a boolean");
 
             areMeshesIgnored = properties["meshesignored"].get<bool>();
         }
 
-        shared_ptr<Mod> modPtr = nullptr;
+        std::shared_ptr<Mod> modPtr = nullptr;
         const auto modNameWStr = StringUtil::utf8toUTF16(modName);
         if (!m_modMap.contains(modNameWStr)) {
-            // create mod if it doesn't exist
-            modPtr = make_shared<Mod>();
+            // Create mod if it doesn't exist.
+            modPtr = std::make_shared<Mod>();
             modPtr->name = modNameWStr;
             m_modMap[modNameWStr] = modPtr;
         } else {
@@ -241,7 +226,7 @@ void PGModManager::loadJSON(const nlohmann::json& json)
     }
 }
 
-auto PGModManager::hasLoadedModRules() const -> bool { return m_modRulesLoaded; }
+auto PGModManager::hasLoadedModRules() const -> bool { return m_didLoadModRules; }
 
 auto PGModManager::getJSON() -> nlohmann::json
 {
@@ -258,72 +243,73 @@ auto PGModManager::getJSON() -> nlohmann::json
     return json;
 }
 
-void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDir)
+void PGModManager::populateModFileMapVortex(const std::filesystem::path& deploymentDir)
 {
-    // required file is vortex.deployment.json in the data folder
+    // Required file is vortex.deployment.json in the data folder.
     Logger::info("Populating mods from Vortex");
 
     const auto deploymentFile = deploymentDir / "vortex.deployment.json";
 
-    if (!filesystem::exists(deploymentFile)) {
-        throw runtime_error("Vortex deployment file does not exist: "
-                            + StringUtil::utf16toUTF8(deploymentFile.wstring()));
+    if (!std::filesystem::exists(deploymentFile)) {
+        throw std::runtime_error("Vortex deployment file does not exist: "
+                                 + StringUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
-    ifstream vortexDepFileF(deploymentFile);
+    std::ifstream vortexDepFileF(deploymentFile);
     nlohmann::json vortexDeployment = nlohmann::json::parse(vortexDepFileF);
     vortexDepFileF.close();
 
-    // Check that files field exists
+    // Check that files field exists.
     if (!vortexDeployment.contains("files")) {
-        throw runtime_error("Vortex deployment file does not contain 'files' field: "
-                            + StringUtil::utf16toUTF8(deploymentFile.wstring()));
+        throw std::runtime_error("Vortex deployment file does not contain 'files' field: "
+                                 + StringUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
-    // Extract staging path where all Vortex mods are stored
+    // Extract staging path where all Vortex mods are stored.
     if (!vortexDeployment.contains("stagingPath")) {
-        throw runtime_error("Vortex deployment file does not contain 'stagingPath' field: "
-                            + StringUtil::utf16toUTF8(deploymentFile.wstring()));
+        throw std::runtime_error("Vortex deployment file does not contain 'stagingPath' field: "
+                                 + StringUtil::utf16toUTF8(deploymentFile.wstring()));
     }
 
-    const auto stagingPath = filesystem::path(StringUtil::utf8toUTF16(vortexDeployment["stagingPath"].get<string>()));
+    const auto stagingPath
+        = std::filesystem::path(StringUtil::utf8toUTF16(vortexDeployment["stagingPath"].get<std::string>()));
     m_stagingLocation = stagingPath;
 
-    // loop through files
-    unordered_set<wstring> foundMods;
+    // Loop through files.
+    std::unordered_set<std::wstring> foundMods;
     for (const auto& file : vortexDeployment["files"]) {
-        auto relPath = filesystem::path(StringUtil::utf8toUTF16(file["relPath"].get<string>()));
+        const auto relPath = std::filesystem::path(StringUtil::utf8toUTF16(file["relPath"].get<std::string>()));
 
-        // Check if relPath is within s_foldersToMap
-        // Get the first path component of relPath
+        // Check if relPath is within s_foldersToMap.
+        // Get the first path component of relPath.
         const auto relPathStr = boost::to_lower_copy(relPath.begin()->wstring());
         if (!PGGlobals::s_foldersToMap.contains(relPathStr)) {
-            // skip if not mapping from this folder
+            // Skip if not mapping from this folder.
             continue;
         }
 
-        // Get the mod identifier from source field (e.g., "1DwemerArmorSE-81043-1-1671541249")
-        const auto sourceId = StringUtil::utf8toUTF16(file["source"].get<string>());
+        // Get the mod identifier from source field (e.g., "1DwemerArmorSE-81043-1-1671541249").
+        const auto sourceId = StringUtil::utf8toUTF16(file["source"].get<std::string>());
         const auto curModDir = stagingPath / sourceId;
 
-        // Check if mod folder exists
-        if (!filesystem::exists(curModDir)) {
+        // Check if mod folder exists.
+        if (!std::filesystem::exists(curModDir)) {
             Logger::debug(L"Mod directory from vortex.deployment.json does not exist: {}", curModDir.wstring());
             continue;
         }
 
         auto modName = sourceId;
 
-        // filter out modname suffix (e.g., remove "-81043-1-1671541249" from "1DwemerArmorSE-81043-1-1671541249")
-        const static wregex vortexSuffixRe(L"-[0-9]+-.*");
-        modName = regex_replace(modName, vortexSuffixRe, L"");
+        // Filter out modname suffix (e.g., remove "-81043-1-1671541249" from "1DwemerArmorSE-81043-1-1671541249").
+        const static std::wregex vortexSuffixRe(L"-[0-9]+-.*");
+        modName = std::regex_replace(modName, vortexSuffixRe, L"");
 
-        shared_ptr<Mod> modPtr = nullptr;
+        std::shared_ptr<Mod> modPtr = nullptr;
         if (m_modMap.contains(modName)) {
-            // skip if already in map
+            // Skip if already in map.
             modPtr = m_modMap.at(modName);
         } else {
-            modPtr = make_shared<Mod>();
+            modPtr = std::make_shared<Mod>();
             modPtr->name = modName;
             modPtr->isNew = true;
             modPtr->priority = -1;
@@ -332,7 +318,7 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
         modPtr->modManagerOrder = 0; // Vortex does not have a mod manager order system by default
         modPtr->folder = curModDir; // Store the actual mod folder path
 
-        // Update file map
+        // Update file map.
         Logger::trace(L"Mapping file to mod: {} -> {}", relPath.wstring(), modName);
 
         m_modMap[modName] = modPtr;
@@ -340,86 +326,83 @@ void PGModManager::populateModFileMapVortex(const filesystem::path& deploymentDi
         m_modFileMap[StringUtil::toLowerASCII(relPath.wstring())] = modPtr;
     }
 
-    // delete any mods from file map that were not found
-    for (auto it = m_modMap.begin(); it != m_modMap.end();) {
-        if (!foundMods.contains(it->second->name)) {
+    // Delete any mods from file map that were not found.
+    for (auto it = m_modMap.begin(); it != m_modMap.end();)
+        if (!foundMods.contains(it->second->name))
             it = m_modMap.erase(it);
-        } else {
+        else
             ++it;
-        }
-    }
 }
 
-void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
-                                         const filesystem::path& outputDir)
+void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDir,
+                                         const std::filesystem::path& outputDir)
 {
-    // required file is modlist.txt in the profile folder
+    // Required file is modlist.txt in the profile folder.
 
     Logger::info("Populating mods from Mod Organizer 2");
 
-    // First read modorganizer.ini in the instance folder to get the profiles and mods folders
-    const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
-    if (!filesystem::exists(mo2IniFile)) {
-        throw runtime_error("Mod Organizer 2 ini file does not exist: "
-                            + StringUtil::utf16toUTF8(mo2IniFile.wstring()));
+    // First read modorganizer.ini in the instance folder to get the profiles and mods folders.
+    const std::filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
+    if (!std::filesystem::exists(mo2IniFile)) {
+        throw std::runtime_error("Mod Organizer 2 ini file does not exist: "
+                                 + StringUtil::utf16toUTF8(mo2IniFile.wstring()));
     }
 
-    auto mo2Paths = getMO2FilePaths(instanceDir);
-    const auto profileDir = mo2Paths.first;
-    const auto modDir = mo2Paths.second;
+    const auto [profileDir, modDir] = getMO2FilePaths(instanceDir);
+
     m_stagingLocation = modDir;
 
-    // Find location of modlist.txt
+    // Find location of modlist.txt.
     const auto curProfile = getSelectedProfileFromInstanceDir(instanceDir);
     const auto modListFile = profileDir / curProfile / "modlist.txt";
-    if (!filesystem::exists(modListFile)) {
-        throw runtime_error("Mod Organizer 2 modlist.txt file does not exist: "
-                            + StringUtil::utf16toUTF8(modListFile.wstring()));
+    if (!std::filesystem::exists(modListFile)) {
+        throw std::runtime_error("Mod Organizer 2 modlist.txt file does not exist: "
+                                 + StringUtil::utf16toUTF8(modListFile.wstring()));
     }
 
-    ifstream modListFileF(modListFile);
+    std::ifstream modListFileF(modListFile);
     bool foundOneMod = false;
 
-    // loop through modlist.txt
-    string modStr;
+    // Loop through modlist.txt.
+    std::string modStr;
     int basePriority = 0;
-    unordered_set<wstring> foundMods;
+    std::unordered_set<std::wstring> foundMods;
     while (getline(modListFileF, modStr)) {
-        wstring mod = StringUtil::utf8toUTF16(modStr);
+        std::wstring mod = StringUtil::utf8toUTF16(modStr);
         if (mod.empty()) {
-            // skip empty lines
+            // Skip empty lines.
             continue;
         }
 
-        if (mod.starts_with(L"-") || mod.starts_with(L"*")) {
-            // Skip disabled and uncontrolled mods
+        if (mod.starts_with(L'-') || mod.starts_with(L'*')) {
+            // Skip disabled and uncontrolled mods.
             continue;
         }
 
-        if (mod.starts_with(L"#")) {
-            // Skip comments
+        if (mod.starts_with(L'#')) {
+            // Skip comments.
             continue;
         }
 
         if (mod.ends_with(L"_separator")) {
-            // Skip separators
+            // Skip separators.
             continue;
         }
 
-        // loop through all files in mod
+        // Loop through all files in mod.
         mod.erase(0, 1); // remove +
         const auto curModDir = modDir / mod;
 
-        // Check if mod folder exists
-        if (!filesystem::exists(curModDir)) {
+        // Check if mod folder exists.
+        if (!std::filesystem::exists(curModDir)) {
             Logger::debug(L"Mod directory from modlist.txt does not exist: {}", curModDir.wstring());
             Logger::critical("modlist.txt from MO2 does not reflect the contents of the mods folder. This should not "
                              "happen unless MO2 is in a corrupt state.");
             return;
         }
 
-        // check if mod dir is output dir
-        if (filesystem::equivalent(curModDir, outputDir)) {
+        // Check if mod dir is output dir.
+        if (std::filesystem::equivalent(curModDir, outputDir)) {
             Logger::critical(L"If outputting to MO2 you must disable the mod {} first to prevent issues with MO2 VFS",
                              mod);
             return;
@@ -427,12 +410,12 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
 
         foundOneMod = true;
 
-        shared_ptr<Mod> modPtr = nullptr;
+        std::shared_ptr<Mod> modPtr = nullptr;
         if (m_modMap.contains(mod)) {
-            // skip if already in map
+            // Skip if already in map.
             modPtr = m_modMap.at(mod);
         } else {
-            modPtr = make_shared<Mod>();
+            modPtr = std::make_shared<Mod>();
             modPtr->name = mod;
             modPtr->isNew = true;
             modPtr->priority = -1;
@@ -445,60 +428,56 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
         m_modMap[mod] = modPtr;
         for (const auto& folder : PGGlobals::s_foldersToMap) {
             const auto curSearchDir = curModDir / folder;
-            if (!filesystem::exists(curSearchDir)) {
-                // skip if folder doesn't exist
+            if (!std::filesystem::exists(curSearchDir)) {
+                // Skip if folder doesn't exist.
                 continue;
             }
 
             try {
-                for (auto it = filesystem::recursive_directory_iterator(
-                         curSearchDir, filesystem::directory_options::skip_permission_denied);
-                     it != filesystem::recursive_directory_iterator();
+                for (auto it = std::filesystem::recursive_directory_iterator(
+                         curSearchDir, std::filesystem::directory_options::skip_permission_denied);
+                     it != std::filesystem::recursive_directory_iterator();
                      ++it) {
                     const auto file = *it;
 
                     if (BethesdaDirectory::isHidden(file.path())) {
                         if (file.is_directory()) {
-                            // If it's a directory, don't recurse into it
+                            // If it's a directory, don't recurse into it.
                             it.disable_recursion_pending();
                         }
                         continue;
                     }
 
-                    if (!filesystem::is_regular_file(file)) {
+                    if (!std::filesystem::is_regular_file(file))
                         continue;
-                    }
 
-                    // skip meta.ini file
-                    if (boost::iequals(file.path().filename().wstring(), L"meta.ini")) {
+                    // Skip meta.ini file.
+                    if (boost::iequals(file.path().filename().wstring(), L"meta.ini"))
                         continue;
-                    }
 
-                    auto relPath = filesystem::relative(file, curModDir);
-                    const filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
-                    // check if already in map
-                    if (m_modFileMap.contains(relPathLower)) {
+                    const auto relPath = std::filesystem::relative(file, curModDir);
+                    const std::filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
+                    // Check if already in map.
+                    if (m_modFileMap.contains(relPathLower))
                         continue;
-                    }
 
                     Logger::trace(L"Mapping file to mod: {} -> {}", relPathLower.wstring(), mod);
 
                     m_modFileMap[relPathLower] = modPtr;
                 }
-            } catch (const filesystem::filesystem_error& e) {
+            } catch (const std::filesystem::filesystem_error& e) {
                 Logger::error(L"Error reading mod directory {}: {}", mod, StringUtil::asciitoUTF16(e.what()));
             }
         }
 
-        // map any BSAs
-        for (const auto& file : filesystem::directory_iterator(curModDir)) {
+        // Map any BSAs.
+        for (const auto& file : std::filesystem::directory_iterator(curModDir)) {
             if (file.is_regular_file() && boost::iequals(file.path().extension().wstring(), ".bsa")) {
-                const auto relPath = filesystem::relative(file, curModDir);
-                const filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
-                // check if already in map
-                if (m_modFileMap.contains(relPathLower)) {
+                const auto relPath = std::filesystem::relative(file, curModDir);
+                const std::filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
+                // Check if already in map.
+                if (m_modFileMap.contains(relPathLower))
                     continue;
-                }
 
                 Logger::trace(L"Mapping file to mod: {} -> {}", relPathLower.wstring(), mod);
 
@@ -507,14 +486,12 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
         }
     }
 
-    // delete any mods from file map that were not found
-    for (auto it = m_modMap.begin(); it != m_modMap.end();) {
-        if (!foundMods.contains(it->second->name)) {
+    // Delete any mods from file map that were not found.
+    for (auto it = m_modMap.begin(); it != m_modMap.end();)
+        if (!foundMods.contains(it->second->name))
             it = m_modMap.erase(it);
-        } else {
+        else
             ++it;
-        }
-    }
 
     if (!foundOneMod) {
         Logger::critical(L"MO2 modlist.txt was empty, no mods found");
@@ -524,37 +501,37 @@ void PGModManager::populateModFileMapMO2(const filesystem::path& instanceDir,
     modListFileF.close();
 }
 
-auto PGModManager::getModManagerTypes() -> vector<ModManagerType>
+auto PGModManager::getModManagerTypes() -> std::vector<ModManagerType>
 {
-    return {ModManagerType::NONE, ModManagerType::VORTEX, ModManagerType::MODORGANIZER2};
+    return { ModManagerType::None, ModManagerType::VORTEX, ModManagerType::MODORGANIZER2 };
 }
 
-auto PGModManager::getStrFromModManagerType(const ModManagerType& type) -> string
+auto PGModManager::getStrFromModManagerType(const ModManagerType& type) -> std::string
 {
-    const static auto modManagerTypeToStrMap
-        = unordered_map<ModManagerType, string> {{ModManagerType::NONE, "None"},
-                                                 {ModManagerType::VORTEX, "Vortex"},
-                                                 {ModManagerType::MODORGANIZER2, "Mod Organizer 2"}};
+    const static auto modManagerTypeToStrMap = std::unordered_map<ModManagerType, std::string> {
+        { ModManagerType::None, "None" },
+        { ModManagerType::VORTEX, "Vortex" },
+        { ModManagerType::MODORGANIZER2, "Mod Organizer 2" },
+    };
 
-    if (modManagerTypeToStrMap.contains(type)) {
+    if (modManagerTypeToStrMap.contains(type))
         return modManagerTypeToStrMap.at(type);
-    }
 
-    return modManagerTypeToStrMap.at(ModManagerType::NONE);
+    return modManagerTypeToStrMap.at(ModManagerType::None);
 }
 
-auto PGModManager::getStagingLocation() const -> const filesystem::path& { return m_stagingLocation; }
+auto PGModManager::getStagingLocation() const -> const std::filesystem::path& { return m_stagingLocation; }
 
-auto PGModManager::getModManagerTypeFromStr(const string& type) -> ModManagerType
+auto PGModManager::getModManagerTypeFromStr(const std::string& type) -> ModManagerType
 {
-    const static auto modManagerStrToTypeMap
-        = unordered_map<string, ModManagerType> {{"None", ModManagerType::NONE},
-                                                 {"Vortex", ModManagerType::VORTEX},
-                                                 {"Mod Organizer 2", ModManagerType::MODORGANIZER2}};
+    const static auto modManagerStrToTypeMap = std::unordered_map<std::string, ModManagerType> {
+        { "None", ModManagerType::None },
+        { "Vortex", ModManagerType::VORTEX },
+        { "Mod Organizer 2", ModManagerType::MODORGANIZER2 },
+    };
 
-    if (modManagerStrToTypeMap.contains(type)) {
+    if (modManagerStrToTypeMap.contains(type))
         return modManagerStrToTypeMap.at(type);
-    }
 
     return modManagerStrToTypeMap.at("None");
 }
@@ -565,17 +542,16 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     const auto allMods = getMods();
 
     // Collect newly discovered mods that should be auto-enabled and assigned fresh priorities.
-    vector<shared_ptr<Mod>> autoEnabledNewMods;
+    std::vector<std::shared_ptr<Mod>> autoEnabledNewMods;
     autoEnabledNewMods.reserve(allMods.size());
     for (const auto& modEntry : allMods) {
         const bool hasPatchableShader
             = !modEntry->shaders.empty() && *modEntry->shaders.rbegin() > PGEnums::ShapeShader::NONE;
-        if (!modEntry->isNew || !hasPatchableShader) {
+        if (!modEntry->isNew || !hasPatchableShader)
             continue;
-        }
 
         {
-            const unique_lock<shared_mutex> modLock(modEntry->mutex);
+            const std::unique_lock<std::shared_mutex> modLock(modEntry->mutex);
             modEntry->isEnabled = true;
         }
 
@@ -589,28 +565,25 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
 
     // Continue priority assignment above the current maximum.
     int highestAssignedPriority = 0;
-    for (const auto& modEntry : allMods) {
+    for (const auto& modEntry : allMods)
         highestAssignedPriority = std::max(modEntry->priority, highestAssignedPriority);
-    }
 
-    for (auto& newModEntry : std::ranges::reverse_view(autoEnabledNewMods)) {
-        const unique_lock<shared_mutex> modLock(newModEntry->mutex);
+    for (const auto& newModEntry : std::ranges::reverse_view(autoEnabledNewMods)) {
+        const std::unique_lock<std::shared_mutex> modLock(newModEntry->mutex);
         newModEntry->priority = ++highestAssignedPriority;
     }
 
-    const vector<shared_ptr<Mod>> modsSortedBySelectedBaseOrder
+    const std::vector<std::shared_ptr<Mod>> modsSortedBySelectedBaseOrder
         = useDefaultOrder && m_mmType == ModManagerType::MODORGANIZER2 ? getModsByDefaultOrder() : getModsByPriority();
 
-    // The mod sort dialog only displays mods with shaders or meshes and assigns priorities over those
+    // The mod sort dialog only displays mods with shaders or meshes and assigns priorities over those.
     // rows alone. Number the same subset here; including hidden mods would offset every priority by the
     // hidden-mod count and make the dialog report unsaved changes when the user changed nothing.
-    vector<shared_ptr<Mod>> displayedMods;
+    std::vector<std::shared_ptr<Mod>> displayedMods;
     displayedMods.reserve(modsSortedBySelectedBaseOrder.size());
-    for (const auto& modEntry : modsSortedBySelectedBaseOrder) {
-        if (!modEntry->shaders.empty() || modEntry->hasMeshes) {
+    for (const auto& modEntry : modsSortedBySelectedBaseOrder)
+        if (!modEntry->shaders.empty() || modEntry->hasMeshes)
             displayedMods.push_back(modEntry);
-        }
-    }
 
     // Rebuild ordering to enabled-first while preserving relative order within each group.
     std::ranges::stable_partition(displayedMods, [](const auto& modEntry) -> bool { return modEntry->isEnabled; });
@@ -619,64 +592,62 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     for (int orderedIndex = 0; orderedIndex < modCount; ++orderedIndex) {
         const auto& modEntry = displayedMods.at(static_cast<size_t>(orderedIndex));
         if (modEntry->isEnabled) {
-            const unique_lock<shared_mutex> modLock(modEntry->mutex);
+            const std::unique_lock<std::shared_mutex> modLock(modEntry->mutex);
             modEntry->priority = modCount - orderedIndex;
         }
     }
 }
 
-void PGModManager::addShaderToModByFile(const filesystem::path& relPath,
+void PGModManager::addShaderToModByFile(const std::filesystem::path& relPath,
                                         const PGEnums::ShapeShader& shader) const
 {
-    auto modPtr = getModByFileSmart(relPath);
-    if (modPtr == nullptr) {
+    const auto modPtr = getModByFileSmart(relPath);
+    if (modPtr == nullptr)
         return;
-    }
 
     const std::unique_lock<std::shared_mutex> modLock(modPtr->mutex);
     modPtr->shaders.insert(shader);
 }
 
-auto PGModManager::isValidMO2InstanceDir(const filesystem::path& instanceDir) -> bool
+auto PGModManager::isValidMO2InstanceDir(const std::filesystem::path& instanceDir) -> bool
 {
-    // Check if the instance directory contains the required files
-    const filesystem::path modOrganizerIni = instanceDir / "modorganizer.ini";
+    // Check if the instance directory contains the required files.
+    const std::filesystem::path modOrganizerIni = instanceDir / "modorganizer.ini";
 
-    return filesystem::exists(modOrganizerIni);
+    return std::filesystem::exists(modOrganizerIni);
 }
 
 auto PGModManager::getMO2INIField(const std::filesystem::path& instanceDir,
                                   const std::string& fieldName,
                                   const bool& isByteArray) -> std::wstring
 {
-    // Find MO2 paths from ModOrganizer.ini
-    const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
-    if (!filesystem::exists(mo2IniFile)) {
-        return {};
-    }
+    // Find MO2 paths from ModOrganizer.ini.
+    const std::filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
+    if (!std::filesystem::exists(mo2IniFile))
+        return { };
 
-    ifstream mo2IniFileF(mo2IniFile);
-    string mo2IniLine;
+    std::ifstream mo2IniFileF(mo2IniFile);
+    std::string mo2IniLine;
     while (getline(mo2IniFileF, mo2IniLine)) {
         if (mo2IniLine.starts_with(fieldName)) {
             auto fieldValue = mo2IniLine.substr(fieldName.size());
             mo2IniFileF.close();
 
-            // remove leading and trailing quotes
+            // Remove leading and trailing quotes.
             boost::trim_if(fieldValue, boost::is_any_of("\""));
 
             // remove @ByteArray( and ) from the string if isByteArray is true
-            if (isByteArray && boost::starts_with(fieldValue, MO2INI_BYTEARRAYPREFIX)
-                && boost::ends_with(fieldValue, MO2INI_BYTEARRAYSUFFIX)) {
-                const auto byteArrayVal = fieldValue.substr(strlen(MO2INI_BYTEARRAYPREFIX),
-                                                            fieldValue.size() - strlen(MO2INI_BYTEARRAYPREFIX)
-                                                                - strlen(MO2INI_BYTEARRAYSUFFIX));
+            if (isByteArray && boost::starts_with(fieldValue, mo2IniByteArrayPrefix)
+                && boost::ends_with(fieldValue, mo2IniByteArraySuffix)) {
+                const auto byteArrayVal = fieldValue.substr(strlen(mo2IniByteArrayPrefix),
+                                                            fieldValue.size() - strlen(mo2IniByteArrayPrefix)
+                                                                - strlen(mo2IniByteArraySuffix));
                 return decodeQtByteArrayValue(byteArrayVal);
             }
 
             auto parsedVal = StringUtil::utf8toUTF16(fieldValue);
 
-            // replace backslashes with single ones
+            // Replace backslashes with single ones.
             boost::replace_all(parsedVal, L"\\\\", L"\\");
 
             return parsedVal;
@@ -685,40 +656,38 @@ auto PGModManager::getMO2INIField(const std::filesystem::path& instanceDir,
 
     mo2IniFileF.close();
 
-    return {}; // default to empty if not found
+    return { }; // default to empty if not found
 }
 
-auto PGModManager::getGamePathFromInstanceDir(const filesystem::path& instanceDir) -> filesystem::path
+auto PGModManager::getGamePathFromInstanceDir(const std::filesystem::path& instanceDir) -> std::filesystem::path
 {
-    return resolveMO2GamePath(getMO2INIField(instanceDir, MO2INI_GAMEDIR_KEY, true), instanceDir);
+    return resolveMO2GamePath(getMO2INIField(instanceDir, mo2IniGameDirKey, true), instanceDir);
 }
 
-auto PGModManager::getMO2DirFromUSVFS() -> filesystem::path
+auto PGModManager::getMO2DirFromUSVFS() -> std::filesystem::path
 {
-    // MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that
-    // loaded module is the folder containing ModOrganizer.exe
+    // MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that.
+    // Loaded module is the folder containing ModOrganizer.exe.
     HANDLE hSnapshot = INVALID_HANDLE_VALUE;
-    for (unsigned attempt = 0; attempt < MODULE_SNAPSHOT_MAX_ATTEMPTS; ++attempt) {
+    for (unsigned attempt = 0; attempt < moduleSnapshotMaxAttempts; ++attempt) {
         hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
-        if (hSnapshot != INVALID_HANDLE_VALUE || GetLastError() != ERROR_BAD_LENGTH) {
+        if (hSnapshot != INVALID_HANDLE_VALUE || GetLastError() != ERROR_BAD_LENGTH)
             break;
-        }
-        // transient: the module list changed while the snapshot was taken, retry
+        // Transient: the module list changed while the snapshot was taken, retry.
     }
 
-    if (hSnapshot == INVALID_HANDLE_VALUE) {
-        return {};
-    }
+    if (hSnapshot == INVALID_HANDLE_VALUE)
+        return { };
 
-    filesystem::path mo2Dir;
-    MODULEENTRY32W me32 {};
+    std::filesystem::path mo2Dir;
+    MODULEENTRY32W me32 { };
     me32.dwSize = sizeof(MODULEENTRY32W);
     if (Module32FirstW(hSnapshot, &me32) != 0) {
         do { // NOLINT(cppcoreguidelines-avoid-do-while)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
-            if (boost::iequals(wstring(me32.szModule), wstring(MO2_USVFS_DLL_NAME))) {
+            if (boost::iequals(std::wstring(me32.szModule), std::wstring(mo2UsvfsDLLName))) {
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
-                mo2Dir = filesystem::path(me32.szExePath).parent_path();
+                mo2Dir = std::filesystem::path(me32.szExePath).parent_path();
                 break;
             }
         } while (Module32NextW(hSnapshot, &me32) != 0);
@@ -728,50 +697,46 @@ auto PGModManager::getMO2DirFromUSVFS() -> filesystem::path
     return mo2Dir;
 }
 
-auto PGModManager::findMO2Dir(const filesystem::path& instanceDir) -> filesystem::path
+auto PGModManager::findMO2Dir(const std::filesystem::path& instanceDir) -> std::filesystem::path
 {
-    // Primary source: the usvfs DLL MO2 injected into this process, exact for portable and global instances alike
+    // Primary source: the usvfs DLL MO2 injected into this process, exact for portable and global instances alike.
     auto mo2Dir = getMO2DirFromUSVFS();
-    if (!mo2Dir.empty()) {
+    if (!mo2Dir.empty())
         return mo2Dir;
-    }
 
-    // Fallback: a portable instance lives in the MO2 folder itself
-    error_code ec;
-    if (instanceDir.empty() || !filesystem::exists(instanceDir / MO2_EXE_FILENAME, ec)) {
-        return {};
-    }
+    // Fallback: a portable instance lives in the MO2 folder itself.
+    std::error_code ec;
+    if (instanceDir.empty() || !std::filesystem::exists(instanceDir / mo2ExeFilename, ec))
+        return { };
 
     mo2Dir = instanceDir;
     if (mo2Dir.is_relative()) {
-        // keep the result absolute even if the instance folder was given as a relative path
-        const auto absMO2Dir = filesystem::absolute(mo2Dir, ec);
-        if (!ec) {
+        // Keep the result absolute even if the instance folder was given as a relative path.
+        const auto absMO2Dir = std::filesystem::absolute(mo2Dir, ec);
+        if (!ec)
             mo2Dir = absMO2Dir;
-        }
     }
 
     return mo2Dir;
 }
 
-auto PGModManager::resolveMO2GamePath(const filesystem::path& gamePath,
-                                      const filesystem::path& instanceDir) -> filesystem::path
+auto PGModManager::resolveMO2GamePath(const std::filesystem::path& gamePath,
+                                      const std::filesystem::path& instanceDir) -> std::filesystem::path
 {
     if (gamePath.empty() || gamePath.is_absolute()) {
-        // Returned untouched so existing configs (and the update cache keys derived from them) keep their exact value
+        // Returned untouched so existing configs (and the update cache keys derived from them) keep their exact value.
         return gamePath;
     }
 
-    // MO2 sets its working directory to the folder containing ModOrganizer.exe and uses gamePath as-is, so a relative
-    // gamePath is relative to that folder
+    // MO2 sets its working directory to the folder containing ModOrganizer.exe and uses gamePath as-is, so a relative.
+    // GamePath is relative to that folder.
     const auto mo2Dir = findMO2Dir(instanceDir);
-    if (mo2Dir.empty()) {
+    if (mo2Dir.empty())
         return gamePath;
-    }
 
     auto resolved = (mo2Dir / gamePath).lexically_normal();
     if (!resolved.has_filename()) {
-        // drop the trailing separator left behind by values such as "." or "Stock Game\"
+        // Drop the trailing separator left behind by values such as "." or "Stock Game\".
         resolved = resolved.parent_path();
     }
 
@@ -780,94 +745,84 @@ auto PGModManager::resolveMO2GamePath(const filesystem::path& gamePath,
 
 auto PGModManager::getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring
 {
-    return getMO2INIField(instanceDir, MO2INI_PROFILE_KEY, true);
+    return getMO2INIField(instanceDir, mo2IniProfileKey, true);
 }
 
 auto PGModManager::getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType
 {
-    // get game name
-    const auto gameName = getMO2INIField(instanceDir, MO2INI_GAMENAME_KEY, false);
+    // Get game name.
+    const auto gameName = getMO2INIField(instanceDir, mo2IniGameNameKey, false);
 
-    // get game edition
-    const auto gameEdition = getMO2INIField(instanceDir, MO2INI_GAMEEDITION_KEY, false);
+    // Get game edition.
+    const auto gameEdition = getMO2INIField(instanceDir, mo2IniGameEditionKey, false);
 
     if (gameName == L"Skyrim Special Edition") {
-        if (gameEdition == L"Steam") {
-            return BethesdaGame::GameType::SKYRIM_SE;
-        }
+        if (gameEdition == L"Steam")
+            return BethesdaGame::GameType::SkyrimSE;
 
-        if (gameEdition == L"GOG") {
-            return BethesdaGame::GameType::SKYRIM_GOG;
-        }
+        if (gameEdition == L"GOG")
+            return BethesdaGame::GameType::SkyrimGOG;
     }
 
-    if (gameName == L"Enderal Special Edition") {
-        return BethesdaGame::GameType::ENDERAL_SE;
-    }
+    if (gameName == L"Enderal Special Edition")
+        return BethesdaGame::GameType::EnderalSE;
 
-    if (gameName == L"Skyrim VR") {
-        return BethesdaGame::GameType::SKYRIM_VR;
-    }
+    if (gameName == L"Skyrim VR")
+        return BethesdaGame::GameType::SkyrimVR;
 
-    return BethesdaGame::GameType::UNKNOWN; // default to unknown if not found
+    return BethesdaGame::GameType::Unknown; // default to unknown if not found
 }
 
 auto PGModManager::getMO2FilePaths(const std::filesystem::path& instanceDir) -> std::pair<std::filesystem::path,
                                                                                           std::filesystem::path>
 {
-    // Find MO2 paths from ModOrganizer.ini
-    const filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
-    if (!filesystem::exists(mo2IniFile)) {
-        return {{}, {}};
-    }
+    // Find MO2 paths from ModOrganizer.ini.
+    const std::filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
+    if (!std::filesystem::exists(mo2IniFile))
+        return { { }, { } };
 
-    auto profileDirField = getMO2INIField(instanceDir, MO2INI_PROFILESDIR_KEY, true);
-    auto modDirField = getMO2INIField(instanceDir, MO2INI_MODDIR_KEY, true);
-    filesystem::path baseDir = getMO2INIField(instanceDir, MO2INI_BASEDIR_KEY, true);
+    auto profileDirField = getMO2INIField(instanceDir, mo2IniProfilesDirKey, true);
+    auto modDirField = getMO2INIField(instanceDir, mo2IniModDirKey, true);
+    std::filesystem::path baseDir = getMO2INIField(instanceDir, mo2IniBaseDirKey, true);
 
     if (baseDir.empty()) {
-        // if baseDir is empty, set it to the instance directory
+        // If baseDir is empty, set it to the instance directory.
         baseDir = instanceDir;
     }
 
-    // replace any instance of %BASE_DIR% with the base directory
-    const auto baseDirWildcardW = StringUtil::utf8toUTF16(MO2INI_BASEDIR_WILDCARD);
+    // Replace any instance of %BASE_DIR% with the base directory.
+    const auto baseDirWildcardW = StringUtil::utf8toUTF16(mo2IniBaseDirWildcard);
     boost::replace_all(profileDirField, baseDirWildcardW, baseDir.wstring());
     boost::replace_all(modDirField, baseDirWildcardW, baseDir.wstring());
 
-    filesystem::path profileDir = profileDirField;
-    filesystem::path modDir = modDirField;
+    std::filesystem::path profileDir = profileDirField;
+    std::filesystem::path modDir = modDirField;
 
-    if (profileDir.empty()) {
+    if (profileDir.empty())
         profileDir = baseDir / "profiles";
-    }
 
-    if (modDir.empty()) {
+    if (modDir.empty())
         modDir = baseDir / "mods";
-    }
 
-    return {profileDir, modDir};
+    return { profileDir, modDir };
 }
 
 auto PGModManager::compareMods(const std::shared_ptr<Mod>& a,
                                const std::shared_ptr<Mod>& b,
                                bool checkPriority) -> bool
 {
-    // first by priority
-    if (checkPriority && a->priority != b->priority) {
+    // First by priority.
+    if (checkPriority && a->priority != b->priority)
         return a->priority > b->priority; // Higher priority first
-    }
-    // then by mod manager order (MO2 only)
-    if (a->modManagerOrder != b->modManagerOrder) {
+    // Then by mod manager order (MO2 only).
+    if (a->modManagerOrder != b->modManagerOrder)
         return a->modManagerOrder < b->modManagerOrder; // Lower modManagerOrder first
-    }
-    // then by shader
+    // Then by shader.
     const auto maxElemAIt = std::ranges::max_element(a->shaders);
     const auto maxElemBIt = std::ranges::max_element(b->shaders);
     if (maxElemAIt != a->shaders.end() && maxElemBIt != b->shaders.end()) {
-        if (*maxElemAIt != *maxElemBIt) {
+        if (*maxElemAIt != *maxElemBIt)
             return *maxElemAIt > *maxElemBIt;
-        }
     } else if (maxElemAIt != a->shaders.end()) {
         return true;
     } else if (maxElemBIt != b->shaders.end()) {

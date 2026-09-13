@@ -69,10 +69,11 @@
 #include <windows.h>
 #include <wx/colour.h>
 
-constexpr unsigned MAX_LOG_SIZE = 10490000; // 10 MB
-constexpr unsigned MAX_LOG_FILES = 1000;
+constexpr unsigned maxLogSize = 10490000; // 10 MB
+constexpr unsigned maxLogFiles = 1000;
 
-using namespace std;
+namespace {
+
 struct ParallaxGenCLIArgs {
     bool autostart = false;
     bool autostartUpdate = false;
@@ -86,33 +87,29 @@ struct ParallaxGenCLIArgs {
     bool noEsm = false;
 };
 
-namespace {
-
 void addFileToZip(mz_zip_archive& zip,
-                  const filesystem::path& filePath,
-                  const filesystem::path& zipPath)
+                  const std::filesystem::path& filePath,
+                  const std::filesystem::path& zipPath)
 {
-    // ignore Zip file itself
-    if (filePath == zipPath) {
+    // Ignore Zip file itself.
+    if (filePath == zipPath)
         return;
-    }
 
-    vector<std::byte> buffer = FileUtil::getFileBytes(filePath);
+    std::vector<std::byte> buffer = FileUtil::getFileBytes(filePath);
 
-    const filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
+    const std::filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
 
-    // Build ZIP path directly with forward slashes
-    string relativeFilePathUTF8;
+    // Build ZIP path directly with forward slashes.
+    std::string relativeFilePathUTF8;
     bool first = true;
     for (const auto& part : relativePath) {
-        if (!first) {
+        if (!first)
             relativeFilePathUTF8 += '/';
-        }
         first = false;
         relativeFilePathUTF8 += StringUtil::utf16toUTF8(part.wstring());
     }
 
-    // add file to Zip
+    // Add file to Zip.
     if (mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
         == 0) {
         spdlog::critical(L"Error creating output zip file");
@@ -120,35 +117,33 @@ void addFileToZip(mz_zip_archive& zip,
     }
 }
 
-void zipDirectory(const filesystem::path& dirPath,
-                  const filesystem::path& zipPath)
+void zipDirectory(const std::filesystem::path& dirPath,
+                  const std::filesystem::path& zipPath)
 {
     mz_zip_archive zip;
 
-    // init to 0
+    // Init to 0.
     memset(&zip, 0, sizeof(zip));
 
-    // Check if file already exists and delete
-    if (filesystem::exists(zipPath)) {
+    // Check if file already exists and delete.
+    if (std::filesystem::exists(zipPath)) {
         Logger::info(L"Deleting existing output Zip file: {}", zipPath.wstring());
-        filesystem::remove(zipPath);
+        std::filesystem::remove(zipPath);
     }
 
-    // initialize file
-    const string zipPathString = StringUtil::utf16toUTF8(zipPath);
+    // Initialize file.
+    const std::string zipPathString = StringUtil::utf16toUTF8(zipPath);
     if (mz_zip_writer_init_file(&zip, zipPathString.c_str(), 0) == 0) {
         Logger::critical(L"Error creating Zip file: {}", zipPath.wstring());
         return;
     }
 
-    // add each file in directory to Zip
-    for (const auto& entry : filesystem::recursive_directory_iterator(dirPath)) {
-        if (filesystem::is_regular_file(entry.path())) {
+    // Add each file in directory to Zip.
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(dirPath))
+        if (std::filesystem::is_regular_file(entry.path()))
             addFileToZip(zip, entry.path(), zipPath);
-        }
-    }
 
-    // finalize Zip
+    // Finalize Zip.
     if (mz_zip_writer_finalize_archive(&zip) == 0) {
         Logger::critical(L"Error finalizing Zip archive: {}", zipPath.wstring());
         return;
@@ -157,63 +152,64 @@ void zipDirectory(const filesystem::path& dirPath,
     mz_zip_writer_end(&zip);
 }
 
-auto deployDynamicCubemapFile(const filesystem::path& outputDir,
-                              const filesystem::path& exePath) -> void
+auto deployDynamicCubemapFile(const std::filesystem::path& outputDir,
+                              const std::filesystem::path& exePath) -> void
 {
     Logger::info("Installing default dynamic cubemap file");
 
-    // Create Directory
-    const filesystem::path outputCubemapPath
-        = outputDir / PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH.parent_path();
-    filesystem::create_directories(outputCubemapPath);
+    // Create Directory.
+    const std::filesystem::path outputCubemapPath
+        = outputDir / PatcherMeshShaderComplexMaterial::s_dynCubemapPath.parent_path();
+    std::filesystem::create_directories(outputCubemapPath);
 
-    const filesystem::path assetPath = filesystem::path(exePath) / "assets/dynamic1pxcubemap_black.dds";
-    const filesystem::path outputPath
-        = filesystem::path(outputDir) / PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH;
+    const std::filesystem::path assetPath = std::filesystem::path(exePath) / "assets/dynamic1pxcubemap_black.dds";
+    const std::filesystem::path outputPath
+        = std::filesystem::path(outputDir) / PatcherMeshShaderComplexMaterial::s_dynCubemapPath;
 
-    // Move File
-    filesystem::copy_file(assetPath, outputPath, filesystem::copy_options::overwrite_existing);
+    // Move File.
+    std::filesystem::copy_file(assetPath, outputPath, std::filesystem::copy_options::overwrite_existing);
 
-    // Add any files to ignore as generated files
-    PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
+    // Add any files to ignore as generated files.
+    PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_dynCubemapPath);
 }
 
-void initLogger(const filesystem::path& logpath,
+void initLogger(const std::filesystem::path& logpath,
                 bool enableDebug = false,
                 bool enableTrace = false)
 {
-    // delete old logs
-    if (filesystem::exists(logpath.parent_path())) {
+    // Delete old logs.
+    if (std::filesystem::exists(logpath.parent_path())) {
         try {
-            // Only delete files that are .log and start with ParallaxGen
-            for (const auto& entry : filesystem::directory_iterator(logpath.parent_path())) {
+            // Only delete files that are .log and start with ParallaxGen.
+            for (const auto& entry : std::filesystem::directory_iterator(logpath.parent_path())) {
                 if (entry.is_regular_file() && entry.path().extension() == ".log"
                     && entry.path().filename().wstring().starts_with(L"PGPatcher")) {
-                    filesystem::remove(entry.path());
+                    std::filesystem::remove(entry.path());
                 }
             }
-        } catch (const filesystem::filesystem_error& e) {
-            cerr << "Failed to delete old logs: " << e.what() << "\n";
+        } catch (const std::filesystem::filesystem_error& e) {
+            std::cerr << "Failed to delete old logs: " << e.what() << "\n";
         }
     }
 
-    // Create loggers
-    vector<spdlog::sink_ptr> sinks;
-    auto consoleSink = make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    // Create loggers.
+    std::vector<spdlog::sink_ptr> sinks;
+    const auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     sinks.push_back(consoleSink);
 
-    // Rotating file sink
-    auto fileSink = make_shared<spdlog::sinks::rotating_file_sink_mt>(logpath.wstring(), MAX_LOG_SIZE, MAX_LOG_FILES);
+    // Rotating file sink.
+    const auto fileSink
+        = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logpath.wstring(), maxLogSize, maxLogFiles);
     sinks.push_back(fileSink);
 
-    // Messagebox sink
-    auto wxSink = std::make_shared<WXLoggerSink<std::mutex>>();
+    // Messagebox sink.
+    const auto wxSink = std::make_shared<WXLoggerSink<std::mutex>>();
     PGPatcherGlobals::setWXLoggerSink(wxSink);
     sinks.push_back(wxSink);
 
-    auto logger = make_shared<spdlog::logger>("PG", sinks.begin(), sinks.end());
+    const auto logger = std::make_shared<spdlog::logger>("PG", sinks.begin(), sinks.end());
 
-    // register logger parameters
+    // Register logger parameters.
     spdlog::register_logger(logger);
     spdlog::set_default_logger(logger);
     spdlog::set_level(spdlog::level::info);
@@ -235,27 +231,26 @@ void initLogger(const filesystem::path& logpath,
     }
 }
 
-void configureDotNetLibDirectory(const filesystem::path& exeDir)
+void configureDotNetLibDirectory(const std::filesystem::path& exeDir)
 {
     const auto libDir = exeDir / "dotnetlib";
-    if (!filesystem::exists(libDir)) {
+    if (!std::filesystem::exists(libDir))
         return;
-    }
 
     if (SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS) == 0) {
-        cerr << "Failed to configure DLL search directories.\n";
+        std::cerr << "Failed to configure DLL search directories.\n";
         exit(1);
     }
 
     if (AddDllDirectory(libDir.c_str()) == nullptr) {
-        cerr << "Failed to add dotnetlib directory to DLL search path.\n";
+        std::cerr << "Failed to add dotnetlib directory to DLL search path.\n";
         exit(1);
     }
 }
 
-constexpr auto NUM_PREPARING_STEPS = 10;
-constexpr auto NUM_FINALIZING_STEPS = 5;
-constexpr auto NUM_TOTAL_STEPS = 6;
+constexpr auto numPreparingSteps = 10;
+constexpr auto numFinalizingSteps = 5;
+constexpr auto numTotalSteps = 6;
 
 /**
  * @brief Fingerprint of every run setting that influences what is written for a mesh.
@@ -271,53 +266,48 @@ auto computeConfigFingerprint(const PGConfig::PGParams& params,
 
     hasher.add(std::string(PG_FULL_VERSION));
 
-    hasher.add(params.Game.type);
-    hasher.add(StringUtil::toLowerASCII(params.Game.dir.wstring()));
+    hasher.add(params.game.type);
+    hasher.add(StringUtil::toLowerASCII(params.game.dir.wstring()));
 
-    hasher.add(params.ModManager.type);
-    hasher.add(StringUtil::toLowerASCII(params.ModManager.mo2InstanceDir.wstring()));
+    hasher.add(params.modManager.type);
+    hasher.add(StringUtil::toLowerASCII(params.modManager.mo2InstanceDir.wstring()));
 
-    hasher.add(params.Processing.enableModDevMode);
+    hasher.add(params.processing.enableModDevMode);
 
-    vector<uint8_t> recTypes;
-    for (const auto& recType : params.Processing.allowedModelRecordTypes) {
+    std::vector<uint8_t> recTypes;
+    for (const auto& recType : params.processing.allowedModelRecordTypes)
         recTypes.push_back(static_cast<uint8_t>(recType));
-    }
     std::ranges::sort(recTypes);
     hasher.add(static_cast<uint64_t>(recTypes.size()));
-    for (const auto& recType : recTypes) {
+    for (const auto& recType : recTypes)
         hasher.add(recType);
-    }
 
-    hasher.add(static_cast<uint64_t>(params.Processing.vanillaBSAList.size()));
-    for (const auto& bsa : params.Processing.vanillaBSAList) {
+    hasher.add(static_cast<uint64_t>(params.processing.vanillaBSAList.size()));
+    for (const auto& bsa : params.processing.vanillaBSAList)
         hasher.add(StringUtil::toLowerASCII(bsa));
-    }
 
-    hasher.add(static_cast<uint64_t>(params.Processing.textureMaps.size()));
-    for (const auto& [texture, type] : params.Processing.textureMaps) {
+    hasher.add(static_cast<uint64_t>(params.processing.textureMaps.size()));
+    for (const auto& [texture, type] : params.processing.textureMaps) {
         hasher.add(StringUtil::toLowerASCII(texture));
         hasher.add(type);
     }
 
-    hasher.add(static_cast<uint64_t>(params.Processing.allowList.size()));
-    for (const auto& entry : params.Processing.allowList) {
+    hasher.add(static_cast<uint64_t>(params.processing.allowList.size()));
+    for (const auto& entry : params.processing.allowList)
         hasher.add(StringUtil::toLowerASCII(entry));
-    }
 
-    hasher.add(static_cast<uint64_t>(params.Processing.blockList.size()));
-    for (const auto& entry : params.Processing.blockList) {
+    hasher.add(static_cast<uint64_t>(params.processing.blockList.size()));
+    for (const auto& entry : params.processing.blockList)
         hasher.add(StringUtil::toLowerASCII(entry));
-    }
 
-    hasher.add(params.PrePatcher.fixMeshLighting);
-    hasher.add(params.ShaderPatcher.parallax);
-    hasher.add(params.ShaderPatcher.complexMaterial);
-    hasher.add(params.ShaderPatcher.truePBR);
-    hasher.add(params.ShaderTransforms.parallaxToCM);
-    hasher.add(params.PostPatcher.disablePrePatchedMaterials);
-    hasher.add(params.PostPatcher.fixSSS);
-    hasher.add(params.PostPatcher.hairFlowMap);
+    hasher.add(params.prePatcher.fixMeshLighting);
+    hasher.add(params.shaderPatcher.parallax);
+    hasher.add(params.shaderPatcher.complexMaterial);
+    hasher.add(params.shaderPatcher.truePBR);
+    hasher.add(params.shaderTransforms.parallaxToCM);
+    hasher.add(params.postPatcher.disablePrePatchedMaterials);
+    hasher.add(params.postPatcher.fixSSS);
+    hasher.add(params.postPatcher.hairFlowMap);
 
     hasher.add(args.considerAllMeshes);
     hasher.add(args.disableDynCubemap);
@@ -331,7 +321,7 @@ auto computeConfigFingerprint(const PGConfig::PGParams& params,
  * @brief Fingerprint of the active plugin load order: plugin names in order plus each plugin's size and write time.
  */
 auto computePluginFingerprint(const BethesdaGame& bg,
-                              const vector<wstring>& activePlugins) -> uint64_t
+                              const std::vector<std::wstring>& activePlugins) -> uint64_t
 {
     HashUtil::Fnv1a64 hasher;
     hasher.add(bg.getGameType());
@@ -342,7 +332,7 @@ auto computePluginFingerprint(const BethesdaGame& bg,
 
         const auto pluginPath = bg.getGameDataPath() / plugin;
         std::error_code ec;
-        const auto mtime = filesystem::last_write_time(pluginPath, ec);
+        const auto mtime = std::filesystem::last_write_time(pluginPath, ec);
         if (ec) {
             hasher.add(static_cast<uint8_t>(0));
             continue;
@@ -352,30 +342,28 @@ auto computePluginFingerprint(const BethesdaGame& bg,
         hasher.add(static_cast<int64_t>(mtime.time_since_epoch().count()));
 
         ec.clear();
-        const auto size = filesystem::file_size(pluginPath, ec);
+        const auto size = std::filesystem::file_size(pluginPath, ec);
         hasher.add(static_cast<uint64_t>(ec ? 0 : size));
     }
 
     return hasher.value();
 }
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
-
 void mainRunnerPrep(const ParallaxGenCLIArgs& args,
                     const PGConfig::PGParams& params,
                     const bool& updateOutput,
-                    const filesystem::path& exePath,
+                    const std::filesystem::path& exePath,
                     const std::filesystem::path& cfgDir,
                     ProgressWindow* progressWindow,
-                    const function<void(size_t,
-                                        size_t)>& progressCallback)
+                    const std::function<void(size_t,
+                                             size_t)>& progressCallback)
 {
-    // Initialize "Preparing" Step
+    // Initialize "Preparing" Step.
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.preparing"));
+        progressWindow->setMainLabel(pgTr("progress.steps.preparing"));
         progressWindow->setStepLabel("");
-        progressWindow->setMainProgress(0, NUM_TOTAL_STEPS, true);
-        progressWindow->setStepProgress(0, NUM_PREPARING_STEPS);
+        progressWindow->setMainProgress(0, numTotalSteps, true);
+        progressWindow->setStepProgress(0, numPreparingSteps);
     });
 
     auto* bg = PGGlobals::getBG();
@@ -384,12 +372,12 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     auto* pgmm = PGGlobals::getPGMM();
 
     //
-    // GPU INITIALIZATION
+    // GPU INITIALIZATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initGpu")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initGpu")); });
 
-    // Check if GPU needs to be initialized
+    // Check if GPU needs to be initialized.
     Logger::info("Initializing GPU");
     if (!pgd3d->initGPU()) {
         Logger::critical("Failed to initialize GPU. Exiting.");
@@ -401,251 +389,247 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         return;
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(1, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(1, numPreparingSteps); });
     //
-    // END GPU INITIALIZATION
+    // END GPU INITIALIZATION.
     //
 
     //
-    // OUTPUT DIRECTORY INITIALIZATION
+    // OUTPUT DIRECTORY INITIALIZATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.outputDir")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.outputDir")); });
 
-    // print output location
-    Logger::info(L"PGPatcher output directory: {}", params.Output.dir.wstring());
+    // Print output location.
+    Logger::info(L"PGPatcher output directory: {}", params.output.dir.wstring());
 
-    // Create output directory
+    // Create output directory.
     try {
-        if (filesystem::create_directories(params.Output.dir)) {
-            Logger::debug(L"Output directory created: {}", params.Output.dir.wstring());
-        }
-    } catch (const filesystem::filesystem_error& e) {
+        if (std::filesystem::create_directories(params.output.dir))
+            Logger::debug(L"Output directory created: {}", params.output.dir.wstring());
+    } catch (const std::filesystem::filesystem_error& e) {
         Logger::critical("Failed to create output directory: {}", e.what());
         return;
     }
 
-    // If output dir is the same as data dir meshes might get overwritten
-    if (filesystem::equivalent(params.Output.dir, pgd->getDataPath())) {
+    // If output dir is the same as data dir meshes might get overwritten.
+    if (std::filesystem::equivalent(params.output.dir, pgd->getDataPath())) {
         Logger::critical("Output directory cannot be the same directory as your data folder. "
                          "Exiting.");
         return;
     }
 
-    // If output dir is a subdirectory of data dir vfs issues can occur
-    if (boost::istarts_with(params.Output.dir.wstring(), bg->getGameDataPath().wstring() + L"\\")) {
+    // If output dir is a subdirectory of data dir vfs issues can occur.
+    if (boost::istarts_with(params.output.dir.wstring(), bg->getGameDataPath().wstring() + L"\\")) {
         Logger::critical("Output directory cannot be a subdirectory of your data folder. Exiting.");
         return;
     }
 
     // Update cache: "Update Output" re-patches only what changed since the previous output in the output directory,
     // "Start Patching" regenerates everything. Zipped outputs are always generated from scratch and leave no cache.
-    if (updateOutput && params.Output.zip) {
+    if (updateOutput && params.output.zip)
         Logger::warn("Zip output is enabled, so the previous output cannot be updated and is generated from scratch");
-    }
-    PGRunCache::initialize(params.Output.dir / PGRunCache::CACHE_FILENAME, !params.Output.zip, !updateOutput);
+    PGRunCache::initialize(params.output.dir / PGRunCache::s_cacheFilename, !params.output.zip, !updateOutput);
     PGRunCache::setConfigFingerprint(computeConfigFingerprint(params, args));
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, numPreparingSteps); });
     //
-    // END OUTPUT DIRECTORY INITIALIZATION
+    // END OUTPUT DIRECTORY INITIALIZATION.
     //
 
     //
-    // PlUGIN VALIDATION
+    // PlUGIN VALIDATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.validatingPlugins")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.validatingPlugins")); });
 
-    // Check if dyndolod.esp exists
+    // Check if dyndolod.esp exists.
     const auto activePlugins = bg->getActivePlugins(false, true);
-    if (ranges::find(activePlugins, L"dyndolod.esp") != activePlugins.end()) {
+    if (std::ranges::find(activePlugins, L"dyndolod.esp") != activePlugins.end()) {
         Logger::critical(
             "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
             "generate LODs after running PGPatcher with the PGPatcher output enabled.");
         return;
     }
 
-    // Log active plugins
-    const wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
+    // Log active plugins.
+    const std::wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
     Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
 
-    // Update cache: mesh uses can be reused from the previous run if no plugin changed
+    // Update cache: mesh uses can be reused from the previous run if no plugin changed.
     PGRunCache::setPluginFingerprint(computePluginFingerprint(*bg, activePlugins));
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, numPreparingSteps); });
     //
-    // END PLUGIN VALIDATION
+    // END PLUGIN VALIDATION.
     //
 
     //
-    // PLUGIN INITIALIZATION
+    // PLUGIN INITIALIZATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initPluginPatching")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initPluginPatching")); });
 
     TaskQueue pluginInit;
 
-    // Init PGP library
+    // Init PGP library.
     Logger::info("Initializing plugin patching");
-    if (params.Processing.multithread) {
+    if (params.processing.multithread) {
         pluginInit.queueTask([&bg, &exePath, &params]() -> void {
-            PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-            PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+            PGPlugin::initialize(*bg, exePath, params.output.pluginLang);
+            PGPlugin::populateObjs(params.output.dir / "PGPatcher.esp");
         });
     } else {
-        PGPlugin::initialize(*bg, exePath, params.Output.pluginLang);
-        PGPlugin::populateObjs(params.Output.dir / "PGPatcher.esp");
+        PGPlugin::initialize(*bg, exePath, params.output.pluginLang);
+        PGPlugin::populateObjs(params.output.dir / "PGPatcher.esp");
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, numPreparingSteps); });
     //
-    // END PLUGIN INITIALIZATION
+    // END PLUGIN INITIALIZATION.
     //
 
     //
-    // MOD MANAGER INITIALIZATION
+    // MOD MANAGER INITIALIZATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initModManager")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initModManager")); });
 
-    // Populate mod info
+    // Populate mod info.
     nlohmann::json modJSON;
     const auto modListFile = cfgDir / "modrules.json";
-    if (FileUtil::getJSON(modListFile, modJSON)) {
+    if (FileUtil::getJSON(modListFile, modJSON))
         pgmm->loadJSON(modJSON);
-    }
 
     TaskQueue modManagerInit;
 
-    if (params.ModManager.type == PGModManager::ModManagerType::MODORGANIZER2
-        && !params.ModManager.mo2InstanceDir.empty()) {
-        // Make sure running is USVFS
+    if (params.modManager.type == PGModManager::ModManagerType::MODORGANIZER2
+        && !params.modManager.mo2InstanceDir.empty()) {
+        // Make sure running is USVFS.
         if (!args.ignoreMO2Check && !PGHandlers::isUnderUSVFS()) {
             Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
             return;
         }
 
-        // MO2
-        if (params.Processing.multithread) {
+        // MO2.
+        if (params.processing.multithread) {
             modManagerInit.queueTask([&pgmm, &params]() -> void {
-                pgmm->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+                pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir);
             });
         } else {
-            pgmm->populateModFileMapMO2(params.ModManager.mo2InstanceDir, params.Output.dir);
+            pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir);
         }
-    } else if (params.ModManager.type == PGModManager::ModManagerType::VORTEX) {
-        // Vortex
-        if (params.Processing.multithread) {
+    } else if (params.modManager.type == PGModManager::ModManagerType::VORTEX) {
+        // Vortex.
+        if (params.processing.multithread)
             modManagerInit.queueTask([&pgmm, &bg]() -> void { pgmm->populateModFileMapVortex(bg->getGameDataPath()); });
-        } else {
+        else
             pgmm->populateModFileMapVortex(bg->getGameDataPath());
-        }
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(5, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(5, numPreparingSteps); });
     //
-    // END MOD MANAGER INITIALIZATION
+    // END MOD MANAGER INITIALIZATION.
     //
 
     //
-    // POPULATING FILE MAP
+    // POPULATING FILE MAP.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.populatingFileMap")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.populatingFileMap")); });
 
-    // Init file map
+    // Init file map.
     pgd->populateFileMap(true);
 
-    // Update cache: texture metadata of unchanged textures does not need to be read again
+    // Update cache: texture metadata of unchanged textures does not need to be read again.
     PGRunCache::seedTextureMetadata();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, numPreparingSteps); });
     //
-    // END POPULATING FILE MAP
+    // END POPULATING FILE MAP.
     //
 
     //
-    //  VALIDATING DATA FILES
+    // VALIDATING DATA FILES.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.validatingDataFiles")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.validatingDataFiles")); });
 
-    // Check if PGPatcheroutput already exists in data directory
-    // TODO check using PGD instead
-    const filesystem::path pgStateFilePath = bg->getGameDataPath() / "ParallaxGen_Diff.json";
-    if (filesystem::exists(pgStateFilePath)) {
+    // Check if PGPatcheroutput already exists in data directory.
+    // FIXME: Check using PGD instead.
+    const std::filesystem::path pgStateFilePath = bg->getGameDataPath() / "ParallaxGen_Diff.json";
+    if (std::filesystem::exists(pgStateFilePath)) {
         Logger::critical("PGPatcher meshes exist in your data directory, please delete before "
                          "re-running.");
         return;
     }
 
-    // Check if VRAMR Output is enabled
-    if (params.ModManager.type != PGModManager::ModManagerType::NONE && pgd->isFile("vramroutput.tmp")) {
+    // Check if VRAMR Output is enabled.
+    if (params.modManager.type != PGModManager::ModManagerType::None && pgd->isFile("vramroutput.tmp")) {
         Logger::critical("Please disable VRAMr output mod before running PGPatcher.");
         return;
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(7, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(7, numPreparingSteps); });
     //
-    // END VALIDATING DATA FILES
+    // END VALIDATING DATA FILES.
     //
 
     //
-    // PATCHER INITIALIZATION
+    // PATCHER INITIALIZATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.initPatchers")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initPatchers")); });
 
-    // Create patcher factory
+    // Create patcher factory.
     PatcherUtil::PatcherMeshSet meshPatchers;
-    if (params.PrePatcher.fixMeshLighting) {
+    if (params.prePatcher.fixMeshLighting) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
     }
-    if (params.ShaderPatcher.parallax || params.ShaderPatcher.complexMaterial || params.ShaderPatcher.truePBR) {
-        // fix slots only needed for shader patchers
+    if (params.shaderPatcher.parallax || params.shaderPatcher.complexMaterial || params.shaderPatcher.truePBR) {
+        // Fix slots only needed for shader patchers.
         Logger::debug("Adding Texture Slot Count Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
     }
 
     meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::getShaderType(),
                                         PatcherMeshShaderDefault::getFactory());
-    if (params.ShaderPatcher.parallax) {
+    if (params.shaderPatcher.parallax) {
         Logger::debug("Adding Parallax shader patcher");
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::getShaderType(),
                                             PatcherMeshShaderVanillaParallax::getFactory());
     }
-    if (params.ShaderPatcher.complexMaterial) {
+    if (params.shaderPatcher.complexMaterial) {
         Logger::debug("Adding Complex Material shader patcher");
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::getShaderType(),
                                             PatcherMeshShaderComplexMaterial::getFactory());
         PatcherMeshShaderComplexMaterial::loadOptions(args.disableDynCubemap);
     }
-    if (params.ShaderPatcher.truePBR) {
+    if (params.shaderPatcher.truePBR) {
         Logger::debug("Adding True PBR shader patcher");
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::getShaderType(),
                                             PatcherMeshShaderTruePBR::getFactory());
-        PatcherMeshShaderTruePBR::loadOptions(true, params.Processing.enableModDevMode);
+        PatcherMeshShaderTruePBR::loadOptions(true, params.processing.enableModDevMode);
     }
-    if (params.ShaderTransforms.parallaxToCM) {
+    if (params.shaderTransforms.parallaxToCM) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
         meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
-            = {PatcherMeshShaderTransformParallaxToCM::getToShader(),
-               PatcherMeshShaderTransformParallaxToCM::getFactory()};
+            = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
+                PatcherMeshShaderTransformParallaxToCM::getFactory() };
         PatcherMeshShaderTransformParallaxToCM::loadOptions(!args.forceAlwaysCM);
 
-        // initialize patcher hooks
+        // Initialize patcher hooks.
         if (!PatcherTextureHookConvertToCM::initShader()) {
             Logger::critical("Failed to initialize ConvertToCM shader");
             return;
         }
     }
-    if (params.PostPatcher.disablePrePatchedMaterials) {
+    if (params.postPatcher.disablePrePatchedMaterials) {
         Logger::debug("Adding Disable Pre-Patched Materials post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::getFactory());
     }
-    if (params.PostPatcher.fixSSS) {
+    if (params.postPatcher.fixSSS) {
         Logger::debug("Adding SSS fix post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
 
@@ -654,7 +638,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
             return;
         }
     }
-    if (params.PostPatcher.hairFlowMap) {
+    if (params.postPatcher.hairFlowMap) {
         Logger::debug("Adding Hair Flow Map post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
     }
@@ -662,338 +646,330 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     const PatcherUtil::PatcherTextureSet texPatchers;
     PGPatcher::loadPatchers(meshPatchers, texPatchers);
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(8, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(8, numPreparingSteps); });
     //
-    // END PATCHER INITIALIZATION
+    // END PATCHER INITIALIZATION.
     //
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.waitPluginInit")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.waitPluginInit")); });
 
-    // Plugins required for map files
+    // Plugins required for map files.
     pluginInit.waitForCompletion();
     pluginInit.shutdown();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, numPreparingSteps); });
 
     //
-    // END OUTPUT DIRECTORY CLEANUP
+    // END OUTPUT DIRECTORY CLEANUP.
     //
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.waitModManagerInit")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.waitModManagerInit")); });
 
-    // Mods required for map files
+    // Mods required for map files.
     modManagerInit.waitForCompletion();
     modManagerInit.shutdown();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, NUM_PREPARING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, numPreparingSteps); });
 
-    // Initialize "Loading meshes" Step
+    // Initialize "Loading meshes" Step.
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.loadingMeshes"));
-        progressWindow->setStepLabel(PGTr("progress.steps.readingNifs"));
-        progressWindow->setMainProgress(1, NUM_TOTAL_STEPS, true);
+        progressWindow->setMainLabel(pgTr("progress.steps.loadingMeshes"));
+        progressWindow->setStepLabel(pgTr("progress.steps.readingNifs"));
+        progressWindow->setMainProgress(1, numTotalSteps, true);
         progressWindow->setStepProgress(0, 1);
     });
 
-    // Map files
-    pgd->mapFiles(params.Processing.blockList,
-                  params.Processing.allowList,
-                  params.Processing.textureMaps,
-                  params.Processing.vanillaBSAList,
-                  params.Processing.multithread,
+    // Map files.
+    pgd->mapFiles(params.processing.blockList,
+                  params.processing.allowList,
+                  params.processing.textureMaps,
+                  params.processing.vanillaBSAList,
+                  params.processing.multithread,
                   progressCallback);
 
-    // Any patcher initialization that requires PGD
-    if (params.ShaderPatcher.truePBR) {
+    // Any patcher initialization that requires PGD.
+    if (params.shaderPatcher.truePBR)
         PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
-    }
 
-    // Extended texture classification (complex material detection) runs on a background
-    // queue and adds shader types to mods as it completes. Wait for it here so mod enable
-    // state and priorities below are computed from complete shader data, and so we do not
-    // race the classification threads while reading mod shader sets.
+    // Extended texture classification (complex material detection) runs on a background.
+    // Queue and adds shader types to mods as it completes. Wait for it here so mod enable.
+    // State and priorities below are computed from complete shader data, and so we do not.
+    // Race the classification threads while reading mod shader sets.
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.classifyingTextures")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.classifyingTextures")); });
     pgd->waitForCMClassification();
 
-    // Assign new mod priorities for new mods
-    pgmm->updateStateFromModlist(params.ModManager.mo2UseLooseFileOrder);
+    // Assign new mod priorities for new mods.
+    pgmm->updateStateFromModlist(params.modManager.mo2UseLooseFileOrder);
 
-    // modrules.json is deliberately not saved here: the state computed above is re-derived on every
-    // run, and the file must only change when the user applies changes in the conflict manager.
+    // Modrules.json is deliberately not saved here: the state computed above is re-derived on every.
+    // Run, and the file must only change when the user applies changes in the conflict manager.
 }
 
 void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                      const PGConfig::PGParams& params,
-                     const filesystem::path& exePath,
+                     const std::filesystem::path& exePath,
                      ProgressWindow* progressWindow,
-                     const function<void(size_t,
-                                         size_t)>& progressCallback)
+                     const std::function<void(size_t,
+                                              size_t)>& progressCallback)
 {
-    // Make sure the state is clean for the patch
+    // Make sure the state is clean for the patch.
     PGPatcher::resetRunState();
     PGPlugin::resetPatchingState();
     PGGlobals::getPGD()->clearGeneratedFiles();
     PGPatcherGlobals::getWXLoggerSink()->resetToRunStart();
-    // Messages of a previous patching step must be logged again when the step is re-run (the completion dialog only
-    // shows messages of the latest step), including messages replayed for meshes that did not need re-patching
+    // Messages of a previous patching step must be logged again when the step is re-run (the completion dialog only.
+    // Shows messages of the latest step), including messages replayed for meshes that did not need re-patching.
     Logger::resetToRunStart();
     PGRunCache::beginRun();
 
     //
-    // OUTPUT DIRECTORY CLEANUP
+    // OUTPUT DIRECTORY CLEANUP.
     //
 
-    // delete existing output
-    // we delete after pluginInit is done because we need to make sure it had a chance to read the old plugin
+    // Delete existing output.
+    // We delete after pluginInit is done because we need to make sure it had a chance to read the old plugin.
     if (PGRunCache::hasPreviousRun()) {
-        // Updating a previous output: meshes and textures are kept and pruned per mesh during patching
+        // Updating a previous output: meshes and textures are kept and pruned per mesh during patching.
         PGPatcher::deleteOutputDir(true, true);
         PGRunCache::snapshotOutputDirectory();
     } else {
         PGPatcher::deleteOutputDir();
     }
 
-    if (params.ShaderPatcher.complexMaterial && !args.disableDynCubemap) {
-        // deployed after patching, must not be treated as a stale output
-        PGRunCache::addProtectedOutput(PatcherMeshShaderComplexMaterial::s_DYNCUBEMAPPATH);
+    if (params.shaderPatcher.complexMaterial && !args.disableDynCubemap) {
+        // Deployed after patching, must not be treated as a stale output.
+        PGRunCache::addProtectedOutput(PatcherMeshShaderComplexMaterial::s_dynCubemapPath);
     }
 
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.patchingMeshes"));
+        progressWindow->setMainLabel(pgTr("progress.steps.patchingMeshes"));
         progressWindow->setStepLabel("");
-        progressWindow->setMainProgress(3, NUM_TOTAL_STEPS, true);
+        progressWindow->setMainProgress(3, numTotalSteps, true);
         progressWindow->setStepProgress(0, 1);
     });
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.processingNifs")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.processingNifs")); });
 
-    PGPatcher::patchMeshes(params.Processing.multithread,
+    PGPatcher::patchMeshes(params.processing.multithread,
                            args.considerAllMeshes,
-                           params.Processing.allowedModelRecordTypes,
+                           params.processing.allowedModelRecordTypes,
                            true,
                            args.excludeFacegens,
                            progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.patchingTextures"));
-        progressWindow->setStepLabel(PGTr("progress.steps.processingTextures"));
-        progressWindow->setMainProgress(4, NUM_TOTAL_STEPS, true);
+        progressWindow->setMainLabel(pgTr("progress.steps.patchingTextures"));
+        progressWindow->setStepLabel(pgTr("progress.steps.processingTextures"));
+        progressWindow->setMainProgress(4, numTotalSteps, true);
         progressWindow->setStepProgress(0, 1);
     });
 
-    PGPatcher::patchTextures(params.Processing.multithread, progressCallback);
+    PGPatcher::patchTextures(params.processing.multithread, progressCallback);
 
     progressWindow->CallAfter([progressWindow]() -> void {
-        progressWindow->setMainLabel(PGTr("progress.steps.finalizing"));
+        progressWindow->setMainLabel(pgTr("progress.steps.finalizing"));
         progressWindow->setStepLabel("");
-        progressWindow->setMainProgress(5, NUM_TOTAL_STEPS, true);
-        progressWindow->setStepProgress(0, NUM_FINALIZING_STEPS);
+        progressWindow->setMainProgress(5, numTotalSteps, true);
+        progressWindow->setStepProgress(0, numFinalizingSteps);
     });
 
     //
-    // FINISH WRITING FILES
+    // FINISH WRITING FILES.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.finishingWritingFiles")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.finishingWritingFiles")); });
 
-    // Wait for file saver to complete
+    // Wait for file saver to complete.
     if (PGGlobals::getFileSaver().isWorking()) {
         Logger::info("Waiting for files to finish saving...");
         PGGlobals::getFileSaver().waitForCompletion();
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(1, NUM_FINALIZING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(1, numFinalizingSteps); });
     //
-    // END FINISH WRITING FILES
+    // END FINISH WRITING FILES.
     //
 
-    // Check for empty output
+    // Check for empty output.
     if (PGPatcher::isOutputEmpty()) {
-        // output is empty, there is no previous output to update anymore
+        // Output is empty, there is no previous output to update anymore.
         PGRunCache::discard();
         Logger::warn("Output directory is empty. No files were generated.");
         return;
     }
 
     //
-    // SAVING PLUGINS
+    // SAVING PLUGINS.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingPlugins")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.savingPlugins")); });
 
     Logger::info("Saving Plugins");
-    auto esmMode = PGPlugin::ESMMode::PGPATCHER_ONLY;
-    if (args.esmAll) {
-        esmMode = PGPlugin::ESMMode::ALL;
-    } else if (args.noEsm) {
-        esmMode = PGPlugin::ESMMode::NONE;
-    }
-    PGPlugin::savePlugin(params.Output.dir, esmMode);
+    auto esmMode = PGPlugin::ESMMode::PGPatcherOnly;
+    if (args.esmAll)
+        esmMode = PGPlugin::ESMMode::All;
+    else if (args.noEsm)
+        esmMode = PGPlugin::ESMMode::None;
+    PGPlugin::savePlugin(params.output.dir, esmMode);
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, NUM_FINALIZING_STEPS); });
-
-    //
-    // END SAVING PLUGINS
-    //
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, numFinalizingSteps); });
 
     //
-    // DEPLOY ASSETS
+    // END SAVING PLUGINS.
+    //
+
+    //
+    // DEPLOY ASSETS.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.deployingAssets")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.deployingAssets")); });
 
-    if (params.ShaderPatcher.complexMaterial && !args.disableDynCubemap) {
-        // Deploy Assets
-        deployDynamicCubemapFile(params.Output.dir, exePath);
+    if (params.shaderPatcher.complexMaterial && !args.disableDynCubemap) {
+        // Deploy Assets.
+        deployDynamicCubemapFile(params.output.dir, exePath);
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, NUM_FINALIZING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, numFinalizingSteps); });
     //
-    // END DEPLOY ASSETS
+    // END DEPLOY ASSETS.
     //
 
     //
-    // SAVING DIFF JSON
+    // SAVING DIFF JSON.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingDiffJson")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.savingDiffJson")); });
 
-    // Save diff json
+    // Save diff json.
     const auto diffJSON = PGPatcher::getDiffJSON();
     if (!diffJSON.empty()) {
-        const filesystem::path diffJSONPath = params.Output.dir / "ParallaxGen_Diff.json";
+        const std::filesystem::path diffJSONPath = params.output.dir / "ParallaxGen_Diff.json";
         FileUtil::saveJSON(diffJSONPath, diffJSON, true);
 
         PGGlobals::getPGD()->addGeneratedFile("ParallaxGen_Diff.json");
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, NUM_FINALIZING_STEPS); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, numFinalizingSteps); });
     //
-    // END SAVING DIFF JSON
+    // END SAVING DIFF JSON.
     //
 
     //
-    // SAVING UPDATE CACHE
+    // SAVING UPDATE CACHE.
     //
-    // Describes this output so the next run into this directory only re-patches what changed (disabled when zipping)
+    // Describes this output so the next run into this directory only re-patches what changed (disabled when zipping).
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.savingUpdateCache")); });
+        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.savingUpdateCache")); });
 
-    PGRunCache::finishRun(!params.Output.zip);
+    PGRunCache::finishRun(!params.output.zip);
     //
-    // END SAVING UPDATE CACHE
+    // END SAVING UPDATE CACHE.
     //
 
-    // archive
-    if (params.Output.zip) {
+    // Archive.
+    if (params.output.zip) {
         //
-        // OUTPUT ZIP
+        // OUTPUT ZIP.
         //
         progressWindow->CallAfter(
-            [progressWindow]() -> void { progressWindow->setStepLabel(PGTr("progress.steps.creatingZipArchive")); });
+            [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.creatingZipArchive")); });
 
         Logger::info("Creating output Zip archive");
-        const auto zipPath = params.Output.dir / "PGPatcher_Output.zip";
-        zipDirectory(params.Output.dir, zipPath);
+        const auto zipPath = params.output.dir / "PGPatcher_Output.zip";
+        zipDirectory(params.output.dir, zipPath);
         PGPatcher::deleteOutputDir(false);
 
         progressWindow->CallAfter(
-            [progressWindow]() -> void { progressWindow->setStepProgress(5, NUM_FINALIZING_STEPS); });
+            [progressWindow]() -> void { progressWindow->setStepProgress(5, numFinalizingSteps); });
         //
-        // END OUTPUT ZIP
+        // END OUTPUT ZIP.
         //
     }
 
-    progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setMainProgress(6, NUM_TOTAL_STEPS, true); });
+    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setMainProgress(6, numTotalSteps, true); });
 }
 
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
-
 void mainRunner(ParallaxGenCLIArgs& args,
-                const filesystem::path& exePath)
+                const std::filesystem::path& exePath)
 {
     ExceptionHandler::setMainThread();
 
-    // Define paths
+    // Define paths.
     PGPatcherGlobals::setEXEPath(exePath);
-    const filesystem::path cfgDir = exePath / "cfg";
+    const std::filesystem::path cfgDir = exePath / "cfg";
 
-    // Create cfg directory if it does not exist
-    if (!filesystem::exists(cfgDir)) {
-        filesystem::create_directories(cfgDir);
-    }
+    // Create cfg directory if it does not exist.
+    if (!std::filesystem::exists(cfgDir))
+        std::filesystem::create_directories(cfgDir);
 
-    // Initialize PGConfig
+    // Initialize PGConfig.
     PGConfig::loadStatics(exePath);
     auto pgc = PGConfig();
     pgc.loadConfig();
 
     PGPatcherGlobals::setPGC(&pgc);
 
-    // Initialize localization (GUI strings)
+    // Initialize localization (GUI strings).
     PGLocale::init(exePath / "translations", pgc.getUILanguage());
 
-    // Initialize UI
+    // Initialize UI.
     PGUI::init();
 
     auto params = pgc.getParams();
 
-    // Show launcher UI. "Update Output" (or --autostart-update) updates the previous output in the output location in
-    // place, "Start Patching" (or --autostart) regenerates it from scratch
+    // Show launcher UI. "Update Output" (or --autostart-update) updates the previous output in the output location in.
+    // Place, "Start Patching" (or --autostart) regenerates it from scratch.
     const bool autostart = args.autostart || args.autostartUpdate;
     bool updateOutput = args.autostartUpdate;
-    if (!autostart) {
+    if (!autostart)
         updateOutput = PGUI::showLauncher(pgc, params);
-    }
 
-    // Paths in the config may be relative to the PGPatcher.exe folder: the config keeps them as typed, the run uses
-    // the resolved paths
+    // Paths in the config may be relative to the PGPatcher.exe folder: the config keeps them as typed, the run uses.
+    // The resolved paths.
     PGConfig::resolveRelativePaths(params);
 
-    // Validate config
-    vector<string> errors;
+    // Validate config.
+    std::vector<std::string> errors;
     if (!PGConfig::validateParams(params, errors)) {
-        // This should never happen because there is a frontend validation that would have to be bypassed
-        string errorList;
-        for (const auto& error : errors) {
+        // This should never happen because there is a frontend validation that would have to be bypassed.
+        std::string errorList;
+        for (const auto& error : errors)
             errorList += "- " + error + "\n";
-        }
-        cerr << "Configuration is invalid:\n" << errorList << "\n";
+        std::cerr << "Configuration is invalid:\n" << errorList << "\n";
         return;
     }
 
-    // LOGGING SHOULD ONLY HAPPEN PAST THIS POINT
-    const filesystem::path logPath = exePath / "log" / "PGPatcher.log";
-    initLogger(logPath, params.Processing.enableDebugLogging, params.Processing.enableTraceLogging);
+    // LOGGING SHOULD ONLY HAPPEN PAST THIS POINT.
+    const std::filesystem::path logPath = exePath / "log" / "PGPatcher.log";
+    initLogger(logPath, params.processing.enableDebugLogging, params.processing.enableTraceLogging);
 
-    // Welcome Message
+    // Welcome Message.
     Logger::info("Welcome to PGPatcher version {}!", PG_FULL_VERSION);
 
 #if defined(PG_PRERELEASE) && (PG_PRERELEASE > 0)
-    // Post test message for test builds
+    // Post test message for test builds.
     Logger::warn("This is an EXPERIMENTAL pre-release build of PGPatcher");
 #endif
 
-    // Create relevant objects
-    // TODO control the lifetime of these in PGLib
-    auto bg = BethesdaGame(params.Game.type, params.Game.dir);
+    // Create relevant objects.
+    // FIXME: Control the lifetime of these in PGLib.
+    auto bg = BethesdaGame(params.game.type, params.game.dir);
     PGGlobals::setBG(&bg);
-    auto pgmm = PGModManager(params.ModManager.type);
+    auto pgmm = PGModManager(params.modManager.type);
     PGGlobals::setPGMM(&pgmm);
-    auto pgd = PGDirectory(&bg, params.Output.dir);
+    auto pgd = PGDirectory(&bg, params.output.dir);
     PGGlobals::setPGD(&pgd);
     auto pgd3d = PGD3D(exePath / "cshaders");
     PGGlobals::setPGD3D(&pgd3d);
 
-    // Create progress dialog object
+    // Create progress dialog object.
     auto* progressWindow = new ProgressWindow(); // NOLINT(cppcoreguidelines-owning-memory)
 
-    // Create callback function for progress bars
+    // Create callback function for progress bars.
     const std::function<void(size_t, size_t)>& progressCallback
         = [&progressWindow](size_t completed, size_t total) -> void {
         progressWindow->CallAfter([=]() -> void {
@@ -1008,18 +984,18 @@ void mainRunner(ParallaxGenCLIArgs& args,
     TaskPoolRunner::setExceptionCallback(exceptionCallback);
     TaskQueue::setExceptionCallback(exceptionCallback);
 
-    // Get current time to compare later
-    auto startTime = chrono::high_resolution_clock::now();
+    // Get current time to compare later.
+    const auto startTime = std::chrono::high_resolution_clock::now();
     long long timeTaken = 0;
 
-    // Dispatch the pre-generation task
+    // Dispatch the pre-generation task.
     TaskQueue backgroundRunners;
     backgroundRunners.queueTask(
         [&args, &params, &updateOutput, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
             mainRunnerPrep(args, params, updateOutput, exePath, cfgDir, progressWindow, progressCallback);
 
-            // Snapshot message counts after prep so re-runs of the patching step can discard
-            // messages from a previous patch run while keeping preparation-phase messages
+            // Snapshot message counts after prep so re-runs of the patching step can discard.
+            // Messages from a previous patch run while keeping preparation-phase messages.
             PGPatcherGlobals::getWXLoggerSink()->markRunStart();
             Logger::markRunStart();
 
@@ -1028,41 +1004,41 @@ void mainRunner(ParallaxGenCLIArgs& args,
             progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
         });
 
-    // Show progress dialog (this will block until closed by one of the callafters)
+    // Show progress dialog (this will block until closed by one of the callafters).
     progressWindow->ShowModal();
 
-    // Verify tasks are finished
+    // Verify tasks are finished.
     ExceptionHandler::throwExceptionOnMainThread();
     backgroundRunners.waitForCompletion();
 
-    // Confirmation UI
-    const auto endTime = chrono::high_resolution_clock::now();
-    timeTaken += chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
+    // Confirmation UI.
+    const auto endTime = std::chrono::high_resolution_clock::now();
+    timeTaken += std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime).count();
 
     Logger::info("PGPatcher took {} seconds to complete (does not include time in user interface)", timeTaken);
 
-    // Show completion dialog
+    // Show completion dialog.
     CompletionDialog dlg(timeTaken);
     while (dlg.ShowModal() == wxID_RETRY) {
-        // Restart time
-        const auto startTime = chrono::high_resolution_clock::now();
+        // Restart time.
+        const auto startTime = std::chrono::high_resolution_clock::now();
 
-        // return code RETRY means we redo the patching process
+        // Return code RETRY means we redo the patching process.
         backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
             mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
             auto* const progressWindowPtr = progressWindow;
             progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
         });
 
-        // Show progress dialog (this will block until closed by one of the callafters)
+        // Show progress dialog (this will block until closed by one of the callafters).
         progressWindow->ShowModal();
 
-        // Verify tasks are finished
+        // Verify tasks are finished.
         ExceptionHandler::throwExceptionOnMainThread();
         backgroundRunners.waitForCompletion();
 
-        const auto endTime = chrono::high_resolution_clock::now();
-        timeTaken = chrono::duration_cast<chrono::seconds>(endTime - startTime).count();
+        const auto endTime = std::chrono::high_resolution_clock::now();
+        timeTaken = std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime).count();
         dlg.updateTimingInfo(timeTaken);
         dlg.refreshLogMessages();
 
@@ -1073,7 +1049,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
 void addArguments(CLI::App& app,
                   ParallaxGenCLIArgs& args)
 {
-    // Logging
+    // Logging.
     auto* const autostartFlag = app.add_flag(
         "--autostart", args.autostart, "Start generation without user input (regenerates the output from scratch)");
     auto* const autostartUpdateFlag
@@ -1108,37 +1084,37 @@ auto WINAPI WinMain(HINSTANCE /*hInstance*/,
                     LPSTR /*lpCmdLine*/,
                     int /*nCmdShow*/) -> int
 {
-// Block until enter only in debug mode
+// Block until enter only in debug mode.
 #ifdef _DEBUG
-    cout << "Press ENTER to start (DEBUG mode)...";
-    cin.get();
+    std::cout << "Press ENTER to start (DEBUG mode)...";
+    std::cin.get();
 #endif
 
     SetUnhandledExceptionFilter(PGHandlers::customExceptionHandler);
 
     SetConsoleOutputCP(CP_UTF8);
 
-    // Find location of ParallaxGen.exe
-    const filesystem::path exePath = PGHandlers::getExePath().parent_path();
+    // Find location of ParallaxGen.exe.
+    const std::filesystem::path exePath = PGHandlers::getExePath().parent_path();
     configureDotNetLibDirectory(exePath);
 
-    // CLI Arguments
+    // CLI Arguments.
     ParallaxGenCLIArgs args;
-    CLI::App app {"PGPatcher"};
+    CLI::App app { "PGPatcher" };
     addArguments(app, args);
 
-    // Parse CLI Arguments (this is what exits on any validation issues)
+    // Parse CLI Arguments (this is what exits on any validation issues).
     CLI11_PARSE(app, __argc, __argv);
 
     if (args.console) {
-        // Allocate a console
+        // Allocate a console.
         AllocConsole();
         SetConsoleOutputCP(CP_UTF8);
     }
 
-    // Main Runner (Catches all exceptions)
+    // Main Runner (Catches all exceptions).
     CPPTRACE_TRY { mainRunner(args, exePath); }
-    CPPTRACE_CATCH(const exception& e)
+    CPPTRACE_CATCH(const std::exception& e)
     {
         ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }

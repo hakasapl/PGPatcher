@@ -17,12 +17,12 @@
  */
 class PatcherMeshPre : public PatcherMesh {
 public:
-    // type definitions
+    // Type definitions.
     using PatcherMeshPreFactory
         = std::function<std::unique_ptr<PatcherMeshPre>(std::filesystem::path, nifly::NifFile*)>;
     using PatcherMeshPreObject = std::unique_ptr<PatcherMeshPre>;
 
-    // Constructors
+    // Constructors.
     PatcherMeshPre(std::filesystem::path nifPath,
                    nifly::NifFile* nif,
                    std::string patcherName);
@@ -40,6 +40,5 @@ public:
      * @return false Patch was not applied
      */
     virtual auto applyPatch(PGTypes::TextureSet& slots,
-                            nifly::NiShape& nifShape) -> bool
-        = 0;
+                            nifly::NiShape& nifShape) -> bool = 0;
 };

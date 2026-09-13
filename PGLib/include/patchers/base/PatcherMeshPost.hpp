@@ -17,12 +17,12 @@
  */
 class PatcherMeshPost : public PatcherMesh {
 public:
-    // type definitions
+    // Type definitions.
     using PatcherMeshPostFactory
         = std::function<std::unique_ptr<PatcherMeshPost>(std::filesystem::path, nifly::NifFile*)>;
     using PatcherMeshPostObject = std::unique_ptr<PatcherMeshPost>;
 
-    // Constructors
+    // Constructors.
     PatcherMeshPost(std::filesystem::path nifPath,
                     nifly::NifFile* nif,
                     std::string patcherName);
@@ -40,6 +40,5 @@ public:
      * @return false Patch was not applied
      */
     virtual auto applyPatch(PGTypes::TextureSet& slots,
-                            nifly::NiShape& nifShape) -> bool
-        = 0;
+                            nifly::NiShape& nifShape) -> bool = 0;
 };

@@ -33,61 +33,56 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
-
 PGMeshPermutationTracker::PGMeshPermutationTracker(const std::filesystem::path& origMeshPath)
     : m_origMeshPath(origMeshPath)
-    , m_origCrc32(0)
-    , m_stagedMeshPtr(nullptr)
+
 {
-    // Check if file exists
+    // Check if file exists.
     auto* pgd = PGGlobals::getPGD();
-    if (!pgd->isFile(origMeshPath)) {
+    if (!pgd->isFile(origMeshPath))
         throw std::runtime_error("Original mesh path does not exist: " + origMeshPath.string());
-    }
 }
 
 void PGMeshPermutationTracker::load()
 {
-    // Load original NIF file
-    const vector<std::byte> nifFileData = PGGlobals::getPGD()->getFile(m_origMeshPath);
+    // Load original NIF file.
+    const std::vector<std::byte> nifFileData = PGGlobals::getPGD()->getFile(m_origMeshPath);
 
-    // Calculate original CRC32
-    boost::crc_32_type crcBeforeResult {};
+    // Calculate original CRC32.
+    boost::crc_32_type crcBeforeResult { };
     crcBeforeResult.process_bytes(nifFileData.data(), nifFileData.size());
     m_origCrc32 = crcBeforeResult.checksum();
 
-    // Load original NIF
+    // Load original NIF.
     m_origNifFile = PGNIFUtil::loadNIFFromBytes(nifFileData, false);
 
-    // Store original shape indices
+    // Store original shape indices.
     m_origShapeIndices = get3dIndicesSet(&m_origNifFile);
 }
 
 void PGMeshPermutationTracker::load(const std::shared_ptr<nifly::NifFile>& origNifFile,
                                     const unsigned long long& origCrc32)
 {
-    if (origNifFile == nullptr) {
+    if (origNifFile == nullptr)
         throw std::runtime_error("Original NIF file pointer is null");
-    }
 
     m_origNifFile = *origNifFile;
     m_origCrc32 = origCrc32;
 
-    // Store original shape indices
+    // Store original shape indices.
     m_origShapeIndices = get3dIndicesSet(&m_origNifFile);
 }
 
 auto PGMeshPermutationTracker::stageMesh() -> nifly::NifFile*
 {
-    // Clear any existing staged mesh
+    // Clear any existing staged mesh.
     m_stagedMeshPtr = nullptr;
 
-    // Copy original NIF to staged mesh
+    // Copy original NIF to staged mesh.
     m_stagedMesh.CopyFrom(m_origNifFile);
     m_stagedMeshPtr = &m_stagedMesh;
 
-    // Store original 3D indices for the staged mesh
+    // Store original 3D indices for the staged mesh.
     m_stagedMeshOriginal3DIdx = get3dIndices(m_stagedMeshPtr);
 
     return m_stagedMeshPtr;
@@ -97,22 +92,22 @@ void PGMeshPermutationTracker::ignoreBaseMesh() { m_ignoreBaseMesh = true; }
 
 auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
                                           bool isWeighted,
-                                          const std::unordered_map<unsigned int,
+                                          const std::unordered_map<unsigned,
                                                                    PGTypes::TextureSet>& altTexResults,
-                                          const std::unordered_set<unsigned int>& nonAltTexShapes) -> bool
+                                          const std::unordered_set<unsigned>& nonAltTexShapes) -> bool
 {
     if (m_stagedMeshPtr == nullptr) {
-        // No staged mesh to commit
+        // No staged mesh to commit.
         throw std::runtime_error("No staged mesh to commit");
     }
 
-    // Check if this form key already exists
+    // Check if this form key already exists.
     if (m_processedFormKeys.contains(formKey)) {
-        // Already exists
+        // Already exists.
         return false;
     }
 
-    // Add to processed form keys
+    // Add to processed form keys.
     m_processedFormKeys.insert(formKey);
 
     // Build current->original 3D index map for the staged mesh so comparisons remain stable if
@@ -121,34 +116,34 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     const auto stagedInverseIdxCorrectionsPatching
         = buildInverseIdxCorrections(stagedCurrent3DIndices, m_stagedMeshOriginal3DIdx);
 
-    // Check if staged mesh is different from all existing output meshes
+    // Check if staged mesh is different from all existing output meshes.
     for (size_t outputIdx = 0; outputIdx < m_outputMeshes.size(); outputIdx++) {
         auto& outputMesh = m_outputMeshes.at(outputIdx);
         if (compareMesh(
                 m_stagedMesh, outputMesh.second, nonAltTexShapes, false, false, &stagedInverseIdxCorrectionsPatching)) {
-            // Mesh is identical to an existing output mesh, do not add
+            // Mesh is identical to an existing output mesh, do not add.
             outputMesh.first.altTexResults.emplace_back(formKey, altTexResults);
 
             if (isWeighted && !m_weightProcessedOutputs.contains(outputIdx)) {
-                // A weighted plugin use resolved to an output mesh that was created by a non-weighted use, so the
-                // output still needs its _0/_1 counterpart validated
+                // A weighted plugin use resolved to an output mesh that was created by a non-weighted use, so the.
+                // Output still needs its _0/_1 counterpart validated.
                 processWeightVariant(outputMesh.second, outputIdx);
                 m_weightProcessedOutputs.insert(outputIdx);
             }
 
-            // Clear staged mesh
+            // Clear staged mesh.
             m_stagedMeshPtr = nullptr;
             m_stagedMesh.Clear();
 
-            // No need to continue
+            // No need to continue.
             return false;
         }
     }
 
     if (m_outputMeshes.empty() && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
-        // compare with base mesh to make sure we actually made changes
-        // If we are here there is a case where a record requires an unpatched base mesh. To avoid breaking this in the
-        // future, we ignore base mesh which enforces that the base mesh is not patched
+        // Compare with base mesh to make sure we actually made changes.
+        // If we are here there is a case where a record requires an unpatched base mesh. To avoid breaking this in the.
+        // Future, we ignore base mesh which enforces that the base mesh is not patched.
         ignoreBaseMesh();
         m_stagedMeshPtr = nullptr;
         m_stagedMesh.Clear();
@@ -157,23 +152,25 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     }
 
     if (isWeighted) {
-        // Process weighted variant
+        // Process weighted variant.
         processWeightVariant(m_stagedMesh, m_outputMeshes.size());
         m_weightProcessedOutputs.insert(m_outputMeshes.size());
     }
 
-    // Add new mesh
+    // Add new mesh.
     nifly::NifFile newMesh;
     newMesh.CopyFrom(*m_stagedMeshPtr);
 
-    const MeshResult meshResult = {.meshPath = {},
-                                   .altTexResults = {{formKey, altTexResults}},
-                                   .idxCorrections = {},
-                                   .inverseIdxCorrectionsPatching = stagedInverseIdxCorrectionsPatching};
+    const MeshResult meshResult = {
+        .meshPath = { },
+        .altTexResults = { { formKey, altTexResults } },
+        .idxCorrections = { },
+        .inverseIdxCorrectionsPatching = stagedInverseIdxCorrectionsPatching,
+    };
 
     m_outputMeshes.emplace_back(meshResult, newMesh);
 
-    // Clear staged mesh
+    // Clear staged mesh.
     m_stagedMeshPtr = nullptr;
     m_stagedMesh.Clear();
     m_stagedMeshOriginal3DIdx.clear();
@@ -181,27 +178,26 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     return true;
 }
 
-auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
-                                                    pair<unsigned long long,
-                                                         unsigned long long>>
+auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>,
+                                                         std::pair<unsigned long long,
+                                                                   unsigned long long>>
 {
     auto* pgd = PGGlobals::getPGD();
 
-    vector<MeshResult> output;
+    std::vector<MeshResult> output;
     unsigned long long baseCrc32 = 0;
 
-    // loop through output meshes
+    // Loop through output meshes.
     for (size_t i = 0; i < m_outputMeshes.size(); i++) {
         size_t curIndex = i;
-        if (m_ignoreBaseMesh) {
+        if (m_ignoreBaseMesh)
             curIndex++;
-        }
 
-        // Get mesh object
+        // Get mesh object.
         auto& meshResult = m_outputMeshes.at(i).first;
         auto& mesh = m_outputMeshes.at(i).second;
 
-        // Find new shape indices
+        // Find new shape indices.
         const auto blocks = get3dIndices(&mesh);
         mesh.PrettySortBlocks();
         const auto newBlocks = get3dIndices(&mesh);
@@ -215,8 +211,8 @@ auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
                     "This should not happen.");
             }
 
-            // exists after patching, set new index 3d
-            auto newIndex3D = newBlocks.at(nifObject);
+            // Exists after patching, set new index 3d.
+            const auto newIndex3D = newBlocks.at(nifObject);
 
             auto correctedOldIndex3D = oldIndex3D;
             if (meshResult.inverseIdxCorrectionsPatching.contains(oldIndex3D)) {
@@ -236,37 +232,35 @@ auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
             meshResult.idxCorrections[correctedOldIndex3D] = newIndex3D;
         }
 
-        for (const auto& missingShape : originalShapesFoundTracker) {
+        for (const auto& missingShape : originalShapesFoundTracker)
             meshResult.idxCorrections[missingShape] = -1; // shape was removed
-        }
 
-        // Get filename of mesh
+        // Get filename of mesh.
         const auto meshRelPath = getMeshPath(m_origMeshPath, curIndex);
         meshResult.meshPath = meshRelPath;
         const auto meshFilename = pgd->getGeneratedPath() / meshRelPath;
-        if (filesystem::exists(meshFilename)) {
+        if (std::filesystem::exists(meshFilename))
             throw std::runtime_error("Output mesh file already exists: " + meshFilename.string());
-        }
 
-        // Create directories if required
-        filesystem::create_directories(meshFilename.parent_path());
+        // Create directories if required.
+        std::filesystem::create_directories(meshFilename.parent_path());
 
-        // Save Mesh file
+        // Save Mesh file.
 
-        // Write to memory buffer
+        // Write to memory buffer.
         bool saveSuccess = false;
-        ostringstream buffer(std::ios::binary);
-        saveSuccess = (mesh.Save(buffer, {.optimize = false, .sortBlocks = false}) == 0);
-        const string& data = buffer.str();
+        std::ostringstream buffer(std::ios::binary);
+        saveSuccess = (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) == 0);
+        const std::string& data = buffer.str();
 
         if (curIndex == 0) {
-            // get CRC32
+            // Get CRC32.
             boost::crc_32_type crc;
             crc.process_bytes(data.data(), data.size());
             baseCrc32 = crc.checksum();
         }
 
-        // queue save to file saver
+        // Queue save to file saver.
         PGGlobals::getFileSaver().queueTask([data, meshFilename]() -> void {
             std::ofstream file(meshFilename, std::ios::binary);
             if (file.is_open()) {
@@ -276,32 +270,30 @@ auto PGMeshPermutationTracker::saveMeshes() -> pair<vector<MeshResult>,
         });
 
         if (saveSuccess) {
-            if (curIndex == 0) {
+            if (curIndex == 0)
                 Logger::debug("Saved patched base mesh");
-            } else {
-                Logger::debug("Saved patched duplicate mesh {}", to_string(curIndex));
-            }
+            else
+                Logger::debug("Saved patched duplicate mesh {}", std::to_string(curIndex));
         } else {
-            // A mesh that we were able to open but cannot save will cause issues in-game because it might have
-            // partially saved
+            // A mesh that we were able to open but cannot save will cause issues in-game because it might have.
+            // Partially saved.
             Logger::critical(L"Unable to save NIF file {}", meshFilename.wstring());
-            return {};
+            return { };
         }
 
-        // tell PGD that this is a generated file
+        // Tell PGD that this is a generated file.
         pgd->addGeneratedFile(meshRelPath);
 
-        // record the output for incremental runs
+        // Record the output for incremental runs.
         PGRunCache::recordOutputFile(meshRelPath, data.size());
 
         output.push_back(meshResult);
     }
 
-    if (m_ignoreBaseMesh) {
-        return {output, {m_origCrc32, 0}};
-    }
+    if (m_ignoreBaseMesh)
+        return { output, { m_origCrc32, 0 } };
 
-    return {output, {m_origCrc32, baseCrc32}};
+    return { output, { m_origCrc32, baseCrc32 } };
 }
 
 auto PGMeshPermutationTracker::validateWeightedVariants() -> std::vector<std::pair<std::filesystem::path,
@@ -311,9 +303,9 @@ auto PGMeshPermutationTracker::validateWeightedVariants() -> std::vector<std::pa
 
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
     for (const auto& [key, nifFile] : s_otherWeightVariants) {
-        // A mesh being used weighted in one place while its counterpart is never patched as weighted (not used
-        // weighted in plugins, no changes needed, or file absent) is a valid state. Only error when the counterpart
-        // was also patched as weighted, meaning the _0/_1 outputs actually diverged.
+        // A mesh being used weighted in one place while its counterpart is never patched as weighted (not used.
+        // Weighted in plugins, no changes needed, or file absent) is a valid state. Only error when the counterpart.
+        // Was also patched as weighted, meaning the _0/_1 outputs actually diverged.
         const auto otherVariantPath = getOtherWeightVariant(key.first);
         if (!s_weightVariantProcessedPaths.contains(otherVariantPath.wstring())) {
             Logger::debug(L"Skipping weight variant check for '{}': counterpart '{}' was not patched as weighted",
@@ -334,237 +326,219 @@ auto PGMeshPermutationTracker::validateWeightedVariants() -> std::vector<std::pa
     return errors;
 }
 
-void PGMeshPermutationTracker::processWeightVariant(const nifly::NifFile& mesh, const std::size_t dupIdx)
+void PGMeshPermutationTracker::processWeightVariant(const nifly::NifFile& mesh,
+                                                    const std::size_t dupIdx)
 {
-    // Check other weight variant cache
+    // Check other weight variant cache.
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
     s_weightVariantProcessedPaths.insert(m_origMeshPath.wstring());
 
-    // check if other variant exists
+    // Check if other variant exists.
     const auto otherVariantPath = getOtherWeightVariant(m_origMeshPath);
-    if (s_otherWeightVariants.contains({otherVariantPath, dupIdx})) {
-        if (!compareMesh(mesh, s_otherWeightVariants[{otherVariantPath, dupIdx}], {}, true, true)) {
-            // different from each other, post error
+    if (s_otherWeightVariants.contains({ otherVariantPath, dupIdx })) {
+        if (!compareMesh(mesh, s_otherWeightVariants[{ otherVariantPath, dupIdx }], { }, true, true)) {
+            // Different from each other, post error.
             Logger::error(L"Weighted mesh variants '{}' and '{}' do not match.",
                           m_origMeshPath.wstring(),
                           otherVariantPath.wstring());
         }
 
-        // delete from cache to free memory
-        s_otherWeightVariants.erase({otherVariantPath, dupIdx});
+        // Delete from cache to free memory.
+        s_otherWeightVariants.erase({ otherVariantPath, dupIdx });
     } else {
-        // add to cache
-        s_otherWeightVariants[{m_origMeshPath, dupIdx}] = nifly::NifFile();
-        s_otherWeightVariants[{m_origMeshPath, dupIdx}].CopyFrom(mesh);
+        // Add to cache.
+        s_otherWeightVariants[{ m_origMeshPath, dupIdx }] = nifly::NifFile();
+        s_otherWeightVariants[{ m_origMeshPath, dupIdx }].CopyFrom(mesh);
     }
 }
 
 //
-// ANY changes in patchers that involve WRITING new properties must be included in the equality operators below
+// ANY changes in patchers that involve WRITING new properties must be included in the equality operators below.
 //
 
 auto PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
                                            const nifly::NifFile& meshB,
-                                           const std::unordered_set<unsigned int>& enforceCheckShapeTXSTA,
+                                           const std::unordered_set<unsigned>& enforceCheckShapeTXSTA,
                                            bool compareAllTXST,
                                            bool checkOnlyWeighted,
                                            const std::unordered_map<int,
                                                                     int>* meshAInverseIdxCorrectionsPatching) -> bool
 {
-    // This should be compared before sorting blocks (sorting blocks should happen last)
+    // This should be compared before sorting blocks (sorting blocks should happen last).
     const auto blocksA = getComparableBlocks(&meshA);
     const auto blocksB = getComparableBlocks(&meshB);
 
     if (blocksA.size() != blocksB.size()) {
-        // Different number of shapes
+        // Different number of shapes.
         return false;
     }
 
     const size_t numBlocks = blocksA.size();
     for (size_t i = 0; i < numBlocks; i++) {
-        // Check ifthis is a NiParticleSystem
-        auto* const particleA = dynamic_cast<nifly::NiParticleSystem*>(blocksA.at(i));
-        auto* const particleB = dynamic_cast<nifly::NiParticleSystem*>(blocksB.at(i));
-        if ((particleA == nullptr && particleB != nullptr) || (particleA != nullptr && particleB == nullptr)) {
+        // Check ifthis is a NiParticleSystem.
+        const auto* const particleA = dynamic_cast<nifly::NiParticleSystem*>(blocksA.at(i));
+        const auto* const particleB = dynamic_cast<nifly::NiParticleSystem*>(blocksB.at(i));
+        if ((particleA == nullptr && particleB != nullptr) || (particleA != nullptr && particleB == nullptr))
             return false;
-        }
 
-        auto* const shapeA = dynamic_cast<NiShape*>(blocksA.at(i));
-        auto* const shapeB = dynamic_cast<NiShape*>(blocksB.at(i));
-        if ((shapeA == nullptr && shapeB != nullptr) || (shapeA != nullptr && shapeB == nullptr)) {
+        auto* const shapeA = dynamic_cast<nifly::NiShape*>(blocksA.at(i));
+        auto* const shapeB = dynamic_cast<nifly::NiShape*>(blocksB.at(i));
+        if ((shapeA == nullptr && shapeB != nullptr) || (shapeA != nullptr && shapeB == nullptr))
             return false;
-        }
 
         if (particleA != nullptr && particleB != nullptr) {
             if (checkOnlyWeighted) {
-                // skip non-weighted checks
+                // Skip non-weighted checks.
                 continue;
             }
 
             if ((particleA->shaderPropertyRef.IsEmpty() && !particleB->shaderPropertyRef.IsEmpty())
                 || (!particleA->shaderPropertyRef.IsEmpty() && particleB->shaderPropertyRef.IsEmpty())) {
-                // One has a shader property, the other doesn't
+                // One has a shader property, the other doesn't.
                 return false;
             }
             if (particleA->shaderPropertyRef.IsEmpty() && particleB->shaderPropertyRef.IsEmpty()) {
-                // Both don't have a shader property, continue
+                // Both don't have a shader property, continue.
                 continue;
             }
 
-            // Both are particle systems, get effect shader property if it exists
+            // Both are particle systems, get effect shader property if it exists.
             auto* const shaderPropA = meshA.GetHeader().GetBlock(particleA->shaderPropertyRef);
             auto* const shaderPropB = meshB.GetHeader().GetBlock(particleB->shaderPropertyRef);
 
-            auto* const lightingShaderA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropA);
-            auto* const lightingShaderB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropB);
+            const auto* const lightingShaderA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropA);
+            const auto* const lightingShaderB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropB);
             if ((lightingShaderA == nullptr && lightingShaderB != nullptr)
                 || (lightingShaderA != nullptr && lightingShaderB == nullptr)) {
-                // One is an effect shader, the other is not (block mismatch)
+                // One is an effect shader, the other is not (block mismatch).
                 return false;
             }
-            if (lightingShaderA != nullptr && lightingShaderB != nullptr) {
-                // compare bslightingshader helper
-                if (!compareBSLightingShaderProperty(*lightingShaderA, *lightingShaderB)) {
-                    return false;
-                }
+            // Compare bslightingshader helper.
+            if ((lightingShaderA != nullptr && lightingShaderB != nullptr)
+                && (!compareBSLightingShaderProperty(*lightingShaderA, *lightingShaderB))) {
+                return false;
             }
 
-            auto* const effectShaderA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropA);
-            auto* const effectShaderB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropB);
+            const auto* const effectShaderA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropA);
+            const auto* const effectShaderB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropB);
             if ((effectShaderA == nullptr && effectShaderB != nullptr)
                 || (effectShaderA != nullptr && effectShaderB == nullptr)) {
-                // One is an effect shader, the other is not (block mismatch)
+                // One is an effect shader, the other is not (block mismatch).
                 return false;
             }
-            if (effectShaderA != nullptr && effectShaderB != nullptr) {
-                // compare bseffectshader helper
-                if (!compareBSEffectShaderProperty(*effectShaderA, *effectShaderB)) {
-                    return false;
-                }
+            // Compare bseffectshader helper.
+            if ((effectShaderA != nullptr && effectShaderB != nullptr)
+                && (!compareBSEffectShaderProperty(*effectShaderA, *effectShaderB))) {
+                return false;
             }
 
-            auto* const shaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderPropA);
-            auto* const shaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderPropB);
+            const auto* const shaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderPropA);
+            const auto* const shaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderPropB);
             if ((shaderA == nullptr && shaderB != nullptr) || (shaderA != nullptr && shaderB == nullptr)) {
-                // One is a shader, the other is not (block mismatch)
+                // One is a shader, the other is not (block mismatch).
                 return false;
             }
-            if (shaderA != nullptr && shaderB != nullptr) {
-                // compare nishader helper
-                if (!compareBSShaderProperty(*shaderA, *shaderB)) {
-                    return false;
-                }
-            }
+            // Compare nishader helper.
+            if ((shaderA != nullptr && shaderB != nullptr) && (!compareBSShaderProperty(*shaderA, *shaderB)))
+                return false;
+
         } else if (shapeA != nullptr && shapeB != nullptr) {
-            // BSTriShape
-            auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(shapeA);
-            auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(shapeB);
+            // BSTriShape.
+            const auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(shapeA);
+            const auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(shapeB);
             if ((bstrishapeA == nullptr && bstrishapeB != nullptr)
                 || (bstrishapeA != nullptr && bstrishapeB == nullptr)) {
-                // One is a trishape, the other is not (block mismatch)
+                // One is a trishape, the other is not (block mismatch).
                 return false;
             }
 
             if (checkOnlyWeighted) {
-                // skip non-weighted checks
+                // Skip non-weighted checks.
                 continue;
             }
 
-            if (bstrishapeA != nullptr && bstrishapeB != nullptr) {
-                // compare trishape helper
-                if (!compareBSTriShape(*bstrishapeA, *bstrishapeB)) {
-                    return false;
-                }
-            }
-
-            // NiShape
-            // compare nishape helper
-            if (!compareNiShape(*shapeA, *shapeB)) {
+            // Compare trishape helper.
+            if ((bstrishapeA != nullptr && bstrishapeB != nullptr) && (!compareBSTriShape(*bstrishapeA, *bstrishapeB)))
                 return false;
-            }
 
-            // Get shader properties
+            // NiShape.
+            // Compare nishape helper.
+            if (!compareNiShape(*shapeA, *shapeB))
+                return false;
+
+            // Get shader properties.
             auto* const shaderA = meshA.GetShader(shapeA);
             auto* const shaderB = meshB.GetShader(shapeB);
 
-            // BSLightingShaderProperty
-            auto* const bslightingA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderA);
-            auto* const bslightingB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderB);
+            // BSLightingShaderProperty.
+            const auto* const bslightingA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderA);
+            const auto* const bslightingB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderB);
             if ((bslightingA == nullptr && bslightingB != nullptr)
                 || (bslightingA != nullptr && bslightingB == nullptr)) {
-                // One is a lighting shader, the other is not (block mismatch)
+                // One is a lighting shader, the other is not (block mismatch).
                 return false;
             }
-            if (bslightingA != nullptr && bslightingB != nullptr) {
-                // compare bslightingshader helper
-                if (!compareBSLightingShaderProperty(*bslightingA, *bslightingB)) {
-                    return false;
-                }
+            // Compare bslightingshader helper.
+            if ((bslightingA != nullptr && bslightingB != nullptr)
+                && (!compareBSLightingShaderProperty(*bslightingA, *bslightingB))) {
+                return false;
             }
 
-            // BSEffectShaderProperty
-            auto* const bseffectA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderA);
-            auto* const bseffectB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderB);
+            // BSEffectShaderProperty.
+            const auto* const bseffectA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderA);
+            const auto* const bseffectB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderB);
             if ((bseffectA == nullptr && bseffectB != nullptr) || (bseffectA != nullptr && bseffectB == nullptr)) {
-                // One is an effect shader, the other is not (block mismatch)
+                // One is an effect shader, the other is not (block mismatch).
                 return false;
             }
-            if (bseffectA != nullptr && bseffectB != nullptr) {
-                // compare bseffectshader helper
-                if (!compareBSEffectShaderProperty(*bseffectA, *bseffectB)) {
-                    return false;
-                }
+            // Compare bseffectshader helper.
+            if ((bseffectA != nullptr && bseffectB != nullptr)
+                && (!compareBSEffectShaderProperty(*bseffectA, *bseffectB))) {
+                return false;
             }
 
-            // NiShader
+            // NiShader.
             auto* const nishaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderA);
             auto* const nishaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderB);
             if ((nishaderA == nullptr && nishaderB != nullptr) || (nishaderA != nullptr && nishaderB == nullptr)) {
-                // One is a shader, the other is not (block mismatch)
+                // One is a shader, the other is not (block mismatch).
                 return false;
             }
-            if (nishaderA != nullptr && nishaderB != nullptr) {
-                // compare nishader helper
-                if (!compareBSShaderProperty(*nishaderA, *nishaderB)) {
-                    return false;
-                }
-            }
+            // Compare nishader helper.
+            if ((nishaderA != nullptr && nishaderB != nullptr) && (!compareBSShaderProperty(*nishaderA, *nishaderB)))
+                return false;
 
-            if (nishaderA == nullptr || nishaderB == nullptr) {
+            if (nishaderA == nullptr || nishaderB == nullptr)
                 continue;
-            }
 
-            // BSShaderTextureSet
+            // BSShaderTextureSet.
             auto* const texSetA = meshA.GetHeader().GetBlock(nishaderA->TextureSetRef());
             auto* const texSetB = meshB.GetHeader().GetBlock(nishaderB->TextureSetRef());
             auto* const bsshsTexSetA = dynamic_cast<nifly::BSShaderTextureSet*>(texSetA);
             auto* const bsshsTexSetB = dynamic_cast<nifly::BSShaderTextureSet*>(texSetB);
             if ((bsshsTexSetA == nullptr && bsshsTexSetB != nullptr)
                 || (bsshsTexSetA != nullptr && bsshsTexSetB == nullptr)) {
-                // One is a texture set, the other is not (block mismatch)
+                // One is a texture set, the other is not (block mismatch).
                 return false;
             }
 
-            // Resolve the original 3D index (before patch-time deletions/reordering) for stable
-            // alternate-texture enforcement.
-            auto enforceIdxA = static_cast<unsigned int>(i);
+            // Resolve the original 3D index (before patch-time deletions/reordering) for stable.
+            // Alternate-texture enforcement.
+            auto enforceIdxA = static_cast<unsigned>(i);
             if (meshAInverseIdxCorrectionsPatching != nullptr) {
                 const auto foundA = meshAInverseIdxCorrectionsPatching->find(static_cast<int>(i));
-                if (foundA != meshAInverseIdxCorrectionsPatching->end() && foundA->second >= 0) {
-                    enforceIdxA = static_cast<unsigned int>(foundA->second);
-                }
+                if (foundA != meshAInverseIdxCorrectionsPatching->end() && foundA->second >= 0)
+                    enforceIdxA = static_cast<unsigned>(foundA->second);
             }
 
             const bool enforceTxstCheck = enforceCheckShapeTXSTA.contains(enforceIdxA);
-            if (!enforceTxstCheck && !compareAllTXST) {
+            if (!enforceTxstCheck && !compareAllTXST)
                 continue;
-            }
 
-            if (bsshsTexSetA != nullptr && bsshsTexSetB != nullptr) {
-                // compare bsshadertextureset helper
-                if (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB)) {
-                    return false;
-                }
+            // Compare bsshadertextureset helper.
+            if ((bsshsTexSetA != nullptr && bsshsTexSetB != nullptr)
+                && (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB))) {
+                return false;
             }
         }
     }
@@ -576,20 +550,19 @@ auto PGMeshPermutationTracker::compareBSTriShape(const nifly::BSTriShape& shapeA
                                                  const nifly::BSTriShape& shapeB) -> bool
 {
     if (!shapeA.HasVertexColors() && !shapeB.HasVertexColors()) {
-        // nothing to check
+        // Nothing to check.
         return true;
     }
 
     if (shapeA.HasVertexColors() != shapeB.HasVertexColors()) {
-        // only one shape has vertex colors
+        // Only one shape has vertex colors.
         return false;
     }
 
     const auto vertdataA = shapeA.vertData;
     const auto vertdataB = shapeB.vertData;
-    if (vertdataA.size() != vertdataB.size()) {
+    if (vertdataA.size() != vertdataB.size())
         return false;
-    }
 
     const auto numVerts = vertdataA.size();
 
@@ -597,9 +570,8 @@ auto PGMeshPermutationTracker::compareBSTriShape(const nifly::BSTriShape& shapeA
         const auto& vertA = vertdataA.at(i);
         const auto& vertB = vertdataB.at(i);
 
-        if (!std::ranges::equal(vertA.colorData, vertB.colorData)) {
+        if (!std::ranges::equal(vertA.colorData, vertB.colorData))
             return false;
-        }
     }
 
     return true;
@@ -614,50 +586,40 @@ auto PGMeshPermutationTracker::compareNiShape(const nifly::NiShape& shapeA,
 auto PGMeshPermutationTracker::compareBSLightingShaderProperty(const nifly::BSLightingShaderProperty& shaderA,
                                                                const nifly::BSLightingShaderProperty& shaderB) -> bool
 {
-    if (shaderA.emissiveColor != shaderB.emissiveColor) {
+    if (shaderA.emissiveColor != shaderB.emissiveColor)
         return false;
-    }
 
-    if (shaderA.emissiveMultiple != shaderB.emissiveMultiple) {
+    if (shaderA.emissiveMultiple != shaderB.emissiveMultiple)
         return false;
-    }
 
-    if (shaderA.alpha != shaderB.alpha) {
+    if (shaderA.alpha != shaderB.alpha)
         return false;
-    }
 
-    if (shaderA.glossiness != shaderB.glossiness) {
+    if (shaderA.glossiness != shaderB.glossiness)
         return false;
-    }
 
-    if (shaderA.specularColor != shaderB.specularColor) {
+    if (shaderA.specularColor != shaderB.specularColor)
         return false;
-    }
 
-    if (shaderA.specularStrength != shaderB.specularStrength) {
+    if (shaderA.specularStrength != shaderB.specularStrength)
         return false;
-    }
 
-    if (shaderA.softlighting != shaderB.softlighting) {
+    if (shaderA.softlighting != shaderB.softlighting)
         return false;
-    }
 
-    if (shaderA.rimlightPower != shaderB.rimlightPower) {
+    if (shaderA.rimlightPower != shaderB.rimlightPower)
         return false;
-    }
 
     if (shaderA.subsurfaceColor.b != shaderB.subsurfaceColor.b || shaderA.subsurfaceColor.g != shaderB.subsurfaceColor.g
         || shaderA.subsurfaceColor.r != shaderB.subsurfaceColor.r) {
         return false;
     }
 
-    if (shaderA.parallaxInnerLayerThickness != shaderB.parallaxInnerLayerThickness) {
+    if (shaderA.parallaxInnerLayerThickness != shaderB.parallaxInnerLayerThickness)
         return false;
-    }
 
-    if (shaderA.parallaxRefractionScale != shaderB.parallaxRefractionScale) {
+    if (shaderA.parallaxRefractionScale != shaderB.parallaxRefractionScale)
         return false;
-    }
 
     if (shaderA.parallaxInnerLayerTextureScale.u != shaderB.parallaxInnerLayerTextureScale.u
         || shaderA.parallaxInnerLayerTextureScale.v != shaderB.parallaxInnerLayerTextureScale.v) {
@@ -676,29 +638,23 @@ auto PGMeshPermutationTracker::compareBSEffectShaderProperty(const nifly::BSEffe
 auto PGMeshPermutationTracker::compareBSShaderProperty(const nifly::BSShaderProperty& shaderA,
                                                        const nifly::BSShaderProperty& shaderB) -> bool
 {
-    if (shaderA.shaderType != shaderB.shaderType) {
+    if (shaderA.shaderType != shaderB.shaderType)
         return false;
-    }
 
-    if (shaderA.shaderFlags1 != shaderB.shaderFlags1) {
+    if (shaderA.shaderFlags1 != shaderB.shaderFlags1)
         return false;
-    }
 
-    if (shaderA.shaderFlags2 != shaderB.shaderFlags2) {
+    if (shaderA.shaderFlags2 != shaderB.shaderFlags2)
         return false;
-    }
 
-    if (shaderA.environmentMapScale != shaderB.environmentMapScale) {
+    if (shaderA.environmentMapScale != shaderB.environmentMapScale)
         return false;
-    }
 
-    if (shaderA.uvOffset.u != shaderB.uvOffset.u || shaderA.uvOffset.v != shaderB.uvOffset.v) {
+    if (shaderA.uvOffset.u != shaderB.uvOffset.u || shaderA.uvOffset.v != shaderB.uvOffset.v)
         return false;
-    }
 
-    if (shaderA.uvScale.u != shaderB.uvScale.u || shaderA.uvScale.v != shaderB.uvScale.v) {
+    if (shaderA.uvScale.u != shaderB.uvScale.u || shaderA.uvScale.v != shaderB.uvScale.v)
         return false;
-    }
 
     return true;
 }
@@ -715,17 +671,14 @@ auto PGMeshPermutationTracker::compareBSShaderTextureSet(nifly::BSShaderTextureS
         const bool hasB = i < texturesB.size();
 
         if (hasA && hasB) {
-            if (!StringUtil::asciiFastIEquals(texturesA[i].get(), texturesB[i].get())) {
+            if (!StringUtil::asciiFastIEquals(texturesA[i].get(), texturesB[i].get()))
                 return false;
-            }
         } else if (hasA) {
-            if (!texturesA[i].get().empty()) {
+            if (!texturesA[i].get().empty())
                 return false;
-            }
         } else { // hasB
-            if (!texturesB[i].get().empty()) {
+            if (!texturesB[i].get().empty())
                 return false;
-            }
         }
     }
     return true;
@@ -734,68 +687,62 @@ auto PGMeshPermutationTracker::compareBSShaderTextureSet(nifly::BSShaderTextureS
 auto PGMeshPermutationTracker::getMeshPath(const std::filesystem::path& nifPath,
                                            const size_t& index) -> std::filesystem::path
 {
-    if (index == 0) {
+    if (index == 0)
         return nifPath;
-    }
 
-    // Different from mesh which means duplicate is needed
-    filesystem::path newNIFPath;
+    // Different from mesh which means duplicate is needed.
+    std::filesystem::path newNIFPath;
     auto it = nifPath.begin();
-    newNIFPath /= *it++ / "_pgpatcher_dups" / to_wstring(index);
-    while (it != nifPath.end()) {
+    newNIFPath /= *it++ / "_pgpatcher_dups" / std::to_wstring(index);
+    while (it != nifPath.end())
         newNIFPath /= *it++;
-    }
 
     return newNIFPath;
 }
 
-auto PGMeshPermutationTracker::getComparableBlocks(const nifly::NifFile* nif) -> vector<nifly::NiObject*>
+auto PGMeshPermutationTracker::getComparableBlocks(const nifly::NifFile* nif) -> std::vector<nifly::NiObject*>
 {
-    if (nif == nullptr) {
-        throw runtime_error("NIF is null");
-    }
+    if (nif == nullptr)
+        throw std::runtime_error("NIF is null");
 
-    // get 3d indices
+    // Get 3d indices.
     const auto blocks = get3dIndices(nif);
-    vector<pair<NiObject*, int>> out;
+    std::vector<std::pair<nifly::NiObject*, int>> out;
     out.reserve(blocks.size());
-    for (const auto& [nifObject, idx] : blocks) {
+    for (const auto& [nifObject, idx] : blocks)
         out.emplace_back(nifObject, idx);
-    }
 
-    // sort by index3d
+    // Sort by index3d.
     std::ranges::sort(out, [](const auto& a, const auto& b) -> auto { return a.second < b.second; });
 
-    // drop index3d
-    vector<NiObject*> outBlocks;
+    // Drop index3d.
+    std::vector<nifly::NiObject*> outBlocks;
     outBlocks.reserve(out.size());
-    for (const auto& [nifObject, idx] : out) {
+    for (const auto& [nifObject, idx] : out)
         outBlocks.push_back(nifObject);
-    }
 
     return outBlocks;
 }
 
-auto PGMeshPermutationTracker::get3dIndices(const nifly::NifFile* nif) -> unordered_map<nifly::NiObject*,
-                                                                                        int>
+auto PGMeshPermutationTracker::get3dIndices(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiObject*,
+                                                                                             int>
 {
-    if (nif == nullptr) {
-        throw runtime_error("NIF is null");
-    }
+    if (nif == nullptr)
+        throw std::runtime_error("NIF is null");
 
-    vector<NiObject*> tree;
+    std::vector<nifly::NiObject*> tree;
     nif->GetTree(tree);
-    unordered_map<NiObject*, int> blocks;
+    std::unordered_map<nifly::NiObject*, int> blocks;
     int oldIndex3D = 0;
     for (auto& obj : tree) {
-        if (dynamic_cast<NiShape*>(obj) != nullptr) {
+        if (dynamic_cast<nifly::NiShape*>(obj) != nullptr) {
             blocks[obj] = oldIndex3D++;
             continue;
         }
 
-        // other stuff that should increment oldIndex3D
-        if (dynamic_cast<NiParticleSystem*>(obj) != nullptr) {
-            // Particle system, increment index3d
+        // Other stuff that should increment oldIndex3D.
+        if (dynamic_cast<nifly::NiParticleSystem*>(obj) != nullptr) {
+            // Particle system, increment index3d.
             blocks[obj] = oldIndex3D;
             oldIndex3D++;
         }
@@ -804,25 +751,24 @@ auto PGMeshPermutationTracker::get3dIndices(const nifly::NifFile* nif) -> unorde
     return blocks;
 }
 
-auto PGMeshPermutationTracker::get3dIndicesSet(const nifly::NifFile* nif) -> unordered_set<int>
+auto PGMeshPermutationTracker::get3dIndicesSet(const nifly::NifFile* nif) -> std::unordered_set<int>
 {
-    if (nif == nullptr) {
-        throw runtime_error("NIF is null");
-    }
+    if (nif == nullptr)
+        throw std::runtime_error("NIF is null");
 
-    vector<NiObject*> tree;
+    std::vector<nifly::NiObject*> tree;
     nif->GetTree(tree);
-    unordered_set<int> blocks;
+    std::unordered_set<int> blocks;
     int oldIndex3D = 0;
     for (auto& obj : tree) {
-        if (dynamic_cast<NiShape*>(obj) != nullptr) {
+        if (dynamic_cast<nifly::NiShape*>(obj) != nullptr) {
             blocks.insert(oldIndex3D++);
             continue;
         }
 
-        // other stuff that should increment oldIndex3D
-        if (dynamic_cast<NiParticleSystem*>(obj) != nullptr) {
-            // Particle system, increment index3d
+        // Other stuff that should increment oldIndex3D.
+        if (dynamic_cast<nifly::NiParticleSystem*>(obj) != nullptr) {
+            // Particle system, increment index3d.
             blocks.insert(oldIndex3D);
             oldIndex3D++;
         }
@@ -838,11 +784,10 @@ auto PGMeshPermutationTracker::buildInverseIdxCorrections(const std::unordered_m
     -> std::unordered_map<int,
                           int>
 {
-    unordered_map<int, int> inverseIdxCorrections;
+    std::unordered_map<int, int> inverseIdxCorrections;
     for (const auto& [nifObject, oldIndex3D] : original3DIndices) {
-        if (!current3DIndices.contains(nifObject)) {
+        if (!current3DIndices.contains(nifObject))
             continue;
-        }
 
         const auto newIndex3D = current3DIndices.at(nifObject);
         inverseIdxCorrections[newIndex3D] = oldIndex3D;
@@ -853,18 +798,17 @@ auto PGMeshPermutationTracker::buildInverseIdxCorrections(const std::unordered_m
 
 auto PGMeshPermutationTracker::getOtherWeightVariant(const std::filesystem::path& nifPath) -> std::filesystem::path
 {
-    // convert m_origMeshPath to weight slider variant
+    // Convert m_origMeshPath to weight slider variant.
     std::filesystem::path weightVariant = nifPath;
 
-    const static wstring oneWeightVariant = L"_1.nif";
-    const static wstring zeroWeightVariant = L"_0.nif";
+    const static std::wstring oneWeightVariant = L"_1.nif";
+    const static std::wstring zeroWeightVariant = L"_0.nif";
 
     const std::wstring nifPathStr = nifPath.wstring();
-    if (nifPathStr.ends_with(oneWeightVariant)) {
+    if (nifPathStr.ends_with(oneWeightVariant))
         weightVariant = nifPathStr.substr(0, nifPathStr.size() - oneWeightVariant.size()) + zeroWeightVariant;
-    } else if (nifPathStr.ends_with(zeroWeightVariant)) {
+    else if (nifPathStr.ends_with(zeroWeightVariant))
         weightVariant = nifPathStr.substr(0, nifPathStr.size() - zeroWeightVariant.size()) + oneWeightVariant;
-    }
 
     return weightVariant;
 }

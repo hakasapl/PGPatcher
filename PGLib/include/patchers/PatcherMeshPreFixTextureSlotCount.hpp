@@ -10,7 +10,7 @@
 
 class PatcherMeshPreFixTextureSlotCount : public PatcherMeshPre {
 private:
-    constexpr static int SLOT_COUNT = 9;
+    constexpr static int slotCount = 9;
 
 public:
     /**

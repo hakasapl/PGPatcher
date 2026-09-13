@@ -15,12 +15,12 @@
  */
 class PatcherMeshGlobal : public PatcherMesh {
 public:
-    // type definitions
+    // Type definitions.
     using PatcherMeshGlobalFactory
         = std::function<std::unique_ptr<PatcherMeshGlobal>(std::filesystem::path, nifly::NifFile*)>;
     using PatcherMeshGlobalObject = std::unique_ptr<PatcherMeshGlobal>;
 
-    // Constructors
+    // Constructors.
     PatcherMeshGlobal(std::filesystem::path nifPath,
                       nifly::NifFile* nif,
                       std::string patcherName);

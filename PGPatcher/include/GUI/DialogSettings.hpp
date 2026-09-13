@@ -31,8 +31,8 @@ private:
     wxComboBox* m_languageCombo;
     wxRadioBox* m_themeRadioBox;
     std::vector<PGLocale::Language> m_languages;
-    bool m_languageChanged = false;
-    bool m_themeChanged = false;
+    bool m_didLanguageChange = false;
+    bool m_didThemeChange = false;
 
     void onOkButtonPressed(wxCommandEvent& event);
 };

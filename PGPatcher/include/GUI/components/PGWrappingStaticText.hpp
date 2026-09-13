@@ -31,7 +31,7 @@ public:
 private:
     wxString m_unwrappedLabel; /** Label as given by the caller, before any wrapping is applied */
     int m_wrappedWidth; /** Width the label is currently wrapped to, avoids re-wrapping on every size event */
-    bool m_rewrapping {false}; /** Guards against re-entering rewrap() from the size events it causes */
+    bool m_isRewrapping { false }; /** Guards against re-entering rewrap() from the size events it causes */
 
     /**
      * @brief Event handler that re-wraps the label whenever the control's width changes

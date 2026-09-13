@@ -26,11 +26,11 @@
  */
 class PGModManager {
 private:
-    constexpr static uint8_t HEX_ALPHA_BASE = 10U;
+    constexpr static uint8_t hexAlphaBase = 10U;
 
     /// @brief CreateToolhelp32Snapshot() fails with ERROR_BAD_LENGTH when the module list changes while the snapshot
     /// is taken; the documented handling is to retry, this bounds the retries.
-    constexpr static unsigned MODULE_SNAPSHOT_MAX_ATTEMPTS = 16U;
+    constexpr static unsigned moduleSnapshotMaxAttempts = 16U;
 
     /**
      * @brief Converts a single hexadecimal character to its integer value.
@@ -51,13 +51,13 @@ private:
 
 public:
     /// @brief Identifies which mod manager type is in use.
-    enum class ModManagerType : uint8_t { NONE, VORTEX, MODORGANIZER2 };
+    enum class ModManagerType : uint8_t { None, VORTEX, MODORGANIZER2 };
 
     /**
      * @brief Represents a single mod entry with its metadata and conflict information.
      */
     struct Mod {
-        // Hash function for Mod struct shared pointer that hashes only name
+        // Hash function for Mod struct shared pointer that hashes only name.
         struct ModHash {
             auto operator()(const std::shared_ptr<Mod>& mod) const -> std::size_t
             {
@@ -80,7 +80,7 @@ public:
         /// @brief True if the mod contains at least one NIF mesh file.
         bool hasMeshes = false;
         /// @brief Index in the mod manager's native ordering (used as a secondary sort key).
-        int modManagerOrder;
+        int modManagerOrder = 0;
         /// @brief User-assigned patch priority; higher values are applied later (win over lower).
         int priority = -1;
         /// @brief Set of shader types used by shapes within this mod's meshes.
@@ -95,23 +95,23 @@ private:
 
     ModManagerType m_mmType;
     std::filesystem::path m_stagingLocation;
-    bool m_modRulesLoaded = false;
+    bool m_didLoadModRules = false;
 
-    static constexpr const char* MO2INI_PROFILESDIR_KEY = "profiles_directory=";
-    static constexpr const char* MO2INI_MODDIR_KEY = "mod_directory=";
-    static constexpr const char* MO2INI_BASEDIR_KEY = "base_directory=";
-    static constexpr const char* MO2INI_GAMEDIR_KEY = "gamePath=";
-    static constexpr const char* MO2INI_PROFILE_KEY = "selected_profile=";
-    static constexpr const char* MO2INI_GAMENAME_KEY = "gameName=";
-    static constexpr const char* MO2INI_GAMEEDITION_KEY = "game_edition=";
-    static constexpr const char* MO2INI_BASEDIR_WILDCARD = "%BASE_DIR%";
+    static constexpr const char* mo2IniProfilesDirKey = "profiles_directory=";
+    static constexpr const char* mo2IniModDirKey = "mod_directory=";
+    static constexpr const char* mo2IniBaseDirKey = "base_directory=";
+    static constexpr const char* mo2IniGameDirKey = "gamePath=";
+    static constexpr const char* mo2IniProfileKey = "selected_profile=";
+    static constexpr const char* mo2IniGameNameKey = "gameName=";
+    static constexpr const char* mo2IniGameEditionKey = "game_edition=";
+    static constexpr const char* mo2IniBaseDirWildcard = "%BASE_DIR%";
 
-    static constexpr const char* MO2INI_BYTEARRAYPREFIX = "@ByteArray(";
-    static constexpr const char* MO2INI_BYTEARRAYSUFFIX = ")";
+    static constexpr const char* mo2IniByteArrayPrefix = "@ByteArray(";
+    static constexpr const char* mo2IniByteArraySuffix = ")";
 
     /// @brief MO2's virtual filesystem DLL, injected from the MO2 install folder into every process MO2 launches.
-    static constexpr const wchar_t* MO2_USVFS_DLL_NAME = L"usvfs_x64.dll";
-    static constexpr const wchar_t* MO2_EXE_FILENAME = L"ModOrganizer.exe";
+    static constexpr const wchar_t* mo2UsvfsDLLName = L"usvfs_x64.dll";
+    static constexpr const wchar_t* mo2ExeFilename = L"ModOrganizer.exe";
 
 public:
     /**
@@ -119,7 +119,7 @@ public:
      *
      * @param mmType The mod manager type (NONE, VORTEX, or MODORGANIZER2).
      */
-    PGModManager(const ModManagerType& mmType);
+    explicit PGModManager(const ModManagerType& mmType);
 
     /**
      * @brief Returns the map of relative file paths to the mods that own them.
@@ -261,7 +261,7 @@ public:
      * @brief Determines the BethesdaGame::GameType from the MO2 instance's modorganizer.ini.
      *
      * @param instanceDir Path to the MO2 instance directory.
-     * @return The detected GameType, or GameType::UNKNOWN if unrecognized.
+     * @return The detected GameType, or GameType::Unknown if unrecognized.
      */
     static auto getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType;
 
@@ -289,7 +289,7 @@ public:
      */
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
-    // Helpers
+    // Helpers.
     /**
      * @brief Returns a list of all supported ModManagerType values.
      *

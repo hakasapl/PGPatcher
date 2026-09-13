@@ -44,7 +44,7 @@ public:
      *                   Pass an empty set to show all conflicts.
      * @param showAllMeshes If true, show all meshes/shapes/matches instead of just conflicts.
      */
-    explicit DialogModConflictView(const std::unordered_set<std::wstring>& filterMods = {},
+    explicit DialogModConflictView(const std::unordered_set<std::wstring>& filterMods = { },
                                    bool showAllMeshes = false);
 
     /**
@@ -111,17 +111,17 @@ private:
     bool m_showMismatches = false;
 
     // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
-    constexpr static int DEFAULT_WIDTH = 1100;
-    constexpr static int DEFAULT_HEIGHT = 650;
-    constexpr static int DEFAULT_BORDER = 5;
-    constexpr static int LEFT_PANE_WIDTH = 420;
-    constexpr static int MID_PANE_WIDTH = 220;
-    constexpr static int WARNING_ICON_SIZE = 16;
+    constexpr static int defaultWidth = 1100;
+    constexpr static int defaultHeight = 650;
+    constexpr static int defaultBorderDIP = 5;
+    constexpr static int leftPaneWidth = 420;
+    constexpr static int midPaneWidth = 220;
+    constexpr static int warningIconSize = 16;
     /// Image list index of the warning icon (index 0 is a transparent placeholder shown by default).
-    constexpr static int WARNING_ICON_IMAGE_INDEX = 1;
+    constexpr static int warningIconImageIndex = 1;
 
     /// Background colour used to highlight the winning match row.
-    static inline const wxColour s_WINNING_MATCH_COLOR {160, 215, 160};
+    static inline const wxColour s_winningMatchColor { 160, 215, 160 };
 
     // ---- Helpers -----------------------------------------------------------
 
