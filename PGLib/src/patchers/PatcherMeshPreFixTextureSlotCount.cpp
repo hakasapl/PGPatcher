@@ -10,7 +10,7 @@
 #include <memory>
 #include <utility>
 
-auto PatcherMeshPreFixTextureSlotCount::getFactory() -> PatcherMeshPre::PatcherMeshPreFactory
+auto PatcherMeshPreFixTextureSlotCount::factory() -> PatcherMeshPre::PatcherMeshPreFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPre> {
         return std::make_unique<PatcherMeshPreFixTextureSlotCount>(nifPath, nif);
@@ -25,12 +25,12 @@ PatcherMeshPreFixTextureSlotCount::PatcherMeshPreFixTextureSlotCount(std::filesy
 {
 }
 
-auto PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
-                                                   nifly::NiShape& nifShape) -> bool
+bool PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
+                                                   nifly::NiShape& nifShape)
 {
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
 
-    auto* txstRec = getNIF()->GetHeader().GetBlock(nifShader->TextureSetRef());
+    auto* txstRec = nif()->GetHeader().GetBlock(nifShader->TextureSetRef());
     if (txstRec == nullptr)
         return false;
 

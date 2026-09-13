@@ -27,9 +27,9 @@ std::unordered_map<std::filesystem::path, std::unordered_map<uint32_t, PatcherMe
     PatcherMesh::s_patchedTextureSets;
 std::shared_mutex PatcherMesh::s_patchedTextureSetsMutex;
 
-auto PatcherMesh::getTextureSet(const std::filesystem::path& nifPath,
-                                nifly::NifFile& nif,
-                                nifly::NiShape& nifShape) -> PGTypes::TextureSet
+PGTypes::TextureSet PatcherMesh::textureSet(const std::filesystem::path& nifPath,
+                                            nifly::NifFile& nif,
+                                            nifly::NiShape& nifShape)
 {
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto texturesetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
@@ -40,13 +40,13 @@ auto PatcherMesh::getTextureSet(const std::filesystem::path& nifPath,
         return s_patchedTextureSets.at(nifPath).at(texturesetBlockID).original;
 
     // Get the texture slots.
-    return PGNIFUtil::getTextureSlots(&nif, &nifShape);
+    return PGNIFUtil::textureSlots(&nif, &nifShape);
 }
 
-auto PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
+bool PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
                                 nifly::NifFile& nif,
                                 nifly::NiShape& nifShape,
-                                const PGTypes::TextureSet& textures) -> bool
+                                const PGTypes::TextureSet& textures)
 {
     auto* const nifShader = nif.GetShader(&nifShape);
     const auto textureSetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
@@ -104,7 +104,7 @@ auto PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
     const std::unique_lock lockWrite(s_patchedTextureSetsMutex);
 
     // Set original for future use.
-    const auto slots = PGNIFUtil::getTextureSlots(&nif, &nifShape);
+    const auto slots = PGNIFUtil::textureSlots(&nif, &nifShape);
     s_patchedTextureSets[nifPath][textureSetBlockID].original = slots;
 
     // Set the texture slots for the shape like normal.
@@ -133,9 +133,9 @@ PatcherMesh::PatcherMesh(std::filesystem::path nifPath,
 {
 }
 
-auto PatcherMesh::getNIFPath() const -> std::filesystem::path { return m_nifPath; }
+std::filesystem::path PatcherMesh::nifPath() const { return m_nifPath; }
 
-auto PatcherMesh::getNIF() const -> nifly::NifFile*
+nifly::NifFile* PatcherMesh::nif() const
 {
     if (m_nif == nullptr)
         throw std::runtime_error("NIF is null");

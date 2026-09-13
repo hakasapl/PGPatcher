@@ -95,9 +95,9 @@ void addFileToZip(mz_zip_archive& zip,
     if (filePath == zipPath)
         return;
 
-    std::vector<std::byte> buffer = FileUtil::getFileBytes(filePath);
+    std::vector<std::byte> buffer = FileUtil::fileBytes(filePath);
 
-    const std::filesystem::path relativePath = filePath.lexically_relative(PGGlobals::getPGD()->getGeneratedPath());
+    const std::filesystem::path relativePath = filePath.lexically_relative(PGGlobals::pgd()->generatedPath());
 
     // Build ZIP path directly with forward slashes.
     std::string relativeFilePathUTF8;
@@ -152,8 +152,8 @@ void zipDirectory(const std::filesystem::path& dirPath,
     mz_zip_writer_end(&zip);
 }
 
-auto deployDynamicCubemapFile(const std::filesystem::path& outputDir,
-                              const std::filesystem::path& exePath) -> void
+void deployDynamicCubemapFile(const std::filesystem::path& outputDir,
+                              const std::filesystem::path& exePath)
 {
     Logger::info("Installing default dynamic cubemap file");
 
@@ -170,7 +170,7 @@ auto deployDynamicCubemapFile(const std::filesystem::path& outputDir,
     std::filesystem::copy_file(assetPath, outputPath, std::filesystem::copy_options::overwrite_existing);
 
     // Add any files to ignore as generated files.
-    PGGlobals::getPGD()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_dynCubemapPath);
+    PGGlobals::pgd()->addGeneratedFile(PatcherMeshShaderComplexMaterial::s_dynCubemapPath);
 }
 
 void initLogger(const std::filesystem::path& logpath,
@@ -259,8 +259,8 @@ constexpr auto numTotalSteps = 6;
  * caches, which do not depend on settings, are still reused). Settings that only influence plugin saving or logging
  * are excluded on purpose.
  */
-auto computeConfigFingerprint(const PGConfig::PGParams& params,
-                              const ParallaxGenCLIArgs& args) -> uint64_t
+uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
+                                  const ParallaxGenCLIArgs& args)
 {
     HashUtil::Fnv1a64 hasher;
 
@@ -320,17 +320,17 @@ auto computeConfigFingerprint(const PGConfig::PGParams& params,
 /**
  * @brief Fingerprint of the active plugin load order: plugin names in order plus each plugin's size and write time.
  */
-auto computePluginFingerprint(const BethesdaGame& bg,
-                              const std::vector<std::wstring>& activePlugins) -> uint64_t
+uint64_t computePluginFingerprint(const BethesdaGame& bg,
+                                  const std::vector<std::wstring>& activePlugins)
 {
     HashUtil::Fnv1a64 hasher;
-    hasher.add(bg.getGameType());
+    hasher.add(bg.gameType());
     hasher.add(static_cast<uint64_t>(activePlugins.size()));
 
     for (const auto& plugin : activePlugins) {
         hasher.add(StringUtil::toLowerASCII(plugin));
 
-        const auto pluginPath = bg.getGameDataPath() / plugin;
+        const auto pluginPath = bg.gameDataPath() / plugin;
         std::error_code ec;
         const auto mtime = std::filesystem::last_write_time(pluginPath, ec);
         if (ec) {
@@ -359,23 +359,22 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
                                              size_t)>& progressCallback)
 {
     // Initialize "Preparing" Step.
-    progressWindow->CallAfter([progressWindow]() -> void {
+    progressWindow->CallAfter([progressWindow] {
         progressWindow->setMainLabel(pgTr("progress.steps.preparing"));
         progressWindow->setStepLabel("");
         progressWindow->setMainProgress(0, numTotalSteps, true);
         progressWindow->setStepProgress(0, numPreparingSteps);
     });
 
-    auto* bg = PGGlobals::getBG();
-    auto* pgd = PGGlobals::getPGD();
-    auto* pgd3d = PGGlobals::getPGD3D();
-    auto* pgmm = PGGlobals::getPGMM();
+    auto* bg = PGGlobals::bg();
+    auto* pgd = PGGlobals::pgd();
+    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgmm = PGGlobals::pgmm();
 
     //
     // GPU INITIALIZATION.
     //
-    progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initGpu")); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.initGpu")); });
 
     // Check if GPU needs to be initialized.
     Logger::info("Initializing GPU");
@@ -389,7 +388,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         return;
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(1, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(1, numPreparingSteps); });
     //
     // END GPU INITIALIZATION.
     //
@@ -397,8 +396,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     // OUTPUT DIRECTORY INITIALIZATION.
     //
-    progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.outputDir")); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.outputDir")); });
 
     // Print output location.
     Logger::info(L"PGPatcher output directory: {}", params.output.dir.wstring());
@@ -413,14 +411,14 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     }
 
     // If output dir is the same as data dir meshes might get overwritten.
-    if (std::filesystem::equivalent(params.output.dir, pgd->getDataPath())) {
+    if (std::filesystem::equivalent(params.output.dir, pgd->dataPath())) {
         Logger::critical("Output directory cannot be the same directory as your data folder. "
                          "Exiting.");
         return;
     }
 
     // If output dir is a subdirectory of data dir vfs issues can occur.
-    if (boost::istarts_with(params.output.dir.wstring(), bg->getGameDataPath().wstring() + L"\\")) {
+    if (boost::istarts_with(params.output.dir.wstring(), bg->gameDataPath().wstring() + L"\\")) {
         Logger::critical("Output directory cannot be a subdirectory of your data folder. Exiting.");
         return;
     }
@@ -432,7 +430,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     PGRunCache::initialize(params.output.dir / PGRunCache::s_cacheFilename, !params.output.zip, !updateOutput);
     PGRunCache::setConfigFingerprint(computeConfigFingerprint(params, args));
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(2, numPreparingSteps); });
     //
     // END OUTPUT DIRECTORY INITIALIZATION.
     //
@@ -441,10 +439,10 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // PlUGIN VALIDATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.validatingPlugins")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.validatingPlugins")); });
 
     // Check if dyndolod.esp exists.
-    const auto activePlugins = bg->getActivePlugins(false, true);
+    const auto activePlugins = bg->activePlugins(false, true);
     if (std::ranges::find(activePlugins, L"dyndolod.esp") != activePlugins.end()) {
         Logger::critical(
             "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
@@ -459,7 +457,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // Update cache: mesh uses can be reused from the previous run if no plugin changed.
     PGRunCache::setPluginFingerprint(computePluginFingerprint(*bg, activePlugins));
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(3, numPreparingSteps); });
     //
     // END PLUGIN VALIDATION.
     //
@@ -468,14 +466,14 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // PLUGIN INITIALIZATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initPluginPatching")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.initPluginPatching")); });
 
     TaskQueue pluginInit;
 
     // Init PGP library.
     Logger::info("Initializing plugin patching");
     if (params.processing.multithread) {
-        pluginInit.queueTask([&bg, &exePath, &params]() -> void {
+        pluginInit.queueTask([&bg, &exePath, &params] {
             PGPlugin::initialize(*bg, exePath, params.output.pluginLang);
             PGPlugin::populateObjs(params.output.dir / "PGPatcher.esp");
         });
@@ -484,7 +482,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         PGPlugin::populateObjs(params.output.dir / "PGPatcher.esp");
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(4, numPreparingSteps); });
     //
     // END PLUGIN INITIALIZATION.
     //
@@ -493,7 +491,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // MOD MANAGER INITIALIZATION.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initModManager")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.initModManager")); });
 
     // Populate mod info.
     nlohmann::json modJSON;
@@ -513,21 +511,20 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
         // MO2.
         if (params.processing.multithread) {
-            modManagerInit.queueTask([&pgmm, &params]() -> void {
-                pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir);
-            });
+            modManagerInit.queueTask(
+                [&pgmm, &params] { pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir); });
         } else {
             pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir);
         }
     } else if (params.modManager.type == PGModManager::ModManagerType::VORTEX) {
         // Vortex.
         if (params.processing.multithread)
-            modManagerInit.queueTask([&pgmm, &bg]() -> void { pgmm->populateModFileMapVortex(bg->getGameDataPath()); });
+            modManagerInit.queueTask([&pgmm, &bg] { pgmm->populateModFileMapVortex(bg->gameDataPath()); });
         else
-            pgmm->populateModFileMapVortex(bg->getGameDataPath());
+            pgmm->populateModFileMapVortex(bg->gameDataPath());
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(5, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(5, numPreparingSteps); });
     //
     // END MOD MANAGER INITIALIZATION.
     //
@@ -536,7 +533,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // POPULATING FILE MAP.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.populatingFileMap")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.populatingFileMap")); });
 
     // Init file map.
     pgd->populateFileMap(true);
@@ -544,7 +541,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // Update cache: texture metadata of unchanged textures does not need to be read again.
     PGRunCache::seedTextureMetadata();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(6, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(6, numPreparingSteps); });
     //
     // END POPULATING FILE MAP.
     //
@@ -553,11 +550,11 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // VALIDATING DATA FILES.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.validatingDataFiles")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.validatingDataFiles")); });
 
     // Check if PGPatcheroutput already exists in data directory.
     // FIXME: Check using PGD instead.
-    const std::filesystem::path pgStateFilePath = bg->getGameDataPath() / "ParallaxGen_Diff.json";
+    const std::filesystem::path pgStateFilePath = bg->gameDataPath() / "ParallaxGen_Diff.json";
     if (std::filesystem::exists(pgStateFilePath)) {
         Logger::critical("PGPatcher meshes exist in your data directory, please delete before "
                          "re-running.");
@@ -570,7 +567,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         return;
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(7, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(7, numPreparingSteps); });
     //
     // END VALIDATING DATA FILES.
     //
@@ -578,45 +575,42 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     // PATCHER INITIALIZATION.
     //
-    progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.initPatchers")); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.initPatchers")); });
 
     // Create patcher factory.
     PatcherUtil::PatcherMeshSet meshPatchers;
     if (params.prePatcher.fixMeshLighting) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
-        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
     }
     if (params.shaderPatcher.parallax || params.shaderPatcher.complexMaterial || params.shaderPatcher.truePBR) {
         // Fix slots only needed for shader patchers.
         Logger::debug("Adding Texture Slot Count Fix pre-patcher");
-        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::factory());
     }
 
-    meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::getShaderType(),
-                                        PatcherMeshShaderDefault::getFactory());
+    meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::shaderType(), PatcherMeshShaderDefault::factory());
     if (params.shaderPatcher.parallax) {
         Logger::debug("Adding Parallax shader patcher");
-        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::getShaderType(),
-                                            PatcherMeshShaderVanillaParallax::getFactory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::shaderType(),
+                                            PatcherMeshShaderVanillaParallax::factory());
     }
     if (params.shaderPatcher.complexMaterial) {
         Logger::debug("Adding Complex Material shader patcher");
-        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::getShaderType(),
-                                            PatcherMeshShaderComplexMaterial::getFactory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::shaderType(),
+                                            PatcherMeshShaderComplexMaterial::factory());
         PatcherMeshShaderComplexMaterial::loadOptions(args.disableDynCubemap);
     }
     if (params.shaderPatcher.truePBR) {
         Logger::debug("Adding True PBR shader patcher");
-        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::getShaderType(),
-                                            PatcherMeshShaderTruePBR::getFactory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::shaderType(),
+                                            PatcherMeshShaderTruePBR::factory());
         PatcherMeshShaderTruePBR::loadOptions(true, params.processing.enableModDevMode);
     }
     if (params.shaderTransforms.parallaxToCM) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
-        meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
-            = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
-                PatcherMeshShaderTransformParallaxToCM::getFactory() };
+        meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::fromShader()]
+            = { PatcherMeshShaderTransformParallaxToCM::toShader(), PatcherMeshShaderTransformParallaxToCM::factory() };
         PatcherMeshShaderTransformParallaxToCM::loadOptions(!args.forceAlwaysCM);
 
         // Initialize patcher hooks.
@@ -627,11 +621,11 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     }
     if (params.postPatcher.disablePrePatchedMaterials) {
         Logger::debug("Adding Disable Pre-Patched Materials post-patcher");
-        meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::getFactory());
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::factory());
     }
     if (params.postPatcher.fixSSS) {
         Logger::debug("Adding SSS fix post-patcher");
-        meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::factory());
 
         if (!PatcherTextureHookFixSSS::initShader()) {
             Logger::critical("Failed to initialize FixSSS shader");
@@ -640,41 +634,41 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     }
     if (params.postPatcher.hairFlowMap) {
         Logger::debug("Adding Hair Flow Map post-patcher");
-        meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::factory());
     }
 
     const PatcherUtil::PatcherTextureSet texPatchers;
     PGPatcher::loadPatchers(meshPatchers, texPatchers);
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(8, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(8, numPreparingSteps); });
     //
     // END PATCHER INITIALIZATION.
     //
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.waitPluginInit")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.waitPluginInit")); });
 
     // Plugins required for map files.
     pluginInit.waitForCompletion();
     pluginInit.shutdown();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(9, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(9, numPreparingSteps); });
 
     //
     // END OUTPUT DIRECTORY CLEANUP.
     //
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.waitModManagerInit")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.waitModManagerInit")); });
 
     // Mods required for map files.
     modManagerInit.waitForCompletion();
     modManagerInit.shutdown();
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(10, numPreparingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(10, numPreparingSteps); });
 
     // Initialize "Loading meshes" Step.
-    progressWindow->CallAfter([progressWindow]() -> void {
+    progressWindow->CallAfter([progressWindow] {
         progressWindow->setMainLabel(pgTr("progress.steps.loadingMeshes"));
         progressWindow->setStepLabel(pgTr("progress.steps.readingNifs"));
         progressWindow->setMainProgress(1, numTotalSteps, true);
@@ -691,14 +685,14 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Any patcher initialization that requires PGD.
     if (params.shaderPatcher.truePBR)
-        PatcherMeshShaderTruePBR::loadStatics(pgd->getPBRJSONs());
+        PatcherMeshShaderTruePBR::loadStatics(pgd->pbrjsoNs());
 
     // Extended texture classification (complex material detection) runs on a background.
     // Queue and adds shader types to mods as it completes. Wait for it here so mod enable.
     // State and priorities below are computed from complete shader data, and so we do not.
     // Race the classification threads while reading mod shader sets.
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.classifyingTextures")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.classifyingTextures")); });
     pgd->waitForCMClassification();
 
     // Assign new mod priorities for new mods.
@@ -718,8 +712,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     // Make sure the state is clean for the patch.
     PGPatcher::resetRunState();
     PGPlugin::resetPatchingState();
-    PGGlobals::getPGD()->clearGeneratedFiles();
-    PGPatcherGlobals::getWXLoggerSink()->resetToRunStart();
+    PGGlobals::pgd()->clearGeneratedFiles();
+    PGPatcherGlobals::wxLoggerSink()->resetToRunStart();
     // Messages of a previous patching step must be logged again when the step is re-run (the completion dialog only.
     // Shows messages of the latest step), including messages replayed for meshes that did not need re-patching.
     Logger::resetToRunStart();
@@ -744,7 +738,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
         PGRunCache::addProtectedOutput(PatcherMeshShaderComplexMaterial::s_dynCubemapPath);
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void {
+    progressWindow->CallAfter([progressWindow] {
         progressWindow->setMainLabel(pgTr("progress.steps.patchingMeshes"));
         progressWindow->setStepLabel("");
         progressWindow->setMainProgress(3, numTotalSteps, true);
@@ -752,7 +746,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     });
 
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.processingNifs")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.processingNifs")); });
 
     PGPatcher::patchMeshes(params.processing.multithread,
                            args.considerAllMeshes,
@@ -761,7 +755,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                            args.excludeFacegens,
                            progressCallback);
 
-    progressWindow->CallAfter([progressWindow]() -> void {
+    progressWindow->CallAfter([progressWindow] {
         progressWindow->setMainLabel(pgTr("progress.steps.patchingTextures"));
         progressWindow->setStepLabel(pgTr("progress.steps.processingTextures"));
         progressWindow->setMainProgress(4, numTotalSteps, true);
@@ -770,7 +764,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
 
     PGPatcher::patchTextures(params.processing.multithread, progressCallback);
 
-    progressWindow->CallAfter([progressWindow]() -> void {
+    progressWindow->CallAfter([progressWindow] {
         progressWindow->setMainLabel(pgTr("progress.steps.finalizing"));
         progressWindow->setStepLabel("");
         progressWindow->setMainProgress(5, numTotalSteps, true);
@@ -781,15 +775,15 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     // FINISH WRITING FILES.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.finishingWritingFiles")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.finishingWritingFiles")); });
 
     // Wait for file saver to complete.
-    if (PGGlobals::getFileSaver().isWorking()) {
+    if (PGGlobals::fileSaver().isWorking()) {
         Logger::info("Waiting for files to finish saving...");
-        PGGlobals::getFileSaver().waitForCompletion();
+        PGGlobals::fileSaver().waitForCompletion();
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(1, numFinalizingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(1, numFinalizingSteps); });
     //
     // END FINISH WRITING FILES.
     //
@@ -805,8 +799,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     //
     // SAVING PLUGINS.
     //
-    progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.savingPlugins")); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.savingPlugins")); });
 
     Logger::info("Saving Plugins");
     auto esmMode = PGPlugin::ESMMode::PGPatcherOnly;
@@ -816,7 +809,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
         esmMode = PGPlugin::ESMMode::None;
     PGPlugin::savePlugin(params.output.dir, esmMode);
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(2, numFinalizingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(2, numFinalizingSteps); });
 
     //
     // END SAVING PLUGINS.
@@ -826,14 +819,14 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     // DEPLOY ASSETS.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.deployingAssets")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.deployingAssets")); });
 
     if (params.shaderPatcher.complexMaterial && !args.disableDynCubemap) {
         // Deploy Assets.
         deployDynamicCubemapFile(params.output.dir, exePath);
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(3, numFinalizingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(3, numFinalizingSteps); });
     //
     // END DEPLOY ASSETS.
     //
@@ -842,18 +835,18 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     // SAVING DIFF JSON.
     //
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.savingDiffJson")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.savingDiffJson")); });
 
     // Save diff json.
-    const auto diffJSON = PGPatcher::getDiffJSON();
+    const auto diffJSON = PGPatcher::diffJSON();
     if (!diffJSON.empty()) {
         const std::filesystem::path diffJSONPath = params.output.dir / "ParallaxGen_Diff.json";
         FileUtil::saveJSON(diffJSONPath, diffJSON, true);
 
-        PGGlobals::getPGD()->addGeneratedFile("ParallaxGen_Diff.json");
+        PGGlobals::pgd()->addGeneratedFile("ParallaxGen_Diff.json");
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setStepProgress(4, numFinalizingSteps); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(4, numFinalizingSteps); });
     //
     // END SAVING DIFF JSON.
     //
@@ -863,7 +856,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     //
     // Describes this output so the next run into this directory only re-patches what changed (disabled when zipping).
     progressWindow->CallAfter(
-        [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.savingUpdateCache")); });
+        [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.savingUpdateCache")); });
 
     PGRunCache::finishRun(!params.output.zip);
     //
@@ -876,21 +869,20 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
         // OUTPUT ZIP.
         //
         progressWindow->CallAfter(
-            [progressWindow]() -> void { progressWindow->setStepLabel(pgTr("progress.steps.creatingZipArchive")); });
+            [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.creatingZipArchive")); });
 
         Logger::info("Creating output Zip archive");
         const auto zipPath = params.output.dir / "PGPatcher_Output.zip";
         zipDirectory(params.output.dir, zipPath);
         PGPatcher::deleteOutputDir(false);
 
-        progressWindow->CallAfter(
-            [progressWindow]() -> void { progressWindow->setStepProgress(5, numFinalizingSteps); });
+        progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(5, numFinalizingSteps); });
         //
         // END OUTPUT ZIP.
         //
     }
 
-    progressWindow->CallAfter([progressWindow]() -> void { progressWindow->setMainProgress(6, numTotalSteps, true); });
+    progressWindow->CallAfter([progressWindow] { progressWindow->setMainProgress(6, numTotalSteps, true); });
 }
 
 void mainRunner(ParallaxGenCLIArgs& args,
@@ -914,12 +906,12 @@ void mainRunner(ParallaxGenCLIArgs& args,
     PGPatcherGlobals::setPGC(&pgc);
 
     // Initialize localization (GUI strings).
-    PGLocale::init(exePath / "translations", pgc.getUILanguage());
+    PGLocale::init(exePath / "translations", pgc.uiLanguage());
 
     // Initialize UI.
     PGUI::init();
 
-    auto params = pgc.getParams();
+    auto params = pgc.params();
 
     // Show launcher UI. "Update Output" (or --autostart-update) updates the previous output in the output location in.
     // Place, "Start Patching" (or --autostart) regenerates it from scratch.
@@ -970,16 +962,13 @@ void mainRunner(ParallaxGenCLIArgs& args,
     auto* progressWindow = new ProgressWindow(); // NOLINT(cppcoreguidelines-owning-memory)
 
     // Create callback function for progress bars.
-    const std::function<void(size_t, size_t)>& progressCallback
-        = [&progressWindow](size_t completed, size_t total) -> void {
-        progressWindow->CallAfter([=]() -> void {
-            progressWindow->setStepProgress(static_cast<int>(completed), static_cast<int>(total), true);
-        });
+    const std::function<void(size_t, size_t)>& progressCallback = [&progressWindow](size_t completed, size_t total) {
+        progressWindow->CallAfter(
+            [=] { progressWindow->setStepProgress(static_cast<int>(completed), static_cast<int>(total), true); });
     };
 
-    const std::function<void()>& exceptionCallback = [&progressWindow]() -> void {
-        progressWindow->CallAfter([=]() -> void { progressWindow->EndModal(wxID_OK); });
-    };
+    const std::function<void()>& exceptionCallback
+        = [&progressWindow] { progressWindow->CallAfter([=] { progressWindow->EndModal(wxID_OK); }); };
 
     TaskPoolRunner::setExceptionCallback(exceptionCallback);
     TaskQueue::setExceptionCallback(exceptionCallback);
@@ -990,19 +979,18 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     // Dispatch the pre-generation task.
     TaskQueue backgroundRunners;
-    backgroundRunners.queueTask(
-        [&args, &params, &updateOutput, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
-            mainRunnerPrep(args, params, updateOutput, exePath, cfgDir, progressWindow, progressCallback);
+    backgroundRunners.queueTask([&args, &params, &updateOutput, &exePath, &progressWindow, &cfgDir, &progressCallback] {
+        mainRunnerPrep(args, params, updateOutput, exePath, cfgDir, progressWindow, progressCallback);
 
-            // Snapshot message counts after prep so re-runs of the patching step can discard.
-            // Messages from a previous patch run while keeping preparation-phase messages.
-            PGPatcherGlobals::getWXLoggerSink()->markRunStart();
-            Logger::markRunStart();
+        // Snapshot message counts after prep so re-runs of the patching step can discard.
+        // Messages from a previous patch run while keeping preparation-phase messages.
+        PGPatcherGlobals::wxLoggerSink()->markRunStart();
+        Logger::markRunStart();
 
-            mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
-            auto* const progressWindowPtr = progressWindow;
-            progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
-        });
+        mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
+        auto* const progressWindowPtr = progressWindow;
+        progressWindow->CallAfter([progressWindowPtr] { progressWindowPtr->EndModal(wxID_OK); });
+    });
 
     // Show progress dialog (this will block until closed by one of the callafters).
     progressWindow->ShowModal();
@@ -1024,10 +1012,10 @@ void mainRunner(ParallaxGenCLIArgs& args,
         const auto startTime = std::chrono::high_resolution_clock::now();
 
         // Return code RETRY means we redo the patching process.
-        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback]() -> void {
+        backgroundRunners.queueTask([&args, &params, &exePath, &progressWindow, &cfgDir, &progressCallback] {
             mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
             auto* const progressWindowPtr = progressWindow;
-            progressWindow->CallAfter([progressWindowPtr]() -> void { progressWindowPtr->EndModal(wxID_OK); });
+            progressWindow->CallAfter([progressWindowPtr] { progressWindowPtr->EndModal(wxID_OK); });
         });
 
         // Show progress dialog (this will block until closed by one of the callafters).
@@ -1079,10 +1067,10 @@ void addArguments(CLI::App& app,
 }
 }
 
-auto WINAPI WinMain(HINSTANCE /*hInstance*/,
-                    HINSTANCE /*hPrevInstance*/,
-                    LPSTR /*lpCmdLine*/,
-                    int /*nCmdShow*/) -> int
+int WINAPI WinMain(HINSTANCE /*hInstance*/,
+                   HINSTANCE /*hPrevInstance*/,
+                   LPSTR /*lpCmdLine*/,
+                   int /*nCmdShow*/)
 {
 // Block until enter only in debug mode.
 #ifdef _DEBUG
@@ -1095,7 +1083,7 @@ auto WINAPI WinMain(HINSTANCE /*hInstance*/,
     SetConsoleOutputCP(CP_UTF8);
 
     // Find location of ParallaxGen.exe.
-    const std::filesystem::path exePath = PGHandlers::getExePath().parent_path();
+    const std::filesystem::path exePath = PGHandlers::exePath().parent_path();
     configureDotNetLibDirectory(exePath);
 
     // CLI Arguments.

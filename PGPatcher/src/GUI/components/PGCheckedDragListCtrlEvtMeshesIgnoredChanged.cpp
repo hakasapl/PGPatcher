@@ -6,7 +6,7 @@
 
 wxDEFINE_EVENT(pgEVT_CDLC_MESHES_IGNORED_CHANGED,
                PGCheckedDragListCtrlEvtMeshesIgnoredChanged);
-auto PGCheckedDragListCtrlEvtMeshesIgnoredChanged::Clone() const -> wxEvent*
+wxEvent* PGCheckedDragListCtrlEvtMeshesIgnoredChanged::Clone() const
 {
     return new PGCheckedDragListCtrlEvtMeshesIgnoredChanged(*this);
 }

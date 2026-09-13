@@ -27,7 +27,7 @@ public:
                    wxID_ANY,
                    caption)
     {
-        SetIcons(PGUI::getAppIcons());
+        SetIcons(PGUI::appIcons());
 
         auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
@@ -39,8 +39,8 @@ public:
         mainSizer->Add(btnSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, FromDIP(dialogBorder));
 
         // Yes/No buttons do not end the modal loop by default (OK/Cancel are handled by wxDialog).
-        Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void { EndModal(wxID_YES); }, wxID_YES);
-        Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void { EndModal(wxID_NO); }, wxID_NO);
+        Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_YES); }, wxID_YES);
+        Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_NO); }, wxID_NO);
 
         // Let ESC / the close box act as "No" when there is no cancel button.
         if ((style & wxNO) != 0 && (style & wxCANCEL) == 0)
@@ -53,10 +53,10 @@ public:
 
 } // namespace
 
-auto pgMessageBox(const wxString& message,
-                  const wxString& caption,
-                  int style,
-                  wxWindow* parent) -> int
+int pgMessageBox(const wxString& message,
+                 const wxString& caption,
+                 int style,
+                 wxWindow* parent)
 {
     if (!PGPatcherGlobals::isDarkMode())
         return wxMessageBox(message, caption, style, parent);

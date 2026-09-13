@@ -28,7 +28,7 @@ public:
      */
     explicit CompletionDialog(const long long& timeTaken);
 
-    auto ShowModal() -> int override;
+    int ShowModal() override;
 
     void updateTimingInfo(const long long& timeTaken);
 

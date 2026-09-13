@@ -29,7 +29,7 @@ ProgressWindow::ProgressWindow()
                       150),
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the window.
     const int border = FromDIP(10);
@@ -40,7 +40,7 @@ ProgressWindow::ProgressWindow()
 
     // Animated GIF on the left (part of the main sizer).
     wxAnimation anim;
-    const auto resourcesPath = PGPatcherGlobals::getEXEPath() / "resources";
+    const auto resourcesPath = PGPatcherGlobals::exePath() / "resources";
     auto gifPath
         = resourcesPath / (PGPatcherGlobals::isDarkMode() ? "runningparallaxgen_dark.gif" : "runningparallaxgen.gif");
     if (!std::filesystem::exists(gifPath))
@@ -71,10 +71,10 @@ ProgressWindow::ProgressWindow()
     mainSizer->Add(rightSizer, 1, wxEXPAND | wxALL, border);
 
     // Bind the Stop button.
-    cancelButton->Bind(wxEVT_BUTTON, [](wxCommandEvent&) -> void { wxTheApp->Exit(); });
+    cancelButton->Bind(wxEVT_BUTTON, [](wxCommandEvent&) { wxTheApp->Exit(); });
 
     // Bind the window close event (X button).
-    this->Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent&) -> void { wxTheApp->Exit(); });
+    this->Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent&) { wxTheApp->Exit(); });
 
     SetSizerAndFit(mainSizer);
     Centre();

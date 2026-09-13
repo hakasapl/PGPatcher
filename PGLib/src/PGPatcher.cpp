@@ -85,12 +85,12 @@ void PGPatcher::patchMeshes(const bool& multiThread,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback)
 {
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
 
     // Init Handlers.
-    HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
+    HandlerLightPlacerTracker::init(pgd->lightPlacerJSONs());
     PatcherTextureHookConvertToCM::reset();
     PatcherTextureHookFixSSS::reset();
 
@@ -102,7 +102,7 @@ void PGPatcher::patchMeshes(const bool& multiThread,
     TaskQueue setModelUsesQueue;
 
     // Add tasks.
-    auto meshes = pgd->getMeshes();
+    auto meshes = pgd->meshes();
 
     // Incremental runs: find the meshes whose previous output is still valid and remove outputs that are not.
     std::unordered_set<std::filesystem::path> skippable;
@@ -148,10 +148,8 @@ void PGPatcher::patchMeshes(const bool& multiThread,
     meshRunner.runTasks();
 
     // Apply the plugin model uses of all replayed meshes at once.
-    if (!replayedMeshResults.empty()) {
-        setModelUsesQueue.queueTask(
-            [results = std::move(replayedMeshResults)]() -> void { PGPlugin::setModelUses(results); });
-    }
+    if (!replayedMeshResults.empty())
+        setModelUsesQueue.queueTask([results = std::move(replayedMeshResults)] { PGPlugin::setModelUses(results); });
 
     // Final validation for weight variants.
     const auto weightVariantErrors = PGMeshPermutationTracker::validateWeightedVariants();
@@ -175,12 +173,12 @@ void PGPatcher::patchTextures(const bool& multiThread,
                               const std::function<void(size_t,
                                                        size_t)>& progressCallback)
 {
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
 
     // Init Handlers.
-    HandlerLightPlacerTracker::init(pgd->getLightPlacerJSONs());
+    HandlerLightPlacerTracker::init(pgd->lightPlacerJSONs());
 
     // Incremental runs: replay reused generated textures and delete generated textures nobody needs anymore.
     PGRunCache::finalizeHooks();
@@ -190,7 +188,7 @@ void PGPatcher::patchTextures(const bool& multiThread,
     //
 
     // Texture runner.
-    const auto textures = pgd->getTextures();
+    const auto textures = pgd->textures();
 
     // Create task tracker.
     TaskTracker textureTaskTracker("Texture Patcher", textures.size());
@@ -208,8 +206,8 @@ void PGPatcher::patchTextures(const bool& multiThread,
     textureRunner.runTasks();
 }
 
-auto PGPatcher::getPatchMeta() -> std::map<std::filesystem::path,
-                                           MeshMeta>
+auto PGPatcher::patchMeta() -> std::map<std::filesystem::path,
+                                        MeshMeta>
 {
     const std::shared_lock lock(s_meshPatchInfoMutex);
     return s_meshPatchInfo;
@@ -217,24 +215,23 @@ auto PGPatcher::getPatchMeta() -> std::map<std::filesystem::path,
 
 void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches)
 {
-    std::ranges::sort(
-        matches, [&](const PatcherUtil::ShaderPatcherMatch& a, const PatcherUtil::ShaderPatcherMatch& b) -> bool {
-            if (a.mod != nullptr && b.mod == nullptr)
-                return true;
+    std::ranges::sort(matches, [&](const PatcherUtil::ShaderPatcherMatch& a, const PatcherUtil::ShaderPatcherMatch& b) {
+        if (a.mod != nullptr && b.mod == nullptr)
+            return true;
 
-            if (a.mod == nullptr && b.mod != nullptr)
-                return false;
+        if (a.mod == nullptr && b.mod != nullptr)
+            return false;
 
-            if ((a.mod != nullptr && b.mod != nullptr) && (a.mod->priority != b.mod->priority))
-                return a.mod->priority > b.mod->priority;
+        if ((a.mod != nullptr && b.mod != nullptr) && (a.mod->priority != b.mod->priority))
+            return a.mod->priority > b.mod->priority;
 
-            const auto aShader = a.shaderTransformTo != PGEnums::ShapeShader::Unknown ? a.shaderTransformTo : a.shader;
-            const auto bShader = b.shaderTransformTo != PGEnums::ShapeShader::Unknown ? b.shaderTransformTo : b.shader;
-            if (aShader != bShader)
-                return static_cast<int>(aShader) > static_cast<int>(bShader);
+        const auto aShader = a.shaderTransformTo != PGEnums::ShapeShader::Unknown ? a.shaderTransformTo : a.shader;
+        const auto bShader = b.shaderTransformTo != PGEnums::ShapeShader::Unknown ? b.shaderTransformTo : b.shader;
+        if (aShader != bShader)
+            return static_cast<int>(aShader) > static_cast<int>(bShader);
 
-            return a.match.matchedPath < b.match.matchedPath;
-        });
+        return a.match.matchedPath < b.match.matchedPath;
+    });
 }
 
 void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
@@ -249,7 +246,7 @@ void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
 
     const size_t fallbackRank = modPriorityList.size();
 
-    std::ranges::sort(matches, [&](const MatchMeta& a, const MatchMeta& b) -> bool {
+    std::ranges::sort(matches, [&](const MatchMeta& a, const MatchMeta& b) {
         // Get priority ranks for each match's mod.
         size_t aRank = fallbackRank;
         if (a.mod != nullptr) {
@@ -280,7 +277,7 @@ void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
     });
 }
 
-auto PGPatcher::hasConflictData() -> bool
+bool PGPatcher::hasConflictData()
 {
     const std::shared_lock lock(s_meshPatchInfoMutex);
     return !s_meshPatchInfo.empty();
@@ -316,7 +313,7 @@ void PGPatcher::deleteOutputDir(const bool& preOutput,
     static const std::unordered_set<std::filesystem::path> foldersToKeepIncremental = { "meshes", "textures" };
     static const std::unordered_set<std::filesystem::path> filesToKeepIncremental = { updateCacheFile };
 
-    const auto outputDir = PGGlobals::getPGD()->getGeneratedPath();
+    const auto outputDir = PGGlobals::pgd()->generatedPath();
     if (!std::filesystem::exists(outputDir) || !std::filesystem::is_directory(outputDir))
         return;
 
@@ -392,13 +389,13 @@ void PGPatcher::deleteOutputDir(const bool& preOutput,
     }
 }
 
-auto PGPatcher::isOutputEmpty() -> bool
+bool PGPatcher::isOutputEmpty()
 {
     static const std::unordered_set<std::filesystem::path> filesToIgnore
         = { "meta.ini", boost::to_lower_copy(PGRunCache::s_cacheFilename.wstring()) };
 
     // Recursive output dir.
-    const auto outputDir = PGGlobals::getPGD()->getGeneratedPath();
+    const auto outputDir = PGGlobals::pgd()->generatedPath();
     if (!std::filesystem::exists(outputDir) || !std::filesystem::is_directory(outputDir))
         return true;
 
@@ -413,13 +410,13 @@ auto PGPatcher::isOutputEmpty() -> bool
     return true;
 }
 
-auto PGPatcher::replayNIF(const std::filesystem::path& nifPath,
-                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
-                          std::mutex& replayedMeshResultsMutex) -> TaskTracker::Result
+TaskTracker::Result PGPatcher::replayNIF(const std::filesystem::path& nifPath,
+                                         std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
+                                         std::mutex& replayedMeshResultsMutex)
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
-    const auto* record = PGRunCache::getPreviousRecord(nifPath);
+    const auto* record = PGRunCache::previousRecord(nifPath);
     if (record == nullptr)
         throw std::runtime_error("Update cache record not found for mesh: " + nifPath.string());
 
@@ -429,7 +426,7 @@ auto PGPatcher::replayNIF(const std::filesystem::path& nifPath,
     PGRunCache::replayMessages(*record);
 
     // Previous output files are still in the output directory.
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
     for (const auto& [output, size] : record->outputFiles)
         pgd->addGeneratedFile(output);
 
@@ -468,18 +465,18 @@ auto PGPatcher::replayNIF(const std::filesystem::path& nifPath,
     return TaskTracker::Result::Success;
 }
 
-auto PGPatcher::getDiffJSON() -> nlohmann::json
+nlohmann::json PGPatcher::diffJSON()
 {
     const std::shared_lock lock(s_diffJSONMutex);
     return s_diffJSON;
 }
 
-auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
-                         TaskQueue& setModelUsesQueue,
-                         const bool& forceBasePatch,
-                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
-                         const bool& checkAllowedRecTypes,
-                         const bool& excludeFacegens) -> TaskTracker::Result
+TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
+                                        TaskQueue& setModelUsesQueue,
+                                        const bool& forceBasePatch,
+                                        const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
+                                        const bool& checkAllowedRecTypes,
+                                        const bool& excludeFacegens)
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -490,7 +487,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
 
     // Get mod of nif.
     if (PGGlobals::isPGMMSet()) {
-        const auto mod = PGGlobals::getPGMM()->getModByFileSmart(nifPath);
+        const auto mod = PGGlobals::pgmm()->modByFileSmart(nifPath);
         if (mod != nullptr) {
             const std::shared_lock<std::shared_mutex> modLock(mod->mutex);
             PGRunCache::recordModState(mod->name, mod->isEnabled, mod->areMeshesIgnored);
@@ -505,8 +502,8 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     auto meshTracker = PGMeshPermutationTracker(nifPath);
 
     // Check if we have the nif in cache.
-    const auto* const pgd = PGGlobals::getPGD();
-    const auto& meshes = pgd->getMeshes();
+    const auto* const pgd = PGGlobals::pgd();
+    const auto& meshes = pgd->meshes();
     if (!meshes.contains(nifPath))
         throw std::runtime_error("NIF not found in cache: " + nifPath.string());
 
@@ -592,7 +589,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
 
     // Save meshes.
     const auto saveResults = meshTracker.saveMeshes();
-    setModelUsesQueue.queueTask([saveResults]() -> void { PGPlugin::setModelUses(saveResults.first); });
+    setModelUsesQueue.queueTask([saveResults] { PGPlugin::setModelUses(saveResults.first); });
 
     // Run handlers.
     for (const auto& meshResult : saveResults.first) {
@@ -630,7 +627,7 @@ auto PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     return TaskTracker::Result::Success;
 }
 
-auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
+bool PGPatcher::processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
                            MeshMeta& meshMeta,
                            bool singlepassMATO,
@@ -638,13 +635,13 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
                            const PGPlugin::ModelRecordType& modelRecordType,
                            std::unordered_map<unsigned,
                                               PGTypes::TextureSet>& alternateTextures,
-                           std::unordered_set<unsigned>& nonAltTexShapes) -> bool
+                           std::unordered_set<unsigned>& nonAltTexShapes)
 {
     // Create patcher objects.
     const auto patcherObjects = createNIFPatcherObjects(nifPath, nif);
 
     // Get shapes and index 3ds (this is in the order as they would show up as 3d indices in plugins).
-    const auto shapes = PGNIFUtil::getShapesWith3DIdx(nif);
+    const auto shapes = PGNIFUtil::shapesWith3DIdx(nif);
 
     meshMeta.formKeys.push_back(formKey);
 
@@ -693,9 +690,9 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
 
     // Run global patchers.
     for (const auto& globalPatcher : patcherObjects.globalPatchers) {
-        const Logger::Prefix prefixPatches(utf8toUTF16(globalPatcher->getPatcherName()));
+        const Logger::Prefix prefixPatches(utf8toUTF16(globalPatcher->patcherName()));
         if (globalPatcher->applyPatch())
-            meshMeta.globalPatchersApplied.push_back(globalPatcher->getPatcherName());
+            meshMeta.globalPatchersApplied.push_back(globalPatcher->patcherName());
     }
 
     // Clear texture sets cache for this NIF.
@@ -704,7 +701,7 @@ auto PGPatcher::processNIF(const std::filesystem::path& nifPath,
     return true;
 }
 
-auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
+bool PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                                 nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
                                 MeshShapeMeta& meshShapeMeta,
@@ -712,7 +709,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                                 bool singlepassMATO,
                                 const PGMeshPermutationTracker::FormKey& formKey,
                                 const PGPlugin::ModelRecordType& modelRecordType,
-                                PGTypes::TextureSet* alternateTexture) -> bool
+                                PGTypes::TextureSet* alternateTexture)
 {
     if (nif == nullptr)
         throw std::runtime_error("NIF is null");
@@ -723,20 +720,20 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
     // Prep.
     PGTypes::TextureSet slots;
     if (alternateTexture == nullptr) {
-        slots = PatcherMesh::getTextureSet(nifPath, *nif, *nifShape);
+        slots = PatcherMesh::textureSet(nifPath, *nif, *nifShape);
     } else {
         Logger::trace("Alternate texture exist for this shape");
         slots = *alternateTexture;
     }
 
     // Log slots.
-    Logger::trace("Texture Slots: {}", PGTypes::getStrFromTextureSlots(slots));
+    Logger::trace("Texture Slots: {}", PGTypes::strFromTextureSlots(slots));
 
     // Apply prepatchers.
     for (const auto& prePatcher : patchers.prePatchers) {
-        const Logger::Prefix prefixPatches(prePatcher->getPatcherName());
+        const Logger::Prefix prefixPatches(prePatcher->patcherName());
         if (prePatcher->applyPatch(slots, *nifShape)) {
-            meshShapeMeta.prePatchersApplied.push_back(prePatcher->getPatcherName());
+            meshShapeMeta.prePatchersApplied.push_back(prePatcher->patcherName());
 
             if (nif->GetBlockID(nifShape) == NIF_NPOS) {
                 // Shape was deleted, nothing else to do.
@@ -747,7 +744,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
 
     if (PGNIFUtil::isShaderPatchableShape(*nif, *nifShape)) {
         // Allowed shaders from result of patchers.
-        const auto matches = getMatches(slots, patchers, singlepassMATO, modelRecordType, &patchers, nifShape);
+        const auto matches = PGPatcher::matches(slots, patchers, singlepassMATO, modelRecordType, &patchers, nifShape);
         std::vector<PatcherUtil::ShaderPatcherMatch> enabledMatches;
 
         // Add matches to mesh shape meta.
@@ -776,7 +773,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                     if (resultSlots.at(slot).empty())
                         continue;
 
-                    auto slotMod = PGGlobals::getPGMM()->getModByFileSmart(resultSlots.at(slot));
+                    auto slotMod = PGGlobals::pgmm()->modByFileSmart(resultSlots.at(slot));
                     if (slotMod != nullptr) {
                         matchMeta.resultTextureMods.emplace_back(static_cast<PGEnums::TextureSlots>(slot),
                                                                  std::move(slotMod));
@@ -805,7 +802,7 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
                 Logger::trace("Shader transform was applied");
 
             Logger::trace(L"Winning Match: {} / {} / {}",
-                          utf8toUTF16(PGEnums::getStrFromShader(winningShaderMatch.shader)),
+                          utf8toUTF16(PGEnums::strFromShader(winningShaderMatch.shader)),
                           winningShaderMatch.mod == nullptr ? L"" : winningShaderMatch.mod->name,
                           winningShaderMatch.match.matchedPath);
 
@@ -822,9 +819,9 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
 
     // Apply postpatchers.
     for (const auto& postPatcher : patchers.postPatchers) {
-        const Logger::Prefix prefixPatches(postPatcher->getPatcherName());
+        const Logger::Prefix prefixPatches(postPatcher->patcherName());
         if (postPatcher->applyPatch(slots, *nifShape)) {
-            meshShapeMeta.postPatchersApplied.push_back(postPatcher->getPatcherName());
+            meshShapeMeta.postPatchersApplied.push_back(postPatcher->patcherName());
 
             if (nif->GetBlockID(nifShape) == NIF_NPOS) {
                 // Shape was deleted, nothing else to do.
@@ -841,13 +838,13 @@ auto PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
         *alternateTexture = slots;
     }
 
-    Logger::trace("Texture Slots Modified: {}", PGTypes::getStrFromTextureSlots(slots));
+    Logger::trace("Texture Slots Modified: {}", PGTypes::strFromTextureSlots(slots));
 
     return true;
 }
 
-auto PGPatcher::digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
-                              const PatcherUtil::PatcherMeshObjectSet& patchers) -> uint64_t
+uint64_t PGPatcher::digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
+                                  const PatcherUtil::PatcherMeshObjectSet& patchers)
 {
     // Everything about the ordered match list that influences how the winning match is chosen and applied. Mod.
     // Priorities are deliberately not part of the digest: only their effect (the order of the list) matters, so.
@@ -869,32 +866,32 @@ auto PGPatcher::digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>
 
         const auto patcherIt = patchers.shaderPatchers.find(match.shader);
         if (patcherIt != patchers.shaderPatchers.end())
-            hasher.add(patcherIt->second->getMatchExtraDataHash(match.match));
+            hasher.add(patcherIt->second->matchExtraDataHash(match.match));
     }
 
     return hasher.value();
 }
 
-auto PGPatcher::computeMatchesDigest(const std::filesystem::path& nifPath,
-                                     const PGTypes::TextureSet& slots,
-                                     bool singlepassMATO,
-                                     const PGPlugin::ModelRecordType& modelRecordType) -> uint64_t
+uint64_t PGPatcher::computeMatchesDigest(const std::filesystem::path& nifPath,
+                                         const PGTypes::TextureSet& slots,
+                                         bool singlepassMATO,
+                                         const PGPlugin::ModelRecordType& modelRecordType)
 {
     // Shader patchers only need a NIF for canApply, which is not part of the digest.
     PatcherUtil::PatcherMeshObjectSet patchers;
     for (const auto& [shader, factory] : s_meshPatchers.shaderPatchers)
         patchers.shaderPatchers.emplace(shader, factory(nifPath, nullptr));
 
-    const auto matches = getMatches(slots, patchers, singlepassMATO, modelRecordType);
+    const auto matches = PGPatcher::matches(slots, patchers, singlepassMATO, modelRecordType);
     return digestMatches(matches, patchers);
 }
 
-auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
-                           const PatcherUtil::PatcherMeshObjectSet& patchers,
-                           bool singlepassMATO,
-                           const PGPlugin::ModelRecordType& modelRecordType,
-                           const PatcherUtil::PatcherMeshObjectSet* patcherObjects,
-                           nifly::NiShape* shape) -> std::vector<PatcherUtil::ShaderPatcherMatch>
+std::vector<PatcherUtil::ShaderPatcherMatch> PGPatcher::matches(const PGTypes::TextureSet& slots,
+                                                                const PatcherUtil::PatcherMeshObjectSet& patchers,
+                                                                bool singlepassMATO,
+                                                                const PGPlugin::ModelRecordType& modelRecordType,
+                                                                const PatcherUtil::PatcherMeshObjectSet* patcherObjects,
+                                                                nifly::NiShape* shape)
 {
     std::vector<PatcherUtil::ShaderPatcherMatch> matches;
     uint64_t matchesDigest = 0;
@@ -913,7 +910,7 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
 
         for (const auto& [shader, patcher] : patchers.shaderPatchers) {
             // Note: name is defined in source code in UTF8-encoded files.
-            const Logger::Prefix prefixPatches(patcher->getPatcherName());
+            const Logger::Prefix prefixPatches(patcher->patcherName());
 
             // Check if shader should be applied.
             std::vector<PatcherMeshShader::PatcherMatch> curMatches;
@@ -923,14 +920,14 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
             }
 
             for (const auto& match : curMatches) {
-                if (!PGGlobals::getPGD()->isFile(match.matchedPath)) {
+                if (!PGGlobals::pgd()->isFile(match.matchedPath)) {
                     Logger::trace(L"Rejecting: Matched path '{}' is not a file", match.matchedPath);
                     continue;
                 }
 
                 PatcherUtil::ShaderPatcherMatch curMatch;
                 if (PGGlobals::isPGMMSet())
-                    curMatch.mod = PGGlobals::getPGMM()->getModByFileSmart(match.matchedPath);
+                    curMatch.mod = PGGlobals::pgmm()->modByFileSmart(match.matchedPath);
 
                 curMatch.shader = shader;
                 curMatch.match = match;
@@ -1026,8 +1023,8 @@ auto PGPatcher::getMatches(const PGTypes::TextureSet& slots,
     return matches;
 }
 
-auto PGPatcher::applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
-                                       const PatcherUtil::PatcherMeshObjectSet& patchers) -> bool
+bool PGPatcher::applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
+                                       const PatcherUtil::PatcherMeshObjectSet& patchers)
 {
     // Transform if required.
     if (match.shaderTransformTo != PGEnums::ShapeShader::Unknown) {
@@ -1046,8 +1043,8 @@ auto PGPatcher::applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
     return false;
 }
 
-auto PGPatcher::createNIFPatcherObjects(const std::filesystem::path& nifPath,
-                                        nifly::NifFile* nif) -> PatcherUtil::PatcherMeshObjectSet
+PatcherUtil::PatcherMeshObjectSet PGPatcher::createNIFPatcherObjects(const std::filesystem::path& nifPath,
+                                                                     nifly::NifFile* nif)
 {
     auto patcherObjects = PatcherUtil::PatcherMeshObjectSet();
     for (const auto& factory : s_meshPatchers.prePatchers) {
@@ -1074,11 +1071,11 @@ auto PGPatcher::createNIFPatcherObjects(const std::filesystem::path& nifPath,
     return patcherObjects;
 }
 
-auto PGPatcher::patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::Result
+TaskTracker::Result PGPatcher::patchDDS(const std::filesystem::path& ddsPath)
 {
     const auto result = TaskTracker::Result::Success;
 
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
 
     // Check if this texture needs to be processed.
     if (s_texPatchers.globalPatchers.empty() && !PatcherTextureHookConvertToCM::isInProcessList(ddsPath)
@@ -1098,7 +1095,7 @@ auto PGPatcher::patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::R
         throw std::runtime_error("File is not a DDS file");
 
     DirectX::ScratchImage ddsImage;
-    if (!PGGlobals::getPGD3D()->getDDS(ddsPath, ddsImage)) {
+    if (!PGGlobals::pGD3D()->getDDS(ddsPath, ddsImage)) {
         Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
         return TaskTracker::Result::FAILURE;
     }
@@ -1129,7 +1126,7 @@ auto PGPatcher::patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::R
 
     if (ddsModified) {
         // Save to output.
-        const std::filesystem::path outputFile = pgd->getGeneratedPath() / ddsPath;
+        const std::filesystem::path outputFile = pgd->generatedPath() / ddsPath;
         std::filesystem::create_directories(outputFile.parent_path());
 
         const HRESULT hr = DirectX::SaveToDDSFile(ddsImage.GetImages(),
@@ -1138,7 +1135,7 @@ auto PGPatcher::patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::R
                                                   DirectX::DDS_FLAGS_NONE,
                                                   outputFile.c_str());
         if (FAILED(hr)) {
-            Logger::error(L"Unable to save texture {}: {}", outputFile.wstring(), PGD3D::getHRESULTErrorMessage(hr));
+            Logger::error(L"Unable to save texture {}: {}", outputFile.wstring(), PGD3D::hresultErrorMessage(hr));
             return TaskTracker::Result::FAILURE;
         }
 
@@ -1149,8 +1146,8 @@ auto PGPatcher::patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::R
     return result;
 }
 
-auto PGPatcher::createDDSPatcherObjects(const std::filesystem::path& ddsPath,
-                                        DirectX::ScratchImage* dds) -> PatcherUtil::PatcherTextureObjectSet
+PatcherUtil::PatcherTextureObjectSet PGPatcher::createDDSPatcherObjects(const std::filesystem::path& ddsPath,
+                                                                        DirectX::ScratchImage* dds)
 {
     auto patcherObjects = PatcherUtil::PatcherTextureObjectSet();
     for (const auto& factory : s_texPatchers.globalPatchers) {

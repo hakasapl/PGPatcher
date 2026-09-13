@@ -73,7 +73,7 @@ public:
      *
      * @return true if the number of completed jobs equals totalJobs, false otherwise.
      */
-    [[nodiscard]] auto isCompleted() -> bool;
+    [[nodiscard]] bool isCompleted();
 
     /**
      * @brief Escalates result to currentResult if it is more severe, capped at threshold.
@@ -93,5 +93,5 @@ private:
     void initJobStatus();
     void printJobStatus(bool force = false);
     void printJobSummary();
-    [[nodiscard]] auto getCompletedJobs() -> size_t;
+    [[nodiscard]] size_t completedJobs();
 };

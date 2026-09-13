@@ -59,7 +59,7 @@ private:
     std::vector<std::wstring> m_strings;
 
 public:
-    auto id(const std::wstring& str) -> uint32_t
+    uint32_t id(const std::wstring& str)
     {
         const auto it = m_ids.find(str);
         if (it != m_ids.end())
@@ -71,11 +71,11 @@ public:
         return newId;
     }
 
-    auto id(const std::string& str) -> uint32_t { return id(StringUtil::utf8toUTF16(str)); }
+    uint32_t id(const std::string& str) { return id(StringUtil::utf8toUTF16(str)); }
 
-    auto id(const std::filesystem::path& path) -> uint32_t { return id(path.wstring()); }
+    uint32_t id(const std::filesystem::path& path) { return id(path.wstring()); }
 
-    [[nodiscard]] auto strings() const -> const std::vector<std::wstring>& { return m_strings; }
+    [[nodiscard]] const std::vector<std::wstring>& strings() const { return m_strings; }
 };
 
 /**
@@ -91,14 +91,14 @@ public:
     {
     }
 
-    [[nodiscard]] auto get(uint32_t id) const -> const std::wstring&
+    [[nodiscard]] const std::wstring& get(uint32_t id) const
     {
         if (id >= m_strings.size())
             throw std::runtime_error("Update cache: invalid string id");
         return m_strings[id];
     }
 
-    [[nodiscard]] auto getNarrow(uint32_t id) const -> std::string { return StringUtil::utf16toUTF8(get(id)); }
+    [[nodiscard]] std::string narrow(uint32_t id) const { return StringUtil::utf16toUTF8(get(id)); }
 };
 
 /// Upper bound for any element count stored in the cache (far above what a real load order produces)
@@ -116,8 +116,8 @@ constexpr size_t maxReserveElements = 1'000'000;
  * multi-gigabyte allocations.
  */
 template<typename T>
-auto readCount(BinaryIO::Reader& reader,
-               size_t minElementBytes) -> T
+T readCount(BinaryIO::Reader& reader,
+            size_t minElementBytes)
 {
     const auto count = reader.read<uint32_t>();
     if (count > maxElementCount || static_cast<size_t>(count) > reader.remaining() / minElementBytes)
@@ -152,8 +152,8 @@ void writeIdentity(BinaryIO::Writer& w,
     }
 }
 
-auto readIdentity(BinaryIO::Reader& r,
-                  const StringTable& st) -> BethesdaDirectory::FileIdentity
+BethesdaDirectory::FileIdentity readIdentity(BinaryIO::Reader& r,
+                                             const StringTable& st)
 {
     BethesdaDirectory::FileIdentity identity;
     identity.kind = static_cast<BethesdaDirectory::FileIdentity::Kind>(r.read<uint8_t>());
@@ -185,13 +185,13 @@ void writeFormKey(BinaryIO::Writer& w,
     w.write<uint32_t>(st.id(formKey.subMODL));
 }
 
-auto readFormKey(BinaryIO::Reader& r,
-                 const StringTable& st) -> PGMeshPermutationTracker::FormKey
+PGMeshPermutationTracker::FormKey readFormKey(BinaryIO::Reader& r,
+                                              const StringTable& st)
 {
     PGMeshPermutationTracker::FormKey formKey;
     formKey.modKey = st.get(r.read<uint32_t>());
     formKey.formID = r.read<uint32_t>();
-    formKey.subMODL = st.getNarrow(r.read<uint32_t>());
+    formKey.subMODL = st.narrow(r.read<uint32_t>());
     return formKey;
 }
 
@@ -203,8 +203,8 @@ void writeTextureSet(BinaryIO::Writer& w,
         w.write<uint32_t>(st.id(slot));
 }
 
-auto readTextureSet(BinaryIO::Reader& r,
-                    const StringTable& st) -> PGTypes::TextureSet
+PGTypes::TextureSet readTextureSet(BinaryIO::Reader& r,
+                                   const StringTable& st)
 {
     PGTypes::TextureSet slots;
     for (auto& slot : slots)
@@ -237,8 +237,8 @@ void writeUses(BinaryIO::Writer& w,
     }
 }
 
-auto readUses(BinaryIO::Reader& r,
-              const StringTable& st) -> PGRunCache::MeshUses
+PGRunCache::MeshUses readUses(BinaryIO::Reader& r,
+                              const StringTable& st)
 {
     PGRunCache::MeshUses uses;
     const auto count = readCount<size_t>(r, 18);
@@ -277,8 +277,9 @@ void writeIntMap(BinaryIO::Writer& w,
     }
 }
 
-auto readIntMap(BinaryIO::Reader& r) -> std::unordered_map<int,
-                                                           int>
+std::unordered_map<int,
+                   int>
+readIntMap(BinaryIO::Reader& r)
 {
     std::unordered_map<int, int> map;
     const auto count = readCount<size_t>(r, 8);
@@ -310,8 +311,8 @@ void writeMeshResult(BinaryIO::Writer& w,
     writeIntMap(w, result.inverseIdxCorrectionsPatching);
 }
 
-auto readMeshResult(BinaryIO::Reader& r,
-                    const StringTable& st) -> PGMeshPermutationTracker::MeshResult
+PGMeshPermutationTracker::MeshResult readMeshResult(BinaryIO::Reader& r,
+                                                    const StringTable& st)
 {
     PGMeshPermutationTracker::MeshResult result;
     result.meshPath = st.get(r.read<uint32_t>());
@@ -342,14 +343,14 @@ void writeStringList(BinaryIO::Writer& w,
         w.write<uint32_t>(st.id(str));
 }
 
-auto readStringList(BinaryIO::Reader& r,
-                    const StringTable& st) -> std::vector<std::string>
+std::vector<std::string> readStringList(BinaryIO::Reader& r,
+                                        const StringTable& st)
 {
     std::vector<std::string> list;
     const auto count = readCount<size_t>(r, 4);
     reserveBounded(list, count);
     for (size_t i = 0; i < count; i++)
-        list.push_back(st.getNarrow(r.read<uint32_t>()));
+        list.push_back(st.narrow(r.read<uint32_t>()));
     return list;
 }
 
@@ -390,8 +391,8 @@ void writeMeta(BinaryIO::Writer& w,
     }
 }
 
-auto readMeta(BinaryIO::Reader& r,
-              const StringTable& st) -> PGRunCache::MeshMetaRecord
+PGRunCache::MeshMetaRecord readMeta(BinaryIO::Reader& r,
+                                    const StringTable& st)
 {
     PGRunCache::MeshMetaRecord meta;
     meta.globalPatchersApplied = readStringList(r, st);
@@ -406,7 +407,7 @@ auto readMeta(BinaryIO::Reader& r,
         const auto idx = static_cast<size_t>(r.read<uint64_t>());
         PGRunCache::MeshShapeMetaRecord shapeMeta;
         shapeMeta.blockID = r.read<uint32_t>();
-        shapeMeta.shapeName = st.getNarrow(r.read<uint32_t>());
+        shapeMeta.shapeName = st.narrow(r.read<uint32_t>());
         shapeMeta.prePatchersApplied = readStringList(r, st);
         shapeMeta.postPatchersApplied = readStringList(r, st);
 
@@ -533,8 +534,8 @@ void writeRecord(BinaryIO::Writer& w,
     }
 }
 
-auto readRecord(BinaryIO::Reader& r,
-                const StringTable& st) -> PGRunCache::MeshRecord
+PGRunCache::MeshRecord readRecord(BinaryIO::Reader& r,
+                                  const StringTable& st)
 {
     PGRunCache::MeshRecord record;
     record.uses = readUses(r, st);
@@ -672,7 +673,7 @@ void writeTexMetadata(BinaryIO::Writer& w,
     w.write<uint32_t>(static_cast<uint32_t>(meta.dimension));
 }
 
-auto readTexMetadata(BinaryIO::Reader& r) -> DirectX::TexMetadata
+DirectX::TexMetadata readTexMetadata(BinaryIO::Reader& r)
 {
     DirectX::TexMetadata meta { };
     meta.width = static_cast<size_t>(r.read<uint64_t>());
@@ -687,9 +688,9 @@ auto readTexMetadata(BinaryIO::Reader& r) -> DirectX::TexMetadata
     return meta;
 }
 
-auto matchesDepKey(const PGTypes::TextureSet& slots,
-                   bool singlepassMATO,
-                   const PGPlugin::ModelRecordType& recType) -> std::wstring
+std::wstring matchesDepKey(const PGTypes::TextureSet& slots,
+                           bool singlepassMATO,
+                           const PGPlugin::ModelRecordType& recType)
 {
     std::wstring key;
     for (const auto& slot : slots) {
@@ -708,29 +709,29 @@ auto matchesDepKey(const PGTypes::TextureSet& slots,
 // Helpers.
 //
 
-auto PGRunCache::pathKey(const std::wstring& path) -> std::wstring
+std::wstring PGRunCache::pathKey(const std::wstring& path)
 {
     auto key = StringUtil::toLowerASCIIFast(path);
     std::ranges::replace(key, L'/', L'\\');
     return key;
 }
 
-auto PGRunCache::pathKey(const std::filesystem::path& path) -> std::wstring { return pathKey(path.wstring()); }
+std::wstring PGRunCache::pathKey(const std::filesystem::path& path) { return pathKey(path.wstring()); }
 
-auto PGRunCache::hookOutputPath(const HookKind& kind,
-                                const std::filesystem::path& texPath) -> std::filesystem::path
+std::filesystem::path PGRunCache::hookOutputPath(const HookKind& kind,
+                                                 const std::filesystem::path& texPath)
 {
     switch (kind) {
     case HookKind::ConvertToCM:
-        return PatcherTextureHookConvertToCM::getOutputFilename(texPath);
+        return PatcherTextureHookConvertToCM::outputFilename(texPath);
     case HookKind::FixSSS:
-        return PatcherTextureHookFixSSS::getOutputFilename(texPath);
+        return PatcherTextureHookFixSSS::outputFilename(texPath);
     }
 
     return { };
 }
 
-auto PGRunCache::hashTexMatchResults(const std::vector<PGTypes::PGTexture>& results) -> uint64_t
+uint64_t PGRunCache::hashTexMatchResults(const std::vector<PGTypes::PGTexture>& results)
 {
     std::vector<std::pair<std::wstring, PGEnums::TextureType>> sorted;
     sorted.reserve(results.size());
@@ -747,7 +748,7 @@ auto PGRunCache::hashTexMatchResults(const std::vector<PGTypes::PGTexture>& resu
     return hasher.value();
 }
 
-auto PGRunCache::attributesToMask(const std::unordered_set<PGEnums::TextureAttribute>& attributes) -> uint8_t
+uint8_t PGRunCache::attributesToMask(const std::unordered_set<PGEnums::TextureAttribute>& attributes)
 {
     uint8_t mask = 0;
     for (const auto& attribute : attributes)
@@ -935,8 +936,9 @@ void PGRunCache::MeshRecorder::setMeta(const PGPatcher::MeshMeta& meta)
         for (const auto& [formKey, matchMetas] : shapeMeta.matches)
             formKeys.push_back(formKey);
         std::ranges::sort(formKeys,
-                          [](const PGMeshPermutationTracker::FormKey& a,
-                             const PGMeshPermutationTracker::FormKey& b) -> bool { return a < b; });
+                          [](const PGMeshPermutationTracker::FormKey& a, const PGMeshPermutationTracker::FormKey& b) {
+                              return a < b;
+                          });
 
         for (const auto& formKey : formKeys) {
             std::vector<MatchMetaRecord> matchRecords;
@@ -1043,16 +1045,16 @@ void PGRunCache::initialize(const std::filesystem::path& cacheFile,
                  s_previous->textures.size());
 }
 
-auto PGRunCache::isEnabled() -> bool { return s_enabled; }
+bool PGRunCache::isEnabled() { return s_enabled; }
 
-auto PGRunCache::hasPreviousRun() -> bool { return s_enabled && s_previous != nullptr; }
+bool PGRunCache::hasPreviousRun() { return s_enabled && s_previous != nullptr; }
 
-auto PGRunCache::arePreviousRecordsValid() -> bool
+bool PGRunCache::arePreviousRecordsValid()
 {
     return hasPreviousRun() && s_previous->configFingerprint == s_configFingerprint;
 }
 
-auto PGRunCache::arePreviousMeshUsesValid() -> bool
+bool PGRunCache::arePreviousMeshUsesValid()
 {
     return hasPreviousRun() && s_pluginFingerprint != 0 && s_previous->pluginFingerprint == s_pluginFingerprint;
 }
@@ -1082,15 +1084,15 @@ void PGRunCache::seedTextureMetadata()
     if (!hasPreviousRun())
         return;
 
-    auto* const pgd = PGGlobals::getPGD();
-    auto* const pgd3d = PGGlobals::getPGD3D();
+    auto* const pgd = PGGlobals::pgd();
+    auto* const pgd3d = PGGlobals::pGD3D();
 
     size_t seeded = 0;
     for (const auto& [texture, info] : s_previous->textures) {
         if (!info.hasMeta)
             continue;
 
-        const auto identity = pgd->getFileIdentity(texture);
+        const auto identity = pgd->fileIdentity(texture);
         if (identity.kind == BethesdaDirectory::FileIdentity::Kind::None || identity != info.identity)
             continue;
 
@@ -1118,16 +1120,16 @@ void PGRunCache::beginRun()
     s_protectedOutputs.clear();
 }
 
-auto PGRunCache::outputRoot() -> std::filesystem::path
+std::filesystem::path PGRunCache::outputRoot()
 {
     // A trailing separator on the configured output directory would break relative path computation.
-    auto root = PGGlobals::getPGD()->getGeneratedPath().lexically_normal();
+    auto root = PGGlobals::pgd()->generatedPath().lexically_normal();
     if (root.filename().empty() && root.has_parent_path())
         root = root.parent_path();
     return root;
 }
 
-auto PGRunCache::isSafeRelativePath(const std::wstring& relPath) -> bool
+bool PGRunCache::isSafeRelativePath(const std::wstring& relPath)
 {
     if (relPath.empty())
         return false;
@@ -1141,7 +1143,7 @@ auto PGRunCache::isSafeRelativePath(const std::wstring& relPath) -> bool
     return std::ranges::all_of(path, [](const auto& part) { return part != L".."; });
 }
 
-auto PGRunCache::hasSafePaths(const CacheData& data) -> bool
+bool PGRunCache::hasSafePaths(const CacheData& data)
 {
     for (const auto& [output, record] : data.hookOutputs)
         if (!isSafeRelativePath(output) || !isSafeRelativePath(record.output) || !isSafeRelativePath(record.source))
@@ -1167,8 +1169,8 @@ auto PGRunCache::hasSafePaths(const CacheData& data) -> bool
     return true;
 }
 
-auto PGRunCache::removeOutputFile(const std::filesystem::path& generatedPath,
-                                  const std::wstring& relPath) -> bool
+bool PGRunCache::removeOutputFile(const std::filesystem::path& generatedPath,
+                                  const std::wstring& relPath)
 {
     // Callers only pass paths that the output directory walk listed (see collectOutputIdentities); the lexical check
     // is a second line of defense right before deleting anything.
@@ -1252,13 +1254,13 @@ void PGRunCache::snapshotOutputDirectory()
     Logger::debug("Update cache: {} files currently in the output directory", s_outputSnapshot.size());
 }
 
-auto PGRunCache::finishRun(bool save) -> bool
+bool PGRunCache::finishRun(bool save)
 {
     if (!s_enabled)
         return true;
 
-    auto* const pgd = PGGlobals::getPGD();
-    auto* const pgd3d = PGGlobals::getPGD3D();
+    auto* const pgd = PGGlobals::pgd();
+    auto* const pgd3d = PGGlobals::pGD3D();
 
     auto data = std::make_unique<CacheData>();
     data->pgVersion = PG_FULL_VERSION;
@@ -1266,13 +1268,13 @@ auto PGRunCache::finishRun(bool save) -> bool
     data->pluginFingerprint = s_pluginFingerprint;
 
     // Textures: identity + classification + metadata.
-    const auto metadataCache = pgd3d->getDDSMetadataCacheSnapshot();
+    const auto metadataCache = pgd3d->ddsMetadataCacheSnapshot();
     {
         const std::shared_lock sessionLock(s_sessionMutex);
-        for (const auto& texture : pgd->getTextures()) {
+        for (const auto& texture : pgd->textures()) {
             const auto key = pathKey(texture);
             TextureInfo info;
-            info.identity = pgd->getFileIdentity(texture);
+            info.identity = pgd->fileIdentity(texture);
             if (info.identity.kind == BethesdaDirectory::FileIdentity::Kind::None
                 || info.identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
                 continue;
@@ -1299,7 +1301,7 @@ auto PGRunCache::finishRun(bool save) -> bool
         }
 
         // Meshes: votes + uses.
-        for (const auto& [mesh, nifCache] : pgd->getMeshes()) {
+        for (const auto& [mesh, nifCache] : pgd->meshes()) {
             const auto key = pathKey(mesh);
 
             const auto votesIt = s_sessionVotes.find(key);
@@ -1367,9 +1369,9 @@ void PGRunCache::discard()
 // Classification caches.
 //
 
-auto PGRunCache::tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
+bool PGRunCache::tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
                                        const BethesdaDirectory::FileIdentity& identity,
-                                       std::vector<TextureVote>& votes) -> bool
+                                       std::vector<TextureVote>& votes)
 {
     if (!hasPreviousRun() || identity.kind == BethesdaDirectory::FileIdentity::Kind::None
         || identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
@@ -1401,8 +1403,8 @@ void PGRunCache::storeMeshVotes(const std::filesystem::path& nifPath,
     s_sessionVotes[pathKey(nifPath)] = { .identity = identity, .votes = votes };
 }
 
-auto PGRunCache::tryGetCachedMeshUses(const std::filesystem::path& nifPath,
-                                      MeshUses& uses) -> bool
+bool PGRunCache::tryGetCachedMeshUses(const std::filesystem::path& nifPath,
+                                      MeshUses& uses)
 {
     if (!arePreviousMeshUsesValid())
         return false;
@@ -1415,9 +1417,9 @@ auto PGRunCache::tryGetCachedMeshUses(const std::filesystem::path& nifPath,
     return true;
 }
 
-auto PGRunCache::tryGetCachedCMClassification(const std::filesystem::path& texture,
+bool PGRunCache::tryGetCachedCMClassification(const std::filesystem::path& texture,
                                               const BethesdaDirectory::FileIdentity& identity,
-                                              CMClassification& result) -> bool
+                                              CMClassification& result)
 {
     if (!hasPreviousRun() || identity.kind == BethesdaDirectory::FileIdentity::Kind::None
         || identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
@@ -1453,7 +1455,7 @@ void PGRunCache::storeCMClassification(const std::filesystem::path& texture,
 // Recording.
 //
 
-auto PGRunCache::isRecording() -> bool { return s_activeRecorder != nullptr && s_suspendDepth == 0; }
+bool PGRunCache::isRecording() { return s_activeRecorder != nullptr && s_suspendDepth == 0; }
 
 void PGRunCache::recordTextureType(const std::filesystem::path& path,
                                    const PGEnums::TextureType& type)
@@ -1531,10 +1533,10 @@ void PGRunCache::recordHookOutput(const HookKind& kind,
     if (!s_enabled)
         return;
 
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
 
     std::error_code ec;
-    const auto outputPath = pgd->getGeneratedPath() / output;
+    const auto outputPath = pgd->generatedPath() / output;
     const auto size = std::filesystem::file_size(outputPath, ec);
     if (ec)
         return;
@@ -1545,7 +1547,7 @@ void PGRunCache::recordHookOutput(const HookKind& kind,
     HookOutputRecord record;
     record.kind = kind;
     record.source = pathKey(source);
-    record.sourceIdentity = pgd->getFileIdentity(source);
+    record.sourceIdentity = pgd->fileIdentity(source);
     record.output = pathKey(output);
     record.identity = OutputIdentity { .size = size, .mtime = mtime.time_since_epoch().count() };
 
@@ -1572,9 +1574,9 @@ void PGRunCache::appendDeferredMessage(const std::filesystem::path& nifPath,
 // Evaluation.
 //
 
-auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
+bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
                               const PGDirectory::NifCache& nifCache,
-                              const CacheData& previous) -> bool
+                              const CacheData& previous)
 {
     const auto recordIt = previous.meshRecords.find(pathKey(nifPath));
     if (recordIt == previous.meshRecords.end())
@@ -1583,8 +1585,8 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
     const auto& record = recordIt->second;
     const Logger::Prefix prefix(L"UpdateCache: " + nifPath.wstring());
 
-    auto* const pgd = PGGlobals::getPGD();
-    const PGModManager* pgmm = PGGlobals::isPGMMSet() ? PGGlobals::getPGMM() : nullptr;
+    auto* const pgd = PGGlobals::pgd();
+    const PGModManager* pgmm = PGGlobals::isPGMMSet() ? PGGlobals::pgmm() : nullptr;
 
     // Plugin uses.
     if (record.uses != nifCache.meshUses) {
@@ -1594,7 +1596,7 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
 
     // Source file identities.
     for (const auto& [path, identity] : record.fileIdentityDeps) {
-        if (pgd->getFileIdentity(path) != identity) {
+        if (pgd->fileIdentity(path) != identity) {
             Logger::trace(L"Re-patching: file changed: {}", path);
             return false;
         }
@@ -1635,7 +1637,7 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
     for (const auto& [path, modName] : record.modOfFileDeps) {
         std::wstring currentName;
         if (pgmm != nullptr) {
-            const auto mod = pgmm->getModByFileSmart(path);
+            const auto mod = pgmm->modByFileSmart(path);
             if (mod != nullptr)
                 currentName = mod->name;
         }
@@ -1651,7 +1653,7 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
         if (pgmm == nullptr)
             return false;
 
-        const auto mod = pgmm->getMod(modName);
+        const auto mod = pgmm->mod(modName);
         if (mod == nullptr) {
             Logger::trace(L"Re-patching: mod no longer exists: {}", modName);
             return false;
@@ -1666,7 +1668,7 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
 
     // Texture types and attributes.
     for (const auto& [path, type] : record.textureTypeDeps) {
-        if (pgd->getTextureType(path) != type) {
+        if (pgd->textureType(path) != type) {
             Logger::trace(L"Re-patching: texture type changed: {}", path);
             return false;
         }
@@ -1680,7 +1682,7 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
     }
 
     for (const auto& [path, mask] : record.textureAttributesDeps) {
-        if (attributesToMask(pgd->getTextureAttributes(path)) != mask) {
+        if (attributesToMask(pgd->textureAttributes(path)) != mask) {
             Logger::trace(L"Re-patching: texture attributes changed: {}", path);
             return false;
         }
@@ -1688,11 +1690,11 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
 
     // Texture map lookups.
     for (const auto& [base, type, hash] : record.texMatchDeps) {
-        const auto slot = PGNIFUtil::getSlotFromTexType(type);
+        const auto slot = PGNIFUtil::slotFromTexType(type);
         if (slot == PGEnums::TextureSlots::Unknown)
             return false;
 
-        const auto results = PGNIFUtil::getTexMatch(base, type, pgd->getTextureMapConst(slot));
+        const auto results = PGNIFUtil::texMatch(base, type, pgd->textureMapConst(slot));
         if (hashTexMatchResults(results) != hash) {
             Logger::trace(L"Re-patching: texture matches changed for {}", base);
             return false;
@@ -1719,12 +1721,12 @@ auto PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
     return true;
 }
 
-auto PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
-                                                         PGDirectory::NifCache>& meshes,
-                                bool multiThread,
-                                const std::function<void(size_t,
-                                                         size_t)>& progressCallback)
-    -> std::unordered_set<std::filesystem::path>
+std::unordered_set<std::filesystem::path>
+PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
+                                                    PGDirectory::NifCache>& meshes,
+                           bool multiThread,
+                           const std::function<void(size_t,
+                                                    size_t)>& progressCallback)
 {
     std::unordered_set<std::filesystem::path> skippable;
 
@@ -1755,11 +1757,11 @@ auto PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
     std::vector<std::filesystem::path> unskip;
     for (const auto& mesh : skippable) {
         const auto& uses = meshes.at(mesh).meshUses;
-        const bool weighted = std::ranges::any_of(uses, [](const auto& use) -> bool { return use.second.isWeighted; });
+        const bool weighted = std::ranges::any_of(uses, [](const auto& use) { return use.second.isWeighted; });
         if (!weighted)
             continue;
 
-        const auto partner = PGMeshPermutationTracker::getOtherWeightVariant(mesh);
+        const auto partner = PGMeshPermutationTracker::otherWeightVariant(mesh);
         if (partner == mesh || skippable.contains(partner))
             continue;
 
@@ -1767,8 +1769,8 @@ auto PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
         if (partnerIt == meshes.end())
             continue;
 
-        const bool partnerWeighted = std::ranges::any_of(partnerIt->second.meshUses,
-                                                         [](const auto& use) -> bool { return use.second.isWeighted; });
+        const bool partnerWeighted
+            = std::ranges::any_of(partnerIt->second.meshUses, [](const auto& use) { return use.second.isWeighted; });
         if (partnerWeighted)
             unskip.push_back(mesh);
     }
@@ -1797,7 +1799,7 @@ void PGRunCache::pruneStaleOutputs(const std::unordered_set<std::filesystem::pat
     if (!hasPreviousRun())
         return;
 
-    const auto generatedPath = PGGlobals::getPGD()->getGeneratedPath();
+    const auto generatedPath = PGGlobals::pgd()->generatedPath();
 
     std::unordered_set<std::wstring> keep;
     {
@@ -1859,7 +1861,7 @@ void PGRunCache::removeEmptyDirectories(const std::filesystem::path& root)
         std::filesystem::remove(root, ec);
 }
 
-auto PGRunCache::getPreviousRecord(const std::filesystem::path& nifPath) -> const MeshRecord*
+auto PGRunCache::previousRecord(const std::filesystem::path& nifPath) -> const MeshRecord*
 {
     if (!hasPreviousRun())
         return nullptr;
@@ -1892,8 +1894,8 @@ void PGRunCache::carryOverRecord(const std::filesystem::path& nifPath)
 // Hooks.
 //
 
-auto PGRunCache::tryReuseHookOutput(const HookKind& kind,
-                                    const std::filesystem::path& texPath) -> bool
+bool PGRunCache::tryReuseHookOutput(const HookKind& kind,
+                                    const std::filesystem::path& texPath)
 {
     if (!hasPreviousRun())
         return false;
@@ -1910,8 +1912,8 @@ auto PGRunCache::tryReuseHookOutput(const HookKind& kind,
     if (previousRecord.kind != kind || previousRecord.source != sourceKey)
         return false;
 
-    auto* const pgd = PGGlobals::getPGD();
-    if (pgd->getFileIdentity(texPath) != previousRecord.sourceIdentity)
+    auto* const pgd = PGGlobals::pgd();
+    if (pgd->fileIdentity(texPath) != previousRecord.sourceIdentity)
         return false;
 
     {
@@ -1977,7 +1979,7 @@ void PGRunCache::finalizeHooks()
     // File, so only files that the output directory walk listed are deleted: the walk never follows symlinks or.
     // Junctions, which keeps every deletion inside the real output directory tree.
     if (s_previous != nullptr) {
-        const auto generatedPath = PGGlobals::getPGD()->getGeneratedPath();
+        const auto generatedPath = PGGlobals::pgd()->generatedPath();
         size_t removed = 0;
         for (const auto& [output, record] : s_previous->hookOutputs) {
             if (needed.contains(output))
@@ -2007,14 +2009,14 @@ void PGRunCache::finalizeHooks()
 // Replay helpers.
 //
 
-auto PGRunCache::buildMeshMeta(const MeshMetaRecord& record) -> PGPatcher::MeshMeta
+PGPatcher::MeshMeta PGRunCache::buildMeshMeta(const MeshMetaRecord& record)
 {
-    const PGModManager* pgmm = PGGlobals::isPGMMSet() ? PGGlobals::getPGMM() : nullptr;
+    const PGModManager* pgmm = PGGlobals::isPGMMSet() ? PGGlobals::pgmm() : nullptr;
 
     const auto resolveMod = [pgmm](const std::wstring& modName) -> std::shared_ptr<PGModManager::Mod> {
         if (modName.empty() || pgmm == nullptr)
             return nullptr;
-        return pgmm->getMod(modName);
+        return pgmm->mod(modName);
     };
 
     PGPatcher::MeshMeta meta;
@@ -2072,7 +2074,7 @@ void PGRunCache::replayMessages(const MeshRecord& record)
 // Persistence.
 //
 
-auto PGRunCache::isUpdateAvailable(const std::filesystem::path& outputDir) -> bool
+bool PGRunCache::isUpdateAvailable(const std::filesystem::path& outputDir)
 {
     if (outputDir.empty())
         return false;
@@ -2107,7 +2109,7 @@ auto PGRunCache::isUpdateAvailable(const std::filesystem::path& outputDir) -> bo
 auto PGRunCache::loadFromFile(const std::filesystem::path& cacheFile) -> std::unique_ptr<CacheData>
 {
     try {
-        const auto bytes = FileUtil::getFileBytes(cacheFile);
+        const auto bytes = FileUtil::fileBytes(cacheFile);
         if (bytes.empty()) {
             Logger::debug("Update cache file is empty");
             return nullptr;
@@ -2232,8 +2234,8 @@ auto PGRunCache::loadFromFile(const std::filesystem::path& cacheFile) -> std::un
     }
 }
 
-auto PGRunCache::saveToFile(const std::filesystem::path& cacheFile,
-                            const CacheData& data) -> bool
+bool PGRunCache::saveToFile(const std::filesystem::path& cacheFile,
+                            const CacheData& data)
 {
     try {
         StringTableBuilder st;

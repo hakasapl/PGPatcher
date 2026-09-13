@@ -78,9 +78,9 @@ public:
     ~ModSortDialog() override;
 
     ModSortDialog(const ModSortDialog&) = delete;
-    auto operator=(const ModSortDialog&) -> ModSortDialog& = delete;
+    ModSortDialog& operator=(const ModSortDialog&) = delete;
     ModSortDialog(ModSortDialog&&) = delete;
-    auto operator=(ModSortDialog&&) -> ModSortDialog& = delete;
+    ModSortDialog& operator=(ModSortDialog&&) = delete;
 
 private:
     // Event Handlers.
@@ -233,7 +233,7 @@ private:
      * @brief Build a mod priority list from the current live (unsaved) list state.
      *        Enabled mods appear first in visual order, disabled mods after.
      */
-    [[nodiscard]] auto getLiveModPriorityList() const -> std::vector<std::shared_ptr<PGModManager::Mod>>;
+    [[nodiscard]] std::vector<std::shared_ptr<PGModManager::Mod>> liveModPriorityList() const;
 
     // Helpers.
 
@@ -248,7 +248,7 @@ private:
      * @param colIndex Index of column to calculate
      * @return int Width of column
      */
-    auto calculateColumnWidth(int colIndex) -> int;
+    int calculateColumnWidth(int colIndex);
 
     /**
      * @brief Highlights the conflicting items for a selected mod
@@ -305,14 +305,14 @@ private:
     /**
      * @brief Returns trimmed lowercase search text.
      */
-    [[nodiscard]] auto getActiveSearchTerm() const -> wxString;
+    [[nodiscard]] wxString activeSearchTerm() const;
 
     /**
      * @brief Returns ordered view of cached rows: enabled rows first, disabled rows second.
      *
      * @return Vector of pointers to cached rows in display order.
      */
-    [[nodiscard]] auto getOrderedCachedRows() const -> std::vector<const CachedModRow*>;
+    [[nodiscard]] std::vector<const CachedModRow*> orderedCachedRows() const;
 
     /**
      * @brief Reorders the full cached enabled list for a move-top or move-bottom action while search is active.
@@ -328,14 +328,14 @@ private:
      *
      * @return true if there are unsaved changes
      */
-    [[nodiscard]] auto hasUnsavedChanges() -> bool;
+    [[nodiscard]] bool hasUnsavedChanges();
 
     /**
      * @brief Prompts the user to confirm closing when there are unsaved changes
      *
      * @return true if it is okay to close (no unsaved changes or user confirmed)
      */
-    [[nodiscard]] auto confirmDiscardUnsavedChanges() -> bool;
+    [[nodiscard]] bool confirmDiscardUnsavedChanges();
 
     /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes
@@ -348,5 +348,5 @@ private:
      * @param shaders Set of ShapeShader enums
      * @return wxString Comma-separated string of shader names
      */
-    static auto constructShaderString(const std::set<PGEnums::ShapeShader>& shaders) -> wxString;
+    static wxString constructShaderString(const std::set<PGEnums::ShapeShader>& shaders);
 };

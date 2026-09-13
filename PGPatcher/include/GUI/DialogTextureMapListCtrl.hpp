@@ -17,7 +17,7 @@
  *
  * Presents a resizable dialog with an instruction label, a two-column editable list
  * (texture path and texture type), and OK/Cancel buttons. Mappings can be pre-populated
- * via populateList() and retrieved after the dialog is accepted via getList().
+ * via populateList() and retrieved after the dialog is accepted via list().
  */
 class DialogTextureMapListCtrl : public wxDialog {
 private:
@@ -43,8 +43,9 @@ public:
      *
      * @return Vector of (wide-string texture path, TextureType) pairs.
      */
-    [[nodiscard]] auto getList() const -> std::vector<std::pair<std::wstring,
-                                                                PGEnums::TextureType>>;
+    [[nodiscard]] std::vector<std::pair<std::wstring,
+                                        PGEnums::TextureType>>
+    list() const;
 
     /**
      * @brief Populate the list control with the provided texture-map entries.

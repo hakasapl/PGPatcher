@@ -28,13 +28,13 @@ private:
         s_patchedTextureSets;
 
 public:
-    static auto getTextureSet(const std::filesystem::path& nifPath,
-                              nifly::NifFile& nif,
-                              nifly::NiShape& nifShape) -> PGTypes::TextureSet;
-    static auto setTextureSet(const std::filesystem::path& nifPath,
+    static PGTypes::TextureSet textureSet(const std::filesystem::path& nifPath,
+                                          nifly::NifFile& nif,
+                                          nifly::NiShape& nifShape);
+    static bool setTextureSet(const std::filesystem::path& nifPath,
                               nifly::NifFile& nif,
                               nifly::NiShape& nifShape,
-                              const PGTypes::TextureSet& textures) -> bool;
+                              const PGTypes::TextureSet& textures);
     static void clearTextureSets(const std::filesystem::path& nifPath);
 
 private:
@@ -49,7 +49,7 @@ protected:
      *
      * @return std::filesystem::path Path to NIF
      */
-    [[nodiscard]] auto getNIFPath() const -> std::filesystem::path;
+    [[nodiscard]] std::filesystem::path nifPath() const;
 
     /**
      * @brief Get the NIF object for the current patcher (used only within child
@@ -57,7 +57,7 @@ protected:
      *
      * @return nifly::NifFile* pointer to NIF object
      */
-    [[nodiscard]] auto getNIF() const -> nifly::NifFile*;
+    [[nodiscard]] nifly::NifFile* nif() const;
 
     void setNIF(nifly::NifFile* nif);
 

@@ -12,7 +12,7 @@ private:
     std::string m_patcherName; /** Name of the patcher (used in log and UI elements) */
 
     // Each patcher needs to also implement these static methods:
-    // static auto getFactory()
+    // static auto factory()
 
 public:
     /**
@@ -29,5 +29,5 @@ public:
      *
      * @return std::string Patcher name
      */
-    [[nodiscard]] auto getPatcherName() const -> std::string;
+    [[nodiscard]] std::string patcherName() const;
 };

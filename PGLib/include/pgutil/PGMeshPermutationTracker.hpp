@@ -31,12 +31,12 @@ public:
         /// @brief Sub-model path within the record (empty for the primary model).
         std::string subMODL;
 
-        auto operator==(const FormKey& other) const -> bool
+        bool operator==(const FormKey& other) const
         {
             return formID == other.formID && modKey == other.modKey && subMODL == other.subMODL;
         }
 
-        auto operator<(const FormKey& other) const -> bool
+        bool operator<(const FormKey& other) const
         {
             if (modKey != other.modKey)
                 return modKey < other.modKey;
@@ -56,7 +56,7 @@ public:
          * @param key The FormKey to hash.
          * @return Combined hash value.
          */
-        auto operator()(const FormKey& key) const -> std::size_t
+        std::size_t operator()(const FormKey& key) const
         {
             const size_t h1 = std::hash<std::wstring> { }(key.modKey);
             const size_t h2 = std::hash<unsigned> { }(key.formID);
@@ -95,8 +95,8 @@ private:
     using AltTex3DIndices = std::unordered_set<unsigned>;
 
     struct PathSizeHash {
-        auto operator()(const std::pair<std::filesystem::path,
-                                        size_t>& key) const noexcept -> size_t
+        size_t operator()(const std::pair<std::filesystem::path,
+                                          size_t>& key) const noexcept
         {
             const size_t h1 = std::hash<std::wstring> { }(key.first.wstring());
             const size_t h2 = std::hash<size_t> { }(key.second);
@@ -142,7 +142,7 @@ public:
      *
      * @return Pointer to the staged NifFile ready for modification.
      */
-    auto stageMesh() -> nifly::NifFile*;
+    nifly::NifFile* stageMesh();
 
     /**
      * @brief Marks that the unmodified base mesh should not be written to disk even when no patches are needed.
@@ -161,28 +161,30 @@ public:
      * @param nonAltTexShapes Set of shape indices whose texture sets must match exactly.
      * @return true if a new unique output mesh was added; false if deduplicated or already processed.
      */
-    auto commitMesh(const FormKey& formKey,
+    bool commitMesh(const FormKey& formKey,
                     bool isWeighted,
                     const std::unordered_map<unsigned,
                                              PGTypes::TextureSet>& altTexResults,
-                    const std::unordered_set<unsigned>& nonAltTexShapes) -> bool;
+                    const std::unordered_set<unsigned>& nonAltTexShapes);
 
     /**
      * @brief Saves all committed output meshes to disk and returns their results with CRC statistics.
      *
      * @return Pair of (list of MeshResult, pair of (base CRC32, total bytes written)).
      */
-    auto saveMeshes() -> std::pair<std::vector<MeshResult>,
-                                   std::pair<unsigned long long,
-                                             unsigned long long>>;
+    std::pair<std::vector<MeshResult>,
+              std::pair<unsigned long long,
+                        unsigned long long>>
+    saveMeshes();
 
     /**
      * @brief Validates all weighted mesh variants across all trackers, ensuring _0/_1 pairs are consistent.
      *
      * @return Errors that were logged, as (mesh path the error is about, message) pairs.
      */
-    static auto validateWeightedVariants() -> std::vector<std::pair<std::filesystem::path,
-                                                                    std::wstring>>;
+    static std::vector<std::pair<std::filesystem::path,
+                                 std::wstring>>
+    validateWeightedVariants();
 
     /**
      * @brief Resolves the path of the corresponding weighted variant (_0/_1) for a given NIF.
@@ -190,7 +192,7 @@ public:
      * @param nifPath Path of the current NIF (e.g., the _1 variant).
      * @return Path of the other weight variant (e.g., the _0 variant), or the same path if it is not a weight variant.
      */
-    static auto getOtherWeightVariant(const std::filesystem::path& nifPath) -> std::filesystem::path;
+    static std::filesystem::path otherWeightVariant(const std::filesystem::path& nifPath);
 
 private:
     /**
@@ -213,13 +215,13 @@ private:
      * @param checkOnlyWeighted If true, only compare weighted shapes.
      * @return true if the meshes are considered equivalent.
      */
-    static auto compareMesh(const nifly::NifFile& meshA,
+    static bool compareMesh(const nifly::NifFile& meshA,
                             const nifly::NifFile& meshB,
                             const std::unordered_set<unsigned>& enforceCheckShapeTXSTA,
                             bool compareAllTXST = false,
                             bool checkOnlyWeighted = false,
                             const std::unordered_map<int,
-                                                     int>* meshAInverseIdxCorrectionsPatching = nullptr) -> bool;
+                                                     int>* meshAInverseIdxCorrectionsPatching = nullptr);
 
     /**
      * @brief Compares two BSTriShape blocks for geometric equivalence.
@@ -228,8 +230,8 @@ private:
      * @param shapeB Second shape.
      * @return true if the shapes are equivalent.
      */
-    static auto compareBSTriShape(const nifly::BSTriShape& shapeA,
-                                  const nifly::BSTriShape& shapeB) -> bool;
+    static bool compareBSTriShape(const nifly::BSTriShape& shapeA,
+                                  const nifly::BSTriShape& shapeB);
 
     /**
      * @brief Compares two NiShape blocks (name and type).
@@ -238,8 +240,8 @@ private:
      * @param shapeB Second shape.
      * @return true if the shapes are equivalent.
      */
-    static auto compareNiShape(const nifly::NiShape& shapeA,
-                               const nifly::NiShape& shapeB) -> bool;
+    static bool compareNiShape(const nifly::NiShape& shapeA,
+                               const nifly::NiShape& shapeB);
 
     /**
      * @brief Compares two BSLightingShaderProperty blocks for equivalence.
@@ -248,8 +250,8 @@ private:
      * @param shaderB Second shader property.
      * @return true if the shader properties are equivalent.
      */
-    static auto compareBSLightingShaderProperty(const nifly::BSLightingShaderProperty& shaderA,
-                                                const nifly::BSLightingShaderProperty& shaderB) -> bool;
+    static bool compareBSLightingShaderProperty(const nifly::BSLightingShaderProperty& shaderA,
+                                                const nifly::BSLightingShaderProperty& shaderB);
 
     /**
      * @brief Compares two BSEffectShaderProperty blocks for equivalence.
@@ -258,8 +260,8 @@ private:
      * @param shaderB Second shader property.
      * @return true if the shader properties are equivalent.
      */
-    static auto compareBSEffectShaderProperty(const nifly::BSEffectShaderProperty& shaderA,
-                                              const nifly::BSEffectShaderProperty& shaderB) -> bool;
+    static bool compareBSEffectShaderProperty(const nifly::BSEffectShaderProperty& shaderA,
+                                              const nifly::BSEffectShaderProperty& shaderB);
 
     /**
      * @brief Compares common BSShaderProperty fields for equivalence.
@@ -268,8 +270,8 @@ private:
      * @param shaderB Second shader property.
      * @return true if the base shader properties are equivalent.
      */
-    static auto compareBSShaderProperty(const nifly::BSShaderProperty& shaderA,
-                                        const nifly::BSShaderProperty& shaderB) -> bool;
+    static bool compareBSShaderProperty(const nifly::BSShaderProperty& shaderA,
+                                        const nifly::BSShaderProperty& shaderB);
 
     /**
      * @brief Compares two BSShaderTextureSet blocks for texture path equivalence.
@@ -278,8 +280,8 @@ private:
      * @param texSetB Second texture set.
      * @return true if all texture slots are identical.
      */
-    static auto compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA,
-                                          nifly::BSShaderTextureSet& texSetB) -> bool;
+    static bool compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA,
+                                          nifly::BSShaderTextureSet& texSetB);
 
     /**
      * @brief Computes the output file path for a mesh permutation.
@@ -288,8 +290,8 @@ private:
      * @param index Permutation index (0 = base name, >0 appends index suffix).
      * @return Output relative path for the permutation.
      */
-    static auto getMeshPath(const std::filesystem::path& nifPath,
-                            const size_t& index) -> std::filesystem::path;
+    static std::filesystem::path meshPath(const std::filesystem::path& nifPath,
+                                          const size_t& index);
 
     /**
      * @brief Returns all NiObject blocks from a NIF that are relevant for comparison.
@@ -297,7 +299,7 @@ private:
      * @param nif Pointer to the NIF file.
      * @return Vector of pointers to comparable NiObject blocks.
      */
-    static auto getComparableBlocks(const nifly::NifFile* nif) -> std::vector<nifly::NiObject*>;
+    static std::vector<nifly::NiObject*> comparableBlocks(const nifly::NifFile* nif);
 
     /**
      * @brief Builds a map from each 3D shape NiObject to its block index within the NIF.
@@ -305,14 +307,16 @@ private:
      * @param nif Pointer to the NIF file.
      * @return Map from NiObject pointer to integer 3D index.
      */
-    static auto get3dIndices(const nifly::NifFile* nif) -> std::unordered_map<nifly::NiObject*,
-                                                                              int>;
+    static std::unordered_map<nifly::NiObject*,
+                              int>
+    get3dIndices(const nifly::NifFile* nif);
 
-    static auto get3dIndicesSet(const nifly::NifFile* nif) -> std::unordered_set<int>;
+    static std::unordered_set<int> get3dIndicesSet(const nifly::NifFile* nif);
 
-    static auto buildInverseIdxCorrections(const std::unordered_map<nifly::NiObject*,
-                                                                    int>& current3DIndices,
-                                           const std::unordered_map<nifly::NiObject*,
-                                                                    int>& original3DIndices) -> std::unordered_map<int,
-                                                                                                                   int>;
+    static std::unordered_map<int,
+                              int>
+    buildInverseIdxCorrections(const std::unordered_map<nifly::NiObject*,
+                                                        int>& current3DIndices,
+                               const std::unordered_map<nifly::NiObject*,
+                                                        int>& original3DIndices);
 };

@@ -13,7 +13,7 @@
 #include <vector>
 
 namespace FileUtil {
-auto getFileBytes(const std::filesystem::path& filePath) -> std::vector<std::byte>
+std::vector<std::byte> fileBytes(const std::filesystem::path& filePath)
 {
     std::ifstream inputFile(filePath, std::ios::binary | std::ios::ate);
     if (!inputFile.is_open()) {
@@ -40,8 +40,8 @@ auto getFileBytes(const std::filesystem::path& filePath) -> std::vector<std::byt
     return buffer;
 }
 
-auto getJSON(const std::filesystem::path& filePath,
-             nlohmann::json& json) -> bool
+bool getJSON(const std::filesystem::path& filePath,
+             nlohmann::json& json)
 {
     std::ifstream inputFile(filePath);
     if (!inputFile.is_open()) {
@@ -60,8 +60,8 @@ auto getJSON(const std::filesystem::path& filePath,
     return true;
 }
 
-auto getJSONFromBytes(const std::vector<std::byte>& bytes,
-                      nlohmann::json& json) -> bool
+bool getJSONFromBytes(const std::vector<std::byte>& bytes,
+                      nlohmann::json& json)
 {
     try {
         // Convert vector of bytes to string.
@@ -78,9 +78,9 @@ auto getJSONFromBytes(const std::vector<std::byte>& bytes,
     return true;
 }
 
-auto saveJSON(const std::filesystem::path& filePath,
+bool saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
-              const bool& readable) -> bool
+              const bool& readable)
 {
     std::ofstream outputFile;
     outputFile.exceptions(std::ios::failbit | std::ios::badbit);

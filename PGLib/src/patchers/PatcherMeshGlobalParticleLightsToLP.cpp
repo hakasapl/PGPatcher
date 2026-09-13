@@ -41,19 +41,19 @@ PatcherMeshGlobalParticleLightsToLP::PatcherMeshGlobalParticleLightsToLP(std::fi
 {
 }
 
-auto PatcherMeshGlobalParticleLightsToLP::getFactory() -> PatcherMeshGlobal::PatcherMeshGlobalFactory
+auto PatcherMeshGlobalParticleLightsToLP::factory() -> PatcherMeshGlobal::PatcherMeshGlobalFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshGlobal> {
         return std::make_unique<PatcherMeshGlobalParticleLightsToLP>(nifPath, nif);
     };
 }
 
-auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
+bool PatcherMeshGlobalParticleLightsToLP::applyPatch()
 {
     // Loop through all blocks to find alpha properties.
     // Determine if NIF has attached havok animations.
     std::vector<nifly::NiObject*> nifBlockTree;
-    getNIF()->GetTree(nifBlockTree);
+    nif()->GetTree(nifBlockTree);
 
     bool appliedPatch = false;
 
@@ -80,10 +80,10 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
         // Loop through children and assign whatever is found.
         for (const auto* childRef : childRefs) {
             if (shape == nullptr)
-                shape = getNIF()->GetHeader().GetBlock<nifly::NiShape>(childRef);
+                shape = nif()->GetHeader().GetBlock<nifly::NiShape>(childRef);
 
             if (particleSystem == nullptr)
-                particleSystem = getNIF()->GetHeader().GetBlock<nifly::NiParticleSystem>(childRef);
+                particleSystem = nif()->GetHeader().GetBlock<nifly::NiParticleSystem>(childRef);
         }
 
         if (shape == nullptr) {
@@ -96,11 +96,11 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
             // Find the alpha property and effect shader from particle system.
             const auto psAlphaPropertyRef = particleSystem->alphaPropertyRef;
             if (!psAlphaPropertyRef.IsEmpty() && alphaProperty == nullptr)
-                alphaProperty = getNIF()->GetHeader().GetBlock<nifly::NiAlphaProperty>(psAlphaPropertyRef);
+                alphaProperty = nif()->GetHeader().GetBlock<nifly::NiAlphaProperty>(psAlphaPropertyRef);
 
             const auto psShaderPropertyRef = particleSystem->shaderPropertyRef;
             if (!psShaderPropertyRef.IsEmpty() && effectShader == nullptr)
-                effectShader = getNIF()->GetHeader().GetBlock<nifly::BSEffectShaderProperty>(psShaderPropertyRef);
+                effectShader = nif()->GetHeader().GetBlock<nifly::BSEffectShaderProperty>(psShaderPropertyRef);
         }
 
         if (particleSystem == nullptr) {
@@ -108,11 +108,11 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
             // Find the alpha property and effect shader from shape.
             const auto* const shapeAlphaPropertyRef = shape->AlphaPropertyRef();
             if (!shapeAlphaPropertyRef->IsEmpty() && alphaProperty == nullptr)
-                alphaProperty = getNIF()->GetHeader().GetBlock<nifly::NiAlphaProperty>(shapeAlphaPropertyRef);
+                alphaProperty = nif()->GetHeader().GetBlock<nifly::NiAlphaProperty>(shapeAlphaPropertyRef);
 
             const auto* const shapeShaderPropertyRef = shape->ShaderPropertyRef();
             if (!shapeShaderPropertyRef->IsEmpty() && effectShader == nullptr)
-                effectShader = getNIF()->GetHeader().GetBlock<nifly::BSEffectShaderProperty>(shapeShaderPropertyRef);
+                effectShader = nif()->GetHeader().GetBlock<nifly::BSEffectShaderProperty>(shapeShaderPropertyRef);
         }
 
         if (alphaProperty == nullptr || effectShader == nullptr) {
@@ -135,20 +135,20 @@ auto PatcherMeshGlobalParticleLightsToLP::applyPatch() -> bool
         if (applySinglePatch(billboardNode, shape, effectShader)) {
             // Delete block if patch was applied.
             appliedPatch = true;
-            const auto nifBlockRef = nifly::NiRef(getNIF()->GetBlockID(nifBlock));
-            getNIF()->GetHeader().DeleteBlock(nifBlockRef);
+            const auto nifBlockRef = nifly::NiRef(nif()->GetBlockID(nifBlock));
+            nif()->GetHeader().DeleteBlock(nifBlockRef);
         }
     }
 
     // Delete unreferenced blocks (there are probably a lot).
-    getNIF()->DeleteUnreferencedBlocks();
+    nif()->DeleteUnreferencedBlocks();
 
     return appliedPatch;
 }
 
-auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNode* node,
+bool PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNode* node,
                                                            nifly::NiShape* shape,
-                                                           nifly::BSEffectShaderProperty* effectShader) -> bool
+                                                           nifly::BSEffectShaderProperty* effectShader)
 {
     // Start generating LP JSON.
     nlohmann::json lpJson;
@@ -157,7 +157,7 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
     lpJson["models"] = nlohmann::json::array();
 
     // Remove "meshes\\" from start of path.
-    const auto nifPath = boost::ireplace_first_copy(getNIFPath().string(), "meshes\\", "");
+    const auto nifPath = boost::ireplace_first_copy(this->nifPath().string(), "meshes\\", "");
     lpJson["models"].push_back(nifPath);
 
     // Create lights array.
@@ -169,7 +169,7 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
 
     // Set position.
     nifly::MatTransform globalPosition;
-    getNIF()->GetNodeTransformToGlobal(node->name.get(), globalPosition);
+    nif()->GetNodeTransformToGlobal(node->name.get(), globalPosition);
 
     // Setup points array.
     lightEntry["points"] = nlohmann::json::array();
@@ -237,7 +237,7 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
     // Get controllers.
     auto controllerRef = effectShader->controllerRef;
     while (!controllerRef.IsEmpty()) {
-        auto* const controller = getNIF()->GetHeader().GetBlock(controllerRef);
+        auto* const controller = nif()->GetHeader().GetBlock(controllerRef);
         if (controller == nullptr)
             break;
 
@@ -260,8 +260,8 @@ auto PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
     return true;
 }
 
-auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeController* controller,
-                                                            std::string& jsonField) -> nlohmann::json
+nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeController* controller,
+                                                                      std::string& jsonField)
 {
     nlohmann::json controllerJson = nlohmann::json::object();
 
@@ -301,16 +301,16 @@ auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeControl
     nifly::NiFloatData const* fadeDataBlock = nullptr;
     nifly::NiPosData const* colorDataBlock = nullptr;
 
-    auto* const floatInterpolator = getNIF()->GetHeader().GetBlock<nifly::NiFloatInterpolator>(interpRef);
+    auto* const floatInterpolator = nif()->GetHeader().GetBlock<nifly::NiFloatInterpolator>(interpRef);
     if (floatInterpolator != nullptr) {
         const auto dataRef = floatInterpolator->dataRef;
-        fadeDataBlock = getNIF()->GetHeader().GetBlock<nifly::NiFloatData>(dataRef);
+        fadeDataBlock = nif()->GetHeader().GetBlock<nifly::NiFloatData>(dataRef);
     }
 
     const auto* const niPoint3Interpolator = dynamic_cast<nifly::NiPoint3Interpolator*>(floatInterpolator);
     if (niPoint3Interpolator != nullptr) {
         const auto dataRef = niPoint3Interpolator->dataRef;
-        colorDataBlock = getNIF()->GetHeader().GetBlock<nifly::NiPosData>(dataRef);
+        colorDataBlock = nif()->GetHeader().GetBlock<nifly::NiPosData>(dataRef);
     }
 
     if ((fadeDataBlock == nullptr && floatController != nullptr)
@@ -399,7 +399,7 @@ auto PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiTimeControl
 
 void PatcherMeshGlobalParticleLightsToLP::finalize()
 {
-    const auto* pgd = PGGlobals::getPGD();
+    const auto* pgd = PGGlobals::pgd();
 
     const std::scoped_lock lock(s_lpJsonDataMutex);
 
@@ -456,7 +456,7 @@ void PatcherMeshGlobalParticleLightsToLP::finalize()
         mergedOutput.push_back(groupObj);
     }
 
-    const auto outputJSON = pgd->getGeneratedPath() / "LightPlacer/parallaxgen.json";
+    const auto outputJSON = pgd->generatedPath() / "LightPlacer/parallaxgen.json";
 
     // Create directories for parent path.
     std::filesystem::create_directories(outputJSON.parent_path());

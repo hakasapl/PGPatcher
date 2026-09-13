@@ -50,7 +50,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     , m_initialParams(std::move(initialParams))
 
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Calculate the scrollbar width (if visible).
     static const int scrollbarWidth = wxSystemSettings::GetMetric(wxSYS_VSCROLL_X);
@@ -98,10 +98,10 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     gameSizer->Add(gameTypeLabel, 0, wxLEFT | wxRIGHT | wxTOP, borderSize);
 
     bool isFirst = true;
-    for (const auto& gameType : BethesdaGame::getGameTypes()) {
+    for (const auto& gameType : BethesdaGame::gameTypes()) {
         auto* radio = new wxRadioButton(this,
                                         wxID_ANY,
-                                        BethesdaGame::getStrFromGameType(gameType),
+                                        BethesdaGame::strFromGameType(gameType),
                                         wxDefaultPosition,
                                         wxDefaultSize,
                                         isFirst ? wxRB_GROUP : 0);
@@ -119,8 +119,8 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     auto* modManagerSizer = new wxStaticBoxSizer(wxVERTICAL, this, pgTr("launcher.modManager.title"));
 
     isFirst = true;
-    for (const auto& mmType : PGModManager::getModManagerTypes()) {
-        auto mmString = wxString(PGModManager::getStrFromModManagerType(mmType));
+    for (const auto& mmType : PGModManager::modManagerTypes()) {
+        auto mmString = wxString(PGModManager::strFromModManagerType(mmType));
         if (mmType == PGModManager::ModManagerType::None)
             mmString += pgTr("launcher.modManager.noneSuffix");
 
@@ -193,7 +193,7 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, borderSize);
 
     wxArrayString pluginLangs;
-    for (const auto& lang : PGPlugin::getAvailablePluginLangStrs())
+    for (const auto& lang : PGPlugin::availablePluginLangStrs())
         pluginLangs.Add(lang);
     m_outputPluginLangCombo = new wxComboBox(this,
                                              wxID_ANY,
@@ -428,15 +428,14 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
-    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
-        wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki");
-    });
+    helpButton->Bind(wxEVT_BUTTON,
+                     [this](wxCommandEvent&) { wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki"); });
 
     // Settings (gear) button next to the help button.
     auto* settingsButton = new wxButton(this, wxID_ANY, wxEmptyString);
 
     wxBitmapBundle settingsIconBundle;
-    const std::filesystem::path settingsSVGPath = PGPatcherGlobals::getEXEPath() / "resources" / "settings.svg";
+    const std::filesystem::path settingsSVGPath = PGPatcherGlobals::exePath() / "resources" / "settings.svg";
     if (std::filesystem::exists(settingsSVGPath)) {
         std::ifstream settingsSVGStream(settingsSVGPath);
         std::string settingsSVGData(std::istreambuf_iterator<char> { settingsSVGStream },
@@ -504,19 +503,19 @@ void LauncherWindow::onInitDialog(wxInitDialogEvent& event)
     event.Skip();
 }
 
-void LauncherWindow::loadConfig() { setUIParams(m_pgc.getParams()); }
+void LauncherWindow::loadConfig() { setUIParams(m_pgc.params()); }
 
 void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
 {
     // Game.
     if (!m_isGameLocationLocked)
         m_gameLocationTextbox->SetValue(initParams.game.dir.wstring());
-    for (const auto& gameType : BethesdaGame::getGameTypes())
+    for (const auto& gameType : BethesdaGame::gameTypes())
         if (gameType == initParams.game.type)
             m_gameTypeRadios[gameType]->SetValue(true);
 
     // Mod Manager.
-    for (const auto& mmType : PGModManager::getModManagerTypes()) {
+    for (const auto& mmType : PGModManager::modManagerTypes()) {
         if (mmType == initParams.modManager.type) {
             m_modManagerRadios[mmType]->SetValue(true);
 
@@ -541,7 +540,7 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
     // Output.
     m_outputLocationTextbox->SetValue(initParams.output.dir.wstring());
     m_outputZipCheckbox->SetValue(initParams.output.zip);
-    m_outputPluginLangCombo->SetStringSelection(PGPlugin::getStringFromPluginLang(initParams.output.pluginLang));
+    m_outputPluginLangCombo->SetStringSelection(PGPlugin::stringFromPluginLang(initParams.output.pluginLang));
 
     // Processing.
     m_processingMultithreadingCheckbox->SetValue(initParams.processing.multithread);
@@ -583,10 +582,10 @@ void LauncherWindow::onGameTypeChange([[maybe_unused]] wxCommandEvent& event)
         return;
     }
 
-    const auto initParams = m_pgc.getParams();
+    const auto initParams = m_pgc.params();
 
     // Update the game location textbox from bethesdagame.
-    for (const auto& gameType : BethesdaGame::getGameTypes()) {
+    for (const auto& gameType : BethesdaGame::gameTypes()) {
         if (m_gameTypeRadios[gameType]->GetValue()) {
             if (initParams.game.type == gameType)
                 m_gameLocationTextbox->SetValue(initParams.game.dir.wstring());
@@ -681,7 +680,7 @@ void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
         this, pgTr("dialogs.meshAllowlist.title"), pgTr("dialogs.meshAllowlist.description"));
     dialog.populateList(m_meshRulesAllowListState);
     if (dialog.ShowModal() == wxID_OK) {
-        m_meshRulesAllowListState = dialog.getList();
+        m_meshRulesAllowListState = dialog.list();
         updateDisabledElements();
     }
 }
@@ -692,7 +691,7 @@ void LauncherWindow::onMeshRulesBlockBtn([[maybe_unused]] wxCommandEvent& event)
         this, pgTr("dialogs.meshBlocklist.title"), pgTr("dialogs.meshBlocklist.description"));
     dialog.populateList(m_meshRulesBlockListState);
     if (dialog.ShowModal() == wxID_OK) {
-        m_meshRulesBlockListState = dialog.getList();
+        m_meshRulesBlockListState = dialog.list();
         updateDisabledElements();
     }
 }
@@ -702,7 +701,7 @@ void LauncherWindow::onTextureRulesTextureMapsBtn([[maybe_unused]] wxCommandEven
     DialogTextureMapListCtrl dialog(this, pgTr("dialogs.textureRules.title"), pgTr("dialogs.textureRules.description"));
     dialog.populateList(m_textureRulesTextureMapsState);
     if (dialog.ShowModal() == wxID_OK) {
-        m_textureRulesTextureMapsState = dialog.getList();
+        m_textureRulesTextureMapsState = dialog.list();
         updateDisabledElements();
     }
 }
@@ -712,7 +711,7 @@ void LauncherWindow::onSelectPluginTypesBtn([[maybe_unused]] wxCommandEvent& eve
     DialogRecTypeSelector selectorDialog(this, pgTr("dialogs.recTypeSelector.title"));
     selectorDialog.populateList(m_dialogRecTypeSelectorState);
     if (selectorDialog.ShowModal() == wxID_OK) {
-        m_dialogRecTypeSelectorState = selectorDialog.getSelectedRecordTypes();
+        m_dialogRecTypeSelectorState = selectorDialog.selectedRecordTypes();
         updateDisabledElements();
     }
 }
@@ -720,7 +719,7 @@ void LauncherWindow::onSelectPluginTypesBtn([[maybe_unused]] wxCommandEvent& eve
 void LauncherWindow::getParams(PGConfig::PGParams& params) const
 {
     // Game.
-    for (const auto& gameType : BethesdaGame::getGameTypes()) {
+    for (const auto& gameType : BethesdaGame::gameTypes()) {
         if (m_gameTypeRadios.at(gameType)->GetValue()) {
             params.game.type = gameType;
             break;
@@ -729,7 +728,7 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.game.dir = m_gameLocationTextbox->GetValue().ToStdWstring();
 
     // Mod Manager.
-    for (const auto& mmType : PGModManager::getModManagerTypes()) {
+    for (const auto& mmType : PGModManager::modManagerTypes()) {
         if (m_modManagerRadios.at(mmType)->GetValue()) {
             params.modManager.type = mmType;
             break;
@@ -741,7 +740,7 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.output.dir = m_outputLocationTextbox->GetValue().ToStdWstring();
     params.output.zip = m_outputZipCheckbox->GetValue();
     params.output.pluginLang
-        = PGPlugin::getPluginLangFromString(m_outputPluginLangCombo->GetStringSelection().ToStdString());
+        = PGPlugin::pluginLangFromString(m_outputPluginLangCombo->GetStringSelection().ToStdString());
 
     // Processing.
     params.processing.multithread = m_processingMultithreadingCheckbox->GetValue();
@@ -806,7 +805,7 @@ void LauncherWindow::updateMO2Items()
         m_gameLocationTextbox->Enable(!shouldLock);
         m_gameLocationBrowseButton->Enable(!shouldLock);
         m_isGameLocationLocked = shouldLock;
-        for (const auto& gameType : BethesdaGame::getGameTypes())
+        for (const auto& gameType : BethesdaGame::gameTypes())
             m_gameTypeRadios[gameType]->Enable(true);
         return;
     }
@@ -815,7 +814,7 @@ void LauncherWindow::updateMO2Items()
     const auto instanceDir = PGConfig::resolveExeRelativePath(m_mo2InstanceLocationTextbox->GetValue().ToStdWstring());
 
     // Get game path.
-    const auto gamePathMO2 = PGModManager::getGamePathFromInstanceDir(instanceDir);
+    const auto gamePathMO2 = PGModManager::gamePathFromInstanceDir(instanceDir);
     const bool lockByMO2Path = !gamePathMO2.empty();
     if (lockByMO2Path) {
         // Found the game path, set it to the game location textbox.
@@ -828,15 +827,15 @@ void LauncherWindow::updateMO2Items()
     m_isGameLocationLocked = shouldLock;
 
     // Get game type.
-    const auto gameTypeMO2 = PGModManager::getGameTypeFromInstanceDir(instanceDir);
+    const auto gameTypeMO2 = PGModManager::gameTypeFromInstanceDir(instanceDir);
     if (gameTypeMO2 != BethesdaGame::GameType::Unknown) {
         m_gameTypeRadios[gameTypeMO2]->SetValue(true);
         // Disable all radio buttons.
-        for (const auto& gameType : BethesdaGame::getGameTypes())
+        for (const auto& gameType : BethesdaGame::gameTypes())
             m_gameTypeRadios[gameType]->Enable(false);
     } else {
         // Enable all radio buttons.
-        for (const auto& gameType : BethesdaGame::getGameTypes())
+        for (const auto& gameType : BethesdaGame::gameTypes())
             m_gameTypeRadios[gameType]->Enable(true);
     }
 }
@@ -854,7 +853,7 @@ void LauncherWindow::onBrowseOutputLocation([[maybe_unused]] wxCommandEvent& eve
 
 void LauncherWindow::updateDisabledElements()
 {
-    PGConfig::PGParams curParams = m_pgc.getParams();
+    PGConfig::PGParams curParams = m_pgc.params();
     getParams(curParams);
 
     // Upgrade parallax to CM rules.
@@ -872,7 +871,7 @@ void LauncherWindow::updateDisabledElements()
     }
 
     // Save button.
-    m_saveConfigButton->Enable(curParams != m_pgc.getParams());
+    m_saveConfigButton->Enable(curParams != m_pgc.params());
 
     // Update output button: only when the current output location holds a previous output that can be updated.
     m_updateOutputButton->Enable(
@@ -904,7 +903,7 @@ void LauncherWindow::onUpdateOutputButtonPressed([[maybe_unused]] wxCommandEvent
     }
 }
 
-auto LauncherWindow::isUpdateRequested() const -> bool { return m_isUpdateRequested; }
+bool LauncherWindow::isUpdateRequested() const { return m_isUpdateRequested; }
 
 void LauncherWindow::onCancelButtonPressed([[maybe_unused]] wxCommandEvent& event) { wxTheApp->Exit(); }
 
@@ -945,7 +944,7 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
 
     // Show the defaults in the UI only: the saved config is untouched, so "Save Config" is offered to persist them.
     // And "Load Config" still goes back to the saved config.
-    setUIParams(PGConfig::getDefaultParams());
+    setUIParams(PGConfig::defaultParams());
 
     updateDisabledElements();
 }
@@ -962,10 +961,10 @@ void LauncherWindow::onSettingsButtonPressed([[maybe_unused]] wxCommandEvent& ev
     }
 }
 
-auto LauncherWindow::saveConfig() -> bool
+bool LauncherWindow::saveConfig()
 {
     std::vector<std::string> errors;
-    PGConfig::PGParams params = m_pgc.getParams();
+    PGConfig::PGParams params = m_pgc.params();
     getParams(params);
 
     // Validate the parameters.
@@ -985,13 +984,13 @@ void LauncherWindow::onClose([[maybe_unused]] wxCloseEvent& event) { wxTheApp->E
 
 void LauncherWindow::setGamePathBasedOnExe()
 {
-    const auto exePath = PGPatcherGlobals::getEXEPath();
+    const auto exePath = PGPatcherGlobals::exePath();
     if (exePath.empty()) {
         m_isGameLocationLockedByInstallLocation = false;
         return;
     }
 
-    auto curParams = m_pgc.getParams();
+    auto curParams = m_pgc.params();
     getParams(curParams);
     const auto curGameType = curParams.game.type;
 

@@ -6,6 +6,6 @@
 
 wxDEFINE_EVENT(pgEVT_LISTCTRL_CHANGED,
                PGCustomListctrlChangedEvent);
-auto PGCustomListctrlChangedEvent::Clone() const -> wxEvent* { return new PGCustomListctrlChangedEvent(*this); }
+wxEvent* PGCustomListctrlChangedEvent::Clone() const { return new PGCustomListctrlChangedEvent(*this); }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

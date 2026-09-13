@@ -41,7 +41,7 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
                                           text,
                                           FromDIP(textWrapWidth)))
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
     const int borderSize = FromDIP(borderSizeDIP);
@@ -56,11 +56,11 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
     m_listCtrl->SetColumnWidth(0, wxLIST_AUTOSIZE_USEHEADER);
 
     // Bind resize.
-    Bind(wxEVT_SIZE, [this](wxSizeEvent& event) -> void {
+    Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
         updateColumnWidth();
         event.Skip();
     });
-    m_listCtrl->Bind(pgEVT_LISTCTRL_CHANGED, [this](PGCustomListctrlChangedEvent& event) -> void {
+    m_listCtrl->Bind(pgEVT_LISTCTRL_CHANGED, [this](PGCustomListctrlChangedEvent& event) {
         updateColumnWidth();
         event.Skip();
     });
@@ -80,7 +80,7 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
     Fit();
 }
 
-auto DialogModifiableListCtrl::getList() const -> std::vector<std::wstring>
+std::vector<std::wstring> DialogModifiableListCtrl::list() const
 {
     std::vector<std::wstring> result;
 

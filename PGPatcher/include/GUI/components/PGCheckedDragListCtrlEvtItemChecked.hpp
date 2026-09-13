@@ -38,13 +38,13 @@ public:
      *
      * @return Index of the checked item.
      */
-    [[nodiscard]] auto getItemIndex() const -> long { return m_itemIndex; }
+    [[nodiscard]] long itemIndex() const { return m_itemIndex; }
     /**
      * @brief Check whether the item is now checked.
      *
      * @return True if the item is checked, false if unchecked.
      */
-    [[nodiscard]] auto isChecked() const -> bool { return m_checked; }
+    [[nodiscard]] bool isChecked() const { return m_checked; }
 
     // Required for sending with wxPostEvent.
     /**
@@ -52,5 +52,5 @@ public:
      *
      * @return Pointer to a cloned copy of this event.
      */
-    [[nodiscard]] auto Clone() const -> wxEvent* override;
+    [[nodiscard]] wxEvent* Clone() const override;
 };

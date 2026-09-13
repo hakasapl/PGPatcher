@@ -46,7 +46,7 @@ public:
      * output location) instead of "Start Patching" (regenerate everything). Meant to be called after ShowModal returns
      * wxID_OK.
      */
-    [[nodiscard]] auto isUpdateRequested() const -> bool;
+    [[nodiscard]] bool isUpdateRequested() const;
 
 private:
     // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
@@ -279,7 +279,7 @@ private:
     /**
      * @brief Saves current values to the config
      */
-    auto saveConfig() -> bool;
+    bool saveConfig();
 
     /**
      * @brief Set the Game Path Based On Exe location

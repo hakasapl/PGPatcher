@@ -28,9 +28,9 @@ public:
                    std::string patcherName);
     virtual ~PatcherMeshPre() = default;
     PatcherMeshPre(const PatcherMeshPre& other) = default;
-    auto operator=(const PatcherMeshPre& other) -> PatcherMeshPre& = default;
+    PatcherMeshPre& operator=(const PatcherMeshPre& other) = default;
     PatcherMeshPre(PatcherMeshPre&& other) noexcept = default;
-    auto operator=(PatcherMeshPre&& other) noexcept -> PatcherMeshPre& = default;
+    PatcherMeshPre& operator=(PatcherMeshPre&& other) noexcept = default;
 
     /**
      * @brief Apply the patch to the NIFShape if able
@@ -39,6 +39,6 @@ public:
      * @return true Patch was applied
      * @return false Patch was not applied
      */
-    virtual auto applyPatch(PGTypes::TextureSet& slots,
-                            nifly::NiShape& nifShape) -> bool = 0;
+    virtual bool applyPatch(PGTypes::TextureSet& slots,
+                            nifly::NiShape& nifShape) = 0;
 };

@@ -8,4 +8,4 @@ Patcher::Patcher(std::string patcherName)
 {
 }
 
-auto Patcher::getPatcherName() const -> std::string { return m_patcherName; }
+std::string Patcher::patcherName() const { return m_patcherName; }

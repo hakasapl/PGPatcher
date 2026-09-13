@@ -19,7 +19,7 @@ namespace StringUtil {
  * @param str Input UTF-8 string.
  * @return Equivalent UTF-16 wide string.
  */
-auto utf8toUTF16(const std::string& str) -> std::wstring;
+std::wstring utf8toUTF16(const std::string& str);
 
 /**
  * @brief Converts a UTF-16 wide string to a UTF-8 encoded narrow string.
@@ -27,7 +27,7 @@ auto utf8toUTF16(const std::string& str) -> std::wstring;
  * @param str Input UTF-16 wide string.
  * @return Equivalent UTF-8 narrow string.
  */
-auto utf16toUTF8(const std::wstring& str) -> std::string;
+std::string utf16toUTF8(const std::wstring& str);
 
 /**
  * @brief Converts a Windows-1252 encoded narrow string to a UTF-16 wide string.
@@ -35,7 +35,7 @@ auto utf16toUTF8(const std::wstring& str) -> std::string;
  * @param str Input Windows-1252 string.
  * @return Equivalent UTF-16 wide string.
  */
-auto windows1252toUTF16(const std::string& str) -> std::wstring;
+std::wstring windows1252toUTF16(const std::string& str);
 
 /**
  * @brief Converts a UTF-16 wide string to a Windows-1252 encoded narrow string.
@@ -43,7 +43,7 @@ auto windows1252toUTF16(const std::string& str) -> std::wstring;
  * @param str Input UTF-16 wide string.
  * @return Equivalent Windows-1252 narrow string.
  */
-auto utf16toWindows1252(const std::wstring& str) -> std::string;
+std::string utf16toWindows1252(const std::wstring& str);
 
 /**
  * @brief Converts an ASCII encoded narrow string to a UTF-16 wide string.
@@ -51,7 +51,7 @@ auto utf16toWindows1252(const std::wstring& str) -> std::string;
  * @param str Input ASCII string.
  * @return Equivalent UTF-16 wide string.
  */
-auto asciitoUTF16(const std::string& str) -> std::wstring;
+std::wstring asciitoUTF16(const std::string& str);
 
 /**
  * @brief Converts a UTF-16 wide string to an ASCII encoded narrow string.
@@ -59,7 +59,7 @@ auto asciitoUTF16(const std::string& str) -> std::wstring;
  * @param str Input UTF-16 wide string.
  * @return Equivalent ASCII narrow string.
  */
-auto utf16toASCII(const std::wstring& str) -> std::string;
+std::string utf16toASCII(const std::wstring& str);
 
 /**
  * @brief Converts a vector of UTF-8 strings to a vector of UTF-16 wide strings.
@@ -67,7 +67,7 @@ auto utf16toASCII(const std::wstring& str) -> std::string;
  * @param vec Input vector of UTF-8 strings.
  * @return Vector of equivalent UTF-16 wide strings.
  */
-auto utf8VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>;
+std::vector<std::wstring> utf8VectorToUTF16(const std::vector<std::string>& vec);
 
 /**
  * @brief Converts a vector of UTF-16 wide strings to a vector of UTF-8 strings.
@@ -75,7 +75,7 @@ auto utf8VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::
  * @param vec Input vector of UTF-16 wide strings.
  * @return Vector of equivalent UTF-8 narrow strings.
  */
-auto utf16VectorToUTF8(const std::vector<std::wstring>& vec) -> std::vector<std::string>;
+std::vector<std::string> utf16VectorToUTF8(const std::vector<std::wstring>& vec);
 
 /**
  * @brief Converts a vector of Windows-1252 strings to a vector of UTF-16 wide strings.
@@ -83,7 +83,7 @@ auto utf16VectorToUTF8(const std::vector<std::wstring>& vec) -> std::vector<std:
  * @param vec Input vector of Windows-1252 strings.
  * @return Vector of equivalent UTF-16 wide strings.
  */
-auto windows1252VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>;
+std::vector<std::wstring> windows1252VectorToUTF16(const std::vector<std::string>& vec);
 
 /**
  * @brief Converts a vector of UTF-16 wide strings to a vector of Windows-1252 strings.
@@ -91,7 +91,7 @@ auto windows1252VectorToUTF16(const std::vector<std::string>& vec) -> std::vecto
  * @param vec Input vector of UTF-16 wide strings.
  * @return Vector of equivalent Windows-1252 narrow strings.
  */
-auto utf16VectorToWindows1252(const std::vector<std::wstring>& vec) -> std::vector<std::string>;
+std::vector<std::string> utf16VectorToWindows1252(const std::vector<std::wstring>& vec);
 
 /**
  * @brief Converts a vector of ASCII strings to a vector of UTF-16 wide strings.
@@ -99,7 +99,7 @@ auto utf16VectorToWindows1252(const std::vector<std::wstring>& vec) -> std::vect
  * @param vec Input vector of ASCII strings.
  * @return Vector of equivalent UTF-16 wide strings.
  */
-auto asciiVectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>;
+std::vector<std::wstring> asciiVectorToUTF16(const std::vector<std::string>& vec);
 
 /**
  * @brief Converts a vector of UTF-16 wide strings to a vector of ASCII strings.
@@ -107,7 +107,7 @@ auto asciiVectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std:
  * @param vec Input vector of UTF-16 wide strings.
  * @return Vector of equivalent ASCII narrow strings.
  */
-auto utf16VectorToASCII(const std::vector<std::wstring>& vec) -> std::vector<std::string>;
+std::vector<std::string> utf16VectorToASCII(const std::vector<std::wstring>& vec);
 
 /**
  * @brief Checks whether a narrow string contains only ASCII characters (code points <= 127).
@@ -115,7 +115,7 @@ auto utf16VectorToASCII(const std::vector<std::wstring>& vec) -> std::vector<std
  * @param str Input narrow string to check.
  * @return true if every character is within the ASCII range, false otherwise.
  */
-auto containsOnlyAscii(const std::string& str) -> bool;
+bool containsOnlyAscii(const std::string& str);
 
 /**
  * @brief Checks whether a wide string contains only ASCII characters (code points <= 127).
@@ -123,7 +123,7 @@ auto containsOnlyAscii(const std::string& str) -> bool;
  * @param str Input wide string to check.
  * @return true if every character is within the ASCII range, false otherwise.
  */
-auto containsOnlyAscii(const std::wstring& str) -> bool;
+bool containsOnlyAscii(const std::wstring& str);
 
 /**
  * @brief Converts a wide string to lower-case using the classic C locale (ASCII-safe).
@@ -131,7 +131,7 @@ auto containsOnlyAscii(const std::wstring& str) -> bool;
  * @param str Input wide string.
  * @return Lower-case copy of the input string.
  */
-auto toLowerASCII(const std::wstring& str) -> std::wstring;
+std::wstring toLowerASCII(const std::wstring& str);
 
 /**
  * @brief Checks whether a string value exists inside a JSON array.
@@ -140,8 +140,8 @@ auto toLowerASCII(const std::wstring& str) -> std::wstring;
  * @param str The string to search for.
  * @return true if the string is found as an element of the JSON array, false otherwise.
  */
-auto checkIfStringInJSONArray(const nlohmann::json& json,
-                              const std::string& str) -> bool;
+bool checkIfStringInJSONArray(const nlohmann::json& json,
+                              const std::string& str);
 
 /**
  * @brief Returns a lower-case copy of a narrow string using a fast ASCII-only algorithm.
@@ -149,7 +149,7 @@ auto checkIfStringInJSONArray(const nlohmann::json& json,
  * @param str Input narrow string.
  * @return Lower-case copy (only A–Z are affected; non-ASCII characters are unchanged).
  */
-auto toLowerASCIIFast(const std::string& str) -> std::string;
+std::string toLowerASCIIFast(const std::string& str);
 
 /**
  * @brief Returns a lower-case copy of a wide string using a fast ASCII-only algorithm.
@@ -157,21 +157,21 @@ auto toLowerASCIIFast(const std::string& str) -> std::string;
  * @param str Input wide string.
  * @return Lower-case copy (only A–Z are affected; non-ASCII characters are unchanged).
  */
-auto toLowerASCIIFast(const std::wstring& str) -> std::wstring;
+std::wstring toLowerASCIIFast(const std::wstring& str);
 
 /**
  * @brief Converts a narrow string to lower-case in-place using a fast ASCII-only algorithm.
  *
  * @param str String to convert in-place (only A–Z are affected).
  */
-auto toLowerASCIIFastInPlace(std::string& str) -> void;
+void toLowerASCIIFastInPlace(std::string& str);
 
 /**
  * @brief Converts a wide string to lower-case in-place using a fast ASCII-only algorithm.
  *
  * @param str Wide string to convert in-place (only A–Z are affected).
  */
-auto toLowerASCIIFastInPlace(std::wstring& str) -> void;
+void toLowerASCIIFastInPlace(std::wstring& str);
 
 /**
  * @brief Case-insensitive equality comparison for ASCII strings using a fast lower-case conversion.
@@ -184,8 +184,8 @@ auto toLowerASCIIFastInPlace(std::wstring& str) -> void;
  */
 template<typename StringType1,
          typename StringType2>
-auto asciiFastIEquals(const StringType1& str1,
-                      const StringType2& str2) -> bool
+bool asciiFastIEquals(const StringType1& str1,
+                      const StringType2& str2)
 {
     return boost::equals(toLowerASCIIFast(str1), toLowerASCIIFast(str2));
 }

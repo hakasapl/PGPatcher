@@ -35,17 +35,14 @@
 std::shared_mutex PatcherMeshShaderComplexMaterial::s_metaCacheMutex;
 std::unordered_map<std::filesystem::path, nlohmann::json> PatcherMeshShaderComplexMaterial::s_metaCache;
 
-auto PatcherMeshShaderComplexMaterial::getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory
+auto PatcherMeshShaderComplexMaterial::factory() -> PatcherMeshShader::PatcherMeshShaderFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshShader> {
         return std::make_unique<PatcherMeshShaderComplexMaterial>(nifPath, nif);
     };
 }
 
-auto PatcherMeshShaderComplexMaterial::getShaderType() -> PGEnums::ShapeShader
-{
-    return PGEnums::ShapeShader::COMPLEXMATERIAL;
-}
+PGEnums::ShapeShader PatcherMeshShaderComplexMaterial::shaderType() { return PGEnums::ShapeShader::COMPLEXMATERIAL; }
 
 void PatcherMeshShaderComplexMaterial::loadOptions(std::unordered_map<std::string,
                                                                       std::string>& optionsStr)
@@ -65,9 +62,9 @@ PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(std::filesyst
 {
 }
 
-auto PatcherMeshShaderComplexMaterial::canApply(nifly::NiShape& nifShape,
+bool PatcherMeshShaderComplexMaterial::canApply(nifly::NiShape& nifShape,
                                                 [[maybe_unused]] bool singlepassMATO,
-                                                const PGPlugin::ModelRecordType& modelRecordType) -> bool
+                                                const PGPlugin::ModelRecordType& modelRecordType)
 {
     if (modelRecordType == PGPlugin::ModelRecordType::Grass) {
         // Grass is not supported.
@@ -75,7 +72,7 @@ auto PatcherMeshShaderComplexMaterial::canApply(nifly::NiShape& nifShape,
     }
 
     // Prep.
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     const auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
     // Get NIFShader type.
@@ -107,25 +104,25 @@ auto PatcherMeshShaderComplexMaterial::canApply(nifly::NiShape& nifShape,
     return true;
 }
 
-auto PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape,
-                                                   std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape,
+                                                   std::vector<PatcherMatch>& matches)
 {
     // Check for CM matches.
-    return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
+    return shouldApply(textureSet(nifPath(), *nif(), nifShape), matches);
 }
 
-auto PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& oldSlots,
-                                                   std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& oldSlots,
+                                                   std::vector<PatcherMatch>& matches)
 {
-    auto* pgd = PGGlobals::getPGD();
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd = PGGlobals::pgd();
+    auto* pgd3d = PGGlobals::pGD3D();
 
-    static const auto cmBaseMap = pgd->getTextureMapConst(PGEnums::TextureSlots::EnvMask);
+    static const auto cmBaseMap = pgd->textureMapConst(PGEnums::TextureSlots::EnvMask);
 
     matches.clear();
 
     // Search prefixes.
-    const auto searchPrefixes = PGNIFUtil::getSearchPrefixes(oldSlots);
+    const auto searchPrefixes = PGNIFUtil::searchPrefixes(oldSlots);
 
     // Check if complex material file exists.
     static const std::vector<int> slotSearch = { 1, 0 }; // Diffuse first, then normal
@@ -137,8 +134,7 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& ol
             continue;
 
         foundMatches.clear();
-        foundMatches
-            = PGNIFUtil::getTexMatch(searchPrefixes.at(slot), PGEnums::TextureType::ComplexMaterial, cmBaseMap);
+        foundMatches = PGNIFUtil::texMatch(searchPrefixes.at(slot), PGEnums::TextureType::ComplexMaterial, cmBaseMap);
 
         if (!foundMatches.empty())
             break;
@@ -151,7 +147,7 @@ auto PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& ol
             curMatch.matchedPath = match.path;
 
             // Get extra metadata and add to match extra data.
-            const auto meta = getMaterialMeta(match.path);
+            const auto meta = materialMeta(match.path);
             if (!meta.is_null())
                 curMatch.extraData = std::make_shared<decltype(nlohmann::json())>(meta);
 
@@ -172,11 +168,11 @@ void PatcherMeshShaderComplexMaterial::applyPatch(PGTypes::TextureSet& slots,
                                                   nifly::NiShape& nifShape,
                                                   const PatcherMatch& match)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     // Apply shader.
     applyShader(nifShape);
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
     // Check if specular should be white.
@@ -254,7 +250,7 @@ void PatcherMeshShaderComplexMaterial::applyPatchSlots(PGTypes::TextureSet& slot
 
 void PatcherMeshShaderComplexMaterial::applyShader(nifly::NiShape& nifShape)
 {
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
     // Set NIFShader type to env map.
@@ -269,7 +265,7 @@ void PatcherMeshShaderComplexMaterial::applyShader(nifly::NiShape& nifShape)
     PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF1_ENVIRONMENT_MAPPING);
 }
 
-auto PatcherMeshShaderComplexMaterial::getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t
+uint64_t PatcherMeshShaderComplexMaterial::matchExtraDataHash(const PatcherMatch& match) const
 {
     if (match.extraData == nullptr)
         return 0;
@@ -281,9 +277,9 @@ auto PatcherMeshShaderComplexMaterial::getMatchExtraDataHash(const PatcherMatch&
     return hasher.value();
 }
 
-auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const std::filesystem::path& envMaskPath) -> nlohmann::json
+nlohmann::json PatcherMeshShaderComplexMaterial::materialMeta(const std::filesystem::path& envMaskPath)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     {
         const std::shared_lock lk(s_metaCacheMutex);
@@ -300,7 +296,7 @@ auto PatcherMeshShaderComplexMaterial::getMaterialMeta(const std::filesystem::pa
 
     // Metadata file exists.
     nlohmann::json meta;
-    const auto jsonBytes = pgd->getFile(metaPath);
+    const auto jsonBytes = pgd->file(metaPath);
     if (!FileUtil::getJSONFromBytes(jsonBytes, meta)) {
         Logger::error(L"Failed to parse JSON: {}", metaPath.wstring());
         return { };

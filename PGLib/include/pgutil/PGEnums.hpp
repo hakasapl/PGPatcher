@@ -29,12 +29,12 @@ static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 5> s
 /// @brief get a string that represents the given shader
 /// @param[in] shader shader type
 /// @return string containing the name of the shader
-auto getStrFromShader(const ShapeShader& shader) -> std::string;
+std::string strFromShader(const ShapeShader& shader);
 
 /// @brief get the shader type from a string
 /// @param[in] shader string containing the name of the shader
 /// @return the shader type
-auto getShaderFromStr(const std::string& shader) -> ShapeShader;
+ShapeShader shaderFromStr(const std::string& shader);
 
 /// @brief zero-based index of texture in BSShaderTextureSet
 /// there can be more than one type of textures assigned to a a texture slot, the slot name describes the default one
@@ -108,7 +108,7 @@ static constexpr std::array<EnumStringHelper::EnumStringEntry<TextureType>, 21> 
  * @param type The texture type to convert.
  * @return String name of the texture type, or "unknown" if not found.
  */
-auto getStrFromTexType(const TextureType& type) -> std::string;
+std::string strFromTexType(const TextureType& type);
 
 /**
  * @brief Converts a string name to the corresponding TextureType enum value.
@@ -116,14 +116,14 @@ auto getStrFromTexType(const TextureType& type) -> std::string;
  * @param type String name of the texture type.
  * @return Corresponding TextureType, or TextureType::Unknown if not found.
  */
-auto getTexTypeFromStr(const std::string& type) -> TextureType;
+TextureType texTypeFromStr(const std::string& type);
 
 /**
  * @brief Returns a list of all known texture type name strings.
  *
  * @return Vector of strings, one per TextureType enum value.
  */
-auto getTexTypesStr() -> std::vector<std::string>;
+std::vector<std::string> texTypesStr();
 
 /// @brief Flags describing sub-channel properties within a Complex Material texture.
 enum class TextureAttribute : uint8_t { CMEnvMask, CMGlossiness, CMMetalness, CMHeight };

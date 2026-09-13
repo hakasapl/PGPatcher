@@ -297,7 +297,7 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
     }
 }
 
-auto PGMutagenWrapper::utf8toUTF16(const std::string& str) -> std::wstring
+std::wstring PGMutagenWrapper::utf8toUTF16(const std::string& str)
 {
     // Just return empty string if empty.
     if (str.empty())
@@ -311,7 +311,7 @@ auto PGMutagenWrapper::utf8toUTF16(const std::string& str) -> std::wstring
     return wStr;
 }
 
-auto PGMutagenWrapper::utf16toUTF8(const std::wstring& wStr) -> std::string
+std::string PGMutagenWrapper::utf16toUTF8(const std::wstring& wStr)
 {
     // Just return empty string if empty.
     if (wStr.empty())

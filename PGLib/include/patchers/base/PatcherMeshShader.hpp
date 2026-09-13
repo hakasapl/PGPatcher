@@ -40,9 +40,9 @@ public:
                       std::string patcherName);
     virtual ~PatcherMeshShader() = default;
     PatcherMeshShader(const PatcherMeshShader& other) = default;
-    auto operator=(const PatcherMeshShader& other) -> PatcherMeshShader& = default;
+    PatcherMeshShader& operator=(const PatcherMeshShader& other) = default;
     PatcherMeshShader(PatcherMeshShader&& other) noexcept = default;
-    auto operator=(PatcherMeshShader&& other) noexcept -> PatcherMeshShader& = default;
+    PatcherMeshShader& operator=(PatcherMeshShader&& other) noexcept = default;
 
     /**
      * @brief Checks if a shape can be patched by this patcher (without looking at slots)
@@ -51,23 +51,23 @@ public:
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
-    virtual auto canApply(nifly::NiShape& nifShape,
+    virtual bool canApply(nifly::NiShape& nifShape,
                           bool singlepassMATO,
-                          const PGPlugin::ModelRecordType& modelRecordType) -> bool = 0;
+                          const PGPlugin::ModelRecordType& modelRecordType) = 0;
 
     /// @brief  Methods that determine whether the patcher should apply to a shape
     /// @param[in] nifShape shape to check
     /// @param matches found matches
     /// @return if any match was found
-    virtual auto shouldApply(nifly::NiShape& nifShape,
-                             std::vector<PatcherMatch>& matches) -> bool = 0;
+    virtual bool shouldApply(nifly::NiShape& nifShape,
+                             std::vector<PatcherMatch>& matches) = 0;
 
     /// @brief determine if the patcher should be applied to the shape
     /// @param[in] oldSlots array of texture slot textures
     /// @param[out] matches vector of matches for the given textures
     /// @return if any match was found
-    virtual auto shouldApply(const PGTypes::TextureSet& oldSlots,
-                             std::vector<PatcherMatch>& matches) -> bool = 0;
+    virtual bool shouldApply(const PGTypes::TextureSet& oldSlots,
+                             std::vector<PatcherMatch>& matches) = 0;
 
     // Methods that apply the patch to a shape.
     virtual void applyPatch(PGTypes::TextureSet& slots,
@@ -94,8 +94,5 @@ public:
      * @param match match whose extra data should be hashed
      * @return uint64_t hash (0 if the patcher does not use extra data)
      */
-    [[nodiscard]] virtual auto getMatchExtraDataHash([[maybe_unused]] const PatcherMatch& match) const -> uint64_t
-    {
-        return 0;
-    }
+    [[nodiscard]] virtual uint64_t matchExtraDataHash([[maybe_unused]] const PatcherMatch& match) const { return 0; }
 };

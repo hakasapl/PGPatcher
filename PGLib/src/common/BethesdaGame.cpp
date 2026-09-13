@@ -61,36 +61,36 @@ BethesdaGame::BethesdaGame(GameType gameType,
 
     // Define appdata path.
     if (appDataPath.empty())
-        m_gameAppDataPath = getGameAppdataSystemPath(m_objGameType);
+        m_gameAppDataPath = gameAppdataSystemPath(m_objGameType);
     else
         m_gameAppDataPath = appDataPath;
 
     // Define document path.
     if (documentPath.empty())
-        m_gameDocumentPath = getGameDocumentSystemPath();
+        m_gameDocumentPath = gameDocumentSystemPath();
     else
         m_gameDocumentPath = documentPath;
 }
 
-auto BethesdaGame::isGamePathValid(const std::filesystem::path& gamePath,
-                                   const GameType& type) -> bool
+bool BethesdaGame::isGamePathValid(const std::filesystem::path& gamePath,
+                                   const GameType& type)
 {
     // Check if the game path is valid.
     const auto gameDataPath = gamePath / "Data";
     if (!std::filesystem::exists(gameDataPath) || !std::filesystem::is_directory(gameDataPath))
         return false;
 
-    const auto checkPath = gameDataPath / getDataCheckFile(type);
+    const auto checkPath = gameDataPath / dataCheckFile(type);
     if (!std::filesystem::exists(checkPath))
         return false;
 
     // Check if plugins.txt exists for this game type.
-    const std::filesystem::path pluginsFile = getGameAppdataSystemPath(type) / "plugins.txt";
+    const std::filesystem::path pluginsFile = gameAppdataSystemPath(type) / "plugins.txt";
     return std::filesystem::exists(pluginsFile);
 }
 
 // Statics.
-auto BethesdaGame::getINILocations() const -> ININame
+auto BethesdaGame::iniLocations() const -> ININame
 {
     if (m_objGameType == BethesdaGame::GameType::SkyrimSE)
         return ININame { .ini = "skyrim.ini", .iniPrefs = "skyrimprefs.ini", .iniCustom = "skyrimcustom.ini" };
@@ -107,7 +107,7 @@ auto BethesdaGame::getINILocations() const -> ININame
     return { };
 }
 
-auto BethesdaGame::getDocumentLocation() const -> std::filesystem::path
+std::filesystem::path BethesdaGame::documentLocation() const
 {
     if (m_objGameType == BethesdaGame::GameType::SkyrimSE)
         return "My Games/Skyrim Special Edition";
@@ -124,7 +124,7 @@ auto BethesdaGame::getDocumentLocation() const -> std::filesystem::path
     return { };
 }
 
-auto BethesdaGame::getAppDataLocation(const GameType& type) -> std::filesystem::path
+std::filesystem::path BethesdaGame::appDataLocation(const GameType& type)
 {
     if (type == BethesdaGame::GameType::SkyrimSE)
         return "Skyrim Special Edition";
@@ -141,7 +141,7 @@ auto BethesdaGame::getAppDataLocation(const GameType& type) -> std::filesystem::
     return { };
 }
 
-auto BethesdaGame::getSteamGameID() const -> int
+int BethesdaGame::steamGameID() const
 {
     if (m_objGameType == BethesdaGame::GameType::SkyrimSE)
         return static_cast<int>(SteamGameID::SkyrimSE);
@@ -155,7 +155,7 @@ auto BethesdaGame::getSteamGameID() const -> int
     return { };
 }
 
-auto BethesdaGame::getDataCheckFile(const GameType& type) -> std::filesystem::path
+std::filesystem::path BethesdaGame::dataCheckFile(const GameType& type)
 {
     if (type == BethesdaGame::GameType::SkyrimSE)
         return "Skyrim.esm";
@@ -172,16 +172,16 @@ auto BethesdaGame::getDataCheckFile(const GameType& type) -> std::filesystem::pa
     return { };
 }
 
-auto BethesdaGame::getGameType() const -> BethesdaGame::GameType { return m_objGameType; }
+auto BethesdaGame::gameType() const -> BethesdaGame::GameType { return m_objGameType; }
 
-auto BethesdaGame::getGamePath() const -> std::filesystem::path
+std::filesystem::path BethesdaGame::gamePath() const
 {
     // Get the game path from the registry.
     // If the game is not found, return an empty string.
     return m_gamePath;
 }
 
-auto BethesdaGame::getGameRegistryPath(const GameType& type) -> std::string
+std::string BethesdaGame::gameRegistryPath(const GameType& type)
 {
     const std::string basePathSkyrim = R"(SOFTWARE\WOW6432Node\bethesda softworks\)";
     const std::string basePathEnderal = R"(Software\Sure AI\)";
@@ -198,9 +198,9 @@ auto BethesdaGame::getGameRegistryPath(const GameType& type) -> std::string
     return { };
 }
 
-auto BethesdaGame::getGameDataPath() const -> std::filesystem::path { return m_gameDataPath; }
+std::filesystem::path BethesdaGame::gameDataPath() const { return m_gameDataPath; }
 
-auto BethesdaGame::findGamePathFromSteam(const GameType& type) -> std::filesystem::path
+std::filesystem::path BethesdaGame::findGamePathFromSteam(const GameType& type)
 {
     // FIXME: Get the file path as UNICODE.
 
@@ -208,7 +208,7 @@ auto BethesdaGame::findGamePathFromSteam(const GameType& type) -> std::filesyste
     // If the game is not found, return an empty string.
 
     HKEY baseHKey = (type == GameType::EnderalSE) ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
-    const std::string regPath = getGameRegistryPath(type);
+    const std::string regPath = gameRegistryPath(type);
 
     std::vector<char> data(regBufferSize, '\0');
     DWORD dataSize = regBufferSize;
@@ -221,10 +221,10 @@ auto BethesdaGame::findGamePathFromSteam(const GameType& type) -> std::filesyste
     return { };
 }
 
-auto BethesdaGame::getINIPaths() const -> BethesdaGame::ININame
+auto BethesdaGame::iniPaths() const -> BethesdaGame::ININame
 {
-    BethesdaGame::ININame output = getINILocations();
-    const std::filesystem::path gameDocsPath = getGameDocumentSystemPath();
+    BethesdaGame::ININame output = iniLocations();
+    const std::filesystem::path gameDocsPath = gameDocumentSystemPath();
 
     // Normal ini file.
     output.ini = m_gameDocumentPath / output.ini;
@@ -234,14 +234,14 @@ auto BethesdaGame::getINIPaths() const -> BethesdaGame::ININame
     return output;
 }
 
-auto BethesdaGame::getPluginsFile() const -> std::filesystem::path
+std::filesystem::path BethesdaGame::pluginsFile() const
 {
     const std::filesystem::path gamePluginsFile = m_gameAppDataPath / "plugins.txt";
     return gamePluginsFile;
 }
 
-auto BethesdaGame::getActivePlugins(const bool& trimExtension,
-                                    const bool& lowercase) const -> std::vector<std::wstring>
+std::vector<std::wstring> BethesdaGame::activePlugins(const bool& trimExtension,
+                                                      const bool& lowercase) const
 {
     std::vector<std::wstring> outputLO;
 
@@ -255,11 +255,11 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension,
         outputLO.emplace_back(L"HearthFires.esm");
     if (std::filesystem::exists(m_gameDataPath / "Dragonborn.esm"))
         outputLO.emplace_back(L"Dragonborn.esm");
-    if (getGameType() == GameType::SkyrimVR && std::filesystem::exists(m_gameDataPath / "SkyrimVR.esm"))
+    if (gameType() == GameType::SkyrimVR && std::filesystem::exists(m_gameDataPath / "SkyrimVR.esm"))
         outputLO.emplace_back(L"SkyrimVR.esm");
 
     // Add cc plugins.
-    const std::filesystem::path creationClubFile = getGamePath() / "Skyrim.ccc";
+    const std::filesystem::path creationClubFile = gamePath() / "Skyrim.ccc";
     if (std::filesystem::exists(creationClubFile)) {
         std::ifstream creationClubFileHandle(creationClubFile, 1);
         if (creationClubFileHandle.is_open()) {
@@ -285,7 +285,7 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension,
     }
 
     // Get the plugins file.
-    const std::filesystem::path pluginsFile = getPluginsFile();
+    const std::filesystem::path pluginsFile = this->pluginsFile();
     std::ifstream pluginsFileHandle(pluginsFile, 1);
     if (!pluginsFileHandle.is_open())
         throw std::runtime_error("Unable to open plugins.txt file");
@@ -332,27 +332,27 @@ auto BethesdaGame::getActivePlugins(const bool& trimExtension,
     return outputLO;
 }
 
-auto BethesdaGame::getGameDocumentSystemPath() const -> std::filesystem::path
+std::filesystem::path BethesdaGame::gameDocumentSystemPath() const
 {
-    std::filesystem::path docPath = getSystemPath(FOLDERID_Documents);
+    std::filesystem::path docPath = systemPath(FOLDERID_Documents);
     if (docPath.empty())
         return { };
 
-    docPath /= getDocumentLocation();
+    docPath /= documentLocation();
     return docPath;
 }
 
-auto BethesdaGame::getGameAppdataSystemPath(const GameType& type) -> std::filesystem::path
+std::filesystem::path BethesdaGame::gameAppdataSystemPath(const GameType& type)
 {
-    std::filesystem::path appDataPath = getSystemPath(FOLDERID_LocalAppData);
+    std::filesystem::path appDataPath = systemPath(FOLDERID_LocalAppData);
     if (appDataPath.empty())
         return { };
 
-    appDataPath /= getAppDataLocation(type);
+    appDataPath /= appDataLocation(type);
     return appDataPath;
 }
 
-auto BethesdaGame::getSystemPath(const GUID& folderID) -> std::filesystem::path
+std::filesystem::path BethesdaGame::systemPath(const GUID& folderID)
 {
     PWSTR path = nullptr;
     const HRESULT result = SHGetKnownFolderPath(folderID, 0, nullptr, &path);
@@ -367,14 +367,14 @@ auto BethesdaGame::getSystemPath(const GUID& folderID) -> std::filesystem::path
     return { };
 }
 
-auto BethesdaGame::getGameTypes() -> std::vector<GameType>
+auto BethesdaGame::gameTypes() -> std::vector<GameType>
 {
     const static auto gameTypes
         = std::vector<GameType> { GameType::SkyrimSE, GameType::SkyrimGOG, GameType::SkyrimVR, GameType::EnderalSE };
     return gameTypes;
 }
 
-auto BethesdaGame::getStrFromGameType(const GameType& type) -> std::string
+std::string BethesdaGame::strFromGameType(const GameType& type)
 {
     const static auto gameTypeToStrMap = std::unordered_map<GameType, std::string> {
         { GameType::SkyrimSE, "Skyrim SE" },
@@ -389,7 +389,7 @@ auto BethesdaGame::getStrFromGameType(const GameType& type) -> std::string
     return gameTypeToStrMap.at(GameType::SkyrimSE);
 }
 
-auto BethesdaGame::getGameTypeFromStr(const std::string& type) -> GameType
+auto BethesdaGame::gameTypeFromStr(const std::string& type) -> GameType
 {
     const static auto strToGameTypeMap = std::unordered_map<std::string, GameType> {
         { "Skyrim SE", GameType::SkyrimSE },

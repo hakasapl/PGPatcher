@@ -49,20 +49,20 @@ public:
      * @return wxString Translated string, the English string if the active translation lacks the key, or the key
      * itself if no translation file provides it
      */
-    [[nodiscard]] static auto tr(const std::string& key) -> wxString;
+    [[nodiscard]] static wxString tr(const std::string& key);
 
     /**
      * @brief Get the language code that is currently active
      */
-    [[nodiscard]] static auto getCurrentLanguage() -> std::string;
+    [[nodiscard]] static std::string currentLanguage();
 
     /**
      * @brief Lists the languages available in the translations folder (sorted by display name)
      */
-    [[nodiscard]] static auto getAvailableLanguages() -> std::vector<Language>;
+    [[nodiscard]] static std::vector<Language> availableLanguages();
 };
 
 /**
  * @brief Shorthand for PGLocale::tr
  */
-[[nodiscard]] inline auto pgTr(const std::string& key) -> wxString { return PGLocale::tr(key); }
+[[nodiscard]] inline wxString pgTr(const std::string& key) { return PGLocale::tr(key); }

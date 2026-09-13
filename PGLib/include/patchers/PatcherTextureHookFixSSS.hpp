@@ -47,7 +47,7 @@ public:
      * @param texPath Path to the diffuse texture to check.
      * @return true if the texture is in the process list; false otherwise.
      */
-    static auto isInProcessList(const std::filesystem::path& texPath) -> bool;
+    static bool isInProcessList(const std::filesystem::path& texPath);
 
     /**
      * @brief Computes the output filename for the generated subsurface color texture.
@@ -55,7 +55,7 @@ public:
      * @param texPath Path to the source diffuse texture.
      * @return Filesystem path with the "_s.dds" suffix for the fixed SSS texture.
      */
-    static auto getOutputFilename(const std::filesystem::path& texPath) -> std::filesystem::path;
+    static std::filesystem::path outputFilename(const std::filesystem::path& texPath);
 
     /**
      * @brief Re-applies the texture map side effects of a previously generated output that is being reused
@@ -70,7 +70,7 @@ public:
      *
      * @return true if the shader was successfully initialized; false otherwise.
      */
-    static auto initShader() -> bool;
+    static bool initShader();
 
     /**
      * @brief Constructs a PatcherTextureHookFixSSS instance for the given texture.
@@ -86,5 +86,5 @@ public:
      *
      * @return true if the patch was successfully applied; false otherwise.
      */
-    auto applyPatch() -> bool override;
+    bool applyPatch() override;
 };

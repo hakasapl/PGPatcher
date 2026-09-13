@@ -44,11 +44,11 @@ PGD3D::PGD3D(std::filesystem::path shaderPath)
 {
 }
 
-auto PGD3D::checkIfCM(const std::filesystem::path& ddsPath,
+bool PGD3D::checkIfCM(const std::filesystem::path& ddsPath,
                       bool& result,
                       bool& hasEnvMask,
                       bool& hasGlosiness,
-                      bool& hasMetalness) -> bool
+                      bool& hasMetalness)
 {
     // Get metadata (should only pull headers, which is much faster).
     DirectX::TexMetadata ddsImageMeta { };
@@ -140,9 +140,9 @@ auto PGD3D::checkIfCM(const std::filesystem::path& ddsPath,
     return true;
 }
 
-auto PGD3D::countPixelValues(const DirectX::ScratchImage& image,
+bool PGD3D::countPixelValues(const DirectX::ScratchImage& image,
                              std::array<int,
-                                        4>& outData) -> bool
+                                        4>& outData)
 {
     if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderCountAlphaValues == nullptr))
         throw std::runtime_error("GPU not initialized");
@@ -214,8 +214,8 @@ auto PGD3D::countPixelValues(const DirectX::ScratchImage& image,
     return true;
 }
 
-auto PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
-                                      const std::filesystem::path& ddsPath2) -> bool
+bool PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
+                                      const std::filesystem::path& ddsPath2)
 {
     // Get metadata (should only pull headers, which is much faster).
     DirectX::TexMetadata ddsImageMeta1 { };
@@ -251,7 +251,7 @@ auto PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
 // GPU Code.
 //
 
-auto PGD3D::initGPU() -> bool
+bool PGD3D::initGPU()
 {
     const std::scoped_lock lock(m_d3dMutex);
 
@@ -278,14 +278,14 @@ auto PGD3D::initGPU() -> bool
     return !FAILED(hr);
 }
 
-auto PGD3D::initShaders() -> bool
+bool PGD3D::initShaders()
 {
     // Initialize shaders.
     return initShader("CountAlphaValues.hlsl", m_shaderCountAlphaValues);
 }
 
-auto PGD3D::initShader(const std::filesystem::path& filename,
-                       ComPtr<ID3D11ComputeShader>& outShader) -> bool
+bool PGD3D::initShader(const std::filesystem::path& filename,
+                       ComPtr<ID3D11ComputeShader>& outShader)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -327,10 +327,10 @@ auto PGD3D::initShader(const std::filesystem::path& filename,
 //
 // GPU Helpers.
 //
-auto PGD3D::isPowerOfTwo(unsigned x) -> bool { return (x != 0U) && ((x & (x - 1)) == 0U); }
+bool PGD3D::isPowerOfTwo(unsigned x) { return (x != 0U) && ((x & (x - 1)) == 0U); }
 
-auto PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
-                            ComPtr<ID3D11Texture2D>& dest) -> bool
+bool PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
+                            ComPtr<ID3D11Texture2D>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -358,8 +358,8 @@ auto PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
-                            ComPtr<ID3D11Texture2D>& dest) -> bool
+bool PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
+                            ComPtr<ID3D11Texture2D>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -380,8 +380,8 @@ auto PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
-                            ComPtr<ID3D11Texture2D>& dest) -> bool
+bool PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
+                            ComPtr<ID3D11Texture2D>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -397,8 +397,8 @@ auto PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
     return !FAILED(hr);
 }
 
-auto PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
-                                     ComPtr<ID3D11ShaderResourceView>& dest) -> bool
+bool PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
+                                     ComPtr<ID3D11ShaderResourceView>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -419,8 +419,8 @@ auto PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
-                                      ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
+bool PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
+                                      ComPtr<ID3D11UnorderedAccessView>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -441,9 +441,9 @@ auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
+bool PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
                                       const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc,
-                                      ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
+                                      ComPtr<ID3D11UnorderedAccessView>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -457,9 +457,9 @@ auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
     return !FAILED(hr);
 }
 
-auto PGD3D::createBuffer(const void* data,
+bool PGD3D::createBuffer(const void* data,
                          D3D11_BUFFER_DESC& desc,
-                         ComPtr<ID3D11Buffer>& dest) -> bool
+                         ComPtr<ID3D11Buffer>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -475,9 +475,9 @@ auto PGD3D::createBuffer(const void* data,
     return !FAILED(hr);
 }
 
-auto PGD3D::createConstantBuffer(const void* data,
+bool PGD3D::createConstantBuffer(const void* data,
                                  const UINT& size,
-                                 ComPtr<ID3D11Buffer>& dest) -> bool
+                                 ComPtr<ID3D11Buffer>& dest)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -536,13 +536,13 @@ void PGD3D::flushGPU()
     m_ptrContext->Flush();
 }
 
-auto PGD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
+bool PGD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
                              const std::vector<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>>& srvs,
                              const std::vector<Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>>& uavs,
                              const std::vector<Microsoft::WRL::ComPtr<ID3D11Buffer>>& constantBuffers,
                              UINT threadGroupCountX,
                              UINT threadGroupCountY,
-                             UINT threadGroupCountZ) -> bool
+                             UINT threadGroupCountZ)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("GPU not initialized");
@@ -606,8 +606,8 @@ auto PGD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& 
     return true;
 }
 
-auto PGD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
-                     DirectX::ScratchImage& outImage) -> bool
+bool PGD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
+                     DirectX::ScratchImage& outImage)
 {
     if (m_ptrContext == nullptr)
         throw std::runtime_error("Context not initialized");
@@ -765,8 +765,8 @@ auto PGD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
 }
 
 template<typename T>
-auto PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
-                     std::vector<T>& outData) -> bool
+bool PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
+                     std::vector<T>& outData)
 {
     if (m_ptrDevice == nullptr)
         throw std::runtime_error("Device not initialized");
@@ -825,10 +825,10 @@ auto PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
 // Texture Helpers.
 //
 
-auto PGD3D::getDDS(const std::filesystem::path& ddsPath, // NOLINT(readability-convert-member-functions-to-static)
-                   DirectX::ScratchImage& dds) const -> bool
+bool PGD3D::getDDS(const std::filesystem::path& ddsPath, // NOLINT(readability-convert-member-functions-to-static)
+                   DirectX::ScratchImage& dds) const
 {
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
 
     // Texture pixel data never influences mesh output directly (only derived classification does), so reading it.
     // Must not register the texture as a dependency of the mesh being patched.
@@ -837,14 +837,14 @@ auto PGD3D::getDDS(const std::filesystem::path& ddsPath, // NOLINT(readability-c
     HRESULT hr { };
 
     if (pgd->isLooseFile(ddsPath)) {
-        const std::filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
+        const std::filesystem::path fullPath = pgd->looseFileFullPath(ddsPath);
 
         // Load DDS file.
         hr = DirectX::LoadFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
     } else if (pgd->isBSAFile(ddsPath)) {
         std::vector<std::byte> ddsBytes;
         try {
-            ddsBytes = pgd->getFile(ddsPath);
+            ddsBytes = pgd->file(ddsPath);
         } catch (...) {
             Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
             return false;
@@ -870,17 +870,18 @@ void PGD3D::seedDDSMetadata(const std::filesystem::path& ddsPath,
         m_ddsMetaDataCache[ddsPath] = ddsMeta;
 }
 
-auto PGD3D::getDDSMetadataCacheSnapshot() -> std::unordered_map<std::filesystem::path,
-                                                                DirectX::TexMetadata>
+std::unordered_map<std::filesystem::path,
+                   DirectX::TexMetadata>
+PGD3D::ddsMetadataCacheSnapshot()
 {
     const std::shared_lock lock(m_ddsMetaDataMutex);
     return m_ddsMetaDataCache;
 }
 
-auto PGD3D::getDDSMetadata(const std::filesystem::path& ddsPath,
-                           DirectX::TexMetadata& ddsMeta) -> bool
+bool PGD3D::getDDSMetadata(const std::filesystem::path& ddsPath,
+                           DirectX::TexMetadata& ddsMeta)
 {
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
 
     {
         const std::shared_lock lock(m_ddsMetaDataMutex);
@@ -897,14 +898,14 @@ auto PGD3D::getDDSMetadata(const std::filesystem::path& ddsPath,
     HRESULT hr { };
 
     if (pgd->isLooseFile(ddsPath)) {
-        const std::filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
+        const std::filesystem::path fullPath = pgd->looseFileFullPath(ddsPath);
 
         // Load DDS file.
         hr = DirectX::GetMetadataFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, ddsMeta);
     } else if (pgd->isBSAFile(ddsPath)) {
         std::vector<std::byte> ddsBytes;
         try {
-            ddsBytes = pgd->getFile(ddsPath);
+            ddsBytes = pgd->file(ddsPath);
         } catch (...) {
             Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
             return false;
@@ -929,14 +930,14 @@ auto PGD3D::getDDSMetadata(const std::filesystem::path& ddsPath,
     return true;
 }
 
-auto PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
+bool PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
                                  DirectX::ScratchImage& outTexture,
                                  const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
                                  const DXGI_FORMAT& outFormat,
                                  const UINT& outWidth,
                                  const UINT& outHeight,
                                  const void* shaderParams,
-                                 const UINT& shaderParamsSize) -> bool
+                                 const UINT& shaderParamsSize)
 {
     if (shader == nullptr)
         throw std::runtime_error("Shader was not initialized");
@@ -1036,11 +1037,11 @@ auto PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
     return true;
 }
 
-auto PGD3D::loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPixels,
-                                        const size_t& width,
-                                        const size_t& height,
-                                        const size_t& mips,
-                                        DXGI_FORMAT format) -> DirectX::ScratchImage
+DirectX::ScratchImage PGD3D::loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPixels,
+                                                         const size_t& width,
+                                                         const size_t& height,
+                                                         const size_t& mips,
+                                                         DXGI_FORMAT format)
 {
     // Initialize a ScratchImage.
     DirectX::ScratchImage image;
@@ -1060,14 +1061,14 @@ auto PGD3D::loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPix
     return image;
 }
 
-auto PGD3D::getHRESULTErrorMessage(HRESULT hr) -> std::wstring
+std::wstring PGD3D::hresultErrorMessage(HRESULT hr)
 {
     // Get error message.
     const _com_error err(hr);
     return err.ErrorMessage();
 }
 
-auto PGD3D::getDXGIFormatFromString(const std::string& format) -> DXGI_FORMAT
+DXGI_FORMAT PGD3D::dxgiFormatFromString(const std::string& format)
 {
     if (format == "rgba16f")
         return DXGI_FORMAT_R16G16B16A16_FLOAT;

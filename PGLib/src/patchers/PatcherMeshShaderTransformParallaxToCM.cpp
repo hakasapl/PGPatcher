@@ -16,19 +16,18 @@ void PatcherMeshShaderTransformParallaxToCM::loadOptions(const bool& onlyWhenReq
     s_onlyWhenRequired = onlyWhenRequired;
 }
 
-auto PatcherMeshShaderTransformParallaxToCM::getFactory()
-    -> PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory
+auto PatcherMeshShaderTransformParallaxToCM::factory() -> PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory
 {
     return [](std::filesystem::path nifPath, nifly::NifFile* nif) -> PatcherMeshShaderTransformObject {
         return std::make_unique<PatcherMeshShaderTransformParallaxToCM>(std::move(nifPath), nif);
     };
 }
 
-auto PatcherMeshShaderTransformParallaxToCM::getFromShader() -> PGEnums::ShapeShader
+PGEnums::ShapeShader PatcherMeshShaderTransformParallaxToCM::fromShader()
 {
     return PGEnums::ShapeShader::VANILLAPARALLAX;
 }
-auto PatcherMeshShaderTransformParallaxToCM::getToShader() -> PGEnums::ShapeShader
+PGEnums::ShapeShader PatcherMeshShaderTransformParallaxToCM::toShader()
 {
     return PGEnums::ShapeShader::COMPLEXMATERIAL;
 }
@@ -43,15 +42,15 @@ PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(s
 {
 }
 
-auto PatcherMeshShaderTransformParallaxToCM::shouldTransform(
+bool PatcherMeshShaderTransformParallaxToCM::shouldTransform(
     [[maybe_unused]] const PatcherMeshShader::PatcherMatch& baseMatch,
-    bool canApplyBaseShader) -> bool
+    bool canApplyBaseShader)
 {
     return !canApplyBaseShader || !s_onlyWhenRequired;
 }
 
-auto PatcherMeshShaderTransformParallaxToCM::transform(const PatcherMeshShader::PatcherMatch& fromMatch,
-                                                       PatcherMeshShader::PatcherMatch& result) -> bool
+bool PatcherMeshShaderTransformParallaxToCM::transform(const PatcherMeshShader::PatcherMatch& fromMatch,
+                                                       PatcherMeshShader::PatcherMatch& result)
 {
     const auto heightMap = fromMatch.matchedPath;
 
@@ -59,7 +58,7 @@ auto PatcherMeshShaderTransformParallaxToCM::transform(const PatcherMeshShader::
 
     // Create texture hook.
     PatcherTextureHookConvertToCM::addToProcessList(heightMap);
-    result.matchedPath = PatcherTextureHookConvertToCM::getOutputFilename(heightMap);
+    result.matchedPath = PatcherTextureHookConvertToCM::outputFilename(heightMap);
 
     return true;
 }

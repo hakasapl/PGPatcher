@@ -111,7 +111,7 @@ public:
      *
      * @return std::map<std::filesystem::path, MeshMeta>
      */
-    static auto getPatchMeta() -> MeshPatchInfo;
+    static MeshPatchInfo patchMeta();
 
     /**
      * @brief Sort matches according to a provided mod priority list.
@@ -134,7 +134,7 @@ public:
      * @return true if patch metadata exists
      * @return false if no patch metadata exists
      */
-    static auto hasConflictData() -> bool;
+    static bool hasConflictData();
 
     /**
      * @brief Reset transient data collected during patching.
@@ -160,9 +160,9 @@ public:
      * @return true if the output directory is empty
      * @return false if the output directory is not empty
      */
-    static auto isOutputEmpty() -> bool;
+    static bool isOutputEmpty();
 
-    static auto getDiffJSON() -> nlohmann::json;
+    static nlohmann::json diffJSON();
 
     /**
      * @brief Computes the digest of the shader matches a shape with the given texture slots would receive, using the
@@ -175,10 +175,10 @@ public:
      * @param modelRecordType plugin record type of the use
      * @return uint64_t digest of the ordered match list
      */
-    static auto computeMatchesDigest(const std::filesystem::path& nifPath,
-                                     const PGTypes::TextureSet& slots,
-                                     bool singlepassMATO,
-                                     const PGPlugin::ModelRecordType& modelRecordType) -> uint64_t;
+    static uint64_t computeMatchesDigest(const std::filesystem::path& nifPath,
+                                         const PGTypes::TextureSet& slots,
+                                         bool singlepassMATO,
+                                         const PGPlugin::ModelRecordType& modelRecordType);
 
 private:
     // NIF Runners.
@@ -189,12 +189,12 @@ private:
      * @param nifPath relative path to the NIF file
      * @return TaskTracker::Result result of the patching process
      */
-    static auto patchNIF(const std::filesystem::path& nifPath,
-                         TaskQueue& setModelUsesQueue,
-                         const bool& forceBasePatch = false,
-                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
-                         const bool& checkAllowedRecTypes = false,
-                         const bool& excludeFacegens = false) -> TaskTracker::Result;
+    static TaskTracker::Result patchNIF(const std::filesystem::path& nifPath,
+                                        TaskQueue& setModelUsesQueue,
+                                        const bool& forceBasePatch = false,
+                                        const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
+                                        const bool& checkAllowedRecTypes = false,
+                                        const bool& excludeFacegens = false);
 
     /**
      * @brief Replays the side effects of patching a NIF whose output from the previous run is still valid
@@ -205,15 +205,15 @@ private:
      * @param replayedMeshResultsMutex mutex protecting replayedMeshResults
      * @return TaskTracker::Result result of the replay
      */
-    static auto replayNIF(const std::filesystem::path& nifPath,
-                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
-                          std::mutex& replayedMeshResultsMutex) -> TaskTracker::Result;
+    static TaskTracker::Result replayNIF(const std::filesystem::path& nifPath,
+                                         std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
+                                         std::mutex& replayedMeshResultsMutex);
 
     /**
      * @brief Computes the digest of an ordered match list (see computeMatchesDigest)
      */
-    static auto digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
-                              const PatcherUtil::PatcherMeshObjectSet& patchers) -> uint64_t;
+    static uint64_t digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
+                                  const PatcherUtil::PatcherMeshObjectSet& patchers);
 
     // NIF Helpers.
 
@@ -229,7 +229,7 @@ private:
      * @return true if the NIF file was processed successfully
      * @return false if the NIF file was not processed successfully
      */
-    static auto processNIF(const std::filesystem::path& nifPath,
+    static bool processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
                            MeshMeta& meshMeta,
                            bool singlepassMATO,
@@ -237,7 +237,7 @@ private:
                            const PGPlugin::ModelRecordType& modelRecordType,
                            std::unordered_map<unsigned,
                                               PGTypes::TextureSet>& alternateTextures,
-                           std::unordered_set<unsigned>& nonAltTexShapes) -> bool;
+                           std::unordered_set<unsigned>& nonAltTexShapes);
 
     /**
      * @brief Process a single NIF shape
@@ -253,7 +253,7 @@ private:
      * @return true if the NIF shape was processed successfully
      * @return false if the NIF shape was not processed successfully
      */
-    static auto processNIFShape(const std::filesystem::path& nifPath,
+    static bool processNIFShape(const std::filesystem::path& nifPath,
                                 nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
                                 MeshShapeMeta& meshShapeMeta,
@@ -261,14 +261,15 @@ private:
                                 bool singlepassMATO,
                                 const PGMeshPermutationTracker::FormKey& formKey,
                                 const PGPlugin::ModelRecordType& modelRecordType,
-                                PGTypes::TextureSet* alternateTexture = nullptr) -> bool;
+                                PGTypes::TextureSet* alternateTexture = nullptr);
 
-    static auto getMatches(const PGTypes::TextureSet& slots,
-                           const PatcherUtil::PatcherMeshObjectSet& patchers,
-                           bool singlepassMATO,
-                           const PGPlugin::ModelRecordType& modelRecordType,
-                           const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
-                           nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+    static std::vector<PatcherUtil::ShaderPatcherMatch> matches(const PGTypes::TextureSet& slots,
+                                                                const PatcherUtil::PatcherMeshObjectSet& patchers,
+                                                                bool singlepassMATO,
+                                                                const PGPlugin::ModelRecordType& modelRecordType,
+                                                                const PatcherUtil::PatcherMeshObjectSet* patcherObjects
+                                                                = nullptr,
+                                                                nifly::NiShape* shape = nullptr);
 
     /**
      * @brief Helper method to run a transform if needed on a match
@@ -277,15 +278,15 @@ private:
      * @param Patchers Patcher set to use
      * @return ShaderPatcherMatch Transformed match
      */
-    static auto applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
-                                       const PatcherUtil::PatcherMeshObjectSet& patchers) -> bool;
+    static bool applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
+                                       const PatcherUtil::PatcherMeshObjectSet& patchers);
 
-    static auto createNIFPatcherObjects(const std::filesystem::path& nifPath,
-                                        nifly::NifFile* nif) -> PatcherUtil::PatcherMeshObjectSet;
+    static PatcherUtil::PatcherMeshObjectSet createNIFPatcherObjects(const std::filesystem::path& nifPath,
+                                                                     nifly::NifFile* nif);
 
     // DDS Runners.
-    static auto patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::Result;
+    static TaskTracker::Result patchDDS(const std::filesystem::path& ddsPath);
 
-    static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath,
-                                        DirectX::ScratchImage* dds) -> PatcherUtil::PatcherTextureObjectSet;
+    static PatcherUtil::PatcherTextureObjectSet createDDSPatcherObjects(const std::filesystem::path& ddsPath,
+                                                                        DirectX::ScratchImage* dds);
 };

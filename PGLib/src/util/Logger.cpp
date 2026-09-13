@@ -16,7 +16,7 @@
 thread_local std::vector<std::wstring> Logger::s_prefixStack;
 
 // Helper function to build the full prefix string.
-auto Logger::buildPrefixWString() -> std::wstring
+std::wstring Logger::buildPrefixWString()
 {
     std::wstringstream fullPrefix;
     for (const auto& block : Logger::s_prefixStack)
@@ -24,7 +24,7 @@ auto Logger::buildPrefixWString() -> std::wstring
     return fullPrefix.str();
 }
 
-auto Logger::buildPrefixString() -> std::string { return StringUtil::utf16toUTF8(buildPrefixWString()); }
+std::string Logger::buildPrefixString() { return StringUtil::utf16toUTF8(buildPrefixWString()); }
 
 // ScopedPrefix class implementation.
 Logger::Prefix::Prefix(const std::wstring& prefix)
@@ -78,7 +78,7 @@ void Logger::flushThreadedBuffer()
     s_isThreadedBufferActive = false;
     for (const auto& [level, message] : s_curBuffer) {
         std::visit(
-            [level](auto&& value) -> auto {
+            [level](auto&& value) {
                 using T = std::decay_t<decltype(value)>;
                 if constexpr (std::is_same_v<T, std::wstring>)
                     spdlog::log(level, L"{}", value);

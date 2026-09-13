@@ -16,37 +16,37 @@
 #include <utility>
 #include <vector>
 
-auto PGPlugin::getPluginLangFromString(const std::string& lang) -> PluginLang
+auto PGPlugin::pluginLangFromString(const std::string& lang) -> PluginLang
 {
     return EnumStringHelper::enumFromString(lang, pluginLangTable, PluginLang::English);
 }
 
-auto PGPlugin::getStringFromPluginLang(const PluginLang& lang) -> std::string
+std::string PGPlugin::stringFromPluginLang(const PluginLang& lang)
 {
     return std::string(EnumStringHelper::stringFromEnum(lang, pluginLangTable, "English"));
 }
 
-auto PGPlugin::getAvailablePluginLangStrs() -> std::vector<std::string>
+std::vector<std::string> PGPlugin::availablePluginLangStrs()
 {
     return EnumStringHelper::allEnumStrings(pluginLangTable);
 }
 
-auto PGPlugin::getRecTypeFromString(const std::string& recTypeStr) -> ModelRecordType
+auto PGPlugin::recTypeFromString(const std::string& recTypeStr) -> ModelRecordType
 {
     return EnumStringHelper::enumFromString(recTypeStr, modelRecordTypeTable, ModelRecordType::Unknown);
 }
 
-auto PGPlugin::getStringFromRecType(const ModelRecordType& recType) -> std::string
+std::string PGPlugin::stringFromRecType(const ModelRecordType& recType)
 {
     return std::string(EnumStringHelper::stringFromEnum(recType, modelRecordTypeTable, ""));
 }
 
-auto PGPlugin::getAvailableRecTypeStrs() -> std::vector<std::string>
+std::vector<std::string> PGPlugin::availableRecTypeStrs()
 {
     return EnumStringHelper::allEnumStrings(modelRecordTypeTable);
 }
 
-auto PGPlugin::getDefaultRecTypeSet() -> std::unordered_set<ModelRecordType>
+auto PGPlugin::defaultRecTypeSet() -> std::unordered_set<ModelRecordType>
 {
     // These are enabled by default in the initial config.
     static const std::unordered_set<ModelRecordType> defaultSet = {
@@ -102,10 +102,10 @@ void PGPlugin::initialize(const BethesdaGame& game,
         { BethesdaGame::GameType::SkyrimGOG, 7 },
     };
 
-    PGMutagenWrapper::libInitialize(mutagenGameTypeMap.at(game.getGameType()),
+    PGMutagenWrapper::libInitialize(mutagenGameTypeMap.at(game.gameType()),
                                     exePath,
-                                    game.getGameDataPath().wstring(),
-                                    game.getActivePlugins(),
+                                    game.gameDataPath().wstring(),
+                                    game.activePlugins(),
                                     static_cast<unsigned>(lang));
 
     s_initialized = true;
@@ -124,8 +124,8 @@ void PGPlugin::resetPatchingState()
     PGMutagenWrapper::libResetPatchingState();
 }
 
-auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
-                                                                                    MeshUseAttributes>>
+auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
+                                                                                 MeshUseAttributes>>
 {
     std::vector<std::pair<PGMeshPermutationTracker::FormKey, MeshUseAttributes>> result;
 
@@ -135,7 +135,7 @@ auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::p
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
     // Sort modelUses by putting weighted ones first, then by mod name, then by.
     // Formid, then by submodel.
-    std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) -> bool {
+    std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) {
         const bool aHasAltTex = !a.alternateTextures.empty();
         const bool bHasAltTex = !b.alternateTextures.empty();
         if (aHasAltTex != bHasAltTex)
@@ -160,7 +160,7 @@ auto PGPlugin::getModelUses(const std::wstring& modelPath) -> std::vector<std::p
         attributes.singlepassMATO = modelUse.singlepassMATO;
         attributes.isIgnored = modelUse.isIgnored;
         attributes.isDummyUse = false;
-        attributes.recType = getRecTypeFromString(modelUse.type);
+        attributes.recType = recTypeFromString(modelUse.type);
 
         for (const auto& altTex : modelUse.alternateTextures) {
             attributes.alternateTextures[altTex.slotID] = PGTypes::TextureSet {
@@ -231,7 +231,7 @@ void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
     // FIXME: Add to the generated files.
 }
 
-auto PGPlugin::getPluginPathFromDataPath(const std::filesystem::path& dataPath) -> std::filesystem::path
+std::filesystem::path PGPlugin::pluginPathFromDataPath(const std::filesystem::path& dataPath)
 {
     static const std::filesystem::path meshesPrefix = "meshes";
     static const std::filesystem::path texturesPrefix = "textures";

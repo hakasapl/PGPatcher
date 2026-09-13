@@ -52,11 +52,11 @@ public:
     };
 
 private:
-    [[nodiscard]] auto getINILocations() const -> ININame;
-    [[nodiscard]] auto getDocumentLocation() const -> std::filesystem::path;
-    [[nodiscard]] static auto getAppDataLocation(const GameType& type) -> std::filesystem::path;
-    [[nodiscard]] auto getSteamGameID() const -> int;
-    [[nodiscard]] static auto getDataCheckFile(const GameType& type) -> std::filesystem::path;
+    [[nodiscard]] ININame iniLocations() const;
+    [[nodiscard]] std::filesystem::path documentLocation() const;
+    [[nodiscard]] static std::filesystem::path appDataLocation(const GameType& type);
+    [[nodiscard]] int steamGameID() const;
+    [[nodiscard]] static std::filesystem::path dataCheckFile(const GameType& type);
 
     // Stores the game type.
     GameType m_objGameType;
@@ -86,35 +86,35 @@ public:
      *
      * @return The GameType enum value representing this game.
      */
-    [[nodiscard]] auto getGameType() const -> GameType;
+    [[nodiscard]] GameType gameType() const;
 
     /**
      * @brief Returns the root installation path of the game.
      *
      * @return Filesystem path to the game's installation directory.
      */
-    [[nodiscard]] auto getGamePath() const -> std::filesystem::path;
+    [[nodiscard]] std::filesystem::path gamePath() const;
 
     /**
      * @brief Returns the path to the game's Data directory.
      *
      * @return Filesystem path to the game's Data subdirectory.
      */
-    [[nodiscard]] auto getGameDataPath() const -> std::filesystem::path;
+    [[nodiscard]] std::filesystem::path gameDataPath() const;
 
     /**
      * @brief Returns the fully resolved paths to the game's INI configuration files.
      *
      * @return ININame struct containing absolute paths to the primary, preferences, and custom INI files.
      */
-    [[nodiscard]] auto getINIPaths() const -> ININame;
+    [[nodiscard]] ININame iniPaths() const;
 
     /**
      * @brief Returns the path to the game's plugins.txt file.
      *
      * @return Filesystem path to plugins.txt in the game's AppData directory.
      */
-    [[nodiscard]] auto getPluginsFile() const -> std::filesystem::path;
+    [[nodiscard]] std::filesystem::path pluginsFile() const;
 
     /**
      * @brief Returns the list of active plugins including Bethesda master files.
@@ -123,15 +123,15 @@ public:
      * @param lowercase     If true, plugin names are converted to lowercase.
      * @return Vector of wide strings containing the active plugin names in load order.
      */
-    [[nodiscard]] auto getActivePlugins(const bool& trimExtension = false,
-                                        const bool& lowercase = false) const -> std::vector<std::wstring>;
+    [[nodiscard]] std::vector<std::wstring> activePlugins(const bool& trimExtension = false,
+                                                          const bool& lowercase = false) const;
 
     /**
      * @brief Returns all supported game types.
      *
      * @return Vector of all known GameType enum values (excluding UNKNOWN).
      */
-    [[nodiscard]] static auto getGameTypes() -> std::vector<GameType>;
+    [[nodiscard]] static std::vector<GameType> gameTypes();
 
     /**
      * @brief Converts a GameType enum value to its human-readable string representation.
@@ -139,7 +139,7 @@ public:
      * @param type The GameType to convert.
      * @return String such as "Skyrim SE" or "Enderal SE".
      */
-    [[nodiscard]] static auto getStrFromGameType(const GameType& type) -> std::string;
+    [[nodiscard]] static std::string strFromGameType(const GameType& type);
 
     /**
      * @brief Converts a human-readable game type string to the corresponding GameType enum value.
@@ -147,7 +147,7 @@ public:
      * @param type String such as "Skyrim SE" or "Enderal SE".
      * @return The matching GameType enum value, defaulting to SKYRIM_SE if not recognized.
      */
-    [[nodiscard]] static auto getGameTypeFromStr(const std::string& type) -> GameType;
+    [[nodiscard]] static GameType gameTypeFromStr(const std::string& type);
 
     /**
      * @brief Checks whether the given directory is a valid installation path for the specified game type.
@@ -156,8 +156,8 @@ public:
      * @param type     The game type to validate against.
      * @return true if the path contains the expected game data files; false otherwise.
      */
-    [[nodiscard]] static auto isGamePathValid(const std::filesystem::path& gamePath,
-                                              const GameType& type) -> bool;
+    [[nodiscard]] static bool isGamePathValid(const std::filesystem::path& gamePath,
+                                              const GameType& type);
 
     /**
      * @brief Attempts to locate the game's installation path via the Steam registry.
@@ -165,14 +165,14 @@ public:
      * @param type The game type to search for.
      * @return Filesystem path to the game's installation directory, or an empty path if not found.
      */
-    [[nodiscard]] static auto findGamePathFromSteam(const GameType& type) -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path findGamePathFromSteam(const GameType& type);
 
 private:
-    [[nodiscard]] auto getGameDocumentSystemPath() const -> std::filesystem::path;
-    [[nodiscard]] static auto getGameAppdataSystemPath(const GameType& type) -> std::filesystem::path;
+    [[nodiscard]] std::filesystem::path gameDocumentSystemPath() const;
+    [[nodiscard]] static std::filesystem::path gameAppdataSystemPath(const GameType& type);
 
     // Gets the system path for a folder (from windows.h).
-    static auto getSystemPath(const GUID& folderID) -> std::filesystem::path;
+    static std::filesystem::path systemPath(const GUID& folderID);
 
-    [[nodiscard]] static auto getGameRegistryPath(const GameType& type) -> std::string;
+    [[nodiscard]] static std::string gameRegistryPath(const GameType& type);
 };

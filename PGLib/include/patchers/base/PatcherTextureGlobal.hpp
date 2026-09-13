@@ -26,9 +26,9 @@ public:
                          std::string patcherName);
     virtual ~PatcherTextureGlobal() = default;
     PatcherTextureGlobal(const PatcherTextureGlobal& other) = default;
-    auto operator=(const PatcherTextureGlobal& other) -> PatcherTextureGlobal& = default;
+    PatcherTextureGlobal& operator=(const PatcherTextureGlobal& other) = default;
     PatcherTextureGlobal(PatcherTextureGlobal&& other) noexcept = default;
-    auto operator=(PatcherTextureGlobal&& other) noexcept -> PatcherTextureGlobal& = default;
+    PatcherTextureGlobal& operator=(PatcherTextureGlobal&& other) noexcept = default;
 
     /**
      * @brief Apply the patch to the texture if able

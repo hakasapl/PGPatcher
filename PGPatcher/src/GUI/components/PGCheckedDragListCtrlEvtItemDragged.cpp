@@ -6,9 +6,6 @@
 
 wxDEFINE_EVENT(pgEVT_CDLC_ITEM_DRAGGED,
                PGCheckedDragListCtrlEvtItemDragged);
-auto PGCheckedDragListCtrlEvtItemDragged::Clone() const -> wxEvent*
-{
-    return new PGCheckedDragListCtrlEvtItemDragged(*this);
-}
+wxEvent* PGCheckedDragListCtrlEvtItemDragged::Clone() const { return new PGCheckedDragListCtrlEvtItemDragged(*this); }
 
 // NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

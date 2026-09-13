@@ -51,7 +51,7 @@ void TaskTracker::initJobStatus()
 
 void TaskTracker::printJobStatus(bool force)
 {
-    size_t combinedJobs = getCompletedJobs();
+    size_t combinedJobs = completedJobs();
     size_t perc = combinedJobs * fullPercentage / m_totalJobs;
     if (force || perc != m_lastPerc) {
         m_lastPerc = perc;
@@ -83,7 +83,7 @@ void TaskTracker::printJobSummary()
     Logger::info(outputLog);
 }
 
-auto TaskTracker::getCompletedJobs() -> size_t
+size_t TaskTracker::completedJobs()
 {
     // Initialize the Sum variable.
     size_t sum = 0;
@@ -95,11 +95,11 @@ auto TaskTracker::getCompletedJobs() -> size_t
     return sum;
 }
 
-auto TaskTracker::isCompleted() -> bool
+bool TaskTracker::isCompleted()
 {
     const std::scoped_lock lock(m_numJobsCompletedMutex);
 
-    return getCompletedJobs() == m_totalJobs;
+    return completedJobs() == m_totalJobs;
 }
 
 void TaskTracker::updateResult(Result& result,

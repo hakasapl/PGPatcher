@@ -17,8 +17,8 @@
  * @brief spdlog sink that captures log messages for display in the wxWidgets UI.
  *
  * Critical-level messages trigger an immediate modal wxMessageBox and call exit(1).
- * Error-level messages are collected and accessible via getErrorMessages().
- * Warning-level messages are collected and accessible via getWarningMessages().
+ * Error-level messages are collected and accessible via errorMessages().
+ * Warning-level messages are collected and accessible via warningMessages().
  * All other levels are silently discarded.
  *
  * @tparam Mutex Mutex type used by the base spdlog sink (e.g., std::mutex).
@@ -77,7 +77,7 @@ public:
      *
      * @return true if at least one error message has been captured, false otherwise.
      */
-    [[nodiscard]] auto hasErrors() -> bool
+    [[nodiscard]] bool hasErrors()
     {
         std::scoped_lock<Mutex> lock(this->mutex_);
         return !m_errorMessages.empty();
@@ -87,7 +87,7 @@ public:
      *
      * @return true if at least one warning message has been captured, false otherwise.
      */
-    [[nodiscard]] auto hasWarnings() -> bool
+    [[nodiscard]] bool hasWarnings()
     {
         std::scoped_lock<Mutex> lock(this->mutex_);
         return !m_warningMessages.empty();
@@ -98,7 +98,7 @@ public:
      *
      * @return Vector of formatted error messages as wxStrings.
      */
-    [[nodiscard]] auto getErrorMessages() -> std::vector<wxString>
+    [[nodiscard]] std::vector<wxString> errorMessages()
     {
         const std::scoped_lock<Mutex> lock(this->mutex_);
         return m_errorMessages;
@@ -108,7 +108,7 @@ public:
      *
      * @return Vector of formatted warning messages as wxStrings.
      */
-    [[nodiscard]] auto getWarningMessages() -> std::vector<wxString>
+    [[nodiscard]] std::vector<wxString> warningMessages()
     {
         const std::scoped_lock<Mutex> lock(this->mutex_);
         return m_warningMessages;

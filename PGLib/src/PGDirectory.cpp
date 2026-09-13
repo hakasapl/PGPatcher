@@ -63,7 +63,7 @@ PGDirectory::PGDirectory(std::filesystem::path dataPath,
 {
 }
 
-auto PGDirectory::findFiles() -> void
+void PGDirectory::findFiles()
 {
     // Clear existing unconfirmedtextures.
     m_unconfirmedTextures.clear();
@@ -71,7 +71,7 @@ auto PGDirectory::findFiles() -> void
 
     // Populate unconfirmed maps.
     Logger::info("Finding Relevant Files");
-    const auto& fileMap = getFileMap();
+    const auto& fileMap = this->fileMap();
 
     if (fileMap.empty())
         throw std::runtime_error("File map was not populated");
@@ -111,7 +111,7 @@ auto PGDirectory::findFiles() -> void
                 m_pbrJSONs.push_back(path);
 
                 if (PGGlobals::isPGMMSet())
-                    PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::TRUEPBR);
+                    PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::TRUEPBR);
             } else if (boost::iequals(firstPath, L"lightplacer")) {
                 // Found Light Placer JSON config.
                 Logger::trace(L"Found light placer json: {} / {}",
@@ -155,14 +155,14 @@ void PGDirectory::waitForCMClassification()
     m_cmClassificationQueue.shutdown();
 }
 
-auto PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
+void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
                            const std::vector<std::wstring>& nifAllowlist,
                            const std::vector<std::pair<std::wstring,
                                                        PGEnums::TextureType>>& manualTextureMaps,
                            const std::vector<std::wstring>& parallaxBSAExcludes,
                            const bool& multithreading,
                            const std::function<void(size_t,
-                                                    size_t)>& progressCallback) -> void
+                                                    size_t)>& progressCallback)
 {
     findFiles();
 
@@ -232,7 +232,7 @@ auto PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
 
         if (!foundInstance) {
             // Determine slot and type by suffix.
-            const auto defProperty = PGNIFUtil::getDefaultsFromSuffix(texture);
+            const auto defProperty = PGNIFUtil::defaultsFromSuffix(texture);
             winningSlot = std::get<0>(defProperty);
             winningType = std::get<1>(defProperty);
         }
@@ -240,7 +240,7 @@ auto PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
         if (manualTextureMapsMap.contains(texture.wstring())) {
             // Manual texture map found, override.
             winningType = manualTextureMapsMap.at(texture.wstring());
-            winningSlot = PGNIFUtil::getSlotFromTexType(winningType);
+            winningSlot = PGNIFUtil::slotFromTexType(winningType);
         }
 
         if (winningSlot == PGEnums::TextureSlots::Parallax && isFileInBSA(texture, parallaxBSAExcludes))
@@ -251,14 +251,14 @@ auto PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
         if (winningType == PGEnums::TextureType::EnvironmentMask && !isFileInBSA(texture, parallaxBSAExcludes)) {
             // Reuse the classification of a previous run if the texture did not change.
             PGTypes::CMClassification cachedClassification;
-            if (PGRunCache::tryGetCachedCMClassification(texture, getFileIdentity(texture), cachedClassification)) {
+            if (PGRunCache::tryGetCachedCMClassification(texture, fileIdentity(texture), cachedClassification)) {
                 applyCMClassification(texture, winningSlot, cachedClassification);
                 continue;
             }
 
             if (multithreading) {
                 m_cmClassificationQueue.queueTask(
-                    [this, texture, winningSlot]() -> void { checkIfCMAddToMap(texture, winningSlot); });
+                    [this, texture, winningSlot] { checkIfCMAddToMap(texture, winningSlot); });
             } else {
                 checkIfCMAddToMap(texture, winningSlot);
             }
@@ -287,11 +287,11 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
 
     bool success = false;
     try {
-        success = PGGlobals::getPGD3D()->checkIfCM(texture,
-                                                   classification.isCM,
-                                                   classification.hasEnvMask,
-                                                   classification.hasGlossiness,
-                                                   classification.hasMetalness);
+        success = PGGlobals::pGD3D()->checkIfCM(texture,
+                                                classification.isCM,
+                                                classification.hasEnvMask,
+                                                classification.hasGlossiness,
+                                                classification.hasMetalness);
     } catch (...) {
         success = false;
     }
@@ -302,7 +302,7 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
     }
 
     // Remember the result for incremental runs.
-    PGRunCache::storeCMClassification(texture, getFileIdentity(texture), classification);
+    PGRunCache::storeCMClassification(texture, fileIdentity(texture), classification);
 
     applyCMClassification(texture, winningSlot, classification);
 }
@@ -328,8 +328,8 @@ void PGDirectory::applyCMClassification(const std::filesystem::path& texture,
     addToTextureMaps(texture, winningSlot, PGEnums::TextureType::ComplexMaterial, attributes);
 }
 
-auto PGDirectory::checkGlobMatchInVector(const std::wstring& check,
-                                         const std::vector<std::wstring>& list) -> bool
+bool PGDirectory::checkGlobMatchInVector(const std::wstring& check,
+                                         const std::vector<std::wstring>& list)
 {
     // Convert wstring to LPCWSTR.
     LPCWSTR checkCstr = check.c_str();
@@ -338,13 +338,13 @@ auto PGDirectory::checkGlobMatchInVector(const std::wstring& check,
     return std::ranges::any_of(list, [&](const std::wstring& glob) { return PathMatchSpecW(checkCstr, glob.c_str()); });
 }
 
-auto PGDirectory::mapTexturesFromNIF(const std::filesystem::path& nifPath,
-                                     const bool& multithreading) -> TaskTracker::Result
+TaskTracker::Result PGDirectory::mapTexturesFromNIF(const std::filesystem::path& nifPath,
+                                                    const bool& multithreading)
 {
     const auto result = TaskTracker::Result::Success;
 
     // Texture votes: reuse the votes of a previous run when the NIF did not change, otherwise read the NIF.
-    const auto nifIdentity = getFileIdentity(nifPath);
+    const auto nifIdentity = fileIdentity(nifPath);
     std::vector<PGTypes::TextureVote> votes;
     if (!PGRunCache::tryGetCachedMeshVotes(nifPath, nifIdentity, votes)) {
         if (!readTextureVotesFromNIF(nifPath, votes)) {
@@ -363,20 +363,20 @@ auto PGDirectory::mapTexturesFromNIF(const std::filesystem::path& nifPath,
     if (PGRunCache::tryGetCachedMeshUses(nifPath, cachedUses)) {
         updateNifCache(nifPath, cachedUses);
     } else if (multithreading) {
-        m_meshUseMappingQueue.queueTask([this, nifPath]() -> void {
+        m_meshUseMappingQueue.queueTask([this, nifPath] {
             // Send job to find mesh uses for this mesh.
-            const auto modelUses = PGPlugin::getModelUses(nifPath);
+            const auto modelUses = PGPlugin::modelUses(nifPath);
             updateNifCache(nifPath, modelUses);
         });
     } else {
         // Send job to find mesh uses for this mesh.
-        const auto modelUses = PGPlugin::getModelUses(nifPath);
+        const auto modelUses = PGPlugin::modelUses(nifPath);
         updateNifCache(nifPath, modelUses);
     }
 
     // Find mod of this mesh.
     if (PGGlobals::isPGMMSet()) {
-        const auto mod = PGGlobals::getPGMM()->getModByFileSmart(nifPath);
+        const auto mod = PGGlobals::pgmm()->modByFileSmart(nifPath);
         if (mod != nullptr) {
             const std::unique_lock<std::shared_mutex> lock(mod->mutex);
             mod->hasMeshes = true;
@@ -386,15 +386,15 @@ auto PGDirectory::mapTexturesFromNIF(const std::filesystem::path& nifPath,
     return result;
 }
 
-auto PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
-                                          std::vector<PGTypes::TextureVote>& votes) -> bool
+bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
+                                          std::vector<PGTypes::TextureVote>& votes)
 {
     // Load NIF.
     std::shared_ptr<nifly::NifFile> nif = nullptr;
     std::vector<std::byte> nifBytes;
     {
         try {
-            nifBytes = getFile(nifPath);
+            nifBytes = file(nifPath);
         } catch (...) {
             return false;
         }
@@ -409,7 +409,7 @@ auto PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
     }
 
     // Loop through each shape.
-    const auto shapes = PGNIFUtil::getShapesWith3DIdx(nif.get());
+    const auto shapes = PGNIFUtil::shapesWith3DIdx(nif.get());
     // Clear shapes in cache.
     for (const auto& [shape, oldindex3d] : shapes) {
         if (shape == nullptr) {
@@ -428,7 +428,7 @@ auto PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
         }
 
         auto* const shader = nif->GetShader(shape);
-        const auto textureSet = PGNIFUtil::getTextureSlots(nif.get(), shape);
+        const auto textureSet = PGNIFUtil::textureSlots(nif.get(), shape);
 
         // Loop through each texture slot.
         for (uint32_t slot = 0; slot < numTextureSlots; slot++) {
@@ -590,9 +590,9 @@ auto PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
     return true;
 }
 
-auto PGDirectory::updateUnconfirmedTexturesMap(const std::filesystem::path& path,
+void PGDirectory::updateUnconfirmedTexturesMap(const std::filesystem::path& path,
                                                const PGEnums::TextureSlots& slot,
-                                               const PGEnums::TextureType& type) -> void
+                                               const PGEnums::TextureType& type)
 {
     // Use mutex to make this thread safe.
     const std::scoped_lock lock(m_unconfirmedTexturesMutex);
@@ -605,19 +605,19 @@ auto PGDirectory::updateUnconfirmedTexturesMap(const std::filesystem::path& path
     }
 }
 
-auto PGDirectory::addToTextureMaps(const std::filesystem::path& path,
+void PGDirectory::addToTextureMaps(const std::filesystem::path& path,
                                    const PGEnums::TextureSlots& slot,
                                    const PGEnums::TextureType& type,
-                                   const std::unordered_set<PGEnums::TextureAttribute>& attributes) -> void
+                                   const std::unordered_set<PGEnums::TextureAttribute>& attributes)
 {
     // Log result.
     Logger::trace(L"Mapping Texture: {} / Slot: {} / Type: {}",
                   path.wstring(),
                   static_cast<size_t>(slot),
-                  utf8toUTF16(PGEnums::getStrFromTexType(type)));
+                  utf8toUTF16(PGEnums::strFromTexType(type)));
 
     // Get texture base.
-    const auto& base = PGNIFUtil::getTexBase(path, slot);
+    const auto& base = PGNIFUtil::texBase(path, slot);
     const auto& slotInt = static_cast<size_t>(slot);
 
     // Add to texture map.
@@ -638,15 +638,15 @@ auto PGDirectory::addToTextureMaps(const std::filesystem::path& path,
     if (type == PGEnums::TextureType::Height) {
         // Parallax.
         if (PGGlobals::isPGMMSet())
-            PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::VANILLAPARALLAX);
+            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::VANILLAPARALLAX);
     } else if (type == PGEnums::TextureType::ComplexMaterial) {
         // PBR parallax.
         if (PGGlobals::isPGMMSet())
-            PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::COMPLEXMATERIAL);
+            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::COMPLEXMATERIAL);
     } else {
         // Default shader for all other types.
         if (PGGlobals::isPGMMSet())
-            PGGlobals::getPGMM()->addShaderToModByFile(path, PGEnums::ShapeShader::NONE);
+            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::NONE);
     }
 }
 
@@ -662,39 +662,36 @@ void PGDirectory::updateNifCache(const std::filesystem::path& path,
     m_meshes.at(path).meshUses = meshUses;
 }
 
-auto PGDirectory::getTextureMap(const PGEnums::TextureSlots& slot)
-    -> std::map<std::wstring,
-                std::unordered_set<PGTypes::PGTexture,
-                                   PGTypes::PGTextureHasher>>&
+std::map<std::wstring,
+         std::unordered_set<PGTypes::PGTexture,
+                            PGTypes::PGTextureHasher>>&
+PGDirectory::textureMap(const PGEnums::TextureSlots& slot)
 {
     return m_textureMaps.at(static_cast<size_t>(slot));
 }
 
-auto PGDirectory::getTextureMapConst(const PGEnums::TextureSlots& slot) const
-    -> const std::map<std::wstring,
-                      std::unordered_set<PGTypes::PGTexture,
-                                         PGTypes::PGTextureHasher>>&
+const std::map<std::wstring,
+               std::unordered_set<PGTypes::PGTexture,
+                                  PGTypes::PGTextureHasher>>&
+PGDirectory::textureMapConst(const PGEnums::TextureSlots& slot) const
 {
     return m_textureMaps.at(static_cast<size_t>(slot));
 }
 
-auto PGDirectory::getMeshes() const -> const std::unordered_map<std::filesystem::path,
-                                                                NifCache>&
+auto PGDirectory::meshes() const -> const std::unordered_map<std::filesystem::path,
+                                                             NifCache>&
 {
     return m_meshes;
 }
 
-auto PGDirectory::getTextures() const -> const std::unordered_set<std::filesystem::path>& { return m_textures; }
+const std::unordered_set<std::filesystem::path>& PGDirectory::textures() const { return m_textures; }
 
-auto PGDirectory::getPBRJSONs() const -> const std::vector<std::filesystem::path>& { return m_pbrJSONs; }
+const std::vector<std::filesystem::path>& PGDirectory::pbrjsoNs() const { return m_pbrJSONs; }
 
-auto PGDirectory::getLightPlacerJSONs() const -> const std::vector<std::filesystem::path>&
-{
-    return m_lightPlacerJSONs;
-}
+const std::vector<std::filesystem::path>& PGDirectory::lightPlacerJSONs() const { return m_lightPlacerJSONs; }
 
-auto PGDirectory::addTextureAttribute(const std::filesystem::path& path,
-                                      const PGEnums::TextureAttribute& attribute) -> bool
+bool PGDirectory::addTextureAttribute(const std::filesystem::path& path,
+                                      const PGEnums::TextureAttribute& attribute)
 {
     const std::unique_lock lock(m_textureTypesMutex);
 
@@ -704,8 +701,8 @@ auto PGDirectory::addTextureAttribute(const std::filesystem::path& path,
     return false;
 }
 
-auto PGDirectory::removeTextureAttribute(const std::filesystem::path& path,
-                                         const PGEnums::TextureAttribute& attribute) -> bool
+bool PGDirectory::removeTextureAttribute(const std::filesystem::path& path,
+                                         const PGEnums::TextureAttribute& attribute)
 {
     const std::unique_lock lock(m_textureTypesMutex);
 
@@ -715,8 +712,8 @@ auto PGDirectory::removeTextureAttribute(const std::filesystem::path& path,
     return false;
 }
 
-auto PGDirectory::hasTextureAttribute(const std::filesystem::path& path,
-                                      const PGEnums::TextureAttribute& attribute) -> bool
+bool PGDirectory::hasTextureAttribute(const std::filesystem::path& path,
+                                      const PGEnums::TextureAttribute& attribute)
 {
     bool result = false;
     {
@@ -731,8 +728,7 @@ auto PGDirectory::hasTextureAttribute(const std::filesystem::path& path,
     return result;
 }
 
-auto PGDirectory::getTextureAttributes(const std::filesystem::path& path)
-    -> std::unordered_set<PGEnums::TextureAttribute>
+std::unordered_set<PGEnums::TextureAttribute> PGDirectory::textureAttributes(const std::filesystem::path& path)
 {
     std::unordered_set<PGEnums::TextureAttribute> result;
     {
@@ -754,7 +750,7 @@ void PGDirectory::setTextureType(const std::filesystem::path& path,
     m_textureTypes[path].type = type;
 }
 
-auto PGDirectory::getTextureType(const std::filesystem::path& path) -> PGEnums::TextureType
+PGEnums::TextureType PGDirectory::textureType(const std::filesystem::path& path)
 {
     auto result = PGEnums::TextureType::Unknown;
     {

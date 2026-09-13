@@ -34,7 +34,7 @@ public:
             std::filesystem::path dir;
             BethesdaGame::GameType type = BethesdaGame::GameType::SkyrimSE;
 
-            auto operator==(const Game& other) const -> bool { return dir == other.dir && type == other.type; }
+            bool operator==(const Game& other) const { return dir == other.dir && type == other.type; }
         } game;
 
         // Mod Manager.
@@ -43,7 +43,7 @@ public:
             std::filesystem::path mo2InstanceDir;
             bool mo2UseLooseFileOrder = true;
 
-            auto operator==(const ModManager& other) const -> bool
+            bool operator==(const ModManager& other) const
             {
                 return type == other.type && mo2InstanceDir == other.mo2InstanceDir
                     && mo2UseLooseFileOrder == other.mo2UseLooseFileOrder;
@@ -56,7 +56,7 @@ public:
             bool zip = false;
             PGPlugin::PluginLang pluginLang = PGPlugin::PluginLang::English;
 
-            auto operator==(const Output& other) const -> bool
+            bool operator==(const Output& other) const
             {
                 return dir == other.dir && zip == other.zip && pluginLang == other.pluginLang;
             }
@@ -68,13 +68,13 @@ public:
             bool enableModDevMode = false;
             bool enableDebugLogging = false;
             bool enableTraceLogging = false;
-            std::unordered_set<PGPlugin::ModelRecordType> allowedModelRecordTypes = PGPlugin::getDefaultRecTypeSet();
+            std::unordered_set<PGPlugin::ModelRecordType> allowedModelRecordTypes = PGPlugin::defaultRecTypeSet();
             std::vector<std::wstring> vanillaBSAList;
             std::vector<std::pair<std::wstring, PGEnums::TextureType>> textureMaps;
             std::vector<std::wstring> allowList;
             std::vector<std::wstring> blockList;
 
-            auto operator==(const Processing& other) const -> bool
+            bool operator==(const Processing& other) const
             {
                 return multithread == other.multithread && enableModDevMode == other.enableModDevMode
                     && enableDebugLogging == other.enableDebugLogging && enableTraceLogging == other.enableTraceLogging
@@ -88,7 +88,7 @@ public:
         struct PrePatcher {
             bool fixMeshLighting = false;
 
-            auto operator==(const PrePatcher& other) const -> bool { return fixMeshLighting == other.fixMeshLighting; }
+            bool operator==(const PrePatcher& other) const { return fixMeshLighting == other.fixMeshLighting; }
         } prePatcher;
 
         // Shader Patchers.
@@ -97,7 +97,7 @@ public:
             bool complexMaterial = true;
             bool truePBR = false;
 
-            auto operator==(const ShaderPatcher& other) const -> bool
+            bool operator==(const ShaderPatcher& other) const
             {
                 return parallax == other.parallax && complexMaterial == other.complexMaterial
                     && truePBR == other.truePBR;
@@ -108,7 +108,7 @@ public:
         struct ShaderTransforms {
             bool parallaxToCM = false;
 
-            auto operator==(const ShaderTransforms& other) const -> bool { return parallaxToCM == other.parallaxToCM; }
+            bool operator==(const ShaderTransforms& other) const { return parallaxToCM == other.parallaxToCM; }
         } shaderTransforms;
 
         // Post-Patchers.
@@ -117,7 +117,7 @@ public:
             bool fixSSS = false;
             bool hairFlowMap = false;
 
-            auto operator==(const PostPatcher& other) const -> bool
+            bool operator==(const PostPatcher& other) const
             {
                 return disablePrePatchedMaterials == other.disablePrePatchedMaterials && fixSSS == other.fixSSS
                     && hairFlowMap == other.hairFlowMap;
@@ -126,10 +126,10 @@ public:
 
         // Global Patchers.
         struct GlobalPatcher {
-            auto operator==([[maybe_unused]] const GlobalPatcher& other) const -> bool { return true; }
+            bool operator==([[maybe_unused]] const GlobalPatcher& other) const { return true; }
         } globalPatcher;
 
-        auto operator==(const PGParams& other) const -> bool
+        bool operator==(const PGParams& other) const
         {
             return game == other.game && modManager == other.modManager && output == other.output
                 && processing == other.processing && prePatcher == other.prePatcher
@@ -137,7 +137,7 @@ public:
                 && postPatcher == other.postPatcher && globalPatcher == other.globalPatcher;
         }
 
-        auto operator!=(const PGParams& other) const -> bool { return !(*this == other); }
+        bool operator!=(const PGParams& other) const { return !(*this == other); }
     };
 
 private:
@@ -164,21 +164,21 @@ public:
      *
      * @return std::filesystem::path Path to user config file
      */
-    [[nodiscard]] static auto getUserConfigFile() -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path userConfigFile();
 
     /**
      * @brief Get the Mod Config File object
      *
      * @return std::filesystem::path Path to mod config file
      */
-    [[nodiscard]] static auto getModConfigFile() -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path modConfigFile();
 
     /**
      * @brief Get the Ignored Messages Config File object
      *
      * @return std::filesystem::path Path to ignored messages config file
      */
-    [[nodiscard]] static auto getIgnoredMessagesConfigFile() -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path ignoredMessagesConfigFile();
 
     /**
      * @brief Resolves a path from the config that may be relative to the PGPatcher.exe folder
@@ -191,7 +191,7 @@ public:
      * @return std::filesystem::path Absolute, lexically normalized path; empty and absolute inputs are returned
      * unchanged
      */
-    [[nodiscard]] static auto resolveExeRelativePath(const std::filesystem::path& path) -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path resolveExeRelativePath(const std::filesystem::path& path);
 
     /**
      * @brief Resolves the paths in params that may be relative to the PGPatcher.exe folder, in place
@@ -214,7 +214,7 @@ public:
      *
      * @return PGParams params
      */
-    [[nodiscard]] auto getParams() const -> PGParams;
+    [[nodiscard]] PGParams params() const;
 
     /**
      * @brief Set params (also saves to user json)
@@ -226,7 +226,7 @@ public:
     /**
      * @brief Get the GUI language code (e.g. "en")
      */
-    [[nodiscard]] auto getUILanguage() const -> std::string;
+    [[nodiscard]] std::string uiLanguage() const;
 
     /**
      * @brief Set the GUI language code (persisted on the next saveUserConfig)
@@ -236,7 +236,7 @@ public:
     /**
      * @brief Get the GUI theme ("light", "dark", or "system")
      */
-    [[nodiscard]] auto getUITheme() const -> std::string;
+    [[nodiscard]] std::string uiTheme() const;
 
     /**
      * @brief Set the GUI theme (persisted on the next saveUserConfig)
@@ -253,41 +253,42 @@ public:
      * @return true no validation errors
      * @return false validation errors
      */
-    [[nodiscard]] static auto validateParams(const PGParams& rawParams,
-                                             std::vector<std::string>& errors) -> bool;
+    [[nodiscard]] static bool validateParams(const PGParams& rawParams,
+                                             std::vector<std::string>& errors);
 
     /**
      * @brief Get the Default Params object
      *
      * @return PGParams default params
      */
-    [[nodiscard]] static auto getDefaultParams() -> PGParams;
+    [[nodiscard]] static PGParams defaultParams();
 
     /**
      * @brief Get the User Config JSON object
      *
      * @return nlohmann::json User config JSON
      */
-    [[nodiscard]] auto getUserConfigJSON() const -> nlohmann::json;
+    [[nodiscard]] nlohmann::json userConfigJSON() const;
 
     /**
      * @brief Saves user config to the user json file
      *
      * @return true if save was successful
      */
-    auto saveUserConfig() -> bool;
+    bool saveUserConfig();
 
     /**
      * @brief Saves the current mod configuration to modrules.json
      *
      * @return true if save was successful
      */
-    static auto saveModConfig() -> bool;
+    static bool saveModConfig();
 
-    static auto getIgnoredMessagesConfig() -> std::unordered_map<wxString,
-                                                                 bool>;
-    static auto saveIgnoredMessagesConfig(const std::unordered_map<wxString,
-                                                                   bool>& ignoredItems) -> bool;
+    static std::unordered_map<wxString,
+                              bool>
+    ignoredMessagesConfig();
+    static bool saveIgnoredMessagesConfig(const std::unordered_map<wxString,
+                                                                   bool>& ignoredItems);
 
 private:
     /**
@@ -298,15 +299,15 @@ private:
      * @return true no json errors
      * @return false unable to parse
      */
-    static auto parseJSON(const std::vector<std::byte>& bytes,
-                          nlohmann::json& j) -> bool;
+    static bool parseJSON(const std::vector<std::byte>& bytes,
+                          nlohmann::json& j);
 
     /**
      * @brief Adds a JSON config to the current config
      *
      * @param j JSON object to add
      */
-    auto addConfigJSON(const nlohmann::json& j) -> void;
+    void addConfigJSON(const nlohmann::json& j);
 
     /**
      * @brief Replaces any / with \\ in a JSON object

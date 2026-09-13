@@ -14,7 +14,7 @@
  * @param parent Parent window (optional)
  * @return int wxOK / wxCANCEL / wxYES / wxNO / wxHELP depending on the button pressed (same as wxMessageBox)
  */
-auto pgMessageBox(const wxString& message,
-                  const wxString& caption,
-                  int style = wxOK | wxCENTRE,
-                  wxWindow* parent = nullptr) -> int;
+int pgMessageBox(const wxString& message,
+                 const wxString& caption,
+                 int style = wxOK | wxCENTRE,
+                 wxWindow* parent = nullptr);

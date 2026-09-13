@@ -19,7 +19,7 @@ PGAnimationCtrl::PGAnimationCtrl(wxWindow* parent,
     Bind(wxEVT_PAINT, &PGAnimationCtrl::onPaint, this);
 }
 
-auto PGAnimationCtrl::DoGetBestSize() const -> wxSize
+wxSize PGAnimationCtrl::DoGetBestSize() const
 {
     const wxAnimation anim = GetAnimation();
     if (anim.IsOk() && !HasFlag(wxAC_NO_AUTORESIZE)) {

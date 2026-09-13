@@ -34,7 +34,7 @@ public:
      *
      * @return Index of the changed item.
      */
-    [[nodiscard]] auto getItemIndex() const -> long { return m_itemIndex; }
+    [[nodiscard]] long itemIndex() const { return m_itemIndex; }
 
     // Required for sending with wxPostEvent.
     /**
@@ -42,5 +42,5 @@ public:
      *
      * @return Pointer to a cloned copy of this event.
      */
-    [[nodiscard]] auto Clone() const -> wxEvent* override;
+    [[nodiscard]] wxEvent* Clone() const override;
 };

@@ -34,10 +34,10 @@ template<typename Enum> struct EnumStringEntry {
  */
 template<typename Enum,
          size_t N>
-constexpr auto enumFromString(std::string_view str,
+constexpr Enum enumFromString(std::string_view str,
                               const std::array<EnumStringEntry<Enum>,
                                                N>& table,
-                              Enum defaultValue) -> Enum
+                              Enum defaultValue)
 {
     const auto it = std::ranges::find(table, str, &EnumStringEntry<Enum>::name);
     return (it != table.end()) ? it->value : defaultValue;
@@ -55,10 +55,10 @@ constexpr auto enumFromString(std::string_view str,
  */
 template<typename Enum,
          size_t N>
-constexpr auto stringFromEnum(Enum value,
-                              const std::array<EnumStringEntry<Enum>,
-                                               N>& table,
-                              std::string_view defaultValue) -> std::string_view
+constexpr std::string_view stringFromEnum(Enum value,
+                                          const std::array<EnumStringEntry<Enum>,
+                                                           N>& table,
+                                          std::string_view defaultValue)
 {
     const auto it = std::ranges::find(table, value, &EnumStringEntry<Enum>::value);
     return (it != table.end()) ? it->name : defaultValue;
@@ -74,8 +74,8 @@ constexpr auto stringFromEnum(Enum value,
  */
 template<typename Enum,
          size_t N>
-auto allEnumStrings(const std::array<EnumStringEntry<Enum>,
-                                     N>& table) -> std::vector<std::string>
+std::vector<std::string> allEnumStrings(const std::array<EnumStringEntry<Enum>,
+                                                         N>& table)
 {
     std::vector<std::string> result;
     result.reserve(N);

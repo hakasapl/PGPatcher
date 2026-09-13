@@ -18,7 +18,7 @@ private:
      *         changed (wxMSW refuses appearance changes once dark mode was enabled in this process,
      *         so leaving dark/system mode requires a full application restart)
      */
-    static auto applyTheme() -> bool;
+    static bool applyTheme();
 
 public:
     /**
@@ -33,8 +33,8 @@ public:
      * @param[in,out] params Params to show in the UI, updated with the values set by the user
      * @return true if the user chose "Update Output" (update the previous output in place), false for "Start Patching"
      */
-    static auto showLauncher(PGConfig& pgc,
-                             PGConfig::PGParams& params) -> bool;
+    static bool showLauncher(PGConfig& pgc,
+                             PGConfig::PGParams& params);
 
     /**
      * @brief Shows the mod selection dialog to the user (Hangs thread until user presses okay)
@@ -47,5 +47,5 @@ public:
      *
      * @return wxIconBundle application icons
      */
-    static auto getAppIcons() -> wxIconBundle;
+    static wxIconBundle appIcons();
 };

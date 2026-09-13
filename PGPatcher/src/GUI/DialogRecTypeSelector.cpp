@@ -31,7 +31,7 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
     const int borderSize = FromDIP(borderSizeDIP);
@@ -110,10 +110,10 @@ DialogRecTypeSelector::DialogRecTypeSelector(wxWindow* parent,
 void DialogRecTypeSelector::populateList(const std::unordered_set<PGPlugin::ModelRecordType>& selectedRecTypes)
 {
     long index = 0;
-    for (const auto& entry : PGPlugin::getAvailableRecTypeStrs()) {
+    for (const auto& entry : PGPlugin::availableRecTypeStrs()) {
         index = m_listCtrl->InsertItem(index, wxString(entry));
         const bool isChecked = selectedRecTypes.contains(
-            PGPlugin::getRecTypeFromString(entry)); // check if this rec type is in the selected set
+            PGPlugin::recTypeFromString(entry)); // check if this rec type is in the selected set
 
         m_listCtrl->CheckItem(index, isChecked);
         ++index;
@@ -135,7 +135,7 @@ void DialogRecTypeSelector::populateList(const std::unordered_set<PGPlugin::Mode
     SetSize(wxSize(GetSize().x, std::min(desiredHeight, FromDIP(dialogMaxHeight))));
 }
 
-auto DialogRecTypeSelector::getSelectedRecordTypes() const -> std::unordered_set<PGPlugin::ModelRecordType>
+std::unordered_set<PGPlugin::ModelRecordType> DialogRecTypeSelector::selectedRecordTypes() const
 {
     std::unordered_set<PGPlugin::ModelRecordType> result;
 
@@ -143,7 +143,7 @@ auto DialogRecTypeSelector::getSelectedRecordTypes() const -> std::unordered_set
     while ((item = m_listCtrl->GetNextItem(item)) != -1) {
         if (m_listCtrl->IsItemChecked(item)) {
             const wxString code = m_listCtrl->GetItemText(item);
-            const auto recType = PGPlugin::getRecTypeFromString(code.ToStdString());
+            const auto recType = PGPlugin::recTypeFromString(code.ToStdString());
             result.insert(recType);
         }
     }

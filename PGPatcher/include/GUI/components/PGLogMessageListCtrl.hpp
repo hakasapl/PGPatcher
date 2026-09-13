@@ -62,14 +62,15 @@ public:
      *
      * @return Reference to the map from message text to ignored flag.
      */
-    [[nodiscard]] auto getIgnoreMap() const -> const std::unordered_map<wxString,
-                                                                        bool>&;
+    [[nodiscard]] const std::unordered_map<wxString,
+                                           bool>&
+    ignoreMap() const;
     /**
      * @brief Get the number of messages that are not ignored.
      *
      * @return Count of non-ignored messages.
      */
-    [[nodiscard]] auto getNumUnignoredMessages() const -> size_t;
+    [[nodiscard]] size_t numUnignoredMessages() const;
 
 private:
     /**

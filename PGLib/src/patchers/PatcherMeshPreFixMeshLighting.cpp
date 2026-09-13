@@ -12,7 +12,7 @@
 #include <memory>
 #include <utility>
 
-auto PatcherMeshPreFixMeshLighting::getFactory() -> PatcherMeshPre::PatcherMeshPreFactory
+auto PatcherMeshPreFixMeshLighting::factory() -> PatcherMeshPre::PatcherMeshPreFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPre> {
         return std::make_unique<PatcherMeshPreFixMeshLighting>(nifPath, nif);
@@ -27,10 +27,10 @@ PatcherMeshPreFixMeshLighting::PatcherMeshPreFixMeshLighting(std::filesystem::pa
 {
 }
 
-auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
-                                               nifly::NiShape& nifShape) -> bool
+bool PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
+                                               nifly::NiShape& nifShape)
 {
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr) {
         // Not a BSLightingShaderProperty.

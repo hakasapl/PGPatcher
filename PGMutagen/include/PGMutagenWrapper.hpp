@@ -89,7 +89,7 @@ public:
      * @param modelPath Relative mesh path (e.g. "meshes/foo/bar.nif") to look up.
      * @return Vector of ModelUse structs describing each record that uses this model.
      */
-    static auto libGetModelUses(const std::wstring& modelPath) -> std::vector<ModelUse>;
+    static std::vector<ModelUse> libGetModelUses(const std::wstring& modelPath);
 
     /**
      * @brief Pushes updated model-use records back to the C# library for serialisation into the output plugin.
@@ -100,6 +100,6 @@ public:
 
 private:
     // Helpers.
-    static auto utf8toUTF16(const std::string& str) -> std::wstring;
-    static auto utf16toUTF8(const std::wstring& wStr) -> std::string;
+    static std::wstring utf8toUTF16(const std::string& str);
+    static std::string utf16toUTF8(const std::wstring& wStr);
 };

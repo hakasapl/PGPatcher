@@ -187,7 +187,7 @@ public:
         /// @brief Map from alternate texture set index to the overriding TextureSet.
         std::unordered_map<unsigned, PGTypes::TextureSet> alternateTextures;
 
-        auto operator==(const MeshUseAttributes& other) const -> bool = default;
+        bool operator==(const MeshUseAttributes& other) const = default;
     };
 
     /**
@@ -196,7 +196,7 @@ public:
      * @param lang String name of the language (e.g., "English").
      * @return Corresponding PluginLang value, defaulting to PluginLang::English if not found.
      */
-    static auto getPluginLangFromString(const std::string& lang) -> PluginLang;
+    static PluginLang pluginLangFromString(const std::string& lang);
 
     /**
      * @brief Converts a PluginLang enum value to its display string.
@@ -204,14 +204,14 @@ public:
      * @param lang The PluginLang value.
      * @return String name (e.g., "English").
      */
-    static auto getStringFromPluginLang(const PluginLang& lang) -> std::string;
+    static std::string stringFromPluginLang(const PluginLang& lang);
 
     /**
      * @brief Returns a list of all available plugin language name strings.
      *
      * @return Vector of language name strings.
      */
-    static auto getAvailablePluginLangStrs() -> std::vector<std::string>;
+    static std::vector<std::string> availablePluginLangStrs();
 
     /**
      * @brief Converts a record type string (e.g., "ACTI") to the corresponding ModelRecordType enum value.
@@ -219,7 +219,7 @@ public:
      * @param recTypeStr Four-letter record type code.
      * @return Corresponding ModelRecordType, or ModelRecordType::Unknown if not found.
      */
-    static auto getRecTypeFromString(const std::string& recTypeStr) -> ModelRecordType;
+    static ModelRecordType recTypeFromString(const std::string& recTypeStr);
 
     /**
      * @brief Converts a ModelRecordType enum value to its four-letter record type code string.
@@ -227,26 +227,26 @@ public:
      * @param recType The record type.
      * @return Four-letter code string, or empty string if unknown.
      */
-    static auto getStringFromRecType(const ModelRecordType& recType) -> std::string;
+    static std::string stringFromRecType(const ModelRecordType& recType);
 
     /**
      * @brief Returns a list of all available record type code strings.
      *
      * @return Vector of four-letter record type code strings.
      */
-    static auto getAvailableRecTypeStrs() -> std::vector<std::string>;
+    static std::vector<std::string> availableRecTypeStrs();
 
     /**
      * @brief Returns the default set of ModelRecordType values that are enabled for patching.
      *
      * @return Unordered set of default-enabled ModelRecordType values.
      */
-    static auto getDefaultRecTypeSet() -> std::unordered_set<ModelRecordType>;
+    static std::unordered_set<ModelRecordType> defaultRecTypeSet();
 
     /**
      * @brief Initializes the PGMutagen library for the given game and language.
      *
-     * Must be called before populateObjs(), getModelUses(), or savePlugin().
+     * Must be called before populateObjs(), modelUses(), or savePlugin().
      *
      * @param game The BethesdaGame instance providing game type and data path.
      * @param exePath Path to the PGPatcher executable (for resolving relative paths).
@@ -274,8 +274,9 @@ public:
      * @param modelPath Wide-string relative model path (e.g., L"meshes\\foo\\bar.nif").
      * @return Vector of (FormKey, MeshUseAttributes) pairs, sorted with weighted entries first.
      */
-    static auto getModelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
-                                                                                     MeshUseAttributes>>;
+    static std::vector<std::pair<PGMeshPermutationTracker::FormKey,
+                                 MeshUseAttributes>>
+    modelUses(const std::wstring& modelPath);
 
     /**
      * @brief Updates plugin records with the patched mesh paths from all committed mesh results.
@@ -300,5 +301,5 @@ public:
      * @return std::filesystem::path The plugin path derived from the data path, or the original path if it does not
      * start with "meshes" or "textures"
      */
-    static auto getPluginPathFromDataPath(const std::filesystem::path& dataPath) -> std::filesystem::path;
+    static std::filesystem::path pluginPathFromDataPath(const std::filesystem::path& dataPath);
 };

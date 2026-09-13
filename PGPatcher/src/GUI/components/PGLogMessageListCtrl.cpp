@@ -23,7 +23,7 @@ PGLogMessageListCtrl::PGLogMessageListCtrl(wxWindow* parent,
 {
     InsertColumn(0, "Message", wxLIST_FORMAT_LEFT);
 
-    Bind(wxEVT_SIZE, [this](wxSizeEvent& evt) -> void {
+    Bind(wxEVT_SIZE, [this](wxSizeEvent& evt) {
         const int width = GetClientSize().GetWidth();
         const int vsWidth = GetScrollThumb(wxVERTICAL) > 0 ? wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, this) : 0;
 
@@ -53,13 +53,14 @@ void PGLogMessageListCtrl::setIgnoreMap(const std::unordered_map<wxString,
     repopulateList();
 }
 
-auto PGLogMessageListCtrl::getIgnoreMap() const -> const std::unordered_map<wxString,
-                                                                            bool>&
+const std::unordered_map<wxString,
+                         bool>&
+PGLogMessageListCtrl::ignoreMap() const
 {
     return m_ignoredItems;
 }
 
-auto PGLogMessageListCtrl::getNumUnignoredMessages() const -> size_t
+size_t PGLogMessageListCtrl::numUnignoredMessages() const
 {
     size_t count = 0;
     for (const auto& msg : m_allMessages)
@@ -143,7 +144,7 @@ void PGLogMessageListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& ev
     }
 
     // Bind actions (lambda captures this and selections).
-    menu.Bind(wxEVT_MENU, [this, selections](wxCommandEvent& evt) -> void {
+    menu.Bind(wxEVT_MENU, [this, selections](wxCommandEvent& evt) {
         const int id = evt.GetId();
         switch (id) {
         case static_cast<int>(ContextMenu::IgnoreItem):

@@ -23,27 +23,21 @@ namespace StringUtil {
 
 constexpr unsigned asciiUpperBound = 127;
 
-auto windows1252toUTF16(const std::string& str) -> std::wstring
+std::wstring windows1252toUTF16(const std::string& str)
 {
     return boost::locale::conv::to_utf<wchar_t>(str, "windows-1252");
 }
 
-auto utf16toWindows1252(const std::wstring& str) -> std::string
+std::string utf16toWindows1252(const std::wstring& str)
 {
     return boost::locale::conv::from_utf<wchar_t>(str, "windows-1252");
 }
 
-auto asciitoUTF16(const std::string& str) -> std::wstring
-{
-    return boost::locale::conv::to_utf<wchar_t>(str, "US-ASCII");
-}
+std::wstring asciitoUTF16(const std::string& str) { return boost::locale::conv::to_utf<wchar_t>(str, "US-ASCII"); }
 
-auto utf16toASCII(const std::wstring& str) -> std::string
-{
-    return boost::locale::conv::from_utf<wchar_t>(str, "US-ASCII");
-}
+std::string utf16toASCII(const std::wstring& str) { return boost::locale::conv::from_utf<wchar_t>(str, "US-ASCII"); }
 
-auto utf8VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>
+std::vector<std::wstring> utf8VectorToUTF16(const std::vector<std::string>& vec)
 {
     std::vector<std::wstring> out;
     out.reserve(vec.size());
@@ -53,7 +47,7 @@ auto utf8VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::
     return out;
 }
 
-auto utf16VectorToUTF8(const std::vector<std::wstring>& vec) -> std::vector<std::string>
+std::vector<std::string> utf16VectorToUTF8(const std::vector<std::wstring>& vec)
 {
     std::vector<std::string> out;
     out.reserve(vec.size());
@@ -63,7 +57,7 @@ auto utf16VectorToUTF8(const std::vector<std::wstring>& vec) -> std::vector<std:
     return out;
 }
 
-auto windows1252VectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>
+std::vector<std::wstring> windows1252VectorToUTF16(const std::vector<std::string>& vec)
 {
     std::vector<std::wstring> out;
     out.reserve(vec.size());
@@ -73,7 +67,7 @@ auto windows1252VectorToUTF16(const std::vector<std::string>& vec) -> std::vecto
     return out;
 }
 
-auto utf16VectorToWindows1252(const std::vector<std::wstring>& vec) -> std::vector<std::string>
+std::vector<std::string> utf16VectorToWindows1252(const std::vector<std::wstring>& vec)
 {
     std::vector<std::string> out;
     out.reserve(vec.size());
@@ -83,7 +77,7 @@ auto utf16VectorToWindows1252(const std::vector<std::wstring>& vec) -> std::vect
     return out;
 }
 
-auto asciiVectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std::wstring>
+std::vector<std::wstring> asciiVectorToUTF16(const std::vector<std::string>& vec)
 {
     std::vector<std::wstring> out;
     out.reserve(vec.size());
@@ -93,7 +87,7 @@ auto asciiVectorToUTF16(const std::vector<std::string>& vec) -> std::vector<std:
     return out;
 }
 
-auto utf16VectorToASCII(const std::vector<std::wstring>& vec) -> std::vector<std::string>
+std::vector<std::string> utf16VectorToASCII(const std::vector<std::wstring>& vec)
 {
     std::vector<std::string> out;
     out.reserve(vec.size());
@@ -103,9 +97,9 @@ auto utf16VectorToASCII(const std::vector<std::wstring>& vec) -> std::vector<std
     return out;
 }
 
-auto toLowerASCII(const std::wstring& str) -> std::wstring { return boost::to_lower_copy(str, std::locale::classic()); }
+std::wstring toLowerASCII(const std::wstring& str) { return boost::to_lower_copy(str, std::locale::classic()); }
 
-auto utf8toUTF16(const std::string& str) -> std::wstring
+std::wstring utf8toUTF16(const std::string& str)
 {
     // Just return empty string if empty.
     if (str.empty())
@@ -119,7 +113,7 @@ auto utf8toUTF16(const std::string& str) -> std::wstring
     return wStr;
 }
 
-auto utf16toUTF8(const std::wstring& wStr) -> std::string
+std::string utf16toUTF8(const std::wstring& wStr)
 {
     // Just return empty string if empty.
     if (wStr.empty())
@@ -135,18 +129,18 @@ auto utf16toUTF8(const std::wstring& wStr) -> std::string
     return str;
 }
 
-auto containsOnlyAscii(const std::string& str) -> bool
+bool containsOnlyAscii(const std::string& str)
 {
     return std::ranges::all_of(str, [](char wc) { return wc <= asciiUpperBound; });
 }
 
-auto containsOnlyAscii(const std::wstring& str) -> bool
+bool containsOnlyAscii(const std::wstring& str)
 {
     return std::ranges::all_of(str, [](wchar_t wc) { return wc <= asciiUpperBound; });
 }
 
-auto checkIfStringInJSONArray(const nlohmann::json& json,
-                              const std::string& str) -> bool
+bool checkIfStringInJSONArray(const nlohmann::json& json,
+                              const std::string& str)
 {
     if (json.is_array()) {
         for (const auto& item : json)
@@ -156,7 +150,7 @@ auto checkIfStringInJSONArray(const nlohmann::json& json,
     return false;
 }
 
-auto toLowerASCIIFast(const std::string& str) -> std::string
+std::string toLowerASCIIFast(const std::string& str)
 {
     std::string lowerStr = str;
     for (char& ch : lowerStr)
@@ -165,7 +159,7 @@ auto toLowerASCIIFast(const std::string& str) -> std::string
     return lowerStr;
 }
 
-auto toLowerASCIIFast(const std::wstring& str) -> std::wstring
+std::wstring toLowerASCIIFast(const std::wstring& str)
 {
     std::wstring lowerStr = str;
     for (wchar_t& ch : lowerStr)
@@ -174,14 +168,14 @@ auto toLowerASCIIFast(const std::wstring& str) -> std::wstring
     return lowerStr;
 }
 
-auto toLowerASCIIFastInPlace(std::string& str) -> void
+void toLowerASCIIFastInPlace(std::string& str)
 {
     for (char& ch : str)
         if (ch >= 'A' && ch <= 'Z')
             ch += ('a' - 'A');
 }
 
-auto toLowerASCIIFastInPlace(std::wstring& str) -> void
+void toLowerASCIIFastInPlace(std::wstring& str)
 {
     for (wchar_t& ch : str)
         if (ch >= L'A' && ch <= L'Z')

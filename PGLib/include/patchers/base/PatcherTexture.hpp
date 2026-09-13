@@ -23,14 +23,14 @@ protected:
      *
      * @return std::filesystem::path Path to NIF
      */
-    [[nodiscard]] auto getDDSPath() const -> std::filesystem::path;
+    [[nodiscard]] std::filesystem::path ddsPath() const;
 
     /**
      * @brief Get the NIF object for the current patcher (used only within child patchers)
      *
      * @return nifly::NifFile* pointer to NIF object
      */
-    [[nodiscard]] auto getDDS() const -> DirectX::ScratchImage*;
+    [[nodiscard]] DirectX::ScratchImage* dds() const;
 
 public:
     /**

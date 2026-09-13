@@ -44,11 +44,11 @@ void Writer::writeString(const std::string& value)
     writeBytes(value.data(), value.size());
 }
 
-auto Writer::data() const -> const std::vector<std::byte>& { return m_buffer; }
+const std::vector<std::byte>& Writer::data() const { return m_buffer; }
 
-auto Writer::size() const -> size_t { return m_buffer.size(); }
+size_t Writer::size() const { return m_buffer.size(); }
 
-auto Writer::saveToFile(const std::filesystem::path& filePath) const -> bool
+bool Writer::saveToFile(const std::filesystem::path& filePath) const
 {
     std::error_code ec;
     std::filesystem::create_directories(filePath.parent_path(), ec);
@@ -109,7 +109,7 @@ void Reader::readBytes(void* dest,
     m_pos += size;
 }
 
-auto Reader::readWString() -> std::wstring
+std::wstring Reader::readWString()
 {
     const auto length = read<uint32_t>();
     ensureAvailable(static_cast<size_t>(length) * sizeof(uint16_t));
@@ -122,7 +122,7 @@ auto Reader::readWString() -> std::wstring
     return value;
 }
 
-auto Reader::readString() -> std::string
+std::string Reader::readString()
 {
     const auto length = read<uint32_t>();
     ensureAvailable(length);
@@ -134,8 +134,8 @@ auto Reader::readString() -> std::string
     return value;
 }
 
-auto Reader::atEnd() const -> bool { return m_pos >= m_buffer.size(); }
+bool Reader::atEnd() const { return m_pos >= m_buffer.size(); }
 
-auto Reader::remaining() const -> size_t { return m_buffer.size() - m_pos; }
+size_t Reader::remaining() const { return m_buffer.size() - m_pos; }
 
 } // namespace BinaryIO

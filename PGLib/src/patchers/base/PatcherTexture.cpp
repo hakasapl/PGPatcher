@@ -17,5 +17,5 @@ PatcherTexture::PatcherTexture(std::filesystem::path ddsPath,
 {
 }
 
-auto PatcherTexture::getDDSPath() const -> std::filesystem::path { return m_ddsPath; }
-auto PatcherTexture::getDDS() const -> DirectX::ScratchImage* { return m_dds; }
+std::filesystem::path PatcherTexture::ddsPath() const { return m_ddsPath; }
+DirectX::ScratchImage* PatcherTexture::dds() const { return m_dds; }

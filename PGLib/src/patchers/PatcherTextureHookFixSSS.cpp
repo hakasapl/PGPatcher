@@ -27,9 +27,9 @@ void PatcherTextureHookFixSSS::reset()
     s_texToProcess.clear();
 }
 
-auto PatcherTextureHookFixSSS::addToProcessList(const std::filesystem::path& texPath) -> void
+void PatcherTextureHookFixSSS::addToProcessList(const std::filesystem::path& texPath)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     // Record registration for incremental runs (no-op unless a mesh is being recorded on this thread).
     PGRunCache::recordHookRegistration(PGRunCache::HookKind::FixSSS, texPath);
@@ -41,37 +41,37 @@ auto PatcherTextureHookFixSSS::addToProcessList(const std::filesystem::path& tex
     const std::unique_lock lock(s_texToProcessMutex);
     if (s_texToProcess.insert(texPath).second) {
         // Only add if not present before.
-        pgd->addGeneratedFile(getOutputFilename(texPath));
+        pgd->addGeneratedFile(outputFilename(texPath));
     }
 }
 
 void PatcherTextureHookFixSSS::replayGenerated(const std::filesystem::path& texPath)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
-    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::Diffuse);
+    const auto texBase = PGNIFUtil::texBase(texPath, PGEnums::TextureSlots::Diffuse);
     const auto newPath = texBase + L"_s.dds";
 
-    pgd->getTextureMap(PGEnums::TextureSlots::Glow)[texBase].insert(
+    pgd->textureMap(PGEnums::TextureSlots::Glow)[texBase].insert(
         { .path = newPath, .type = PGEnums::TextureType::SubsurfaceColor });
     pgd->setTextureType(newPath, PGEnums::TextureType::SubsurfaceColor);
 }
 
-auto PatcherTextureHookFixSSS::isInProcessList(const std::filesystem::path& texPath) -> bool
+bool PatcherTextureHookFixSSS::isInProcessList(const std::filesystem::path& texPath)
 {
     const std::shared_lock lock(s_texToProcessMutex);
     return s_texToProcess.contains(texPath);
 }
 
-auto PatcherTextureHookFixSSS::getOutputFilename(const std::filesystem::path& texPath) -> std::filesystem::path
+std::filesystem::path PatcherTextureHookFixSSS::outputFilename(const std::filesystem::path& texPath)
 {
-    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::Diffuse);
+    const auto texBase = PGNIFUtil::texBase(texPath, PGEnums::TextureSlots::Diffuse);
     return texBase + L"_s.dds";
 }
 
-auto PatcherTextureHookFixSSS::initShader() -> bool
+bool PatcherTextureHookFixSSS::initShader()
 {
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd3d = PGGlobals::pGD3D();
 
     if (s_shader != nullptr)
         return true;
@@ -87,31 +87,25 @@ PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(std::filesystem::path ddsPath
 {
 }
 
-auto PatcherTextureHookFixSSS::applyPatch() -> bool
+bool PatcherTextureHookFixSSS::applyPatch()
 {
-    auto* pgd = PGGlobals::getPGD();
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd = PGGlobals::pgd();
+    auto* pgd3d = PGGlobals::pGD3D();
 
-    if (getDDS() == nullptr)
+    if (dds() == nullptr)
         throw std::runtime_error("DDS not initialized");
 
-    const auto texBase = PGNIFUtil::getTexBase(getDDSPath(), PGEnums::TextureSlots::Diffuse);
+    const auto texBase = PGNIFUtil::texBase(ddsPath(), PGEnums::TextureSlots::Diffuse);
     const auto newPath = texBase + L"_s.dds";
 
     DirectX::ScratchImage newDDS;
     static constexpr size_t scaleFactor = 2;
-    const auto newWidth = static_cast<UINT>(getDDS()->GetMetadata().width / scaleFactor);
-    const auto newHeight = static_cast<UINT>(getDDS()->GetMetadata().height / scaleFactor);
+    const auto newWidth = static_cast<UINT>(dds()->GetMetadata().width / scaleFactor);
+    const auto newHeight = static_cast<UINT>(dds()->GetMetadata().height / scaleFactor);
     // The shader delights and also reduces size by 4 for efficiency.
     ShaderParams params = { .fAlbedoSatPower = shaderAlbedoSatPower, .fAlbedoNorm = shaderAlbedoNorm };
-    if (!pgd3d->applyShaderToTexture(*getDDS(),
-                                     newDDS,
-                                     s_shader,
-                                     DXGI_FORMAT_R8G8B8A8_UNORM,
-                                     newWidth,
-                                     newHeight,
-                                     &params,
-                                     sizeof(ShaderParams))) {
+    if (!pgd3d->applyShaderToTexture(
+            *dds(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM, newWidth, newHeight, &params, sizeof(ShaderParams))) {
         return false;
     }
 
@@ -120,7 +114,7 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
 
     const std::scoped_lock lock(s_generatedFileTrackerMutex);
 
-    const auto outPath = pgd->getGeneratedPath() / newPath;
+    const auto outPath = pgd->generatedPath() / newPath;
     std::filesystem::create_directories(outPath.parent_path());
 
     DirectX::ScratchImage compressedImage;
@@ -145,12 +139,12 @@ auto PatcherTextureHookFixSSS::applyPatch() -> bool
         return false;
 
     // Add newly created file to complexMaterialMaps for later processing.
-    pgd->getTextureMap(PGEnums::TextureSlots::Glow)[texBase].insert(
+    pgd->textureMap(PGEnums::TextureSlots::Glow)[texBase].insert(
         { .path = newPath, .type = PGEnums::TextureType::SubsurfaceColor });
     pgd->setTextureType(newPath, PGEnums::TextureType::SubsurfaceColor);
 
     // Record generated output for incremental runs.
-    PGRunCache::recordHookOutput(PGRunCache::HookKind::FixSSS, getDDSPath(), newPath);
+    PGRunCache::recordHookOutput(PGRunCache::HookKind::FixSSS, ddsPath(), newPath);
 
     return true;
 }

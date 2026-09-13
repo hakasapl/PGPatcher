@@ -26,17 +26,17 @@ struct LocaleState {
 };
 
 /** Held in a function-local static rather than in globals so construction order is well defined */
-auto localeState() -> LocaleState&
+LocaleState& localeState()
 {
     static LocaleState state;
     return state;
 }
 
-auto parseTranslationFile(const std::filesystem::path& file,
-                          nlohmann::json& j) -> bool
+bool parseTranslationFile(const std::filesystem::path& file,
+                          nlohmann::json& j)
 {
     try {
-        j = nlohmann::json::parse(FileUtil::getFileBytes(file));
+        j = nlohmann::json::parse(FileUtil::fileBytes(file));
     } catch (const std::exception&) {
         return false;
     }
@@ -86,8 +86,8 @@ void loadLanguage(const std::string& langCode)
         flattenJSON(j, "", localeState().strings);
 }
 
-auto getLanguageDisplayName(const std::filesystem::path& file,
-                            const std::string& code) -> wxString
+wxString languageDisplayName(const std::filesystem::path& file,
+                             const std::string& code)
 {
     nlohmann::json j;
     if (parseTranslationFile(file, j) && j.contains("_language") && j["_language"].is_string())
@@ -119,7 +119,7 @@ void PGLocale::init(const std::filesystem::path& translationsDir,
         loadLanguage(state.currentLanguage);
 }
 
-auto PGLocale::tr(const std::string& key) -> wxString
+wxString PGLocale::tr(const std::string& key)
 {
     const auto& strings = localeState().strings;
     const auto it = strings.find(key);
@@ -131,9 +131,9 @@ auto PGLocale::tr(const std::string& key) -> wxString
     return wxString::FromUTF8(key);
 }
 
-auto PGLocale::getCurrentLanguage() -> std::string { return localeState().currentLanguage; }
+std::string PGLocale::currentLanguage() { return localeState().currentLanguage; }
 
-auto PGLocale::getAvailableLanguages() -> std::vector<Language>
+auto PGLocale::availableLanguages() -> std::vector<Language>
 {
     std::vector<Language> languages;
 
@@ -146,12 +146,11 @@ auto PGLocale::getAvailableLanguages() -> std::vector<Language>
             continue;
 
         const auto code = entry.path().stem().string();
-        languages.push_back({ .code = code, .displayName = getLanguageDisplayName(entry.path(), code) });
+        languages.push_back({ .code = code, .displayName = languageDisplayName(entry.path(), code) });
     }
 
-    std::ranges::sort(languages, [](const Language& a, const Language& b) -> bool {
-        return a.displayName.CmpNoCase(b.displayName) < 0;
-    });
+    std::ranges::sort(languages,
+                      [](const Language& a, const Language& b) { return a.displayName.CmpNoCase(b.displayName) < 0; });
 
     return languages;
 }

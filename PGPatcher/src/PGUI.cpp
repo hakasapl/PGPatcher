@@ -28,11 +28,11 @@ void PGUI::init()
     applyTheme();
 }
 
-auto PGUI::applyTheme() -> bool
+bool PGUI::applyTheme()
 {
     std::string theme = "system";
-    if (PGPatcherGlobals::getPGC() != nullptr)
-        theme = PGPatcherGlobals::getPGC()->getUITheme();
+    if (PGPatcherGlobals::pgc() != nullptr)
+        theme = PGPatcherGlobals::pgc()->uiTheme();
 
     if (theme != "light" && theme != "dark")
         theme = "system";
@@ -57,8 +57,8 @@ auto PGUI::applyTheme() -> bool
     return true;
 }
 
-auto PGUI::showLauncher(PGConfig& pgc,
-                        PGConfig::PGParams& params) -> bool
+bool PGUI::showLauncher(PGConfig& pgc,
+                        PGConfig::PGParams& params)
 {
     bool updateRequested = false;
     int result = wxID_CANCEL;
@@ -71,7 +71,7 @@ auto PGUI::showLauncher(PGConfig& pgc,
             launcher->getParams(params);
             updateRequested = launcher->isUpdateRequested();
         } else if (result == LauncherWindow::resultRelaunch) {
-            PGConfig::PGParams curParams = pgc.getParams();
+            PGConfig::PGParams curParams = pgc.params();
             launcher->getParams(curParams);
             unsavedParams = curParams;
         }
@@ -100,7 +100,7 @@ void PGUI::selectModOrder()
     dialog.ShowModal();
 }
 
-auto PGUI::getAppIcons() -> wxIconBundle
+wxIconBundle PGUI::appIcons()
 {
     // Loaded from the icon resource of the executable (see resources/icon.rc), which holds every icon size.
     return { "IDI_ICON1", nullptr };

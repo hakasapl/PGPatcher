@@ -16,14 +16,14 @@
 #include <utility>
 #include <vector>
 
-auto PatcherMeshShaderDefault::getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory
+auto PatcherMeshShaderDefault::factory() -> PatcherMeshShader::PatcherMeshShaderFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshShader> {
         return std::make_unique<PatcherMeshShaderDefault>(nifPath, nif);
     };
 }
 
-auto PatcherMeshShaderDefault::getShaderType() -> PGEnums::ShapeShader { return PGEnums::ShapeShader::NONE; }
+PGEnums::ShapeShader PatcherMeshShaderDefault::shaderType() { return PGEnums::ShapeShader::NONE; }
 
 PatcherMeshShaderDefault::PatcherMeshShaderDefault(std::filesystem::path nifPath,
                                                    nifly::NifFile* nif)
@@ -33,23 +33,23 @@ PatcherMeshShaderDefault::PatcherMeshShaderDefault(std::filesystem::path nifPath
 {
 }
 
-auto PatcherMeshShaderDefault::canApply([[maybe_unused]] nifly::NiShape& nifShape,
+bool PatcherMeshShaderDefault::canApply([[maybe_unused]] nifly::NiShape& nifShape,
                                         [[maybe_unused]] bool singlepassMATO,
-                                        [[maybe_unused]] const PGPlugin::ModelRecordType& modelRecordType) -> bool
+                                        [[maybe_unused]] const PGPlugin::ModelRecordType& modelRecordType)
 {
     return true;
 }
 
-auto PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape,
-                                           std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape,
+                                           std::vector<PatcherMatch>& matches)
 {
-    return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
+    return shouldApply(textureSet(nifPath(), *nif(), nifShape), matches);
 }
 
-auto PatcherMeshShaderDefault::shouldApply(const PGTypes::TextureSet& oldSlots,
-                                           std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderDefault::shouldApply(const PGTypes::TextureSet& oldSlots,
+                                           std::vector<PatcherMatch>& matches)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     matches.clear();
 

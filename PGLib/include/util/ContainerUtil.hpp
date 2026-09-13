@@ -17,8 +17,8 @@ namespace ContainerUtil {
  * @return true if the value is found in the vector, false otherwise.
  */
 template<typename T>
-auto isInVector(const std::vector<T>& vec,
-                const T& test) -> bool
+bool isInVector(const std::vector<T>& vec,
+                const T& test)
 {
     return std::find(vec.begin(), vec.end(), test) != vec.end();
 }

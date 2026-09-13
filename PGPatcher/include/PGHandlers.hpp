@@ -95,7 +95,7 @@ public:
      * @return Absolute path to the current executable, or an empty path if it cannot be
      *         determined or does not exist on disk.
      */
-    static auto getExePath() -> std::filesystem::path
+    static std::filesystem::path exePath()
     {
         std::array<wchar_t, MAX_PATH> buffer { };
         if (GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH) == 0)
@@ -113,9 +113,9 @@ public:
      * @brief Check whether the process is running under Mod Organizer 2's virtual filesystem.
      *
      * Looks for "usvfs_x64.dll", which MO2's USVFS layer injects, among the loaded modules of the
-     * current process (see PGModManager::getMO2DirFromUSVFS()).
+     * current process (see PGModManager::mO2DirFromUSVFS()).
      *
      * @return true if usvfs_x64.dll is loaded in the process, false otherwise.
      */
-    static auto isUnderUSVFS() -> bool { return !PGModManager::getMO2DirFromUSVFS().empty(); }
+    static bool isUnderUSVFS() { return !PGModManager::mO2DirFromUSVFS().empty(); }
 };

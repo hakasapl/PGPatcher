@@ -36,7 +36,7 @@
 #include <windows.h>
 
 namespace {
-auto getExecutablePath() -> std::filesystem::path
+std::filesystem::path executablePath()
 {
     std::array<wchar_t, MAX_PATH> buffer { };
     if (GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH) == 0) {
@@ -93,7 +93,7 @@ void mainRunner(PGToolsCLIArgs& args)
     spdlog::info("Welcome to PGTools version {}!", PG_FULL_VERSION);
 
     // Get EXE path.
-    const auto exePath = getExecutablePath().parent_path();
+    const auto exePath = executablePath().parent_path();
 
 #if defined(PG_PRERELEASE) && (PG_PRERELEASE > 0)
     // Post test message for test builds.
@@ -132,7 +132,7 @@ void mainRunner(PGToolsCLIArgs& args)
         }
 
         // If output dir is the same as data dir meshes might get overwritten.
-        if (std::filesystem::equivalent(args.patch.output, pgd.getDataPath())) {
+        if (std::filesystem::equivalent(args.patch.output, pgd.dataPath())) {
             spdlog::critical("Output directory cannot be the same directory as your data folder. "
                              "Exiting.");
             exit(1);
@@ -180,49 +180,49 @@ void mainRunner(PGToolsCLIArgs& args)
         // Create patcher factory.
         PatcherUtil::PatcherMeshSet meshPatchers;
         if (patcherDefs.contains("fixmeshlighting"))
-            meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::getFactory());
+            meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
         if (patcherDefs.contains("fixtextureslotcount"))
-            meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::getFactory());
+            meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::factory());
         if (patcherDefs.contains("parallax")) {
-            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::getShaderType(),
-                                                PatcherMeshShaderVanillaParallax::getFactory());
+            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::shaderType(),
+                                                PatcherMeshShaderVanillaParallax::factory());
         }
         if (patcherDefs.contains("complexmaterial")) {
-            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::getShaderType(),
-                                                PatcherMeshShaderComplexMaterial::getFactory());
+            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::shaderType(),
+                                                PatcherMeshShaderComplexMaterial::factory());
             PatcherMeshShaderComplexMaterial::loadOptions(patcherDefs["complexmaterial"]);
         }
         if (patcherDefs.contains("truepbr")) {
-            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::getShaderType(),
-                                                PatcherMeshShaderTruePBR::getFactory());
-            PatcherMeshShaderTruePBR::loadStatics(pgd.getPBRJSONs());
+            meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::shaderType(),
+                                                PatcherMeshShaderTruePBR::factory());
+            PatcherMeshShaderTruePBR::loadStatics(pgd.pbrjsoNs());
             PatcherMeshShaderTruePBR::loadOptions(patcherDefs["truepbr"]);
         }
         if (patcherDefs.contains("parallaxtocm")) {
-            meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::getFromShader()]
-                = { PatcherMeshShaderTransformParallaxToCM::getToShader(),
-                    PatcherMeshShaderTransformParallaxToCM::getFactory() };
+            meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::fromShader()]
+                = { PatcherMeshShaderTransformParallaxToCM::toShader(),
+                    PatcherMeshShaderTransformParallaxToCM::factory() };
 
             PatcherTextureHookConvertToCM::initShader();
         }
         if (patcherDefs.contains("particlelightstolp"))
-            meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::getFactory());
+            meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::factory());
 
         if (patcherDefs.contains("restoredefaultshaders"))
-            meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::getFactory());
+            meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::factory());
         if (patcherDefs.contains("fixsss")) {
-            meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::getFactory());
+            meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::factory());
 
             PatcherTextureHookFixSSS::initShader();
         }
         if (patcherDefs.contains("hairflowmap"))
-            meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::getFactory());
+            meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::factory());
 
         PatcherUtil::PatcherTextureSet texPatchers;
         if (patcherDefs.contains("converttohdr")) {
             PatcherTextureGlobalConvertToHDR::initShader();
 
-            texPatchers.globalPatchers.emplace_back(PatcherTextureGlobalConvertToHDR::getFactory());
+            texPatchers.globalPatchers.emplace_back(PatcherTextureGlobalConvertToHDR::factory());
             PatcherTextureGlobalConvertToHDR::loadOptions(patcherDefs["converttohdr"]);
         }
 
@@ -285,8 +285,8 @@ void addArguments(CLI::App& app,
 }
 }
 
-auto main(int argC,
-          char* const* argV) -> int
+int main(int argC,
+         char* const* argV)
 {
 // Block until enter only in debug mode.
 #ifdef _DEBUG
@@ -296,7 +296,7 @@ auto main(int argC,
 
     SetConsoleOutputCP(CP_UTF8);
 
-    const auto exePath = getExecutablePath().parent_path();
+    const auto exePath = executablePath().parent_path();
     configureDotnetLibDirectory(exePath);
 
     // CLI Arguments.

@@ -29,7 +29,7 @@ protected:
      *
      * @return wxSize best size in pixels
      */
-    [[nodiscard]] auto DoGetBestSize() const -> wxSize override;
+    [[nodiscard]] wxSize DoGetBestSize() const override;
 
 private:
     /**

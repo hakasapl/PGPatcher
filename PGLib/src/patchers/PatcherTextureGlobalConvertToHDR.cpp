@@ -11,9 +11,9 @@
 #include <unordered_map>
 #include <utility>
 
-auto PatcherTextureGlobalConvertToHDR::initShader() -> bool
+bool PatcherTextureGlobalConvertToHDR::initShader()
 {
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd3d = PGGlobals::pGD3D();
 
     if (s_shader != nullptr)
         return true;
@@ -21,7 +21,7 @@ auto PatcherTextureGlobalConvertToHDR::initShader() -> bool
     return pgd3d->initShader(shaderName, s_shader);
 }
 
-auto PatcherTextureGlobalConvertToHDR::getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory
+auto PatcherTextureGlobalConvertToHDR::factory() -> PatcherTextureGlobal::PatcherGlobalFactory
 {
     return [](const std::filesystem::path& ddsPath, DirectX::ScratchImage* dds) {
         return std::make_unique<PatcherTextureGlobalConvertToHDR>(ddsPath, dds);
@@ -36,7 +36,7 @@ void PatcherTextureGlobalConvertToHDR::loadOptions(const std::unordered_map<std:
             s_luminanceMult = std::stof(value);
 
         if (option == "output_format")
-            s_outputFormat = PGD3D::getDXGIFormatFromString(value);
+            s_outputFormat = PGD3D::dxgiFormatFromString(value);
     }
 }
 
@@ -50,13 +50,13 @@ PatcherTextureGlobalConvertToHDR::PatcherTextureGlobalConvertToHDR(std::filesyst
 
 void PatcherTextureGlobalConvertToHDR::applyPatch(bool& ddsModified)
 {
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd3d = PGGlobals::pGD3D();
 
     DirectX::ScratchImage newDDS;
     ShaderParams params = { .luminanceMult = s_luminanceMult };
-    if (!pgd3d->applyShaderToTexture(*getDDS(), newDDS, s_shader, s_outputFormat, 0, 0, &params, sizeof(ShaderParams)))
+    if (!pgd3d->applyShaderToTexture(*dds(), newDDS, s_shader, s_outputFormat, 0, 0, &params, sizeof(ShaderParams)))
         return;
 
-    *getDDS() = std::move(newDDS);
+    *dds() = std::move(newDDS);
     ddsModified = true;
 }

@@ -33,7 +33,7 @@ public:
      *
      * @return PatcherShaderTransform::PatcherShaderTransformFactory
      */
-    static auto getFactory() -> PatcherMeshGlobal::PatcherMeshGlobalFactory;
+    static PatcherMeshGlobal::PatcherMeshGlobalFactory factory();
 
     /**
      * @brief Construct a new PrePatcher Particle Lights To LP patcher
@@ -51,7 +51,7 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch() -> bool override;
+    bool applyPatch() override;
 
     /**
      * @brief Save output JSON
@@ -68,9 +68,9 @@ private:
      * @return true if patch was applied
      * @return false if patch was not applied
      */
-    auto applySinglePatch(nifly::NiBillboardNode* node,
+    bool applySinglePatch(nifly::NiBillboardNode* node,
                           nifly::NiShape* shape,
-                          nifly::BSEffectShaderProperty* effectShader) -> bool;
+                          nifly::BSEffectShaderProperty* effectShader);
 
     /**
      * @brief Get LP JSON for a specific NIF controller
@@ -79,6 +79,6 @@ private:
      * @param jsonField JSON field to store controller JSON in LP
      * @return nlohmann::json JSON for controller
      */
-    auto getControllerJSON(nifly::NiTimeController* controller,
-                           std::string& jsonField) -> nlohmann::json;
+    nlohmann::json getControllerJSON(nifly::NiTimeController* controller,
+                                     std::string& jsonField);
 };

@@ -16,7 +16,7 @@ public:
      *
      * @return PatcherShaderTransform::PatcherShaderTransformFactory
      */
-    static auto getFactory() -> PatcherMeshPost::PatcherMeshPostFactory;
+    static PatcherMeshPost::PatcherMeshPostFactory factory();
 
     /**
      * @brief Construct a new PrePatcher Particle Lights To LP patcher
@@ -34,8 +34,8 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(PGTypes::TextureSet& slots,
-                    nifly::NiShape& nifShape) -> bool override;
+    bool applyPatch(PGTypes::TextureSet& slots,
+                    nifly::NiShape& nifShape) override;
 
 private:
     /**
@@ -46,8 +46,8 @@ private:
      * @param shaderProp The BSLightingShaderProperty to inspect and potentially modify.
      * @return true if the shader was restored to default; false if no change was made.
      */
-    static auto restoreDefaultShaderFromParallax(PGTypes::TextureSet& slots,
-                                                 nifly::BSLightingShaderProperty& shaderProp) -> bool;
+    static bool restoreDefaultShaderFromParallax(PGTypes::TextureSet& slots,
+                                                 nifly::BSLightingShaderProperty& shaderProp);
 
     /**
      * @brief Restores the default shader on a shape that currently uses the Complex Material (env-map)
@@ -57,6 +57,6 @@ private:
      * @param shaderProp The BSLightingShaderProperty to inspect and potentially modify.
      * @return true if the shader was restored to default; false if no change was made.
      */
-    static auto restoreDefaultShaderFromComplexMaterial(PGTypes::TextureSet& slots,
-                                                        nifly::BSLightingShaderProperty& shaderProp) -> bool;
+    static bool restoreDefaultShaderFromComplexMaterial(PGTypes::TextureSet& slots,
+                                                        nifly::BSLightingShaderProperty& shaderProp);
 };

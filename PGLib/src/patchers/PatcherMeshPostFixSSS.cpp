@@ -15,7 +15,7 @@
 #include <memory>
 #include <utility>
 
-auto PatcherMeshPostFixSSS::getFactory() -> PatcherMeshPost::PatcherMeshPostFactory
+auto PatcherMeshPostFixSSS::factory() -> PatcherMeshPost::PatcherMeshPostFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPost> {
         return std::make_unique<PatcherMeshPostFixSSS>(nifPath, nif);
@@ -30,10 +30,10 @@ PatcherMeshPostFixSSS::PatcherMeshPostFixSSS(std::filesystem::path nifPath,
 {
 }
 
-auto PatcherMeshPostFixSSS::applyPatch(PGTypes::TextureSet& slots,
-                                       nifly::NiShape& nifShape) -> bool
+bool PatcherMeshPostFixSSS::applyPatch(PGTypes::TextureSet& slots,
+                                       nifly::NiShape& nifShape)
 {
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     const auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr) {
         // Not a BSLightingShaderProperty.
@@ -68,7 +68,7 @@ auto PatcherMeshPostFixSSS::applyPatch(PGTypes::TextureSet& slots,
     // Create texture hook.
     PatcherTextureHookFixSSS::addToProcessList(diffuseMap);
 
-    glowMap = PatcherTextureHookFixSSS::getOutputFilename(diffuseMap);
+    glowMap = PatcherTextureHookFixSSS::outputFilename(diffuseMap);
 
     return true;
 }

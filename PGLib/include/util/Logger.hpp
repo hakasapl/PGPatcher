@@ -41,8 +41,8 @@ private:
     inline thread_local static bool s_isThreadedBufferActive;
 
     thread_local static std::vector<std::wstring> s_prefixStack;
-    static auto buildPrefixWString() -> std::wstring;
-    static auto buildPrefixString() -> std::string;
+    static std::wstring buildPrefixWString();
+    static std::string buildPrefixString();
 
 public:
     /**
@@ -68,7 +68,7 @@ private:
             s_threadMessageCapture(level, StringUtil::utf8toUTF16(message));
     }
 
-    static auto processMessage(const std::wstring& message) -> bool
+    static bool processMessage(const std::wstring& message)
     {
         {
             const std::shared_lock lock(s_existingMessagesMutex);
@@ -85,12 +85,9 @@ private:
         }
     }
 
-    template<typename... Args> static auto shouldLogString(const std::wstring& fmt) -> bool
-    {
-        return processMessage(fmt);
-    }
+    template<typename... Args> static bool shouldLogString(const std::wstring& fmt) { return processMessage(fmt); }
 
-    template<typename... Args> static auto shouldLogString(const std::string& fmt) -> bool
+    template<typename... Args> static bool shouldLogString(const std::string& fmt)
     {
         return processMessage(StringUtil::utf8toUTF16(fmt));
     }
@@ -124,9 +121,9 @@ public:
         ~Prefix();
 
         Prefix(const Prefix&) = delete;
-        auto operator=(const Prefix&) -> Prefix& = delete;
+        Prefix& operator=(const Prefix&) = delete;
         Prefix(Prefix&&) = delete;
-        auto operator=(Prefix&&) -> Prefix& = delete;
+        Prefix& operator=(Prefix&&) = delete;
     };
 
     /**

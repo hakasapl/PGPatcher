@@ -37,7 +37,7 @@ void PGConfig::loadStatics(const std::filesystem::path& exePath)
     PGConfig::s_exePath = exePath;
 }
 
-auto PGConfig::getUserConfigFile() -> std::filesystem::path
+std::filesystem::path PGConfig::userConfigFile()
 {
     if (s_exePath.empty())
         throw std::runtime_error("ExePath not set");
@@ -47,7 +47,7 @@ auto PGConfig::getUserConfigFile() -> std::filesystem::path
     return userConfigFile;
 }
 
-auto PGConfig::getModConfigFile() -> std::filesystem::path
+std::filesystem::path PGConfig::modConfigFile()
 {
     if (s_exePath.empty())
         throw std::runtime_error("ExePath not set");
@@ -57,7 +57,7 @@ auto PGConfig::getModConfigFile() -> std::filesystem::path
     return modConfigFile;
 }
 
-auto PGConfig::getIgnoredMessagesConfigFile() -> std::filesystem::path
+std::filesystem::path PGConfig::ignoredMessagesConfigFile()
 {
     if (s_exePath.empty())
         throw std::runtime_error("ExePath not set");
@@ -67,7 +67,7 @@ auto PGConfig::getIgnoredMessagesConfigFile() -> std::filesystem::path
     return ignoredMessagesConfigFile;
 }
 
-auto PGConfig::resolveExeRelativePath(const std::filesystem::path& path) -> std::filesystem::path
+std::filesystem::path PGConfig::resolveExeRelativePath(const std::filesystem::path& path)
 {
     if (path.empty() || path.is_absolute() || s_exePath.empty())
         return path;
@@ -89,12 +89,12 @@ void PGConfig::resolveRelativePaths(PGParams& params)
     // The game location is only user-editable when MO2 does not provide it. A game path from modorganizer.ini is.
     // relative to the MO2 folder instead and is resolved by PGModManager::resolveMO2GamePath when it is read.
     const bool gameDirFromMO2 = params.modManager.type == PGModManager::ModManagerType::MODORGANIZER2
-        && !PGModManager::getGamePathFromInstanceDir(params.modManager.mo2InstanceDir).empty();
+        && !PGModManager::gamePathFromInstanceDir(params.modManager.mo2InstanceDir).empty();
     if (!gameDirFromMO2)
         params.game.dir = resolveExeRelativePath(params.game.dir);
 }
 
-auto PGConfig::getDefaultParams() -> PGParams
+auto PGConfig::defaultParams() -> PGParams
 {
     PGParams outParams;
 
@@ -135,12 +135,12 @@ auto PGConfig::getDefaultParams() -> PGParams
 void PGConfig::loadConfig()
 {
     bool loadedConfig = false;
-    if (std::filesystem::exists(getUserConfigFile())) {
+    if (std::filesystem::exists(userConfigFile())) {
         // Don't load a config that doesn't exist.
-        Logger::debug(L"Loading PGPatcher Config: {}", getUserConfigFile().wstring());
+        Logger::debug(L"Loading PGPatcher Config: {}", userConfigFile().wstring());
 
         nlohmann::json j;
-        if (parseJSON(FileUtil::getFileBytes(getUserConfigFile()), j)) {
+        if (parseJSON(FileUtil::fileBytes(userConfigFile()), j)) {
             if (!j.empty()) {
                 replaceForwardSlashes(j);
                 addConfigJSON(j);
@@ -152,10 +152,10 @@ void PGConfig::loadConfig()
     }
 
     if (!loadedConfig)
-        m_params = getDefaultParams();
+        m_params = defaultParams();
 }
 
-auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
+void PGConfig::addConfigJSON(const nlohmann::json& j)
 {
     // "ui" field.
     if (j.contains("ui") && j["ui"].contains("language") && j["ui"]["language"].is_string())
@@ -189,7 +189,7 @@ auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
             paramJ["output"]["zip"].get_to<bool>(m_params.output.zip);
         if (paramJ.contains("output") && paramJ["output"].contains("pluginlang")) {
             m_params.output.pluginLang
-                = PGPlugin::getPluginLangFromString(paramJ["output"]["pluginlang"].get<std::string>());
+                = PGPlugin::pluginLangFromString(paramJ["output"]["pluginlang"].get<std::string>());
         }
 
         // "processing".
@@ -209,8 +209,8 @@ auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
                 m_params.processing.blockList.push_back(utf8toUTF16(item.get<std::string>()));
         if (paramJ.contains("processing") && paramJ["processing"].contains("texturemaps")) {
             for (const auto& item : paramJ["processing"]["texturemaps"].items()) {
-                m_params.processing.textureMaps.emplace_back(
-                    utf8toUTF16(item.key()), PGEnums::getTexTypeFromStr(item.value().get<std::string>()));
+                m_params.processing.textureMaps.emplace_back(utf8toUTF16(item.key()),
+                                                             PGEnums::texTypeFromStr(item.value().get<std::string>()));
             }
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("vanillabsalist"))
@@ -221,7 +221,7 @@ auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
 
             for (const auto& item : paramJ["processing"]["allowedmodelrecordtypes"])
                 m_params.processing.allowedModelRecordTypes.insert(
-                    PGPlugin::getRecTypeFromString(item.get<std::string>()));
+                    PGPlugin::recTypeFromString(item.get<std::string>()));
         }
 
         // "prepatcher".
@@ -254,8 +254,8 @@ auto PGConfig::addConfigJSON(const nlohmann::json& j) -> void
     }
 }
 
-auto PGConfig::parseJSON(const std::vector<std::byte>& bytes,
-                         nlohmann::json& j) -> bool
+bool PGConfig::parseJSON(const std::vector<std::byte>& bytes,
+                         nlohmann::json& j)
 {
     // Parse JSON.
     try {
@@ -284,20 +284,20 @@ void PGConfig::replaceForwardSlashes(nlohmann::json& json)
     }
 }
 
-auto PGConfig::getParams() const -> PGParams { return m_params; }
+auto PGConfig::params() const -> PGParams { return m_params; }
 
 void PGConfig::setParams(const PGParams& params) { this->m_params = params; }
 
-auto PGConfig::getUILanguage() const -> std::string { return m_uiLanguage; }
+std::string PGConfig::uiLanguage() const { return m_uiLanguage; }
 
 void PGConfig::setUILanguage(const std::string& lang) { m_uiLanguage = lang; }
 
-auto PGConfig::getUITheme() const -> std::string { return m_uiTheme; }
+std::string PGConfig::uiTheme() const { return m_uiTheme; }
 
 void PGConfig::setUITheme(const std::string& theme) { m_uiTheme = theme; }
 
-auto PGConfig::validateParams(const PGParams& rawParams,
-                              std::vector<std::string>& errors) -> bool
+bool PGConfig::validateParams(const PGParams& rawParams,
+                              std::vector<std::string>& errors)
 {
     // Paths may be relative to the PGPatcher.exe folder; validate the resolved ones
     PGParams params = rawParams;
@@ -307,8 +307,8 @@ auto PGConfig::validateParams(const PGParams& rawParams,
     std::unordered_set<std::wstring> checkSet;
 
     // Validation messages are shown in the launcher's error dialog, so they are localized like every other GUI string.
-    const auto addError = [&errors](const std::string& key) -> void { errors.emplace_back(pgTr(key).utf8_string()); };
-    const auto addErrorWithItem = [&errors](const std::string& key, const std::wstring& item) -> void {
+    const auto addError = [&errors](const std::string& key) { errors.emplace_back(pgTr(key).utf8_string()); };
+    const auto addErrorWithItem = [&errors](const std::string& key, const std::wstring& item) {
         errors.emplace_back(wxString::Format(pgTr(key), wxString(item)).utf8_string());
     };
 
@@ -399,7 +399,7 @@ auto PGConfig::validateParams(const PGParams& rawParams,
     return errors.empty();
 }
 
-auto PGConfig::getUserConfigJSON() const -> nlohmann::json
+nlohmann::json PGConfig::userConfigJSON() const
 {
     // Build output json.
     nlohmann::json j = m_userConfig;
@@ -422,7 +422,7 @@ auto PGConfig::getUserConfigJSON() const -> nlohmann::json
     // "output".
     j["params"]["output"]["dir"] = utf16toUTF8(m_params.output.dir.wstring());
     j["params"]["output"]["zip"] = m_params.output.zip;
-    j["params"]["output"]["pluginlang"] = PGPlugin::getStringFromPluginLang(m_params.output.pluginLang);
+    j["params"]["output"]["pluginlang"] = PGPlugin::stringFromPluginLang(m_params.output.pluginLang);
 
     // "processing".
     j["params"]["processing"]["multithread"] = m_params.processing.multithread;
@@ -433,11 +433,11 @@ auto PGConfig::getUserConfigJSON() const -> nlohmann::json
     j["params"]["processing"]["blocklist"] = utf16VectorToUTF8(m_params.processing.blockList);
     j["params"]["processing"]["texturemaps"] = nlohmann::json::object();
     for (const auto& [key, value] : m_params.processing.textureMaps)
-        j["params"]["processing"]["texturemaps"][utf16toUTF8(key)] = PGEnums::getStrFromTexType(value);
+        j["params"]["processing"]["texturemaps"][utf16toUTF8(key)] = PGEnums::strFromTexType(value);
     j["params"]["processing"]["vanillabsalist"] = utf16VectorToUTF8(m_params.processing.vanillaBSAList);
     j["params"]["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
     for (const auto& item : m_params.processing.allowedModelRecordTypes)
-        j["params"]["processing"]["allowedmodelrecordtypes"].push_back(PGPlugin::getStringFromRecType(item));
+        j["params"]["processing"]["allowedmodelrecordtypes"].push_back(PGPlugin::stringFromRecType(item));
 
     // "prepatcher".
     j["params"]["prepatcher"]["fixmeshlighting"] = m_params.prePatcher.fixMeshLighting;
@@ -460,17 +460,17 @@ auto PGConfig::getUserConfigJSON() const -> nlohmann::json
     return j;
 }
 
-auto PGConfig::saveUserConfig() -> bool
+bool PGConfig::saveUserConfig()
 {
-    const auto j = getUserConfigJSON();
+    const auto j = userConfigJSON();
 
     // Update UserConfig var.
     m_userConfig = j;
 
     // Write to file.
     try {
-        std::filesystem::create_directories(getUserConfigFile().parent_path());
-        FileUtil::saveJSON(getUserConfigFile(), j, true);
+        std::filesystem::create_directories(userConfigFile().parent_path());
+        FileUtil::saveJSON(userConfigFile(), j, true);
     } catch (const std::exception& e) {
         spdlog::critical("Failed to save user config: {}", e.what());
         return false;
@@ -479,19 +479,19 @@ auto PGConfig::saveUserConfig() -> bool
     return true;
 }
 
-auto PGConfig::saveModConfig() -> bool
+bool PGConfig::saveModConfig()
 {
     // Mods.
-    auto* pgmm = PGGlobals::getPGMM();
+    auto* pgmm = PGGlobals::pgmm();
     if (pgmm == nullptr)
         throw std::runtime_error("Mod Manager Directory not set");
 
-    const auto j = pgmm->getJSON();
+    const auto j = pgmm->json();
 
     // Write to file.
     try {
-        std::filesystem::create_directories(getModConfigFile().parent_path());
-        FileUtil::saveJSON(getModConfigFile(), j, true);
+        std::filesystem::create_directories(modConfigFile().parent_path());
+        FileUtil::saveJSON(modConfigFile(), j, true);
     } catch (const std::exception& e) {
         spdlog::critical("Failed to save mod config: {}", e.what());
         return false;
@@ -500,16 +500,17 @@ auto PGConfig::saveModConfig() -> bool
     return true;
 }
 
-auto PGConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString,
-                                                                bool>
+std::unordered_map<wxString,
+                   bool>
+PGConfig::ignoredMessagesConfig()
 {
     std::unordered_map<wxString, bool> ignoredItems;
 
-    if (!std::filesystem::exists(getIgnoredMessagesConfigFile()))
+    if (!std::filesystem::exists(ignoredMessagesConfigFile()))
         return ignoredItems;
 
     nlohmann::json j;
-    if (!parseJSON(FileUtil::getFileBytes(getIgnoredMessagesConfigFile()), j))
+    if (!parseJSON(FileUtil::fileBytes(ignoredMessagesConfigFile()), j))
         throw std::runtime_error("Failed to parse ignored messages config JSON");
 
     if (!j.contains("ignored_messages") || !j["ignored_messages"].is_object())
@@ -521,8 +522,8 @@ auto PGConfig::getIgnoredMessagesConfig() -> std::unordered_map<wxString,
     return ignoredItems;
 }
 
-auto PGConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
-                                                                  bool>& ignoredItems) -> bool
+bool PGConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
+                                                                  bool>& ignoredItems)
 {
     nlohmann::json j;
     j["ignored_messages"] = nlohmann::json::object();
@@ -532,8 +533,8 @@ auto PGConfig::saveIgnoredMessagesConfig(const std::unordered_map<wxString,
 
     // Write to file.
     try {
-        std::filesystem::create_directories(getIgnoredMessagesConfigFile().parent_path());
-        FileUtil::saveJSON(getIgnoredMessagesConfigFile(), j, true);
+        std::filesystem::create_directories(ignoredMessagesConfigFile().parent_path());
+        FileUtil::saveJSON(ignoredMessagesConfigFile(), j, true);
     } catch (const std::exception& e) {
         spdlog::critical("Failed to save ignored messages config: {}", e.what());
         return false;

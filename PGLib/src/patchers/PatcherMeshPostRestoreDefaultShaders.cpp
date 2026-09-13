@@ -18,7 +18,7 @@
 #include <memory>
 #include <utility>
 
-auto PatcherMeshPostRestoreDefaultShaders::getFactory() -> PatcherMeshPost::PatcherMeshPostFactory
+auto PatcherMeshPostRestoreDefaultShaders::factory() -> PatcherMeshPost::PatcherMeshPostFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPost> {
         return std::make_unique<PatcherMeshPostRestoreDefaultShaders>(nifPath, nif);
@@ -33,10 +33,10 @@ PatcherMeshPostRestoreDefaultShaders::PatcherMeshPostRestoreDefaultShaders(std::
 {
 }
 
-auto PatcherMeshPostRestoreDefaultShaders::applyPatch(PGTypes::TextureSet& slots,
-                                                      nifly::NiShape& nifShape) -> bool
+bool PatcherMeshPostRestoreDefaultShaders::applyPatch(PGTypes::TextureSet& slots,
+                                                      nifly::NiShape& nifShape)
 {
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr)
         return false;
@@ -50,11 +50,10 @@ auto PatcherMeshPostRestoreDefaultShaders::applyPatch(PGTypes::TextureSet& slots
     return false;
 }
 
-auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(PGTypes::TextureSet& slots,
+bool PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(PGTypes::TextureSet& slots,
                                                                             nifly::BSLightingShaderProperty& shaderProp)
-    -> bool
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     if (shaderProp.GetShaderType() != nifly::BSLSP_PARALLAX)
         return false;
@@ -77,11 +76,11 @@ auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromParallax(PGTy
     return true;
 }
 
-auto PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMaterial(
+bool PatcherMeshPostRestoreDefaultShaders::restoreDefaultShaderFromComplexMaterial(
     PGTypes::TextureSet& slots,
-    nifly::BSLightingShaderProperty& shaderProp) -> bool
+    nifly::BSLightingShaderProperty& shaderProp)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     if (shaderProp.GetShaderType() != nifly::BSLSP_ENVMAP)
         return false;

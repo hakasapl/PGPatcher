@@ -33,7 +33,7 @@ void PGModifiableListCtrl::onListEdit(wxListEvent& event)
 
     if (editedText.IsEmpty() && editedIndex != GetItemCount() - 1) {
         // If the edited item is empty and it's not the last item.
-        this->CallAfter([this, editedIndex]() -> void { DeleteItem(editedIndex); });
+        this->CallAfter([this, editedIndex] { DeleteItem(editedIndex); });
 
         // Fire event for list change.
         PGCustomListctrlChangedEvent changeEvt(GetId(), editedIndex);

@@ -34,14 +34,14 @@ public:
      *
      * @return true if the shader was successfully initialized; false otherwise.
      */
-    static auto initShader() -> bool;
+    static bool initShader();
 
     /**
      * @brief Get the Factory object
      *
      * @return PatcherShaderTransform::PatcherShaderTransformFactory
      */
-    static auto getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory;
+    static PatcherTextureGlobal::PatcherGlobalFactory factory();
 
     /**
      * @brief Loads patcher options from a string key-value map.

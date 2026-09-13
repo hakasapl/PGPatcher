@@ -6,25 +6,25 @@
 #include <vector>
 
 namespace PGEnums {
-auto getStrFromShader(const ShapeShader& shader) -> std::string
+std::string strFromShader(const ShapeShader& shader)
 {
     return std::string(EnumStringHelper::stringFromEnum(shader, shapeShaderTable, "Unknown"));
 }
 
-auto getShaderFromStr(const std::string& shader) -> ShapeShader
+ShapeShader shaderFromStr(const std::string& shader)
 {
     return EnumStringHelper::enumFromString(shader, shapeShaderTable, ShapeShader::Unknown);
 }
 
-auto getStrFromTexType(const TextureType& type) -> std::string
+std::string strFromTexType(const TextureType& type)
 {
     return std::string(EnumStringHelper::stringFromEnum(type, textureTypeTable, "unknown"));
 }
 
-auto getTexTypeFromStr(const std::string& type) -> TextureType
+TextureType texTypeFromStr(const std::string& type)
 {
     return EnumStringHelper::enumFromString(type, textureTypeTable, TextureType::Unknown);
 }
 
-auto getTexTypesStr() -> std::vector<std::string> { return EnumStringHelper::allEnumStrings(textureTypeTable); }
+std::vector<std::string> texTypesStr() { return EnumStringHelper::allEnumStrings(textureTypeTable); }
 }

@@ -20,17 +20,14 @@
 #include <utility>
 #include <vector>
 
-auto PatcherMeshShaderVanillaParallax::getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory
+auto PatcherMeshShaderVanillaParallax::factory() -> PatcherMeshShader::PatcherMeshShaderFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshShader> {
         return std::make_unique<PatcherMeshShaderVanillaParallax>(nifPath, nif);
     };
 }
 
-auto PatcherMeshShaderVanillaParallax::getShaderType() -> PGEnums::ShapeShader
-{
-    return PGEnums::ShapeShader::VANILLAPARALLAX;
-}
+PGEnums::ShapeShader PatcherMeshShaderVanillaParallax::shaderType() { return PGEnums::ShapeShader::VANILLAPARALLAX; }
 
 PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(std::filesystem::path nifPath,
                                                                    nifly::NifFile* nif)
@@ -49,9 +46,9 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(std::filesyst
     }
 }
 
-auto PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
+bool PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
                                                 bool singlepassMATO,
-                                                const PGPlugin::ModelRecordType& modelRecordType) -> bool
+                                                const PGPlugin::ModelRecordType& modelRecordType)
 {
     if (modelRecordType == PGPlugin::ModelRecordType::Grass) {
         // Grass is not supported.
@@ -61,7 +58,7 @@ auto PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
     if (singlepassMATO)
         return false;
 
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     const auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
     // Check if nif has attached havok (Results in crashes for vanilla Parallax).
@@ -103,24 +100,24 @@ auto PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
     return true;
 }
 
-auto PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape,
-                                                   std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape,
+                                                   std::vector<PatcherMatch>& matches)
 {
-    return shouldApply(getTextureSet(getNIFPath(), *getNIF(), nifShape), matches);
+    return shouldApply(textureSet(nifPath(), *nif(), nifShape), matches);
 }
 
-auto PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& oldSlots,
-                                                   std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& oldSlots,
+                                                   std::vector<PatcherMatch>& matches)
 {
-    auto* pgd = PGGlobals::getPGD();
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd = PGGlobals::pgd();
+    auto* pgd3d = PGGlobals::pGD3D();
 
-    static const auto heightBaseMap = pgd->getTextureMapConst(PGEnums::TextureSlots::Parallax);
+    static const auto heightBaseMap = pgd->textureMapConst(PGEnums::TextureSlots::Parallax);
 
     matches.clear();
 
     // Search prefixes.
-    const auto searchPrefixes = PGNIFUtil::getSearchPrefixes(oldSlots);
+    const auto searchPrefixes = PGNIFUtil::searchPrefixes(oldSlots);
 
     // Check if parallax file exists.
     static const std::vector<int> slotSearch = { 1, 0 }; // Diffuse first, then normal
@@ -132,7 +129,7 @@ auto PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& ol
             continue;
 
         foundMatches.clear();
-        foundMatches = PGNIFUtil::getTexMatch(searchPrefixes.at(slot), PGEnums::TextureType::Height, heightBaseMap);
+        foundMatches = PGNIFUtil::texMatch(searchPrefixes.at(slot), PGEnums::TextureType::Height, heightBaseMap);
 
         if (!foundMatches.empty()) {
             // FIXME: Consider trying diffuse after normal too and presenting all options.
@@ -178,7 +175,7 @@ void PatcherMeshShaderVanillaParallax::applyPatchSlots(PGTypes::TextureSet& slot
 
 void PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape)
 {
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
     // Set NIFShader type to Parallax.

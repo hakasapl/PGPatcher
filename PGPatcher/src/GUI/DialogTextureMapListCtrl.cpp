@@ -47,7 +47,7 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
                                           text,
                                           FromDIP(textWrapWidth)))
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
     const int borderSize = FromDIP(borderSizeDIP);
@@ -62,11 +62,11 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
     m_listCtrl->AppendColumn("Type", wxLIST_FORMAT_LEFT, FromDIP(typeColumnWidth));
 
     // Bind resize.
-    Bind(wxEVT_SIZE, [this]([[maybe_unused]] wxSizeEvent& event) -> void {
+    Bind(wxEVT_SIZE, [this]([[maybe_unused]] wxSizeEvent& event) {
         updateColumnWidths();
         event.Skip();
     });
-    m_listCtrl->Bind(pgEVT_LISTCTRL_CHANGED, [this](PGCustomListctrlChangedEvent& event) -> void {
+    m_listCtrl->Bind(pgEVT_LISTCTRL_CHANGED, [this](PGCustomListctrlChangedEvent& event) {
         updateColumnWidths();
         event.Skip();
     });
@@ -86,8 +86,9 @@ DialogTextureMapListCtrl::DialogTextureMapListCtrl(wxWindow* parent,
     Fit();
 }
 
-auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wstring,
-                                                                        PGEnums::TextureType>>
+std::vector<std::pair<std::wstring,
+                      PGEnums::TextureType>>
+DialogTextureMapListCtrl::list() const
 {
     std::vector<std::pair<std::wstring, PGEnums::TextureType>> result;
 
@@ -98,7 +99,7 @@ auto DialogTextureMapListCtrl::getList() const -> std::vector<std::pair<std::wst
             continue; // skip empty line
 
         const wxString textureTypeStr = m_listCtrl->GetItemText(item, 1);
-        const auto textureType = PGEnums::getTexTypeFromStr(textureTypeStr.ToStdString());
+        const auto textureType = PGEnums::texTypeFromStr(textureTypeStr.ToStdString());
         result.emplace_back(texturePath.ToStdWstring(), textureType);
     }
 
@@ -111,7 +112,7 @@ void DialogTextureMapListCtrl::populateList(const std::vector<std::pair<std::wst
     m_listCtrl->DeleteAllItems();
     for (const auto& textureRule : items) {
         const auto newIndex = m_listCtrl->InsertItem(m_listCtrl->GetItemCount(), textureRule.first);
-        m_listCtrl->SetItem(newIndex, 1, PGEnums::getStrFromTexType(textureRule.second));
+        m_listCtrl->SetItem(newIndex, 1, PGEnums::strFromTexType(textureRule.second));
     }
 
     m_listCtrl->InsertItem(m_listCtrl->GetItemCount(), ""); // Add empty line

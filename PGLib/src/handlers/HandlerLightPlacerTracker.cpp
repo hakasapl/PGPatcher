@@ -23,7 +23,7 @@ std::unordered_map<std::filesystem::path, std::vector<std::pair<HandlerLightPlac
 
 void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& lpJSONs)
 {
-    static auto* const pgd = PGGlobals::getPGD();
+    static auto* const pgd = PGGlobals::pgd();
 
     // Clear stale model->JSON pointer mappings from prior runs.
     s_lightPlacerJSONMap.clear();
@@ -35,7 +35,7 @@ void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& l
     for (const auto& jsonPath : lpJSONs) {
         // Load JSON data.
         nlohmann::json jsonData;
-        if (!FileUtil::getJSON(pgd->getLooseFileFullPath(jsonPath), jsonData)) {
+        if (!FileUtil::getJSON(pgd->looseFileFullPath(jsonPath), jsonData)) {
             // Unable to load.
             continue;
         }
@@ -73,8 +73,8 @@ void HandlerLightPlacerTracker::handleNIFCreated(const std::filesystem::path& ba
     }
 
     // Remove "meshes" from from the first part of both paths.
-    const auto baseNIFPathLP = PGPlugin::getPluginPathFromDataPath(baseNIFPath);
-    const auto createdNIFPathLP = PGPlugin::getPluginPathFromDataPath(createdNIFPath);
+    const auto baseNIFPathLP = PGPlugin::pluginPathFromDataPath(baseNIFPath);
+    const auto createdNIFPathLP = PGPlugin::pluginPathFromDataPath(createdNIFPath);
 
     // Check if s_lightPlacerJSONMap contains the baseNIFPath.
     const auto it = s_lightPlacerJSONMap.find(baseNIFPathLP);
@@ -103,8 +103,8 @@ void HandlerLightPlacerTracker::handleNIFCreated(const std::filesystem::path& ba
 void HandlerLightPlacerTracker::finalize()
 {
     // Get PGD object.
-    static const auto* const pgd = PGGlobals::getPGD();
-    static const auto generatedDir = pgd->getGeneratedPath();
+    static const auto* const pgd = PGGlobals::pgd();
+    static const auto generatedDir = pgd->generatedPath();
 
     // Loop through each LPJSON and save if changed.
     for (const auto& lpJsonPtr : s_lightPlacerJSONs) {

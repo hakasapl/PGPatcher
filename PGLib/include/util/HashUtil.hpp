@@ -83,7 +83,7 @@ public:
     /**
      * @brief Returns the current hash value.
      */
-    [[nodiscard]] auto value() const -> uint64_t { return m_hash; }
+    [[nodiscard]] uint64_t value() const { return m_hash; }
 };
 
 } // namespace HashUtil

@@ -43,7 +43,7 @@
  *
  * All recording is done through a thread-local recorder that is active while a single mesh is being patched, so
  * patchers do not need to know about the cache: any query they make through PGDirectory, PGModManager or
- * PGNIFUtil::getTexMatch is recorded automatically.
+ * PGNIFUtil::texMatch is recorded automatically.
  */
 class PGRunCache {
 public:
@@ -102,7 +102,7 @@ public:
         uint64_t size = 0;
         int64_t mtime = 0; /**< std::filesystem::file_time_type ticks since epoch */
 
-        auto operator==(const OutputIdentity& other) const -> bool = default;
+        bool operator==(const OutputIdentity& other) const = default;
     };
 
     /**
@@ -203,9 +203,9 @@ public:
         explicit MeshRecorder(std::filesystem::path nifPath);
         ~MeshRecorder() override;
         MeshRecorder(const MeshRecorder&) = delete;
-        auto operator=(const MeshRecorder&) -> MeshRecorder& = delete;
+        MeshRecorder& operator=(const MeshRecorder&) = delete;
         MeshRecorder(MeshRecorder&&) = delete;
-        auto operator=(MeshRecorder&&) -> MeshRecorder& = delete;
+        MeshRecorder& operator=(MeshRecorder&&) = delete;
 
         void onIsFile(const std::filesystem::path& relPath,
                       bool exists,
@@ -262,9 +262,9 @@ public:
         SuspendRecording();
         ~SuspendRecording();
         SuspendRecording(const SuspendRecording&) = delete;
-        auto operator=(const SuspendRecording&) -> SuspendRecording& = delete;
+        SuspendRecording& operator=(const SuspendRecording&) = delete;
         SuspendRecording(SuspendRecording&&) = delete;
-        auto operator=(SuspendRecording&&) -> SuspendRecording& = delete;
+        SuspendRecording& operator=(SuspendRecording&&) = delete;
     };
 
 private:
@@ -299,21 +299,21 @@ private:
     static void captureLogMessage(spdlog::level::level_enum level,
                                   const std::wstring& message);
 
-    static auto pathKey(const std::filesystem::path& path) -> std::wstring;
-    static auto pathKey(const std::wstring& path) -> std::wstring;
+    static std::wstring pathKey(const std::filesystem::path& path);
+    static std::wstring pathKey(const std::wstring& path);
 
-    static auto outputRoot() -> std::filesystem::path;
+    static std::filesystem::path outputRoot();
 
     /**
      * @brief Whether a path read from the cache is a plain relative path (no root, no parent traversal) and can
      * therefore only ever address something inside the output directory.
      */
-    static auto isSafeRelativePath(const std::wstring& relPath) -> bool;
+    static bool isSafeRelativePath(const std::wstring& relPath);
 
     /**
      * @brief Checks every path in a loaded cache that is later used to address files in the output directory.
      */
-    static auto hasSafePaths(const CacheData& data) -> bool;
+    static bool hasSafePaths(const CacheData& data);
 
     /**
      * @brief Deletes a file inside the output directory. Callers must only pass paths listed by
@@ -321,30 +321,31 @@ private:
      *
      * @return true if the file was removed.
      */
-    static auto removeOutputFile(const std::filesystem::path& generatedPath,
-                                 const std::wstring& relPath) -> bool;
+    static bool removeOutputFile(const std::filesystem::path& generatedPath,
+                                 const std::wstring& relPath);
 
     /**
      * @brief Lists every file currently in the output meshes and textures folders with its identity. Symlinks and
      * junctions are skipped and never followed, so the listing only covers the real output directory tree.
      */
-    static auto collectOutputIdentities() -> std::unordered_map<std::wstring,
-                                                                OutputIdentity>;
+    static std::unordered_map<std::wstring,
+                              OutputIdentity>
+    collectOutputIdentities();
 
-    static auto hookOutputPath(const HookKind& kind,
-                               const std::filesystem::path& texPath) -> std::filesystem::path;
+    static std::filesystem::path hookOutputPath(const HookKind& kind,
+                                                const std::filesystem::path& texPath);
 
-    static auto evaluateMesh(const std::filesystem::path& nifPath,
+    static bool evaluateMesh(const std::filesystem::path& nifPath,
                              const PGDirectory::NifCache& nifCache,
-                             const CacheData& previous) -> bool;
+                             const CacheData& previous);
 
-    static auto hashTexMatchResults(const std::vector<PGTypes::PGTexture>& results) -> uint64_t;
+    static uint64_t hashTexMatchResults(const std::vector<PGTypes::PGTexture>& results);
 
-    static auto attributesToMask(const std::unordered_set<PGEnums::TextureAttribute>& attributes) -> uint8_t;
+    static uint8_t attributesToMask(const std::unordered_set<PGEnums::TextureAttribute>& attributes);
 
-    static auto loadFromFile(const std::filesystem::path& cacheFile) -> std::unique_ptr<CacheData>;
-    static auto saveToFile(const std::filesystem::path& cacheFile,
-                           const CacheData& data) -> bool;
+    static std::unique_ptr<CacheData> loadFromFile(const std::filesystem::path& cacheFile);
+    static bool saveToFile(const std::filesystem::path& cacheFile,
+                           const CacheData& data);
 
     static void removeEmptyDirectories(const std::filesystem::path& root);
 
@@ -356,7 +357,7 @@ public:
      * @param outputDir Output directory to check.
      * @return true if an update of the previous output is possible.
      */
-    static auto isUpdateAvailable(const std::filesystem::path& outputDir) -> bool;
+    static bool isUpdateAvailable(const std::filesystem::path& outputDir);
 
     /**
      * @brief Sets up the cache for this process.
@@ -373,23 +374,23 @@ public:
     /**
      * @brief Whether the cache system is active (a cache file will be written at the end of the run).
      */
-    static auto isEnabled() -> bool;
+    static bool isEnabled();
 
     /**
      * @brief Whether a previous run is available to update from (a valid cache was loaded or a run completed).
      */
-    static auto hasPreviousRun() -> bool;
+    static bool hasPreviousRun();
 
     /**
      * @brief Whether the patch records of the previous run are usable (config fingerprint matches).
      */
-    static auto arePreviousRecordsValid() -> bool;
+    static bool arePreviousRecordsValid();
 
     /**
      * @brief Whether the plugin mesh uses of the previous run are usable (plugin fingerprint matches). Requires
      * setPluginFingerprint() to have been called.
      */
-    static auto arePreviousMeshUsesValid() -> bool;
+    static bool arePreviousMeshUsesValid();
 
     /**
      * @brief Sets the fingerprint of everything in the run configuration that influences mesh output.
@@ -430,7 +431,7 @@ public:
      * @param save Whether to write the cache file.
      * @return true on success (or when the cache is disabled).
      */
-    static auto finishRun(bool save) -> bool;
+    static bool finishRun(bool save);
 
     /**
      * @brief Deletes the cache file and forgets the previous run.
@@ -441,17 +442,17 @@ public:
     // Classification caches (used by PGDirectory::mapFiles)
     //
 
-    static auto tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
+    static bool tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
                                       const BethesdaDirectory::FileIdentity& identity,
-                                      std::vector<TextureVote>& votes) -> bool;
+                                      std::vector<TextureVote>& votes);
     static void storeMeshVotes(const std::filesystem::path& nifPath,
                                const BethesdaDirectory::FileIdentity& identity,
                                const std::vector<TextureVote>& votes);
-    static auto tryGetCachedMeshUses(const std::filesystem::path& nifPath,
-                                     MeshUses& uses) -> bool;
-    static auto tryGetCachedCMClassification(const std::filesystem::path& texture,
+    static bool tryGetCachedMeshUses(const std::filesystem::path& nifPath,
+                                     MeshUses& uses);
+    static bool tryGetCachedCMClassification(const std::filesystem::path& texture,
                                              const BethesdaDirectory::FileIdentity& identity,
-                                             CMClassification& result) -> bool;
+                                             CMClassification& result);
     static void storeCMClassification(const std::filesystem::path& texture,
                                       const BethesdaDirectory::FileIdentity& identity,
                                       const CMClassification& result);
@@ -460,7 +461,7 @@ public:
     // Recording (no-ops unless a MeshRecorder is active on the calling thread).
     //
 
-    static auto isRecording() -> bool;
+    static bool isRecording();
     static void recordTextureType(const std::filesystem::path& path,
                                   const PGEnums::TextureType& type);
     static void recordTextureAttribute(const std::filesystem::path& path,
@@ -516,12 +517,12 @@ public:
      * @param progressCallback Optional progress callback.
      * @return Set of mesh paths whose previous output is still valid.
      */
-    static auto evaluateMeshes(const std::unordered_map<std::filesystem::path,
-                                                        PGDirectory::NifCache>& meshes,
-                               bool multiThread,
-                               const std::function<void(size_t,
-                                                        size_t)>& progressCallback = { })
-        -> std::unordered_set<std::filesystem::path>;
+    static std::unordered_set<std::filesystem::path>
+    evaluateMeshes(const std::unordered_map<std::filesystem::path,
+                                            PGDirectory::NifCache>& meshes,
+                   bool multiThread,
+                   const std::function<void(size_t,
+                                            size_t)>& progressCallback = { });
 
     /**
      * @brief Deletes every file in the output meshes/textures folders that is not an output of a skippable mesh, a
@@ -532,7 +533,7 @@ public:
     /**
      * @brief Returns the previous record of a mesh, or nullptr.
      */
-    static auto getPreviousRecord(const std::filesystem::path& nifPath) -> const MeshRecord*;
+    static const MeshRecord* previousRecord(const std::filesystem::path& nifPath);
 
     /**
      * @brief Copies the previous record of a skipped mesh into the current run.
@@ -552,8 +553,8 @@ public:
      *
      * @return true if the previous output was reused (no generation required).
      */
-    static auto tryReuseHookOutput(const HookKind& kind,
-                                   const std::filesystem::path& texPath) -> bool;
+    static bool tryReuseHookOutput(const HookKind& kind,
+                                   const std::filesystem::path& texPath);
 
     /**
      * @brief Finalizes texture hooks before the texture phase: replays reused outputs and deletes stale ones.
@@ -563,7 +564,7 @@ public:
     /**
      * @brief Rebuilds conflict viewer metadata from a record (mods are resolved by name).
      */
-    static auto buildMeshMeta(const MeshMetaRecord& record) -> PGPatcher::MeshMeta;
+    static PGPatcher::MeshMeta buildMeshMeta(const MeshMetaRecord& record);
 
     /**
      * @brief Replays the log messages stored in a record through the logger.

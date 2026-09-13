@@ -45,11 +45,11 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
-    const auto* pgc = PGPatcherGlobals::getPGC();
+    const auto* pgc = PGPatcherGlobals::pgc();
     if (pgc == nullptr)
         throw std::runtime_error("PGConfig is null");
 
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
     const int defaultBorder = FromDIP(defaultBorderDIP);
@@ -111,11 +111,11 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
                     return;
 
                 try {
-                    const auto* pgmm = PGGlobals::getPGMM();
+                    const auto* pgmm = PGGlobals::pgmm();
                     if (pgmm == nullptr)
                         return;
 
-                    const auto mod = pgmm->getMod(selectedModName);
+                    const auto mod = pgmm->mod(selectedModName);
                     if (mod != nullptr && !mod->folder.empty())
                         wxLaunchDefaultApplication(wxString(mod->folder.wstring()));
                 } catch (...) {
@@ -154,7 +154,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
-    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
         wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Conflict-Manager");
     });
 
@@ -169,7 +169,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // Add "Use MO2 Loose File Order" checkbox.
-    if (pgc->getParams().modManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
+    if (pgc->params().modManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
         // Only show checkbox for MO2 users.
         m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, pgTr("conflictManager.lockMO2Order.label"), wxDefaultPosition);
         m_checkBoxMO2->SetToolTip(pgTr("conflictManager.lockMO2Order.tooltip"));
@@ -295,12 +295,12 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     mainSizer->Add(buttonSizer, 0, wxEXPAND | wxALL, 0);
 
     // Fill contents.
-    const auto* pgmm = PGGlobals::getPGMM();
-    fillListCtrl(pgmm->getModsByPriority(), false);
+    const auto* pgmm = PGGlobals::pgmm();
+    fillListCtrl(pgmm->modsByPriority(), false);
 
     // Set checkbox state based on current config.
     if (m_checkBoxMO2 != nullptr)
-        m_checkBoxMO2->SetValue(pgc->getParams().modManager.mo2UseLooseFileOrder);
+        m_checkBoxMO2->SetValue(pgc->params().modManager.mo2UseLooseFileOrder);
     setMO2LooseFileOrderCheckboxState();
     rebuildCacheFromListCtrl();
     rebuildListCtrlFromCache();
@@ -374,7 +374,7 @@ void ModSortDialog::onItemActivated(wxListEvent& event)
 
 void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
 {
-    if (!getActiveSearchTerm().IsEmpty()) {
+    if (!activeSearchTerm().IsEmpty()) {
         syncCacheFromListCtrl();
 
         std::vector<std::wstring> selectedModNames;
@@ -385,7 +385,7 @@ void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
         }
 
         if (!selectedModNames.empty()) {
-            const bool moveToTop = event.getNewPosition() == 0;
+            const bool moveToTop = event.newPosition() == 0;
             reorderCachedRowsFromFilteredMove(selectedModNames, moveToTop);
             rebuildListCtrlFromCache();
         }
@@ -482,7 +482,7 @@ void ModSortDialog::onBtnClose([[maybe_unused]] wxCommandEvent& event)
     EndModal(wxID_CANCEL);
 }
 
-auto ModSortDialog::confirmDiscardUnsavedChanges() -> bool
+bool ModSortDialog::confirmDiscardUnsavedChanges()
 {
     if (!hasUnsavedChanges())
         return true;
@@ -505,8 +505,8 @@ void ModSortDialog::onRestoreDefault([[maybe_unused]] wxCommandEvent& event)
                                       this);
 
     if (response == wxYES) {
-        const auto* pgmm = PGGlobals::getPGMM();
-        fillListCtrl(pgmm->getModsByDefaultOrder(), true);
+        const auto* pgmm = PGGlobals::pgmm();
+        fillListCtrl(pgmm->modsByDefaultOrder(), true);
         rebuildCacheFromListCtrl();
         rebuildListCtrlFromCache();
     }
@@ -522,7 +522,7 @@ void ModSortDialog::openConflictView(const std::unordered_set<std::wstring>& sel
                                      bool showAllMeshes)
 {
     auto* dlg = new DialogModConflictView(selectedMods, showAllMeshes);
-    dlg->setModOrderProvider([this] { return getLiveModPriorityList(); });
+    dlg->setModOrderProvider([this] { return liveModPriorityList(); });
     m_openConflictDialogs.insert(dlg);
 
     // Member-function handler (not a lambda) so the destructor can Unbind it when this.
@@ -550,16 +550,16 @@ void ModSortDialog::refreshConflictViews()
         m_openConflictDialogs.erase(staleDialog);
 }
 
-auto ModSortDialog::getLiveModPriorityList() const -> std::vector<std::shared_ptr<PGModManager::Mod>>
+std::vector<std::shared_ptr<PGModManager::Mod>> ModSortDialog::liveModPriorityList() const
 {
-    const auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::pgmm();
     std::vector<std::shared_ptr<PGModManager::Mod>> result;
     result.reserve(m_cachedRows.size());
 
     // Enabled mods first, in visual order.
     for (const auto& row : m_cachedRows) {
         if (row.isChecked) {
-            auto mod = pgmm->getMod(row.modName);
+            auto mod = pgmm->mod(row.modName);
             if (mod != nullptr)
                 result.push_back(std::move(mod));
         }
@@ -567,7 +567,7 @@ auto ModSortDialog::getLiveModPriorityList() const -> std::vector<std::shared_pt
     // Disabled mods after, in visual order.
     for (const auto& row : m_cachedRows) {
         if (!row.isChecked) {
-            auto mod = pgmm->getMod(row.modName);
+            auto mod = pgmm->mod(row.modName);
             if (mod != nullptr)
                 result.push_back(std::move(mod));
         }
@@ -600,22 +600,22 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
 
     if (response == wxYES) {
         // Restore checkbox state.
-        const auto* pgc = PGPatcherGlobals::getPGC();
+        const auto* pgc = PGPatcherGlobals::pgc();
         if (pgc == nullptr)
             throw std::runtime_error("PGConfig is null");
 
-        const auto currentParams = pgc->getParams();
+        const auto currentParams = pgc->params();
         if (m_checkBoxMO2 != nullptr)
             m_checkBoxMO2->SetValue(currentParams.modManager.mo2UseLooseFileOrder);
 
-        const auto* pgmm = PGGlobals::getPGMM();
+        const auto* pgmm = PGGlobals::pgmm();
 
         if (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked()) {
             // If MO2 loose file order is checked, reset to that.
-            fillListCtrl(pgmm->getModsByDefaultOrder(), false);
+            fillListCtrl(pgmm->modsByDefaultOrder(), false);
         } else {
             // Otherwise reset to current priority order.
-            fillListCtrl(pgmm->getModsByPriority(), false);
+            fillListCtrl(pgmm->modsByPriority(), false);
         }
 
         rebuildCacheFromListCtrl();
@@ -627,7 +627,7 @@ void ModSortDialog::onUseMO2LooseFileOrderChange(wxCommandEvent& event)
 {
     syncCacheFromListCtrl();
 
-    const bool searchActive = !getActiveSearchTerm().IsEmpty();
+    const bool searchActive = !activeSearchTerm().IsEmpty();
     const bool mo2Locked = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
 
     setMO2LooseFileOrderCheckboxState();
@@ -667,8 +667,8 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
 
     const bool isChecked = m_checkBoxMO2->IsChecked();
     if (isChecked) {
-        const auto* pgmm = PGGlobals::getPGMM();
-        const auto modListByLooseOrder = pgmm->getModsByDefaultOrder();
+        const auto* pgmm = PGGlobals::pgmm();
+        const auto modListByLooseOrder = pgmm->modsByDefaultOrder();
         fillListCtrl(modListByLooseOrder, false, true);
 
         // Disable restore order button.
@@ -678,12 +678,12 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
         m_restoreButton->Enable(true);
     }
 
-    const bool searchActive = !getActiveSearchTerm().IsEmpty();
+    const bool searchActive = !activeSearchTerm().IsEmpty();
     m_listCtrl->setDraggingEnabled(!isChecked && !searchActive);
     m_listCtrl->setContextMoveEnabled(!isChecked);
 }
 
-auto ModSortDialog::calculateColumnWidth(int colIndex) -> int
+int ModSortDialog::calculateColumnWidth(int colIndex)
 {
     int maxWidth = 0;
     wxClientDC dc(m_listCtrl);
@@ -720,10 +720,10 @@ void ModSortDialog::highlightConflictingItems()
         return;
     }
 
-    const auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::pgmm();
     for (const auto& selectedMod : selectedMods) {
         // Highlight selected item and its conflicts.
-        const auto mod = pgmm->getMod(selectedMod);
+        const auto mod = pgmm->mod(selectedMod);
         if (mod == nullptr)
             continue;
 
@@ -767,14 +767,14 @@ void ModSortDialog::applyNewModHighlights()
     if (m_checkBoxHighlightNewMods == nullptr || !m_checkBoxHighlightNewMods->IsChecked())
         return;
 
-    const auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::pgmm();
     if (pgmm == nullptr || !pgmm->hasLoadedModRules()) {
         // modrules.json did not exist when PG started, so every mod would be "new"; highlight nothing
         return;
     }
 
     for (long i = 0; i < m_listCtrl->GetItemCount(); ++i) {
-        const auto mod = pgmm->getMod(m_listCtrl->GetItemText(i).ToStdWstring());
+        const auto mod = pgmm->mod(m_listCtrl->GetItemText(i).ToStdWstring());
         if (mod == nullptr || !mod->isNew)
             continue;
 
@@ -788,14 +788,14 @@ void ModSortDialog::updateMods()
     syncCacheFromListCtrl();
 
     // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
-    const auto orderedRows = getOrderedCachedRows();
+    const auto orderedRows = orderedCachedRows();
 
     // Loop through each cached element and update the mod manager directory.
-    const auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::pgmm();
     const int itemCount = static_cast<int>(orderedRows.size());
     for (int i = 0; i < itemCount; ++i) {
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
-        const auto mod = pgmm->getMod(row.modName);
+        const auto mod = pgmm->mod(row.modName);
         if (mod == nullptr)
             continue;
 
@@ -810,7 +810,7 @@ void ModSortDialog::updateMods()
     }
 
     // Save configs.
-    auto* pgc = PGPatcherGlobals::getPGC();
+    auto* pgc = PGPatcherGlobals::pgc();
     if (pgc == nullptr)
         throw std::runtime_error("PGConfig is null");
 
@@ -819,7 +819,7 @@ void ModSortDialog::updateMods()
         pgMessageBox(pgTr("conflictManager.errors.saveModConfig"), pgTr("common.error"), wxOK | wxICON_ERROR, this);
     }
 
-    auto currentParams = pgc->getParams();
+    auto currentParams = pgc->params();
     currentParams.modManager.mo2UseLooseFileOrder = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
     pgc->setParams(currentParams);
     if (!pgc->saveUserConfig()) {
@@ -837,14 +837,14 @@ void ModSortDialog::updateModStatesLive()
     syncCacheFromListCtrl();
 
     // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
-    const auto orderedRows = getOrderedCachedRows();
+    const auto orderedRows = orderedCachedRows();
 
     // Loop through each cached element and update the mod manager directory.
-    const auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::pgmm();
     const int itemCount = static_cast<int>(orderedRows.size());
     for (int i = 0; i < itemCount; ++i) {
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
-        const auto mod = pgmm->getMod(row.modName);
+        const auto mod = pgmm->mod(row.modName);
         if (mod == nullptr)
             continue;
 
@@ -913,7 +913,7 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
             // See if we need to autoenable (max variant is greater than 1 which is NONE shader).
             if (autoEnable) {
                 const bool hasNonNone = std::ranges::any_of(
-                    shaders, [](PGEnums::ShapeShader s) -> bool { return s != PGEnums::ShapeShader::NONE; });
+                    shaders, [](PGEnums::ShapeShader s) { return s != PGEnums::ShapeShader::NONE; });
                 if (hasNonNone)
                     modEnabled = true;
             }
@@ -1053,7 +1053,7 @@ void ModSortDialog::syncCacheFromListCtrl()
 
 void ModSortDialog::rebuildListCtrlFromCache()
 {
-    const wxString searchTerm = getActiveSearchTerm();
+    const wxString searchTerm = activeSearchTerm();
     std::vector<const CachedModRow*> matchingRows;
     matchingRows.reserve(m_cachedRows.size());
 
@@ -1122,7 +1122,7 @@ void ModSortDialog::rebuildListCtrlFromCache()
     m_listCtrl->setContextMoveEnabled(!mo2Locked);
 }
 
-auto ModSortDialog::getActiveSearchTerm() const -> wxString
+wxString ModSortDialog::activeSearchTerm() const
 {
     if (m_searchCtrl == nullptr)
         return { };
@@ -1133,7 +1133,7 @@ auto ModSortDialog::getActiveSearchTerm() const -> wxString
     return term.Lower();
 }
 
-auto ModSortDialog::getOrderedCachedRows() const -> std::vector<const CachedModRow*>
+auto ModSortDialog::orderedCachedRows() const -> std::vector<const CachedModRow*>
 {
     std::vector<const CachedModRow*> orderedRows;
     orderedRows.reserve(m_cachedRows.size());
@@ -1190,19 +1190,19 @@ void ModSortDialog::reorderCachedRowsFromFilteredMove(const std::vector<std::wst
     m_cachedRows = std::move(reorderedRows);
 }
 
-auto ModSortDialog::hasUnsavedChanges() -> bool
+bool ModSortDialog::hasUnsavedChanges()
 {
     syncCacheFromListCtrl();
 
     // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
-    const auto orderedRows = getOrderedCachedRows();
+    const auto orderedRows = orderedCachedRows();
 
     // Compare cached UI state against PGModManager baseline.
-    const auto* pgmm = PGGlobals::getPGMM();
+    const auto* pgmm = PGGlobals::pgmm();
     const int itemCount = static_cast<int>(orderedRows.size());
     for (int i = 0; i < itemCount; ++i) {
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
-        const auto mod = pgmm->getMod(row.modName);
+        const auto mod = pgmm->mod(row.modName);
         if (mod == nullptr)
             return true;
 
@@ -1217,11 +1217,11 @@ auto ModSortDialog::hasUnsavedChanges() -> bool
     }
 
     // Check any pgc settings.
-    const auto* pgc = PGPatcherGlobals::getPGC();
+    const auto* pgc = PGPatcherGlobals::pgc();
     if (pgc == nullptr)
         throw std::runtime_error("PGConfig is null");
 
-    const auto currentParams = pgc->getParams();
+    const auto currentParams = pgc->params();
     return m_checkBoxMO2 != nullptr && currentParams.modManager.mo2UseLooseFileOrder != m_checkBoxMO2->IsChecked();
 }
 
@@ -1233,7 +1233,7 @@ void ModSortDialog::updateApplyButtonState()
     m_discardButton->Enable(btnState);
 }
 
-auto ModSortDialog::constructShaderString(const std::set<PGEnums::ShapeShader>& shaders) -> wxString
+wxString ModSortDialog::constructShaderString(const std::set<PGEnums::ShapeShader>& shaders)
 {
     wxString shaderStr;
     for (const auto& shader : shaders) {
@@ -1242,7 +1242,7 @@ auto ModSortDialog::constructShaderString(const std::set<PGEnums::ShapeShader>& 
 
         if (!shaderStr.empty())
             shaderStr += ", ";
-        shaderStr += PGEnums::getStrFromShader(shader);
+        shaderStr += PGEnums::strFromShader(shader);
     }
     return shaderStr;
 }

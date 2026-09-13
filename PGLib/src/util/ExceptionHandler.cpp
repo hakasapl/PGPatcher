@@ -46,4 +46,4 @@ void ExceptionHandler::setException(const std::exception& e,
     }
 }
 
-auto ExceptionHandler::hasException() -> bool { return s_exceptionThrown.load(); }
+bool ExceptionHandler::hasException() { return s_exceptionThrown.load(); }

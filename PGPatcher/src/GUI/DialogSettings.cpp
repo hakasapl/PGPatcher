@@ -34,7 +34,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
                pgTr("settings.title"))
     , m_pgc(pgc)
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
     const int borderSize = FromDIP(borderSizeDIP);
@@ -46,7 +46,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
     auto* langLabel = new wxStaticText(this, wxID_ANY, pgTr("settings.language.label"));
     langSizer->Add(langLabel, 0, wxRIGHT | wxALIGN_CENTER_VERTICAL, borderSize);
 
-    m_languages = PGLocale::getAvailableLanguages();
+    m_languages = PGLocale::availableLanguages();
 
     wxArrayString langNames;
     for (const auto& lang : m_languages)
@@ -58,7 +58,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
     m_languageCombo->SetToolTip(pgTr("settings.language.tooltip"));
 
     // Select the currently active language.
-    const auto currentLang = m_pgc.getUILanguage();
+    const auto currentLang = m_pgc.uiLanguage();
     for (size_t i = 0; i < m_languages.size(); ++i) {
         if (m_languages.at(i).code == currentLang) {
             m_languageCombo->SetSelection(static_cast<int>(i));
@@ -86,7 +86,7 @@ DialogSettings::DialogSettings(wxWindow* parent,
     m_themeRadioBox->SetToolTip(pgTr("settings.theme.tooltip"));
 
     // Select the currently configured theme.
-    const auto currentTheme = m_pgc.getUITheme();
+    const auto currentTheme = m_pgc.uiTheme();
     if (currentTheme == "light")
         m_themeRadioBox->SetSelection(themeIdxLight);
     else if (currentTheme == "dark")
@@ -112,9 +112,9 @@ DialogSettings::DialogSettings(wxWindow* parent,
     CentreOnParent();
 }
 
-auto DialogSettings::languageChanged() const -> bool { return m_didLanguageChange; }
+bool DialogSettings::languageChanged() const { return m_didLanguageChange; }
 
-auto DialogSettings::themeChanged() const -> bool { return m_didThemeChange; }
+bool DialogSettings::themeChanged() const { return m_didThemeChange; }
 
 void DialogSettings::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)
 {
@@ -123,9 +123,9 @@ void DialogSettings::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)
     const int selection = m_languageCombo->GetSelection();
     if (selection != wxNOT_FOUND) {
         const auto& selectedLang = m_languages.at(static_cast<size_t>(selection));
-        if (selectedLang.code != m_pgc.getUILanguage()) {
+        if (selectedLang.code != m_pgc.uiLanguage()) {
             m_pgc.setUILanguage(selectedLang.code);
-            PGLocale::init(PGPatcherGlobals::getEXEPath() / "translations", selectedLang.code);
+            PGLocale::init(PGPatcherGlobals::exePath() / "translations", selectedLang.code);
             m_didLanguageChange = true;
             needsSave = true;
         }
@@ -137,7 +137,7 @@ void DialogSettings::onOkButtonPressed([[maybe_unused]] wxCommandEvent& event)
     else if (m_themeRadioBox->GetSelection() == themeIdxDark)
         selectedTheme = "dark";
 
-    if (selectedTheme != m_pgc.getUITheme()) {
+    if (selectedTheme != m_pgc.uiTheme()) {
         m_pgc.setUITheme(selectedTheme);
         m_didThemeChange = true;
         needsSave = true;

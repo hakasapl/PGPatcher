@@ -14,7 +14,7 @@
 #include <memory>
 #include <utility>
 
-auto PatcherMeshPostHairFlowMap::getFactory() -> PatcherMeshPost::PatcherMeshPostFactory
+auto PatcherMeshPostHairFlowMap::factory() -> PatcherMeshPost::PatcherMeshPostFactory
 {
     return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPost> {
         return std::make_unique<PatcherMeshPostHairFlowMap>(nifPath, nif);
@@ -29,12 +29,12 @@ PatcherMeshPostHairFlowMap::PatcherMeshPostHairFlowMap(std::filesystem::path nif
 {
 }
 
-auto PatcherMeshPostHairFlowMap::applyPatch(PGTypes::TextureSet& slots,
-                                            nifly::NiShape& nifShape) -> bool
+bool PatcherMeshPostHairFlowMap::applyPatch(PGTypes::TextureSet& slots,
+                                            nifly::NiShape& nifShape)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
-    auto* nifShader = getNIF()->GetShader(&nifShape);
+    auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
     if (nifShaderBSLSP == nullptr) {
         // Not a BSLightingShaderProperty.
@@ -58,10 +58,10 @@ auto PatcherMeshPostHairFlowMap::applyPatch(PGTypes::TextureSet& slots,
         return false;
     }
 
-    static const auto flowMapBase = pgd->getTextureMapConst(PGEnums::TextureSlots::Backlight);
+    static const auto flowMapBase = pgd->textureMapConst(PGEnums::TextureSlots::Backlight);
 
-    const auto normalMapBase = PGNIFUtil::getTexBase(normalMap, PGEnums::TextureSlots::Normal);
-    const auto foundMatches = PGNIFUtil::getTexMatch(normalMapBase, PGEnums::TextureType::HairFlowMap, flowMapBase);
+    const auto normalMapBase = PGNIFUtil::texBase(normalMap, PGEnums::TextureSlots::Normal);
+    const auto foundMatches = PGNIFUtil::texMatch(normalMapBase, PGEnums::TextureType::HairFlowMap, flowMapBase);
     if (foundMatches.empty()) {
         // No flow map found, nothing to do.
         return false;

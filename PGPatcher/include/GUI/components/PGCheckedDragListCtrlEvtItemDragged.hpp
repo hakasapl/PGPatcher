@@ -38,13 +38,13 @@ public:
      *
      * @return Index of the dragged item.
      */
-    [[nodiscard]] auto getItemIndex() const -> long { return m_itemIndex; }
+    [[nodiscard]] long itemIndex() const { return m_itemIndex; }
     /**
      * @brief Get the new position where the item was dropped.
      *
      * @return New position of the item.
      */
-    [[nodiscard]] auto getNewPosition() const -> long { return m_newPosition; }
+    [[nodiscard]] long newPosition() const { return m_newPosition; }
 
     // Required for sending with wxPostEvent.
     /**
@@ -52,5 +52,5 @@ public:
      *
      * @return Pointer to a cloned copy of this event.
      */
-    [[nodiscard]] auto Clone() const -> wxEvent* override;
+    [[nodiscard]] wxEvent* Clone() const override;
 };

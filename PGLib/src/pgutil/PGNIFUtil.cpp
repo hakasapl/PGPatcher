@@ -36,9 +36,10 @@
 #include <vector>
 #include <windows.h>
 
-auto PGNIFUtil::getTexSuffixMap() -> std::map<std::wstring,
-                                              std::tuple<PGEnums::TextureSlots,
-                                                         PGEnums::TextureType>>
+std::map<std::wstring,
+         std::tuple<PGEnums::TextureSlots,
+                    PGEnums::TextureType>>
+PGNIFUtil::texSuffixMap()
 {
     static const std::map<std::wstring, std::tuple<PGEnums::TextureSlots, PGEnums::TextureType>> textureSuffixMap = {
         { L"_bl", { PGEnums::TextureSlots::Backlight, PGEnums::TextureType::Backlight } },
@@ -65,7 +66,7 @@ auto PGNIFUtil::getTexSuffixMap() -> std::map<std::wstring,
     return textureSuffixMap;
 }
 
-auto PGNIFUtil::getSlotFromTexType(const PGEnums::TextureType& type) -> PGEnums::TextureSlots
+PGEnums::TextureSlots PGNIFUtil::slotFromTexType(const PGEnums::TextureType& type)
 {
     static std::unordered_map<PGEnums::TextureType, PGEnums::TextureSlots> texTypeToSlotMap = {
         { PGEnums::TextureType::Diffuse, PGEnums::TextureSlots::Diffuse },
@@ -97,10 +98,11 @@ auto PGNIFUtil::getSlotFromTexType(const PGEnums::TextureType& type) -> PGEnums:
     return texTypeToSlotMap[PGEnums::TextureType::Unknown];
 }
 
-auto PGNIFUtil::getDefaultsFromSuffix(const std::filesystem::path& path) -> std::tuple<PGEnums::TextureSlots,
-                                                                                       PGEnums::TextureType>
+std::tuple<PGEnums::TextureSlots,
+           PGEnums::TextureType>
+PGNIFUtil::defaultsFromSuffix(const std::filesystem::path& path)
 {
-    const auto& suffixMap = getTexSuffixMap();
+    const auto& suffixMap = texSuffixMap();
 
     // Get the texture suffix.
     const auto pathWithoutExtension = path.parent_path() / path.stem();
@@ -122,8 +124,8 @@ auto PGNIFUtil::getDefaultsFromSuffix(const std::filesystem::path& path) -> std:
     return { PGEnums::TextureSlots::Unknown, PGEnums::TextureType::Unknown };
 }
 
-extern "C" auto loadNifWithSEH(nifly::NifFile* pNif,
-                               std::istream* pStream) -> bool
+extern "C" bool loadNifWithSEH(nifly::NifFile* pNif,
+                               std::istream* pStream)
 {
     __try {
         pNif->Load(*pStream);
@@ -134,8 +136,8 @@ extern "C" auto loadNifWithSEH(nifly::NifFile* pNif,
     }
 }
 
-auto PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
-                                 const bool& runChecks) -> nifly::NifFile
+nifly::NifFile PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
+                                           const bool& runChecks)
 {
     // NIF file object.
     nifly::NifFile nif;
@@ -188,8 +190,8 @@ auto PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
     return nif;
 }
 
-auto PGNIFUtil::setShaderType(nifly::NiShader* nifShader,
-                              const nifly::BSLightingShaderPropertyShaderType& type) -> bool
+bool PGNIFUtil::setShaderType(nifly::NiShader* nifShader,
+                              const nifly::BSLightingShaderPropertyShaderType& type)
 {
     if (nifShader->GetShaderType() != type) {
         nifShader->SetShaderType(type);
@@ -199,8 +201,8 @@ auto PGNIFUtil::setShaderType(nifly::NiShader* nifShader,
     return false;
 }
 
-auto PGNIFUtil::setShaderFloat(float& value,
-                               const float& newValue) -> bool
+bool PGNIFUtil::setShaderFloat(float& value,
+                               const float& newValue)
 {
     if (fabs(value - newValue) > minFloatComparison) {
         value = newValue;
@@ -210,8 +212,8 @@ auto PGNIFUtil::setShaderFloat(float& value,
     return false;
 }
 
-auto PGNIFUtil::setShaderVec2(nifly::Vector2& value,
-                              const nifly::Vector2& newValue) -> bool
+bool PGNIFUtil::setShaderVec2(nifly::Vector2& value,
+                              const nifly::Vector2& newValue)
 {
     if (value != newValue) {
         value = newValue;
@@ -222,20 +224,20 @@ auto PGNIFUtil::setShaderVec2(nifly::Vector2& value,
 }
 
 // Shader flag helpers.
-auto PGNIFUtil::hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
-                              const nifly::SkyrimShaderPropertyFlags1& flag) -> bool
+bool PGNIFUtil::hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
+                              const nifly::SkyrimShaderPropertyFlags1& flag)
 {
     return (nifShaderBSLSP->shaderFlags1 & flag) != 0U;
 }
 
-auto PGNIFUtil::hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
-                              const nifly::SkyrimShaderPropertyFlags2& flag) -> bool
+bool PGNIFUtil::hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
+                              const nifly::SkyrimShaderPropertyFlags2& flag)
 {
     return (nifShaderBSLSP->shaderFlags2 & flag) != 0U;
 }
 
-auto PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
-                              const nifly::SkyrimShaderPropertyFlags1& flag) -> bool
+bool PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                              const nifly::SkyrimShaderPropertyFlags1& flag)
 {
     if (!hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags1 |= flag;
@@ -245,8 +247,8 @@ auto PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
     return false;
 }
 
-auto PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
-                              const nifly::SkyrimShaderPropertyFlags2& flag) -> bool
+bool PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                              const nifly::SkyrimShaderPropertyFlags2& flag)
 {
     if (!hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags2 |= flag;
@@ -256,8 +258,8 @@ auto PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
     return false;
 }
 
-auto PGNIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
-                                const nifly::SkyrimShaderPropertyFlags1& flag) -> bool
+bool PGNIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                                const nifly::SkyrimShaderPropertyFlags1& flag)
 {
     if (hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags1 &= ~flag;
@@ -267,8 +269,8 @@ auto PGNIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
     return false;
 }
 
-auto PGNIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
-                                const nifly::SkyrimShaderPropertyFlags2& flag) -> bool
+bool PGNIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+                                const nifly::SkyrimShaderPropertyFlags2& flag)
 {
     if (hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags2 &= ~flag;
@@ -278,9 +280,9 @@ auto PGNIFUtil::clearShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
     return false;
 }
 
-auto PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                                     const nifly::SkyrimShaderPropertyFlags1& flag,
-                                    const bool& enable) -> bool
+                                    const bool& enable)
 {
     bool changed = false;
     if (enable)
@@ -291,9 +293,9 @@ auto PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
     return changed;
 }
 
-auto PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
+bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                                     const nifly::SkyrimShaderPropertyFlags2& flag,
-                                    const bool& enable) -> bool
+                                    const bool& enable)
 {
     bool changed = false;
     if (enable)
@@ -305,19 +307,19 @@ auto PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
 }
 
 // Texture slot helpers.
-auto PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
+bool PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
                                nifly::NiShape* nifShape,
                                const PGEnums::TextureSlots& slot,
-                               const std::wstring& texturePath) -> bool
+                               const std::wstring& texturePath)
 {
     const auto texturePathStr = StringUtil::utf16toASCII(texturePath);
     return setTextureSlot(nif, nifShape, slot, texturePathStr);
 }
 
-auto PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
+bool PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
                                nifly::NiShape* nifShape,
                                const PGEnums::TextureSlots& slot,
-                               const std::string& texturePath) -> bool
+                               const std::string& texturePath)
 {
     std::string existingTex;
     nif->GetTextureSlot(nifShape, existingTex, static_cast<unsigned>(slot));
@@ -330,9 +332,9 @@ auto PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
     return false;
 }
 
-auto PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
+bool PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
-                                const PGTypes::TextureSet& newSlots) -> bool
+                                const PGTypes::TextureSet& newSlots)
 {
     bool changed = false;
     for (uint32_t i = 0; i < numTextureSlots; i++)
@@ -341,9 +343,9 @@ auto PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
     return changed;
 }
 
-auto PGNIFUtil::getTextureSlot(const nifly::NifFile* nif,
-                               nifly::NiShape* nifShape,
-                               const PGEnums::TextureSlots& slot) -> std::string
+std::string PGNIFUtil::textureSlot(const nifly::NifFile* nif,
+                                   nifly::NiShape* nifShape,
+                                   const PGEnums::TextureSlots& slot)
 {
     std::string texture;
     nif->GetTextureSlot(nifShape, texture, static_cast<unsigned>(slot));
@@ -351,8 +353,8 @@ auto PGNIFUtil::getTextureSlot(const nifly::NifFile* nif,
     return texture;
 }
 
-auto PGNIFUtil::getTextureSlots(const nifly::NifFile* nif,
-                                nifly::NiShape* nifShape) -> PGTypes::TextureSet
+PGTypes::TextureSet PGNIFUtil::textureSlots(const nifly::NifFile* nif,
+                                            nifly::NiShape* nifShape)
 {
     PGTypes::TextureSet outSlots;
 
@@ -372,7 +374,7 @@ auto PGNIFUtil::getTextureSlots(const nifly::NifFile* nif,
     return outSlots;
 }
 
-auto PGNIFUtil::textureSetToStr(const PGTypes::TextureSet& set) -> PGTypes::TextureSetStr
+PGTypes::TextureSetStr PGNIFUtil::textureSetToStr(const PGTypes::TextureSet& set)
 {
     PGTypes::TextureSetStr outSet;
 
@@ -382,10 +384,10 @@ auto PGNIFUtil::textureSetToStr(const PGTypes::TextureSet& set) -> PGTypes::Text
     return outSet;
 }
 
-auto PGNIFUtil::getTexBase(const std::filesystem::path& path,
-                           const PGEnums::TextureSlots& slot) -> std::wstring
+std::wstring PGNIFUtil::texBase(const std::filesystem::path& path,
+                                const PGEnums::TextureSlots& slot)
 {
-    const auto& suffixMap = getTexSuffixMap();
+    const auto& suffixMap = texSuffixMap();
 
     // Get the texture suffix.
     const auto pathWithoutExtension = path.parent_path() / path.stem();
@@ -409,12 +411,12 @@ auto PGNIFUtil::getTexBase(const std::filesystem::path& path,
     return pathStr;
 }
 
-auto PGNIFUtil::getTexMatch(const std::wstring& base,
-                            const PGEnums::TextureType& desiredType,
-                            const std::map<std::wstring,
-                                           std::unordered_set<PGTypes::PGTexture,
-                                                              PGTypes::PGTextureHasher>>& searchMap)
-    -> std::vector<PGTypes::PGTexture>
+std::vector<PGTypes::PGTexture>
+PGNIFUtil::texMatch(const std::wstring& base,
+                    const PGEnums::TextureType& desiredType,
+                    const std::map<std::wstring,
+                                   std::unordered_set<PGTypes::PGTexture,
+                                                      PGTypes::PGTextureHasher>>& searchMap)
 {
     // Binary search on base list.
     const std::wstring baseLower = StringUtil::toLowerASCIIFast(base);
@@ -433,9 +435,9 @@ auto PGNIFUtil::getTexMatch(const std::wstring& base,
     return outTex;
 }
 
-auto PGNIFUtil::getSearchPrefixes(nifly::NifFile const& nif,
-                                  nifly::NiShape* nifShape,
-                                  const bool& findBaseSlots) -> PGTypes::TextureSet
+PGTypes::TextureSet PGNIFUtil::searchPrefixes(nifly::NifFile const& nif,
+                                              nifly::NiShape* nifShape,
+                                              const bool& findBaseSlots)
 {
     PGTypes::TextureSet outPrefixes;
 
@@ -453,10 +455,10 @@ auto PGNIFUtil::getSearchPrefixes(nifly::NifFile const& nif,
         std::wstring texBase;
         if (findBaseSlots) {
             // Get the base texture name without suffix.
-            texBase = getTexBase(StringUtil::asciitoUTF16(texture), static_cast<PGEnums::TextureSlots>(i));
+            texBase = PGNIFUtil::texBase(StringUtil::asciitoUTF16(texture), static_cast<PGEnums::TextureSlots>(i));
         } else {
             // Get the full texture name.
-            texBase = getTexBase(StringUtil::asciitoUTF16(texture));
+            texBase = PGNIFUtil::texBase(StringUtil::asciitoUTF16(texture));
         }
 
         outPrefixes.at(i) = texBase;
@@ -465,8 +467,8 @@ auto PGNIFUtil::getSearchPrefixes(nifly::NifFile const& nif,
     return outPrefixes;
 }
 
-auto PGNIFUtil::getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
-                                  const bool& findBaseSlots) -> PGTypes::TextureSet
+PGTypes::TextureSet PGNIFUtil::searchPrefixes(const PGTypes::TextureSet& oldSlots,
+                                              const bool& findBaseSlots)
 {
     PGTypes::TextureSet outSlots;
 
@@ -477,10 +479,10 @@ auto PGNIFUtil::getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
         std::wstring texBase;
         if (findBaseSlots) {
             // Get the base texture name without suffix.
-            texBase = getTexBase(oldSlots.at(i), static_cast<PGEnums::TextureSlots>(i));
+            texBase = PGNIFUtil::texBase(oldSlots.at(i), static_cast<PGEnums::TextureSlots>(i));
         } else {
             // Get the full texture name.
-            texBase = getTexBase(oldSlots.at(i));
+            texBase = PGNIFUtil::texBase(oldSlots.at(i));
         }
         outSlots.at(i) = texBase;
     }
@@ -488,8 +490,9 @@ auto PGNIFUtil::getSearchPrefixes(const PGTypes::TextureSet& oldSlots,
     return outSlots;
 }
 
-auto PGNIFUtil::getShapesWith3DIdx(const nifly::NifFile* nif) -> std::vector<std::pair<nifly::NiShape*,
-                                                                                       int>>
+std::vector<std::pair<nifly::NiShape*,
+                      int>>
+PGNIFUtil::shapesWith3DIdx(const nifly::NifFile* nif)
 {
     if (nif == nullptr)
         throw std::runtime_error("NIF is null");
@@ -515,8 +518,8 @@ auto PGNIFUtil::getShapesWith3DIdx(const nifly::NifFile* nif) -> std::vector<std
     return shapes;
 }
 
-auto PGNIFUtil::isPatchableShape(const nifly::NifFile& nif,
-                                 nifly::NiShape& nifShape) -> bool
+bool PGNIFUtil::isPatchableShape(const nifly::NifFile& nif,
+                                 nifly::NiShape& nifShape)
 {
     const std::string shapeBlockName = nifShape.GetBlockName();
 
@@ -535,8 +538,8 @@ auto PGNIFUtil::isPatchableShape(const nifly::NifFile& nif,
     return nifShader != nullptr;
 }
 
-auto PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
-                                       nifly::NiShape& nifShape) -> bool
+bool PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
+                                       nifly::NiShape& nifShape)
 {
     const std::string shapeBlockName = nifShape.GetBlockName();
 
@@ -554,7 +557,7 @@ auto PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
         return false;
 
     // Check if PG_IGNORE is set on shader or shape.
-    const auto checkIgnoreFlag = [&nif](auto& extraDataRefs) -> bool {
+    const auto checkIgnoreFlag = [&nif](auto& extraDataRefs) {
         for (const auto& extraDataRef : extraDataRefs) {
             auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
             const auto* const booleanBlock = dynamic_cast<nifly::NiBooleanExtraData*>(curBlock);
@@ -567,7 +570,7 @@ auto PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
     return !checkIgnoreFlag(nifShader->extraDataRefs) && !checkIgnoreFlag(nifShape.extraDataRefs);
 }
 
-auto PGNIFUtil::isFacegenMesh(const std::filesystem::path& path) -> bool
+bool PGNIFUtil::isFacegenMesh(const std::filesystem::path& path)
 {
     // All facegen paths start with "meshes\actors\character\facegendata\facegeom\".
     const auto relativePath = path.lexically_relative("meshes/actors/character/facegendata/facegeom");

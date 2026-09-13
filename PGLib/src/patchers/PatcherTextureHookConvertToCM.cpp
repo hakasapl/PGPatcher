@@ -25,9 +25,9 @@ void PatcherTextureHookConvertToCM::reset()
     s_texToProcess.clear();
 }
 
-auto PatcherTextureHookConvertToCM::addToProcessList(const std::filesystem::path& texPath) -> void
+void PatcherTextureHookConvertToCM::addToProcessList(const std::filesystem::path& texPath)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     // Record registration for incremental runs (no-op unless a mesh is being recorded on this thread).
     PGRunCache::recordHookRegistration(PGRunCache::HookKind::ConvertToCM, texPath);
@@ -39,37 +39,37 @@ auto PatcherTextureHookConvertToCM::addToProcessList(const std::filesystem::path
     const std::unique_lock lock(s_texToProcessMutex);
     if (s_texToProcess.insert(texPath).second) {
         // Only add if not present before.
-        pgd->addGeneratedFile(getOutputFilename(texPath));
+        pgd->addGeneratedFile(outputFilename(texPath));
     }
 }
 
 void PatcherTextureHookConvertToCM::replayGenerated(const std::filesystem::path& texPath)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
-    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::Parallax);
+    const auto texBase = PGNIFUtil::texBase(texPath, PGEnums::TextureSlots::Parallax);
     const auto newPath = texBase + L"_m.dds";
 
-    pgd->getTextureMap(PGEnums::TextureSlots::EnvMask)[texBase].insert(
+    pgd->textureMap(PGEnums::TextureSlots::EnvMask)[texBase].insert(
         { .path = newPath, .type = PGEnums::TextureType::ComplexMaterial });
     pgd->setTextureType(newPath, PGEnums::TextureType::ComplexMaterial);
 }
 
-auto PatcherTextureHookConvertToCM::isInProcessList(const std::filesystem::path& texPath) -> bool
+bool PatcherTextureHookConvertToCM::isInProcessList(const std::filesystem::path& texPath)
 {
     const std::shared_lock lock(s_texToProcessMutex);
     return s_texToProcess.contains(texPath);
 }
 
-auto PatcherTextureHookConvertToCM::getOutputFilename(const std::filesystem::path& texPath) -> std::filesystem::path
+std::filesystem::path PatcherTextureHookConvertToCM::outputFilename(const std::filesystem::path& texPath)
 {
-    const auto texBase = PGNIFUtil::getTexBase(texPath, PGEnums::TextureSlots::Parallax);
+    const auto texBase = PGNIFUtil::texBase(texPath, PGEnums::TextureSlots::Parallax);
     return texBase + L"_m.dds";
 }
 
-auto PatcherTextureHookConvertToCM::initShader() -> bool
+bool PatcherTextureHookConvertToCM::initShader()
 {
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd3d = PGGlobals::pGD3D();
 
     if (s_shader != nullptr)
         return true;
@@ -85,19 +85,19 @@ PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::pa
 {
 }
 
-auto PatcherTextureHookConvertToCM::applyPatch() -> bool
+bool PatcherTextureHookConvertToCM::applyPatch()
 {
-    auto* pgd = PGGlobals::getPGD();
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd = PGGlobals::pgd();
+    auto* pgd3d = PGGlobals::pGD3D();
 
-    if (getDDS() == nullptr)
+    if (dds() == nullptr)
         throw std::runtime_error("DDS not initialized");
 
-    const auto texBase = PGNIFUtil::getTexBase(getDDSPath(), PGEnums::TextureSlots::Parallax);
+    const auto texBase = PGNIFUtil::texBase(ddsPath(), PGEnums::TextureSlots::Parallax);
     const auto newPath = texBase + L"_m.dds";
 
     DirectX::ScratchImage newDDS;
-    if (!pgd3d->applyShaderToTexture(*getDDS(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM))
+    if (!pgd3d->applyShaderToTexture(*dds(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM))
         return false;
 
     if (newDDS.GetImageCount() < 1)
@@ -105,7 +105,7 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
 
     const std::scoped_lock lock(s_generatedFileTrackerMutex);
 
-    const auto outPath = pgd->getGeneratedPath() / newPath;
+    const auto outPath = pgd->generatedPath() / newPath;
     std::filesystem::create_directories(outPath.parent_path());
 
     DirectX::ScratchImage compressedImage;
@@ -130,12 +130,12 @@ auto PatcherTextureHookConvertToCM::applyPatch() -> bool
         return false;
 
     // Add newly created file to complexMaterialMaps for later processing.
-    pgd->getTextureMap(PGEnums::TextureSlots::EnvMask)[texBase].insert(
+    pgd->textureMap(PGEnums::TextureSlots::EnvMask)[texBase].insert(
         { .path = newPath, .type = PGEnums::TextureType::ComplexMaterial });
     pgd->setTextureType(newPath, PGEnums::TextureType::ComplexMaterial);
 
     // Record generated output for incremental runs.
-    PGRunCache::recordHookOutput(PGRunCache::HookKind::ConvertToCM, getDDSPath(), newPath);
+    PGRunCache::recordHookOutput(PGRunCache::HookKind::ConvertToCM, ddsPath(), newPath);
 
     return true;
 }

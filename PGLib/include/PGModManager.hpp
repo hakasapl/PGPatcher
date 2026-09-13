@@ -38,7 +38,7 @@ private:
      * @param c The hexadecimal character (0-9, a-f, A-F).
      * @return uint8_t value of the hex digit, or 0 for invalid input.
      */
-    static auto fromHexDigit(char c) -> uint8_t;
+    static uint8_t fromHexDigit(char c);
 
     /**
      * @brief Decodes a MO2 INI field value that is encoded as a Qt byte array (e.g., "@ByteArray(68656C6C6F)").
@@ -47,7 +47,7 @@ private:
      * suffix.
      * @return std::wstring containing the decoded value.
      */
-    static auto decodeQtByteArrayValue(const std::string& byteArrayVal) -> std::wstring;
+    static std::wstring decodeQtByteArrayValue(const std::string& byteArrayVal);
 
 public:
     /// @brief Identifies which mod manager type is in use.
@@ -59,7 +59,7 @@ public:
     struct Mod {
         // Hash function for Mod struct shared pointer that hashes only name.
         struct ModHash {
-            auto operator()(const std::shared_ptr<Mod>& mod) const -> std::size_t
+            std::size_t operator()(const std::shared_ptr<Mod>& mod) const
             {
                 return std::hash<std::wstring>()(mod->name);
             }
@@ -126,8 +126,9 @@ public:
      *
      * @return Const reference to the file-to-mod map.
      */
-    [[nodiscard]] auto getModFileMap() const -> const std::unordered_map<std::filesystem::path,
-                                                                         std::shared_ptr<Mod>>&;
+    [[nodiscard]] const std::unordered_map<std::filesystem::path,
+                                           std::shared_ptr<Mod>>&
+    modFileMap() const;
 
     /**
      * @brief Finds the mod that owns the given relative file path.
@@ -135,7 +136,7 @@ public:
      * @param relPath Relative path of the file (as used in the data directory).
      * @return Shared pointer to the owning Mod, or nullptr if not found.
      */
-    [[nodiscard]] auto getModByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
+    [[nodiscard]] std::shared_ptr<Mod> modByFile(const std::filesystem::path& relPath) const;
 
     /**
      * @brief Finds the mod for a file, accounting for BSA-packed files by resolving the mod-lookup path via PGD.
@@ -143,28 +144,28 @@ public:
      * @param relPath Relative path of the file.
      * @return Shared pointer to the owning Mod, or nullptr if not found.
      */
-    [[nodiscard]] auto getModByFileSmart(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>;
+    [[nodiscard]] std::shared_ptr<Mod> modByFileSmart(const std::filesystem::path& relPath) const;
 
     /**
      * @brief Returns all known mods (excluding the empty/virtual mod entry).
      *
      * @return Vector of shared pointers to all Mod objects.
      */
-    [[nodiscard]] auto getMods() const -> std::vector<std::shared_ptr<Mod>>;
+    [[nodiscard]] std::vector<std::shared_ptr<Mod>> mods() const;
 
     /**
      * @brief Returns all mods sorted by descending priority (highest priority first), then by mod manager order.
      *
      * @return Priority-sorted vector of mods.
      */
-    [[nodiscard]] auto getModsByPriority() const -> std::vector<std::shared_ptr<Mod>>;
+    [[nodiscard]] std::vector<std::shared_ptr<Mod>> modsByPriority() const;
 
     /**
      * @brief Returns all mods sorted by their native mod manager order (ascending).
      *
      * @return Default-order-sorted vector of mods.
      */
-    [[nodiscard]] auto getModsByDefaultOrder() const -> std::vector<std::shared_ptr<Mod>>;
+    [[nodiscard]] std::vector<std::shared_ptr<Mod>> modsByDefaultOrder() const;
 
     /**
      * @brief Finds a mod by its display name.
@@ -172,7 +173,7 @@ public:
      * @param modName Wide-string mod name.
      * @return Shared pointer to the Mod, or nullptr if not found.
      */
-    [[nodiscard]] auto getMod(const std::wstring& modName) const -> std::shared_ptr<Mod>;
+    [[nodiscard]] std::shared_ptr<Mod> mod(const std::wstring& modName) const;
 
     /**
      * @brief Deserializes mod priority/enabled state from a JSON object into the mod map.
@@ -187,14 +188,14 @@ public:
      *
      * @return true if loadJSON() has been called (modrules.json existed at startup); false otherwise.
      */
-    [[nodiscard]] auto hasLoadedModRules() const -> bool;
+    [[nodiscard]] bool hasLoadedModRules() const;
 
     /**
      * @brief Serializes all mods' priority and enabled state to a JSON object.
      *
      * @return JSON object mapping mod names to their properties.
      */
-    auto getJSON() -> nlohmann::json;
+    nlohmann::json json();
 
     /**
      * @brief Checks whether the given directory is a valid MO2 instance (contains modorganizer.ini).
@@ -202,7 +203,7 @@ public:
      * @param instanceDir Path to the MO2 instance directory.
      * @return true if the instance directory is valid; false otherwise.
      */
-    static auto isValidMO2InstanceDir(const std::filesystem::path& instanceDir) -> bool;
+    static bool isValidMO2InstanceDir(const std::filesystem::path& instanceDir);
 
     /**
      * @brief Reads the game installation path from the MO2 instance's modorganizer.ini.
@@ -214,7 +215,7 @@ public:
      * @return Game directory (absolute unless a relative value could not be resolved), or empty if modorganizer.ini
      * has no gamePath.
      */
-    static auto getGamePathFromInstanceDir(const std::filesystem::path& instanceDir) -> std::filesystem::path;
+    static std::filesystem::path gamePathFromInstanceDir(const std::filesystem::path& instanceDir);
 
     /**
      * @brief Finds the folder containing ModOrganizer.exe of the MO2 that launched this process.
@@ -226,12 +227,12 @@ public:
      * @return Folder containing ModOrganizer.exe, or empty if usvfs_x64.dll is not loaded (PGPatcher was not launched
      * from MO2).
      */
-    [[nodiscard]] static auto getMO2DirFromUSVFS() -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path mO2DirFromUSVFS();
 
     /**
      * @brief Finds the folder containing ModOrganizer.exe for the given instance.
      *
-     * The primary source is the usvfs DLL MO2 injected into this process (getMO2DirFromUSVFS()), which is exact for
+     * The primary source is the usvfs DLL MO2 injected into this process (mO2DirFromUSVFS()), which is exact for
      * portable and global instances alike. If PGPatcher was not launched from MO2, the instance folder is used when it
      * contains ModOrganizer.exe (portable instance). Global (%LOCALAPPDATA%) instances record nothing about the MO2
      * folder, so for those it is unknown unless PGPatcher was launched from MO2.
@@ -239,7 +240,7 @@ public:
      * @param instanceDir Path to the MO2 instance directory (folder containing modorganizer.ini).
      * @return Absolute path to the folder containing ModOrganizer.exe, or empty if it cannot be determined.
      */
-    [[nodiscard]] static auto findMO2Dir(const std::filesystem::path& instanceDir) -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path findMO2Dir(const std::filesystem::path& instanceDir);
 
     /**
      * @brief Resolves a gamePath value from modorganizer.ini to an absolute path the way MO2 does.
@@ -254,8 +255,8 @@ public:
      * @return Absolute, lexically normalized game path. Empty and absolute inputs are returned unchanged, and so is a
      * relative input when findMO2Dir() cannot find the MO2 folder.
      */
-    [[nodiscard]] static auto resolveMO2GamePath(const std::filesystem::path& gamePath,
-                                                 const std::filesystem::path& instanceDir) -> std::filesystem::path;
+    [[nodiscard]] static std::filesystem::path resolveMO2GamePath(const std::filesystem::path& gamePath,
+                                                                  const std::filesystem::path& instanceDir);
 
     /**
      * @brief Determines the BethesdaGame::GameType from the MO2 instance's modorganizer.ini.
@@ -263,7 +264,7 @@ public:
      * @param instanceDir Path to the MO2 instance directory.
      * @return The detected GameType, or GameType::Unknown if unrecognized.
      */
-    static auto getGameTypeFromInstanceDir(const std::filesystem::path& instanceDir) -> BethesdaGame::GameType;
+    static BethesdaGame::GameType gameTypeFromInstanceDir(const std::filesystem::path& instanceDir);
 
     /**
      * @brief Reads the selected MO2 profile name from the instance's modorganizer.ini.
@@ -271,7 +272,7 @@ public:
      * @param instanceDir Path to the MO2 instance directory.
      * @return Wide-string profile name, or empty if not found.
      */
-    static auto getSelectedProfileFromInstanceDir(const std::filesystem::path& instanceDir) -> std::wstring;
+    static std::wstring selectedProfileFromInstanceDir(const std::filesystem::path& instanceDir);
 
     /**
      * @brief Populates the mod file map by reading the active MO2 profile's modlist.txt and mod directories.
@@ -295,7 +296,7 @@ public:
      *
      * @return Vector containing NONE, VORTEX, and MODORGANIZER2.
      */
-    [[nodiscard]] static auto getModManagerTypes() -> std::vector<ModManagerType>;
+    [[nodiscard]] static std::vector<ModManagerType> modManagerTypes();
 
     /**
      * @brief Converts a ModManagerType enum value to its display string.
@@ -303,7 +304,7 @@ public:
      * @param type The mod manager type.
      * @return String name (e.g., "None", "Vortex", "Mod Organizer 2").
      */
-    [[nodiscard]] static auto getStrFromModManagerType(const ModManagerType& type) -> std::string;
+    [[nodiscard]] static std::string strFromModManagerType(const ModManagerType& type);
 
     /**
      * @brief Converts a display string to the corresponding ModManagerType enum value.
@@ -311,12 +312,12 @@ public:
      * @param type String name of the mod manager type.
      * @return Corresponding ModManagerType, or NONE if unrecognized.
      */
-    [[nodiscard]] static auto getModManagerTypeFromStr(const std::string& type) -> ModManagerType;
+    [[nodiscard]] static ModManagerType modManagerTypeFromStr(const std::string& type);
 
     /**
      * @brief Returns the root staging location used by the active mod manager.
      */
-    [[nodiscard]] auto getStagingLocation() const -> const std::filesystem::path&;
+    [[nodiscard]] const std::filesystem::path& stagingLocation() const;
 
     /**
      * @brief Normalizes persisted priority order to match dialog save semantics.
@@ -327,7 +328,7 @@ public:
      * with shaders or meshes) participate in the numbering, matching the dialog's own priority
      * assignment; hidden mods keep their stored priority.
      *
-     * @param useDefaultOrder If true, base ordering uses getModsByDefaultOrder(); otherwise getModsByPriority().
+     * @param useDefaultOrder If true, base ordering uses modsByDefaultOrder(); otherwise modsByPriority().
      */
     void updateStateFromModlist(bool useDefaultOrder) const;
 
@@ -338,14 +339,15 @@ public:
                               const PGEnums::ShapeShader& shader) const;
 
 private:
-    [[nodiscard]] static auto compareMods(const std::shared_ptr<Mod>& a,
+    [[nodiscard]] static bool compareMods(const std::shared_ptr<Mod>& a,
                                           const std::shared_ptr<Mod>& b,
-                                          bool checkPriority = true) -> bool;
+                                          bool checkPriority = true);
 
-    static auto getMO2INIField(const std::filesystem::path& instanceDir,
-                               const std::string& fieldName,
-                               const bool& isByteArray = false) -> std::wstring;
+    static std::wstring mO2INIField(const std::filesystem::path& instanceDir,
+                                    const std::string& fieldName,
+                                    const bool& isByteArray = false);
 
-    static auto getMO2FilePaths(const std::filesystem::path& instanceDir) -> std::pair<std::filesystem::path,
-                                                                                       std::filesystem::path>;
+    static std::pair<std::filesystem::path,
+                     std::filesystem::path>
+    mO2FilePaths(const std::filesystem::path& instanceDir);
 };

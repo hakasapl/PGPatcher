@@ -57,13 +57,13 @@ void TaskQueue::workerLoop()
     }
 }
 
-auto TaskQueue::isWorking() const -> bool { return m_isBusy || m_queuedTasks > 0; }
+bool TaskQueue::isWorking() const { return m_isBusy || m_queuedTasks > 0; }
 
-auto TaskQueue::getQueuedTaskCount() const -> size_t { return m_queuedTasks; }
+size_t TaskQueue::queuedTaskCount() const { return m_queuedTasks; }
 
-auto TaskQueue::isProcessing() const -> bool { return m_isBusy; }
+bool TaskQueue::isProcessing() const { return m_isBusy; }
 
-auto TaskQueue::isShutdown() const -> bool { return !m_running; }
+bool TaskQueue::isShutdown() const { return !m_running; }
 
 void TaskQueue::waitForCompletion() const
 {

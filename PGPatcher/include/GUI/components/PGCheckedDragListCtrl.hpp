@@ -62,9 +62,9 @@ public:
 
     // Disable copy and move constructors and assignment operators.
     PGCheckedDragListCtrl(const PGCheckedDragListCtrl&) = delete;
-    auto operator=(const PGCheckedDragListCtrl&) -> PGCheckedDragListCtrl& = delete;
+    PGCheckedDragListCtrl& operator=(const PGCheckedDragListCtrl&) = delete;
     PGCheckedDragListCtrl(PGCheckedDragListCtrl&&) = delete;
-    auto operator=(PGCheckedDragListCtrl&&) -> PGCheckedDragListCtrl& = delete;
+    PGCheckedDragListCtrl& operator=(PGCheckedDragListCtrl&&) = delete;
 
     /**
      * @brief Check or uncheck an item
@@ -82,7 +82,7 @@ public:
      * @return true if checked
      * @return false if not checked
      */
-    [[nodiscard]] auto isChecked(long item) const -> bool;
+    [[nodiscard]] bool isChecked(long item) const;
 
     /**
      * @brief Ignore or unignore meshes from a mod (item)
@@ -100,7 +100,7 @@ public:
      * @return true if ignored
      * @return false if not ignored
      */
-    [[nodiscard]] auto areMeshesIgnored(long item) const -> bool;
+    [[nodiscard]] bool areMeshesIgnored(long item) const;
 
     /**
      * @brief Set the Cutoff Line object
@@ -114,7 +114,7 @@ public:
      *
      * @return int index of the cutoff line (-1 if disabled)
      */
-    [[nodiscard]] auto getCutoffLine() const -> int;
+    [[nodiscard]] int cutoffLine() const;
 
     /**
      * @brief Set the Dragging Enabled object
@@ -136,7 +136,7 @@ public:
      * @return true if dragging is enabled
      * @return false if dragging is disabled
      */
-    [[nodiscard]] auto isDraggingEnabled() const -> bool;
+    [[nodiscard]] bool isDraggingEnabled() const;
 
     /**
      * @brief Get whether context-menu move actions are enabled.
@@ -144,7 +144,7 @@ public:
      * @return true if context-menu move actions are enabled
      * @return false if context-menu move actions are disabled
      */
-    [[nodiscard]] auto isContextMoveEnabled() const -> bool;
+    [[nodiscard]] bool isContextMoveEnabled() const;
 
     /**
      * @brief Set an optional callback that appends extra items to the context menu.
@@ -222,8 +222,8 @@ private:
      * @param toIndex index to move to
      * @return long new index of the moved item
      */
-    auto moveItem(long fromIndex,
-                  long toIndex) -> long;
+    long moveItem(long fromIndex,
+                  long toIndex);
 
     /**
      * @brief Move multiple items from one set of indices to a target index
@@ -232,15 +232,15 @@ private:
      * @param toIndex target index to move to
      * @return std::vector<long> new indices of the moved items (in same order as fromIndices)
      */
-    auto moveItems(const std::vector<long>& fromIndices,
-                   long toIndex) -> std::vector<long>;
+    std::vector<long> moveItems(const std::vector<long>& fromIndices,
+                                long toIndex);
 
     /**
      * @brief Get currently selected items in the list
      *
      * @return std::vector<long> vector of selected item indices
      */
-    [[nodiscard]] auto getSelectedItems() const -> std::vector<long>;
+    [[nodiscard]] std::vector<long> selectedItems() const;
 
     /**
      * @brief Clear all selections in the list

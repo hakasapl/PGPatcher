@@ -26,7 +26,7 @@ PGTextureMapListCtrl::PGTextureMapListCtrl(wxWindow* parent,
 
 void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
 {
-    static const auto possibleTexTypes = PGEnums::getTexTypesStr();
+    static const auto possibleTexTypes = PGEnums::texTypesStr();
     // Convert to wxArrayStr.
     wxArrayString wxPossibleTexTypes;
     for (const auto& texType : possibleTexTypes)
@@ -37,7 +37,7 @@ void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
     const long item = HitTest(pos, flags);
 
     if (item != wxNOT_FOUND && ((flags & wxLIST_HITTEST_ONITEM) != 0)) {
-        const int column = getColumnAtPosition(pos, item);
+        const int column = columnAtPosition(pos, item);
         if (column == 0) {
             // Start editing the first column.
             EditLabel(item);
@@ -77,8 +77,8 @@ void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
     }
 }
 
-auto PGTextureMapListCtrl::getColumnAtPosition(const wxPoint& pos,
-                                               long item) -> int
+int PGTextureMapListCtrl::columnAtPosition(const wxPoint& pos,
+                                           long item)
 {
     wxRect rect;
     for (int col = 0; col < GetColumnCount(); ++col) {

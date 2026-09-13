@@ -10,7 +10,7 @@
 #include <vector>
 
 namespace PGTypes {
-auto getTextureSlotsFromStr(const std::string& slots) -> TextureSet
+TextureSet textureSlotsFromStr(const std::string& slots)
 {
     TextureSet textureSlots;
     std::vector<std::string> splitSlots;
@@ -21,7 +21,7 @@ auto getTextureSlotsFromStr(const std::string& slots) -> TextureSet
     return textureSlots;
 }
 
-auto getStrFromTextureSlots(const TextureSet& slots) -> std::string
+std::string strFromTextureSlots(const TextureSet& slots)
 {
     std::string strSlots;
     for (const auto& slot : slots) {

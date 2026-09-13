@@ -50,5 +50,5 @@ public:
      *
      * @return true if setException() has been called at least once, false otherwise.
      */
-    static auto hasException() -> bool;
+    static bool hasException();
 };

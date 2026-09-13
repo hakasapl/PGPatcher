@@ -29,9 +29,9 @@
 
 namespace {
 
-auto buildCompletionMessage(const long long& timeTaken) -> wxString
+wxString buildCompletionMessage(const long long& timeTaken)
 {
-    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().output.dir);
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::pgc()->params().output.dir);
     return wxString::Format(pgTr("completion.message"), timeTaken, wxString(outputPath.wstring()));
 }
 
@@ -46,7 +46,7 @@ void fixCollapsiblePaneHeaderDarkMode(wxCollapsiblePane* pane)
     if (header == nullptr)
         return;
 
-    header->Bind(wxEVT_PAINT, [header, pane](wxPaintEvent&) -> void {
+    header->Bind(wxEVT_PAINT, [header, pane](wxPaintEvent&) {
         wxPaintDC dc(header);
         dc.SetBackground(wxBrush(header->GetBackgroundColour()));
         dc.Clear();
@@ -82,10 +82,10 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
     // Get config.
-    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().output.dir);
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::pgc()->params().output.dir);
 
     // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
     const int borderSize = FromDIP(borderSizeDIP);
@@ -125,8 +125,8 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     fixCollapsiblePaneHeaderDarkMode(warningsCtrl);
 
     m_warnListCtrl = new PGLogMessageListCtrl(warningsCtrl->GetPane(), wxID_ANY);
-    m_warnListCtrl->Bind(s_evtPGLogIgnoreChanged, [this, warningsCtrl](wxCommandEvent&) -> void {
-        const auto numWarnings = m_warnListCtrl->getNumUnignoredMessages();
+    m_warnListCtrl->Bind(s_evtPGLogIgnoreChanged, [this, warningsCtrl](wxCommandEvent&) {
+        const auto numWarnings = m_warnListCtrl->numUnignoredMessages();
         warningsCtrl->SetLabel(wxString::Format(pgTr("completion.showWarningsCount"), static_cast<int>(numWarnings)));
 
         warningsCtrl->Refresh();
@@ -134,9 +134,9 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     });
 
     // Get existing ignore messages.
-    const auto ignoreMap = PGConfig::getIgnoredMessagesConfig();
+    const auto ignoreMap = PGConfig::ignoredMessagesConfig();
     m_warnListCtrl->setIgnoreMap(ignoreMap);
-    m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
+    m_warnListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->warningMessages());
     setupLogMessagePane(warningsCtrl, m_warnListCtrl);
 
     mainSizer->Add(warningsCtrl, 1, wxEXPAND, 0);
@@ -150,21 +150,21 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
                                              wxCP_DEFAULT_STYLE | wxCP_NO_TLW_RESIZE);
     fixCollapsiblePaneHeaderDarkMode(errorsCtrl);
     m_errListCtrl = new PGLogMessageListCtrl(errorsCtrl->GetPane(), wxID_ANY, false);
-    m_errListCtrl->Bind(s_evtPGLogIgnoreChanged, [this, errorsCtrl](wxCommandEvent&) -> void {
-        const auto numErrors = m_errListCtrl->getNumUnignoredMessages();
+    m_errListCtrl->Bind(s_evtPGLogIgnoreChanged, [this, errorsCtrl](wxCommandEvent&) {
+        const auto numErrors = m_errListCtrl->numUnignoredMessages();
         errorsCtrl->SetLabel(wxString::Format(pgTr("completion.showErrorsCount"), static_cast<int>(numErrors)));
 
         errorsCtrl->Refresh();
         errorsCtrl->Update();
     });
 
-    m_errListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getErrorMessages());
+    m_errListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->errorMessages());
     setupLogMessagePane(errorsCtrl, m_errListCtrl, false);
 
     mainSizer->Add(errorsCtrl, 1, wxEXPAND, 0);
 
     // Show mod conflicts / order button (hidden when no conflict manager is configured).
-    const auto& modManagerType = PGPatcherGlobals::getPGC()->getParams().modManager.type;
+    const auto& modManagerType = PGPatcherGlobals::pgc()->params().modManager.type;
     if (modManagerType != PGModManager::ModManagerType::None) {
         auto* showModConflictsButton = new wxButton(this, wxID_ANY, pgTr("completion.conflictManager"));
         showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
@@ -186,7 +186,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
-    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
         wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Error-Message-Guide");
     });
 
@@ -194,7 +194,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
 
     // OK button.
     auto* okButton = new wxButton(this, wxID_ANY, pgTr("common.ok"));
-    okButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+    okButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
         saveIgnoredMessagesToConfig();
         EndModal(wxID_OK); // then close
     });
@@ -220,7 +220,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
         else
             evt.Skip(); // allow other keys to behave normally
     });
-    Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent& evt) -> void {
+    Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent& evt) {
         evt.Skip(); // allow normal close without running pre-close logic
     });
 
@@ -231,7 +231,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     Centre(); // Center the dialog on screen
 }
 
-auto CompletionDialog::ShowModal() -> int
+int CompletionDialog::ShowModal()
 {
     // Reset size and collapse everything.
     for (auto* child : GetChildren())
@@ -266,8 +266,8 @@ void CompletionDialog::refreshLogMessages()
 {
     // Repopulating the lists also fires s_EVT_PG_LOG_IGNORE_CHANGED, which updates the.
     // "Show Warnings (N)" / "Show Errors (N)" pane labels bound in the constructor.
-    m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
-    m_errListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getErrorMessages());
+    m_warnListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->warningMessages());
+    m_errListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->errorMessages());
 }
 
 void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
@@ -294,8 +294,8 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
         checkboxShowIgnored->SetValue(false);
 
         // Bind checkbox event.
-        checkboxShowIgnored->Bind(
-            wxEVT_CHECKBOX, [listCtrl](wxCommandEvent& evt) -> void { listCtrl->setShowIgnored(evt.IsChecked()); });
+        checkboxShowIgnored->Bind(wxEVT_CHECKBOX,
+                                  [listCtrl](wxCommandEvent& evt) { listCtrl->setShowIgnored(evt.IsChecked()); });
 
         // Add checkbox to the sizer first, so it appears above the list.
         parentSizer->Add(checkboxShowIgnored, 0, wxALL | wxEXPAND, checkboxBorder);
@@ -312,7 +312,7 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
     pane->GetPane()->SetSizer(parentSizer);
 
     // Collapsible pane expand/shrink handling.
-    pane->Bind(wxEVT_COLLAPSIBLEPANE_CHANGED, [this, pane, expandDelta](wxCollapsiblePaneEvent&) -> void {
+    pane->Bind(wxEVT_COLLAPSIBLEPANE_CHANGED, [this, pane, expandDelta](wxCollapsiblePaneEvent&) {
         wxSize dlgSize = this->GetSize();
         wxSize dlgMinSize = this->GetMinSize();
         if (pane->IsExpanded()) {
@@ -362,7 +362,7 @@ void CompletionDialog::onOpenOutputLocation([[maybe_unused]] wxCommandEvent& eve
 {
     saveIgnoredMessagesToConfig();
 
-    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().output.dir);
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::pgc()->params().output.dir);
     wxLaunchDefaultApplication(outputPath.wstring());
 
     // Close dialog.
@@ -373,7 +373,7 @@ void CompletionDialog::onOpenLogFile([[maybe_unused]] wxCommandEvent& event)
 {
     saveIgnoredMessagesToConfig();
 
-    const auto logFilePath = PGPatcherGlobals::getEXEPath() / "log" / "PGPatcher.log";
+    const auto logFilePath = PGPatcherGlobals::exePath() / "log" / "PGPatcher.log";
     wxLaunchDefaultApplication(logFilePath.wstring());
 
     // Close dialog.
@@ -393,7 +393,7 @@ void CompletionDialog::onShowModConflicts([[maybe_unused]] wxCommandEvent& event
 void CompletionDialog::saveIgnoredMessagesToConfig()
 {
     // Combine ignore maps from both lists.
-    const auto ignoreMap = m_warnListCtrl->getIgnoreMap();
+    const auto ignoreMap = m_warnListCtrl->ignoreMap();
     // Save to config.
     PGConfig::saveIgnoredMessagesConfig(ignoreMap);
 }
