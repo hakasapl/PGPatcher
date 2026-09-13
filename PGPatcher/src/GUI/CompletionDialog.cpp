@@ -110,7 +110,7 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     // Text.
     m_completionText = new wxStaticText(this, wxID_ANY, buildCompletionMessage(timeTaken));
     m_completionText->Wrap(requiredWidth
-                           - FromDIP(80 + helpButtonSize + (borderSize * 2))); // Wrap based on calculated width
+                           - FromDIP(80 + helpButtonSize + (borderSizeDIP * 2))); // Wrap based on calculated width
     contentSizer->Add(m_completionText, 1, wxALL | wxALIGN_CENTER_VERTICAL, FromDIP(15));
 
     mainSizer->Add(contentSizer, 0, wxEXPAND);
