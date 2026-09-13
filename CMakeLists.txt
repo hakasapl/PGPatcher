@@ -12,6 +12,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #
+# Emit compile_commands.json, which clangd and the clang-tidy pre-commit hook both read
+#
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+#
 # MSVC / Windows SDK
 #
 add_compile_options("/Zc:__cplusplus")

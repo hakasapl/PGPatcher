@@ -32,6 +32,14 @@ jobs:
         run: |
           ./buildRelease.ps1 -NoZip
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+
+      - name: Run clang-tidy
+        run: |
+          pip install clang-tidy==22.1.8
+          python scripts/run_clang_tidy.py
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:

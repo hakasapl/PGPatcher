@@ -26,6 +26,17 @@ Tags are exclusively used to designate versions in this repository.
 
 [Pre-commit](https://pre-commit.com/) is used for linting and formatting. Pre-commit calls [clang-format](https://clang.llvm.org/docs/ClangFormat.html) and [clang-tidy](https://clang.llvm.org/extra/clang-tidy/) for formatting and linting, respectively, for the C++ code. Pre-commit has several general hooks for file endings, json formatting, and more. It is recommended to add the pre-commit hook to your local cloned repository so that it can run before any commit.
 
+Both are enforced on every pull request. [pre-commit.ci](https://pre-commit.ci/) runs the hooks and pushes any fixes back to the branch, which covers clang-format; the version is pinned in `.pre-commit-config.yaml`, so it does not depend on what your editor happens to bundle.
+
+clang-tidy is not a pre-commit hook, because it replays the real compile commands and so needs a build tree that has been configured *and* built at least once (PGMutagen generates flatbuffers headers into it). The `Build PGPatcher` workflow runs it after the build. To run it yourself:
+
+```
+pip install clang-tidy==22.1.8
+python scripts/run_clang_tidy.py
+```
+
+It picks up `buildRelease/` or `build/` automatically; pass `--build-dir` for anything else. The script exists because plain clang-tidy exits non-zero even on a clean tree here: `external/nifly/.clang-tidy` sets a key clang-tidy removed years ago, and fmt 11 fails its own consteval format-string check under clang 19 and newer. It passes `--config-file` and drops diagnostics that are not in our own code.
+
 The [Webkit](https://webkit.org/code-style-guidelines/) style is used for all C++ code. Clang-format and clang-tidy will enforce this.
 
 ### Unit Tests
