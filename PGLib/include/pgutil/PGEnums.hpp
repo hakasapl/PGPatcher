@@ -14,15 +14,15 @@
 namespace PGEnums {
 // These need to be in the order of worst shader to best shader.
 /// @brief Represents the shader type applied to a shape, ordered from worst to best quality.
-enum class ShapeShader : uint8_t { Unknown, NONE, VANILLAPARALLAX, COMPLEXMATERIAL, TRUEPBR };
+enum class ShapeShader : uint8_t { Unknown, None, VanillaParallax, ComplexMaterial, TruePBR };
 
 static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 5> shapeShaderTable {
     {
-        { .value = ShapeShader::NONE, .name = "Default" },
+        { .value = ShapeShader::None, .name = "Default" },
         { .value = ShapeShader::Unknown, .name = "Unknown" },
-        { .value = ShapeShader::TRUEPBR, .name = "PBR" },
-        { .value = ShapeShader::COMPLEXMATERIAL, .name = "Complex Material" },
-        { .value = ShapeShader::VANILLAPARALLAX, .name = "Parallax" },
+        { .value = ShapeShader::TruePBR, .name = "PBR" },
+        { .value = ShapeShader::ComplexMaterial, .name = "Complex Material" },
+        { .value = ShapeShader::VanillaParallax, .name = "Parallax" },
     },
 };
 

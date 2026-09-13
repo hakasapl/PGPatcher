@@ -222,7 +222,7 @@ auto PatcherMeshShaderTruePBR::factory() -> PatcherMeshShader::PatcherMeshShader
     };
 }
 
-PGEnums::ShapeShader PatcherMeshShaderTruePBR::shaderType() { return PGEnums::ShapeShader::TRUEPBR; }
+PGEnums::ShapeShader PatcherMeshShaderTruePBR::shaderType() { return PGEnums::ShapeShader::TruePBR; }
 
 bool PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape,
                                         [[maybe_unused]] bool isSinglepassMATO,

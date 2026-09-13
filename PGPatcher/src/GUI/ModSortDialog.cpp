@@ -169,7 +169,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
     mainSizer->Add(m_showAllMeshesButton, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, defaultBorder);
 
     // Add "Use MO2 Loose File Order" checkbox.
-    if (pgc->params().modManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
+    if (pgc->params().modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
         // Only show checkbox for MO2 users.
         m_checkBoxMO2 = new wxCheckBox(this, wxID_ANY, pgTr("conflictManager.lockMO2Order.label"), wxDefaultPosition);
         m_checkBoxMO2->SetToolTip(pgTr("conflictManager.lockMO2Order.tooltip"));
@@ -913,7 +913,7 @@ void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager:
             // See if we need to autoenable (max variant is greater than 1 which is NONE shader).
             if (autoEnable) {
                 const bool hasNonNone = std::ranges::any_of(
-                    shaders, [](PGEnums::ShapeShader s) { return s != PGEnums::ShapeShader::NONE; });
+                    shaders, [](PGEnums::ShapeShader s) { return s != PGEnums::ShapeShader::None; });
                 if (hasNonNone)
                     modEnabled = true;
             }
@@ -1238,7 +1238,7 @@ wxString ModSortDialog::constructShaderString(const std::set<PGEnums::ShapeShade
 {
     wxString shaderStr;
     for (const auto& shader : shaders) {
-        if (shader == PGEnums::ShapeShader::NONE)
+        if (shader == PGEnums::ShapeShader::None)
             continue;
 
         if (!shaderStr.empty())

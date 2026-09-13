@@ -32,7 +32,7 @@ public:
      * it.
      */
     struct FileIdentity {
-        enum class Kind : uint8_t { None, LOOSE, BSA, GENERATED };
+        enum class Kind : uint8_t { None, Loose, BSA, Generated };
 
         Kind kind = Kind::None;
         int64_t mtime = 0; /**< Loose files: last write time (file_time_type ticks) */

@@ -256,7 +256,7 @@ auto BethesdaDirectory::buildIdentity(const BethesdaFile& file) -> FileIdentity
     }
 
     if (file.isGenerated) {
-        identity.kind = FileIdentity::Kind::GENERATED;
+        identity.kind = FileIdentity::Kind::Generated;
         return identity;
     }
 
@@ -268,7 +268,7 @@ auto BethesdaDirectory::buildIdentity(const BethesdaFile& file) -> FileIdentity
         return identity;
     }
 
-    identity.kind = FileIdentity::Kind::LOOSE;
+    identity.kind = FileIdentity::Kind::Loose;
     identity.mtime = file.mtime;
     identity.size = file.size;
     return identity;

@@ -53,7 +53,7 @@ public:
     enum class HookKind : uint8_t { ConvertToCM, FixSSS };
 
     /// @brief Result of a file existence query as seen by a patcher
-    enum class FileExistsState : uint8_t { Missing, EXISTS, GENERATED };
+    enum class FileExistsState : uint8_t { Missing, Exists, Generated };
 
     using TextureVote = PGTypes::TextureVote;
     using CMClassification = PGTypes::CMClassification;

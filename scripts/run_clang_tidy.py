@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Run clang-tidy over every project translation unit and fail on any diagnostic.
 
-Used by the `clang-tidy` pre-commit hook. It needs a configured build tree, because
-clang-tidy replays the real compile commands from compile_commands.json.
+Run by the build workflow once it has a build tree, and by hand for the same check
+locally. Not a pre-commit hook: clang-tidy replays the real compile commands, so it needs
+a configured *and* built tree, which pre-commit.ci does not have.
 
     python scripts/run_clang_tidy.py [--build-dir DIR] [--jobs N] [files...]
 
@@ -45,7 +46,14 @@ BUILD_DIR_CANDIDATES = (
 )
 
 HEADER_FILTER = r'(' + '|'.join(PROJECT_DIRS) + r')[/\\](include|src)[/\\]'
-DIAG_LINE = re.compile(r'^(?P<path>[A-Za-z]:[\\/].+?|/.+?):(\d+):(\d+):\s+(warning|error):')
+DIAG_LINE = re.compile(
+    r'^(?P<path>[A-Za-z]:[\\/].+?|/.+?):(\d+):(\d+):\s+(?:fatal error|error|warning):')
+
+# clang-tidy's own failures: a bad config, an unusable compilation database, a crash. These
+# carry no file position, or point at a .clang-tidy rather than at our code, so the path
+# filter below would silently swallow them. "Error while processing <file>." is excluded on
+# purpose: every clean TU already emits it because of the fmt/spdlog errors.
+TOOL_FAILURE = re.compile(r'^Error(?! while processing\b)')
 
 
 def find_compile_commands(explicit: str | None) -> str:
@@ -100,7 +108,10 @@ def run_one(clang_tidy: str, build_dir: str, unit: str) -> tuple[str, list[str]]
     # Keep a diagnostic and its following context lines only when it points at our code.
     kept: list[str] = []
     keeping = False
+    failures: list[str] = []
     for line in (result.stdout + result.stderr).splitlines():
+        if TOOL_FAILURE.match(line):
+            failures.append(line)
         match = DIAG_LINE.match(line)
         if match:
             keeping = is_project_file(match.group('path'))
@@ -108,6 +119,13 @@ def run_one(clang_tidy: str, build_dir: str, unit: str) -> tuple[str, list[str]]
             keeping = False
         if keeping:
             kept.append(line)
+
+    # clang-tidy exits 1 for the fmt/spdlog errors on every clean TU, so a non-zero status
+    # on its own means nothing here. Anything above 1 is a crash rather than diagnostics.
+    if result.returncode > 1:
+        failures.append(f'clang-tidy exited {result.returncode}')
+    if failures and not kept:
+        kept = [f'{unit}: clang-tidy could not complete:'] + [f'  {f}' for f in failures]
     return unit, kept
 
 

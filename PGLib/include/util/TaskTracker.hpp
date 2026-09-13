@@ -16,7 +16,7 @@
 class TaskTracker {
 public:
     /** @brief Possible outcomes for an individual job. */
-    enum class Result : uint8_t { Success, SuccessWithWarnings, FAILURE };
+    enum class Result : uint8_t { Success, SuccessWithWarnings, Failure };
 
 private:
     static constexpr int fullPercentage = 100;
@@ -36,7 +36,7 @@ private:
     std::unordered_map<Result, std::string> m_resultStr = {
         { Result::Success, "COMPLETED" },
         { Result::SuccessWithWarnings, "COMPLETED WITH WARNINGS" },
-        { Result::FAILURE, "FAILED" },
+        { Result::Failure, "FAILED" },
     };
 
 public:
@@ -87,7 +87,7 @@ public:
      */
     static void updateResult(Result& result,
                              const Result& currentResult,
-                             const Result& threshold = Result::FAILURE);
+                             const Result& threshold = Result::Failure);
 
 private:
     void initJobStatus();

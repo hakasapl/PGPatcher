@@ -501,15 +501,15 @@ void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDi
 
 auto PGModManager::modManagerTypes() -> std::vector<ModManagerType>
 {
-    return { ModManagerType::None, ModManagerType::VORTEX, ModManagerType::MODORGANIZER2 };
+    return { ModManagerType::None, ModManagerType::Vortex, ModManagerType::ModOrganizer2 };
 }
 
 std::string PGModManager::strFromModManagerType(const ModManagerType& type)
 {
     const static auto modManagerTypeToStrMap = std::unordered_map<ModManagerType, std::string> {
         { ModManagerType::None, "None" },
-        { ModManagerType::VORTEX, "Vortex" },
-        { ModManagerType::MODORGANIZER2, "Mod Organizer 2" },
+        { ModManagerType::Vortex, "Vortex" },
+        { ModManagerType::ModOrganizer2, "Mod Organizer 2" },
     };
 
     if (modManagerTypeToStrMap.contains(type))
@@ -524,8 +524,8 @@ auto PGModManager::modManagerTypeFromStr(const std::string& type) -> ModManagerT
 {
     const static auto modManagerStrToTypeMap = std::unordered_map<std::string, ModManagerType> {
         { "None", ModManagerType::None },
-        { "Vortex", ModManagerType::VORTEX },
-        { "Mod Organizer 2", ModManagerType::MODORGANIZER2 },
+        { "Vortex", ModManagerType::Vortex },
+        { "Mod Organizer 2", ModManagerType::ModOrganizer2 },
     };
 
     if (modManagerStrToTypeMap.contains(type))
@@ -544,7 +544,7 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     autoEnabledNewMods.reserve(allMods.size());
     for (const auto& modEntry : allMods) {
         const bool hasPatchableShader
-            = !modEntry->shaders.empty() && *modEntry->shaders.rbegin() > PGEnums::ShapeShader::NONE;
+            = !modEntry->shaders.empty() && *modEntry->shaders.rbegin() > PGEnums::ShapeShader::None;
         if (!modEntry->isNew || !hasPatchableShader)
             continue;
 
@@ -571,7 +571,7 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     }
 
     const std::vector<std::shared_ptr<Mod>> modsSortedBySelectedBaseOrder
-        = useDefaultOrder && m_mmType == ModManagerType::MODORGANIZER2 ? modsByDefaultOrder() : modsByPriority();
+        = useDefaultOrder && m_mmType == ModManagerType::ModOrganizer2 ? modsByDefaultOrder() : modsByPriority();
 
     // The mod sort dialog only displays mods with shaders or meshes and assigns priorities over those.
     // rows alone. Number the same subset here; including hidden mods would offset every priority by the

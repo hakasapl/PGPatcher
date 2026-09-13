@@ -106,7 +106,7 @@ void PGDirectory::findFiles()
                 m_pbrJSONs.push_back(path);
 
                 if (PGGlobals::isPGMMSet())
-                    PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::TRUEPBR);
+                    PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::TruePBR);
             } else if (boost::iequals(firstPath, L"lightplacer")) {
                 // Found Light Placer JSON config.
                 Logger::trace(L"Found light placer json: {} / {}",
@@ -344,7 +344,7 @@ TaskTracker::Result PGDirectory::mapTexturesFromNIF(const std::filesystem::path&
     if (!PGRunCache::tryGetCachedMeshVotes(nifPath, nifIdentity, votes)) {
         if (!readTextureVotesFromNIF(nifPath, votes)) {
             Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
-            return TaskTracker::Result::FAILURE;
+            return TaskTracker::Result::Failure;
         }
 
         PGRunCache::storeMeshVotes(nifPath, nifIdentity, votes);
@@ -633,15 +633,15 @@ void PGDirectory::addToTextureMaps(const std::filesystem::path& path,
     if (type == PGEnums::TextureType::Height) {
         // Parallax.
         if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::VANILLAPARALLAX);
+            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::VanillaParallax);
     } else if (type == PGEnums::TextureType::ComplexMaterial) {
         // PBR parallax.
         if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::COMPLEXMATERIAL);
+            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::ComplexMaterial);
     } else {
         // Default shader for all other types.
         if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::NONE);
+            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::None);
     }
 }
 

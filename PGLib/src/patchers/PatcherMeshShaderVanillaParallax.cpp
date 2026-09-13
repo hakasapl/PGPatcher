@@ -27,7 +27,7 @@ auto PatcherMeshShaderVanillaParallax::factory() -> PatcherMeshShader::PatcherMe
     };
 }
 
-PGEnums::ShapeShader PatcherMeshShaderVanillaParallax::shaderType() { return PGEnums::ShapeShader::VANILLAPARALLAX; }
+PGEnums::ShapeShader PatcherMeshShaderVanillaParallax::shaderType() { return PGEnums::ShapeShader::VanillaParallax; }
 
 PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(std::filesystem::path nifPath,
                                                                    nifly::NifFile* nif)

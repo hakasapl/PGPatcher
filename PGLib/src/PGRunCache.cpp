@@ -138,7 +138,7 @@ void writeIdentity(BinaryIO::Writer& w,
 {
     w.write<uint8_t>(static_cast<uint8_t>(identity.kind));
     switch (identity.kind) {
-    case BethesdaDirectory::FileIdentity::Kind::LOOSE:
+    case BethesdaDirectory::FileIdentity::Kind::Loose:
         w.write<int64_t>(identity.mtime);
         w.write<uint64_t>(identity.size);
         break;
@@ -158,7 +158,7 @@ BethesdaDirectory::FileIdentity readIdentity(BinaryIO::Reader& r,
     BethesdaDirectory::FileIdentity identity;
     identity.kind = static_cast<BethesdaDirectory::FileIdentity::Kind>(r.read<uint8_t>());
     switch (identity.kind) {
-    case BethesdaDirectory::FileIdentity::Kind::LOOSE:
+    case BethesdaDirectory::FileIdentity::Kind::Loose:
         identity.mtime = r.read<int64_t>();
         identity.size = r.read<uint64_t>();
         break;
@@ -168,7 +168,7 @@ BethesdaDirectory::FileIdentity readIdentity(BinaryIO::Reader& r,
         identity.bsaSize = r.read<uint64_t>();
         break;
     case BethesdaDirectory::FileIdentity::Kind::None:
-    case BethesdaDirectory::FileIdentity::Kind::GENERATED:
+    case BethesdaDirectory::FileIdentity::Kind::Generated:
         break;
     default:
         throw std::runtime_error("Update cache: invalid file identity kind");
@@ -796,7 +796,7 @@ void PGRunCache::MeshRecorder::onIsFile(const std::filesystem::path& relPath,
 
     auto state = FileExistsState::Missing;
     if (exists)
-        state = isGenerated ? FileExistsState::GENERATED : FileExistsState::EXISTS;
+        state = isGenerated ? FileExistsState::Generated : FileExistsState::Exists;
 
     // Dependencies store the path exactly as it was queried so evaluation replays the same lookup; the normalized
     // key is only used to avoid recording the same lookup twice.
@@ -1276,7 +1276,7 @@ bool PGRunCache::finishRun(bool save)
             TextureInfo info;
             info.identity = pgd->fileIdentity(texture);
             if (info.identity.kind == BethesdaDirectory::FileIdentity::Kind::None
-                || info.identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
+                || info.identity.kind == BethesdaDirectory::FileIdentity::Kind::Generated) {
                 continue;
             }
 
@@ -1374,7 +1374,7 @@ bool PGRunCache::tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
                                        std::vector<TextureVote>& votes)
 {
     if (!hasPreviousRun() || identity.kind == BethesdaDirectory::FileIdentity::Kind::None
-        || identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
+        || identity.kind == BethesdaDirectory::FileIdentity::Kind::Generated) {
         return false;
     }
 
@@ -1395,7 +1395,7 @@ void PGRunCache::storeMeshVotes(const std::filesystem::path& nifPath,
                                 const std::vector<TextureVote>& votes)
 {
     if (!s_enabled || identity.kind == BethesdaDirectory::FileIdentity::Kind::None
-        || identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
+        || identity.kind == BethesdaDirectory::FileIdentity::Kind::Generated) {
         return;
     }
 
@@ -1422,7 +1422,7 @@ bool PGRunCache::tryGetCachedCMClassification(const std::filesystem::path& textu
                                               CMClassification& result)
 {
     if (!hasPreviousRun() || identity.kind == BethesdaDirectory::FileIdentity::Kind::None
-        || identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
+        || identity.kind == BethesdaDirectory::FileIdentity::Kind::Generated) {
         return false;
     }
 
@@ -1443,7 +1443,7 @@ void PGRunCache::storeCMClassification(const std::filesystem::path& texture,
                                        const CMClassification& result)
 {
     if (!s_enabled || identity.kind == BethesdaDirectory::FileIdentity::Kind::None
-        || identity.kind == BethesdaDirectory::FileIdentity::Kind::GENERATED) {
+        || identity.kind == BethesdaDirectory::FileIdentity::Kind::Generated) {
         return;
     }
 
@@ -1618,13 +1618,13 @@ bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
                 return false;
             }
             break;
-        case FileExistsState::EXISTS:
+        case FileExistsState::Exists:
             if (!exists || pgd->isGenerated(path)) {
                 Logger::trace(L"Re-patching: file no longer exists: {}", path);
                 return false;
             }
             break;
-        case FileExistsState::GENERATED:
+        case FileExistsState::Generated:
             if (!ownHookOutputs.contains(pathKey(path)) && !(exists && pgd->isGenerated(path))) {
                 Logger::trace(L"Re-patching: generated file dependency cannot be satisfied: {}", path);
                 return false;

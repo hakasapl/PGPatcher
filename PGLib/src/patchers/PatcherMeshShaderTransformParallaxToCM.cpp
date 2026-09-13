@@ -25,11 +25,11 @@ auto PatcherMeshShaderTransformParallaxToCM::factory() -> PatcherMeshShaderTrans
 
 PGEnums::ShapeShader PatcherMeshShaderTransformParallaxToCM::fromShader()
 {
-    return PGEnums::ShapeShader::VANILLAPARALLAX;
+    return PGEnums::ShapeShader::VanillaParallax;
 }
 PGEnums::ShapeShader PatcherMeshShaderTransformParallaxToCM::toShader()
 {
-    return PGEnums::ShapeShader::COMPLEXMATERIAL;
+    return PGEnums::ShapeShader::ComplexMaterial;
 }
 
 PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(std::filesystem::path nifPath,
@@ -37,8 +37,8 @@ PatcherMeshShaderTransformParallaxToCM::PatcherMeshShaderTransformParallaxToCM(s
     : PatcherMeshShaderTransform(std::move(nifPath),
                                  nif,
                                  "UpgradeParallaxToCM",
-                                 PGEnums::ShapeShader::VANILLAPARALLAX,
-                                 PGEnums::ShapeShader::COMPLEXMATERIAL)
+                                 PGEnums::ShapeShader::VanillaParallax,
+                                 PGEnums::ShapeShader::ComplexMaterial)
 {
 }
 

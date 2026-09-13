@@ -540,7 +540,7 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     } else if (isFacegen) {
         // If this is true then there are mesh uses but this is a facegen mesh so we should throw a warning.
         Logger::warn(L"NIF has mesh uses but is detected as a facegen mesh: {}", nifPath.wstring());
-        return TaskTracker::Result::FAILURE;
+        return TaskTracker::Result::Failure;
     }
 
     // Loop through each use.
@@ -576,7 +576,7 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                         use.second.recType,
                         use.second.alternateTextures,
                         enforceCheckBlocks)) {
-            return TaskTracker::Result::FAILURE;
+            return TaskTracker::Result::Failure;
         }
         if (meshTracker.commitMesh(formKey, use.second.isWeighted, use.second.alternateTextures, enforceCheckBlocks))
             Logger::trace("Mesh committed");
@@ -1095,7 +1095,7 @@ TaskTracker::Result PGPatcher::patchDDS(const std::filesystem::path& ddsPath)
     DirectX::ScratchImage ddsImage;
     if (!PGGlobals::pGD3D()->getDDS(ddsPath, ddsImage)) {
         Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
-        return TaskTracker::Result::FAILURE;
+        return TaskTracker::Result::Failure;
     }
 
     // Run any hook patchers (these create other textures).
@@ -1103,14 +1103,14 @@ TaskTracker::Result PGPatcher::patchDDS(const std::filesystem::path& ddsPath)
         auto patcher = PatcherTextureHookConvertToCM(ddsPath, &ddsImage);
         if (!patcher.applyPatch()) {
             Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
-            return TaskTracker::Result::FAILURE;
+            return TaskTracker::Result::Failure;
         }
     }
     if (PatcherTextureHookFixSSS::isInProcessList(ddsPath)) {
         auto patcher = PatcherTextureHookFixSSS(ddsPath, &ddsImage);
         if (!patcher.applyPatch()) {
             Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
-            return TaskTracker::Result::FAILURE;
+            return TaskTracker::Result::Failure;
         }
     }
 
@@ -1134,7 +1134,7 @@ TaskTracker::Result PGPatcher::patchDDS(const std::filesystem::path& ddsPath)
                                                   outputFile.c_str());
         if (FAILED(hr)) {
             Logger::error(L"Unable to save texture {}: {}", outputFile.wstring(), PGD3D::hresultErrorMessage(hr));
-            return TaskTracker::Result::FAILURE;
+            return TaskTracker::Result::Failure;
         }
 
         // Update file map with generated file.

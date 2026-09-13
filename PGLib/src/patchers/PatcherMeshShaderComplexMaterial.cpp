@@ -42,7 +42,7 @@ auto PatcherMeshShaderComplexMaterial::factory() -> PatcherMeshShader::PatcherMe
     };
 }
 
-PGEnums::ShapeShader PatcherMeshShaderComplexMaterial::shaderType() { return PGEnums::ShapeShader::COMPLEXMATERIAL; }
+PGEnums::ShapeShader PatcherMeshShaderComplexMaterial::shaderType() { return PGEnums::ShapeShader::ComplexMaterial; }
 
 void PatcherMeshShaderComplexMaterial::loadOptions(std::unordered_map<std::string,
                                                                       std::string>& optionsStr)

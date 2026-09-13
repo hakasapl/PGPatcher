@@ -41,7 +41,7 @@ void TaskTracker::initJobStatus()
     m_lastPerc = 0;
 
     // Initialize all known Result values.
-    m_numJobsCompleted[Result::FAILURE] = 0;
+    m_numJobsCompleted[Result::Failure] = 0;
     m_numJobsCompleted[Result::Success] = 0;
     m_numJobsCompleted[Result::SuccessWithWarnings] = 0;
 

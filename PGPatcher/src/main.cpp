@@ -500,7 +500,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     TaskQueue modManagerInit;
 
-    if (params.modManager.type == PGModManager::ModManagerType::MODORGANIZER2
+    if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
         && !params.modManager.mo2InstanceDir.empty()) {
         // Make sure running is USVFS.
         if (!args.ignoreMO2Check && !PGHandlers::isUnderUSVFS()) {
@@ -515,7 +515,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         } else {
             pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir);
         }
-    } else if (params.modManager.type == PGModManager::ModManagerType::VORTEX) {
+    } else if (params.modManager.type == PGModManager::ModManagerType::Vortex) {
         // Vortex.
         if (params.processing.multithread)
             modManagerInit.queueTask([&pgmm, &bg] { pgmm->populateModFileMapVortex(bg->gameDataPath()); });

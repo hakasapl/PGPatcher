@@ -23,7 +23,7 @@ auto PatcherMeshShaderDefault::factory() -> PatcherMeshShader::PatcherMeshShader
     };
 }
 
-PGEnums::ShapeShader PatcherMeshShaderDefault::shaderType() { return PGEnums::ShapeShader::NONE; }
+PGEnums::ShapeShader PatcherMeshShaderDefault::shaderType() { return PGEnums::ShapeShader::None; }
 
 PatcherMeshShaderDefault::PatcherMeshShaderDefault(std::filesystem::path nifPath,
                                                    nifly::NifFile* nif)

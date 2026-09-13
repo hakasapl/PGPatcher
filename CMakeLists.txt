@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #
-# Emit compile_commands.json, which clangd and the clang-tidy pre-commit hook both read
+# Emit compile_commands.json, which clangd and scripts/run_clang_tidy.py both read
 #
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

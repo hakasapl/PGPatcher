@@ -519,7 +519,7 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
             m_modManagerRadios[mmType]->SetValue(true);
 
             // Show MO2 options only if MO2 is selected.
-            if (mmType == PGModManager::ModManagerType::MODORGANIZER2) {
+            if (mmType == PGModManager::ModManagerType::ModOrganizer2) {
                 m_mo2InstanceLocationTextbox->Enable(true);
                 m_mo2InstanceBrowseButton->Enable(true);
             } else {
@@ -603,7 +603,7 @@ void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
 {
     // Show MO2 options only if the MO2 radio button is selected.
     const bool isMO2Selected
-        = (event.GetEventObject() == m_modManagerRadios[PGModManager::ModManagerType::MODORGANIZER2]);
+        = (event.GetEventObject() == m_modManagerRadios[PGModManager::ModManagerType::ModOrganizer2]);
     m_mo2InstanceLocationTextbox->Enable(isMO2Selected);
     m_mo2InstanceBrowseButton->Enable(isMO2Selected);
 
@@ -799,7 +799,7 @@ void LauncherWindow::onBrowseMO2InstanceLocation([[maybe_unused]] wxCommandEvent
 void LauncherWindow::updateMO2Items()
 {
     // Check if MO2 is selected.
-    if (!m_modManagerRadios[PGModManager::ModManagerType::MODORGANIZER2]->GetValue()) {
+    if (!m_modManagerRadios[PGModManager::ModManagerType::ModOrganizer2]->GetValue()) {
         const bool shouldLock = m_isGameLocationLockedByInstallLocation;
         m_gameLocationTextbox->Enable(!shouldLock);
         m_gameLocationBrowseButton->Enable(!shouldLock);
@@ -997,7 +997,7 @@ void LauncherWindow::setGamePathBasedOnExe()
     m_isGameLocationLockedByInstallLocation = BethesdaGame::isGamePathValid(gamePath, curGameType);
 
     const auto curModManagerType = curParams.modManager.type;
-    if (curModManagerType == PGModManager::ModManagerType::MODORGANIZER2) {
+    if (curModManagerType == PGModManager::ModManagerType::ModOrganizer2) {
         // Keep MO2 path selection behavior, but preserve install-location lock precedence.
         updateMO2Items();
         return;

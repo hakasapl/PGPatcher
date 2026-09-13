@@ -51,7 +51,7 @@ private:
 
 public:
     /// @brief Identifies which mod manager type is in use.
-    enum class ModManagerType : uint8_t { None, VORTEX, MODORGANIZER2 };
+    enum class ModManagerType : uint8_t { None, Vortex, ModOrganizer2 };
 
     /**
      * @brief Represents a single mod entry with its metadata and conflict information.

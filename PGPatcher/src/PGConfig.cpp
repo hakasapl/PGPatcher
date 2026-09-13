@@ -86,7 +86,7 @@ void PGConfig::resolveRelativePaths(PGParams& params)
 
     // The game location is only user-editable when MO2 does not provide it. A game path from modorganizer.ini is.
     // relative to the MO2 folder instead and is resolved by PGModManager::resolveMO2GamePath when it is read.
-    const bool gameDirFromMO2 = params.modManager.type == PGModManager::ModManagerType::MODORGANIZER2
+    const bool gameDirFromMO2 = params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
         && !PGModManager::gamePathFromInstanceDir(params.modManager.mo2InstanceDir).empty();
     if (!gameDirFromMO2)
         params.game.dir = resolveExeRelativePath(params.game.dir);
@@ -314,7 +314,7 @@ bool PGConfig::validateParams(const PGParams& rawParams,
     if (params.game.dir.empty())
         addError("launcher.validation.gameLocationRequired");
 
-    if (params.modManager.type == PGModManager::ModManagerType::MODORGANIZER2 && !params.game.dir.empty()
+    if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2 && !params.game.dir.empty()
         && params.game.dir.is_relative()) {
         // MO2 stores the game path relative to its own folder, which PGPatcher finds through the MO2 VFS it was.
         // launched from or, for portable instances, the instance folder (see PGModManager::findMO2Dir). Neither worked
@@ -326,7 +326,7 @@ bool PGConfig::validateParams(const PGParams& rawParams,
     }
 
     // Mod Manager.
-    if (params.modManager.type == PGModManager::ModManagerType::MODORGANIZER2) {
+    if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
         if (params.modManager.mo2InstanceDir.empty())
             addError("launcher.validation.mo2InstanceRequired");
 
