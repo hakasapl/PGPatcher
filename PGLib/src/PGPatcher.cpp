@@ -35,10 +35,12 @@
 #include <boost/iostreams/stream.hpp>
 #include <boost/thread.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <d3d11.h>
 #include <exception>
 #include <filesystem>

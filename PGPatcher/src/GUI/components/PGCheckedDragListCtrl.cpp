@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <functional>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // Disable owning memory checks because wxWidgets will take care of deleting the objects.

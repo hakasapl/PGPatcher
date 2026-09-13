@@ -4,6 +4,7 @@
 #include "GUI/components/PGLogMessageListCtrl.hpp"
 #include "PGConfig.hpp"
 #include "PGLocale.hpp"
+#include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "PGUI.hpp"
 

@@ -7,7 +7,6 @@
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGTypes.hpp"
-#include "util/Logger.hpp"
 
 #include <DirectXTex.h>
 #include <spdlog/common.h>

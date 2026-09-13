@@ -4,8 +4,6 @@
 #include <wx/stattext.h>
 #include <wx/wx.h>
 
-#include <string>
-
 /**
  * @brief wxDialog that shows main and step progress bars during the patching operation.
  *

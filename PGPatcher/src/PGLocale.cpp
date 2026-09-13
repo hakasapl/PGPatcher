@@ -3,6 +3,7 @@
 #include "util/FileUtil.hpp"
 
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <wx/uilocale.h>
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace {
 

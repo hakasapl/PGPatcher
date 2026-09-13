@@ -27,7 +27,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Disable owning memory checks because wxWidgets will take care of deleting the objects.

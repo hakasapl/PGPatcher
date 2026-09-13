@@ -1,6 +1,5 @@
 #pragma once
 
-#include "NifFile.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"

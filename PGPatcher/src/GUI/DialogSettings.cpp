@@ -1,5 +1,6 @@
 #include "GUI/DialogSettings.hpp"
 
+#include "PGConfig.hpp"
 #include "PGLocale.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "PGUI.hpp"
@@ -8,6 +9,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
+#include <cstddef>
 #include <string>
 
 // Disable owning memory checks because wxWidgets will take care of deleting the objects.
