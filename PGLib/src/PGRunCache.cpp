@@ -222,7 +222,7 @@ void writeUses(BinaryIO::Writer& w,
 
         uint8_t flags = 0;
         flags |= attrs.isWeighted ? 1U : 0U;
-        flags |= attrs.singlepassMATO ? 2U : 0U;
+        flags |= attrs.isSinglepassMATO ? 2U : 0U;
         flags |= attrs.isFacegen ? 4U : 0U;
         flags |= attrs.isIgnored ? 8U : 0U;
         flags |= attrs.isDummyUse ? 16U : 0U;
@@ -249,7 +249,7 @@ PGRunCache::MeshUses readUses(BinaryIO::Reader& r,
         PGPlugin::MeshUseAttributes attrs { };
         const auto flags = r.read<uint8_t>();
         attrs.isWeighted = (flags & 1U) != 0U;
-        attrs.singlepassMATO = (flags & 2U) != 0U;
+        attrs.isSinglepassMATO = (flags & 2U) != 0U;
         attrs.isFacegen = (flags & 4U) != 0U;
         attrs.isIgnored = (flags & 8U) != 0U;
         attrs.isDummyUse = (flags & 16U) != 0U;
@@ -499,7 +499,7 @@ void writeRecord(BinaryIO::Writer& w,
     w.write<uint32_t>(static_cast<uint32_t>(record.matchesDeps.size()));
     for (const auto& dep : record.matchesDeps) {
         writeTextureSet(w, st, dep.slots);
-        w.writeBool(dep.singlepassMATO);
+        w.writeBool(dep.isSinglepassMATO);
         w.write<uint8_t>(static_cast<uint8_t>(dep.recType));
         w.write<uint64_t>(dep.digest);
     }
@@ -612,7 +612,7 @@ PGRunCache::MeshRecord readRecord(BinaryIO::Reader& r,
     for (size_t i = 0; i < count; i++) {
         PGRunCache::MatchesDep dep;
         dep.slots = readTextureSet(r, st);
-        dep.singlepassMATO = r.readBool();
+        dep.isSinglepassMATO = r.readBool();
         dep.recType = static_cast<PGPlugin::ModelRecordType>(r.read<uint8_t>());
         dep.digest = r.read<uint64_t>();
         record.matchesDeps.push_back(std::move(dep));
@@ -689,7 +689,7 @@ DirectX::TexMetadata readTexMetadata(BinaryIO::Reader& r)
 }
 
 std::wstring matchesDepKey(const PGTypes::TextureSet& slots,
-                           bool singlepassMATO,
+                           bool isSinglepassMATO,
                            const PGPlugin::ModelRecordType& recType)
 {
     std::wstring key;
@@ -697,7 +697,7 @@ std::wstring matchesDepKey(const PGTypes::TextureSet& slots,
         key += slot;
         key += L'|';
     }
-    key += singlepassMATO ? L'1' : L'0';
+    key += isSinglepassMATO ? L'1' : L'0';
     key += L'|';
     key += std::to_wstring(static_cast<int>(recType));
     return key;
@@ -759,7 +759,7 @@ uint8_t PGRunCache::attributesToMask(const std::unordered_set<PGEnums::TextureAt
 void PGRunCache::captureLogMessage(spdlog::level::level_enum level,
                                    const std::wstring& message)
 {
-    if (s_activeRecorder != nullptr)
+    if (s_activeRecorder)
         s_activeRecorder->recordMessage(level, message);
 }
 
@@ -770,7 +770,7 @@ void PGRunCache::captureLogMessage(spdlog::level::level_enum level,
 PGRunCache::MeshRecorder::MeshRecorder(std::filesystem::path nifPath)
     : m_nifPath(std::move(nifPath))
 {
-    if (s_activeRecorder != nullptr)
+    if (s_activeRecorder)
         throw std::runtime_error("Nested mesh recorders are not supported");
 
     s_activeRecorder = this;
@@ -789,14 +789,14 @@ PGRunCache::MeshRecorder::~MeshRecorder()
 
 void PGRunCache::MeshRecorder::onIsFile(const std::filesystem::path& relPath,
                                         bool exists,
-                                        bool generated)
+                                        bool isGenerated)
 {
     if (s_suspendDepth > 0)
         return;
 
     auto state = FileExistsState::Missing;
     if (exists)
-        state = generated ? FileExistsState::GENERATED : FileExistsState::EXISTS;
+        state = isGenerated ? FileExistsState::GENERATED : FileExistsState::EXISTS;
 
     // Dependencies store the path exactly as it was queried so evaluation replays the same lookup; the normalized
     // key is only used to avoid recording the same lookup twice.
@@ -862,13 +862,13 @@ void PGRunCache::MeshRecorder::recordModState(const std::wstring& modName,
 }
 
 void PGRunCache::MeshRecorder::recordMatches(const PGTypes::TextureSet& slots,
-                                             bool singlepassMATO,
+                                             bool isSinglepassMATO,
                                              const PGPlugin::ModelRecordType& recType,
                                              uint64_t digest)
 {
-    if (m_matchesDeps.insert(matchesDepKey(slots, singlepassMATO, recType)).second) {
+    if (m_matchesDeps.insert(matchesDepKey(slots, isSinglepassMATO, recType)).second) {
         m_record.matchesDeps.push_back(
-            { .slots = slots, .singlepassMATO = singlepassMATO, .recType = recType, .digest = digest });
+            { .slots = slots, .isSinglepassMATO = isSinglepassMATO, .recType = recType, .digest = digest });
     }
 }
 
@@ -892,7 +892,7 @@ void PGRunCache::MeshRecorder::recordMessage(const spdlog::level::level_enum& le
 {
     if (level == spdlog::level::critical) {
         // A mesh that produced a critical error must never be considered successfully patched.
-        m_valid = false;
+        m_isValid = false;
         return;
     }
 
@@ -944,12 +944,12 @@ void PGRunCache::MeshRecorder::setMeta(const PGPatcher::MeshMeta& meta)
             std::vector<MatchMetaRecord> matchRecords;
             for (const auto& matchMeta : shapeMeta.matches.at(formKey)) {
                 MatchMetaRecord matchRecord;
-                matchRecord.modName = matchMeta.mod == nullptr ? L"" : matchMeta.mod->name;
+                matchRecord.modName = !matchMeta.mod ? L"" : matchMeta.mod->name;
                 matchRecord.shader = matchMeta.shader;
                 matchRecord.shaderTransformTo = matchMeta.shaderTransformTo;
                 matchRecord.matchedPath = matchMeta.matchedPath;
                 for (const auto& [slot, slotMod] : matchMeta.resultTextureMods) {
-                    if (slotMod == nullptr)
+                    if (!slotMod)
                         continue;
                     matchRecord.resultTextureMods.emplace_back(slot, slotMod->name);
                 }
@@ -966,7 +966,7 @@ void PGRunCache::MeshRecorder::setMeta(const PGPatcher::MeshMeta& meta)
 
 void PGRunCache::MeshRecorder::commit()
 {
-    if (m_isCommitted || !m_valid || !s_enabled)
+    if (m_isCommitted || !m_isValid || !s_enabled)
         return;
 
     m_isCommitted = true;
@@ -1035,7 +1035,7 @@ void PGRunCache::initialize(const std::filesystem::path& cacheFile,
     }
 
     s_previous = loadFromFile(cacheFile);
-    if (s_previous == nullptr) {
+    if (!s_previous) {
         Logger::warn("The update cache in the output directory could not be used, performing a full run");
         return;
     }
@@ -1047,7 +1047,7 @@ void PGRunCache::initialize(const std::filesystem::path& cacheFile,
 
 bool PGRunCache::isEnabled() { return s_enabled; }
 
-bool PGRunCache::hasPreviousRun() { return s_enabled && s_previous != nullptr; }
+bool PGRunCache::hasPreviousRun() { return s_enabled && s_previous; }
 
 bool PGRunCache::arePreviousRecordsValid()
 {
@@ -1207,8 +1207,8 @@ auto PGRunCache::collectOutputIdentities() -> std::unordered_map<std::wstring,
             const auto& entry = *it;
 
             // PGPatcher never creates symlinks or junctions, so anything behind one is not an output this cache.
-            // Manages: it is neither listed nor descended into. Deletions are limited to what this walk lists, which.
-            // Keeps them inside the real output directory tree.
+            // Manages: it is neither listed nor descended into. Deletions are limited to what this walk lists, which
+            // keeps them inside the real output directory tree.
             if (entry.is_symlink(ec)) {
                 ec.clear();
                 if (entry.is_directory(ec))
@@ -1313,8 +1313,8 @@ bool PGRunCache::finishRun(bool save)
     }
 
     // Identities of the outputs on disk. Mesh saving is asynchronous, so output identities are captured here (after.
-    // The file saver was drained) rather than when the outputs were recorded. Outputs of skipped meshes were not.
-    // Rewritten, so this simply re-reads their unchanged identity.
+    // The file saver was drained) rather than when the outputs were recorded. Outputs of skipped meshes were not
+    // rewritten, so this simply re-reads their unchanged identity.
     const auto onDisk = collectOutputIdentities();
 
     {
@@ -1503,26 +1503,26 @@ void PGRunCache::recordModState(const std::wstring& modName,
 }
 
 void PGRunCache::recordMatches(const PGTypes::TextureSet& slots,
-                               bool singlepassMATO,
+                               bool isSinglepassMATO,
                                const PGPlugin::ModelRecordType& recType,
                                uint64_t digest)
 {
     if (isRecording())
-        s_activeRecorder->recordMatches(slots, singlepassMATO, recType, digest);
+        s_activeRecorder->recordMatches(slots, isSinglepassMATO, recType, digest);
 }
 
 void PGRunCache::recordHookRegistration(const HookKind& kind,
                                         const std::filesystem::path& texPath)
 {
     // Hook registrations are recorded even while suspended: they are side effects, not queries.
-    if (s_activeRecorder != nullptr)
+    if (s_activeRecorder)
         s_activeRecorder->recordHookRegistration(kind, texPath);
 }
 
 void PGRunCache::recordOutputFile(const std::filesystem::path& relPath,
                                   uint64_t size)
 {
-    if (s_activeRecorder != nullptr)
+    if (s_activeRecorder)
         s_activeRecorder->recordOutputFile(relPath, size);
 }
 
@@ -1636,9 +1636,9 @@ bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
     // Mod ownership.
     for (const auto& [path, modName] : record.modOfFileDeps) {
         std::wstring currentName;
-        if (pgmm != nullptr) {
+        if (pgmm) {
             const auto mod = pgmm->modByFileSmart(path);
-            if (mod != nullptr)
+            if (mod)
                 currentName = mod->name;
         }
 
@@ -1650,11 +1650,11 @@ bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
 
     // Mod state.
     for (const auto& [modName, enabled, ignored] : record.modStateDeps) {
-        if (pgmm == nullptr)
+        if (!pgmm)
             return false;
 
         const auto mod = pgmm->mod(modName);
-        if (mod == nullptr) {
+        if (!mod) {
             Logger::trace(L"Re-patching: mod no longer exists: {}", modName);
             return false;
         }
@@ -1703,7 +1703,7 @@ bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
 
     // Shader matches per shape.
     for (const auto& dep : record.matchesDeps) {
-        if (PGPatcher::computeMatchesDigest(nifPath, dep.slots, dep.singlepassMATO, dep.recType) != dep.digest) {
+        if (PGPatcher::computeMatchesDigest(nifPath, dep.slots, dep.isSinglepassMATO, dep.recType) != dep.digest) {
             Logger::trace("Re-patching: shader matches changed");
             return false;
         }
@@ -1724,7 +1724,7 @@ bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
 std::unordered_set<std::filesystem::path>
 PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
                                                     PGDirectory::NifCache>& meshes,
-                           bool multiThread,
+                           bool shouldMultithread,
                            const std::function<void(size_t,
                                                     size_t)>& progressCallback)
 {
@@ -1740,7 +1740,7 @@ PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
         taskTracker.setCallbackFunc(progressCallback);
 
     std::mutex resultMutex;
-    TaskPoolRunner runner(multiThread);
+    TaskPoolRunner runner(shouldMultithread);
     for (const auto& [mesh, nifCache] : meshes) {
         runner.addTask([&taskTracker, &resultMutex, &skippable, &mesh, &nifCache, &previous] {
             const bool canSkip = evaluateMesh(mesh, nifCache, previous);
@@ -1883,8 +1883,8 @@ void PGRunCache::carryOverRecord(const std::filesystem::path& nifPath)
     if (it == s_previous->meshRecords.end())
         return;
 
-    // The previous record of a replayed mesh is not read again during this run, so it is moved rather than copied to.
-    // Keep peak memory low on large load orders. Moving the value does not alter the map structure, so concurrent.
+    // The previous record of a replayed mesh is not read again during this run, so it is moved rather than copied to
+    // keep peak memory low on large load orders. Moving the value does not alter the map structure, so concurrent.
     // Lookups of other meshes stay safe.
     const std::scoped_lock lock(s_runMutex);
     s_currentRecords[key] = std::move(it->second);
@@ -1976,9 +1976,9 @@ void PGRunCache::finalizeHooks()
     }
 
     // Delete generated textures from the previous run that no mesh needs anymore. These paths come from the cache.
-    // File, so only files that the output directory walk listed are deleted: the walk never follows symlinks or.
-    // Junctions, which keeps every deletion inside the real output directory tree.
-    if (s_previous != nullptr) {
+    // File, so only files that the output directory walk listed are deleted: the walk never follows symlinks or
+    // junctions, which keeps every deletion inside the real output directory tree.
+    if (s_previous) {
         const auto generatedPath = PGGlobals::pgd()->generatedPath();
         size_t removed = 0;
         for (const auto& [output, record] : s_previous->hookOutputs) {
@@ -2014,7 +2014,7 @@ PGPatcher::MeshMeta PGRunCache::buildMeshMeta(const MeshMetaRecord& record)
     const PGModManager* pgmm = PGGlobals::isPGMMSet() ? PGGlobals::pgmm() : nullptr;
 
     const auto resolveMod = [pgmm](const std::wstring& modName) -> std::shared_ptr<PGModManager::Mod> {
-        if (modName.empty() || pgmm == nullptr)
+        if (modName.empty() || !pgmm)
             return nullptr;
         return pgmm->mod(modName);
     };
@@ -2040,7 +2040,7 @@ PGPatcher::MeshMeta PGRunCache::buildMeshMeta(const MeshMetaRecord& record)
                 matchMeta.matchedPath = matchRecord.matchedPath;
                 for (const auto& [slot, modName] : matchRecord.resultTextureMods) {
                     auto slotMod = resolveMod(modName);
-                    if (slotMod == nullptr)
+                    if (!slotMod)
                         continue;
                     matchMeta.resultTextureMods.emplace_back(slot, std::move(slotMod));
                 }

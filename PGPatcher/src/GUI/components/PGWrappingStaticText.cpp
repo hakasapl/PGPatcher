@@ -44,10 +44,10 @@ void PGWrappingStaticText::rewrap(int width)
     m_isRewrapping = false;
 
     if (GetBestSize().GetHeight() != oldHeight) {
-        // The label needs a different number of lines than the sizer allocated space for, so lay out again to.
-        // Give it the height it needs.
+        // The label needs a different number of lines than the sizer allocated space for, so lay out again to
+        // give it the height it needs.
         auto* topLevel = wxGetTopLevelParent(this);
-        if (topLevel != nullptr)
+        if (topLevel)
             topLevel->Layout();
     }
 }

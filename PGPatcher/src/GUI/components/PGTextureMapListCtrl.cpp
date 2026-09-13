@@ -36,7 +36,7 @@ void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
     int flags = 0;
     const long item = HitTest(pos, flags);
 
-    if (item != wxNOT_FOUND && ((flags & wxLIST_HITTEST_ONITEM) != 0)) {
+    if (item != wxNOT_FOUND && (flags & wxLIST_HITTEST_ONITEM)) {
         const int column = columnAtPosition(pos, item);
         if (column == 0) {
             // Start editing the first column.

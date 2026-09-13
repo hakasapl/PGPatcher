@@ -31,7 +31,6 @@ PGCheckedDragListCtrl::PGCheckedDragListCtrl(wxWindow* parent,
                  sz,
                  style)
     , m_autoscrollTimer(this)
-
 {
     // Bind Event Handlers.
     Bind(wxEVT_TIMER, &PGCheckedDragListCtrl::onAutoscrollTimer, this, m_autoscrollTimer.GetId());
@@ -75,7 +74,7 @@ PGCheckedDragListCtrl::~PGCheckedDragListCtrl()
     if (m_autoscrollTimer.IsRunning())
         m_autoscrollTimer.Stop();
 
-    if (m_ghost != nullptr) {
+    if (m_ghost) {
         m_ghost->Destroy();
         m_ghost = nullptr;
     }
@@ -146,7 +145,7 @@ void PGCheckedDragListCtrl::onMouseLeftDown(wxMouseEvent& event)
     }
 
     // Clicked on the checkbox part.
-    if ((flags & wxLIST_HITTEST_ONITEMICON) != 0) {
+    if ((flags & wxLIST_HITTEST_ONITEMICON)) {
         check(item, !isChecked(item));
         processCheckItem(item, isChecked(item));
 
@@ -217,7 +216,7 @@ void PGCheckedDragListCtrl::onMouseMotion(wxMouseEvent& event)
         m_autoscrollTimer.Start(autoscrollTimerInterval); // Start the timer with a 50ms interval
 
     // Update ghost position.
-    if (m_ghost != nullptr) {
+    if (m_ghost) {
         const wxPoint pos = ClientToScreen(event.GetPosition() + FromDIP(wxPoint(4, 4)));
         m_ghost->updatePosition(pos);
         m_ghost->Show();
@@ -256,7 +255,7 @@ void PGCheckedDragListCtrl::onMouseLeftUp(wxMouseEvent& event)
         m_autoscrollTimer.Stop();
 
     // Clear the ghost window.
-    if (m_ghost != nullptr) {
+    if (m_ghost) {
         m_ghost->Destroy();
         m_ghost = nullptr;
     }

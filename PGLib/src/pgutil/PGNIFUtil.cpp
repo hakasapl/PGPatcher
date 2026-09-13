@@ -137,7 +137,7 @@ extern "C" bool loadNifWithSEH(nifly::NifFile* pNif,
 }
 
 nifly::NifFile PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
-                                           const bool& runChecks)
+                                           const bool& shouldRunChecks)
 {
     // NIF file object.
     nifly::NifFile nif;
@@ -159,19 +159,19 @@ nifly::NifFile PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifByte
     if (!nif.IsValid() || !nif.GetHeader().IsValid())
         throw std::runtime_error("NIF did not load properly");
 
-    if (!runChecks)
+    if (!shouldRunChecks)
         return nif;
 
     // Check shapes.
     const auto shapes = nif.GetShapes();
     for (const auto& shape : shapes) {
-        if (shape == nullptr)
+        if (!shape)
             throw std::runtime_error("NIF contains a null shape");
 
         auto* nifShader = nif.GetShader(shape);
-        if (nifShader != nullptr && nifShader->HasTextureSet()) {
+        if (nifShader && nifShader->HasTextureSet()) {
             const auto* txstRec = nif.GetHeader().GetBlock(nifShader->TextureSetRef());
-            if (txstRec == nullptr)
+            if (!txstRec)
                 throw std::runtime_error("NIF contains reference to texture set that does not exist");
         }
 
@@ -284,26 +284,26 @@ bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                                     const nifly::SkyrimShaderPropertyFlags1& flag,
                                     const bool& enable)
 {
-    bool changed = false;
+    bool isChanged = false;
     if (enable)
-        changed |= setShaderFlag(nifShaderBSLSP, flag);
+        isChanged |= setShaderFlag(nifShaderBSLSP, flag);
     else
-        changed |= clearShaderFlag(nifShaderBSLSP, flag);
+        isChanged |= clearShaderFlag(nifShaderBSLSP, flag);
 
-    return changed;
+    return isChanged;
 }
 
 bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                                     const nifly::SkyrimShaderPropertyFlags2& flag,
                                     const bool& enable)
 {
-    bool changed = false;
+    bool isChanged = false;
     if (enable)
-        changed |= setShaderFlag(nifShaderBSLSP, flag);
+        isChanged |= setShaderFlag(nifShaderBSLSP, flag);
     else
-        changed |= clearShaderFlag(nifShaderBSLSP, flag);
+        isChanged |= clearShaderFlag(nifShaderBSLSP, flag);
 
-    return changed;
+    return isChanged;
 }
 
 // Texture slot helpers.
@@ -336,11 +336,11 @@ bool PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
                                 const PGTypes::TextureSet& newSlots)
 {
-    bool changed = false;
+    bool isChanged = false;
     for (uint32_t i = 0; i < numTextureSlots; i++)
-        changed |= setTextureSlot(nif, nifShape, static_cast<PGEnums::TextureSlots>(i), newSlots.at(i));
+        isChanged |= setTextureSlot(nif, nifShape, static_cast<PGEnums::TextureSlots>(i), newSlots.at(i));
 
-    return changed;
+    return isChanged;
 }
 
 std::string PGNIFUtil::textureSlot(const nifly::NifFile* nif,
@@ -363,7 +363,7 @@ PGTypes::TextureSet PGNIFUtil::textureSlots(const nifly::NifFile* nif,
         const uint32_t result = nif->GetTextureSlot(nifShape, texture, i);
         StringUtil::toLowerASCIIFastInPlace(texture);
 
-        if (result == 0 || texture.empty()) {
+        if (!result || texture.empty()) {
             // No texture in Slot.
             continue;
         }
@@ -437,7 +437,7 @@ PGNIFUtil::texMatch(const std::wstring& base,
 
 PGTypes::TextureSet PGNIFUtil::searchPrefixes(nifly::NifFile const& nif,
                                               nifly::NiShape* nifShape,
-                                              const bool& findBaseSlots)
+                                              const bool& shouldFindBaseSlots)
 {
     PGTypes::TextureSet outPrefixes;
 
@@ -446,14 +446,14 @@ PGTypes::TextureSet PGNIFUtil::searchPrefixes(nifly::NifFile const& nif,
         std::string texture;
         const uint32_t result = nif.GetTextureSlot(nifShape, texture, i);
 
-        if (result == 0 || texture.empty()) {
+        if (!result || texture.empty()) {
             // No texture in Slot.
             continue;
         }
 
         // Get default suffixes.
         std::wstring texBase;
-        if (findBaseSlots) {
+        if (shouldFindBaseSlots) {
             // Get the base texture name without suffix.
             texBase = PGNIFUtil::texBase(StringUtil::asciitoUTF16(texture), static_cast<PGEnums::TextureSlots>(i));
         } else {
@@ -468,7 +468,7 @@ PGTypes::TextureSet PGNIFUtil::searchPrefixes(nifly::NifFile const& nif,
 }
 
 PGTypes::TextureSet PGNIFUtil::searchPrefixes(const PGTypes::TextureSet& oldSlots,
-                                              const bool& findBaseSlots)
+                                              const bool& shouldFindBaseSlots)
 {
     PGTypes::TextureSet outSlots;
 
@@ -477,7 +477,7 @@ PGTypes::TextureSet PGNIFUtil::searchPrefixes(const PGTypes::TextureSet& oldSlot
             continue;
 
         std::wstring texBase;
-        if (findBaseSlots) {
+        if (shouldFindBaseSlots) {
             // Get the base texture name without suffix.
             texBase = PGNIFUtil::texBase(oldSlots.at(i), static_cast<PGEnums::TextureSlots>(i));
         } else {
@@ -494,7 +494,7 @@ std::vector<std::pair<nifly::NiShape*,
                       int>>
 PGNIFUtil::shapesWith3DIdx(const nifly::NifFile* nif)
 {
-    if (nif == nullptr)
+    if (!nif)
         throw std::runtime_error("NIF is null");
 
     std::vector<nifly::NiObject*> tree;
@@ -503,13 +503,13 @@ PGNIFUtil::shapesWith3DIdx(const nifly::NifFile* nif)
     int oldIndex3D = 0;
     for (auto& obj : tree) {
         auto* const curShape = dynamic_cast<nifly::NiShape*>(obj);
-        if (curShape != nullptr) {
+        if (curShape) {
             shapes.emplace_back(curShape, oldIndex3D++);
             continue;
         }
 
         // Other stuff that should increment oldIndex3D.
-        if (dynamic_cast<nifly::NiParticleSystem*>(obj) != nullptr) {
+        if (dynamic_cast<nifly::NiParticleSystem*>(obj)) {
             // Particle system, increment index3d.
             oldIndex3D++;
         }
@@ -561,7 +561,7 @@ bool PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
         for (const auto& extraDataRef : extraDataRefs) {
             auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
             const auto* const booleanBlock = dynamic_cast<nifly::NiBooleanExtraData*>(curBlock);
-            if (booleanBlock != nullptr && booleanBlock->name == "PG_IGNORE" && booleanBlock->booleanData)
+            if (booleanBlock && booleanBlock->name == "PG_IGNORE" && booleanBlock->booleanData)
                 return true; // PG_IGNORE found and set to true
         }
         return false;

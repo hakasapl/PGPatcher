@@ -285,7 +285,7 @@ private:
      */
     void fillListCtrl(const std::vector<std::shared_ptr<PGModManager::Mod>>& modList,
                       bool autoEnable = false,
-                      bool preserveChecks = false);
+                      bool shouldPreserveChecks = false);
 
     /**
      * @brief Rebuilds the cached rows from the currently visible list control state.

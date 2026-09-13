@@ -28,8 +28,8 @@ private:
     std::vector<wxString> m_errorMessages;
     std::vector<wxString> m_warningMessages;
 
-    // Message counts captured at the start of the patching step. Used to discard.
-    // Messages of a previous patch run when the patching step is re-run.
+    // Message counts captured at the start of the patching step. Used to discard
+    // messages of a previous patch run when the patching step is re-run.
     size_t m_runStartErrorCount = 0;
     size_t m_runStartWarningCount = 0;
 

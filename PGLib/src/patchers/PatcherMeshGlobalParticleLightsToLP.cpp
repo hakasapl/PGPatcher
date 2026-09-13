@@ -79,43 +79,43 @@ bool PatcherMeshGlobalParticleLightsToLP::applyPatch()
 
         // Loop through children and assign whatever is found.
         for (const auto* childRef : childRefs) {
-            if (shape == nullptr)
+            if (!shape)
                 shape = nif()->GetHeader().GetBlock<nifly::NiShape>(childRef);
 
-            if (particleSystem == nullptr)
+            if (!particleSystem)
                 particleSystem = nif()->GetHeader().GetBlock<nifly::NiParticleSystem>(childRef);
         }
 
-        if (shape == nullptr) {
+        if (!shape) {
             // No shape available.
             continue;
         }
 
-        if (particleSystem != nullptr) {
+        if (particleSystem) {
             // This node has a particle system.
             // Find the alpha property and effect shader from particle system.
             const auto psAlphaPropertyRef = particleSystem->alphaPropertyRef;
-            if (!psAlphaPropertyRef.IsEmpty() && alphaProperty == nullptr)
+            if (!psAlphaPropertyRef.IsEmpty() && !alphaProperty)
                 alphaProperty = nif()->GetHeader().GetBlock<nifly::NiAlphaProperty>(psAlphaPropertyRef);
 
             const auto psShaderPropertyRef = particleSystem->shaderPropertyRef;
-            if (!psShaderPropertyRef.IsEmpty() && effectShader == nullptr)
+            if (!psShaderPropertyRef.IsEmpty() && !effectShader)
                 effectShader = nif()->GetHeader().GetBlock<nifly::BSEffectShaderProperty>(psShaderPropertyRef);
         }
 
-        if (particleSystem == nullptr) {
+        if (!particleSystem) {
             // This node does not have a particle system.
             // Find the alpha property and effect shader from shape.
             const auto* const shapeAlphaPropertyRef = shape->AlphaPropertyRef();
-            if (!shapeAlphaPropertyRef->IsEmpty() && alphaProperty == nullptr)
+            if (!shapeAlphaPropertyRef->IsEmpty() && !alphaProperty)
                 alphaProperty = nif()->GetHeader().GetBlock<nifly::NiAlphaProperty>(shapeAlphaPropertyRef);
 
             const auto* const shapeShaderPropertyRef = shape->ShaderPropertyRef();
-            if (!shapeShaderPropertyRef->IsEmpty() && effectShader == nullptr)
+            if (!shapeShaderPropertyRef->IsEmpty() && !effectShader)
                 effectShader = nif()->GetHeader().GetBlock<nifly::BSEffectShaderProperty>(shapeShaderPropertyRef);
         }
 
-        if (alphaProperty == nullptr || effectShader == nullptr) {
+        if (!alphaProperty || !effectShader) {
             // No alpha property or effect shader.
             continue;
         }
@@ -126,7 +126,7 @@ bool PatcherMeshGlobalParticleLightsToLP::applyPatch()
             continue;
         }
 
-        if ((effectShader->shaderFlags1 & nifly::SLSF1_SOFT_EFFECT) == 0U) {
+        if (!(effectShader->shaderFlags1 & nifly::SLSF1_SOFT_EFFECT)) {
             // No soft effect shader flag.
             continue;
         }
@@ -184,7 +184,7 @@ bool PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
 
     // BSTriShape conversion.
     const auto* const shapeBSTriShape = dynamic_cast<nifly::BSTriShape*>(shape);
-    if (shapeBSTriShape == nullptr) {
+    if (!shapeBSTriShape) {
         // Not a BSTriShape.
         // FIXME: Support other shape types.
         return false;
@@ -238,7 +238,7 @@ bool PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
     auto controllerRef = effectShader->controllerRef;
     while (!controllerRef.IsEmpty()) {
         auto* const controller = nif()->GetHeader().GetBlock(controllerRef);
-        if (controller == nullptr)
+        if (!controller)
             break;
 
         std::string jsonField;
@@ -265,13 +265,13 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
 {
     nlohmann::json controllerJson = nlohmann::json::object();
 
-    if (controller == nullptr)
+    if (!controller)
         return controllerJson;
 
     const auto* const floatController = dynamic_cast<nifly::BSEffectShaderPropertyFloatController*>(controller);
     nifly::NiBlockRef<nifly::NiInterpController> interpRef;
-    if (floatController != nullptr) {
-        if (floatController->typeOfControlledVariable != 0) {
+    if (floatController) {
+        if (floatController->typeOfControlledVariable) {
             // We don't care about this controller (not controlling emissive mult).
             return controllerJson;
         }
@@ -282,14 +282,13 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
     }
 
     const auto* const colorController = dynamic_cast<nifly::BSEffectShaderPropertyColorController*>(controller);
-    if (colorController != nullptr) {
+    if (colorController) {
         interpRef = colorController->interpolatorRef;
 
         jsonField = "colorController";
     }
 
-    if ((floatController == nullptr && colorController == nullptr)
-        || (floatController != nullptr && colorController != nullptr)) {
+    if ((!floatController && !colorController) || (floatController && colorController)) {
         // We don't care about this controller.
         return controllerJson;
     }
@@ -302,19 +301,18 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
     nifly::NiPosData const* colorDataBlock = nullptr;
 
     auto* const floatInterpolator = nif()->GetHeader().GetBlock<nifly::NiFloatInterpolator>(interpRef);
-    if (floatInterpolator != nullptr) {
+    if (floatInterpolator) {
         const auto dataRef = floatInterpolator->dataRef;
         fadeDataBlock = nif()->GetHeader().GetBlock<nifly::NiFloatData>(dataRef);
     }
 
     const auto* const niPoint3Interpolator = dynamic_cast<nifly::NiPoint3Interpolator*>(floatInterpolator);
-    if (niPoint3Interpolator != nullptr) {
+    if (niPoint3Interpolator) {
         const auto dataRef = niPoint3Interpolator->dataRef;
         colorDataBlock = nif()->GetHeader().GetBlock<nifly::NiPosData>(dataRef);
     }
 
-    if ((fadeDataBlock == nullptr && floatController != nullptr)
-        || (colorDataBlock == nullptr && colorController != nullptr)) {
+    if ((!fadeDataBlock && floatController) || (!colorDataBlock && colorController)) {
         // Could not find data block.
         return controllerJson;
     }
@@ -322,9 +320,9 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
     controllerJson["keys"] = nlohmann::json::array();
 
     nifly::NiKeyType interpolationType = nifly::NiKeyType::LINEAR_KEY;
-    if (floatController != nullptr)
+    if (floatController)
         interpolationType = fadeDataBlock->data.GetInterpolationType();
-    else if (colorController != nullptr)
+    else if (colorController)
         interpolationType = colorDataBlock->data.GetInterpolationType();
 
     // Get interpolation method.
@@ -346,13 +344,13 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
 
     // Add keys to JSON.
     uint32_t numKeys = 0;
-    if (floatController != nullptr)
+    if (floatController)
         numKeys = fadeDataBlock->data.GetNumKeys();
-    else if (colorController != nullptr)
+    else if (colorController)
         numKeys = colorDataBlock->data.GetNumKeys();
 
     for (uint32_t i = 0; i < numKeys; i++) {
-        if (floatController != nullptr) {
+        if (floatController) {
             const auto curKey = fadeDataBlock->data.GetKey(static_cast<int>(i));
 
             controllerJson["keys"].push_back(nlohmann::json::object({
@@ -361,7 +359,7 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
                 { "forward", round(curKey.forward * roundingValue) / roundingValue },
                 { "backward", round(curKey.backward * roundingValue) / roundingValue },
             }));
-        } else if (colorController != nullptr) {
+        } else if (colorController) {
             const auto curKey = colorDataBlock->data.GetKey(static_cast<int>(i));
 
             controllerJson["keys"].push_back(nlohmann::json::object({

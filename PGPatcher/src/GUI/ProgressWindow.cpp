@@ -82,7 +82,7 @@ ProgressWindow::ProgressWindow()
 
 void ProgressWindow::setMainProgress(int done,
                                      int total,
-                                     bool addToLabel)
+                                     bool shouldAddToLabel)
 {
     int perc = 0;
     if (total > 0)
@@ -90,7 +90,7 @@ void ProgressWindow::setMainProgress(int done,
     m_progressBarMain->SetValue(perc);
     m_progressBarMain->Refresh();
     m_progressBarMain->Update();
-    if (addToLabel) {
+    if (shouldAddToLabel) {
         m_mainStatusText->SetLabel(m_mainLabelBase + wxString::Format(" %d / %d [ %d%% ]", done, total, perc));
         m_mainStatusText->Refresh();
         m_mainStatusText->Update();
@@ -106,7 +106,7 @@ void ProgressWindow::setMainLabel(const wxString& label)
 
 void ProgressWindow::setStepProgress(int done,
                                      int total,
-                                     bool addToLabel)
+                                     bool shouldAddToLabel)
 {
     int perc = 0;
     if (total > 0)
@@ -114,7 +114,7 @@ void ProgressWindow::setStepProgress(int done,
     m_progressBarStep->SetValue(perc);
     m_progressBarStep->Refresh();
     m_progressBarStep->Update();
-    if (addToLabel) {
+    if (shouldAddToLabel) {
         m_stepStatusText->SetLabel(m_stepLabelBase + wxString::Format(" %d / %d [ %d%% ]", done, total, perc));
         m_stepStatusText->Refresh();
         m_stepStatusText->Update();

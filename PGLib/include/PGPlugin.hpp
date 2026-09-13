@@ -175,7 +175,7 @@ public:
         /// @brief True if the model uses a weighted (body) variant requiring _0/_1 counterpart handling.
         bool isWeighted = false;
         /// @brief True if this is a single-pass MATO (Material Object) record.
-        bool singlepassMATO = false;
+        bool isSinglepassMATO = false;
         /// @brief True if this mesh is facegen
         bool isFacegen = false;
         /// @brief True if this mesh use should be excluded from patching.

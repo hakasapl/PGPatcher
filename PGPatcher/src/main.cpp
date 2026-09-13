@@ -110,8 +110,7 @@ void addFileToZip(mz_zip_archive& zip,
     }
 
     // Add file to Zip.
-    if (mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)
-        == 0) {
+    if (!mz_zip_writer_add_mem(&zip, relativeFilePathUTF8.c_str(), buffer.data(), buffer.size(), MZ_NO_COMPRESSION)) {
         spdlog::critical(L"Error creating output zip file");
         return;
     }
@@ -133,7 +132,7 @@ void zipDirectory(const std::filesystem::path& dirPath,
 
     // Initialize file.
     const std::string zipPathString = StringUtil::utf16toUTF8(zipPath);
-    if (mz_zip_writer_init_file(&zip, zipPathString.c_str(), 0) == 0) {
+    if (!mz_zip_writer_init_file(&zip, zipPathString.c_str(), 0)) {
         Logger::critical(L"Error creating Zip file: {}", zipPath.wstring());
         return;
     }
@@ -144,7 +143,7 @@ void zipDirectory(const std::filesystem::path& dirPath,
             addFileToZip(zip, entry.path(), zipPath);
 
     // Finalize Zip.
-    if (mz_zip_writer_finalize_archive(&zip) == 0) {
+    if (!mz_zip_writer_finalize_archive(&zip)) {
         Logger::critical(L"Error finalizing Zip archive: {}", zipPath.wstring());
         return;
     }
@@ -237,12 +236,12 @@ void configureDotNetLibDirectory(const std::filesystem::path& exeDir)
     if (!std::filesystem::exists(libDir))
         return;
 
-    if (SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS) == 0) {
+    if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS)) {
         std::cerr << "Failed to configure DLL search directories.\n";
         exit(1);
     }
 
-    if (AddDllDirectory(libDir.c_str()) == nullptr) {
+    if (!AddDllDirectory(libDir.c_str())) {
         std::cerr << "Failed to add dotnetlib directory to DLL search path.\n";
         exit(1);
     }
@@ -300,14 +299,14 @@ uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
     for (const auto& entry : params.processing.blockList)
         hasher.add(StringUtil::toLowerASCII(entry));
 
-    hasher.add(params.prePatcher.fixMeshLighting);
-    hasher.add(params.shaderPatcher.parallax);
-    hasher.add(params.shaderPatcher.complexMaterial);
-    hasher.add(params.shaderPatcher.truePBR);
-    hasher.add(params.shaderTransforms.parallaxToCM);
+    hasher.add(params.prePatcher.isFixMeshLightingEnabled);
+    hasher.add(params.shaderPatcher.isParallaxEnabled);
+    hasher.add(params.shaderPatcher.isComplexMaterialEnabled);
+    hasher.add(params.shaderPatcher.isTruePBREnabled);
+    hasher.add(params.shaderTransforms.isParallaxToCMEnabled);
     hasher.add(params.postPatcher.disablePrePatchedMaterials);
-    hasher.add(params.postPatcher.fixSSS);
-    hasher.add(params.postPatcher.hairFlowMap);
+    hasher.add(params.postPatcher.isFixSSSEnabled);
+    hasher.add(params.postPatcher.isHairFlowMapEnabled);
 
     hasher.add(args.considerAllMeshes);
     hasher.add(args.disableDynCubemap);
@@ -579,35 +578,36 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Create patcher factory.
     PatcherUtil::PatcherMeshSet meshPatchers;
-    if (params.prePatcher.fixMeshLighting) {
+    if (params.prePatcher.isFixMeshLightingEnabled) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
     }
-    if (params.shaderPatcher.parallax || params.shaderPatcher.complexMaterial || params.shaderPatcher.truePBR) {
+    if (params.shaderPatcher.isParallaxEnabled || params.shaderPatcher.isComplexMaterialEnabled
+        || params.shaderPatcher.isTruePBREnabled) {
         // Fix slots only needed for shader patchers.
         Logger::debug("Adding Texture Slot Count Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::factory());
     }
 
     meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::shaderType(), PatcherMeshShaderDefault::factory());
-    if (params.shaderPatcher.parallax) {
+    if (params.shaderPatcher.isParallaxEnabled) {
         Logger::debug("Adding Parallax shader patcher");
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::shaderType(),
                                             PatcherMeshShaderVanillaParallax::factory());
     }
-    if (params.shaderPatcher.complexMaterial) {
+    if (params.shaderPatcher.isComplexMaterialEnabled) {
         Logger::debug("Adding Complex Material shader patcher");
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::shaderType(),
                                             PatcherMeshShaderComplexMaterial::factory());
         PatcherMeshShaderComplexMaterial::loadOptions(args.disableDynCubemap);
     }
-    if (params.shaderPatcher.truePBR) {
+    if (params.shaderPatcher.isTruePBREnabled) {
         Logger::debug("Adding True PBR shader patcher");
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::shaderType(),
                                             PatcherMeshShaderTruePBR::factory());
         PatcherMeshShaderTruePBR::loadOptions(true, params.processing.enableModDevMode);
     }
-    if (params.shaderTransforms.parallaxToCM) {
+    if (params.shaderTransforms.isParallaxToCMEnabled) {
         Logger::debug("Adding Parallax to Complex Material shader transform patcher");
         meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::fromShader()]
             = { PatcherMeshShaderTransformParallaxToCM::toShader(), PatcherMeshShaderTransformParallaxToCM::factory() };
@@ -623,7 +623,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         Logger::debug("Adding Disable Pre-Patched Materials post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::factory());
     }
-    if (params.postPatcher.fixSSS) {
+    if (params.postPatcher.isFixSSSEnabled) {
         Logger::debug("Adding SSS fix post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::factory());
 
@@ -632,7 +632,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
             return;
         }
     }
-    if (params.postPatcher.hairFlowMap) {
+    if (params.postPatcher.isHairFlowMapEnabled) {
         Logger::debug("Adding Hair Flow Map post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::factory());
     }
@@ -684,22 +684,22 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
                   progressCallback);
 
     // Any patcher initialization that requires PGD.
-    if (params.shaderPatcher.truePBR)
+    if (params.shaderPatcher.isTruePBREnabled)
         PatcherMeshShaderTruePBR::loadStatics(pgd->pbrjsoNs());
 
     // Extended texture classification (complex material detection) runs on a background.
     // Queue and adds shader types to mods as it completes. Wait for it here so mod enable.
-    // State and priorities below are computed from complete shader data, and so we do not.
-    // Race the classification threads while reading mod shader sets.
+    // State and priorities below are computed from complete shader data, and so we do not
+    // race the classification threads while reading mod shader sets.
     progressWindow->CallAfter(
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.classifyingTextures")); });
     pgd->waitForCMClassification();
 
     // Assign new mod priorities for new mods.
-    pgmm->updateStateFromModlist(params.modManager.mo2UseLooseFileOrder);
+    pgmm->updateStateFromModlist(params.modManager.shouldUseMO2LooseFileOrder);
 
-    // Modrules.json is deliberately not saved here: the state computed above is re-derived on every.
-    // Run, and the file must only change when the user applies changes in the conflict manager.
+    // Modrules.json is deliberately not saved here: the state computed above is re-derived on every
+    // run, and the file must only change when the user applies changes in the conflict manager.
 }
 
 void mainRunnerPatch(const ParallaxGenCLIArgs& args,
@@ -733,7 +733,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
         PGPatcher::deleteOutputDir();
     }
 
-    if (params.shaderPatcher.complexMaterial && !args.disableDynCubemap) {
+    if (params.shaderPatcher.isComplexMaterialEnabled && !args.disableDynCubemap) {
         // Deployed after patching, must not be treated as a stale output.
         PGRunCache::addProtectedOutput(PatcherMeshShaderComplexMaterial::s_dynCubemapPath);
     }
@@ -821,7 +821,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter(
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.deployingAssets")); });
 
-    if (params.shaderPatcher.complexMaterial && !args.disableDynCubemap) {
+    if (params.shaderPatcher.isComplexMaterialEnabled && !args.disableDynCubemap) {
         // Deploy Assets.
         deployDynamicCubemapFile(params.output.dir, exePath);
     }
@@ -913,8 +913,8 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     auto params = pgc.params();
 
-    // Show launcher UI. "Update Output" (or --autostart-update) updates the previous output in the output location in.
-    // Place, "Start Patching" (or --autostart) regenerates it from scratch.
+    // Show launcher UI. "Update Output" (or --autostart-update) updates the previous output in the output location in
+    // place, "Start Patching" (or --autostart) regenerates it from scratch.
     const bool autostart = args.autostart || args.autostartUpdate;
     bool updateOutput = args.autostartUpdate;
     if (!autostart)

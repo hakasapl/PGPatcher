@@ -37,8 +37,6 @@
 #include <utility>
 #include <vector>
 
-using namespace StringUtil;
-
 namespace {
 // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
 constexpr int filterLabelTopSpacer = 10;
@@ -279,7 +277,7 @@ bool DialogModConflictView::isMatchVisible(const MatchView& match) const
 {
     if (m_showDisabledCheckbox->IsChecked())
         return true; // show everything
-    if (match.mod == nullptr)
+    if (!match.mod)
         return false; // hide untracked/vanilla when checkbox is off
     const std::shared_lock lock(match.mod->mutex);
     return match.mod->isEnabled;
@@ -329,7 +327,7 @@ bool DialogModConflictView::shapeHasActualConflict(const std::vector<MatchView>&
     for (const auto& match : matches) {
         if (!isMatchVisible(match))
             continue;
-        if (match.mod == nullptr)
+        if (!match.mod)
             hasUntracked = true;
         else
             visibleMods.insert(match.mod);
@@ -357,7 +355,7 @@ bool DialogModConflictView::shapePassesAnyModFilter(const PGPatcher::MeshShapeMe
     for (const auto& [formKey, shapeMatches] : shape.matches) {
         (void)formKey;
         for (const auto& match : shapeMatches)
-            if (match.mod != nullptr && m_filterMods.contains(match.mod->name))
+            if (match.mod && m_filterMods.contains(match.mod->name))
                 return true;
     }
     return false;
@@ -386,7 +384,7 @@ bool DialogModConflictView::shapePassesIntersectionFilter(const PGPatcher::MeshS
     for (const auto& modName : m_filterMods) {
         bool found = false;
         for (const auto& match : matches) {
-            if (isMatchVisible(match) && match.mod != nullptr && match.mod->name == modName) {
+            if (isMatchVisible(match) && match.mod && match.mod->name == modName) {
                 found = true;
                 break;
             }
@@ -404,7 +402,7 @@ int DialogModConflictView::computeWinningMatchIdx(const std::vector<MatchView>& 
 
     for (size_t i = 0; i < matches.size(); ++i) {
         const auto& match = matches.at(i);
-        if (match.mod == nullptr)
+        if (!match.mod)
             continue;
 
         bool isEnabled = false;
@@ -460,23 +458,23 @@ void DialogModConflictView::setupWarningIcons()
     m_matchWarningImages.Add(blankBitmap);
     m_matchWarningImages.Add(warningBitmap);
 
-    m_warningIconAvailable = true;
+    m_isWarningIconAvailable = true;
     applyWarningIconVisibility();
 }
 
 void DialogModConflictView::applyWarningIconVisibility()
 {
-    if (!m_warningIconAvailable)
+    if (!m_isWarningIconAvailable)
         return;
 
-    // The lists only borrow the image lists (LVS_SHAREIMAGELISTS), so detaching is safe and.
-    // Removes the reserved icon space entirely.
+    // The lists only borrow the image lists (LVS_SHAREIMAGELISTS), so detaching is safe and
+    // removes the reserved icon space entirely.
     m_meshListCtrl->SetImageList(m_showMismatches ? &m_meshWarningImages : nullptr, wxIMAGE_LIST_SMALL);
     m_matchListCtrl->SetImageList(m_showMismatches ? &m_matchWarningImages : nullptr, wxIMAGE_LIST_SMALL);
 
     if (!m_showMismatches) {
-        // Motion events no longer update tooltips while hidden, so clear any tooltip that was.
-        // Set during a hover to avoid stale warning text.
+        // Motion events no longer update tooltips while hidden, so clear any tooltip that was
+        // set during a hover to avoid stale warning text.
         m_meshListCtrl->UnsetToolTip();
         m_matchListCtrl->UnsetToolTip();
     }
@@ -492,7 +490,7 @@ wxString DialogModConflictView::meshWarningTooltip(const std::filesystem::path& 
 
     // Vanilla/untracked meshes are assumed correct, so only warn for meshes from other tracked mods.
     const auto meshMod = PGGlobals::pgmm()->modByFileSmart(meshPath);
-    if (meshMod == nullptr || m_filterMods.contains(meshMod->name))
+    if (!meshMod || m_filterMods.contains(meshMod->name))
         return { };
 
     return wxString::Format(pgTr("matchViewer.warnings.meshFromOtherMod"), wxString(meshMod->name));
@@ -551,10 +549,8 @@ void DialogModConflictView::updateHoverTooltip(wxListCtrl* list,
     const long item = list->HitTest(event.GetPosition(), hitFlags);
 
     wxString tooltip;
-    if (item != wxNOT_FOUND && (hitFlags & wxLIST_HITTEST_ONITEMICON) != 0
-        && static_cast<size_t>(item) < tooltips.size()) {
+    if (item != wxNOT_FOUND && (hitFlags & wxLIST_HITTEST_ONITEMICON) && static_cast<size_t>(item) < tooltips.size())
         tooltip = tooltips.at(static_cast<size_t>(item));
-    }
 
     if (list->GetToolTipText() != tooltip) {
         if (tooltip.IsEmpty())
@@ -623,7 +619,7 @@ void DialogModConflictView::rebuildMeshList()
 
         // Flag meshes that are owned by a mod outside the filtered mods (potential UV mismatch).
         wxString warningTooltip = meshWarningTooltip(m_filteredMeshes.at(i));
-        if (!warningTooltip.IsEmpty() && m_warningIconAvailable)
+        if (!warningTooltip.IsEmpty() && m_isWarningIconAvailable)
             m_meshListCtrl->SetItemImage(row, warningIconImageIndex);
         m_meshRowTooltips.push_back(std::move(warningTooltip));
     }
@@ -767,7 +763,7 @@ void DialogModConflictView::populateMatchList(const std::filesystem::path& meshP
         if (!isMatchVisible(match))
             continue;
 
-        const wxString modName = match.mod != nullptr ? wxString(match.mod->name) : pgTr("matchViewer.untrackedMod");
+        const wxString modName = match.mod ? wxString(match.mod->name) : pgTr("matchViewer.untrackedMod");
         const wxString shaderStr = wxString::FromUTF8(PGEnums::strFromShader(match.shader));
         const wxString matchedFile = wxString(match.matchedPath.wstring());
 
@@ -777,7 +773,7 @@ void DialogModConflictView::populateMatchList(const std::filesystem::path& meshP
 
         // Flag matches whose result textures come from more than one mod.
         wxString warningTooltip = buildResultTexturesTooltip(match);
-        if (!warningTooltip.IsEmpty() && m_warningIconAvailable)
+        if (!warningTooltip.IsEmpty() && m_isWarningIconAvailable)
             m_matchListCtrl->SetItemImage(row, warningIconImageIndex);
         m_matchRowTooltips.push_back(std::move(warningTooltip));
 
@@ -800,7 +796,7 @@ void DialogModConflictView::populateMatchList(const std::filesystem::path& meshP
 
         // Gray out disabled mods and untracked/vanilla sources.
         bool shouldGray = (match.mod == nullptr); // untracked always grayed
-        if (!shouldGray && match.mod != nullptr) {
+        if (!shouldGray && match.mod) {
             const std::shared_lock lock(match.mod->mutex);
             shouldGray = !match.mod->isEnabled;
         }
@@ -916,7 +912,7 @@ void DialogModConflictView::openMeshFile(const std::filesystem::path& relPath)
     }
 
     const auto* pgmm = PGGlobals::pgmm();
-    if (pgmm != nullptr) {
+    if (pgmm) {
         const auto& mods = pgmm->modsByPriority();
         for (const auto& mod : mods) {
             if (!mod->isEnabled)
@@ -1033,11 +1029,11 @@ void DialogModConflictView::onMatchContextMenu(wxContextMenuEvent& event)
 
             try {
                 const auto* pgmm = PGGlobals::pgmm();
-                if (pgmm == nullptr)
+                if (!pgmm)
                     return;
 
                 const auto mod = pgmm->mod(modNameStr.ToStdWstring());
-                if (mod != nullptr && !mod->folder.empty())
+                if (mod && !mod->folder.empty())
                     openPathWithDefaultApp(mod->folder);
             } catch (...) {
                 // Ignore lookup failures.
@@ -1340,8 +1336,8 @@ void DialogModConflictView::onShowDisabledChanged(wxCommandEvent& event)
     const long itemCount = m_meshListCtrl->GetItemCount();
     if (itemCount > 0 && topMeshItem >= 0) {
         const long clampedTop = std::min(topMeshItem, itemCount - 1);
-        // Standard wxListCtrl scroll trick: scroll to bottom then back to target.
-        // So the target row ends up at the top of the visible area.
+        // Standard wxListCtrl scroll trick: scroll to bottom then back to target
+        // so the target row ends up at the top of the visible area.
         m_meshListCtrl->EnsureVisible(itemCount - 1);
         m_meshListCtrl->EnsureVisible(clampedTop);
     }

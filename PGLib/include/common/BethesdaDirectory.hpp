@@ -61,7 +61,7 @@ public:
          */
         virtual void onIsFile(const std::filesystem::path& relPath,
                               bool exists,
-                              bool generated) = 0;
+                              bool isGenerated) = 0;
 
         /**
          * @brief Called whenever file() successfully resolves a file on the observing thread.
@@ -115,7 +115,7 @@ private:
     struct BethesdaFile {
         std::filesystem::path path;
         std::shared_ptr<BSAFile> bsaFile;
-        bool generated = false;
+        bool isGenerated = false;
         int64_t mtime = 0; /**< Loose files: last write time (file_time_type ticks) */
         uint64_t size = 0; /**< Loose files: size in bytes */
 
@@ -123,7 +123,7 @@ private:
         {
             auto j = nlohmann::json::object();
 
-            if (bsaFile != nullptr)
+            if (bsaFile)
                 j["bsa"] = StringUtil::utf16toUTF8(bsaFile->path.wstring());
 
             return j;
@@ -445,7 +445,7 @@ private:
      */
     void updateFileMap(const std::filesystem::path& filePath,
                        std::shared_ptr<BSAFile> bsaFile,
-                       const bool& generated = false,
+                       const bool& isGenerated = false,
                        const int64_t& mtime = 0,
                        const uint64_t& size = 0);
 

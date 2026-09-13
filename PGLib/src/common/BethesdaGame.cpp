@@ -240,8 +240,8 @@ std::filesystem::path BethesdaGame::pluginsFile() const
     return gamePluginsFile;
 }
 
-std::vector<std::wstring> BethesdaGame::activePlugins(const bool& trimExtension,
-                                                      const bool& lowercase) const
+std::vector<std::wstring> BethesdaGame::activePlugins(const bool& shouldTrimExtension,
+                                                      const bool& shouldLowercase) const
 {
     std::vector<std::wstring> outputLO;
 
@@ -314,7 +314,7 @@ std::vector<std::wstring> BethesdaGame::activePlugins(const bool& trimExtension,
     // Close file handle.
     pluginsFileHandle.close();
 
-    if (trimExtension) {
+    if (shouldTrimExtension) {
         // Trim the extension from the plugin name.
         for (std::wstring& plugin : outputLO) {
             const auto dotPos = plugin.find_last_of(L'.');
@@ -323,7 +323,7 @@ std::vector<std::wstring> BethesdaGame::activePlugins(const bool& trimExtension,
         }
     }
 
-    if (lowercase) {
+    if (shouldLowercase) {
         // Convert the plugin name to lowercase.
         for (std::wstring& plugin : outputLO)
             boost::to_lower(plugin);

@@ -43,7 +43,7 @@ void fixCollapsiblePaneHeaderDarkMode(wxCollapsiblePane* pane)
         return;
 
     auto* header = pane->GetControlWidget();
-    if (header == nullptr)
+    if (!header)
         return;
 
     header->Bind(wxEVT_PAINT, [header, pane](wxPaintEvent&) {
@@ -238,11 +238,11 @@ int CompletionDialog::ShowModal()
         if (auto* pane = wxDynamicCast(child, wxCollapsiblePane))
             pane->Collapse();
 
-    if (auto* topSizer = GetSizer(); topSizer != nullptr) {
+    if (auto* topSizer = GetSizer(); topSizer) {
         for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
             auto* item = topSizer->GetItem(i);
             const auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
-            if (collPane != nullptr)
+            if (collPane)
                 item->SetProportion(0);
         }
     }
@@ -274,7 +274,7 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
                                            PGLogMessageListCtrl* listCtrl,
                                            bool ignoreCheckbox)
 {
-    if (pane == nullptr || listCtrl == nullptr)
+    if (!pane || !listCtrl)
         throw std::invalid_argument("pane and listCtrl cannot be null");
 
     // Limit number of visible items before scrolling (sizes in DIPs, scaled to the monitor's DPI).
@@ -325,11 +325,11 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
 
         // Give resize growth only to expanded collapsible panes.
         bool hasExpandedPane = false;
-        if (auto* topSizer = this->GetSizer(); topSizer != nullptr) {
+        if (auto* topSizer = this->GetSizer(); topSizer) {
             for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
                 auto* itemWindow = topSizer->GetItem(i)->GetWindow();
                 const auto* collPane = wxDynamicCast(itemWindow, wxCollapsiblePane);
-                if (collPane != nullptr && collPane->IsExpanded()) {
+                if (collPane && collPane->IsExpanded()) {
                     hasExpandedPane = true;
                     break;
                 }
@@ -338,7 +338,7 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
             for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
                 auto* item = topSizer->GetItem(i);
                 const auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
-                if (collPane != nullptr)
+                if (collPane)
                     item->SetProportion((hasExpandedPane && collPane->IsExpanded()) ? 1 : 0);
             }
         }

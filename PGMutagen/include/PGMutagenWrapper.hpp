@@ -41,7 +41,7 @@ public:
         std::string subModel; ///< Sub-model identifier within the record.
         bool isWeighted = false; ///< Whether the model uses a weighted (skinned) mesh.
         std::wstring meshFile; ///< Path to the mesh file referenced by this record.
-        bool singlepassMATO = false; ///< Whether this record uses single-pass MATO rendering.
+        bool isSinglepassMATO = false; ///< Whether this record uses single-pass MATO rendering.
         bool isIgnored = false; ///< Whether this model use should be skipped during patching.
         std::string type; ///< Record type string (e.g. "STAT", "ACTI").
         std::vector<AlternateTexture> alternateTextures; ///< List of alternate texture entries for this model.

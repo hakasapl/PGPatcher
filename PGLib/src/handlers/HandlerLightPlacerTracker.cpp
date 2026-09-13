@@ -95,7 +95,7 @@ void HandlerLightPlacerTracker::handleNIFCreated(const std::filesystem::path& ba
         const auto createdNIFPathStr = StringUtil::utf16toUTF8(createdNIFPathLP.wstring());
         if (!StringUtil::checkIfStringInJSONArray(*models, createdNIFPathStr)) {
             models->push_back(createdNIFPathStr);
-            lpJsonPtr->changed = true; // mark as changed
+            lpJsonPtr->isChanged = true; // mark as changed
         }
     }
 }
@@ -108,7 +108,7 @@ void HandlerLightPlacerTracker::finalize()
 
     // Loop through each LPJSON and save if changed.
     for (const auto& lpJsonPtr : s_lightPlacerJSONs) {
-        if (lpJsonPtr->changed) {
+        if (lpJsonPtr->isChanged) {
             const auto outputPath = generatedDir / lpJsonPtr->jsonPath;
             // Ensure the directory exists.
             if (!std::filesystem::exists(outputPath.parent_path()))

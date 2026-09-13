@@ -123,8 +123,8 @@ public:
      * @param lowercase     If true, plugin names are converted to lowercase.
      * @return Vector of wide strings containing the active plugin names in load order.
      */
-    [[nodiscard]] std::vector<std::wstring> activePlugins(const bool& trimExtension = false,
-                                                          const bool& lowercase = false) const;
+    [[nodiscard]] std::vector<std::wstring> activePlugins(const bool& shouldTrimExtension = false,
+                                                          const bool& shouldLowercase = false) const;
 
     /**
      * @brief Returns all supported game types.

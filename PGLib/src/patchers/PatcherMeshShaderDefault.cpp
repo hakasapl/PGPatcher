@@ -34,7 +34,7 @@ PatcherMeshShaderDefault::PatcherMeshShaderDefault(std::filesystem::path nifPath
 }
 
 bool PatcherMeshShaderDefault::canApply([[maybe_unused]] nifly::NiShape& nifShape,
-                                        [[maybe_unused]] bool singlepassMATO,
+                                        [[maybe_unused]] bool isSinglepassMATO,
                                         [[maybe_unused]] const PGPlugin::ModelRecordType& modelRecordType)
 {
     return true;

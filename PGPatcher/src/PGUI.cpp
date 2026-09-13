@@ -31,7 +31,7 @@ void PGUI::init()
 bool PGUI::applyTheme()
 {
     std::string theme = "system";
-    if (PGPatcherGlobals::pgc() != nullptr)
+    if (PGPatcherGlobals::pgc())
         theme = PGPatcherGlobals::pgc()->uiTheme();
 
     if (theme != "light" && theme != "dark")

@@ -38,7 +38,7 @@ public:
      */
     void setMainProgress(int done,
                          int total,
-                         bool addToLabel = false);
+                         bool shouldAddToLabel = false);
 
     /**
      * @brief Set the text label shown above the main progress bar.
@@ -56,7 +56,7 @@ public:
      */
     void setStepProgress(int done,
                          int total,
-                         bool addToLabel = false);
+                         bool shouldAddToLabel = false);
 
     /**
      * @brief Set the text label shown above the step progress bar.

@@ -105,7 +105,7 @@ private:
     /// Warning icon image list for the match list (owned here; the list control only borrows it).
     wxImageList m_matchWarningImages;
     /// True once the warning icon image lists were successfully created.
-    bool m_warningIconAvailable = false;
+    bool m_isWarningIconAvailable = false;
     /// Whether mismatch warning icons are currently shown ("Show Potential Mismatches" checkbox state, off by
     /// default).
     bool m_showMismatches = false;

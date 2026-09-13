@@ -43,7 +43,7 @@ public:
         Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_NO); }, wxID_NO);
 
         // Let ESC / the close box act as "No" when there is no cancel button.
-        if ((style & wxNO) != 0 && (style & wxCANCEL) == 0)
+        if ((style & wxNO) && !(style & wxCANCEL))
             SetEscapeId(wxID_NO);
 
         SetSizerAndFit(mainSizer);

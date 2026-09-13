@@ -31,7 +31,7 @@ bool PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] PGTypes::Tex
     auto* nifShader = nif()->GetShader(&nifShape);
 
     auto* txstRec = nif()->GetHeader().GetBlock(nifShader->TextureSetRef());
-    if (txstRec == nullptr)
+    if (!txstRec)
         return false;
 
     if (txstRec->textures.size() >= slotCount)

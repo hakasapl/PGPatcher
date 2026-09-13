@@ -38,7 +38,7 @@ bool PatcherMeshPostRestoreDefaultShaders::applyPatch(PGTypes::TextureSet& slots
 {
     auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
-    if (nifShaderBSLSP == nullptr)
+    if (!nifShaderBSLSP)
         return false;
 
     if (restoreDefaultShaderFromParallax(slots, *nifShaderBSLSP))

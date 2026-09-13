@@ -39,7 +39,7 @@ namespace {
 std::filesystem::path executablePath()
 {
     std::array<wchar_t, MAX_PATH> buffer { };
-    if (GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH) == 0) {
+    if (!GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH)) {
         std::cerr << "Error getting executable path: " << GetLastError() << "\n";
         exit(1);
     }
@@ -61,12 +61,12 @@ void configureDotnetLibDirectory(const std::filesystem::path& exeDir)
     if (!std::filesystem::exists(libDir))
         return;
 
-    if (SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS) == 0) {
+    if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS)) {
         std::cerr << "Failed to configure DLL search directories.\n";
         exit(1);
     }
 
-    if (AddDllDirectory(libDir.c_str()) == nullptr) {
+    if (!AddDllDirectory(libDir.c_str())) {
         std::cerr << "Failed to add dotnetlib directory to DLL search path.\n";
         exit(1);
     }

@@ -133,8 +133,8 @@ auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair
         return { };
 
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
-    // Sort modelUses by putting weighted ones first, then by mod name, then by.
-    // Formid, then by submodel.
+    // Sort modelUses by putting weighted ones first, then by mod name, then by
+    // formid, then by submodel.
     std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) {
         const bool aHasAltTex = !a.alternateTextures.empty();
         const bool bHasAltTex = !b.alternateTextures.empty();
@@ -157,7 +157,7 @@ auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair
         };
         MeshUseAttributes attributes;
         attributes.isWeighted = modelUse.isWeighted;
-        attributes.singlepassMATO = modelUse.singlepassMATO;
+        attributes.isSinglepassMATO = modelUse.isSinglepassMATO;
         attributes.isIgnored = modelUse.isIgnored;
         attributes.isDummyUse = false;
         attributes.recType = recTypeFromString(modelUse.type);
@@ -184,7 +184,7 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
 
     for (const auto& meshResult : meshResults) {
         for (const auto& [formKey, altTexMap] : meshResult.altTexResults) {
-            if (formKey.modKey.empty() || formKey.formID == 0) {
+            if (formKey.modKey.empty() || !formKey.formID) {
                 // Skip dummy use.
                 continue;
             }

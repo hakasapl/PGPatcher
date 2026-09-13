@@ -19,7 +19,6 @@ PGLogMessageListCtrl::PGLogMessageListCtrl(wxWindow* parent,
                  wxDefaultSize,
                  wxLC_REPORT | wxLC_HRULES | wxLC_VRULES | wxLC_NO_HEADER)
     , m_allowIgnore(allowIgnore)
-
 {
     InsertColumn(0, "Message", wxLIST_FORMAT_LEFT);
 

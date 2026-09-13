@@ -32,7 +32,6 @@
 #include <windows.h>
 #include <wrl/client.h>
 
-using namespace StringUtil;
 using Microsoft::WRL::ComPtr;
 
 // We need to access unions as part of certain DX11 structures.
@@ -144,7 +143,7 @@ bool PGD3D::countPixelValues(const DirectX::ScratchImage& image,
                              std::array<int,
                                         4>& outData)
 {
-    if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderCountAlphaValues == nullptr))
+    if ((!m_ptrContext) || (!m_ptrDevice) || (!m_shaderCountAlphaValues))
         throw std::runtime_error("GPU not initialized");
 
     // Create GPU texture.
@@ -231,10 +230,10 @@ bool PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
     }
 
     // Validate dimensions before calculating aspect ratios.
-    if (ddsImageMeta1.height == 0 || ddsImageMeta2.height == 0) {
-        if (ddsImageMeta1.height == 0)
+    if (!ddsImageMeta1.height || !ddsImageMeta2.height) {
+        if (!ddsImageMeta1.height)
             Logger::error(L"Unable to process texture: {}", ddsPath1.wstring());
-        if (ddsImageMeta2.height == 0)
+        if (!ddsImageMeta2.height)
             Logger::error(L"Unable to process texture: {}", ddsPath2.wstring());
         return false;
     }
@@ -287,7 +286,7 @@ bool PGD3D::initShaders()
 bool PGD3D::initShader(const std::filesystem::path& filename,
                        ComPtr<ID3D11ComputeShader>& outShader)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     // Load shader.
@@ -332,7 +331,7 @@ bool PGD3D::isPowerOfTwo(unsigned x) { return (x != 0U) && ((x & (x - 1)) == 0U)
 bool PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
                             ComPtr<ID3D11Texture2D>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     // Define error object.
@@ -361,13 +360,13 @@ bool PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
 bool PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
                             ComPtr<ID3D11Texture2D>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     // Smart Pointer to hold texture for output.
     D3D11_TEXTURE2D_DESC textureOutDesc;
     existingTexture->GetDesc(&textureOutDesc);
-    if (textureOutDesc.Width % 2 != 0 || textureOutDesc.Height % 2 != 0)
+    if (textureOutDesc.Width % 2 || textureOutDesc.Height % 2)
         return false;
 
     HRESULT hr { };
@@ -383,7 +382,7 @@ bool PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
 bool PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
                             ComPtr<ID3D11Texture2D>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     // Define error object.
@@ -400,7 +399,7 @@ bool PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
 bool PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
                                      ComPtr<ID3D11ShaderResourceView>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     // Define error object.
@@ -422,7 +421,7 @@ bool PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
 bool PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
                                       ComPtr<ID3D11UnorderedAccessView>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     // Define error object.
@@ -445,7 +444,7 @@ bool PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
                                       const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc,
                                       ComPtr<ID3D11UnorderedAccessView>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     HRESULT hr { };
@@ -461,7 +460,7 @@ bool PGD3D::createBuffer(const void* data,
                          D3D11_BUFFER_DESC& desc,
                          ComPtr<ID3D11Buffer>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     D3D11_SUBRESOURCE_DATA initData = { };
@@ -479,7 +478,7 @@ bool PGD3D::createConstantBuffer(const void* data,
                                  const UINT& size,
                                  ComPtr<ID3D11Buffer>& dest)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
     // Define error object.
@@ -511,7 +510,7 @@ bool PGD3D::createConstantBuffer(const void* data,
 void PGD3D::copyResource(const ComPtr<ID3D11Resource>& src,
                          const ComPtr<ID3D11Resource>& dest)
 {
-    if (m_ptrContext == nullptr)
+    if (!m_ptrContext)
         throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
@@ -520,7 +519,7 @@ void PGD3D::copyResource(const ComPtr<ID3D11Resource>& src,
 
 void PGD3D::generateMips(const ComPtr<ID3D11ShaderResourceView>& srv)
 {
-    if (m_ptrContext == nullptr)
+    if (!m_ptrContext)
         throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
@@ -529,7 +528,7 @@ void PGD3D::generateMips(const ComPtr<ID3D11ShaderResourceView>& srv)
 
 void PGD3D::flushGPU()
 {
-    if (m_ptrContext == nullptr)
+    if (!m_ptrContext)
         throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
@@ -544,10 +543,10 @@ bool PGD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& 
                              UINT threadGroupCountY,
                              UINT threadGroupCountZ)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
-    if (m_ptrContext == nullptr)
+    if (!m_ptrContext)
         throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
@@ -609,7 +608,7 @@ bool PGD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& 
 bool PGD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
                      DirectX::ScratchImage& outImage)
 {
-    if (m_ptrContext == nullptr)
+    if (!m_ptrContext)
         throw std::runtime_error("Context not initialized");
 
     // Error object.
@@ -768,10 +767,10 @@ template<typename T>
 bool PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
                      std::vector<T>& outData)
 {
-    if (m_ptrDevice == nullptr)
+    if (!m_ptrDevice)
         throw std::runtime_error("Device not initialized");
 
-    if (m_ptrContext == nullptr)
+    if (!m_ptrContext)
         throw std::runtime_error("Context not initialized");
 
     // Error object.
@@ -830,8 +829,8 @@ bool PGD3D::getDDS(const std::filesystem::path& ddsPath, // NOLINT(readability-c
 {
     auto* const pgd = PGGlobals::pgd();
 
-    // Texture pixel data never influences mesh output directly (only derived classification does), so reading it.
-    // Must not register the texture as a dependency of the mesh being patched.
+    // Texture pixel data never influences mesh output directly (only derived classification does), so reading it
+    // must not register the texture as a dependency of the mesh being patched.
     const PGRunCache::SuspendRecording suspendRecording;
 
     HRESULT hr { };
@@ -939,7 +938,7 @@ bool PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
                                  const void* shaderParams,
                                  const UINT& shaderParamsSize)
 {
-    if (shader == nullptr)
+    if (!shader)
         throw std::runtime_error("Shader was not initialized");
 
     if (inTexture.GetImageCount() < 1)
@@ -959,7 +958,7 @@ bool PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
 
     // Create constant parameter buffer.
     ComPtr<ID3D11Buffer> constantBuffer;
-    if (shaderParams != nullptr && !createConstantBuffer(shaderParams, shaderParamsSize, constantBuffer))
+    if (shaderParams && !createConstantBuffer(shaderParams, shaderParamsSize, constantBuffer))
         return false;
 
     // Create output texture.
@@ -983,7 +982,7 @@ bool PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
 
     // Dispatch shader.
     std::vector<ComPtr<ID3D11Buffer>> constantBuffers;
-    if (shaderParams != nullptr)
+    if (shaderParams)
         constantBuffers.push_back(constantBuffer);
 
     if (!blockingDispatch(shader,
@@ -1052,7 +1051,7 @@ DirectX::ScratchImage PGD3D::loadRawPixelsToScratchImage(const std::vector<unsig
 
     // Get the image data.
     const DirectX::Image* img = image.GetImage(0, 0, 0);
-    if (img == nullptr)
+    if (!img)
         return { };
 
     // Copy the raw pixel data into the image.

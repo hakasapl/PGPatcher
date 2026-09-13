@@ -20,7 +20,7 @@ std::function<void()> TaskPoolRunner::s_exceptionCallback = nullptr;
 TaskPoolRunner::TaskPoolRunner(const bool& multithread)
     : m_threadPool([] {
         auto availableThreads = std::thread::hardware_concurrency();
-        if (availableThreads == 0)
+        if (!availableThreads)
             availableThreads = 4;
         return availableThreads - numStaticThreads;
     }())

@@ -78,7 +78,7 @@ public:
      * @return false Shape cannot accomodate CM
      */
     bool canApply(nifly::NiShape& nifShape,
-                  bool singlepassMATO,
+                  bool isSinglepassMATO,
                   const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**

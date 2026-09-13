@@ -41,12 +41,12 @@ public:
         struct ModManager {
             PGModManager::ModManagerType type = PGModManager::ModManagerType::None;
             std::filesystem::path mo2InstanceDir;
-            bool mo2UseLooseFileOrder = true;
+            bool shouldUseMO2LooseFileOrder = true;
 
             bool operator==(const ModManager& other) const
             {
                 return type == other.type && mo2InstanceDir == other.mo2InstanceDir
-                    && mo2UseLooseFileOrder == other.mo2UseLooseFileOrder;
+                    && shouldUseMO2LooseFileOrder == other.shouldUseMO2LooseFileOrder;
             }
         } modManager;
 
@@ -86,41 +86,48 @@ public:
 
         // Pre-Patchers.
         struct PrePatcher {
-            bool fixMeshLighting = false;
+            bool isFixMeshLightingEnabled = false;
 
-            bool operator==(const PrePatcher& other) const { return fixMeshLighting == other.fixMeshLighting; }
+            bool operator==(const PrePatcher& other) const
+            {
+                return isFixMeshLightingEnabled == other.isFixMeshLightingEnabled;
+            }
         } prePatcher;
 
         // Shader Patchers.
         struct ShaderPatcher {
-            bool parallax = true;
-            bool complexMaterial = true;
-            bool truePBR = false;
+            bool isParallaxEnabled = true;
+            bool isComplexMaterialEnabled = true;
+            bool isTruePBREnabled = false;
 
             bool operator==(const ShaderPatcher& other) const
             {
-                return parallax == other.parallax && complexMaterial == other.complexMaterial
-                    && truePBR == other.truePBR;
+                return isParallaxEnabled == other.isParallaxEnabled
+                    && isComplexMaterialEnabled == other.isComplexMaterialEnabled
+                    && isTruePBREnabled == other.isTruePBREnabled;
             }
         } shaderPatcher;
 
         // Shader Transforms.
         struct ShaderTransforms {
-            bool parallaxToCM = false;
+            bool isParallaxToCMEnabled = false;
 
-            bool operator==(const ShaderTransforms& other) const { return parallaxToCM == other.parallaxToCM; }
+            bool operator==(const ShaderTransforms& other) const
+            {
+                return isParallaxToCMEnabled == other.isParallaxToCMEnabled;
+            }
         } shaderTransforms;
 
         // Post-Patchers.
         struct PostPatcher {
             bool disablePrePatchedMaterials = true;
-            bool fixSSS = false;
-            bool hairFlowMap = false;
+            bool isFixSSSEnabled = false;
+            bool isHairFlowMapEnabled = false;
 
             bool operator==(const PostPatcher& other) const
             {
-                return disablePrePatchedMaterials == other.disablePrePatchedMaterials && fixSSS == other.fixSSS
-                    && hairFlowMap == other.hairFlowMap;
+                return disablePrePatchedMaterials == other.disablePrePatchedMaterials
+                    && isFixSSSEnabled == other.isFixSSSEnabled && isHairFlowMapEnabled == other.isHairFlowMapEnabled;
             }
         } postPatcher;
 

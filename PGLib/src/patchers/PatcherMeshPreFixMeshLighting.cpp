@@ -32,7 +32,7 @@ bool PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] PGTypes::Texture
 {
     auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
-    if (nifShaderBSLSP == nullptr) {
+    if (!nifShaderBSLSP) {
         // Not a BSLightingShaderProperty.
         return false;
     }

@@ -120,7 +120,7 @@ void DialogTextureMapListCtrl::populateList(const std::vector<std::pair<std::wst
 
 void DialogTextureMapListCtrl::updateColumnWidths()
 {
-    if (m_listCtrl == nullptr)
+    if (!m_listCtrl)
         return;
 
     // Get current total width of the list control.

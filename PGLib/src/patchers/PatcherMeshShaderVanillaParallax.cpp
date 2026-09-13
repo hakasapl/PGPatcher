@@ -35,7 +35,7 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(std::filesyst
                         nif,
                         "VanillaParallax")
 {
-    if (nif != nullptr) {
+    if (nif) {
         // Determine if NIF has attached havok animations.
         std::vector<nifly::NiObject*> nifBlockTree;
         nif->GetTree(nifBlockTree);
@@ -47,7 +47,7 @@ PatcherMeshShaderVanillaParallax::PatcherMeshShaderVanillaParallax(std::filesyst
 }
 
 bool PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
-                                                bool singlepassMATO,
+                                                bool isSinglepassMATO,
                                                 const PGPlugin::ModelRecordType& modelRecordType)
 {
     if (modelRecordType == PGPlugin::ModelRecordType::Grass) {
@@ -55,7 +55,7 @@ bool PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
         return false;
     }
 
-    if (singlepassMATO)
+    if (isSinglepassMATO)
         return false;
 
     auto* nifShader = nif()->GetShader(&nifShape);

@@ -97,7 +97,7 @@ wxString languageDisplayName(const std::filesystem::path& file,
     std::string canonical = code;
     std::ranges::replace(canonical, '-', '_');
     const auto* langInfo = wxUILocale::FindLanguageInfo(wxString::FromUTF8(canonical));
-    if (langInfo != nullptr && !langInfo->DescriptionNative.empty())
+    if (langInfo && !langInfo->DescriptionNative.empty())
         return langInfo->DescriptionNative;
 
     return wxString::FromUTF8(code);
@@ -126,8 +126,8 @@ wxString PGLocale::tr(const std::string& key)
     if (it != strings.end())
         return it->second;
 
-    // Neither the active language nor en.json provides this key: the translations folder is missing or broken. Show.
-    // The key itself so the problem is visible rather than masked by a hardcoded string.
+    // Neither the active language nor en.json provides this key: the translations folder is missing or broken. Show
+    // the key itself so the problem is visible rather than masked by a hardcoded string.
     return wxString::FromUTF8(key);
 }
 

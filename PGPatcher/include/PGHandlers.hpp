@@ -51,7 +51,7 @@ public:
         std::string timestamp;
         const time_t t = time(nullptr);
         tm tm { };
-        if (localtime_s(&tm, &t) == 0) {
+        if (!localtime_s(&tm, &t)) {
             std::ostringstream oss;
             oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
             timestamp = "_" + oss.str();
@@ -98,7 +98,7 @@ public:
     static std::filesystem::path exePath()
     {
         std::array<wchar_t, MAX_PATH> buffer { };
-        if (GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH) == 0)
+        if (!GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH))
             return { };
 
         std::filesystem::path outPath = std::filesystem::path(buffer.data());

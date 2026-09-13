@@ -57,14 +57,14 @@ private:
     static void captureMessage(const spdlog::level::level_enum& level,
                                const std::wstring& message)
     {
-        if (s_threadMessageCapture != nullptr)
+        if (s_threadMessageCapture)
             s_threadMessageCapture(level, message);
     }
 
     static void captureMessage(const spdlog::level::level_enum& level,
                                const std::string& message)
     {
-        if (s_threadMessageCapture != nullptr)
+        if (s_threadMessageCapture)
             s_threadMessageCapture(level, StringUtil::utf8toUTF16(message));
     }
 

@@ -163,7 +163,7 @@ public:
      * @return false Cannot accomodate
      */
     bool canApply(nifly::NiShape& nifShape,
-                  bool singlepassMATO,
+                  bool isSinglepassMATO,
                   const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
@@ -230,7 +230,7 @@ public:
                                                std::string>& optionsStr);
 
     static void loadOptions(const bool& checkPaths,
-                            const bool& printNonExistentPaths);
+                            const bool& shouldPrintNonExistentPaths);
 
 private:
     /**

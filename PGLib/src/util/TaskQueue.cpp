@@ -15,7 +15,11 @@
 // STATICS.
 std::function<void()> TaskQueue::s_exceptionCallback = nullptr;
 
-TaskQueue::TaskQueue() { m_workerThread = std::thread(&TaskQueue::workerLoop, this); }
+TaskQueue::TaskQueue()
+    : m_workerThread(&TaskQueue::workerLoop,
+                     this)
+{
+}
 
 TaskQueue::~TaskQueue() { shutdown(); }
 

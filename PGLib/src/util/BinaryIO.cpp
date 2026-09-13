@@ -18,7 +18,7 @@ namespace BinaryIO {
 void Writer::writeBytes(const void* data,
                         size_t size)
 {
-    if (size == 0)
+    if (!size)
         return;
 
     const std::span<const std::byte> bytes(static_cast<const std::byte*>(data), size);
@@ -101,7 +101,7 @@ void Reader::ensureAvailable(size_t size) const
 void Reader::readBytes(void* dest,
                        size_t size)
 {
-    if (size == 0)
+    if (!size)
         return;
 
     ensureAvailable(size);

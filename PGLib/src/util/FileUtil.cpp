@@ -80,7 +80,7 @@ bool getJSONFromBytes(const std::vector<std::byte>& bytes,
 
 bool saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
-              const bool& readable)
+              const bool& shouldBeReadable)
 {
     std::ofstream outputFile;
     outputFile.exceptions(std::ios::failbit | std::ios::badbit);
@@ -90,7 +90,7 @@ bool saveJSON(const std::filesystem::path& filePath,
         return false;
     }
 
-    if (readable)
+    if (shouldBeReadable)
         outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);
     else
         outputFile << json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);

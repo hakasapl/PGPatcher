@@ -48,7 +48,7 @@ public:
      * @return false Shape cannot be patched
      */
     bool canApply(nifly::NiShape& nifShape,
-                  bool singlepassMATO,
+                  bool isSinglepassMATO,
                   const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**

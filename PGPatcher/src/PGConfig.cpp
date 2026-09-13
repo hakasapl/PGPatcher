@@ -26,8 +26,6 @@
 #include <unordered_set>
 #include <vector>
 
-using namespace StringUtil;
-
 // Statics.
 std::filesystem::path PGConfig::s_exePath;
 
@@ -170,7 +168,7 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
 
         // "game".
         if (paramJ.contains("game") && paramJ["game"].contains("dir"))
-            m_params.game.dir = utf8toUTF16(paramJ["game"]["dir"].get<std::string>());
+            m_params.game.dir = StringUtil::utf8toUTF16(paramJ["game"]["dir"].get<std::string>());
         if (paramJ.contains("game") && paramJ["game"].contains("type"))
             paramJ["game"]["type"].get_to<BethesdaGame::GameType>(m_params.game.type);
 
@@ -180,11 +178,11 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir"))
             paramJ["modmanager"]["mo2instancedir"].get_to<std::filesystem::path>(m_params.modManager.mo2InstanceDir);
         if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useloosefileorder"))
-            paramJ["modmanager"]["mo2useloosefileorder"].get_to<bool>(m_params.modManager.mo2UseLooseFileOrder);
+            paramJ["modmanager"]["mo2useloosefileorder"].get_to<bool>(m_params.modManager.shouldUseMO2LooseFileOrder);
 
         // "output".
         if (paramJ.contains("output") && paramJ["output"].contains("dir"))
-            m_params.output.dir = utf8toUTF16(paramJ["output"]["dir"].get<std::string>());
+            m_params.output.dir = StringUtil::utf8toUTF16(paramJ["output"]["dir"].get<std::string>());
         if (paramJ.contains("output") && paramJ["output"].contains("zip"))
             paramJ["output"]["zip"].get_to<bool>(m_params.output.zip);
         if (paramJ.contains("output") && paramJ["output"].contains("pluginlang")) {
@@ -203,19 +201,19 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
             paramJ["processing"]["enabletracelogging"].get_to<bool>(m_params.processing.enableTraceLogging);
         if (paramJ.contains("processing") && paramJ["processing"].contains("allowlist"))
             for (const auto& item : paramJ["processing"]["allowlist"])
-                m_params.processing.allowList.push_back(utf8toUTF16(item.get<std::string>()));
+                m_params.processing.allowList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
         if (paramJ.contains("processing") && paramJ["processing"].contains("blocklist"))
             for (const auto& item : paramJ["processing"]["blocklist"])
-                m_params.processing.blockList.push_back(utf8toUTF16(item.get<std::string>()));
+                m_params.processing.blockList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
         if (paramJ.contains("processing") && paramJ["processing"].contains("texturemaps")) {
             for (const auto& item : paramJ["processing"]["texturemaps"].items()) {
-                m_params.processing.textureMaps.emplace_back(utf8toUTF16(item.key()),
+                m_params.processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(item.key()),
                                                              PGEnums::texTypeFromStr(item.value().get<std::string>()));
             }
         }
         if (paramJ.contains("processing") && paramJ["processing"].contains("vanillabsalist"))
             for (const auto& item : paramJ["processing"]["vanillabsalist"])
-                m_params.processing.vanillaBSAList.push_back(utf8toUTF16(item.get<std::string>()));
+                m_params.processing.vanillaBSAList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
         if (paramJ.contains("processing") && paramJ["processing"].contains("allowedmodelrecordtypes")) {
             m_params.processing.allowedModelRecordTypes.clear();
 
@@ -226,19 +224,19 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
 
         // "prepatcher".
         if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("fixmeshlighting"))
-            paramJ["prepatcher"]["fixmeshlighting"].get_to<bool>(m_params.prePatcher.fixMeshLighting);
+            paramJ["prepatcher"]["fixmeshlighting"].get_to<bool>(m_params.prePatcher.isFixMeshLightingEnabled);
 
         // "shaderpatcher".
         if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("parallax"))
-            paramJ["shaderpatcher"]["parallax"].get_to<bool>(m_params.shaderPatcher.parallax);
+            paramJ["shaderpatcher"]["parallax"].get_to<bool>(m_params.shaderPatcher.isParallaxEnabled);
         if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("complexmaterial"))
-            paramJ["shaderpatcher"]["complexmaterial"].get_to<bool>(m_params.shaderPatcher.complexMaterial);
+            paramJ["shaderpatcher"]["complexmaterial"].get_to<bool>(m_params.shaderPatcher.isComplexMaterialEnabled);
         if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("truepbr"))
-            paramJ["shaderpatcher"]["truepbr"].get_to<bool>(m_params.shaderPatcher.truePBR);
+            paramJ["shaderpatcher"]["truepbr"].get_to<bool>(m_params.shaderPatcher.isTruePBREnabled);
 
         // "shadertransforms".
         if (paramJ.contains("shadertransforms") && paramJ["shadertransforms"].contains("parallaxtocm"))
-            paramJ["shadertransforms"]["parallaxtocm"].get_to<bool>(m_params.shaderTransforms.parallaxToCM);
+            paramJ["shadertransforms"]["parallaxtocm"].get_to<bool>(m_params.shaderTransforms.isParallaxToCMEnabled);
 
         // "postpatcher".
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("disableprepatchedmaterials")) {
@@ -246,9 +244,9 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
                 m_params.postPatcher.disablePrePatchedMaterials);
         }
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("fixsss"))
-            paramJ["postpatcher"]["fixsss"].get_to<bool>(m_params.postPatcher.fixSSS);
+            paramJ["postpatcher"]["fixsss"].get_to<bool>(m_params.postPatcher.isFixSSSEnabled);
         if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("hairflowmap"))
-            paramJ["postpatcher"]["hairflowmap"].get_to<bool>(m_params.postPatcher.hairFlowMap);
+            paramJ["postpatcher"]["hairflowmap"].get_to<bool>(m_params.postPatcher.isHairFlowMapEnabled);
 
         // "globalpatcher".
     }
@@ -350,8 +348,8 @@ bool PGConfig::validateParams(const PGParams& rawParams,
     // Shader Patchers.
 
     // Shader Transforms.
-    if (params.shaderTransforms.parallaxToCM
-        && (!params.shaderPatcher.parallax || !params.shaderPatcher.complexMaterial)) {
+    if (params.shaderTransforms.isParallaxToCMEnabled
+        && (!params.shaderPatcher.isParallaxEnabled || !params.shaderPatcher.isComplexMaterialEnabled)) {
         addError("launcher.validation.parallaxToCMRequiresPatchers");
     }
 
@@ -411,16 +409,16 @@ nlohmann::json PGConfig::userConfigJSON() const
     // Params.
 
     // "game".
-    j["params"]["game"]["dir"] = utf16toUTF8(m_params.game.dir.wstring());
+    j["params"]["game"]["dir"] = StringUtil::utf16toUTF8(m_params.game.dir.wstring());
     j["params"]["game"]["type"] = m_params.game.type;
 
     // "modmanager".
     j["params"]["modmanager"]["type"] = m_params.modManager.type;
-    j["params"]["modmanager"]["mo2instancedir"] = utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
-    j["params"]["modmanager"]["mo2useloosefileorder"] = m_params.modManager.mo2UseLooseFileOrder;
+    j["params"]["modmanager"]["mo2instancedir"] = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
+    j["params"]["modmanager"]["mo2useloosefileorder"] = m_params.modManager.shouldUseMO2LooseFileOrder;
 
     // "output".
-    j["params"]["output"]["dir"] = utf16toUTF8(m_params.output.dir.wstring());
+    j["params"]["output"]["dir"] = StringUtil::utf16toUTF8(m_params.output.dir.wstring());
     j["params"]["output"]["zip"] = m_params.output.zip;
     j["params"]["output"]["pluginlang"] = PGPlugin::stringFromPluginLang(m_params.output.pluginLang);
 
@@ -429,31 +427,31 @@ nlohmann::json PGConfig::userConfigJSON() const
     j["params"]["processing"]["devmode"] = m_params.processing.enableModDevMode;
     j["params"]["processing"]["enabledebuglogging"] = m_params.processing.enableDebugLogging;
     j["params"]["processing"]["enabletracelogging"] = m_params.processing.enableTraceLogging;
-    j["params"]["processing"]["allowlist"] = utf16VectorToUTF8(m_params.processing.allowList);
-    j["params"]["processing"]["blocklist"] = utf16VectorToUTF8(m_params.processing.blockList);
+    j["params"]["processing"]["allowlist"] = StringUtil::utf16VectorToUTF8(m_params.processing.allowList);
+    j["params"]["processing"]["blocklist"] = StringUtil::utf16VectorToUTF8(m_params.processing.blockList);
     j["params"]["processing"]["texturemaps"] = nlohmann::json::object();
     for (const auto& [key, value] : m_params.processing.textureMaps)
-        j["params"]["processing"]["texturemaps"][utf16toUTF8(key)] = PGEnums::strFromTexType(value);
-    j["params"]["processing"]["vanillabsalist"] = utf16VectorToUTF8(m_params.processing.vanillaBSAList);
+        j["params"]["processing"]["texturemaps"][StringUtil::utf16toUTF8(key)] = PGEnums::strFromTexType(value);
+    j["params"]["processing"]["vanillabsalist"] = StringUtil::utf16VectorToUTF8(m_params.processing.vanillaBSAList);
     j["params"]["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
     for (const auto& item : m_params.processing.allowedModelRecordTypes)
         j["params"]["processing"]["allowedmodelrecordtypes"].push_back(PGPlugin::stringFromRecType(item));
 
     // "prepatcher".
-    j["params"]["prepatcher"]["fixmeshlighting"] = m_params.prePatcher.fixMeshLighting;
+    j["params"]["prepatcher"]["fixmeshlighting"] = m_params.prePatcher.isFixMeshLightingEnabled;
 
     // "shaderpatcher".
-    j["params"]["shaderpatcher"]["parallax"] = m_params.shaderPatcher.parallax;
-    j["params"]["shaderpatcher"]["complexmaterial"] = m_params.shaderPatcher.complexMaterial;
-    j["params"]["shaderpatcher"]["truepbr"] = m_params.shaderPatcher.truePBR;
+    j["params"]["shaderpatcher"]["parallax"] = m_params.shaderPatcher.isParallaxEnabled;
+    j["params"]["shaderpatcher"]["complexmaterial"] = m_params.shaderPatcher.isComplexMaterialEnabled;
+    j["params"]["shaderpatcher"]["truepbr"] = m_params.shaderPatcher.isTruePBREnabled;
 
     // "shadertransforms".
-    j["params"]["shadertransforms"]["parallaxtocm"] = m_params.shaderTransforms.parallaxToCM;
+    j["params"]["shadertransforms"]["parallaxtocm"] = m_params.shaderTransforms.isParallaxToCMEnabled;
 
     // "postpatcher".
     j["params"]["postpatcher"]["disableprepatchedmaterials"] = m_params.postPatcher.disablePrePatchedMaterials;
-    j["params"]["postpatcher"]["fixsss"] = m_params.postPatcher.fixSSS;
-    j["params"]["postpatcher"]["hairflowmap"] = m_params.postPatcher.hairFlowMap;
+    j["params"]["postpatcher"]["fixsss"] = m_params.postPatcher.isFixSSSEnabled;
+    j["params"]["postpatcher"]["hairflowmap"] = m_params.postPatcher.isHairFlowMapEnabled;
 
     // "globalpatcher".
 
@@ -483,7 +481,7 @@ bool PGConfig::saveModConfig()
 {
     // Mods.
     auto* pgmm = PGGlobals::pgmm();
-    if (pgmm == nullptr)
+    if (!pgmm)
         throw std::runtime_error("Mod Manager Directory not set");
 
     const auto j = pgmm->json();

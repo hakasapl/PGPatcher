@@ -84,7 +84,7 @@ public:
 
     struct MatchesDep {
         PGTypes::TextureSet slots;
-        bool singlepassMATO = false;
+        bool isSinglepassMATO = false;
         PGPlugin::ModelRecordType recType = PGPlugin::ModelRecordType::Unknown;
         uint64_t digest = 0;
     };
@@ -185,7 +185,7 @@ public:
         std::filesystem::path m_nifPath;
         MeshRecord m_record;
         bool m_isCommitted = false;
-        bool m_valid = true;
+        bool m_isValid = true;
 
         // Dedup helpers.
         std::unordered_map<std::wstring, BethesdaDirectory::FileIdentity> m_identityDeps;
@@ -209,7 +209,7 @@ public:
 
         void onIsFile(const std::filesystem::path& relPath,
                       bool exists,
-                      bool generated) override;
+                      bool isGenerated) override;
         void onGetFile(const std::filesystem::path& relPath,
                        const BethesdaDirectory::FileIdentity& identity) override;
 
@@ -229,7 +229,7 @@ public:
                             bool isEnabled,
                             bool areMeshesIgnored);
         void recordMatches(const PGTypes::TextureSet& slots,
-                           bool singlepassMATO,
+                           bool isSinglepassMATO,
                            const PGPlugin::ModelRecordType& recType,
                            uint64_t digest);
         void recordHookRegistration(const HookKind& kind,
@@ -478,7 +478,7 @@ public:
                                bool isEnabled,
                                bool areMeshesIgnored);
     static void recordMatches(const PGTypes::TextureSet& slots,
-                              bool singlepassMATO,
+                              bool isSinglepassMATO,
                               const PGPlugin::ModelRecordType& recType,
                               uint64_t digest);
     static void recordHookRegistration(const HookKind& kind,
@@ -520,7 +520,7 @@ public:
     static std::unordered_set<std::filesystem::path>
     evaluateMeshes(const std::unordered_map<std::filesystem::path,
                                             PGDirectory::NifCache>& meshes,
-                   bool multiThread,
+                   bool shouldMultithread,
                    const std::function<void(size_t,
                                             size_t)>& progressCallback = { });
 

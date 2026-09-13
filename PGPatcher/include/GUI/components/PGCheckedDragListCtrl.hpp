@@ -10,7 +10,7 @@
 
 class PGCheckedDragListCtrl : public wxListCtrl {
 private:
-    wxImageList* m_imagelist; /** Image list for checkboxes */
+    wxImageList* m_imagelist = nullptr; /** Image list for checkboxes */
 
     bool m_isDraggingEnabled = true; /** True if user can drag, false otherwise */
     bool m_isContextMoveEnabled = true; /** True if move-to-top/bottom menu actions are enabled */

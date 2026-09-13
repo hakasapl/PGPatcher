@@ -52,7 +52,7 @@ public:
      * @return false Shape cannot be patched
      */
     virtual bool canApply(nifly::NiShape& nifShape,
-                          bool singlepassMATO,
+                          bool isSinglepassMATO,
                           const PGPlugin::ModelRecordType& modelRecordType) = 0;
 
     /// @brief  Methods that determine whether the patcher should apply to a shape

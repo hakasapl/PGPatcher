@@ -14,8 +14,8 @@ PGAnimationCtrl::PGAnimationCtrl(wxWindow* parent,
                       id,
                       anim)
 {
-    // Dynamically bound handlers run before the static event table of wxGenericAnimationCtrl and the event is not.
-    // Skipped, so this replaces the base class paint handler, which would draw the frame unscaled.
+    // Dynamically bound handlers run before the static event table of wxGenericAnimationCtrl and the event is not
+    // skipped, so this replaces the base class paint handler, which would draw the frame unscaled.
     Bind(wxEVT_PAINT, &PGAnimationCtrl::onPaint, this);
 }
 
@@ -41,8 +41,8 @@ void PGAnimationCtrl::onPaint([[maybe_unused]] wxPaintEvent& event)
         if (drawSize == m_backingStore.GetSize()) {
             dc.DrawBitmap(m_backingStore, 0, 0, false);
         } else {
-            // Scaled with wxImage rather than with a wxGraphicsContext: GDI+ blends the edge pixels of the source with.
-            // The transparent area outside of it, which draws a visible one pixel fringe around the animation.
+            // Scaled with wxImage rather than with a wxGraphicsContext: GDI+ blends the edge pixels of the source with
+            // the transparent area outside of it, which draws a visible one pixel fringe around the animation.
             const wxImage scaledFrame = m_backingStore.ConvertToImage().Scale(
                 drawSize.GetWidth(), drawSize.GetHeight(), wxIMAGE_QUALITY_HIGH);
             dc.DrawBitmap(wxBitmap(scaledFrame), 0, 0, false);

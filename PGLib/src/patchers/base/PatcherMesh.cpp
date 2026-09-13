@@ -80,7 +80,7 @@ bool PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
         }
 
         // Add a new texture set to the NIF.
-        if (newBlockID == 0) {
+        if (!newBlockID) {
             auto newTextureSet = std::make_unique<nifly::BSShaderTextureSet>();
             newTextureSet->textures.resize(numTextureSlots);
             for (uint32_t i = 0; i < textures.size(); i++)
@@ -108,12 +108,12 @@ bool PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
     s_patchedTextureSets[nifPath][textureSetBlockID].original = slots;
 
     // Set the texture slots for the shape like normal.
-    const bool changed = PGNIFUtil::setTextureSlots(&nif, &nifShape, textures);
+    const bool isChanged = PGNIFUtil::setTextureSlots(&nif, &nifShape, textures);
 
     // Update the patchedtexturesets.
     s_patchedTextureSets[nifPath][textureSetBlockID].patchResults[textureSetBlockID] = textures;
 
-    return changed;
+    return isChanged;
 }
 
 void PatcherMesh::clearTextureSets(const std::filesystem::path& nifPath)
@@ -137,7 +137,7 @@ std::filesystem::path PatcherMesh::nifPath() const { return m_nifPath; }
 
 nifly::NifFile* PatcherMesh::nif() const
 {
-    if (m_nif == nullptr)
+    if (!m_nif)
         throw std::runtime_error("NIF is null");
 
     return m_nif;

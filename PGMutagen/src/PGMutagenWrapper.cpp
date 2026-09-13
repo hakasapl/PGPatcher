@@ -64,7 +64,7 @@ void PGMutagenWrapper::libLogMessageIfExists()
     wchar_t* message = nullptr;
     GetLogMessage(&message, &level);
 
-    while (message != nullptr) {
+    while (message) {
         const std::wstring messageOut(message);
         LocalFree(static_cast<HGLOBAL>(message)); // Only free if memory was allocated.
         message = nullptr;
@@ -101,7 +101,7 @@ void PGMutagenWrapper::libThrowExceptionIfExists()
     wchar_t* message = nullptr;
     GetLastException(&message);
 
-    if (message == nullptr)
+    if (!message)
         return;
 
     const std::wstring messageOut(message);
@@ -120,7 +120,7 @@ void PGMutagenWrapper::libInitialize(const int& gameType,
     // code on failure instead of calling abort(), giving us the chance to surface a
     // proper exception to the caller.
     const int runtimeRC = try_preload_runtime();
-    if (runtimeRC != 0) {
+    if (runtimeRC) {
         spdlog::critical(dotnetRuntimePreloadErrorMessage, static_cast<unsigned>(runtimeRC));
         throw std::runtime_error("PGMutagenWrapper: .NET runtime failed to initialize. "
                                  "Check the log for details.");
@@ -188,7 +188,7 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
         libThrowExceptionIfExists();
     }
 
-    if ((buffer == nullptr) || length == 0)
+    if ((!buffer) || !length)
         return { };
 
     flatbuffers::Verifier verifier(buffer, length);
@@ -205,7 +205,7 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
         curUse.formID = mu->form_id();
         curUse.subModel = std::string(mu->sub_model()->begin(), mu->sub_model()->end());
         curUse.isWeighted = mu->is_weighted();
-        curUse.singlepassMATO = mu->singlepass_mato();
+        curUse.isSinglepassMATO = mu->singlepass_mato();
         curUse.isIgnored = mu->is_ignored();
         curUse.type = std::string(mu->type()->begin(), mu->type()->end());
 
@@ -214,14 +214,14 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
             curAltTex.slotID = altTex->slot_id();
 
             // No slots.
-            if (altTex->slots() == nullptr || altTex->slots()->textures() == nullptr)
+            if (!altTex->slots() || !altTex->slots()->textures())
                 continue;
 
             auto slots = std::array<std::wstring, numPluginTextureSlots> { };
             const auto* textures = altTex->slots()->textures();
             for (int i = 0; std::cmp_less(i, numPluginTextureSlots) && std::cmp_less(i, textures->size()); ++i) {
                 const auto* texStr = textures->Get(i);
-                if (texStr != nullptr)
+                if (texStr)
                     slots.at(i) = std::wstring(texStr->begin(), texStr->end());
             }
 

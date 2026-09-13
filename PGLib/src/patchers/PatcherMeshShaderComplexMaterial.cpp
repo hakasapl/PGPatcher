@@ -63,7 +63,7 @@ PatcherMeshShaderComplexMaterial::PatcherMeshShaderComplexMaterial(std::filesyst
 }
 
 bool PatcherMeshShaderComplexMaterial::canApply(nifly::NiShape& nifShape,
-                                                [[maybe_unused]] bool singlepassMATO,
+                                                [[maybe_unused]] bool isSinglepassMATO,
                                                 const PGPlugin::ModelRecordType& modelRecordType)
 {
     if (modelRecordType == PGPlugin::ModelRecordType::Grass) {
@@ -94,7 +94,7 @@ bool PatcherMeshShaderComplexMaterial::canApply(nifly::NiShape& nifShape,
         return false;
     }
 
-    if (singlepassMATO
+    if (isSinglepassMATO
         && (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_SOFT_LIGHTING)
             || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_RIM_LIGHTING)
             || PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_BACK_LIGHTING))) {
@@ -186,7 +186,7 @@ void PatcherMeshShaderComplexMaterial::applyPatch(PGTypes::TextureSet& slots,
         PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF1_SPECULAR);
 
     // Apply any extra meta overrides.
-    if (match.extraData != nullptr) {
+    if (match.extraData) {
         auto meta = *std::static_pointer_cast<decltype(nlohmann::json())>(match.extraData);
 
         // "specular_enabled" attribute.
@@ -236,7 +236,7 @@ void PatcherMeshShaderComplexMaterial::applyPatchSlots(PGTypes::TextureSet& slot
 
     // Apply any extra meta overrides.
     bool enableDynCubemaps = true;
-    if (match.extraData != nullptr) {
+    if (match.extraData) {
         auto meta = *std::static_pointer_cast<decltype(nlohmann::json())>(match.extraData);
 
         // "dynamic_cubemap" attribute.
@@ -267,7 +267,7 @@ void PatcherMeshShaderComplexMaterial::applyShader(nifly::NiShape& nifShape)
 
 uint64_t PatcherMeshShaderComplexMaterial::matchExtraDataHash(const PatcherMatch& match) const
 {
-    if (match.extraData == nullptr)
+    if (!match.extraData)
         return 0;
 
     const auto meta = std::static_pointer_cast<decltype(nlohmann::json())>(match.extraData);

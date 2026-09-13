@@ -27,7 +27,7 @@ PGEnums::TextureSlots slotFromTexType(const PGEnums::TextureType& type);
 /// @param[in] nifBytes memory containing the NIF
 /// @return the nif
 nifly::NifFile loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
-                                const bool& runChecks = true);
+                                const bool& shouldRunChecks = true);
 
 /// @brief get a map containing the known texture suffixes
 /// @return the map containing the suffixes and the slot/type pairs
@@ -186,13 +186,13 @@ std::vector<PGTypes::PGTexture> texMatch(const std::wstring& base,
 /// @return array of texture names without suffixes
 PGTypes::TextureSet searchPrefixes(nifly::NifFile const& nif,
                                    nifly::NiShape* nifShape,
-                                   const bool& findBaseSlots = true);
+                                   const bool& shouldFindBaseSlots = true);
 
 /// @brief Gets all the texture prefixes for a texture set. ie. _n.dds is removed etc. for each slot
 /// @param[in] oldSlots
 /// @return array of texture names without suffixes
 PGTypes::TextureSet searchPrefixes(const PGTypes::TextureSet& oldSlots,
-                                   const bool& findBaseSlots = true);
+                                   const bool& shouldFindBaseSlots = true);
 
 std::vector<std::pair<nifly::NiShape*,
                       int>>

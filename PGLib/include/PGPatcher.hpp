@@ -89,7 +89,7 @@ public:
      * @param multiThread whether to use multithreading
      * @param excludeFacegens whether to skip patching facegen meshes
      */
-    static void patchMeshes(const bool& multiThread = true,
+    static void patchMeshes(const bool& shouldMultithread = true,
                             const bool& forceBasePatch = false,
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                             const bool& checkAllowedRecTypes = false,
@@ -102,7 +102,7 @@ public:
      *
      * @param multiThread whether to use multithreading
      */
-    static void patchTextures(const bool& multiThread = true,
+    static void patchTextures(const bool& shouldMultithread = true,
                               const std::function<void(size_t,
                                                        size_t)>& progressCallback = { });
 
@@ -152,7 +152,7 @@ public:
      * previous output can be updated incrementally
      */
     static void deleteOutputDir(const bool& preOutput = true,
-                                const bool& keepIncrementalOutput = false);
+                                const bool& shouldKeepIncrementalOutput = false);
 
     /**
      * @brief Check if the output directory is empty
@@ -177,7 +177,7 @@ public:
      */
     static uint64_t computeMatchesDigest(const std::filesystem::path& nifPath,
                                          const PGTypes::TextureSet& slots,
-                                         bool singlepassMATO,
+                                         bool isSinglepassMATO,
                                          const PGPlugin::ModelRecordType& modelRecordType);
 
 private:
@@ -232,7 +232,7 @@ private:
     static bool processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
                            MeshMeta& meshMeta,
-                           bool singlepassMATO,
+                           bool isSinglepassMATO,
                            const PGMeshPermutationTracker::FormKey& formKey,
                            const PGPlugin::ModelRecordType& modelRecordType,
                            std::unordered_map<unsigned,
@@ -258,14 +258,14 @@ private:
                                 nifly::NiShape* nifShape,
                                 MeshShapeMeta& meshShapeMeta,
                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
-                                bool singlepassMATO,
+                                bool isSinglepassMATO,
                                 const PGMeshPermutationTracker::FormKey& formKey,
                                 const PGPlugin::ModelRecordType& modelRecordType,
                                 PGTypes::TextureSet* alternateTexture = nullptr);
 
     static std::vector<PatcherUtil::ShaderPatcherMatch> matches(const PGTypes::TextureSet& slots,
                                                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
-                                                                bool singlepassMATO,
+                                                                bool isSinglepassMATO,
                                                                 const PGPlugin::ModelRecordType& modelRecordType,
                                                                 const PatcherUtil::PatcherMeshObjectSet* patcherObjects
                                                                 = nullptr,

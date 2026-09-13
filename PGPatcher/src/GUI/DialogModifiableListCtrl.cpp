@@ -109,7 +109,7 @@ void DialogModifiableListCtrl::populateList(const std::vector<std::wstring>& ite
 
 void DialogModifiableListCtrl::updateColumnWidth()
 {
-    if (m_listCtrl == nullptr)
+    if (!m_listCtrl)
         return;
 
     if (m_listCtrl->GetColumnCount() > 0) {

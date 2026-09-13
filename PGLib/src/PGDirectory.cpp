@@ -45,8 +45,6 @@
 #include <vector>
 #include <winnt.h>
 
-using namespace StringUtil;
-
 PGDirectory::PGDirectory(BethesdaGame* bg,
                          std::filesystem::path outputPath)
     : BethesdaDirectory(bg,
@@ -86,9 +84,8 @@ void PGDirectory::findFiles()
             }
 
             // Found a DDS.
-            Logger::trace(L"Found texture: {} / {}",
-                          path.wstring(),
-                          file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
+            Logger::trace(
+                L"Found texture: {} / {}", path.wstring(), !file.bsaFile ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedTextures[path] = { };
 
             {
@@ -98,16 +95,14 @@ void PGDirectory::findFiles()
             }
         } else if (boost::iequals(firstPath, "meshes") && boost::iequals(path.extension().wstring(), L".nif")) {
             // Found a NIF.
-            Logger::trace(
-                L"Found mesh: {} / {}", path.wstring(), file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
+            Logger::trace(L"Found mesh: {} / {}", path.wstring(), !file.bsaFile ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedMeshes.insert(path);
         } else if (boost::iequals(path.extension().wstring(), L".json")) {
             // Found a JSON file.
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {
                 // Found PBR JSON config.
-                Logger::trace(L"Found PBR json: {} / {}",
-                              path.wstring(),
-                              file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
+                Logger::trace(
+                    L"Found PBR json: {} / {}", path.wstring(), !file.bsaFile ? L"" : file.bsaFile->path.wstring());
                 m_pbrJSONs.push_back(path);
 
                 if (PGGlobals::isPGMMSet())
@@ -116,7 +111,7 @@ void PGDirectory::findFiles()
                 // Found Light Placer JSON config.
                 Logger::trace(L"Found light placer json: {} / {}",
                               path.wstring(),
-                              file.bsaFile == nullptr ? L"" : file.bsaFile->path.wstring());
+                              !file.bsaFile ? L"" : file.bsaFile->path.wstring());
                 m_lightPlacerJSONs.push_back(path);
             }
         }
@@ -377,7 +372,7 @@ TaskTracker::Result PGDirectory::mapTexturesFromNIF(const std::filesystem::path&
     // Find mod of this mesh.
     if (PGGlobals::isPGMMSet()) {
         const auto mod = PGGlobals::pgmm()->modByFileSmart(nifPath);
-        if (mod != nullptr) {
+        if (mod) {
             const std::unique_lock<std::shared_mutex> lock(mod->mutex);
             mod->hasMeshes = true;
         }
@@ -412,7 +407,7 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
     const auto shapes = PGNIFUtil::shapesWith3DIdx(nif.get());
     // Clear shapes in cache.
     for (const auto& [shape, oldindex3d] : shapes) {
-        if (shape == nullptr) {
+        if (!shape) {
             // Skip if shape is null (invalid shapes).
             continue;
         }
@@ -432,21 +427,21 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
 
         // Loop through each texture slot.
         for (uint32_t slot = 0; slot < numTextureSlots; slot++) {
-            std::string texture = utf16toUTF8(textureSet.at(slot));
+            std::string texture = StringUtil::utf16toUTF8(textureSet.at(slot));
 
             if (texture.empty()) {
                 // No texture in this slot.
                 continue;
             }
 
-            toLowerASCIIFastInPlace(texture); // Lowercase for comparison
+            StringUtil::toLowerASCIIFastInPlace(texture); // Lowercase for comparison
 
             const auto shaderType = shader->GetShaderType();
             PGEnums::TextureType textureType = { };
 
             // Check to make sure appropriate shaders are set for a given texture.
             const auto* const shaderBSSP = dynamic_cast<nifly::BSShaderProperty*>(shader);
-            if (shaderBSSP == nullptr) {
+            if (!shaderBSSP) {
                 // Not a BSShaderProperty, skip.
                 continue;
             }
@@ -580,7 +575,7 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
 
             // Record vote (applied by the caller).
             votes.push_back({
-                .texture = utf8toUTF16(texture),
+                .texture = StringUtil::utf8toUTF16(texture),
                 .slot = static_cast<PGEnums::TextureSlots>(slot),
                 .type = textureType,
             });
@@ -614,7 +609,7 @@ void PGDirectory::addToTextureMaps(const std::filesystem::path& path,
     Logger::trace(L"Mapping Texture: {} / Slot: {} / Type: {}",
                   path.wstring(),
                   static_cast<size_t>(slot),
-                  utf8toUTF16(PGEnums::strFromTexType(type)));
+                  StringUtil::utf8toUTF16(PGEnums::strFromTexType(type)));
 
     // Get texture base.
     const auto& base = PGNIFUtil::texBase(path, slot);

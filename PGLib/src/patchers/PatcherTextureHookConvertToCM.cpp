@@ -17,8 +17,6 @@
 #include <winerror.h>
 #include <winnt.h>
 
-using namespace Microsoft::WRL;
-
 void PatcherTextureHookConvertToCM::reset()
 {
     const std::unique_lock lock(s_texToProcessMutex);
@@ -71,7 +69,7 @@ bool PatcherTextureHookConvertToCM::initShader()
 {
     auto* pgd3d = PGGlobals::pGD3D();
 
-    if (s_shader != nullptr)
+    if (s_shader)
         return true;
 
     return pgd3d->initShader(shaderName, s_shader);
@@ -90,7 +88,7 @@ bool PatcherTextureHookConvertToCM::applyPatch()
     auto* pgd = PGGlobals::pgd();
     auto* pgd3d = PGGlobals::pGD3D();
 
-    if (dds() == nullptr)
+    if (!dds())
         throw std::runtime_error("DDS not initialized");
 
     const auto texBase = PGNIFUtil::texBase(ddsPath(), PGEnums::TextureSlots::Parallax);

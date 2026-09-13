@@ -64,8 +64,8 @@ std::wstring PGModManager::decodeQtByteArrayValue(const std::string& byteArrayVa
             if (nextCh == 'x' && i + 3 < byteArrayVal.size()) {
                 const auto hiCh = byteArrayVal.at(i + 2);
                 const auto loCh = byteArrayVal.at(i + 3);
-                if (std::isxdigit(static_cast<unsigned char>(hiCh)) != 0
-                    && std::isxdigit(static_cast<unsigned char>(loCh)) != 0) {
+                if (std::isxdigit(static_cast<unsigned char>(hiCh))
+                    && std::isxdigit(static_cast<unsigned char>(loCh))) {
                     const auto hi = fromHexDigit(hiCh);
                     const auto lo = fromHexDigit(loCh);
                     decodedBytes.push_back(static_cast<char>((hi << 4U) | lo));
@@ -114,7 +114,7 @@ auto PGModManager::modByFileSmart(const std::filesystem::path& relPath) const ->
 
     // Get mod searchable file from PGD.
     auto* pgd = PGGlobals::pgd();
-    if (pgd == nullptr)
+    if (!pgd)
         throw std::runtime_error("PGD is null");
 
     const auto modSearchableFile = pgd->modLookupFile(relPath);
@@ -122,7 +122,7 @@ auto PGModManager::modByFileSmart(const std::filesystem::path& relPath) const ->
     auto mod = modByFile(modSearchableFile);
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordModOfFile(relPath, mod == nullptr ? std::wstring() : mod->name);
+    PGRunCache::recordModOfFile(relPath, !mod ? std::wstring() : mod->name);
 
     return mod;
 }
@@ -599,7 +599,7 @@ void PGModManager::addShaderToModByFile(const std::filesystem::path& relPath,
                                         const PGEnums::ShapeShader& shader) const
 {
     const auto modPtr = modByFileSmart(relPath);
-    if (modPtr == nullptr)
+    if (!modPtr)
         return;
 
     const std::unique_lock<std::shared_mutex> modLock(modPtr->mutex);
@@ -663,8 +663,8 @@ std::filesystem::path PGModManager::gamePathFromInstanceDir(const std::filesyste
 
 std::filesystem::path PGModManager::mO2DirFromUSVFS()
 {
-    // MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that.
-    // Loaded module is the folder containing ModOrganizer.exe.
+    // MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that
+    // loaded module is the folder containing ModOrganizer.exe.
     HANDLE hSnapshot = INVALID_HANDLE_VALUE;
     for (unsigned attempt = 0; attempt < moduleSnapshotMaxAttempts; ++attempt) {
         hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
@@ -679,7 +679,7 @@ std::filesystem::path PGModManager::mO2DirFromUSVFS()
     std::filesystem::path mo2Dir;
     MODULEENTRY32W me32 { };
     me32.dwSize = sizeof(MODULEENTRY32W);
-    if (Module32FirstW(hSnapshot, &me32) != 0) {
+    if (Module32FirstW(hSnapshot, &me32)) {
         do { // NOLINT(cppcoreguidelines-avoid-do-while)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
             if (boost::iequals(std::wstring(me32.szModule), std::wstring(mo2UsvfsDLLName))) {
@@ -687,7 +687,7 @@ std::filesystem::path PGModManager::mO2DirFromUSVFS()
                 mo2Dir = std::filesystem::path(me32.szExePath).parent_path();
                 break;
             }
-        } while (Module32NextW(hSnapshot, &me32) != 0);
+        } while (Module32NextW(hSnapshot, &me32));
     }
 
     CloseHandle(hSnapshot);

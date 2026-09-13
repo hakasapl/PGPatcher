@@ -48,7 +48,6 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxRESIZE_BORDER)
     , m_pgc(pgc)
     , m_initialParams(std::move(initialParams))
-
 {
     SetIcons(PGUI::appIcons());
 
@@ -553,20 +552,20 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
     m_dialogRecTypeSelectorState = initParams.processing.allowedModelRecordTypes;
 
     // Pre-Patchers.
-    m_prePatcherFixMeshLightingCheckbox->SetValue(initParams.prePatcher.fixMeshLighting);
+    m_prePatcherFixMeshLightingCheckbox->SetValue(initParams.prePatcher.isFixMeshLightingEnabled);
 
     // Shader Patchers.
-    m_shaderPatcherParallaxCheckbox->SetValue(initParams.shaderPatcher.parallax);
-    m_shaderPatcherComplexMaterialCheckbox->SetValue(initParams.shaderPatcher.complexMaterial);
-    m_shaderPatcherTruePBRCheckbox->SetValue(initParams.shaderPatcher.truePBR);
+    m_shaderPatcherParallaxCheckbox->SetValue(initParams.shaderPatcher.isParallaxEnabled);
+    m_shaderPatcherComplexMaterialCheckbox->SetValue(initParams.shaderPatcher.isComplexMaterialEnabled);
+    m_shaderPatcherTruePBRCheckbox->SetValue(initParams.shaderPatcher.isTruePBREnabled);
 
     // Shader Transforms.
-    m_shaderTransformParallaxToCMCheckbox->SetValue(initParams.shaderTransforms.parallaxToCM);
+    m_shaderTransformParallaxToCMCheckbox->SetValue(initParams.shaderTransforms.isParallaxToCMEnabled);
 
     // Post-Patchers.
     m_postPatcherRestoreDefaultShadersCheckbox->SetValue(initParams.postPatcher.disablePrePatchedMaterials);
-    m_postPatcherFixSSSCheckbox->SetValue(initParams.postPatcher.fixSSS);
-    m_postPatcherHairFlowMapCheckbox->SetValue(initParams.postPatcher.hairFlowMap);
+    m_postPatcherFixSSSCheckbox->SetValue(initParams.postPatcher.isFixSSSEnabled);
+    m_postPatcherHairFlowMapCheckbox->SetValue(initParams.postPatcher.isHairFlowMapEnabled);
 
     // Global Patchers.
 }
@@ -753,20 +752,20 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.processing.allowedModelRecordTypes = m_dialogRecTypeSelectorState;
 
     // Pre-Patchers.
-    params.prePatcher.fixMeshLighting = m_prePatcherFixMeshLightingCheckbox->GetValue();
+    params.prePatcher.isFixMeshLightingEnabled = m_prePatcherFixMeshLightingCheckbox->GetValue();
 
     // Shader Patchers.
-    params.shaderPatcher.parallax = m_shaderPatcherParallaxCheckbox->GetValue();
-    params.shaderPatcher.complexMaterial = m_shaderPatcherComplexMaterialCheckbox->GetValue();
-    params.shaderPatcher.truePBR = m_shaderPatcherTruePBRCheckbox->GetValue();
+    params.shaderPatcher.isParallaxEnabled = m_shaderPatcherParallaxCheckbox->GetValue();
+    params.shaderPatcher.isComplexMaterialEnabled = m_shaderPatcherComplexMaterialCheckbox->GetValue();
+    params.shaderPatcher.isTruePBREnabled = m_shaderPatcherTruePBRCheckbox->GetValue();
 
     // Shader Transforms.
-    params.shaderTransforms.parallaxToCM = m_shaderTransformParallaxToCMCheckbox->GetValue();
+    params.shaderTransforms.isParallaxToCMEnabled = m_shaderTransformParallaxToCMCheckbox->GetValue();
 
     // Post-Patchers.
     params.postPatcher.disablePrePatchedMaterials = m_postPatcherRestoreDefaultShadersCheckbox->GetValue();
-    params.postPatcher.fixSSS = m_postPatcherFixSSSCheckbox->GetValue();
-    params.postPatcher.hairFlowMap = m_postPatcherHairFlowMapCheckbox->GetValue();
+    params.postPatcher.isFixSSSEnabled = m_postPatcherFixSSSCheckbox->GetValue();
+    params.postPatcher.isHairFlowMapEnabled = m_postPatcherHairFlowMapCheckbox->GetValue();
 
     // Global Patchers.
 }
@@ -857,7 +856,7 @@ void LauncherWindow::updateDisabledElements()
     getParams(curParams);
 
     // Upgrade parallax to CM rules.
-    if (curParams.shaderTransforms.parallaxToCM) {
+    if (curParams.shaderTransforms.isParallaxToCMEnabled) {
         // Disable and check vanilla parallax patcher.
         m_shaderPatcherParallaxCheckbox->SetValue(true);
         m_shaderPatcherParallaxCheckbox->Enable(false);
@@ -942,8 +941,8 @@ void LauncherWindow::onRestoreDefaultsButtonPressed([[maybe_unused]] wxCommandEv
     if (response != wxYES)
         return;
 
-    // Show the defaults in the UI only: the saved config is untouched, so "Save Config" is offered to persist them.
-    // And "Load Config" still goes back to the saved config.
+    // Show the defaults in the UI only: the saved config is untouched, so "Save Config" is offered to persist them
+    // and "Load Config" still goes back to the saved config.
     setUIParams(PGConfig::defaultParams());
 
     updateDisabledElements();

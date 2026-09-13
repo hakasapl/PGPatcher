@@ -16,7 +16,6 @@ TaskTracker::TaskTracker(std::string taskName,
     : m_progressPrintModulo(progressPrintModulo)
     , m_taskName(std::move(taskName))
     , m_totalJobs(totalJobs)
-
 {
     initJobStatus();
 }
@@ -56,7 +55,7 @@ void TaskTracker::printJobStatus(bool force)
     if (force || perc != m_lastPerc) {
         m_lastPerc = perc;
 
-        if (perc % m_progressPrintModulo == 0) {
+        if (!(perc % m_progressPrintModulo)) {
             Logger::info("{} Progress: {}/{} [{}%]", m_taskName, combinedJobs, m_totalJobs, perc);
 
             // Callback.

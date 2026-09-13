@@ -74,7 +74,7 @@ void PGModifiableListCtrl::onContextMenu([[maybe_unused]] wxContextMenuEvent& ev
         = (selectedCount == 1 && GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED) == lastIndex);
 
     // Disable Remove if nothing selected or only the trailing blank is selected.
-    if (selectedCount == 0 || onlyBlankSelected)
+    if (!selectedCount || onlyBlankSelected)
         removeItem->Enable(false);
 
     PopupMenu(&menu);

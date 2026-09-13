@@ -7,15 +7,15 @@
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
-#include <fmt/xchar.h>
-
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Particles.hpp"
 #include "Shaders.hpp"
+
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/crc.hpp>
+#include <fmt/xchar.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -35,7 +35,6 @@
 
 PGMeshPermutationTracker::PGMeshPermutationTracker(const std::filesystem::path& origMeshPath)
     : m_origMeshPath(origMeshPath)
-
 {
     // Check if file exists.
     auto* pgd = PGGlobals::pgd();
@@ -63,7 +62,7 @@ void PGMeshPermutationTracker::load()
 void PGMeshPermutationTracker::load(const std::shared_ptr<nifly::NifFile>& origNifFile,
                                     const unsigned long long& origCrc32)
 {
-    if (origNifFile == nullptr)
+    if (!origNifFile)
         throw std::runtime_error("Original NIF file pointer is null");
 
     m_origNifFile = *origNifFile;
@@ -96,7 +95,7 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
                                                                    PGTypes::TextureSet>& altTexResults,
                                           const std::unordered_set<unsigned>& nonAltTexShapes)
 {
-    if (m_stagedMeshPtr == nullptr) {
+    if (!m_stagedMeshPtr) {
         // No staged mesh to commit.
         throw std::runtime_error("No staged mesh to commit");
     }
@@ -125,8 +124,8 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
             outputMesh.first.altTexResults.emplace_back(formKey, altTexResults);
 
             if (isWeighted && !m_weightProcessedOutputs.contains(outputIdx)) {
-                // A weighted plugin use resolved to an output mesh that was created by a non-weighted use, so the.
-                // Output still needs its _0/_1 counterpart validated.
+                // A weighted plugin use resolved to an output mesh that was created by a non-weighted use, so the
+                // output still needs its _0/_1 counterpart validated.
                 processWeightVariant(outputMesh.second, outputIdx);
                 m_weightProcessedOutputs.insert(outputIdx);
             }
@@ -142,8 +141,8 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
 
     if (m_outputMeshes.empty() && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
         // Compare with base mesh to make sure we actually made changes.
-        // If we are here there is a case where a record requires an unpatched base mesh. To avoid breaking this in the.
-        // Future, we ignore base mesh which enforces that the base mesh is not patched.
+        // If we are here there is a case where a record requires an unpatched base mesh. To avoid breaking this in the
+        // future, we ignore base mesh which enforces that the base mesh is not patched.
         ignoreBaseMesh();
         m_stagedMeshPtr = nullptr;
         m_stagedMesh.Clear();
@@ -275,8 +274,8 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
             else
                 Logger::debug("Saved patched duplicate mesh {}", std::to_string(curIndex));
         } else {
-            // A mesh that we were able to open but cannot save will cause issues in-game because it might have.
-            // Partially saved.
+            // A mesh that we were able to open but cannot save will cause issues in-game because it might have
+            // partially saved.
             Logger::critical(L"Unable to save NIF file {}", meshFilename.wstring());
             return { };
         }
@@ -379,15 +378,15 @@ bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
         // Check ifthis is a NiParticleSystem.
         const auto* const particleA = dynamic_cast<nifly::NiParticleSystem*>(blocksA.at(i));
         const auto* const particleB = dynamic_cast<nifly::NiParticleSystem*>(blocksB.at(i));
-        if ((particleA == nullptr && particleB != nullptr) || (particleA != nullptr && particleB == nullptr))
+        if ((!particleA && particleB) || (particleA && !particleB))
             return false;
 
         auto* const shapeA = dynamic_cast<nifly::NiShape*>(blocksA.at(i));
         auto* const shapeB = dynamic_cast<nifly::NiShape*>(blocksB.at(i));
-        if ((shapeA == nullptr && shapeB != nullptr) || (shapeA != nullptr && shapeB == nullptr))
+        if ((!shapeA && shapeB) || (shapeA && !shapeB))
             return false;
 
-        if (particleA != nullptr && particleB != nullptr) {
+        if (particleA && particleB) {
             if (checkOnlyWeighted) {
                 // Skip non-weighted checks.
                 continue;
@@ -409,46 +408,41 @@ bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
 
             const auto* const lightingShaderA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropA);
             const auto* const lightingShaderB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderPropB);
-            if ((lightingShaderA == nullptr && lightingShaderB != nullptr)
-                || (lightingShaderA != nullptr && lightingShaderB == nullptr)) {
+            if ((!lightingShaderA && lightingShaderB) || (lightingShaderA && !lightingShaderB)) {
                 // One is an effect shader, the other is not (block mismatch).
                 return false;
             }
             // Compare bslightingshader helper.
-            if ((lightingShaderA != nullptr && lightingShaderB != nullptr)
+            if ((lightingShaderA && lightingShaderB)
                 && (!compareBSLightingShaderProperty(*lightingShaderA, *lightingShaderB))) {
                 return false;
             }
 
             const auto* const effectShaderA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropA);
             const auto* const effectShaderB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderPropB);
-            if ((effectShaderA == nullptr && effectShaderB != nullptr)
-                || (effectShaderA != nullptr && effectShaderB == nullptr)) {
+            if ((!effectShaderA && effectShaderB) || (effectShaderA && !effectShaderB)) {
                 // One is an effect shader, the other is not (block mismatch).
                 return false;
             }
             // Compare bseffectshader helper.
-            if ((effectShaderA != nullptr && effectShaderB != nullptr)
-                && (!compareBSEffectShaderProperty(*effectShaderA, *effectShaderB))) {
+            if ((effectShaderA && effectShaderB) && (!compareBSEffectShaderProperty(*effectShaderA, *effectShaderB)))
                 return false;
-            }
 
             const auto* const shaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderPropA);
             const auto* const shaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderPropB);
-            if ((shaderA == nullptr && shaderB != nullptr) || (shaderA != nullptr && shaderB == nullptr)) {
+            if ((!shaderA && shaderB) || (shaderA && !shaderB)) {
                 // One is a shader, the other is not (block mismatch).
                 return false;
             }
             // Compare nishader helper.
-            if ((shaderA != nullptr && shaderB != nullptr) && (!compareBSShaderProperty(*shaderA, *shaderB)))
+            if ((shaderA && shaderB) && (!compareBSShaderProperty(*shaderA, *shaderB)))
                 return false;
 
-        } else if (shapeA != nullptr && shapeB != nullptr) {
+        } else if (shapeA && shapeB) {
             // BSTriShape.
             const auto* const bstrishapeA = dynamic_cast<nifly::BSTriShape*>(shapeA);
             const auto* const bstrishapeB = dynamic_cast<nifly::BSTriShape*>(shapeB);
-            if ((bstrishapeA == nullptr && bstrishapeB != nullptr)
-                || (bstrishapeA != nullptr && bstrishapeB == nullptr)) {
+            if ((!bstrishapeA && bstrishapeB) || (bstrishapeA && !bstrishapeB)) {
                 // One is a trishape, the other is not (block mismatch).
                 return false;
             }
@@ -459,7 +453,7 @@ bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
             }
 
             // Compare trishape helper.
-            if ((bstrishapeA != nullptr && bstrishapeB != nullptr) && (!compareBSTriShape(*bstrishapeA, *bstrishapeB)))
+            if ((bstrishapeA && bstrishapeB) && (!compareBSTriShape(*bstrishapeA, *bstrishapeB)))
                 return false;
 
             // NiShape.
@@ -474,42 +468,37 @@ bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
             // BSLightingShaderProperty.
             const auto* const bslightingA = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderA);
             const auto* const bslightingB = dynamic_cast<nifly::BSLightingShaderProperty*>(shaderB);
-            if ((bslightingA == nullptr && bslightingB != nullptr)
-                || (bslightingA != nullptr && bslightingB == nullptr)) {
+            if ((!bslightingA && bslightingB) || (bslightingA && !bslightingB)) {
                 // One is a lighting shader, the other is not (block mismatch).
                 return false;
             }
             // Compare bslightingshader helper.
-            if ((bslightingA != nullptr && bslightingB != nullptr)
-                && (!compareBSLightingShaderProperty(*bslightingA, *bslightingB))) {
+            if ((bslightingA && bslightingB) && (!compareBSLightingShaderProperty(*bslightingA, *bslightingB)))
                 return false;
-            }
 
             // BSEffectShaderProperty.
             const auto* const bseffectA = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderA);
             const auto* const bseffectB = dynamic_cast<nifly::BSEffectShaderProperty*>(shaderB);
-            if ((bseffectA == nullptr && bseffectB != nullptr) || (bseffectA != nullptr && bseffectB == nullptr)) {
+            if ((!bseffectA && bseffectB) || (bseffectA && !bseffectB)) {
                 // One is an effect shader, the other is not (block mismatch).
                 return false;
             }
             // Compare bseffectshader helper.
-            if ((bseffectA != nullptr && bseffectB != nullptr)
-                && (!compareBSEffectShaderProperty(*bseffectA, *bseffectB))) {
+            if ((bseffectA && bseffectB) && (!compareBSEffectShaderProperty(*bseffectA, *bseffectB)))
                 return false;
-            }
 
             // NiShader.
             auto* const nishaderA = dynamic_cast<nifly::BSShaderProperty*>(shaderA);
             auto* const nishaderB = dynamic_cast<nifly::BSShaderProperty*>(shaderB);
-            if ((nishaderA == nullptr && nishaderB != nullptr) || (nishaderA != nullptr && nishaderB == nullptr)) {
+            if ((!nishaderA && nishaderB) || (nishaderA && !nishaderB)) {
                 // One is a shader, the other is not (block mismatch).
                 return false;
             }
             // Compare nishader helper.
-            if ((nishaderA != nullptr && nishaderB != nullptr) && (!compareBSShaderProperty(*nishaderA, *nishaderB)))
+            if ((nishaderA && nishaderB) && (!compareBSShaderProperty(*nishaderA, *nishaderB)))
                 return false;
 
-            if (nishaderA == nullptr || nishaderB == nullptr)
+            if (!nishaderA || !nishaderB)
                 continue;
 
             // BSShaderTextureSet.
@@ -517,16 +506,15 @@ bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
             auto* const texSetB = meshB.GetHeader().GetBlock(nishaderB->TextureSetRef());
             auto* const bsshsTexSetA = dynamic_cast<nifly::BSShaderTextureSet*>(texSetA);
             auto* const bsshsTexSetB = dynamic_cast<nifly::BSShaderTextureSet*>(texSetB);
-            if ((bsshsTexSetA == nullptr && bsshsTexSetB != nullptr)
-                || (bsshsTexSetA != nullptr && bsshsTexSetB == nullptr)) {
+            if ((!bsshsTexSetA && bsshsTexSetB) || (bsshsTexSetA && !bsshsTexSetB)) {
                 // One is a texture set, the other is not (block mismatch).
                 return false;
             }
 
-            // Resolve the original 3D index (before patch-time deletions/reordering) for stable.
-            // Alternate-texture enforcement.
+            // Resolve the original 3D index (before patch-time deletions/reordering) for stable
+            // alternate-texture enforcement.
             auto enforceIdxA = static_cast<unsigned>(i);
-            if (meshAInverseIdxCorrectionsPatching != nullptr) {
+            if (meshAInverseIdxCorrectionsPatching) {
                 const auto foundA = meshAInverseIdxCorrectionsPatching->find(static_cast<int>(i));
                 if (foundA != meshAInverseIdxCorrectionsPatching->end() && foundA->second >= 0)
                     enforceIdxA = static_cast<unsigned>(foundA->second);
@@ -537,10 +525,8 @@ bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
                 continue;
 
             // Compare bsshadertextureset helper.
-            if ((bsshsTexSetA != nullptr && bsshsTexSetB != nullptr)
-                && (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB))) {
+            if ((bsshsTexSetA && bsshsTexSetB) && (!compareBSShaderTextureSet(*bsshsTexSetA, *bsshsTexSetB)))
                 return false;
-            }
         }
     }
 
@@ -703,7 +689,7 @@ std::filesystem::path PGMeshPermutationTracker::meshPath(const std::filesystem::
 
 std::vector<nifly::NiObject*> PGMeshPermutationTracker::comparableBlocks(const nifly::NifFile* nif)
 {
-    if (nif == nullptr)
+    if (!nif)
         throw std::runtime_error("NIF is null");
 
     // Get 3d indices.
@@ -729,7 +715,7 @@ std::unordered_map<nifly::NiObject*,
                    int>
 PGMeshPermutationTracker::get3dIndices(const nifly::NifFile* nif)
 {
-    if (nif == nullptr)
+    if (!nif)
         throw std::runtime_error("NIF is null");
 
     std::vector<nifly::NiObject*> tree;
@@ -737,13 +723,13 @@ PGMeshPermutationTracker::get3dIndices(const nifly::NifFile* nif)
     std::unordered_map<nifly::NiObject*, int> blocks;
     int oldIndex3D = 0;
     for (auto& obj : tree) {
-        if (dynamic_cast<nifly::NiShape*>(obj) != nullptr) {
+        if (dynamic_cast<nifly::NiShape*>(obj)) {
             blocks[obj] = oldIndex3D++;
             continue;
         }
 
         // Other stuff that should increment oldIndex3D.
-        if (dynamic_cast<nifly::NiParticleSystem*>(obj) != nullptr) {
+        if (dynamic_cast<nifly::NiParticleSystem*>(obj)) {
             // Particle system, increment index3d.
             blocks[obj] = oldIndex3D;
             oldIndex3D++;
@@ -755,7 +741,7 @@ PGMeshPermutationTracker::get3dIndices(const nifly::NifFile* nif)
 
 std::unordered_set<int> PGMeshPermutationTracker::get3dIndicesSet(const nifly::NifFile* nif)
 {
-    if (nif == nullptr)
+    if (!nif)
         throw std::runtime_error("NIF is null");
 
     std::vector<nifly::NiObject*> tree;
@@ -763,13 +749,13 @@ std::unordered_set<int> PGMeshPermutationTracker::get3dIndicesSet(const nifly::N
     std::unordered_set<int> blocks;
     int oldIndex3D = 0;
     for (auto& obj : tree) {
-        if (dynamic_cast<nifly::NiShape*>(obj) != nullptr) {
+        if (dynamic_cast<nifly::NiShape*>(obj)) {
             blocks.insert(oldIndex3D++);
             continue;
         }
 
         // Other stuff that should increment oldIndex3D.
-        if (dynamic_cast<nifly::NiParticleSystem*>(obj) != nullptr) {
+        if (dynamic_cast<nifly::NiParticleSystem*>(obj)) {
             // Particle system, increment index3d.
             blocks.insert(oldIndex3D);
             oldIndex3D++;

@@ -15,7 +15,7 @@ bool PatcherTextureGlobalConvertToHDR::initShader()
 {
     auto* pgd3d = PGGlobals::pGD3D();
 
-    if (s_shader != nullptr)
+    if (s_shader)
         return true;
 
     return pgd3d->initShader(shaderName, s_shader);

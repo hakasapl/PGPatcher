@@ -49,6 +49,6 @@ bool getJSONFromBytes(const std::vector<std::byte>& bytes,
  */
 bool saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
-              const bool& readable);
+              const bool& shouldBeReadable);
 
 }
