@@ -44,17 +44,24 @@ jobs:
 
       - name: Install clang-tidy
         if: steps.clang-tidy-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 15
         run: |
-          $ProgressPreference = 'SilentlyContinue'
           $version = (Get-Content scripts/clang-tidy-version.txt -Raw).Trim()
           $package = "clang+llvm-$version-x86_64-pc-windows-msvc"
-          Invoke-WebRequest "https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/$package.tar.xz" -OutFile llvm.tar.xz
+          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/$package.tar.zst"
+          Write-Host "Downloading $url"
+          curl.exe -fsSL --retry 5 --retry-all-errors -o llvm.tar.zst $url
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Write-Host "Extracting clang-tidy and its builtin headers from $([int]((Get-Item llvm.tar.zst).Length / 1MB)) MB"
           New-Item -ItemType Directory clang-tidy | Out-Null
-          # Only clang-tidy and its builtin headers; the rest of the package is not needed.
-          tar -xf llvm.tar.xz -C clang-tidy --strip-components=1 "$package/bin/clang-tidy.exe" "$package/lib/clang"
-          Remove-Item llvm.tar.xz
+          # GNU tar from Git for Windows, streaming through the zstd on PATH; the rest of the 4 GB package is not needed.
+          & "$env:ProgramFiles\Git\usr\bin\tar.exe" --zstd -xf llvm.tar.zst -C clang-tidy --strip-components=1 "$package/bin/clang-tidy.exe" "$package/lib/clang"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Remove-Item llvm.tar.zst
+          & clang-tidy\bin\clang-tidy.exe --version
 
       - name: Run clang-tidy
+        timeout-minutes: 45
         run: |
           $env:PATH = "$PWD\clang-tidy\bin;$env:PATH"
           python scripts/run_clang_tidy.py
