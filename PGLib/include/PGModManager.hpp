@@ -227,12 +227,12 @@ public:
      * @return Folder containing ModOrganizer.exe, or empty if usvfs_x64.dll is not loaded (PGPatcher was not launched
      * from MO2).
      */
-    [[nodiscard]] static std::filesystem::path mO2DirFromUSVFS();
+    [[nodiscard]] static std::filesystem::path mo2DirFromUSVFS();
 
     /**
      * @brief Finds the folder containing ModOrganizer.exe for the given instance.
      *
-     * The primary source is the usvfs DLL MO2 injected into this process (mO2DirFromUSVFS()), which is exact for
+     * The primary source is the usvfs DLL MO2 injected into this process (mo2DirFromUSVFS()), which is exact for
      * portable and global instances alike. If PGPatcher was not launched from MO2, the instance folder is used when it
      * contains ModOrganizer.exe (portable instance). Global (%LOCALAPPDATA%) instances record nothing about the MO2
      * folder, so for those it is unknown unless PGPatcher was launched from MO2.
@@ -343,11 +343,11 @@ private:
                                           const std::shared_ptr<Mod>& b,
                                           bool checkPriority = true);
 
-    static std::wstring mO2INIField(const std::filesystem::path& instanceDir,
+    static std::wstring mo2INIField(const std::filesystem::path& instanceDir,
                                     const std::string& fieldName,
                                     const bool& isByteArray = false);
 
     static std::pair<std::filesystem::path,
                      std::filesystem::path>
-    mO2FilePaths(const std::filesystem::path& instanceDir);
+    mo2FilePaths(const std::filesystem::path& instanceDir);
 };

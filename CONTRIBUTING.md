@@ -31,11 +31,10 @@ Both are enforced on every pull request. [pre-commit.ci](https://pre-commit.ci/)
 clang-tidy is not a pre-commit hook, because it replays the real compile commands and so needs a build tree that has been configured *and* built at least once (PGMutagen generates flatbuffers headers into it). The `Build PGPatcher` workflow runs it after the build. To run it yourself:
 
 ```
-pip install clang-tidy==22.1.8
 python scripts/run_clang_tidy.py
 ```
 
-It picks up `buildRelease/` or `build/` automatically; pass `--build-dir` for anything else. The script exists because plain clang-tidy exits non-zero even on a clean tree here: `external/nifly/.clang-tidy` sets a key clang-tidy removed years ago, and fmt 11 fails its own consteval format-string check under clang 19 and newer. It passes `--config-file` and drops diagnostics that are not in our own code.
+It picks up `buildRelease/` or `build/` automatically; pass `--build-dir` for anything else. It needs the LLVM release pinned in `scripts/clang-tidy-version.txt` first on PATH (CI downloads it from llvm-project; locally, install the same release) and refuses any other version. The script's docstring explains why a plain clang-tidy invocation is not enough here.
 
 The [Webkit](https://webkit.org/code-style-guidelines/) style is used for all C++ code. Clang-format and clang-tidy will enforce this.
 

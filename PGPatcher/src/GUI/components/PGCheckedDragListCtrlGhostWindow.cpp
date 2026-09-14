@@ -46,12 +46,12 @@ PGCheckedDragListCtrlGhostWindow::PGCheckedDragListCtrlGhostWindow(wxWindow* par
     }
     SetSize(width, height);
 
-    Bind(wxEVT_PAINT, &PGCheckedDragListCtrlGhostWindow::OnPaint, this);
+    Bind(wxEVT_PAINT, &PGCheckedDragListCtrlGhostWindow::onPaint, this);
 
     Show();
 }
 
-void PGCheckedDragListCtrlGhostWindow::OnPaint([[maybe_unused]] wxPaintEvent& event)
+void PGCheckedDragListCtrlGhostWindow::onPaint([[maybe_unused]] wxPaintEvent& event)
 {
 
     wxPaintDC dc(this);

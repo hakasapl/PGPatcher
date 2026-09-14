@@ -282,7 +282,7 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
 
     bool success = false;
     try {
-        success = PGGlobals::pGD3D()->checkIfCM(texture,
+        success = PGGlobals::pgD3D()->checkIfCM(texture,
                                                 classification.isCM,
                                                 classification.hasEnvMask,
                                                 classification.hasGlossiness,
@@ -681,7 +681,7 @@ auto PGDirectory::meshes() const -> const std::unordered_map<std::filesystem::pa
 
 const std::unordered_set<std::filesystem::path>& PGDirectory::textures() const { return m_textures; }
 
-const std::vector<std::filesystem::path>& PGDirectory::pbrjsoNs() const { return m_pbrJSONs; }
+const std::vector<std::filesystem::path>& PGDirectory::pbrJSONs() const { return m_pbrJSONs; }
 
 const std::vector<std::filesystem::path>& PGDirectory::lightPlacerJSONs() const { return m_lightPlacerJSONs; }
 

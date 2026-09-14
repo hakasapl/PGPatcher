@@ -27,7 +27,7 @@ bool PGGlobals::isPGDSet() { return s_pgd != nullptr; }
 void PGGlobals::setPGD(PGDirectory* pgd) { s_pgd = pgd; }
 
 PGD3D* PGGlobals::s_pgD3D = nullptr;
-PGD3D* PGGlobals::pGD3D()
+PGD3D* PGGlobals::pgD3D()
 {
     if (!isPGD3DSet())
         throw std::runtime_error("PGD3D is not set");

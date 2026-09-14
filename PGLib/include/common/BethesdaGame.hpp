@@ -71,7 +71,7 @@ public:
     /**
      * @brief Constructs a BethesdaGame instance for the specified game type and paths.
      *
-     * @param gameType    The type of game (e.g. SKYRIM_SE, SKYRIM_VR).
+     * @param gameType    The type of game (e.g. SkyrimSE, SkyrimVR).
      * @param gamePath    Path to the game's root installation directory. If empty, Steam registry is queried.
      * @param appDataPath Path to the game's AppData directory. If empty, the system default is used.
      * @param documentPath Path to the game's Documents directory. If empty, the system default is used.
@@ -145,7 +145,7 @@ public:
      * @brief Converts a human-readable game type string to the corresponding GameType enum value.
      *
      * @param type String such as "Skyrim SE" or "Enderal SE".
-     * @return The matching GameType enum value, defaulting to SKYRIM_SE if not recognized.
+     * @return The matching GameType enum value, defaulting to SkyrimSE if not recognized.
      */
     [[nodiscard]] static GameType gameTypeFromStr(const std::string& type);
 

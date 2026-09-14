@@ -322,9 +322,9 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
 ModSortDialog::~ModSortDialog()
 {
     // Conflict viewers are modeless and parentless, so they are not destroyed with this
-    // dialog automatically. They hold callbacks that capture "this" (the mod order.
-    // Provider and the destroy-event handler), so they must be neutralized and closed.
-    // Here to prevent use-after-free once this dialog is gone.
+    // dialog automatically. They hold callbacks that capture "this" (the mod order
+    // provider and the destroy-event handler), so they must be neutralized and closed
+    // here to prevent use-after-free once this dialog is gone.
     for (auto* dlg : m_openConflictDialogs) {
         if (!dlg)
             continue;
@@ -342,8 +342,8 @@ ModSortDialog::~ModSortDialog()
 
 void ModSortDialog::onConflictViewDestroyed(wxWindowDestroyEvent& event)
 {
-    // Compare as wxWindow*: by the time this fires the viewer may already be partway through.
-    // Destruction, so a downcast back to DialogModConflictView* is not guaranteed to succeed.
+    // Compare as wxWindow*: by the time this fires the viewer may already be partway through
+    // destruction, so a downcast back to DialogModConflictView* is not guaranteed to succeed.
     const auto* const window = event.GetWindow();
     std::erase_if(m_openConflictDialogs, [window](const DialogModConflictView* dlg) { return dlg == window; });
     event.Skip();
@@ -407,8 +407,8 @@ void ModSortDialog::onItemChecked(PGCheckedDragListCtrlEvtItemChecked& event)
         // Persist the just-updated visible check/ignore state before we rebuild from MO2 order.
         syncCacheFromListCtrl();
 
-        // Save scroll position before any list operations reset it, then wrap the entire.
-        // Rebuild sequence in a single Freeze/Thaw so the intermediate full-list state.
+        // Save scroll position before any list operations reset it, then wrap the entire
+        // rebuild sequence in a single Freeze/Thaw so the intermediate full-list state
         // (from fillListCtrl inside setMO2LooseFileOrderCheckboxState) is never painted.
         const long topItem = m_listCtrl->GetTopItem();
         m_listCtrl->Freeze();
@@ -627,14 +627,14 @@ void ModSortDialog::onUseMO2LooseFileOrderChange(wxCommandEvent& event)
 {
     syncCacheFromListCtrl();
 
-    const bool searchActive = !activeSearchTerm().IsEmpty();
+    const bool isSearchActive = !activeSearchTerm().IsEmpty();
     const bool mo2Locked = (m_checkBoxMO2 != nullptr && m_checkBoxMO2->IsChecked());
 
     setMO2LooseFileOrderCheckboxState();
 
     // Only rebuild cache directly from the list when the list is full/unfiltered.
     // Rebuilding from a filtered search view would drop hidden rows and corrupt states.
-    if (!searchActive || mo2Locked)
+    if (!isSearchActive || mo2Locked)
         rebuildCacheFromListCtrl();
 
     rebuildListCtrlFromCache();
@@ -678,8 +678,8 @@ void ModSortDialog::setMO2LooseFileOrderCheckboxState()
         m_restoreButton->Enable(true);
     }
 
-    const bool searchActive = !activeSearchTerm().IsEmpty();
-    m_listCtrl->setDraggingEnabled(!isChecked && !searchActive);
+    const bool isSearchActive = !activeSearchTerm().IsEmpty();
+    m_listCtrl->setDraggingEnabled(!isChecked && !isSearchActive);
     m_listCtrl->setContextMoveEnabled(!isChecked);
 }
 
@@ -1047,7 +1047,7 @@ void ModSortDialog::syncCacheFromListCtrl()
         return;
     }
 
-    // Filtered mode: dragging is disabled during search, so the visible order cannot diverge from the.
+    // Filtered mode: dragging is disabled during search, so the visible order cannot diverge from the
     // cached order. State has already been merged above; no reordering is needed.
 }
 

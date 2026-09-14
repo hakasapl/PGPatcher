@@ -110,7 +110,7 @@ bool PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& ol
                                                    std::vector<PatcherMatch>& matches)
 {
     auto* pgd = PGGlobals::pgd();
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     static const auto heightBaseMap = pgd->textureMapConst(PGEnums::TextureSlots::Parallax);
 

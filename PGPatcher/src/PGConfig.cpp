@@ -84,11 +84,11 @@ void PGConfig::resolveRelativePaths(PGParams& params)
     params.modManager.mo2InstanceDir = resolveExeRelativePath(params.modManager.mo2InstanceDir);
     params.output.dir = resolveExeRelativePath(params.output.dir);
 
-    // The game location is only user-editable when MO2 does not provide it. A game path from modorganizer.ini is.
+    // The game location is only user-editable when MO2 does not provide it. A game path from modorganizer.ini is
     // relative to the MO2 folder instead and is resolved by PGModManager::resolveMO2GamePath when it is read.
-    const bool gameDirFromMO2 = params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
+    const bool isGameDirFromMO2 = params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
         && !PGModManager::gamePathFromInstanceDir(params.modManager.mo2InstanceDir).empty();
-    if (!gameDirFromMO2)
+    if (!isGameDirFromMO2)
         params.game.dir = resolveExeRelativePath(params.game.dir);
 }
 
@@ -316,7 +316,7 @@ bool PGConfig::validateParams(const PGParams& rawParams,
 
     if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2 && !params.game.dir.empty()
         && params.game.dir.is_relative()) {
-        // MO2 stores the game path relative to its own folder, which PGPatcher finds through the MO2 VFS it was.
+        // MO2 stores the game path relative to its own folder, which PGPatcher finds through the MO2 VFS it was
         // launched from or, for portable instances, the instance folder (see PGModManager::findMO2Dir). Neither worked
         // here: resolveRelativePaths() never resolves a game path that comes from modorganizer.ini against the
         // PGPatcher folder, so a game path that is still relative at this point can only be that unresolved MO2 value.

@@ -5,7 +5,12 @@ Run by the build workflow once it has a build tree, and by hand for the same che
 locally. Not a pre-commit hook: clang-tidy replays the real compile commands, so it needs
 a configured *and* built tree, which pre-commit.ci does not have.
 
-    python scripts/run_clang_tidy.py [--build-dir DIR] [--jobs N] [files...]
+    python scripts/run_clang_tidy.py [--build-dir DIR] [--jobs N]
+
+The clang-tidy version is pinned in scripts/clang-tidy-version.txt. CI downloads that LLVM
+release from llvm-project and puts it first on PATH; locally, install the same release and
+do the same. Whatever `clang-tidy` is found on PATH must match the pin (the Visual Studio
+developer environment puts its own, older LLVM there), or the runner refuses to continue.
 
 Two quirks of this project are handled here:
 
@@ -32,6 +37,7 @@ import subprocess
 import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VERSION_FILE = os.path.join(REPO_ROOT, 'scripts', 'clang-tidy-version.txt')
 
 # Directories holding first-party code. Everything else (external/, the build tree,
 # vcpkg_installed/) is somebody else's problem.
@@ -41,7 +47,6 @@ PROJECT_DIRS = ('PGLib', 'PGPatcher', 'PGMutagen', 'PGTools')
 BUILD_DIR_CANDIDATES = (
     'buildRelease',
     'build',
-    os.path.join('build', 'VS2026-VCPKG', 'RelWithDebInfo'),
     os.path.join('out', 'build'),
 )
 
@@ -54,6 +59,21 @@ DIAG_LINE = re.compile(
 # filter below would silently swallow them. "Error while processing <file>." is excluded on
 # purpose: every clean TU already emits it because of the fmt/spdlog errors.
 TOOL_FAILURE = re.compile(r'^Error(?! while processing\b)')
+
+
+def pinned_version() -> str:
+    with open(VERSION_FILE, encoding='utf-8') as handle:
+        version = handle.read().strip()
+    if not version:
+        sys.exit(f'error: {VERSION_FILE} is empty')
+    return version
+
+
+def find_clang_tidy(explicit: str | None, expected: str) -> str:
+    path = shutil.which(explicit or 'clang-tidy')
+    if not path:
+        sys.exit(f'error: {explicit or "clang-tidy"} not found; install LLVM {expected} and put its bin directory on PATH')
+    return path
 
 
 def find_compile_commands(explicit: str | None) -> str:
@@ -133,13 +153,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', help='directory containing compile_commands.json')
     parser.add_argument('--jobs', type=int, default=os.cpu_count() or 4)
-    parser.add_argument('--clang-tidy', default=os.environ.get('CLANG_TIDY', 'clang-tidy'))
-    parser.add_argument('files', nargs='*', help='ignored; every project TU is always checked')
+    parser.add_argument('--clang-tidy', default=os.environ.get('CLANG_TIDY'),
+                        help='binary to run instead of the one on PATH (must still match the pin)')
     args = parser.parse_args()
 
-    clang_tidy = shutil.which(args.clang_tidy)
-    if not clang_tidy:
-        sys.exit(f'error: {args.clang_tidy} not found on PATH')
+    expected = pinned_version()
+    clang_tidy = find_clang_tidy(args.clang_tidy, expected)
 
     compile_commands = find_compile_commands(args.build_dir)
     build_dir = os.path.dirname(compile_commands)
@@ -152,6 +171,10 @@ def main() -> int:
     print(f'clang-tidy: {clang_tidy}')
     for line in version[:2]:
         print(f'  {line.strip()}')
+    found = re.search(r'LLVM version (\S+)', '\n'.join(version))
+    if not found or found.group(1) != expected:
+        sys.exit(f'error: clang-tidy {found.group(1) if found else "(unknown version)"} does not match the pinned '
+                 f'{expected}; install that LLVM release and put its bin directory first on PATH')
     print(f'build tree: {build_dir}')
     print(f'checking {len(units)} translation units on {args.jobs} jobs\n', flush=True)
 

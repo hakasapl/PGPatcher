@@ -264,7 +264,7 @@ void CompletionDialog::updateTimingInfo(const long long& timeTaken)
 
 void CompletionDialog::refreshLogMessages()
 {
-    // Repopulating the lists also fires s_EVT_PG_LOG_IGNORE_CHANGED, which updates the.
+    // Repopulating the lists also fires s_evtPGLogIgnoreChanged, which updates the
     // "Show Warnings (N)" / "Show Errors (N)" pane labels bound in the constructor.
     m_warnListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->warningMessages());
     m_errListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->errorMessages());

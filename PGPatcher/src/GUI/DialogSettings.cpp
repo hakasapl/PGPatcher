@@ -21,7 +21,7 @@ namespace {
 constexpr int borderSizeDIP = 10;
 constexpr int comboMinWidth = 200;
 
-// WxRadioBox selection indices for the theme choices.
+// Selection indices of the theme wxRadioBox.
 constexpr int themeIdxLight = 0;
 constexpr int themeIdxDark = 1;
 constexpr int themeIdxSystem = 2;

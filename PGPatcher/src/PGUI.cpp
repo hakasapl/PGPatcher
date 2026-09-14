@@ -83,8 +83,8 @@ bool PGUI::showLauncher(PGConfig& pgc,
             // Deletes the objects pending destruction).
             wxTheApp->ProcessIdle();
             if (!applyTheme()) {
-                // WxMSW cannot leave dark mode within the same process, so restart PGPatcher.
-                // With the same command line to apply the new theme (already saved to config).
+                // Restart PGPatcher with the same command line to apply the new theme (already saved to
+                // config), because wxMSW cannot leave dark mode within the same process.
                 wxExecute(wxString(GetCommandLineW()), wxEXEC_ASYNC);
                 exit(0);
             }

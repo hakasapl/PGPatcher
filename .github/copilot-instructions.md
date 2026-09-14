@@ -54,11 +54,10 @@ These have each been checked and are correct as written.
 - **A clean clang-tidy run does not prove rule 4.** Its `CamelCase` check accepts an all-caps
   single word, so `NONE` or `FAILURE` passes clang-tidy while still violating WebKit. Enum
   constants must be read by eye.
-- **fmt/spdlog `consteval` errors in build logs are third-party noise** — fmt 11.0.2 fails its own
-  compile-time format-string check under clang 19 and newer. `scripts/run_clang_tidy.py` filters
-  them; they are not actionable.
-- **`external/` is out of scope.** nifly is a submodule; its `.clang-tidy` sets a key clang-tidy
-  removed years ago, which is why the runner passes `--config-file` explicitly.
+- **fmt/spdlog `consteval` errors in build logs are third-party noise.** `scripts/run_clang_tidy.py`
+  drops them; its docstring explains why they occur. They are not actionable.
+- **`external/` is out of scope.** nifly is a submodule; the runner passes `--config-file` explicitly
+  so its `.clang-tidy` is never picked up (again, see the runner's docstring).
 - **Config and JSON keys are lower case strings** (`"shaderpatcher"`, `"parallax"`) and must never
   be renamed to match a C++ identifier. Renaming a field is fine; renaming its serialized key is a
   breaking change to users' config files.

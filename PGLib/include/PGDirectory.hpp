@@ -220,7 +220,7 @@ public:
      *
      * @return Const reference to the vector of PBR JSON paths.
      */
-    [[nodiscard]] const std::vector<std::filesystem::path>& pbrjsoNs() const;
+    [[nodiscard]] const std::vector<std::filesystem::path>& pbrJSONs() const;
 
     /**
      * @brief Returns the ordered list of Light Placer JSON configuration file paths.

@@ -172,7 +172,7 @@ std::filesystem::path BethesdaGame::dataCheckFile(const GameType& type)
     return { };
 }
 
-auto BethesdaGame::gameType() const -> BethesdaGame::GameType { return m_objGameType; }
+auto BethesdaGame::gameType() const -> GameType { return m_objGameType; }
 
 std::filesystem::path BethesdaGame::gamePath() const
 {
@@ -221,7 +221,7 @@ std::filesystem::path BethesdaGame::findGamePathFromSteam(const GameType& type)
     return { };
 }
 
-auto BethesdaGame::iniPaths() const -> BethesdaGame::ININame
+auto BethesdaGame::iniPaths() const -> ININame
 {
     BethesdaGame::ININame output = iniLocations();
     const std::filesystem::path gameDocsPath = gameDocumentSystemPath();

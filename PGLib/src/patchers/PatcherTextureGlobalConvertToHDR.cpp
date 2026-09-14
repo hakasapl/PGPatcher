@@ -13,7 +13,7 @@
 
 bool PatcherTextureGlobalConvertToHDR::initShader()
 {
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     if (s_shader)
         return true;
@@ -50,7 +50,7 @@ PatcherTextureGlobalConvertToHDR::PatcherTextureGlobalConvertToHDR(std::filesyst
 
 void PatcherTextureGlobalConvertToHDR::applyPatch(bool& ddsModified)
 {
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     DirectX::ScratchImage newDDS;
     ShaderParams params = { .luminanceMult = s_luminanceMult };

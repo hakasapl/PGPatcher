@@ -362,10 +362,10 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     menu.Enable(idMoveBottom, !anyBelowCutoff && m_isContextMoveEnabled);
 
     // Disable enable/disable options if all selected items are already in that state.
-    const bool allEnabled = std::ranges::all_of(selectedItems, [this](long idx) { return isChecked(idx); });
-    const bool allDisabled = std::ranges::all_of(selectedItems, [this](long idx) { return !isChecked(idx); });
-    menu.Enable(idEnable, !allEnabled);
-    menu.Enable(idDisable, !allDisabled);
+    const bool areAllEnabled = std::ranges::all_of(selectedItems, [this](long idx) { return isChecked(idx); });
+    const bool areAllDisabled = std::ranges::all_of(selectedItems, [this](long idx) { return !isChecked(idx); });
+    menu.Enable(idEnable, !areAllEnabled);
+    menu.Enable(idDisable, !areAllDisabled);
 
     // Disable mesh patching options if all selected items are already in that state.
     const bool allIgnoringMeshes

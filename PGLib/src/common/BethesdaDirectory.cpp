@@ -68,14 +68,14 @@ BethesdaDirectory::BethesdaDirectory(std::filesystem::path dataPath,
 //
 // Constant Definitions.
 //
-std::vector<std::string> BethesdaDirectory::inibsaFields()
+std::vector<std::string> BethesdaDirectory::iniBSAFields()
 {
     // These fields will be searched in ini files for manually specified BSA.
     // Loading.
-    const static std::vector<std::string> iniBSAFields
+    const static std::vector<std::string> fields
         = { "sResourceArchiveList", "sResourceArchiveList2", "sResourceArchiveListBeta" };
 
-    return iniBSAFields;
+    return fields;
 }
 
 std::vector<std::wstring> BethesdaDirectory::extensionBlocklist()
@@ -347,7 +347,7 @@ void BethesdaDirectory::addLooseFilesToMap()
         if (!isFileAllowed(filePath))
             continue;
 
-        // Directory_entry caches size and write time from the directory listing so these are free.
+        // A directory_entry caches size and write time from the directory listing so these are free.
         std::error_code ec;
         const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
         ec.clear();
@@ -385,7 +385,7 @@ void BethesdaDirectory::addLooseFilesToMap()
             if (!isFileAllowed(filePath))
                 continue;
 
-            // Directory_entry caches size and write time from the directory listing so these are free.
+            // A directory_entry caches size and write time from the directory listing so these are free.
             std::error_code ec;
             const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
             ec.clear();
@@ -463,7 +463,7 @@ void BethesdaDirectory::addBSAToFileMap(const std::wstring& bsaName)
                 std::filesystem::path curPath = folderName / curEntry;
                 curPath = boost::to_lower_copy(curPath.wstring());
 
-                // Chekc if we should ignore this file.
+                // Check if we should ignore this file.
                 if (!isFileAllowed(curPath))
                     continue;
 
@@ -531,7 +531,7 @@ std::vector<std::wstring> BethesdaDirectory::bsaFilesFromINIs() const
     }
 
     // Loop through each field.
-    for (const auto& field : inibsaFields()) {
+    for (const auto& field : iniBSAFields()) {
         // Loop through each ini file.
         std::wstring iniVal;
         for (const auto& iniPath : iniFileOrder) {
@@ -598,7 +598,7 @@ std::vector<std::wstring> BethesdaDirectory::findBSAFilesFromPluginName(const st
             // Plugin.
             std::wstring afterPrefix = bsa.substr(pluginPrefix.length());
 
-            // Todo: Is this actually how the game handles BSA files? Example:
+            // FIXME: Is this actually how the game handles BSA files? Example:
             // 3DNPC0.bsa, 3DNPC1.bsa, 3DNPC2.bsa are loaded, todo: but 3DNPC -
             // textures.bsa is also loaded, whats the logic there?
             if (afterPrefix.starts_with(L' ') && !afterPrefix.starts_with(L" -"))
@@ -629,7 +629,7 @@ bool BethesdaDirectory::isPathAscii(const std::filesystem::path& path)
     return std::ranges::all_of(path.wstring(), [](wchar_t wc) { return wc <= asciiUpperBound; });
 }
 
-auto BethesdaDirectory::fileFromMap(const std::filesystem::path& filePath) -> BethesdaDirectory::BethesdaFile
+auto BethesdaDirectory::fileFromMap(const std::filesystem::path& filePath) -> BethesdaFile
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 

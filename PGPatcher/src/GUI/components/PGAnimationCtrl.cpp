@@ -52,7 +52,7 @@ void PGAnimationCtrl::onPaint([[maybe_unused]] wxPaintEvent& event)
         DisposeToBackground(dc);
     }
 
-    // WxGenericAnimationCtrl schedules the next frame once the current one has been painted, do the same here.
+    // Do the same as wxGenericAnimationCtrl, which schedules the next frame once the current one has been painted.
     if (IsPlaying() && !m_timer.IsRunning()) {
         int delay = GetAnimation().GetDelay(m_currentFrame);
         if (delay <= 0)

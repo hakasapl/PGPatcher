@@ -296,8 +296,8 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     // Processing and RUN buttons.
     //
 
-    // Restore defaults and load config buttons: default (smaller) font, side by side in one row above the save config.
-    // Button.
+    // Restore defaults and load config buttons: default (smaller) font, side by side in one row above the save config
+    // button.
     auto* restoreDefaultsButton = new wxButton(this, wxID_ANY, pgTr("launcher.buttons.restoreDefaults"));
     restoreDefaultsButton->Bind(wxEVT_BUTTON, &LauncherWindow::onRestoreDefaultsButtonPressed, this);
 

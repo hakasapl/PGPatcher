@@ -67,7 +67,7 @@ std::filesystem::path PatcherTextureHookConvertToCM::outputFilename(const std::f
 
 bool PatcherTextureHookConvertToCM::initShader()
 {
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     if (s_shader)
         return true;
@@ -86,7 +86,7 @@ PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::pa
 bool PatcherTextureHookConvertToCM::applyPatch()
 {
     auto* pgd = PGGlobals::pgd();
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     if (!dds())
         throw std::runtime_error("DDS not initialized");

@@ -26,13 +26,13 @@ Two things that follow from it and are easy to get wrong:
 ```
 ./buildRelease.ps1 -NoZip                 # needs VCPKG_ROOT, flatc 25.2.10, a VS dev shell
 pre-commit run --all-files                # clang-format and the generic hooks
-pip install clang-tidy==22.1.8
 python scripts/run_clang_tidy.py          # needs a configured *and built* tree
 ```
 
 `run_clang_tidy.py` finds `buildRelease/` or `build/` on its own; pass `--build-dir` otherwise. It
-exists because a plain `clang-tidy` invocation exits non-zero on a clean tree here — nifly's
-`.clang-tidy` breaks config lookup, and fmt 11 fails its own consteval check under clang 19+.
+needs the LLVM release pinned in `scripts/clang-tidy-version.txt` first on PATH (CI downloads it
+from llvm-project) and refuses any other version. Its docstring explains why a plain
+`clang-tidy` invocation is not enough here.
 
 A style-only change still has to build. Renames in particular surface shadowing that the compiler
 catches and a regex does not.

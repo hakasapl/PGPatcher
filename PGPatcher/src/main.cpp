@@ -367,7 +367,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     auto* bg = PGGlobals::bg();
     auto* pgd = PGGlobals::pgd();
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
     auto* pgmm = PGGlobals::pgmm();
 
     //
@@ -685,11 +685,11 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Any patcher initialization that requires PGD.
     if (params.shaderPatcher.isTruePBREnabled)
-        PatcherMeshShaderTruePBR::loadStatics(pgd->pbrjsoNs());
+        PatcherMeshShaderTruePBR::loadStatics(pgd->pbrJSONs());
 
-    // Extended texture classification (complex material detection) runs on a background.
-    // Queue and adds shader types to mods as it completes. Wait for it here so mod enable.
-    // State and priorities below are computed from complete shader data, and so we do not
+    // Extended texture classification (complex material detection) runs on a background
+    // queue and adds shader types to mods as it completes. Wait for it here so mod enable
+    // state and priorities below are computed from complete shader data, and so we do not
     // race the classification threads while reading mod shader sets.
     progressWindow->CallAfter(
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.classifyingTextures")); });
@@ -698,7 +698,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // Assign new mod priorities for new mods.
     pgmm->updateStateFromModlist(params.modManager.shouldUseMO2LooseFileOrder);
 
-    // Modrules.json is deliberately not saved here: the state computed above is re-derived on every
+    // The modrules.json file is deliberately not saved here: the state computed above is re-derived on every
     // run, and the file must only change when the user applies changes in the conflict manager.
 }
 
@@ -714,8 +714,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     PGPlugin::resetPatchingState();
     PGGlobals::pgd()->clearGeneratedFiles();
     PGPatcherGlobals::wxLoggerSink()->resetToRunStart();
-    // Messages of a previous patching step must be logged again when the step is re-run (the completion dialog only.
-    // Shows messages of the latest step), including messages replayed for meshes that did not need re-patching.
+    // Messages of a previous patching step must be logged again when the step is re-run (the completion dialog only
+    // shows messages of the latest step), including messages replayed for meshes that did not need re-patching.
     Logger::resetToRunStart();
     PGRunCache::beginRun();
 
@@ -920,8 +920,8 @@ void mainRunner(ParallaxGenCLIArgs& args,
     if (!autostart)
         updateOutput = PGUI::showLauncher(pgc, params);
 
-    // Paths in the config may be relative to the PGPatcher.exe folder: the config keeps them as typed, the run uses.
-    // The resolved paths.
+    // Paths in the config may be relative to the PGPatcher.exe folder: the config keeps them as typed, the run uses
+    // the resolved paths.
     PGConfig::resolveRelativePaths(params);
 
     // Validate config.
@@ -982,8 +982,8 @@ void mainRunner(ParallaxGenCLIArgs& args,
     backgroundRunners.queueTask([&args, &params, &updateOutput, &exePath, &progressWindow, &cfgDir, &progressCallback] {
         mainRunnerPrep(args, params, updateOutput, exePath, cfgDir, progressWindow, progressCallback);
 
-        // Snapshot message counts after prep so re-runs of the patching step can discard.
-        // Messages from a previous patch run while keeping preparation-phase messages.
+        // Snapshot message counts after prep so re-runs of the patching step can discard
+        // messages from a previous patch run while keeping preparation-phase messages.
         PGPatcherGlobals::wxLoggerSink()->markRunStart();
         Logger::markRunStart();
 

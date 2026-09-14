@@ -69,7 +69,7 @@ std::filesystem::path PatcherTextureHookFixSSS::outputFilename(const std::filesy
 
 bool PatcherTextureHookFixSSS::initShader()
 {
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     if (s_shader)
         return true;
@@ -88,7 +88,7 @@ PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(std::filesystem::path ddsPath
 bool PatcherTextureHookFixSSS::applyPatch()
 {
     auto* pgd = PGGlobals::pgd();
-    auto* pgd3d = PGGlobals::pGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     if (!dds())
         throw std::runtime_error("DDS not initialized");

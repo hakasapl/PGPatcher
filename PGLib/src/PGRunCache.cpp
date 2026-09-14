@@ -1085,7 +1085,7 @@ void PGRunCache::seedTextureMetadata()
         return;
 
     auto* const pgd = PGGlobals::pgd();
-    auto* const pgd3d = PGGlobals::pGD3D();
+    auto* const pgd3d = PGGlobals::pgD3D();
 
     size_t seeded = 0;
     for (const auto& [texture, info] : s_previous->textures) {
@@ -1223,7 +1223,7 @@ auto PGRunCache::collectOutputIdentities() -> std::unordered_map<std::wstring,
                 continue;
             }
 
-            // Directory_entry caches size and write time from the directory listing so these are free.
+            // A directory_entry caches size and write time from the directory listing so these are free.
             const auto relPath = entry.path().lexically_relative(generatedPath);
             OutputIdentity identity;
             identity.size = entry.file_size(ec);
@@ -1260,7 +1260,7 @@ bool PGRunCache::finishRun(bool save)
         return true;
 
     auto* const pgd = PGGlobals::pgd();
-    auto* const pgd3d = PGGlobals::pGD3D();
+    auto* const pgd3d = PGGlobals::pgD3D();
 
     auto data = std::make_unique<CacheData>();
     data->pgVersion = PG_FULL_VERSION;
@@ -1312,8 +1312,8 @@ bool PGRunCache::finishRun(bool save)
         }
     }
 
-    // Identities of the outputs on disk. Mesh saving is asynchronous, so output identities are captured here (after.
-    // The file saver was drained) rather than when the outputs were recorded. Outputs of skipped meshes were not
+    // Identities of the outputs on disk. Mesh saving is asynchronous, so output identities are captured here (after
+    // the file saver was drained) rather than when the outputs were recorded. Outputs of skipped meshes were not
     // rewritten, so this simply re-reads their unchanged identity.
     const auto onDisk = collectOutputIdentities();
 

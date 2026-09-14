@@ -38,7 +38,7 @@ public:
      *
      * @param event The wxWidgets paint event (unused).
      */
-    void OnPaint([[maybe_unused]] wxPaintEvent& event);
+    void onPaint([[maybe_unused]] wxPaintEvent& event);
 
     /**
      * @brief Move the ghost window to follow the mouse cursor.

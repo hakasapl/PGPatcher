@@ -155,7 +155,7 @@ private:
      *
      * @return std::vector<std::string>
      */
-    static std::vector<std::string> inibsaFields();
+    static std::vector<std::string> iniBSAFields();
 
     /**
      * @brief Builds the identity for a file map entry

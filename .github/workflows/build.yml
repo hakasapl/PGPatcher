@@ -35,9 +35,28 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
 
+      - name: Cache clang-tidy
+        id: clang-tidy-cache
+        uses: actions/cache@v4
+        with:
+          path: clang-tidy
+          key: clang-tidy-${{ hashFiles('scripts/clang-tidy-version.txt') }}
+
+      - name: Install clang-tidy
+        if: steps.clang-tidy-cache.outputs.cache-hit != 'true'
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $version = (Get-Content scripts/clang-tidy-version.txt -Raw).Trim()
+          $package = "clang+llvm-$version-x86_64-pc-windows-msvc"
+          Invoke-WebRequest "https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/$package.tar.xz" -OutFile llvm.tar.xz
+          New-Item -ItemType Directory clang-tidy | Out-Null
+          # Only clang-tidy and its builtin headers; the rest of the package is not needed.
+          tar -xf llvm.tar.xz -C clang-tidy --strip-components=1 "$package/bin/clang-tidy.exe" "$package/lib/clang"
+          Remove-Item llvm.tar.xz
+
       - name: Run clang-tidy
         run: |
-          pip install clang-tidy==22.1.8
+          $env:PATH = "$PWD\clang-tidy\bin;$env:PATH"
           python scripts/run_clang_tidy.py
 
       - name: Upload Artifact

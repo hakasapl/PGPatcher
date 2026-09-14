@@ -77,7 +77,7 @@ public:
      * @return Pointer to the PGD3D object.
      * @throws std::runtime_error if PGD3D has not been set.
      */
-    static PGD3D* pGD3D();
+    static PGD3D* pgD3D();
 
     /**
      * @brief Returns whether the global PGD3D pointer has been set.

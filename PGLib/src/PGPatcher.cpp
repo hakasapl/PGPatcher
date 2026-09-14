@@ -1093,7 +1093,7 @@ TaskTracker::Result PGPatcher::patchDDS(const std::filesystem::path& ddsPath)
         throw std::runtime_error("File is not a DDS file");
 
     DirectX::ScratchImage ddsImage;
-    if (!PGGlobals::pGD3D()->getDDS(ddsPath, ddsImage)) {
+    if (!PGGlobals::pgD3D()->getDDS(ddsPath, ddsImage)) {
         Logger::error(L"Unable to process texture: {}", ddsPath.wstring());
         return TaskTracker::Result::Failure;
     }

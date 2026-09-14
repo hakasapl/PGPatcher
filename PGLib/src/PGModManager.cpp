@@ -346,7 +346,7 @@ void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDi
                                  + StringUtil::utf16toUTF8(mo2IniFile.wstring()));
     }
 
-    const auto [profileDir, modDir] = mO2FilePaths(instanceDir);
+    const auto [profileDir, modDir] = mo2FilePaths(instanceDir);
 
     m_stagingLocation = modDir;
 
@@ -614,7 +614,7 @@ bool PGModManager::isValidMO2InstanceDir(const std::filesystem::path& instanceDi
     return std::filesystem::exists(modOrganizerIni);
 }
 
-std::wstring PGModManager::mO2INIField(const std::filesystem::path& instanceDir,
+std::wstring PGModManager::mo2INIField(const std::filesystem::path& instanceDir,
                                        const std::string& fieldName,
                                        const bool& isByteArray)
 {
@@ -658,10 +658,10 @@ std::wstring PGModManager::mO2INIField(const std::filesystem::path& instanceDir,
 
 std::filesystem::path PGModManager::gamePathFromInstanceDir(const std::filesystem::path& instanceDir)
 {
-    return resolveMO2GamePath(mO2INIField(instanceDir, mo2IniGameDirKey, true), instanceDir);
+    return resolveMO2GamePath(mo2INIField(instanceDir, mo2IniGameDirKey, true), instanceDir);
 }
 
-std::filesystem::path PGModManager::mO2DirFromUSVFS()
+std::filesystem::path PGModManager::mo2DirFromUSVFS()
 {
     // MO2 injects usvfs_x64.dll from its own install folder into every process it launches, so the folder of that
     // loaded module is the folder containing ModOrganizer.exe.
@@ -697,7 +697,7 @@ std::filesystem::path PGModManager::mO2DirFromUSVFS()
 std::filesystem::path PGModManager::findMO2Dir(const std::filesystem::path& instanceDir)
 {
     // Primary source: the usvfs DLL MO2 injected into this process, exact for portable and global instances alike.
-    auto mo2Dir = mO2DirFromUSVFS();
+    auto mo2Dir = mo2DirFromUSVFS();
     if (!mo2Dir.empty())
         return mo2Dir;
 
@@ -742,16 +742,16 @@ std::filesystem::path PGModManager::resolveMO2GamePath(const std::filesystem::pa
 
 std::wstring PGModManager::selectedProfileFromInstanceDir(const std::filesystem::path& instanceDir)
 {
-    return mO2INIField(instanceDir, mo2IniProfileKey, true);
+    return mo2INIField(instanceDir, mo2IniProfileKey, true);
 }
 
 BethesdaGame::GameType PGModManager::gameTypeFromInstanceDir(const std::filesystem::path& instanceDir)
 {
     // Get game name.
-    const auto gameName = mO2INIField(instanceDir, mo2IniGameNameKey, false);
+    const auto gameName = mo2INIField(instanceDir, mo2IniGameNameKey, false);
 
     // Get game edition.
-    const auto gameEdition = mO2INIField(instanceDir, mo2IniGameEditionKey, false);
+    const auto gameEdition = mo2INIField(instanceDir, mo2IniGameEditionKey, false);
 
     if (gameName == L"Skyrim Special Edition") {
         if (gameEdition == L"Steam")
@@ -772,16 +772,16 @@ BethesdaGame::GameType PGModManager::gameTypeFromInstanceDir(const std::filesyst
 
 std::pair<std::filesystem::path,
           std::filesystem::path>
-PGModManager::mO2FilePaths(const std::filesystem::path& instanceDir)
+PGModManager::mo2FilePaths(const std::filesystem::path& instanceDir)
 {
     // Find MO2 paths from ModOrganizer.ini.
     const std::filesystem::path mo2IniFile = instanceDir / L"modorganizer.ini";
     if (!std::filesystem::exists(mo2IniFile))
         return { { }, { } };
 
-    auto profileDirField = mO2INIField(instanceDir, mo2IniProfilesDirKey, true);
-    auto modDirField = mO2INIField(instanceDir, mo2IniModDirKey, true);
-    std::filesystem::path baseDir = mO2INIField(instanceDir, mo2IniBaseDirKey, true);
+    auto profileDirField = mo2INIField(instanceDir, mo2IniProfilesDirKey, true);
+    auto modDirField = mo2INIField(instanceDir, mo2IniModDirKey, true);
+    std::filesystem::path baseDir = mo2INIField(instanceDir, mo2IniBaseDirKey, true);
 
     if (baseDir.empty()) {
         // If baseDir is empty, set it to the instance directory.

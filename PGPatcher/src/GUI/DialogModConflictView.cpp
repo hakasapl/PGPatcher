@@ -131,8 +131,8 @@ DialogModConflictView::DialogModConflictView(const std::unordered_set<std::wstri
     mainSizer->Add(searchSizer, 0, wxEXPAND | wxALL, defaultBorder);
 
     // ---- Three-panel split area --------------------------------------------
-    // OuterSplitter: meshPanel (left) | innerSplitter (right).
-    // InnerSplitter: shapePanel (left) | matchPanel (right).
+    // The outer splitter holds meshPanel (left) | innerSplitter (right).
+    // The inner splitter holds shapePanel (left) | matchPanel (right).
     auto* outerSplitter
         = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_LIVE_UPDATE | wxSP_3D);
     auto* innerSplitter
@@ -443,8 +443,8 @@ void DialogModConflictView::setupWarningIcons()
 
     const wxBitmap warningBitmap = warningBundle.GetBitmap(iconSize);
 
-    // Rows inserted without an explicit image index render image 0 on Windows, so index 0 must.
-    // be a fully transparent placeholder; the actual warning icon lives at WARNING_ICON_IMAGE_INDEX
+    // Rows inserted without an explicit image index render image 0 on Windows, so index 0 must
+    // be a fully transparent placeholder; the actual warning icon lives at warningIconImageIndex.
     wxImage blankImage(iconSize.GetWidth(), iconSize.GetHeight());
     blankImage.InitAlpha();
     std::fill_n(blankImage.GetAlpha(), static_cast<size_t>(iconSize.GetWidth()) * iconSize.GetHeight(), 0);
