@@ -12,6 +12,7 @@
 - Fixed some cases of exceptions causing hangs in multithreaded context
 - Updated Russian localization with new strings (enbl1tenment)
 - Added Chinese simplified localization (LoyiNuts)
+- Added French localization (cl3mus)
 
 ## [2.0.0] - 2026-09-10
 
