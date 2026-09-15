@@ -350,8 +350,8 @@ bool PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
         matches.push_back(match);
     }
 
-    // Sort matches by ExtraData key minimum value (this preserves order of JSONs to be 0 having priority if mod order.
-    // Does not exist).
+    // Sort matches by ExtraData key minimum value (this preserves order of JSONs to be 0 having priority if mod order
+    // does not exist).
     std::ranges::sort(matches, [](const PatcherMatch& a, const PatcherMatch& b) {
         return std::get<0>(
                    *std::static_pointer_cast<std::map<size_t, std::tuple<nlohmann::json, std::wstring>>>(a.extraData)
@@ -605,9 +605,9 @@ uint64_t PatcherMeshShaderTruePBR::matchExtraDataHash(const PatcherMatch& match)
     const auto extraData
         = std::static_pointer_cast<std::map<size_t, std::tuple<nlohmann::json, std::wstring>>>(match.extraData);
 
-    // Config indices depend on the global order of PBR JSONs, which can shift when JSONs are added or removed.
-    // Without changing how this shape is patched. Only the content and the relative order matter, so hash the entries.
-    // In map (application) order without their indices.
+    // Config indices depend on the global order of PBR JSONs, which can shift when JSONs are added or removed
+    // without changing how this shape is patched. Only the content and the relative order matter, so hash the entries
+    // in map (application) order without their indices.
     HashUtil::Fnv1a64 hasher;
     hasher.add(static_cast<uint64_t>(extraData->size()));
     for (const auto& [sequence, data] : *extraData) {

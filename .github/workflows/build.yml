@@ -35,9 +35,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
 
-      - name: Cache clang-tidy
+      - name: Restore clang-tidy
         id: clang-tidy-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: clang-tidy
           key: clang-tidy-${{ hashFiles('scripts/clang-tidy-version.txt') }}
@@ -59,6 +59,13 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Remove-Item llvm.tar.zst
           & clang-tidy\bin\clang-tidy.exe --version
+
+      - name: Save clang-tidy
+        if: steps.clang-tidy-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: clang-tidy
+          key: ${{ steps.clang-tidy-cache.outputs.cache-primary-key }}
 
       - name: Run clang-tidy
         timeout-minutes: 45

@@ -70,8 +70,8 @@ BethesdaDirectory::BethesdaDirectory(std::filesystem::path dataPath,
 //
 std::vector<std::string> BethesdaDirectory::iniBSAFields()
 {
-    // These fields will be searched in ini files for manually specified BSA.
-    // Loading.
+    // These fields will be searched in ini files for manually specified BSA
+    // loading.
     const static std::vector<std::string> fields
         = { "sResourceArchiveList", "sResourceArchiveList2", "sResourceArchiveListBeta" };
 
@@ -599,7 +599,7 @@ std::vector<std::wstring> BethesdaDirectory::findBSAFilesFromPluginName(const st
             std::wstring afterPrefix = bsa.substr(pluginPrefix.length());
 
             // FIXME: Is this actually how the game handles BSA files? Example:
-            // 3DNPC0.bsa, 3DNPC1.bsa, 3DNPC2.bsa are loaded, todo: but 3DNPC -
+            // 3DNPC0.bsa, 3DNPC1.bsa, 3DNPC2.bsa are loaded, but 3DNPC -
             // textures.bsa is also loaded, whats the logic there?
             if (afterPrefix.starts_with(L' ') && !afterPrefix.starts_with(L" -"))
                 continue;

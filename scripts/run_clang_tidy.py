@@ -62,8 +62,11 @@ TOOL_FAILURE = re.compile(r'^Error(?! while processing\b)')
 
 
 def pinned_version() -> str:
-    with open(VERSION_FILE, encoding='utf-8') as handle:
-        version = handle.read().strip()
+    try:
+        with open(VERSION_FILE, encoding='utf-8') as handle:
+            version = handle.read().strip()
+    except FileNotFoundError:
+        sys.exit(f'error: {VERSION_FILE} not found')
     if not version:
         sys.exit(f'error: {VERSION_FILE} is empty')
     return version

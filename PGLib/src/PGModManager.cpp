@@ -573,7 +573,7 @@ void PGModManager::updateStateFromModlist(bool useDefaultOrder) const
     const std::vector<std::shared_ptr<Mod>> modsSortedBySelectedBaseOrder
         = useDefaultOrder && m_mmType == ModManagerType::ModOrganizer2 ? modsByDefaultOrder() : modsByPriority();
 
-    // The mod sort dialog only displays mods with shaders or meshes and assigns priorities over those.
+    // The mod sort dialog only displays mods with shaders or meshes and assigns priorities over those
     // rows alone. Number the same subset here; including hidden mods would offset every priority by the
     // hidden-mod count and make the dialog report unsaved changes when the user changed nothing.
     std::vector<std::shared_ptr<Mod>> displayedMods;
@@ -725,8 +725,8 @@ std::filesystem::path PGModManager::resolveMO2GamePath(const std::filesystem::pa
         return gamePath;
     }
 
-    // MO2 sets its working directory to the folder containing ModOrganizer.exe and uses gamePath as-is, so a relative.
-    // GamePath is relative to that folder.
+    // MO2 sets its working directory to the folder containing ModOrganizer.exe and uses gamePath as-is, so a relative
+    // gamePath is relative to that folder.
     const auto mo2Dir = findMO2Dir(instanceDir);
     if (mo2Dir.empty())
         return gamePath;

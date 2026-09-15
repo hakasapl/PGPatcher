@@ -147,7 +147,7 @@ nifly::NifFile PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifByte
         throw std::runtime_error("File is empty");
 
     // Convert Byte Vector to Stream.
-    // Using reinterpret_cast to convert from std::byte to char is more efficient due to less copies
+    // Using reinterpret_cast to convert from std::byte to char is more efficient due to less copies.
     boost::iostreams::array_source nifArraySource(
         reinterpret_cast<const char*>(nifBytes.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         nifBytes.size());

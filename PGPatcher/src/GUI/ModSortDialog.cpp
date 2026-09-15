@@ -385,8 +385,8 @@ void ModSortDialog::onItemDragged(PGCheckedDragListCtrlEvtItemDragged& event)
         }
 
         if (!selectedModNames.empty()) {
-            const bool moveToTop = event.newPosition() == 0;
-            reorderCachedRowsFromFilteredMove(selectedModNames, moveToTop);
+            const bool shouldMoveToTop = event.newPosition() == 0;
+            reorderCachedRowsFromFilteredMove(selectedModNames, shouldMoveToTop);
             rebuildListCtrlFromCache();
         }
 

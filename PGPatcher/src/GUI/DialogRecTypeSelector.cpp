@@ -126,8 +126,8 @@ void DialogRecTypeSelector::populateList(const std::unordered_set<PGPlugin::Mode
     if (!m_listCtrl->GetItemRect(0, rect, wxLIST_RECT_BOUNDS))
         return;
 
-    // Everything that is not the list itself (instruction text, buttons, borders) - measured rather than assumed.
-    // Because the instruction text needs a different number of lines in each language.
+    // Everything that is not the list itself (instruction text, buttons, borders) - measured rather than assumed
+    // because the instruction text needs a different number of lines in each language.
     const int chromeHeight = GetSize().GetHeight() - m_listCtrl->GetSize().GetHeight();
     const int itemHeight = rect.GetHeight();
     const int desiredHeight = (m_listCtrl->GetItemCount() * itemHeight) + chromeHeight + FromDIP(borderSizeDIP);

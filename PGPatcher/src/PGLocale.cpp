@@ -18,14 +18,14 @@ namespace {
 /** Language whose translation file is always loaded underneath the active language */
 constexpr const char* fallbackLanguage = "en";
 
-/** Mutable state of the loaded translation table */
+/** Mutable state of the loaded translation table. */
 struct LocaleState {
     std::filesystem::path translationsDir;
     std::string currentLanguage = fallbackLanguage;
     std::unordered_map<std::string, wxString> strings;
 };
 
-/** Held in a function-local static rather than in globals so construction order is well defined */
+/** Held in a function-local static rather than in globals so construction order is well defined. */
 LocaleState& localeState()
 {
     static LocaleState state;

@@ -79,8 +79,8 @@ bool PGUI::showLauncher(PGConfig& pgc,
 
         if (result == LauncherWindow::resultRelaunch) {
             // The theme may have changed in settings; the appearance can only change while no
-            // top-level windows exist, so flush the just-destroyed launcher first (ProcessIdle.
-            // Deletes the objects pending destruction).
+            // top-level windows exist, so flush the just-destroyed launcher first (ProcessIdle
+            // deletes the objects pending destruction).
             wxTheApp->ProcessIdle();
             if (!applyTheme()) {
                 // Restart PGPatcher with the same command line to apply the new theme (already saved to

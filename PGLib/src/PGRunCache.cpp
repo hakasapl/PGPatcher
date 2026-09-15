@@ -1015,10 +1015,10 @@ void PGRunCache::initialize(const std::filesystem::path& cacheFile,
     }
 
     std::error_code ec;
-    const bool cacheExists = std::filesystem::exists(cacheFile, ec);
+    const bool doesCacheExist = std::filesystem::exists(cacheFile, ec);
 
     if (ignoreExisting) {
-        if (cacheExists) {
+        if (doesCacheExist) {
             Logger::info("Regenerating the output from scratch, the previous output in the output directory is "
                          "replaced (use Update Output to keep unchanged meshes)");
         } else {
@@ -1027,7 +1027,7 @@ void PGRunCache::initialize(const std::filesystem::path& cacheFile,
         return;
     }
 
-    if (!cacheExists) {
+    if (!doesCacheExist) {
         // An update was requested (Update Output button or --autostart-update) but there is nothing to update.
         Logger::warn("No previous output found in the output directory, generating the output from scratch instead of "
                      "updating it");
@@ -1206,8 +1206,8 @@ auto PGRunCache::collectOutputIdentities() -> std::unordered_map<std::wstring,
 
             const auto& entry = *it;
 
-            // PGPatcher never creates symlinks or junctions, so anything behind one is not an output this cache.
-            // Manages: it is neither listed nor descended into. Deletions are limited to what this walk lists, which
+            // PGPatcher never creates symlinks or junctions, so anything behind one is not an output this cache
+            // manages: it is neither listed nor descended into. Deletions are limited to what this walk lists, which
             // keeps them inside the real output directory tree.
             if (entry.is_symlink(ec)) {
                 ec.clear();
@@ -1602,8 +1602,8 @@ bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
         }
     }
 
-    // Outputs of this mesh's own hook registrations are generated during patching, so a dependency on their existence.
-    // Is satisfied by replaying the registrations.
+    // Outputs of this mesh's own hook registrations are generated during patching, so a dependency on their existence
+    // is satisfied by replaying the registrations.
     std::unordered_set<std::wstring> ownHookOutputs;
     for (const auto& [kind, tex] : record.hookRegistrations)
         ownHookOutputs.insert(pathKey(hookOutputPath(kind, tex)));
@@ -1757,8 +1757,8 @@ PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
     std::vector<std::filesystem::path> unskip;
     for (const auto& mesh : skippable) {
         const auto& uses = meshes.at(mesh).meshUses;
-        const bool weighted = std::ranges::any_of(uses, [](const auto& use) { return use.second.isWeighted; });
-        if (!weighted)
+        const bool isWeighted = std::ranges::any_of(uses, [](const auto& use) { return use.second.isWeighted; });
+        if (!isWeighted)
             continue;
 
         const auto partner = PGMeshPermutationTracker::otherWeightVariant(mesh);
@@ -1769,9 +1769,9 @@ PGRunCache::evaluateMeshes(const std::unordered_map<std::filesystem::path,
         if (partnerIt == meshes.end())
             continue;
 
-        const bool partnerWeighted
+        const bool isPartnerWeighted
             = std::ranges::any_of(partnerIt->second.meshUses, [](const auto& use) { return use.second.isWeighted; });
-        if (partnerWeighted)
+        if (isPartnerWeighted)
             unskip.push_back(mesh);
     }
 
@@ -1884,8 +1884,8 @@ void PGRunCache::carryOverRecord(const std::filesystem::path& nifPath)
         return;
 
     // The previous record of a replayed mesh is not read again during this run, so it is moved rather than copied to
-    // keep peak memory low on large load orders. Moving the value does not alter the map structure, so concurrent.
-    // Lookups of other meshes stay safe.
+    // keep peak memory low on large load orders. Moving the value does not alter the map structure, so concurrent
+    // lookups of other meshes stay safe.
     const std::scoped_lock lock(s_runMutex);
     s_currentRecords[key] = std::move(it->second);
 }
@@ -1936,7 +1936,7 @@ bool PGRunCache::tryReuseHookOutput(const HookKind& kind,
 void PGRunCache::replayHookRegistration(const HookKind& kind,
                                         const std::filesystem::path& texPath)
 {
-    // AddToProcessList reuses the previous output when possible and schedules regeneration otherwise.
+    // The addToProcessList call reuses the previous output when possible and schedules regeneration otherwise.
     switch (kind) {
     case HookKind::ConvertToCM:
         PatcherTextureHookConvertToCM::addToProcessList(texPath);
@@ -1975,8 +1975,8 @@ void PGRunCache::finalizeHooks()
         }
     }
 
-    // Delete generated textures from the previous run that no mesh needs anymore. These paths come from the cache.
-    // File, so only files that the output directory walk listed are deleted: the walk never follows symlinks or
+    // Delete generated textures from the previous run that no mesh needs anymore. These paths come from the cache
+    // file, so only files that the output directory walk listed are deleted: the walk never follows symlinks or
     // junctions, which keeps every deletion inside the real output directory tree.
     if (s_previous) {
         const auto generatedPath = PGGlobals::pgd()->generatedPath();
@@ -2220,8 +2220,8 @@ auto PGRunCache::loadFromFile(const std::filesystem::path& cacheFile) -> std::un
             return nullptr;
         }
 
-        // Paths from the cache address files in the output directory (including deletions), so a cache that could.
-        // Point anywhere else is not trusted at all.
+        // Paths from the cache address files in the output directory (including deletions), so a cache that could
+        // point anywhere else is not trusted at all.
         if (!hasSafePaths(*data)) {
             Logger::warn("Update cache contains invalid output paths and is ignored, performing a full run");
             return nullptr;

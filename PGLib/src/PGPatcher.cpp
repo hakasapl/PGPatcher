@@ -116,8 +116,8 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
     if (progressCallback)
         taskTracker.setCallbackFunc(progressCallback);
 
-    // Model uses of replayed meshes are applied in one batch: thousands of individual plugin calls would otherwise.
-    // Dominate the runtime of an incremental run.
+    // Model uses of replayed meshes are applied in one batch: thousands of individual plugin calls would otherwise
+    // dominate the runtime of an incremental run.
     std::vector<PGMeshPermutationTracker::MeshResult> replayedMeshResults;
     std::mutex replayedMeshResultsMutex;
 
@@ -754,9 +754,9 @@ bool PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
             matchMeta.matchedPath = match.match.matchedPath;
 
             if (PGGlobals::isPGMMSet()) {
-                // Record which mod supplies each result texture so the conflict viewer can flag.
-                // Matches whose result textures come from different mods. Transformed matches get.
-                // Their slots from the transform's target shader (running the actual transform here.
+                // Record which mod supplies each result texture so the conflict viewer can flag
+                // matches whose result textures come from different mods. Transformed matches get
+                // their slots from the transform's target shader (running the actual transform here
                 // would schedule texture generation); the source match path is kept for attribution
                 // since transform-generated files belong to no mod anyway.
                 auto resultShader = match.shader;
@@ -844,8 +844,8 @@ bool PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
 uint64_t PGPatcher::digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
                                   const PatcherUtil::PatcherMeshObjectSet& patchers)
 {
-    // Everything about the ordered match list that influences how the winning match is chosen and applied. Mod.
-    // Priorities are deliberately not part of the digest: only their effect (the order of the list) matters, so
+    // Everything about the ordered match list that influences how the winning match is chosen and applied. Mod
+    // priorities are deliberately not part of the digest: only their effect (the order of the list) matters, so
     // renumbering priorities when a mod is added does not invalidate meshes whose matches did not change.
     HashUtil::Fnv1a64 hasher;
     hasher.add(static_cast<uint64_t>(matches.size()));
@@ -894,8 +894,8 @@ std::vector<PatcherUtil::ShaderPatcherMatch> PGPatcher::matches(const PGTypes::T
     std::vector<PatcherUtil::ShaderPatcherMatch> matches;
     uint64_t matchesDigest = 0;
 
-    // Every lookup made while building the match list is covered by the digest recorded below, so individual.
-    // Lookups are not recorded as dependencies.
+    // Every lookup made while building the match list is covered by the digest recorded below, so individual
+    // lookups are not recorded as dependencies.
     {
         const PGRunCache::SuspendRecording suspendRecording;
 
@@ -1009,7 +1009,7 @@ std::vector<PatcherUtil::ShaderPatcherMatch> PGPatcher::matches(const PGTypes::T
                 ++it;
             }
 
-            // CanApply assigned the transform targets above and those take part in the ranking, so sort again to
+            // Above, canApply assigned the transform targets and those take part in the ranking, so sort again to
             // restore the final order the patchers rely on (the match at index 0 wins).
             sortMatches(matches);
         }

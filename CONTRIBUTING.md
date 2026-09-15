@@ -24,7 +24,7 @@ Tags are exclusively used to designate versions in this repository.
 
 ### Linting and Formatting
 
-[Pre-commit](https://pre-commit.com/) is used for linting and formatting. Pre-commit calls [clang-format](https://clang.llvm.org/docs/ClangFormat.html) and [clang-tidy](https://clang.llvm.org/extra/clang-tidy/) for formatting and linting, respectively, for the C++ code. Pre-commit has several general hooks for file endings, json formatting, and more. It is recommended to add the pre-commit hook to your local cloned repository so that it can run before any commit.
+[Pre-commit](https://pre-commit.com/) is used for linting and formatting. Pre-commit calls [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the C++ code; clang-tidy runs separately, see below. Pre-commit has several general hooks for file endings, json formatting, and more. It is recommended to add the pre-commit hook to your local cloned repository so that it can run before any commit.
 
 Both are enforced on every pull request. [pre-commit.ci](https://pre-commit.ci/) runs the hooks and pushes any fixes back to the branch, which covers clang-format; the version is pinned in `.pre-commit-config.yaml`, so it does not depend on what your editor happens to bundle.
 

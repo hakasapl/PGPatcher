@@ -356,10 +356,10 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     }
 
     // Disable move options if any selected item is below the cutoff line.
-    const bool anyBelowCutoff
+    const bool isAnyBelowCutoff
         = std::ranges::any_of(selectedItems, [this](long idx) { return m_cutoffLine >= 0 && idx >= m_cutoffLine; });
-    menu.Enable(idMoveTop, !anyBelowCutoff && m_isContextMoveEnabled);
-    menu.Enable(idMoveBottom, !anyBelowCutoff && m_isContextMoveEnabled);
+    menu.Enable(idMoveTop, !isAnyBelowCutoff && m_isContextMoveEnabled);
+    menu.Enable(idMoveBottom, !isAnyBelowCutoff && m_isContextMoveEnabled);
 
     // Disable enable/disable options if all selected items are already in that state.
     const bool areAllEnabled = std::ranges::all_of(selectedItems, [this](long idx) { return isChecked(idx); });
@@ -368,12 +368,12 @@ void PGCheckedDragListCtrl::onContextMenu(wxContextMenuEvent& event)
     menu.Enable(idDisable, !areAllDisabled);
 
     // Disable mesh patching options if all selected items are already in that state.
-    const bool allIgnoringMeshes
+    const bool areAllIgnoringMeshes
         = std::ranges::all_of(selectedItems, [this](long idx) { return areMeshesIgnored(idx); });
-    const bool allPatchingMeshes
+    const bool areAllPatchingMeshes
         = std::ranges::all_of(selectedItems, [this](long idx) { return !areMeshesIgnored(idx); });
-    menu.Enable(idEnableMeshes, !allPatchingMeshes);
-    menu.Enable(idDisableMeshes, !allIgnoringMeshes);
+    menu.Enable(idEnableMeshes, !areAllPatchingMeshes);
+    menu.Enable(idDisableMeshes, !areAllIgnoringMeshes);
 
     // Bind menu actions.
     menu.Bind(

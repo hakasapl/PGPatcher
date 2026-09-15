@@ -269,7 +269,7 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
         });
 
         if (saveSuccess) {
-            if (curIndex == 0)
+            if (!curIndex)
                 Logger::debug("Saved patched base mesh");
             else
                 Logger::debug("Saved patched duplicate mesh {}", std::to_string(curIndex));
@@ -303,9 +303,9 @@ PGMeshPermutationTracker::validateWeightedVariants()
 
     const std::scoped_lock lock(s_otherWeightVariantsMutex);
     for (const auto& [key, nifFile] : s_otherWeightVariants) {
-        // A mesh being used weighted in one place while its counterpart is never patched as weighted (not used.
-        // Weighted in plugins, no changes needed, or file absent) is a valid state. Only error when the counterpart.
-        // Was also patched as weighted, meaning the _0/_1 outputs actually diverged.
+        // A mesh being used weighted in one place while its counterpart is never patched as weighted (not used
+        // weighted in plugins, no changes needed, or file absent) is a valid state. Only error when the counterpart
+        // was also patched as weighted, meaning the _0/_1 outputs actually diverged.
         const auto otherVariantPath = otherWeightVariant(key.first);
         if (!s_weightVariantProcessedPaths.contains(otherVariantPath.wstring())) {
             Logger::debug(L"Skipping weight variant check for '{}': counterpart '{}' was not patched as weighted",
@@ -674,7 +674,7 @@ bool PGMeshPermutationTracker::compareBSShaderTextureSet(nifly::BSShaderTextureS
 std::filesystem::path PGMeshPermutationTracker::meshPath(const std::filesystem::path& nifPath,
                                                          const size_t& index)
 {
-    if (index == 0)
+    if (!index)
         return nifPath;
 
     // Different from mesh which means duplicate is needed.

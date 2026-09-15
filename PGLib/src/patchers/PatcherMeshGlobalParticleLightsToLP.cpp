@@ -195,9 +195,9 @@ bool PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
 
     // Set color.
     auto baseColor = effectShader->baseColor;
-    const bool getColorFromVertex = abs(baseColor.r - 1) < minValue && abs(baseColor.g - 1) < minValue
+    const bool shouldUseVertexColor = abs(baseColor.r - 1) < minValue && abs(baseColor.g - 1) < minValue
         && abs(baseColor.b - 1) < minValue && shape->HasVertexColors();
-    if (getColorFromVertex) {
+    if (shouldUseVertexColor) {
         // Reset basecolor.
         baseColor = { 0, 0, 0, 0 };
 
