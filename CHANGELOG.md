@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.1.0] - UNRELEASED
+## [2.1.0] - 2026-09-15
 
 - Added DPI awareness for all GUI components
 - All windows now show the PGPatcher icon in their title bar
