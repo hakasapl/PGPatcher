@@ -289,8 +289,16 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     //
     // Global Patchers.
     //
-    // auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
-    // rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, borderSize);
+    auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, pgTr("launcher.globalPatchers.title"));
+
+    m_globalPatcherFinalizeGeometryCheckbox
+        = new wxCheckBox(this, wxID_ANY, pgTr("launcher.globalPatchers.finalizeGeometry.label"));
+    m_globalPatcherFinalizeGeometryCheckbox->SetToolTip(pgTr("launcher.globalPatchers.finalizeGeometry.tooltip"));
+    m_globalPatcherFinalizeGeometryCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onGlobalPatcherFinalizeGeometryChange, this);
+    globalPatcherSizer->Add(m_globalPatcherFinalizeGeometryCheckbox, 0, wxALL, borderSize);
+
+    rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Processing and RUN buttons.
@@ -568,6 +576,7 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
     m_postPatcherHairFlowMapCheckbox->SetValue(initParams.postPatcher.isHairFlowMapEnabled);
 
     // Global Patchers.
+    m_globalPatcherFinalizeGeometryCheckbox->SetValue(initParams.globalPatcher.isFinalizeGeometryEnabled);
 }
 
 // Component event handlers.
@@ -673,6 +682,11 @@ void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEv
     updateDisabledElements();
 }
 
+void LauncherWindow::onGlobalPatcherFinalizeGeometryChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
 void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
 {
     DialogModifiableListCtrl dialog(
@@ -768,6 +782,7 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.postPatcher.isHairFlowMapEnabled = m_postPatcherHairFlowMapCheckbox->GetValue();
 
     // Global Patchers.
+    params.globalPatcher.isFinalizeGeometryEnabled = m_globalPatcherFinalizeGeometryCheckbox->GetValue();
 }
 
 void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event)

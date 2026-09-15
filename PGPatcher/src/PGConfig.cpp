@@ -249,6 +249,8 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
             paramJ["postpatcher"]["hairflowmap"].get_to<bool>(m_params.postPatcher.isHairFlowMapEnabled);
 
         // "globalpatcher".
+        if (paramJ.contains("globalpatcher") && paramJ["globalpatcher"].contains("finalizegeometry"))
+            paramJ["globalpatcher"]["finalizegeometry"].get_to<bool>(m_params.globalPatcher.isFinalizeGeometryEnabled);
     }
 }
 
@@ -454,6 +456,7 @@ nlohmann::json PGConfig::userConfigJSON() const
     j["params"]["postpatcher"]["hairflowmap"] = m_params.postPatcher.isHairFlowMapEnabled;
 
     // "globalpatcher".
+    j["params"]["globalpatcher"]["finalizegeometry"] = m_params.globalPatcher.isFinalizeGeometryEnabled;
 
     return j;
 }

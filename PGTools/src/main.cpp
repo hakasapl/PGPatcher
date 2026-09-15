@@ -2,6 +2,7 @@
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "PGPatcher.hpp"
+#include "patchers/PatcherMeshGlobalFinalizeGeometry.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
@@ -207,6 +208,8 @@ void mainRunner(PGToolsCLIArgs& args)
         }
         if (patcherDefs.contains("particlelightstolp"))
             meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::factory());
+        if (patcherDefs.contains("finalizegeometry"))
+            meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFinalizeGeometry::factory());
 
         if (patcherDefs.contains("restoredefaultshaders"))
             meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::factory());

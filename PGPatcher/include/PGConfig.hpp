@@ -133,7 +133,12 @@ public:
 
         // Global Patchers.
         struct GlobalPatcher {
-            bool operator==([[maybe_unused]] const GlobalPatcher& other) const { return true; }
+            bool isFinalizeGeometryEnabled = false;
+
+            bool operator==(const GlobalPatcher& other) const
+            {
+                return isFinalizeGeometryEnabled == other.isFinalizeGeometryEnabled;
+            }
         } globalPatcher;
 
         bool operator==(const PGParams& other) const

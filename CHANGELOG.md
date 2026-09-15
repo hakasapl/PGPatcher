@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Added an optional "Finalize Mesh Geometry" global patcher (recalculates bounds, normals, and tangent space for every patched mesh - equivalent to NifSkope's Update Bounds/Face Normals/Update Tangent Space)
+
 ## [2.1.1] - 2026-09-17
 
 - Fixed PBR shader not removing Facegen_RGB_Tint flag if exists

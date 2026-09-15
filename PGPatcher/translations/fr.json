@@ -110,6 +110,13 @@
         "tooltip": "Ajoute des flow maps aux texture sets pour celles correspondant à la texture normale"
       }
     },
+    "globalPatchers": {
+      "title": "Patchers globaux",
+      "finalizeGeometry": {
+        "label": "Finaliser la géométrie du mesh",
+        "tooltip": "Recalcule les bounds, normales et l'espace tangent pour chaque mesh patché (équivalent aux opérations \"Update Bounds\"/\"Face Normals\"/\"Update Tangent Space\" de NifSkope)"
+      }
+    },
     "buttons": {
       "restoreDefaults": "Restaurer les valeurs par défaut",
       "loadConfig": "Charger la configuration",

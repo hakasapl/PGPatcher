@@ -14,6 +14,7 @@
 #include "PGRunCache.hpp"
 #include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
+#include "patchers/PatcherMeshGlobalFinalizeGeometry.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -635,6 +636,10 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     if (params.postPatcher.isHairFlowMapEnabled) {
         Logger::debug("Adding Hair Flow Map post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::factory());
+    }
+    if (params.globalPatcher.isFinalizeGeometryEnabled) {
+        Logger::debug("Adding Finalize Geometry global patcher");
+        meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalFinalizeGeometry::factory());
     }
 
     const PatcherUtil::PatcherTextureSet texPatchers;
