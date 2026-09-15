@@ -47,21 +47,21 @@ private:
     std::unordered_set<DialogModConflictView*> m_openConflictDialogs; /** Modeless conflict windows currently open */
 
     // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
-    constexpr static int DEFAULT_WIDTH = 600;
-    constexpr static int DEFAULT_HEIGHT = 600;
-    constexpr static int MIN_WIDTH = 600;
-    constexpr static int MIN_HEIGHT = 400;
-    constexpr static int DEFAULT_PADDING = 20;
-    constexpr static int DEFAULT_BORDER = 10;
-    constexpr static int HELPBTN_FONT_SIZE = 12;
-    constexpr static int HELPBTN_SIZE = 30;
+    constexpr static int defaultWidth = 600;
+    constexpr static int defaultHeight = 600;
+    constexpr static int minWidthDIP = 600;
+    constexpr static int minHeight = 400;
+    constexpr static int defaultPadding = 20;
+    constexpr static int defaultBorderDIP = 10;
+    constexpr static int helpButtonFontSize = 12;
+    constexpr static int helpButtonSize = 30;
 
-    static inline const wxColour s_LOSING_MOD_COLOR {255, 102, 102};
-    static inline const wxColour s_WINNING_MOD_COLOR {204, 255, 102};
-    static inline const wxColour s_NEW_MOD_COLOR {204, 153, 255};
+    static inline const wxColour s_losingModColor { 255, 102, 102 };
+    static inline const wxColour s_winningModColor { 204, 255, 102 };
+    static inline const wxColour s_newModColor { 204, 153, 255 };
 
-    static inline wxColour s_BASE_ITEM_BG_COLOR = *wxWHITE;
-    static inline wxColour s_BASE_ITEM_FG_COLOR = *wxBLACK;
+    static inline wxColour s_baseItemBgColor = *wxWHITE;
+    static inline wxColour s_baseItemFgColor = *wxBLACK;
 
 public:
     /**
@@ -77,8 +77,13 @@ public:
      */
     ~ModSortDialog() override;
 
+    ModSortDialog(const ModSortDialog&) = delete;
+    ModSortDialog& operator=(const ModSortDialog&) = delete;
+    ModSortDialog(ModSortDialog&&) = delete;
+    ModSortDialog& operator=(ModSortDialog&&) = delete;
+
 private:
-    // Event Handlers
+    // Event Handlers.
 
     /**
      * @brief Event handler that triggers when a tracked conflict viewer window is destroyed
@@ -228,9 +233,9 @@ private:
      * @brief Build a mod priority list from the current live (unsaved) list state.
      *        Enabled mods appear first in visual order, disabled mods after.
      */
-    [[nodiscard]] auto getLiveModPriorityList() const -> std::vector<std::shared_ptr<PGModManager::Mod>>;
+    [[nodiscard]] std::vector<std::shared_ptr<PGModManager::Mod>> liveModPriorityList() const;
 
-    // Helpers
+    // Helpers.
 
     /**
      * @brief Sets the state of the "Use MO2 Loose File Order" checkbox based on whether MO2 is being used
@@ -243,7 +248,7 @@ private:
      * @param colIndex Index of column to calculate
      * @return int Width of column
      */
-    auto calculateColumnWidth(int colIndex) -> int;
+    int calculateColumnWidth(int colIndex);
 
     /**
      * @brief Highlights the conflicting items for a selected mod
@@ -280,7 +285,7 @@ private:
      */
     void fillListCtrl(const std::vector<std::shared_ptr<PGModManager::Mod>>& modList,
                       bool autoEnable = false,
-                      bool preserveChecks = false);
+                      bool shouldPreserveChecks = false);
 
     /**
      * @brief Rebuilds the cached rows from the currently visible list control state.
@@ -300,14 +305,14 @@ private:
     /**
      * @brief Returns trimmed lowercase search text.
      */
-    [[nodiscard]] auto getActiveSearchTerm() const -> wxString;
+    [[nodiscard]] wxString activeSearchTerm() const;
 
     /**
      * @brief Returns ordered view of cached rows: enabled rows first, disabled rows second.
      *
      * @return Vector of pointers to cached rows in display order.
      */
-    [[nodiscard]] auto getOrderedCachedRows() const -> std::vector<const CachedModRow*>;
+    [[nodiscard]] std::vector<const CachedModRow*> orderedCachedRows() const;
 
     /**
      * @brief Reorders the full cached enabled list for a move-top or move-bottom action while search is active.
@@ -323,14 +328,14 @@ private:
      *
      * @return true if there are unsaved changes
      */
-    [[nodiscard]] auto hasUnsavedChanges() -> bool;
+    [[nodiscard]] bool hasUnsavedChanges();
 
     /**
      * @brief Prompts the user to confirm closing when there are unsaved changes
      *
      * @return true if it is okay to close (no unsaved changes or user confirmed)
      */
-    [[nodiscard]] auto confirmDiscardUnsavedChanges() -> bool;
+    [[nodiscard]] bool confirmDiscardUnsavedChanges();
 
     /**
      * @brief Enables or disables the apply button based on whether there are unsaved changes
@@ -343,5 +348,5 @@ private:
      * @param shaders Set of ShapeShader enums
      * @return wxString Comma-separated string of shader names
      */
-    static auto constructShaderString(const std::set<PGEnums::ShapeShader>& shaders) -> wxString;
+    static wxString constructShaderString(const std::set<PGEnums::ShapeShader>& shaders);
 };

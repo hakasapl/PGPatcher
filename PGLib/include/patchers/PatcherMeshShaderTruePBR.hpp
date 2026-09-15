@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-constexpr unsigned TEXTURE_STR_LENGTH = 9;
+constexpr unsigned textureStrLength = 9;
 
 /**
  * @class PatcherMeshShaderTruePBR
@@ -30,25 +30,25 @@ constexpr unsigned TEXTURE_STR_LENGTH = 9;
  */
 class PatcherMeshShaderTruePBR : public PatcherMeshShader {
 private:
-    // Static caches
+    // Static caches.
 
     /**
      * @struct TupleStrHash
      * @brief Key hash for storing a tuple of two strings
      */
     struct TupleStrHash {
-        auto operator()(const std::tuple<std::wstring,
-                                         std::wstring>& t) const -> std::size_t
+        std::size_t operator()(const std::tuple<std::wstring,
+                                                std::wstring>& t) const
         {
-            const std::size_t hash1 = std::hash<std::wstring> {}(std::get<0>(t));
-            const std::size_t hash2 = std::hash<std::wstring> {}(std::get<1>(t));
+            const std::size_t hash1 = std::hash<std::wstring> { }(std::get<0>(t));
+            const std::size_t hash2 = std::hash<std::wstring> { }(std::get<1>(t));
 
-            // Combine the two hash values
+            // Combine the two hash values.
             return hash1 ^ (hash2 << 1);
         }
     };
 
-    // Options
+    // Options.
     inline static bool s_checkPaths = true;
     inline static bool s_printNonExistentPaths = false;
 
@@ -58,16 +58,18 @@ public:
      *
      * @return std::map<size_t, nlohmann::json>& JSON objects
      */
-    static auto getTruePBRConfigs() -> std::map<size_t,
-                                                nlohmann::json>&;
+    static std::map<size_t,
+                    nlohmann::json>&
+    truePBRConfigs();
 
     /**
      * @brief Get the Path Lookup JSONs objects
      *
      * @return std::map<size_t, nlohmann::json>& JSON objects
      */
-    static auto getPathLookupJSONs() -> std::map<size_t,
-                                                 nlohmann::json>&;
+    static std::map<size_t,
+                    nlohmann::json>&
+    pathLookupJSONs();
 
     /**
      * @brief Get the Path Lookup Cache object
@@ -75,56 +77,60 @@ public:
      * @return std::unordered_map<std::tuple<std::wstring, std::wstring>, bool, TupleStrHash>& Cache results for path
      * lookups
      */
-    static auto getPathLookupCache() -> std::unordered_map<std::tuple<std::wstring,
-                                                                      std::wstring>,
-                                                           bool,
-                                                           TupleStrHash>&;
+    static std::unordered_map<std::tuple<std::wstring,
+                                         std::wstring>,
+                              bool,
+                              TupleStrHash>&
+    pathLookupCache();
 
     /**
      * @brief Get the mutex for protecting the Path Lookup Cache
      *
      * @return std::mutex& Mutex for cache protection
      */
-    static auto getPathLookupCacheMutex() -> std::mutex&;
+    static std::mutex& pathLookupCacheMutex();
 
     /**
      * @brief Get the True PBR Diffuse Inverse lookup table
      *
      * @return std::map<std::wstring, std::vector<size_t>>& Lookup
      */
-    static auto getTruePBRDiffuseInverse() -> std::map<std::wstring,
-                                                       std::vector<size_t>>&;
+    static std::map<std::wstring,
+                    std::vector<size_t>>&
+    truePBRDiffuseInverse();
 
     /**
      * @brief Get the True PBR Normal Inverse lookup table
      *
      * @return std::map<std::wstring, std::vector<size_t>>& Lookup
      */
-    static auto getTruePBRNormalInverse() -> std::map<std::wstring,
-                                                      std::vector<size_t>>&;
+    static std::map<std::wstring,
+                    std::vector<size_t>>&
+    truePBRNormalInverse();
 
     /**
      * @brief Get the True PBR Match X Map
      *
      * @return std::unordered_map<PGEnums::TextureSlots, std::unordered_map<std::wstring, std::vector<size_t>>>& Lookup
      */
-    static auto getTruePBRMatchXMap() -> std::unordered_map<PGEnums::TextureSlots,
-                                                            std::unordered_map<std::wstring,
-                                                                               std::vector<size_t>>>&;
+    static std::unordered_map<PGEnums::TextureSlots,
+                              std::unordered_map<std::wstring,
+                                                 std::vector<size_t>>>&
+    truePBRMatchXMap();
 
     /**
      * @brief Get the True PBR Config Filename Fields (fields that have paths)
      *
      * @return std::vector<std::string> Filename fields
      */
-    static auto getTruePBRConfigFilenameFields() -> std::vector<std::string>;
+    static std::vector<std::string> truePBRConfigFilenameFields();
 
     /**
      * @brief Get the Factory object for this patcher
      *
      * @return PatcherShader::PatcherShaderFactory Factory object
      */
-    static auto getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory;
+    static PatcherMeshShader::PatcherMeshShaderFactory factory();
 
     /**
      * @brief Load statics from a list of PBRJSONs
@@ -138,7 +144,7 @@ public:
      *
      * @return PGEnums::ShapeShader Shader type (TruePBR)
      */
-    static auto getShaderType() -> PGEnums::ShapeShader;
+    static PGEnums::ShapeShader shaderType();
 
     /**
      * @brief Construct a new Patcher True PBR patcher
@@ -156,9 +162,9 @@ public:
      * @return true Can accomodate
      * @return false Cannot accomodate
      */
-    auto canApply(nifly::NiShape& nifShape,
-                  bool singlepassMATO,
-                  const PGPlugin::ModelRecordType& modelRecordType) -> bool override;
+    bool canApply(nifly::NiShape& nifShape,
+                  bool isSinglepassMATO,
+                  const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
      * @brief Check if shape can accomodate truepbr (with slots)
@@ -168,8 +174,8 @@ public:
      * @return true Found matches
      * @return false Didn't find matches
      */
-    auto shouldApply(nifly::NiShape& nifShape,
-                     std::vector<PatcherMatch>& matches) -> bool override;
+    bool shouldApply(nifly::NiShape& nifShape,
+                     std::vector<PatcherMatch>& matches) override;
 
     /**
      * @brief Check if slots can accomodate truepbr
@@ -179,8 +185,8 @@ public:
      * @return true Found matches
      * @return false Didn't find matches
      */
-    auto shouldApply(const PGTypes::TextureSet& oldSlots,
-                     std::vector<PatcherMatch>& matches) -> bool override;
+    bool shouldApply(const PGTypes::TextureSet& oldSlots,
+                     std::vector<PatcherMatch>& matches) override;
 
     /**
      * @brief Applies a match to a shape
@@ -213,7 +219,7 @@ public:
     /**
      * @brief Hash of the PBR config entries and matched prefixes attached to a match (in application order)
      */
-    [[nodiscard]] auto getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t override;
+    [[nodiscard]] uint64_t matchExtraDataHash(const PatcherMatch& match) const override;
 
     /**
      * @brief Load PBR options string
@@ -224,7 +230,7 @@ public:
                                                std::string>& optionsStr);
 
     static void loadOptions(const bool& checkPaths,
-                            const bool& printNonExistentPaths);
+                            const bool& shouldPrintNonExistentPaths);
 
 private:
     /**
@@ -235,10 +241,10 @@ private:
      * @param matchedPath Matched path (PBR prefix)
      * @param[out] newSlots New slots of shape
      */
-    auto applyOnePatch(nifly::NiShape* nifShape,
+    bool applyOnePatch(nifly::NiShape* nifShape,
                        nlohmann::json& truePBRData,
                        const std::wstring& matchedPath,
-                       PGTypes::TextureSet& newSlots) -> bool;
+                       PGTypes::TextureSet& newSlots);
 
     /**
      * @brief Applies a single JSON config to slots
@@ -261,13 +267,13 @@ private:
      * @param matchedPath Matched path (PBR prefix)
      * @param[out] newSlots New slots of shape
      */
-    static auto enableTruePBROnShape(nifly::NiShader* nifShader,
+    static bool enableTruePBROnShape(nifly::NiShader* nifShader,
                                      nifly::BSLightingShaderProperty* nifShaderBSLSP,
                                      nlohmann::json& truePBRData,
                                      const std::wstring& matchedPath,
-                                     PGTypes::TextureSet& newSlots) -> bool;
+                                     PGTypes::TextureSet& newSlots);
 
-    // TruePBR Helpers
+    // TruePBR Helpers.
 
     /**
      * @brief Calculate ABS of 2-element vector
@@ -275,7 +281,7 @@ private:
      * @param v vector to calculate abs of
      * @return nifly::Vector2 ABS of vector
      */
-    static auto abs2(nifly::Vector2 v) -> nifly::Vector2;
+    static nifly::Vector2 abs2(nifly::Vector2 v);
 
     /**
      * @brief Math that calculates auto UV scale for a shape
@@ -285,9 +291,9 @@ private:
      * @param tris Triangles of shape
      * @return nifly::Vector2
      */
-    static auto autoUVScale(const std::vector<nifly::Vector2>* uvs,
-                            const std::vector<nifly::Vector3>* verts,
-                            std::vector<nifly::Triangle>& tris) -> nifly::Vector2;
+    static nifly::Vector2 autoUVScale(const std::vector<nifly::Vector2>* uvs,
+                                      const std::vector<nifly::Vector3>* verts,
+                                      std::vector<nifly::Triangle>& tris);
 
     /**
      * @brief Get the Slot Match for a given lookup (diffuse or normal)

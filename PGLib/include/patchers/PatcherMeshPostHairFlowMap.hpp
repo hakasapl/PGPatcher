@@ -15,7 +15,7 @@ public:
      *
      * @return PatcherShaderTransform::PatcherShaderTransformFactory
      */
-    static auto getFactory() -> PatcherMeshPost::PatcherMeshPostFactory;
+    static PatcherMeshPost::PatcherMeshPostFactory factory();
 
     /**
      * @brief Construct a new PrePatcher Particle Lights To LP patcher
@@ -33,6 +33,6 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(PGTypes::TextureSet& slots,
-                    nifly::NiShape& nifShape) -> bool override;
+    bool applyPatch(PGTypes::TextureSet& slots,
+                    nifly::NiShape& nifShape) override;
 };

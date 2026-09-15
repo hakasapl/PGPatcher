@@ -27,5 +27,5 @@ public:
      *
      * @return Pointer to a cloned copy of this event.
      */
-    [[nodiscard]] auto Clone() const -> wxEvent* override;
+    [[nodiscard]] wxEvent* Clone() const override;
 };

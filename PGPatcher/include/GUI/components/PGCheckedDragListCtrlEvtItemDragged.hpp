@@ -22,9 +22,9 @@ public:
      * @param item Item index of the dragged item.
      * @param pos New position where the item was dropped.
      */
-    PGCheckedDragListCtrlEvtItemDragged(long id = wxID_ANY,
-                                        long item = -1,
-                                        long pos = -1)
+    explicit PGCheckedDragListCtrlEvtItemDragged(long id = wxID_ANY,
+                                                 long item = -1,
+                                                 long pos = -1)
         : wxCommandEvent(pgEVT_CDLC_ITEM_DRAGGED,
                          id)
         , m_itemIndex(item)
@@ -32,25 +32,25 @@ public:
     {
     }
 
-    // Getters
+    // Getters.
     /**
      * @brief Get the index of the dragged item.
      *
      * @return Index of the dragged item.
      */
-    [[nodiscard]] auto getItemIndex() const -> long { return m_itemIndex; }
+    [[nodiscard]] long itemIndex() const { return m_itemIndex; }
     /**
      * @brief Get the new position where the item was dropped.
      *
      * @return New position of the item.
      */
-    [[nodiscard]] auto getNewPosition() const -> long { return m_newPosition; }
+    [[nodiscard]] long newPosition() const { return m_newPosition; }
 
-    // Required for sending with wxPostEvent
+    // Required for sending with wxPostEvent.
     /**
      * @brief Create a heap-allocated copy of this event (required for wxPostEvent).
      *
      * @return Pointer to a cloned copy of this event.
      */
-    [[nodiscard]] auto Clone() const -> wxEvent* override;
+    [[nodiscard]] wxEvent* Clone() const override;
 };

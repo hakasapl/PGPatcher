@@ -16,46 +16,45 @@
 #include <wx/string.h>
 #include <wx/toplevel.h>
 
-// Disable owning memory checks because wxWidgets will take care of deleting the objects
-// Disable convert member functions to static because these functions need to be non-static for wxWidgets
-// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// Disable owning memory checks because wxWidgets will take care of deleting the objects.
+// Disable convert member functions to static because these functions need to be non-static for wxWidgets.
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 ProgressWindow::ProgressWindow()
     : wxDialog(nullptr,
                wxID_ANY,
-               PGTr("progress.title"),
+               pgTr("progress.title"),
                wxDefaultPosition,
                wxSize(300,
                       150),
                wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX)
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
-    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the window
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the window.
     const int border = FromDIP(10);
     const int spacing = FromDIP(5);
 
-    // Main sizer
+    // Main sizer.
     auto* mainSizer = new wxBoxSizer(wxHORIZONTAL);
 
-    // Animated GIF on the left (part of the main sizer)
+    // Animated GIF on the left (part of the main sizer).
     wxAnimation anim;
-    const auto resourcesPath = PGPatcherGlobals::getEXEPath() / "resources";
+    const auto resourcesPath = PGPatcherGlobals::exePath() / "resources";
     auto gifPath
         = resourcesPath / (PGPatcherGlobals::isDarkMode() ? "runningparallaxgen_dark.gif" : "runningparallaxgen.gif");
-    if (!std::filesystem::exists(gifPath)) {
+    if (!std::filesystem::exists(gifPath))
         gifPath = resourcesPath / "runningparallaxgen.gif";
-    }
     if (anim.LoadFile(gifPath.wstring(), wxANIMATION_TYPE_GIF)) {
         auto* animCtrl = new PGAnimationCtrl(this, wxID_ANY, anim);
         animCtrl->Play(); // start playing
         mainSizer->Add(animCtrl, 0, wxALL | wxALIGN_CENTER_VERTICAL, border);
     }
 
-    // Right Side (main progress area)
+    // Right Side (main progress area).
     auto* rightSizer = new wxBoxSizer(wxVERTICAL);
 
-    m_mainStatusText = new wxStaticText(this, wxID_ANY, PGTr("progress.overall"));
+    m_mainStatusText = new wxStaticText(this, wxID_ANY, pgTr("progress.overall"));
     m_progressBarMain = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, FromDIP(wxSize(300, 20)));
 
     m_stepStatusText = new wxStaticText(this, wxID_ANY, "");
@@ -66,16 +65,16 @@ ProgressWindow::ProgressWindow()
     rightSizer->Add(m_stepStatusText, 0, wxEXPAND | wxBOTTOM, spacing);
     rightSizer->Add(m_progressBarStep, 0, wxEXPAND | wxBOTTOM, spacing);
 
-    auto* cancelButton = new wxButton(this, wxID_CANCEL, PGTr("progress.stopButton"));
+    auto* cancelButton = new wxButton(this, wxID_CANCEL, pgTr("progress.stopButton"));
     rightSizer->Add(cancelButton, 0, wxEXPAND | wxTOP, spacing);
 
     mainSizer->Add(rightSizer, 1, wxEXPAND | wxALL, border);
 
-    // Bind the Stop button
-    cancelButton->Bind(wxEVT_BUTTON, [](wxCommandEvent&) -> void { wxTheApp->Exit(); });
+    // Bind the Stop button.
+    cancelButton->Bind(wxEVT_BUTTON, [](wxCommandEvent&) { wxTheApp->Exit(); });
 
-    // Bind the window close event (X button)
-    this->Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent&) -> void { wxTheApp->Exit(); });
+    // Bind the window close event (X button).
+    this->Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent&) { wxTheApp->Exit(); });
 
     SetSizerAndFit(mainSizer);
     Centre();
@@ -83,16 +82,15 @@ ProgressWindow::ProgressWindow()
 
 void ProgressWindow::setMainProgress(int done,
                                      int total,
-                                     bool addToLabel)
+                                     bool shouldAddToLabel)
 {
     int perc = 0;
-    if (total > 0) {
-        perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100.0);
-    }
+    if (total > 0)
+        perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100);
     m_progressBarMain->SetValue(perc);
     m_progressBarMain->Refresh();
     m_progressBarMain->Update();
-    if (addToLabel) {
+    if (shouldAddToLabel) {
         m_mainStatusText->SetLabel(m_mainLabelBase + wxString::Format(" %d / %d [ %d%% ]", done, total, perc));
         m_mainStatusText->Refresh();
         m_mainStatusText->Update();
@@ -108,16 +106,15 @@ void ProgressWindow::setMainLabel(const wxString& label)
 
 void ProgressWindow::setStepProgress(int done,
                                      int total,
-                                     bool addToLabel)
+                                     bool shouldAddToLabel)
 {
     int perc = 0;
-    if (total > 0) {
-        perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100.0);
-    }
+    if (total > 0)
+        perc = static_cast<int>((static_cast<double>(done) / static_cast<double>(total)) * 100);
     m_progressBarStep->SetValue(perc);
     m_progressBarStep->Refresh();
     m_progressBarStep->Update();
-    if (addToLabel) {
+    if (shouldAddToLabel) {
         m_stepStatusText->SetLabel(m_stepLabelBase + wxString::Format(" %d / %d [ %d%% ]", done, total, perc));
         m_stepStatusText->Refresh();
         m_stepStatusText->Update();
@@ -131,4 +128,4 @@ void ProgressWindow::setStepLabel(const wxString& label)
     m_stepStatusText->Update();
 }
 
-// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

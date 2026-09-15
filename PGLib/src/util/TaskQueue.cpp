@@ -12,10 +12,14 @@
 #include <thread>
 #include <utility>
 
-// STATICS
+// STATICS.
 std::function<void()> TaskQueue::s_exceptionCallback = nullptr;
 
-TaskQueue::TaskQueue() { m_workerThread = std::thread(&TaskQueue::workerLoop, this); }
+TaskQueue::TaskQueue()
+    : m_workerThread(&TaskQueue::workerLoop,
+                     this)
+{
+}
 
 TaskQueue::~TaskQueue() { shutdown(); }
 
@@ -23,7 +27,7 @@ void TaskQueue::workerLoop()
 {
     while (m_running) {
         if (ExceptionHandler::hasException()) {
-            // exception was thrown, stop processing further tasks
+            // Exception was thrown, stop processing further tasks.
             m_running = false;
             break;
         }
@@ -33,9 +37,8 @@ void TaskQueue::workerLoop()
             std::unique_lock<std::mutex> lock(m_queueMutex);
             m_cv.wait(lock, [this] { return !m_taskQueue.empty() || !m_running; });
 
-            if (!m_running && m_taskQueue.empty()) {
+            if (!m_running && m_taskQueue.empty())
                 break;
-            }
 
             if (!m_taskQueue.empty()) {
                 task = std::move(m_taskQueue.front());
@@ -50,37 +53,34 @@ void TaskQueue::workerLoop()
             CPPTRACE_CATCH(const std::exception& e)
             {
                 ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
-                if (s_exceptionCallback) {
+                if (s_exceptionCallback)
                     s_exceptionCallback();
-                }
             }
             m_isBusy = false;
         }
     }
 }
 
-auto TaskQueue::isWorking() const -> bool { return m_isBusy || m_queuedTasks > 0; }
+bool TaskQueue::isWorking() const { return m_isBusy || m_queuedTasks > 0; }
 
-auto TaskQueue::getQueuedTaskCount() const -> size_t { return m_queuedTasks; }
+size_t TaskQueue::queuedTaskCount() const { return m_queuedTasks; }
 
-auto TaskQueue::isProcessing() const -> bool { return m_isBusy; }
+bool TaskQueue::isProcessing() const { return m_isBusy; }
 
-auto TaskQueue::isShutdown() const -> bool { return !m_running; }
+bool TaskQueue::isShutdown() const { return !m_running; }
 
 void TaskQueue::waitForCompletion() const
 {
-    while (isWorking()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(LOOP_INTERVAL));
-    }
+    while (isWorking())
+        std::this_thread::sleep_for(std::chrono::milliseconds(loopInterval));
 }
 
 void TaskQueue::shutdown()
 {
     m_running = false;
     m_cv.notify_one();
-    if (m_workerThread.joinable()) {
+    if (m_workerThread.joinable())
         m_workerThread.join();
-    }
 }
 
 void TaskQueue::setExceptionCallback(const std::function<void()>& callback) { s_exceptionCallback = callback; }

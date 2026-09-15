@@ -17,9 +17,9 @@ private:
     std::vector<std::function<void()>> m_tasks; /** Task list to run */
     std::atomic<size_t> m_completedTasks; /** Counter of completed tasks */
 
-    static constexpr int LOOP_INTERVAL = 10; /** Task loop interval */
+    static constexpr int loopInterval = 10; /** Task loop interval */
 
-    static constexpr int NUM_STATIC_THREADS = 2; /** Number of static threads to reserve for system */
+    static constexpr int numStaticThreads = 2; /** Number of static threads to reserve for system */
 
     static std::function<void()> s_exceptionCallback; /** Exception callback function */
 
@@ -29,7 +29,7 @@ public:
      *
      * @param multithread if true, use multithreading
      */
-    TaskPoolRunner(const bool& multithread = true);
+    explicit TaskPoolRunner(const bool& multithread = true);
 
     /**
      * @brief Add a task to the task list

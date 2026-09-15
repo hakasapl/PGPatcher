@@ -19,7 +19,6 @@
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -36,17 +35,17 @@
 
 class PGPatcher {
 public:
-    // Mesh Patch Tracking structures (for meta info displayed to user later)
+    // Mesh Patch Tracking structures (for meta info displayed to user later).
     struct MatchMeta {
         std::shared_ptr<PGModManager::Mod> mod;
-        PGEnums::ShapeShader shader {};
-        PGEnums::ShapeShader shaderTransformTo {};
+        PGEnums::ShapeShader shader { };
+        PGEnums::ShapeShader shaderTransformTo { };
         std::filesystem::path matchedPath;
         /// Owning mod of each non-empty result texture slot if this match is applied (tracked mods only)
         std::vector<std::pair<PGEnums::TextureSlots, std::shared_ptr<PGModManager::Mod>>> resultTextureMods;
     };
     struct MeshShapeMeta {
-        uint32_t blockID;
+        uint32_t blockID = 0;
         std::string shapeName;
         std::vector<std::string> prePatchersApplied;
         std::vector<std::string> postPatchersApplied;
@@ -64,7 +63,7 @@ public:
     using MeshPatchInfo = std::map<std::filesystem::path, MeshMeta>;
 
 private:
-    // Registered Patchers
+    // Registered Patchers.
     static PatcherUtil::PatcherTextureSet s_texPatchers;
     static PatcherUtil::PatcherMeshSet s_meshPatchers;
 
@@ -90,29 +89,29 @@ public:
      * @param multiThread whether to use multithreading
      * @param excludeFacegens whether to skip patching facegen meshes
      */
-    static void patchMeshes(const bool& multiThread = true,
+    static void patchMeshes(const bool& shouldMultithread = true,
                             const bool& forceBasePatch = false,
-                            const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
+                            const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                             const bool& checkAllowedRecTypes = false,
                             const bool& excludeFacegens = false,
                             const std::function<void(size_t,
-                                                     size_t)>& progressCallback = {});
+                                                     size_t)>& progressCallback = { });
 
     /**
      * @brief Run texture patcher
      *
      * @param multiThread whether to use multithreading
      */
-    static void patchTextures(const bool& multiThread = true,
+    static void patchTextures(const bool& shouldMultithread = true,
                               const std::function<void(size_t,
-                                                       size_t)>& progressCallback = {});
+                                                       size_t)>& progressCallback = { });
 
     /**
      * @brief Get the Patch Meta object
      *
      * @return std::map<std::filesystem::path, MeshMeta>
      */
-    static auto getPatchMeta() -> MeshPatchInfo;
+    static MeshPatchInfo patchMeta();
 
     /**
      * @brief Sort matches according to a provided mod priority list.
@@ -135,7 +134,7 @@ public:
      * @return true if patch metadata exists
      * @return false if no patch metadata exists
      */
-    static auto hasConflictData() -> bool;
+    static bool hasConflictData();
 
     /**
      * @brief Reset transient data collected during patching.
@@ -153,7 +152,7 @@ public:
      * previous output can be updated incrementally
      */
     static void deleteOutputDir(const bool& preOutput = true,
-                                const bool& keepIncrementalOutput = false);
+                                const bool& shouldKeepIncrementalOutput = false);
 
     /**
      * @brief Check if the output directory is empty
@@ -161,9 +160,9 @@ public:
      * @return true if the output directory is empty
      * @return false if the output directory is not empty
      */
-    static auto isOutputEmpty() -> bool;
+    static bool isOutputEmpty();
 
-    static auto getDiffJSON() -> nlohmann::json;
+    static nlohmann::json diffJSON();
 
     /**
      * @brief Computes the digest of the shader matches a shape with the given texture slots would receive, using the
@@ -176,13 +175,13 @@ public:
      * @param modelRecordType plugin record type of the use
      * @return uint64_t digest of the ordered match list
      */
-    static auto computeMatchesDigest(const std::filesystem::path& nifPath,
-                                     const PGTypes::TextureSet& slots,
-                                     bool singlepassMATO,
-                                     const PGPlugin::ModelRecordType& modelRecordType) -> uint64_t;
+    static uint64_t computeMatchesDigest(const std::filesystem::path& nifPath,
+                                         const PGTypes::TextureSet& slots,
+                                         bool isSinglepassMATO,
+                                         const PGPlugin::ModelRecordType& modelRecordType);
 
 private:
-    // NIF Runners
+    // NIF Runners.
 
     /**
      * @brief Patch a single NIF file
@@ -190,12 +189,12 @@ private:
      * @param nifPath relative path to the NIF file
      * @return TaskTracker::Result result of the patching process
      */
-    static auto patchNIF(const std::filesystem::path& nifPath,
-                         TaskQueue& setModelUsesQueue,
-                         const bool& forceBasePatch = false,
-                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = {},
-                         const bool& checkAllowedRecTypes = false,
-                         const bool& excludeFacegens = false) -> TaskTracker::Result;
+    static TaskTracker::Result patchNIF(const std::filesystem::path& nifPath,
+                                        TaskQueue& setModelUsesQueue,
+                                        const bool& forceBasePatch = false,
+                                        const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
+                                        const bool& checkAllowedRecTypes = false,
+                                        const bool& excludeFacegens = false);
 
     /**
      * @brief Replays the side effects of patching a NIF whose output from the previous run is still valid
@@ -206,17 +205,17 @@ private:
      * @param replayedMeshResultsMutex mutex protecting replayedMeshResults
      * @return TaskTracker::Result result of the replay
      */
-    static auto replayNIF(const std::filesystem::path& nifPath,
-                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
-                          std::mutex& replayedMeshResultsMutex) -> TaskTracker::Result;
+    static TaskTracker::Result replayNIF(const std::filesystem::path& nifPath,
+                                         std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
+                                         std::mutex& replayedMeshResultsMutex);
 
     /**
      * @brief Computes the digest of an ordered match list (see computeMatchesDigest)
      */
-    static auto digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
-                              const PatcherUtil::PatcherMeshObjectSet& patchers) -> uint64_t;
+    static uint64_t digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
+                                  const PatcherUtil::PatcherMeshObjectSet& patchers);
 
-    // NIF Helpers
+    // NIF Helpers.
 
     /**
      * @brief Process a single NIF file
@@ -230,15 +229,15 @@ private:
      * @return true if the NIF file was processed successfully
      * @return false if the NIF file was not processed successfully
      */
-    static auto processNIF(const std::filesystem::path& nifPath,
+    static bool processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
                            MeshMeta& meshMeta,
-                           bool singlepassMATO,
+                           bool isSinglepassMATO,
                            const PGMeshPermutationTracker::FormKey& formKey,
                            const PGPlugin::ModelRecordType& modelRecordType,
-                           std::unordered_map<unsigned int,
+                           std::unordered_map<unsigned,
                                               PGTypes::TextureSet>& alternateTextures,
-                           std::unordered_set<unsigned int>& nonAltTexShapes) -> bool;
+                           std::unordered_set<unsigned>& nonAltTexShapes);
 
     /**
      * @brief Process a single NIF shape
@@ -254,22 +253,23 @@ private:
      * @return true if the NIF shape was processed successfully
      * @return false if the NIF shape was not processed successfully
      */
-    static auto processNIFShape(const std::filesystem::path& nifPath,
+    static bool processNIFShape(const std::filesystem::path& nifPath,
                                 nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
                                 MeshShapeMeta& meshShapeMeta,
                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
-                                bool singlepassMATO,
+                                bool isSinglepassMATO,
                                 const PGMeshPermutationTracker::FormKey& formKey,
                                 const PGPlugin::ModelRecordType& modelRecordType,
-                                PGTypes::TextureSet* alternateTexture = nullptr) -> bool;
+                                PGTypes::TextureSet* alternateTexture = nullptr);
 
-    static auto getMatches(const PGTypes::TextureSet& slots,
-                           const PatcherUtil::PatcherMeshObjectSet& patchers,
-                           bool singlepassMATO,
-                           const PGPlugin::ModelRecordType& modelRecordType,
-                           const PatcherUtil::PatcherMeshObjectSet* patcherObjects = nullptr,
-                           nifly::NiShape* shape = nullptr) -> std::vector<PatcherUtil::ShaderPatcherMatch>;
+    static std::vector<PatcherUtil::ShaderPatcherMatch> matches(const PGTypes::TextureSet& slots,
+                                                                const PatcherUtil::PatcherMeshObjectSet& patchers,
+                                                                bool isSinglepassMATO,
+                                                                const PGPlugin::ModelRecordType& modelRecordType,
+                                                                const PatcherUtil::PatcherMeshObjectSet* patcherObjects
+                                                                = nullptr,
+                                                                nifly::NiShape* shape = nullptr);
 
     /**
      * @brief Helper method to run a transform if needed on a match
@@ -278,15 +278,15 @@ private:
      * @param Patchers Patcher set to use
      * @return ShaderPatcherMatch Transformed match
      */
-    static auto applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
-                                       const PatcherUtil::PatcherMeshObjectSet& patchers) -> bool;
+    static bool applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
+                                       const PatcherUtil::PatcherMeshObjectSet& patchers);
 
-    static auto createNIFPatcherObjects(const std::filesystem::path& nifPath,
-                                        nifly::NifFile* nif) -> PatcherUtil::PatcherMeshObjectSet;
+    static PatcherUtil::PatcherMeshObjectSet createNIFPatcherObjects(const std::filesystem::path& nifPath,
+                                                                     nifly::NifFile* nif);
 
-    // DDS Runners
-    static auto patchDDS(const std::filesystem::path& ddsPath) -> TaskTracker::Result;
+    // DDS Runners.
+    static TaskTracker::Result patchDDS(const std::filesystem::path& ddsPath);
 
-    static auto createDDSPatcherObjects(const std::filesystem::path& ddsPath,
-                                        DirectX::ScratchImage* dds) -> PatcherUtil::PatcherTextureObjectSet;
+    static PatcherUtil::PatcherTextureObjectSet createDDSPatcherObjects(const std::filesystem::path& ddsPath,
+                                                                        DirectX::ScratchImage* dds);
 };

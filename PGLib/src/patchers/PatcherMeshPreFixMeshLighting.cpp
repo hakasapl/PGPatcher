@@ -12,12 +12,10 @@
 #include <memory>
 #include <utility>
 
-using namespace std;
-
-auto PatcherMeshPreFixMeshLighting::getFactory() -> PatcherMeshPre::PatcherMeshPreFactory
+auto PatcherMeshPreFixMeshLighting::factory() -> PatcherMeshPre::PatcherMeshPreFactory
 {
-    return [](const filesystem::path& nifPath, nifly::NifFile* nif) -> unique_ptr<PatcherMeshPre> {
-        return make_unique<PatcherMeshPreFixMeshLighting>(nifPath, nif);
+    return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshPre> {
+        return std::make_unique<PatcherMeshPreFixMeshLighting>(nifPath, nif);
     };
 }
 
@@ -29,27 +27,26 @@ PatcherMeshPreFixMeshLighting::PatcherMeshPreFixMeshLighting(std::filesystem::pa
 {
 }
 
-auto PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
-                                               nifly::NiShape& nifShape) -> bool
+bool PatcherMeshPreFixMeshLighting::applyPatch([[maybe_unused]] PGTypes::TextureSet& slots,
+                                               nifly::NiShape& nifShape)
 {
-    auto* nifShader = getNIF()->GetShader(&nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
-    if (nifShaderBSLSP == nullptr) {
-        // not a BSLightingShaderProperty
+    auto* nifShader = nif()->GetShader(&nifShape);
+    auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
+    if (!nifShaderBSLSP) {
+        // Not a BSLightingShaderProperty.
         return false;
     }
 
     const auto shaderType = nifShaderBSLSP->GetShaderType();
-    if (shaderType != BSLSP_DEFAULT) {
-        // only patch the default shader type
+    if (shaderType != nifly::BSLSP_DEFAULT) {
+        // Only patch the default shader type.
         return false;
     }
 
-    if (nifShaderBSLSP->softlighting <= SOFTLIGHTING_MAX) {
+    if (nifShaderBSLSP->softlighting <= softLightingMax)
         return false;
-    }
 
-    PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, SOFTLIGHTING_MAX);
+    PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, softLightingMax);
 
     return true;
 }

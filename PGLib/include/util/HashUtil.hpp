@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <string>
 #include <type_traits>
 
@@ -19,10 +20,10 @@ namespace HashUtil {
  */
 class Fnv1a64 {
 private:
-    static constexpr uint64_t OFFSET_BASIS = 0xcbf29ce484222325ULL;
-    static constexpr uint64_t PRIME = 0x100000001b3ULL;
+    static constexpr uint64_t offsetBasis = 0xcbf29ce484222325ULL;
+    static constexpr uint64_t prime = 0x100000001b3ULL;
 
-    uint64_t m_hash = OFFSET_BASIS;
+    uint64_t m_hash = offsetBasis;
 
 public:
     /**
@@ -34,17 +35,17 @@ public:
     void addBytes(const void* data,
                   size_t size)
     {
-        const auto* bytes = static_cast<const unsigned char*>(data);
-        for (size_t i = 0; i < size; i++) {
-            m_hash ^= static_cast<uint64_t>(bytes[i]);
-            m_hash *= PRIME;
+        const std::span<const unsigned char> bytes(static_cast<const unsigned char*>(data), size);
+        for (const auto byteValue : bytes) {
+            m_hash ^= static_cast<uint64_t>(byteValue);
+            m_hash *= prime;
         }
     }
 
     /**
      * @brief Mixes an integral or enum value into the hash (as its little-endian byte representation).
      */
-    template <typename T>
+    template<typename T>
         requires(std::is_integral_v<T> || std::is_enum_v<T>)
     void add(const T& value)
     {
@@ -82,7 +83,7 @@ public:
     /**
      * @brief Returns the current hash value.
      */
-    [[nodiscard]] auto value() const -> uint64_t { return m_hash; }
+    [[nodiscard]] uint64_t value() const { return m_hash; }
 };
 
 } // namespace HashUtil

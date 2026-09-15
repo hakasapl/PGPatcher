@@ -44,7 +44,7 @@ public:
      *                   Pass an empty set to show all conflicts.
      * @param showAllMeshes If true, show all meshes/shapes/matches instead of just conflicts.
      */
-    explicit DialogModConflictView(const std::unordered_set<std::wstring>& filterMods = {},
+    explicit DialogModConflictView(const std::unordered_set<std::wstring>& filterMods = { },
                                    bool showAllMeshes = false);
 
     /**
@@ -65,7 +65,7 @@ private:
     struct PluginUseInfo {
         PGMeshPermutationTracker::FormKey formKey;
 
-        [[nodiscard]] auto displayString() const -> wxString;
+        [[nodiscard]] wxString displayString() const;
     };
 
     wxTextCtrl* m_meshSearchCtrl = nullptr;
@@ -105,23 +105,23 @@ private:
     /// Warning icon image list for the match list (owned here; the list control only borrows it).
     wxImageList m_matchWarningImages;
     /// True once the warning icon image lists were successfully created.
-    bool m_warningIconAvailable = false;
+    bool m_isWarningIconAvailable = false;
     /// Whether mismatch warning icons are currently shown ("Show Potential Mismatches" checkbox state, off by
     /// default).
     bool m_showMismatches = false;
 
     // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
-    constexpr static int DEFAULT_WIDTH = 1100;
-    constexpr static int DEFAULT_HEIGHT = 650;
-    constexpr static int DEFAULT_BORDER = 5;
-    constexpr static int LEFT_PANE_WIDTH = 420;
-    constexpr static int MID_PANE_WIDTH = 220;
-    constexpr static int WARNING_ICON_SIZE = 16;
+    constexpr static int defaultWidth = 1100;
+    constexpr static int defaultHeight = 650;
+    constexpr static int defaultBorderDIP = 5;
+    constexpr static int leftPaneWidth = 420;
+    constexpr static int midPaneWidth = 220;
+    constexpr static int warningIconSize = 16;
     /// Image list index of the warning icon (index 0 is a transparent placeholder shown by default).
-    constexpr static int WARNING_ICON_IMAGE_INDEX = 1;
+    constexpr static int warningIconImageIndex = 1;
 
     /// Background colour used to highlight the winning match row.
-    static inline const wxColour s_WINNING_MATCH_COLOR {160, 215, 160};
+    static inline const wxColour s_winningMatchColor { 160, 215, 160 };
 
     // ---- Helpers -----------------------------------------------------------
 
@@ -151,37 +151,37 @@ private:
      *        a match belongs to one of the filtered mods (or if m_filterMods
      *        is empty).
      */
-    [[nodiscard]] auto meshPassesModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool;
+    [[nodiscard]] bool meshPassesModFilter(const PGPatcher::MeshMeta& meshMeta) const;
 
     /**
      * @brief Return true if the mesh contains at least one shape where any match belongs to any of the filtered mods.
      *        Used for union filtering in non-conflict-only mode.
      */
-    [[nodiscard]] auto meshPassesAnyModFilter(const PGPatcher::MeshMeta& meshMeta) const -> bool;
+    [[nodiscard]] bool meshPassesAnyModFilter(const PGPatcher::MeshMeta& meshMeta) const;
 
     /**
      * @brief Return true if the shape has at least one match from any mod in m_filterMods.
      *        Used for union filtering in non-conflict-only mode.
      */
-    [[nodiscard]] auto shapePassesAnyModFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool;
+    [[nodiscard]] bool shapePassesAnyModFilter(const PGPatcher::MeshShapeMeta& shape) const;
 
     /**
      * @brief Return true if the shape passes the intersection filter: every mod in
      *        m_filterMods must have at least one match in this shape.
      */
-    [[nodiscard]] auto shapePassesIntersectionFilter(const PGPatcher::MeshShapeMeta& shape) const -> bool;
+    [[nodiscard]] bool shapePassesIntersectionFilter(const PGPatcher::MeshShapeMeta& shape) const;
 
     /**
      * @brief Return true if the shape has at least two distinct visible match sources
      *        (taking the "show disabled" checkbox into account).
      */
-    [[nodiscard]] auto shapeHasActualConflict(const std::vector<MatchView>& matches) const -> bool;
+    [[nodiscard]] bool shapeHasActualConflict(const std::vector<MatchView>& matches) const;
 
     /**
      * @brief Return true if the given match should be displayed given the current
      *        state of the "show disabled" checkbox.
      */
-    [[nodiscard]] auto isMatchVisible(const MatchView& match) const -> bool;
+    [[nodiscard]] bool isMatchVisible(const MatchView& match) const;
 
     /**
      * @brief Build deduplicated matches for a shape the same way the right-hand list is built.
@@ -189,15 +189,15 @@ private:
      * @param shapeMeta Shape metadata source.
      * @param selectedFormKey Optional plugin-use filter. Nullopt means aggregate all plugin uses.
      */
-    [[nodiscard]] auto buildDisplayMatches(const PGPatcher::MeshShapeMeta& shapeMeta,
-                                           const std::optional<PGMeshPermutationTracker::FormKey>& selectedFormKey
-                                           = std::nullopt) const -> std::vector<MatchView>;
+    [[nodiscard]] std::vector<MatchView>
+    buildDisplayMatches(const PGPatcher::MeshShapeMeta& shapeMeta,
+                        const std::optional<PGMeshPermutationTracker::FormKey>& selectedFormKey = std::nullopt) const;
 
     /**
      * @brief Return the index (into @p matches) of the winning match —
      *        the highest-priority enabled mod.  Returns -1 when nothing wins.
      */
-    static auto computeWinningMatchIdx(const std::vector<MatchView>& matches) -> int;
+    static int computeWinningMatchIdx(const std::vector<MatchView>& matches);
 
     /**
      * @brief Load resources/warning.svg and build the warning icon image lists for the mesh and match lists.
@@ -214,16 +214,16 @@ private:
      *        Returns an empty string when no warning applies (no mod filter, mesh owned by a filtered mod, or
      *        mesh from vanilla/untracked sources which are assumed correct).
      */
-    [[nodiscard]] auto getMeshWarningTooltip(const std::filesystem::path& meshPath) const -> wxString;
+    [[nodiscard]] wxString meshWarningTooltip(const std::filesystem::path& meshPath) const;
 
     /**
      * @brief Warning tooltip for a match row whose result textures come from more than one mod.
      *        Lists each result texture slot with its owning mod. Empty string when no warning applies.
      */
-    [[nodiscard]] static auto buildResultTexturesTooltip(const MatchView& match) -> wxString;
+    [[nodiscard]] static wxString buildResultTexturesTooltip(const MatchView& match);
 
     /// @brief Display name for a texture slot (e.g. "Diffuse", "Normal").
-    [[nodiscard]] static auto getSlotDisplayName(PGEnums::TextureSlots slot) -> wxString;
+    [[nodiscard]] static wxString slotDisplayName(PGEnums::TextureSlots slot);
 
     /**
      * @brief Show/hide the list's native tooltip based on whether the cursor is over a row's warning icon.
@@ -259,9 +259,9 @@ private:
     /// Clean up temporary files extracted from BSAs.
     void cleanupTempFiles();
 
-    [[nodiscard]] auto getSelectedMeshIndex() const -> long;
-    [[nodiscard]] auto getSelectedShapeIndex() const -> long;
-    [[nodiscard]] auto getSelectedMatchRow() const -> long;
+    [[nodiscard]] long selectedMeshIndex() const;
+    [[nodiscard]] long selectedShapeIndex() const;
+    [[nodiscard]] long selectedMatchRow() const;
     void copyTextToClipboard(const wxString& text);
     void openMeshFile(const std::filesystem::path& relPath);
     void openMatchFile(const wxString& modNameStr,

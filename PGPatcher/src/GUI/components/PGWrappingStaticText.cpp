@@ -10,7 +10,7 @@ PGWrappingStaticText::PGWrappingStaticText(wxWindow* parent,
     , m_unwrappedLabel(label)
     , m_wrappedWidth(initialWrapWidth)
 {
-    // Wrap once up front so that the parent has a sensible best size to fit itself to before being shown
+    // Wrap once up front so that the parent has a sensible best size to fit itself to before being shown.
     Wrap(initialWrapWidth);
 
     Bind(wxEVT_SIZE, &PGWrappingStaticText::onSize, this);
@@ -21,19 +21,18 @@ void PGWrappingStaticText::onSize(wxSizeEvent& event)
     event.Skip();
 
     const int width = event.GetSize().GetWidth();
-    if (width > 0 && width != m_wrappedWidth) {
+    if (width > 0 && width != m_wrappedWidth)
         rewrap(width);
-    }
 }
 
 void PGWrappingStaticText::rewrap(int width)
 {
-    if (m_rewrapping) {
+    if (m_isRewrapping) {
         // Wrap() sets the label, which fires another size event - ignore it, the label is already correct
         return;
     }
 
-    m_rewrapping = true;
+    m_isRewrapping = true;
 
     m_wrappedWidth = width;
     const int oldHeight = GetSize().GetHeight();
@@ -42,14 +41,13 @@ void PGWrappingStaticText::rewrap(int width)
     Wrap(width);
     InvalidateBestSize();
 
-    m_rewrapping = false;
+    m_isRewrapping = false;
 
     if (GetBestSize().GetHeight() != oldHeight) {
         // The label needs a different number of lines than the sizer allocated space for, so lay out again to
-        // give it the height it needs
+        // give it the height it needs.
         auto* topLevel = wxGetTopLevelParent(this);
-        if (topLevel != nullptr) {
+        if (topLevel)
             topLevel->Layout();
-        }
     }
 }

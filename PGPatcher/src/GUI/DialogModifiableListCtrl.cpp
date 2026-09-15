@@ -9,17 +9,17 @@
 #include <string>
 #include <vector>
 
-// Disable owning memory checks because wxWidgets will take care of deleting the objects
-// Disable convert member functions to static because these functions need to be non-static for wxWidgets
-// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// Disable owning memory checks because wxWidgets will take care of deleting the objects.
+// Disable convert member functions to static because these functions need to be non-static for wxWidgets.
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 namespace {
 // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
-constexpr int DIALOG_WIDTH = 300;
-constexpr int DIALOG_MIN_HEIGHT = 300;
-constexpr int BORDER_SIZE = 10;
-// Initial wrap width, kept just under the client width so the first wrap is never narrower than the final one
-constexpr int TEXT_WRAP_WIDTH = DIALOG_WIDTH - (4 * BORDER_SIZE);
+constexpr int dialogWidthDIP = 300;
+constexpr int dialogMinHeight = 300;
+constexpr int borderSizeDIP = 10;
+// Initial wrap width, kept just under the client width so the first wrap is never narrower than the final one.
+constexpr int textWrapWidth = dialogWidthDIP - (4 * borderSizeDIP);
 } // namespace
 
 DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
@@ -36,27 +36,31 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
                                           wxDefaultPosition,
                                           wxDefaultSize,
                                           wxLC_REPORT | wxLC_EDIT_LABELS | wxLC_NO_HEADER))
+    , m_helpText(new PGWrappingStaticText(this,
+                                          wxID_ANY,
+                                          text,
+                                          FromDIP(textWrapWidth)))
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
-    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
-    const int borderSize = FromDIP(BORDER_SIZE);
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
+    const int borderSize = FromDIP(borderSizeDIP);
 
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Add static text for instructions - wraps to the dialog width so that longer translations stay visible
-    m_helpText = new PGWrappingStaticText(this, wxID_ANY, text, FromDIP(TEXT_WRAP_WIDTH));
+    // Add static text for instructions - wraps to the dialog width so that longer translations stay visible.
+
     mainSizer->Add(m_helpText, 0, wxEXPAND | wxALL, borderSize);
 
     m_listCtrl->AppendColumn("Item", wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
     m_listCtrl->SetColumnWidth(0, wxLIST_AUTOSIZE_USEHEADER);
 
-    // Bind resize
-    Bind(wxEVT_SIZE, [this](wxSizeEvent& event) -> void {
+    // Bind resize.
+    Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
         updateColumnWidth();
         event.Skip();
     });
-    m_listCtrl->Bind(pgEVT_LISTCTRL_CHANGED, [this](PGCustomListctrlChangedEvent& event) -> void {
+    m_listCtrl->Bind(pgEVT_LISTCTRL_CHANGED, [this](PGCustomListctrlChangedEvent& event) {
         updateColumnWidth();
         event.Skip();
     });
@@ -64,28 +68,27 @@ DialogModifiableListCtrl::DialogModifiableListCtrl(wxWindow* parent,
     mainSizer->Add(m_listCtrl, 1, wxEXPAND | wxALL, borderSize);
 
     auto* btnSizer = new wxStdDialogButtonSizer();
-    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, PGTr("common.cancel")));
-    btnSizer->AddButton(new wxButton(this, wxID_OK, PGTr("common.ok")));
+    btnSizer->AddButton(new wxButton(this, wxID_CANCEL, pgTr("common.cancel")));
+    btnSizer->AddButton(new wxButton(this, wxID_OK, pgTr("common.ok")));
     btnSizer->Realize();
 
     mainSizer->Add(btnSizer, 0, wxALIGN_RIGHT | wxBOTTOM | wxRIGHT, borderSize);
 
-    SetSizeHints(FromDIP(wxSize(DIALOG_WIDTH, DIALOG_MIN_HEIGHT)), wxSize(-1, -1));
+    SetSizeHints(FromDIP(wxSize(dialogWidthDIP, dialogMinHeight)), wxSize(-1, -1));
     SetSizer(mainSizer);
     Layout();
     Fit();
 }
 
-auto DialogModifiableListCtrl::getList() const -> std::vector<std::wstring>
+std::vector<std::wstring> DialogModifiableListCtrl::list() const
 {
     std::vector<std::wstring> result;
 
     long item = -1;
     while ((item = m_listCtrl->GetNextItem(item)) != -1) {
         const wxString text = m_listCtrl->GetItemText(item);
-        if (!text.IsEmpty()) {
+        if (!text.IsEmpty())
             result.push_back(text.ToStdWstring());
-        }
     }
 
     return result;
@@ -106,9 +109,8 @@ void DialogModifiableListCtrl::populateList(const std::vector<std::wstring>& ite
 
 void DialogModifiableListCtrl::updateColumnWidth()
 {
-    if (m_listCtrl == nullptr) {
+    if (!m_listCtrl)
         return;
-    }
 
     if (m_listCtrl->GetColumnCount() > 0) {
         const int clientWidth = m_listCtrl->GetClientSize().GetWidth();
@@ -116,4 +118,4 @@ void DialogModifiableListCtrl::updateColumnWidth()
     }
 }
 
-// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

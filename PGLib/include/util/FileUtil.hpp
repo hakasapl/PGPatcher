@@ -17,7 +17,7 @@ namespace FileUtil {
  * @param filePath Path to the file to read.
  * @return A vector of bytes containing the file contents, or an empty vector on failure.
  */
-auto getFileBytes(const std::filesystem::path& filePath) -> std::vector<std::byte>;
+std::vector<std::byte> fileBytes(const std::filesystem::path& filePath);
 
 /**
  * @brief Parses a JSON file from disk into a nlohmann::json object.
@@ -26,8 +26,8 @@ auto getFileBytes(const std::filesystem::path& filePath) -> std::vector<std::byt
  * @param json Output parameter populated with the parsed JSON on success.
  * @return true if the file was opened and parsed successfully, false otherwise.
  */
-auto getJSON(const std::filesystem::path& filePath,
-             nlohmann::json& json) -> bool;
+bool getJSON(const std::filesystem::path& filePath,
+             nlohmann::json& json);
 
 /**
  * @brief Parses JSON from a byte vector into a nlohmann::json object.
@@ -36,8 +36,8 @@ auto getJSON(const std::filesystem::path& filePath,
  * @param json Output parameter populated with the parsed JSON on success.
  * @return true if parsing succeeded, false otherwise.
  */
-auto getJSONFromBytes(const std::vector<std::byte>& bytes,
-                      nlohmann::json& json) -> bool;
+bool getJSONFromBytes(const std::vector<std::byte>& bytes,
+                      nlohmann::json& json);
 
 /**
  * @brief Serializes a nlohmann::json object and writes it to a file.
@@ -47,8 +47,8 @@ auto getJSONFromBytes(const std::vector<std::byte>& bytes,
  * @param readable If true, the output is pretty-printed with 2-space indentation; otherwise compact.
  * @return true if the file was written successfully, false otherwise.
  */
-auto saveJSON(const std::filesystem::path& filePath,
+bool saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
-              const bool& readable) -> bool;
+              const bool& shouldBeReadable);
 
 }

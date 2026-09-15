@@ -4,6 +4,7 @@
 #include "GUI/components/PGLogMessageListCtrl.hpp"
 #include "PGConfig.hpp"
 #include "PGLocale.hpp"
+#include "PGModManager.hpp"
 #include "PGPatcherGlobals.hpp"
 #include "PGUI.hpp"
 
@@ -22,32 +23,30 @@
 #include <stdexcept>
 #include <string>
 
-// Disable owning memory checks because wxWidgets will take care of deleting the objects
-// Disable convert member functions to static because these functions need to be non-static for wxWidgets
-// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// Disable owning memory checks because wxWidgets will take care of deleting the objects.
+// Disable convert member functions to static because these functions need to be non-static for wxWidgets.
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 namespace {
 
-auto buildCompletionMessage(const long long& timeTaken) -> wxString
+wxString buildCompletionMessage(const long long& timeTaken)
 {
-    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
-    return wxString::Format(PGTr("completion.message"), timeTaken, wxString(outputPath.wstring()));
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::pgc()->params().output.dir);
+    return wxString::Format(pgTr("completion.message"), timeTaken, wxString(outputPath.wstring()));
 }
 
 // The native renderer draws the pane header's collapse arrow with the light theme regardless of the app appearance,
-// so in dark mode repaint the header with the generic renderer, which uses the control's foreground colour
+// so in dark mode repaint the header with the generic renderer, which uses the control's foreground colour.
 void fixCollapsiblePaneHeaderDarkMode(wxCollapsiblePane* pane)
 {
-    if (!PGPatcherGlobals::isDarkMode()) {
+    if (!PGPatcherGlobals::isDarkMode())
         return;
-    }
 
     auto* header = pane->GetControlWidget();
-    if (header == nullptr) {
+    if (!header)
         return;
-    }
 
-    header->Bind(wxEVT_PAINT, [header, pane](wxPaintEvent&) -> void {
+    header->Bind(wxEVT_PAINT, [header, pane](wxPaintEvent&) {
         wxPaintDC dc(header);
         dc.SetBackground(wxBrush(header->GetBackgroundColour()));
         dc.Clear();
@@ -69,9 +68,8 @@ void fixCollapsiblePaneHeaderDarkMode(wxCollapsiblePane* pane)
         textRect = textRect.CenterIn(rect, wxVERTICAL);
         dc.DrawLabel(text, textRect, wxALIGN_CENTRE_VERTICAL, indexAccel);
 
-        if (header->HasFocus()) {
+        if (header->HasFocus())
             wxRendererNative::Get().DrawFocusRect(header, dc, textRect.Inflate(1), flags);
-        }
     });
 }
 } // namespace
@@ -79,136 +77,136 @@ void fixCollapsiblePaneHeaderDarkMode(wxCollapsiblePane* pane)
 CompletionDialog::CompletionDialog(const long long& timeTaken)
     : wxDialog(nullptr,
                wxID_ANY,
-               PGTr("completion.title"),
+               pgTr("completion.title"),
                wxDefaultPosition,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
 {
-    SetIcons(PGUI::getAppIcons());
+    SetIcons(PGUI::appIcons());
 
-    // Get config
-    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
+    // Get config.
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::pgc()->params().output.dir);
 
-    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog
-    const int borderSize = FromDIP(BORDER_SIZE);
+    // Pixel sizes are defined for 100% scaling, so scale them to the DPI of the monitor showing the dialog.
+    const int borderSize = FromDIP(borderSizeDIP);
 
-    // Calculate required width based on path length
+    // Calculate required width based on path length.
     const wxClientDC dc(this);
     const wxSize pathSize = dc.GetTextExtent(outputPath.wstring());
     const int requiredWidth
-        = std::max(FromDIP(MIN_WIDTH), pathSize.GetWidth() + FromDIP(60)); // +60 for icon and padding
+        = std::max(FromDIP(minWidthDIP), pathSize.GetWidth() + FromDIP(60)); // +60 for icon and padding
 
-    // Main sizer
+    // Main sizer.
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Horizontal sizer for icon and text
+    // Horizontal sizer for icon and text.
     auto* contentSizer = new wxBoxSizer(wxHORIZONTAL);
 
-    // Add information icon (a bitmap bundle, so that it is rendered at the size matching the monitor's DPI)
+    // Add information icon (a bitmap bundle, so that it is rendered at the size matching the monitor's DPI).
     auto* icon
         = new wxStaticBitmap(this, wxID_ANY, wxArtProvider::GetBitmapBundle(wxART_INFORMATION, wxART_MESSAGE_BOX));
     contentSizer->Add(icon, 0, wxTOP | wxLEFT | wxBOTTOM | wxALIGN_CENTER_VERTICAL, borderSize);
 
-    // Text
+    // Text.
     m_completionText = new wxStaticText(this, wxID_ANY, buildCompletionMessage(timeTaken));
     m_completionText->Wrap(requiredWidth
-                           - FromDIP(80 + HELPBTN_SIZE + (BORDER_SIZE * 2))); // Wrap based on calculated width
+                           - FromDIP(80 + helpButtonSize + (borderSizeDIP * 2))); // Wrap based on calculated width
     contentSizer->Add(m_completionText, 1, wxALL | wxALIGN_CENTER_VERTICAL, FromDIP(15));
 
     mainSizer->Add(contentSizer, 0, wxEXPAND);
 
-    // WARNINGS
+    // WARNINGS.
     auto* warningsCtrl = new wxCollapsiblePane(this,
                                                wxID_ANY,
-                                               PGTr("completion.showWarnings"),
+                                               pgTr("completion.showWarnings"),
                                                wxDefaultPosition,
                                                wxDefaultSize,
                                                wxCP_DEFAULT_STYLE | wxCP_NO_TLW_RESIZE);
     fixCollapsiblePaneHeaderDarkMode(warningsCtrl);
 
     m_warnListCtrl = new PGLogMessageListCtrl(warningsCtrl->GetPane(), wxID_ANY);
-    m_warnListCtrl->Bind(s_EVT_PG_LOG_IGNORE_CHANGED, [this, warningsCtrl](wxCommandEvent&) -> void {
-        const auto numWarnings = m_warnListCtrl->getNumUnignoredMessages();
-        warningsCtrl->SetLabel(wxString::Format(PGTr("completion.showWarningsCount"), static_cast<int>(numWarnings)));
+    m_warnListCtrl->Bind(s_evtPGLogIgnoreChanged, [this, warningsCtrl](wxCommandEvent&) {
+        const auto numWarnings = m_warnListCtrl->numUnignoredMessages();
+        warningsCtrl->SetLabel(wxString::Format(pgTr("completion.showWarningsCount"), static_cast<int>(numWarnings)));
 
         warningsCtrl->Refresh();
         warningsCtrl->Update();
     });
 
-    // get existing ignore messages
-    const auto ignoreMap = PGConfig::getIgnoredMessagesConfig();
+    // Get existing ignore messages.
+    const auto ignoreMap = PGConfig::ignoredMessagesConfig();
     m_warnListCtrl->setIgnoreMap(ignoreMap);
-    m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
+    m_warnListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->warningMessages());
     setupLogMessagePane(warningsCtrl, m_warnListCtrl);
 
     mainSizer->Add(warningsCtrl, 1, wxEXPAND, 0);
 
-    // ERRORS
+    // ERRORS.
     auto* errorsCtrl = new wxCollapsiblePane(this,
                                              wxID_ANY,
-                                             PGTr("completion.showErrors"),
+                                             pgTr("completion.showErrors"),
                                              wxDefaultPosition,
                                              wxDefaultSize,
                                              wxCP_DEFAULT_STYLE | wxCP_NO_TLW_RESIZE);
     fixCollapsiblePaneHeaderDarkMode(errorsCtrl);
     m_errListCtrl = new PGLogMessageListCtrl(errorsCtrl->GetPane(), wxID_ANY, false);
-    m_errListCtrl->Bind(s_EVT_PG_LOG_IGNORE_CHANGED, [this, errorsCtrl](wxCommandEvent&) -> void {
-        const auto numErrors = m_errListCtrl->getNumUnignoredMessages();
-        errorsCtrl->SetLabel(wxString::Format(PGTr("completion.showErrorsCount"), static_cast<int>(numErrors)));
+    m_errListCtrl->Bind(s_evtPGLogIgnoreChanged, [this, errorsCtrl](wxCommandEvent&) {
+        const auto numErrors = m_errListCtrl->numUnignoredMessages();
+        errorsCtrl->SetLabel(wxString::Format(pgTr("completion.showErrorsCount"), static_cast<int>(numErrors)));
 
         errorsCtrl->Refresh();
         errorsCtrl->Update();
     });
 
-    m_errListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getErrorMessages());
+    m_errListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->errorMessages());
     setupLogMessagePane(errorsCtrl, m_errListCtrl, false);
 
     mainSizer->Add(errorsCtrl, 1, wxEXPAND, 0);
 
-    // Show mod conflicts / order button (hidden when no conflict manager is configured)
-    const auto& modManagerType = PGPatcherGlobals::getPGC()->getParams().ModManager.type;
-    if (modManagerType != PGModManager::ModManagerType::NONE) {
-        auto* showModConflictsButton = new wxButton(this, wxID_ANY, PGTr("completion.conflictManager"));
+    // Show mod conflicts / order button (hidden when no conflict manager is configured).
+    const auto& modManagerType = PGPatcherGlobals::pgc()->params().modManager.type;
+    if (modManagerType != PGModManager::ModManagerType::None) {
+        auto* showModConflictsButton = new wxButton(this, wxID_ANY, pgTr("completion.conflictManager"));
         showModConflictsButton->Bind(wxEVT_BUTTON, &CompletionDialog::onShowModConflicts, this);
         mainSizer->Add(showModConflictsButton, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, borderSize);
     }
 
-    // Buttons sizer
+    // Buttons sizer.
     auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
-    // Add help ? button to the bottom right of the whole window that opens the wiki URL on click
+    // Add help ? button to the bottom right of the whole window that opens the wiki URL on click.
     auto* helpButton = new wxButton(this, wxID_ANY, "?");
     wxFont helpButtonFont = helpButton->GetFont();
     helpButtonFont.SetWeight(wxFONTWEIGHT_BOLD);
     helpButton->SetFont(helpButtonFont);
 
-    helpButton->SetToolTip(PGTr("completion.helpButton.tooltip"));
+    helpButton->SetToolTip(pgTr("completion.helpButton.tooltip"));
 
-    const wxSize helpBtnSize = wxSize(FromDIP(HELPBTN_SIZE), helpButton->GetSize().GetHeight());
+    const wxSize helpBtnSize = wxSize(FromDIP(helpButtonSize), helpButton->GetSize().GetHeight());
     helpButton->SetMinSize(helpBtnSize);
     helpButton->SetMaxSize(helpBtnSize);
 
-    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+    helpButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
         wxLaunchDefaultBrowser("https://github.com/hakasapl/PGPatcher/wiki/Error-Message-Guide");
     });
 
     buttonSizer->Add(helpButton, 0, wxALL, borderSize);
 
-    // OK button
-    auto* okButton = new wxButton(this, wxID_ANY, PGTr("common.ok"));
-    okButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) -> void {
+    // OK button.
+    auto* okButton = new wxButton(this, wxID_ANY, pgTr("common.ok"));
+    okButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
         saveIgnoredMessagesToConfig();
         EndModal(wxID_OK); // then close
     });
     buttonSizer->Add(okButton, 0, wxALL, borderSize);
 
-    // Open File Location button
-    auto* openFileLocationButton = new wxButton(this, wxID_ANY, PGTr("completion.openOutputLocation"));
+    // Open File Location button.
+    auto* openFileLocationButton = new wxButton(this, wxID_ANY, pgTr("completion.openOutputLocation"));
     openFileLocationButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenOutputLocation, this);
     buttonSizer->Add(openFileLocationButton, 0, wxALL, borderSize);
 
-    // Open Log file button
-    auto* openLogFileButton = new wxButton(this, wxID_ANY, PGTr("completion.openLogFile"));
+    // Open Log file button.
+    auto* openLogFileButton = new wxButton(this, wxID_ANY, pgTr("completion.openLogFile"));
     openLogFileButton->Bind(wxEVT_BUTTON, &CompletionDialog::onOpenLogFile, this);
     buttonSizer->Add(openLogFileButton, 0, wxALL, borderSize);
 
@@ -217,39 +215,35 @@ CompletionDialog::CompletionDialog(const long long& timeTaken)
     SetSizerAndFit(mainSizer); // This automatically sizes the dialog to fit content
 
     Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& evt) {
-        if (evt.GetKeyCode() == WXK_ESCAPE) {
+        if (evt.GetKeyCode() == WXK_ESCAPE)
             Close(); // acts like the X button
-        } else {
+        else
             evt.Skip(); // allow other keys to behave normally
-        }
     });
-    Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent& evt) -> void {
+    Bind(wxEVT_CLOSE_WINDOW, [](wxCloseEvent& evt) {
         evt.Skip(); // allow normal close without running pre-close logic
     });
 
-    // Set min/max size based on fitted size
+    // Set min/max size based on fitted size.
     m_collapsedSize = GetSize();
     SetSizeHints(m_collapsedSize, wxSize(-1, m_collapsedSize.GetHeight()));
 
     Centre(); // Center the dialog on screen
 }
 
-auto CompletionDialog::ShowModal() -> int
+int CompletionDialog::ShowModal()
 {
-    // Reset size and collapse everything
-    for (auto* child : GetChildren()) {
-        if (auto* pane = wxDynamicCast(child, wxCollapsiblePane)) {
+    // Reset size and collapse everything.
+    for (auto* child : GetChildren())
+        if (auto* pane = wxDynamicCast(child, wxCollapsiblePane))
             pane->Collapse();
-        }
-    }
 
-    if (auto* topSizer = GetSizer(); topSizer != nullptr) {
+    if (auto* topSizer = GetSizer(); topSizer) {
         for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
             auto* item = topSizer->GetItem(i);
-            auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
-            if (collPane != nullptr) {
+            const auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
+            if (collPane)
                 item->SetProportion(0);
-            }
         }
     }
 
@@ -263,63 +257,62 @@ auto CompletionDialog::ShowModal() -> int
 
 void CompletionDialog::updateTimingInfo(const long long& timeTaken)
 {
-    // Update the text with the new timing info
+    // Update the text with the new timing info.
     m_completionText->SetLabel(buildCompletionMessage(timeTaken));
     Layout(); // Re-layout to accommodate new text size
 }
 
 void CompletionDialog::refreshLogMessages()
 {
-    // Repopulating the lists also fires s_EVT_PG_LOG_IGNORE_CHANGED, which updates the
+    // Repopulating the lists also fires s_evtPGLogIgnoreChanged, which updates the
     // "Show Warnings (N)" / "Show Errors (N)" pane labels bound in the constructor.
-    m_warnListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getWarningMessages());
-    m_errListCtrl->setLogMessages(PGPatcherGlobals::getWXLoggerSink()->getErrorMessages());
+    m_warnListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->warningMessages());
+    m_errListCtrl->setLogMessages(PGPatcherGlobals::wxLoggerSink()->errorMessages());
 }
 
 void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
                                            PGLogMessageListCtrl* listCtrl,
                                            bool ignoreCheckbox)
 {
-    if (pane == nullptr || listCtrl == nullptr) {
+    if (!pane || !listCtrl)
         throw std::invalid_argument("pane and listCtrl cannot be null");
-    }
 
-    // Limit number of visible items before scrolling (sizes in DIPs, scaled to the monitor's DPI)
-    static constexpr int LIST_SIZE = 150;
-    static constexpr int CHECKBOX_BORDER = 5;
-    const int listSize = FromDIP(LIST_SIZE);
-    const int checkboxBorder = FromDIP(CHECKBOX_BORDER);
+    // Limit number of visible items before scrolling (sizes in DIPs, scaled to the monitor's DPI).
+    static constexpr int listSizeDIP = 150;
+    static constexpr int checkboxBorderDIP = 5;
+    const int listSize = FromDIP(listSizeDIP);
+    const int checkboxBorder = FromDIP(checkboxBorderDIP);
     listCtrl->SetMinSize(wxSize(-1, listSize));
 
-    // Sizer for collapsible pane
+    // Sizer for collapsible pane.
     auto* parentSizer = new wxBoxSizer(wxVERTICAL);
 
-    // checkbox for showing ignored warnings
+    // Checkbox for showing ignored warnings.
     int checkboxHeight = 0;
     if (ignoreCheckbox) {
-        auto* checkboxShowIgnored = new wxCheckBox(pane->GetPane(), wxID_ANY, PGTr("completion.showIgnoredWarnings"));
+        auto* checkboxShowIgnored = new wxCheckBox(pane->GetPane(), wxID_ANY, pgTr("completion.showIgnoredWarnings"));
         checkboxShowIgnored->SetValue(false);
 
-        // bind checkbox event
-        checkboxShowIgnored->Bind(
-            wxEVT_CHECKBOX, [listCtrl](wxCommandEvent& evt) -> void { listCtrl->setShowIgnored(evt.IsChecked()); });
+        // Bind checkbox event.
+        checkboxShowIgnored->Bind(wxEVT_CHECKBOX,
+                                  [listCtrl](wxCommandEvent& evt) { listCtrl->setShowIgnored(evt.IsChecked()); });
 
-        // add checkbox to the sizer first, so it appears above the list
+        // Add checkbox to the sizer first, so it appears above the list.
         parentSizer->Add(checkboxShowIgnored, 0, wxALL | wxEXPAND, checkboxBorder);
 
-        // get height for later size calculations
+        // Get height for later size calculations.
         checkboxHeight = checkboxShowIgnored->GetSize().GetHeight() + (2 * checkboxBorder);
     }
 
     const int expandDelta = listSize + checkboxBorder + checkboxHeight;
 
-    // add the list control below
+    // Add the list control below.
     parentSizer->Add(listCtrl, 1, wxEXPAND);
 
     pane->GetPane()->SetSizer(parentSizer);
 
-    // collapsible pane expand/shrink handling
-    pane->Bind(wxEVT_COLLAPSIBLEPANE_CHANGED, [this, pane, expandDelta](wxCollapsiblePaneEvent&) -> void {
+    // Collapsible pane expand/shrink handling.
+    pane->Bind(wxEVT_COLLAPSIBLEPANE_CHANGED, [this, pane, expandDelta](wxCollapsiblePaneEvent&) {
         wxSize dlgSize = this->GetSize();
         wxSize dlgMinSize = this->GetMinSize();
         if (pane->IsExpanded()) {
@@ -332,11 +325,11 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
 
         // Give resize growth only to expanded collapsible panes.
         bool hasExpandedPane = false;
-        if (auto* topSizer = this->GetSizer(); topSizer != nullptr) {
+        if (auto* topSizer = this->GetSizer(); topSizer) {
             for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
                 auto* itemWindow = topSizer->GetItem(i)->GetWindow();
-                auto* collPane = wxDynamicCast(itemWindow, wxCollapsiblePane);
-                if (collPane != nullptr && collPane->IsExpanded()) {
+                const auto* collPane = wxDynamicCast(itemWindow, wxCollapsiblePane);
+                if (collPane && collPane->IsExpanded()) {
                     hasExpandedPane = true;
                     break;
                 }
@@ -344,10 +337,9 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
 
             for (size_t i = 0; i < topSizer->GetItemCount(); ++i) {
                 auto* item = topSizer->GetItem(i);
-                auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
-                if (collPane != nullptr) {
+                const auto* collPane = wxDynamicCast(item->GetWindow(), wxCollapsiblePane);
+                if (collPane)
                     item->SetProportion((hasExpandedPane && collPane->IsExpanded()) ? 1 : 0);
-                }
             }
         }
 
@@ -356,7 +348,7 @@ void CompletionDialog::setupLogMessagePane(wxCollapsiblePane* pane,
             const int expandedMinHeight = std::max(m_collapsedSize.GetHeight(), dlgMinSize.GetHeight());
             this->SetSizeHints(wxSize(m_collapsedSize.GetWidth(), expandedMinHeight), wxSize(-1, -1));
         } else {
-            // if no panes are expanded, reset to original size to prevent weird resizing behavior
+            // If no panes are expanded, reset to original size to prevent weird resizing behavior.
             dlgSize.SetHeight(m_collapsedSize.GetHeight());
             this->SetSizeHints(m_collapsedSize, wxSize(-1, m_collapsedSize.GetHeight()));
         }
@@ -370,10 +362,10 @@ void CompletionDialog::onOpenOutputLocation([[maybe_unused]] wxCommandEvent& eve
 {
     saveIgnoredMessagesToConfig();
 
-    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::getPGC()->getParams().Output.dir);
+    const auto outputPath = PGConfig::resolveExeRelativePath(PGPatcherGlobals::pgc()->params().output.dir);
     wxLaunchDefaultApplication(outputPath.wstring());
 
-    // Close dialog
+    // Close dialog.
     EndModal(wxID_OK);
 }
 
@@ -381,10 +373,10 @@ void CompletionDialog::onOpenLogFile([[maybe_unused]] wxCommandEvent& event)
 {
     saveIgnoredMessagesToConfig();
 
-    const auto logFilePath = PGPatcherGlobals::getEXEPath() / "log" / "PGPatcher.log";
+    const auto logFilePath = PGPatcherGlobals::exePath() / "log" / "PGPatcher.log";
     wxLaunchDefaultApplication(logFilePath.wstring());
 
-    // Close dialog
+    // Close dialog.
     EndModal(wxID_OK);
 }
 
@@ -394,17 +386,16 @@ void CompletionDialog::onShowModConflicts([[maybe_unused]] wxCommandEvent& event
 
     ModSortDialog dialog(this);
     const int result = dialog.ShowModal();
-    if (result == wxID_RETRY) {
+    if (result == wxID_RETRY)
         EndModal(wxID_RETRY);
-    }
 }
 
 void CompletionDialog::saveIgnoredMessagesToConfig()
 {
-    // Combine ignore maps from both lists
-    const auto ignoreMap = m_warnListCtrl->getIgnoreMap();
-    // Save to config
+    // Combine ignore maps from both lists.
+    const auto ignoreMap = m_warnListCtrl->ignoreMap();
+    // Save to config.
     PGConfig::saveIgnoredMessagesConfig(ignoreMap);
 }
 
-// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static,cppcoreguidelines-avoid-magic-numbers)
+// NOLINTEND(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)

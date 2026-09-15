@@ -41,9 +41,7 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
-
-PatcherMeshShaderTruePBR::PatcherMeshShaderTruePBR(filesystem::path nifPath,
+PatcherMeshShaderTruePBR::PatcherMeshShaderTruePBR(std::filesystem::path nifPath,
                                                    nifly::NifFile* nif)
     : PatcherMeshShader(std::move(nifPath),
                         nif,
@@ -51,72 +49,78 @@ PatcherMeshShaderTruePBR::PatcherMeshShaderTruePBR(filesystem::path nifPath,
 {
 }
 
-auto PatcherMeshShaderTruePBR::getTruePBRConfigs() -> map<size_t,
-                                                          nlohmann::json>&
+std::map<size_t,
+         nlohmann::json>&
+PatcherMeshShaderTruePBR::truePBRConfigs()
 {
-    static map<size_t, nlohmann::json> truePBRConfigs = {};
+    static std::map<size_t, nlohmann::json> truePBRConfigs = { };
     return truePBRConfigs;
 }
 
-auto PatcherMeshShaderTruePBR::getPathLookupJSONs() -> map<size_t,
-                                                           nlohmann::json>&
+std::map<size_t,
+         nlohmann::json>&
+PatcherMeshShaderTruePBR::pathLookupJSONs()
 {
-    static map<size_t, nlohmann::json> pathLookupJSONs = {};
+    static std::map<size_t, nlohmann::json> pathLookupJSONs = { };
     return pathLookupJSONs;
 }
 
-auto PatcherMeshShaderTruePBR::getTruePBRDiffuseInverse() -> map<wstring,
-                                                                 vector<size_t>>&
+std::map<std::wstring,
+         std::vector<size_t>>&
+PatcherMeshShaderTruePBR::truePBRDiffuseInverse()
 {
-    static map<wstring, vector<size_t>> truePBRDiffuseInverse = {};
+    static std::map<std::wstring, std::vector<size_t>> truePBRDiffuseInverse = { };
     return truePBRDiffuseInverse;
 }
 
-auto PatcherMeshShaderTruePBR::getTruePBRNormalInverse() -> map<wstring,
-                                                                vector<size_t>>&
+std::map<std::wstring,
+         std::vector<size_t>>&
+PatcherMeshShaderTruePBR::truePBRNormalInverse()
 {
-    static map<wstring, vector<size_t>> truePBRNormalInverse = {};
+    static std::map<std::wstring, std::vector<size_t>> truePBRNormalInverse = { };
     return truePBRNormalInverse;
 }
 
-auto PatcherMeshShaderTruePBR::getTruePBRMatchXMap() -> unordered_map<PGEnums::TextureSlots,
-                                                                      unordered_map<wstring,
-                                                                                    vector<size_t>>>&
+std::unordered_map<PGEnums::TextureSlots,
+                   std::unordered_map<std::wstring,
+                                      std::vector<size_t>>>&
+PatcherMeshShaderTruePBR::truePBRMatchXMap()
 {
-    static unordered_map<PGEnums::TextureSlots, unordered_map<wstring, vector<size_t>>> truePBRMatchXMap = {};
+    static std::unordered_map<PGEnums::TextureSlots, std::unordered_map<std::wstring, std::vector<size_t>>>
+        truePBRMatchXMap = { };
     return truePBRMatchXMap;
 }
 
-auto PatcherMeshShaderTruePBR::getPathLookupCache() -> unordered_map<tuple<wstring,
-                                                                           wstring>,
-                                                                     bool,
-                                                                     TupleStrHash>&
+auto PatcherMeshShaderTruePBR::pathLookupCache() -> std::unordered_map<std::tuple<std::wstring,
+                                                                                  std::wstring>,
+                                                                       bool,
+                                                                       TupleStrHash>&
 {
-    static unordered_map<tuple<wstring, wstring>, bool, TupleStrHash> pathLookupCache = {};
+    static std::unordered_map<std::tuple<std::wstring, std::wstring>, bool, TupleStrHash> pathLookupCache = { };
     return pathLookupCache;
 }
 
-auto PatcherMeshShaderTruePBR::getPathLookupCacheMutex() -> std::mutex&
+std::mutex& PatcherMeshShaderTruePBR::pathLookupCacheMutex()
 {
     static std::mutex cacheMutex;
     return cacheMutex;
 }
 
-auto PatcherMeshShaderTruePBR::getTruePBRConfigFilenameFields() -> vector<string>
+std::vector<std::string> PatcherMeshShaderTruePBR::truePBRConfigFilenameFields()
 {
-    static const vector<string> pgConfigFilenameFields = {"match_normal", "match_diffuse", "rename"};
+    static const std::vector<std::string> pgConfigFilenameFields = { "match_normal", "match_diffuse", "rename" };
     return pgConfigFilenameFields;
 }
 
-// Statics
+// Statics.
 void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::path>& pbrJSONs)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
     size_t configOrder = 0;
     for (const auto& config : pbrJSONs) {
-        // check if Config is valid
-        auto configFileBytes = pgd->getFile(config);
+        // Check if Config is valid.
+        auto configFileBytes = pgd->file(config);
         std::string configFileStr;
         std::ranges::transform(
             configFileBytes, std::back_inserter(configFileStr), [](std::byte b) { return static_cast<char>(b); });
@@ -126,11 +130,10 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             nlohmann::json jDefaults;
             nlohmann::json jEntries;
 
-            // check if j is a json object
+            // Check if j is a json object.
             if (j.is_object()) {
-                if (!j.contains("default") || !j.contains("entries")) {
+                if (!j.contains("default") || !j.contains("entries"))
                     continue;
-                }
 
                 jDefaults = j["default"];
                 jEntries = j["entries"];
@@ -139,31 +142,26 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
                 jEntries = j;
             }
 
-            // loop through each Element
+            // Loop through each Element.
             for (auto& element : jEntries) {
-                // merge defaults with element
-                for (const auto& [key, value] : jDefaults.items()) {
-                    if (!element.contains(key)) {
+                // Merge defaults with element.
+                for (const auto& [key, value] : jDefaults.items())
+                    if (!element.contains(key))
                         element[key] = value;
-                    }
-                }
 
-                // Preprocessing steps here
-                if (element.contains("texture")) {
+                // Preprocessing steps here.
+                if (element.contains("texture"))
                     element["match_diffuse"] = element["texture"];
-                }
 
                 element["json"] = StringUtil::utf16toUTF8(config.wstring());
 
-                // loop through filename Fields
-                for (const auto& field : getTruePBRConfigFilenameFields()) {
-                    if (element.contains(field) && !boost::istarts_with(element[field].get<string>(), "\\")) {
-                        element[field] = element[field].get<string>().insert(0, 1, '\\');
-                    }
-                }
+                // Loop through filename Fields.
+                for (const auto& field : truePBRConfigFilenameFields())
+                    if (element.contains(field) && !boost::istarts_with(element[field].get<std::string>(), "\\"))
+                        element[field] = element[field].get<std::string>().insert(0, 1, '\\');
 
                 Logger::trace(L"TruePBR Config {} Loaded: {}", configOrder, StringUtil::utf8toUTF16(element.dump()));
-                getTruePBRConfigs()[configOrder++] = element;
+                truePBRConfigs()[configOrder++] = element;
             }
         } catch (nlohmann::json::parse_error& e) {
             Logger::debug(L"Failed to parse TruePBR config JSON: {}. Error: {}",
@@ -174,89 +172,87 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         }
     }
 
-    Logger::info(L"Found {} TruePBR entries", getTruePBRConfigs().size());
+    Logger::info(L"Found {} TruePBR entries", truePBRConfigs().size());
 
-    // Create helper vectors
-    for (const auto& config : getTruePBRConfigs()) {
-        // "match_normal" attribute
+    // Create helper vectors.
+    for (const auto& config : truePBRConfigs()) {
+        // "match_normal" attribute.
         if (config.second.contains("match_normal")) {
-            auto revNormal = StringUtil::utf8toUTF16(config.second["match_normal"].get<string>());
-            revNormal = PGNIFUtil::getTexBase(revNormal);
+            auto revNormal = StringUtil::utf8toUTF16(config.second["match_normal"].get<std::string>());
+            revNormal = PGNIFUtil::texBase(revNormal);
             std::ranges::reverse(revNormal);
 
-            getTruePBRNormalInverse()[StringUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
+            truePBRNormalInverse()[StringUtil::toLowerASCIIFast(revNormal)].push_back(config.first);
         }
 
-        // "match_diffuse" attribute
+        // "match_diffuse" attribute.
         if (config.second.contains("match_diffuse")) {
-            auto revDiffuse = StringUtil::utf8toUTF16(config.second["match_diffuse"].get<string>());
-            revDiffuse = PGNIFUtil::getTexBase(revDiffuse);
+            auto revDiffuse = StringUtil::utf8toUTF16(config.second["match_diffuse"].get<std::string>());
+            revDiffuse = PGNIFUtil::texBase(revDiffuse);
             std::ranges::reverse(revDiffuse);
 
-            getTruePBRDiffuseInverse()[StringUtil::toLowerASCIIFast(revDiffuse)].push_back(config.first);
+            truePBRDiffuseInverse()[StringUtil::toLowerASCIIFast(revDiffuse)].push_back(config.first);
         }
 
-        // "path_contains" attribute
-        if (config.second.contains("path_contains")) {
-            getPathLookupJSONs()[config.first] = config.second;
-        }
+        // "path_contains" attribute.
+        if (config.second.contains("path_contains"))
+            pathLookupJSONs()[config.first] = config.second;
 
-        // "matchX" attribute
-        for (int i = 0; i < NUM_TEXTURE_SLOTS - 1; i++) {
-            const string matchXStr = "match" + to_string(i + 1);
+        // "matchX" attribute.
+        for (int i = 0; i < numTextureSlots - 1; i++) {
+            const std::string matchXStr = "match" + std::to_string(i + 1);
             if (config.second.contains(matchXStr)) {
-                auto matchStr = StringUtil::utf8toUTF16(config.second.at(matchXStr).get<string>());
+                auto matchStr = StringUtil::utf8toUTF16(config.second.at(matchXStr).get<std::string>());
 
-                // Prepend "textures\\" if it's not already there
-                if (!matchStr.empty() && !matchStr.starts_with(L"textures\\")) {
+                // Prepend "textures\\" if it's not already there.
+                if (!matchStr.empty() && !matchStr.starts_with(L"textures\\"))
                     matchStr.insert(0, L"textures\\");
-                }
 
-                getTruePBRMatchXMap()[static_cast<PGEnums::TextureSlots>(i)][StringUtil::toLowerASCIIFast(matchStr)]
+                truePBRMatchXMap()[static_cast<PGEnums::TextureSlots>(i)][StringUtil::toLowerASCIIFast(matchStr)]
                     .push_back(config.first);
             }
         }
     }
 }
 
-auto PatcherMeshShaderTruePBR::getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory
+auto PatcherMeshShaderTruePBR::factory() -> PatcherMeshShader::PatcherMeshShaderFactory
 {
-    return [](const filesystem::path& nifPath, nifly::NifFile* nif) -> unique_ptr<PatcherMeshShader> {
-        return make_unique<PatcherMeshShaderTruePBR>(nifPath, nif);
+    return [](const std::filesystem::path& nifPath, nifly::NifFile* nif) -> std::unique_ptr<PatcherMeshShader> {
+        return std::make_unique<PatcherMeshShaderTruePBR>(nifPath, nif);
     };
 }
 
-auto PatcherMeshShaderTruePBR::getShaderType() -> PGEnums::ShapeShader { return PGEnums::ShapeShader::TRUEPBR; }
+PGEnums::ShapeShader PatcherMeshShaderTruePBR::shaderType() { return PGEnums::ShapeShader::TruePBR; }
 
-auto PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape,
-                                        [[maybe_unused]] bool singlepassMATO,
-                                        const PGPlugin::ModelRecordType& modelRecordType) -> bool
+bool PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape,
+                                        [[maybe_unused]] bool isSinglepassMATO,
+                                        [[maybe_unused]] const PGPlugin::ModelRecordType& modelRecordType)
 {
     return true;
 }
 
-auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
-                                           std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
+                                           std::vector<PatcherMatch>& matches)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
-    // Prep
-    auto* nifShader = getNIF()->GetShader(&nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
+    // Prep.
+    auto* nifShader = nif()->GetShader(&nifShape);
+    const auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
     matches.clear();
 
-    // Find Old Slots
-    auto oldSlots = getTextureSet(getNIFPath(), *getNIF(), nifShape);
+    // Find Old Slots.
+    auto oldSlots = textureSet(nifPath(), *nif(), nifShape);
 
     shouldApply(oldSlots, matches);
 
-    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01)) {
-        // Check if RMAOS exists
-        const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)];
+    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01)) {
+        // Check if RMAOS exists.
+        const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::EnvMask)];
         if (!rmaosPath.empty() && pgd->isFile(rmaosPath)) {
             PatcherMatch match;
-            match.matchedPath = getNIFPath().wstring();
+            match.matchedPath = nifPath().wstring();
             matches.insert(matches.begin(), match);
         }
     }
@@ -264,113 +260,113 @@ auto PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
     return !matches.empty();
 }
 
-auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
-                                           std::vector<PatcherMatch>& matches) -> bool
+bool PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
+                                           std::vector<PatcherMatch>& matches)
 {
-    auto* pgd = PGGlobals::getPGD();
+    auto* pgd = PGGlobals::pgd();
 
-    // get search prefixes
-    auto searchPrefixes = PGNIFUtil::getSearchPrefixes(oldSlots, false);
-    // only normal map gets _n part removed to match properly
-    searchPrefixes[1] = PGNIFUtil::getTexBase(oldSlots[1], PGEnums::TextureSlots::NORMAL);
+    // Get search prefixes.
+    auto searchPrefixes = PGNIFUtil::searchPrefixes(oldSlots, false);
+    // Only normal map gets _n part removed to match properly.
+    searchPrefixes[1] = PGNIFUtil::texBase(oldSlots[1], PGEnums::TextureSlots::Normal);
 
-    // Remove "pbr" part if starts with "textures\\pbr" for each search prefix
-    static constexpr size_t TEXTURE_PBR_STR_LENGTH = 13; // length of "textures\pbr\"
-    for (auto& prefix : searchPrefixes) {
-        if (StringUtil::toLowerASCIIFast(prefix).starts_with(L"textures\\pbr\\")) {
-            prefix.replace(0, TEXTURE_PBR_STR_LENGTH, L"textures\\");
-        }
-    }
+    // Remove "pbr" part if starts with "textures\\pbr" for each search prefix.
+    static constexpr size_t texturePBRStrLength = 13; // length of "textures\pbr\"
+    for (auto& prefix : searchPrefixes)
+        if (StringUtil::toLowerASCIIFast(prefix).starts_with(L"textures\\pbr\\"))
+            prefix.replace(0, texturePBRStrLength, L"textures\\");
 
-    map<size_t, tuple<nlohmann::json, wstring>> truePBRData;
-    // "match_normal" attribute: Binary search for normal map
-    getSlotMatch(truePBRData, searchPrefixes[1], getTruePBRNormalInverse(), getNIFPath().wstring());
+    std::map<size_t, std::tuple<nlohmann::json, std::wstring>> truePBRData;
+    // "match_normal" attribute: Binary search for normal map.
+    getSlotMatch(truePBRData, searchPrefixes[1], truePBRNormalInverse(), nifPath().wstring());
 
-    // "match_diffuse" attribute: Binary search for diffuse map
-    getSlotMatch(truePBRData, searchPrefixes[0], getTruePBRDiffuseInverse(), getNIFPath().wstring());
+    // "match_diffuse" attribute: Binary search for diffuse map.
+    getSlotMatch(truePBRData, searchPrefixes[0], truePBRDiffuseInverse(), nifPath().wstring());
 
-    // "path_contains" attribute: Linear search for path_contains
-    getPathContainsMatch(truePBRData, searchPrefixes[0], getNIFPath().wstring());
+    // "path_contains" attribute: Linear search for path_contains.
+    getPathContainsMatch(truePBRData, searchPrefixes[0], nifPath().wstring());
 
-    // "matchX" attribute: search exact match for each slot
-    getMatchXMatch(truePBRData, oldSlots, getNIFPath().wstring());
+    // "matchX" attribute: search exact match for each slot.
+    getMatchXMatch(truePBRData, oldSlots, nifPath().wstring());
 
-    // Split data into individual JSONs
-    unordered_map<wstring, map<size_t, tuple<nlohmann::json, wstring>>> truePBROutputData;
+    // Split data into individual JSONs.
+    std::unordered_map<std::wstring, std::map<size_t, std::tuple<nlohmann::json, std::wstring>>> truePBROutputData;
     for (const auto& [sequence, data] : truePBRData) {
-        // get current JSON
-        auto matchedPath = StringUtil::utf8toUTF16(get<0>(data)["json"].get<string>());
+        // Get current JSON.
+        const auto matchedPath = StringUtil::utf8toUTF16(std::get<0>(data)["json"].get<std::string>());
 
-        // Add to output
+        // Add to output.
         if (!truePBROutputData.contains(matchedPath)) {
-            // If MatchedPath doesn't exist, insert it with an empty map and then add Sequence, Data
-            truePBROutputData.emplace(matchedPath, map<size_t, tuple<nlohmann::json, wstring>> {});
+            // If MatchedPath doesn't exist, insert it with an empty map and then add Sequence, Data.
+            truePBROutputData.emplace(matchedPath, std::map<size_t, std::tuple<nlohmann::json, std::wstring>> { });
         }
         truePBROutputData[matchedPath][sequence] = data;
     }
 
-    // Convert output to vectors
+    // Convert output to vectors.
     for (auto& [json, jsonData] : truePBROutputData) {
         PatcherMatch match;
         match.matchedPath = json;
-        match.extraData = make_shared<decltype(jsonData)>(jsonData);
+        match.extraData = std::make_shared<decltype(jsonData)>(jsonData);
 
-        // loop through json data
+        // Loop through json data.
         bool deleteShape = false;
         for (const auto& [sequence, data] : jsonData) {
-            if (get<0>(data).contains("delete") && get<0>(data)["delete"].is_boolean()
-                && get<0>(data)["delete"].get<bool>()) {
-                // marked for deletion, skip slot checks
+            if (std::get<0>(data).contains("delete") && std::get<0>(data)["delete"].is_boolean()
+                && std::get<0>(data)["delete"].get<bool>()) {
+                // Marked for deletion, skip slot checks.
                 deleteShape = true;
                 break;
             }
         }
 
-        // check paths
+        // Check paths.
         bool valid = true;
 
         if (!deleteShape) {
             PGTypes::TextureSet newSlots = oldSlots;
             applyPatchSlots(newSlots, match);
-            for (size_t i = 0; i < NUM_TEXTURE_SLOTS; i++) {
+            for (size_t i = 0; i < numTextureSlots; i++) {
                 if (!newSlots.at(i).empty() && !pgd->isFile(newSlots.at(i))) {
-                    // Slot does not exist
+                    // Slot does not exist.
                     if (s_printNonExistentPaths) {
                         Logger::warn(
                             L"Texture \"{}\" does not exist from PBR json \"{}\" when patching mesh \"{}\" (Skipping)",
                             newSlots.at(i),
                             match.matchedPath,
-                            getNIFPath().wstring());
+                            nifPath().wstring());
                     }
 
-                    // only invalidate if checkpaths is false
-                    if (s_checkPaths) {
+                    // Only invalidate if checkpaths is false.
+                    if (s_checkPaths)
                         valid = false;
-                    }
                 }
             }
         }
 
-        if (!valid) {
+        if (!valid)
             continue;
-        }
 
         matches.push_back(match);
     }
 
     // Sort matches by ExtraData key minimum value (this preserves order of JSONs to be 0 having priority if mod order
-    // does not exist)
+    // does not exist).
     std::ranges::sort(matches, [](const PatcherMatch& a, const PatcherMatch& b) {
-        return get<0>(*(static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(a.extraData)->begin()))
-            > get<0>(*(static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(b.extraData)->begin()));
+        return std::get<0>(
+                   *std::static_pointer_cast<std::map<size_t, std::tuple<nlohmann::json, std::wstring>>>(a.extraData)
+                        ->begin())
+            > std::get<0>(
+                   *std::static_pointer_cast<std::map<size_t, std::tuple<nlohmann::json, std::wstring>>>(b.extraData)
+                        ->begin());
     });
 
-    // Check for pre-patch case
+    // Check for pre-patch case.
     if (truePBRData.empty()) {
-        const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)];
-        // if not start with PBR add it for the check
-        if (pgd->getTextureType(rmaosPath) == PGEnums::TextureType::RMAOS) {
-            // found RMAOS without json
+        const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::EnvMask)];
+        // If not start with PBR add it for the check.
+        if (pgd->textureType(rmaosPath) == PGEnums::TextureType::RMAOS) {
+            // Found RMAOS without json.
             PatcherMatch match;
             match.matchedPath = rmaosPath;
             match.extraData = nullptr;
@@ -381,52 +377,49 @@ auto PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
     return !matches.empty();
 }
 
-void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t,
-                                                tuple<nlohmann::json,
-                                                      wstring>>& truePBRData,
-                                            const wstring& texName,
-                                            const map<wstring,
-                                                      vector<size_t>>& lookup,
-                                            const wstring& nifPath)
+void PatcherMeshShaderTruePBR::getSlotMatch(std::map<size_t,
+                                                     std::tuple<nlohmann::json,
+                                                                std::wstring>>& truePBRData,
+                                            const std::wstring& texName,
+                                            const std::map<std::wstring,
+                                                           std::vector<size_t>>& lookup,
+                                            const std::wstring& nifPath)
 {
-    // binary search for map
+    // Binary search for map.
     auto mapReverse = StringUtil::toLowerASCIIFast(texName);
     std::ranges::reverse(mapReverse);
     auto it = lookup.lower_bound(mapReverse);
 
-    // get the first element of the reverse path
+    // Get the first element of the reverse path.
     auto reverseFile = mapReverse;
-    auto pos = reverseFile.find_first_of(L'\\');
-    if (pos != wstring::npos) {
+    const auto pos = reverseFile.find_first_of(L'\\');
+    if (pos != std::wstring::npos)
         reverseFile = reverseFile.substr(0, pos);
-    }
 
-    // Check if match is 1 back
+    // Check if match is 1 back.
     if (it != lookup.begin() && boost::starts_with(prev(it)->first, reverseFile)) {
         it = prev(it);
     } else if (it != lookup.end() && boost::starts_with(it->first, reverseFile)) {
-        // Check if match is current iterator, just continue here
+        // Check if match is current iterator, just continue here.
     } else {
-        // No match found
+        // No match found.
         return;
     }
 
     auto beginIt = it;
-    while (beginIt != lookup.begin()) {
-        if (boost::starts_with(prev(beginIt)->first, reverseFile)) {
+    while (beginIt != lookup.begin())
+        if (boost::starts_with(prev(beginIt)->first, reverseFile))
             beginIt = prev(beginIt);
-        } else {
+        else
             break;
-        }
-    }
 
-    // Initialize CFG set
-    set<size_t> cfgs;
+    // Initialize CFG set.
+    std::set<size_t> cfgs;
 
-    // create vector of all matches based on beginIt and It
+    // Create vector of all matches based on beginIt and It.
     while (beginIt != next(it)) {
         if (!boost::starts_with(mapReverse, beginIt->first)) {
-            // not a valid match
+            // Not a valid match.
             beginIt = next(beginIt);
             continue;
         }
@@ -435,44 +428,42 @@ void PatcherMeshShaderTruePBR::getSlotMatch(map<size_t,
         beginIt = next(beginIt);
     }
 
-    if (cfgs.empty()) {
+    if (cfgs.empty())
         return;
-    }
 
-    // Loop through all matches
-    for (const auto& cfg : cfgs) {
+    // Loop through all matches.
+    for (const auto& cfg : cfgs)
         insertTruePBRData(truePBRData, texName, cfg, nifPath);
-    }
 }
 
 void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
                                                              std::tuple<nlohmann::json,
                                                                         std::wstring>>& truePBRData,
                                                     const std::wstring& diffuse,
-                                                    const wstring& nifPath)
+                                                    const std::wstring& nifPath)
 {
-    // "patch_contains" attribute: Linear search for path_contains
-    auto& cache = getPathLookupCache();
-    auto& cacheMutex = getPathLookupCacheMutex();
+    // "patch_contains" attribute: Linear search for path_contains.
+    auto& cache = pathLookupCache();
+    auto& cacheMutex = pathLookupCacheMutex();
 
     // Check for path_contains only if no name match because it's a O(n) operation
-    for (const auto& config : getPathLookupJSONs()) {
-        // Check if in cache
-        auto cacheKey = make_tuple(StringUtil::utf8toUTF16(config.second["path_contains"].get<string>()), diffuse);
+    for (const auto& config : pathLookupJSONs()) {
+        // Check if in cache.
+        auto cacheKey
+            = std::make_tuple(StringUtil::utf8toUTF16(config.second["path_contains"].get<std::string>()), diffuse);
 
         bool pathMatch = false;
         {
             const std::scoped_lock lock(cacheMutex);
             if (!cache.contains(cacheKey)) {
-                // Not in cache, update it
-                cache[cacheKey] = boost::icontains(diffuse, get<0>(cacheKey));
+                // Not in cache, update it.
+                cache[cacheKey] = boost::icontains(diffuse, std::get<0>(cacheKey));
             }
             pathMatch = cache[cacheKey];
         }
 
-        if (pathMatch) {
+        if (pathMatch)
             insertTruePBRData(truePBRData, diffuse, config.first, nifPath);
-        }
     }
 }
 
@@ -482,97 +473,91 @@ void PatcherMeshShaderTruePBR::getMatchXMatch(std::map<size_t,
                                               const PGTypes::TextureSet& oldSlots,
                                               const std::wstring& nifPath)
 {
-    const auto& truePBRMatchXMap = getTruePBRMatchXMap();
-    for (size_t i = 0; i < NUM_TEXTURE_SLOTS - 1; i++) {
+    const auto& truePBRMatchXMap = PatcherMeshShaderTruePBR::truePBRMatchXMap();
+    for (size_t i = 0; i < numTextureSlots - 1; i++) {
         const auto curSlot = static_cast<PGEnums::TextureSlots>(i);
 
-        // check if this slot was ever cached
-        if (!truePBRMatchXMap.contains(curSlot)) {
+        // Check if this slot was ever cached.
+        if (!truePBRMatchXMap.contains(curSlot))
             continue;
-        }
 
-        // get texture slot str
+        // Get texture slot str.
         const auto& lookupWStr = oldSlots.at(i);
-        if (lookupWStr.empty()) {
+        if (lookupWStr.empty())
             continue;
-        }
         const auto lookupStr = StringUtil::toLowerASCIIFast(lookupWStr);
 
-        // lookup
+        // Lookup.
         const auto& matchXMap = truePBRMatchXMap.at(curSlot);
-        if (!matchXMap.contains(lookupStr)) {
+        if (!matchXMap.contains(lookupStr))
             continue;
-        }
 
-        // add to truePBRData
-        for (const auto& cfg : matchXMap.at(lookupStr)) {
-            insertTruePBRData(truePBRData, PGNIFUtil::getTexBase(lookupStr, curSlot), cfg, nifPath);
-        }
+        // Add to truePBRData.
+        for (const auto& cfg : matchXMap.at(lookupStr))
+            insertTruePBRData(truePBRData, PGNIFUtil::texBase(lookupStr, curSlot), cfg, nifPath);
     }
 }
 
-auto PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
+void PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
                                                           std::tuple<nlohmann::json,
                                                                      std::wstring>>& truePBRData,
-                                                 const wstring& texName,
+                                                 const std::wstring& texName,
                                                  size_t cfg,
-                                                 const wstring& nifPath) -> void
+                                                 const std::wstring& nifPath)
 {
-    auto curCfg = getTruePBRConfigs()[cfg];
+    auto curCfg = truePBRConfigs()[cfg];
 
-    // Check if we should skip this due to nif filter (this is expsenive, so we do it last)
-    if (curCfg.contains("nif_filter") && !boost::icontains(nifPath, curCfg["nif_filter"].get<string>())) {
+    // Check if we should skip this due to nif filter (this is expsenive, so we do it last).
+    if (curCfg.contains("nif_filter") && !boost::icontains(nifPath, curCfg["nif_filter"].get<std::string>()))
         return;
-    }
 
-    // Find and check prefix value
-    // Add the PBR part to the texture path
+    // Find and check prefix value.
+    // Add the PBR part to the texture path.
     auto texPath = texName;
     const auto texPathLower = StringUtil::toLowerASCIIFast(texPath);
-    if (texPathLower.starts_with(L"textures\\") && !texPathLower.starts_with(L"textures\\pbr\\")) {
-        texPath.replace(0, TEXTURE_STR_LENGTH, L"textures\\pbr\\");
-    }
+    if (texPathLower.starts_with(L"textures\\") && !texPathLower.starts_with(L"textures\\pbr\\"))
+        texPath.replace(0, textureStrLength, L"textures\\pbr\\");
 
-    // Get PBR path, which is the path without the matched field
-    wstring matchedField;
+    // Get PBR path, which is the path without the matched field.
+    std::wstring matchedField;
     if (curCfg.contains("match_normal") || curCfg.contains("match_diffuse")) {
-        matchedField = curCfg.contains("match_normal") ? PGNIFUtil::getTexBase(curCfg["match_normal"].get<string>())
-                                                       : PGNIFUtil::getTexBase(curCfg["match_diffuse"].get<string>());
+        matchedField = curCfg.contains("match_normal") ? PGNIFUtil::texBase(curCfg["match_normal"].get<std::string>())
+                                                       : PGNIFUtil::texBase(curCfg["match_diffuse"].get<std::string>());
     } else {
-        // This is a "matchX" entry, so we can just use the whole texture path as is
+        // This is a "matchX" entry, so we can just use the whole texture path as is.
         matchedField = texPath;
     }
     texPath.erase(texPath.length() - matchedField.length(), matchedField.length());
 
-    // "rename" attribute
+    // "rename" attribute.
     if (curCfg.contains("rename")) {
-        auto renameField = curCfg["rename"].get<string>();
-        if (!StringUtil::asciiFastIEquals(renameField, matchedField)) {
+        const auto renameField = curCfg["rename"].get<std::string>();
+        if (!StringUtil::asciiFastIEquals(renameField, matchedField))
             matchedField = StringUtil::utf8toUTF16(renameField);
-        }
     }
 
     // PBR prefix path for the shape. PBR is always enabled for a matched entry: the legacy "pbr" JSON field is
     // ignored if present.
-    const wstring matchedPath = StringUtil::toLowerASCIIFast(texPath + matchedField);
+    const std::wstring matchedPath = StringUtil::toLowerASCIIFast(texPath + matchedField);
 
-    truePBRData.insert({cfg, {curCfg, matchedPath}});
+    truePBRData.insert({ cfg, { curCfg, matchedPath } });
 }
 
 void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
                                           nifly::NiShape& nifShape,
                                           const PatcherMatch& match)
 {
-    if (match.extraData == nullptr) {
-        // no extra data, so this is a pre-patched mesh, do nothing
+    if (!match.extraData) {
+        // No extra data, so this is a pre-patched mesh, do nothing.
         return;
     }
 
-    auto extraData = static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(match.extraData);
-    for (const auto& [Sequence, Data] : *extraData) {
-        // apply one patch
-        auto truePBRData = get<0>(Data);
-        auto matchedPath = get<1>(Data);
+    const auto extraData
+        = std::static_pointer_cast<std::map<size_t, std::tuple<nlohmann::json, std::wstring>>>(match.extraData);
+    for (const auto& [sequence, data] : *extraData) {
+        // Apply one patch.
+        auto truePBRData = std::get<0>(data);
+        const auto matchedPath = std::get<1>(data);
         applyOnePatch(&nifShape, truePBRData, matchedPath, slots);
     }
 }
@@ -580,14 +565,14 @@ void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
 void PatcherMeshShaderTruePBR::applyPatchSlots(PGTypes::TextureSet& slots,
                                                const PatcherMatch& match)
 {
-    if (match.extraData == nullptr) {
+    if (!match.extraData)
         return;
-    }
 
-    auto extraData = static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(match.extraData);
-    for (const auto& [Sequence, Data] : *extraData) {
-        auto truePBRData = get<0>(Data);
-        auto matchedPath = get<1>(Data);
+    const auto extraData
+        = std::static_pointer_cast<std::map<size_t, std::tuple<nlohmann::json, std::wstring>>>(match.extraData);
+    for (const auto& [sequence, data] : *extraData) {
+        const auto truePBRData = std::get<0>(data);
+        const auto matchedPath = std::get<1>(data);
         applyOnePatchSlots(slots, truePBRData, matchedPath);
     }
 }
@@ -595,30 +580,30 @@ void PatcherMeshShaderTruePBR::applyPatchSlots(PGTypes::TextureSet& slots,
 void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
 {
     // Contrary to the other patchers, this one is generic and is not called normally other than setting for plugins,
-    // later material swaps in CS are used
+    // later material swaps in CS are used.
 
-    auto* nifShader = getNIF()->GetShader(&nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
+    auto* nifShader = nif()->GetShader(&nifShape);
+    auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
-    // Set default PBR shader type
-    PGNIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
-    PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    // Set default PBR shader type.
+    PGNIFUtil::setShaderType(nifShader, nifly::BSLSP_DEFAULT);
+    PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01);
 
-    // Clear unused flags
-    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
-    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
-    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
-    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_DETAIL_MAP);
+    // Clear unused flags.
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_ENVIRONMENT_MAPPING);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF2_MULTI_LAYER_PARALLAX);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_PARALLAX);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_HAIR_SOFT_LIGHTING);
+    PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_DETAIL_MAP);
 }
 
-auto PatcherMeshShaderTruePBR::getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t
+uint64_t PatcherMeshShaderTruePBR::matchExtraDataHash(const PatcherMatch& match) const
 {
-    if (match.extraData == nullptr) {
+    if (!match.extraData)
         return 0;
-    }
 
-    const auto extraData = static_pointer_cast<map<size_t, tuple<nlohmann::json, wstring>>>(match.extraData);
+    const auto extraData
+        = std::static_pointer_cast<std::map<size_t, std::tuple<nlohmann::json, std::wstring>>>(match.extraData);
 
     // Config indices depend on the global order of PBR JSONs, which can shift when JSONs are added or removed
     // without changing how this shape is patched. Only the content and the relative order matter, so hash the entries
@@ -626,96 +611,93 @@ auto PatcherMeshShaderTruePBR::getMatchExtraDataHash(const PatcherMatch& match) 
     HashUtil::Fnv1a64 hasher;
     hasher.add(static_cast<uint64_t>(extraData->size()));
     for (const auto& [sequence, data] : *extraData) {
-        hasher.add(get<0>(data).dump());
-        hasher.add(get<1>(data));
+        hasher.add(std::get<0>(data).dump());
+        hasher.add(std::get<1>(data));
     }
 
     return hasher.value();
 }
 
-void PatcherMeshShaderTruePBR::loadOptions(unordered_map<string,
-                                                         string>& optionsStr)
+void PatcherMeshShaderTruePBR::loadOptions(std::unordered_map<std::string,
+                                                              std::string>& optionsStr)
 {
     for (const auto& [option, value] : optionsStr) {
-        if (option == "no_path_check") {
+        if (option == "no_path_check")
             s_checkPaths = false;
-        }
 
-        if (option == "print_nonexistent_paths") {
+        if (option == "print_nonexistent_paths")
             s_printNonExistentPaths = true;
-        }
     }
 }
 
 void PatcherMeshShaderTruePBR::loadOptions(const bool& checkPaths,
-                                           const bool& printNonExistentPaths)
+                                           const bool& shouldPrintNonExistentPaths)
 {
     s_checkPaths = checkPaths;
-    s_printNonExistentPaths = printNonExistentPaths;
+    s_printNonExistentPaths = shouldPrintNonExistentPaths;
 }
 
-auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
+bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
                                              nlohmann::json& truePBRData,
                                              const std::wstring& matchedPath,
-                                             PGTypes::TextureSet& newSlots) -> bool
+                                             PGTypes::TextureSet& newSlots)
 {
-    bool changed = false;
+    bool isChanged = false;
 
-    // Prep
-    auto* nifShader = getNIF()->GetShader(nifShape);
-    auto* const nifShaderBSLSP = dynamic_cast<BSLightingShaderProperty*>(nifShader);
+    // Prep.
+    auto* nifShader = nif()->GetShader(nifShape);
+    auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
 
-    // "delete" attribute
+    // "delete" attribute.
     if (truePBRData.contains("delete") && truePBRData["delete"].is_boolean() && truePBRData["delete"]) {
-        getNIF()->DeleteShape(nifShape);
-        changed = true;
-        return changed;
+        nif()->DeleteShape(nifShape);
+        isChanged = true;
+        return isChanged;
     }
 
-    // "smooth_angle" attribute
+    // "smooth_angle" attribute.
     if (truePBRData.contains("smooth_angle") && truePBRData["smooth_angle"].is_number()) {
-        getNIF()->CalcNormalsForShape(nifShape, true, true, truePBRData["smooth_angle"]);
-        getNIF()->CalcTangentsForShape(nifShape);
-        changed = true;
+        nif()->CalcNormalsForShape(nifShape, true, true, truePBRData["smooth_angle"]);
+        nif()->CalcTangentsForShape(nifShape);
+        isChanged = true;
     }
 
-    // "auto_uv" attribute
+    // "auto_uv" attribute.
     if (truePBRData.contains("auto_uv") && truePBRData["auto_uv"].is_number()) {
-        vector<Triangle> tris;
+        std::vector<nifly::Triangle> tris;
         nifShape->GetTriangles(tris);
-        auto newUVScale = autoUVScale(getNIF()->GetUvsForShape(nifShape), getNIF()->GetVertsForShape(nifShape), tris)
+        const auto newUVScale = autoUVScale(nif()->GetUvsForShape(nifShape), nif()->GetVertsForShape(nifShape), tris)
             / truePBRData["auto_uv"];
-        changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
+        isChanged |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
     }
 
-    // "vertex_colors" attribute
+    // "vertex_colors" attribute.
     if (truePBRData.contains("vertex_colors") && truePBRData["vertex_colors"].is_boolean()) {
-        auto newVertexColors = truePBRData["vertex_colors"].get<bool>();
+        const auto newVertexColors = truePBRData["vertex_colors"].get<bool>();
         if (nifShape->HasVertexColors() != newVertexColors) {
             nifShape->SetVertexColors(newVertexColors);
-            changed = true;
+            isChanged = true;
         }
 
         if (nifShader->HasVertexColors() != newVertexColors) {
             nifShader->SetVertexColors(newVertexColors);
-            changed = true;
+            isChanged = true;
         }
     }
 
-    // "vertex_color_lum_mult" and "vertex_color_sat_mult" attribute
+    // "vertex_color_lum_mult" and "vertex_color_sat_mult" attribute.
     if (nifShape->HasVertexColors()
         && ((truePBRData.contains("vertex_color_lum_mult") && truePBRData["vertex_color_lum_mult"].is_number())
             || truePBRData.contains("vertex_color_sat_mult") && truePBRData["vertex_color_sat_mult"].is_number())) {
-        vector<BSVertexData>* vertData = nullptr;
-        if (dynamic_cast<nifly::BSTriShape*>(nifShape) != nullptr) {
+        std::vector<nifly::BSVertexData>* vertData = nullptr;
+        if (dynamic_cast<nifly::BSTriShape*>(nifShape))
             vertData = &dynamic_cast<nifly::BSTriShape*>(nifShape)->vertData;
-        } else if (dynamic_cast<nifly::BSMeshLODTriShape*>(nifShape) != nullptr) {
+        else if (dynamic_cast<nifly::BSMeshLODTriShape*>(nifShape))
             vertData = &dynamic_cast<nifly::BSMeshLODTriShape*>(nifShape)->vertData;
-        }
 
-        if (vertData != nullptr) {
+        if (vertData) {
             for (auto& vert : *vertData) {
-                // Convert to HSL and multiply luminance then convert back
+                // Convert to HSL and multiply luminance then convert back.
                 boost::gil::rgb8_pixel_t vertRGB(vert.colorData[0], vert.colorData[1], vert.colorData[2]);
                 boost::gil::hsl32f_pixel_t vertHSL;
                 boost::gil::color_convert(vertRGB, vertHSL);
@@ -732,196 +714,195 @@ auto PatcherMeshShaderTruePBR::applyOnePatch(NiShape* nifShape,
                     newSVal = vertHSL[1] * newVertexColorMult;
                 }
 
-                vertHSL[1] = clamp(newSVal, 0.0F, 1.0F);
-                vertHSL[2] = clamp(newLVal, 0.0F, 1.0F);
+                vertHSL[1] = std::clamp(newSVal, 0.0F, 1.0F);
+                vertHSL[2] = std::clamp(newLVal, 0.0F, 1.0F);
                 boost::gil::color_convert(vertHSL, vertRGB);
 
                 if (vert.colorData[0] != vertRGB[0]) {
                     vert.colorData[0] = vertRGB[0];
-                    changed = true;
+                    isChanged = true;
                 }
 
                 if (vert.colorData[1] != vertRGB[1]) {
                     vert.colorData[1] = vertRGB[1];
-                    changed = true;
+                    isChanged = true;
                 }
 
                 if (vert.colorData[2] != vertRGB[2]) {
                     vert.colorData[2] = vertRGB[2];
-                    changed = true;
+                    isChanged = true;
                 }
             }
         }
     }
 
-    // "zbuffer_write" attribute
+    // "zbuffer_write" attribute.
     if (truePBRData.contains("zbuffer_write") && truePBRData["zbuffer_write"].is_boolean()) {
-        auto newZBufferWrite = truePBRData["zbuffer_write"].get<bool>();
-        changed |= PGNIFUtil::configureShaderFlag(nifShaderBSLSP, SLSF2_ZBUFFER_WRITE, newZBufferWrite);
+        const auto newZBufferWrite = truePBRData["zbuffer_write"].get<bool>();
+        isChanged |= PGNIFUtil::configureShaderFlag(nifShaderBSLSP, nifly::SLSF2_ZBUFFER_WRITE, newZBufferWrite);
     }
 
-    // "specular_level" attribute
+    // "specular_level" attribute.
     if (truePBRData.contains("specular_level") && truePBRData["specular_level"].is_number()) {
-        auto newSpecularLevel = truePBRData["specular_level"].get<float>();
+        const auto newSpecularLevel = truePBRData["specular_level"].get<float>();
         if (nifShader->GetGlossiness() != newSpecularLevel) {
             nifShader->SetGlossiness(newSpecularLevel);
-            changed = true;
+            isChanged = true;
         }
     }
 
-    // "subsurface_color" attribute
+    // "subsurface_color" attribute.
     if (truePBRData.contains("subsurface_color") && truePBRData["subsurface_color"].is_array()
         && truePBRData["subsurface_color"].size() >= 3 && truePBRData["subsurface_color"][0].is_number()
         && truePBRData["subsurface_color"][1].is_number() && truePBRData["subsurface_color"][2].is_number()) {
-        auto newSpecularColor = Vector3(truePBRData["subsurface_color"][0].get<float>(),
-                                        truePBRData["subsurface_color"][1].get<float>(),
-                                        truePBRData["subsurface_color"][2].get<float>());
+        const auto newSpecularColor = nifly::Vector3(truePBRData["subsurface_color"][0].get<float>(),
+                                                     truePBRData["subsurface_color"][1].get<float>(),
+                                                     truePBRData["subsurface_color"][2].get<float>());
         if (nifShader->GetSpecularColor() != newSpecularColor) {
             nifShader->SetSpecularColor(newSpecularColor);
-            changed = true;
+            isChanged = true;
         }
     }
 
-    // "roughness_scale" attribute
+    // "roughness_scale" attribute.
     if (truePBRData.contains("roughness_scale") && truePBRData["roughness_scale"].is_number()) {
-        auto newRoughnessScale = truePBRData["roughness_scale"].get<float>();
+        const auto newRoughnessScale = truePBRData["roughness_scale"].get<float>();
         if (nifShader->GetSpecularStrength() != newRoughnessScale) {
             nifShader->SetSpecularStrength(newRoughnessScale);
-            changed = true;
+            isChanged = true;
         }
     }
 
-    // "subsurface_opacity" attribute
+    // "subsurface_opacity" attribute.
     if (truePBRData.contains("subsurface_opacity") && truePBRData["subsurface_opacity"].is_number()) {
-        auto newSubsurfaceOpacity = truePBRData["subsurface_opacity"].get<float>();
-        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newSubsurfaceOpacity);
+        const auto newSubsurfaceOpacity = truePBRData["subsurface_opacity"].get<float>();
+        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newSubsurfaceOpacity);
     }
 
-    // "displacement_scale" attribute
+    // "displacement_scale" attribute.
     if (truePBRData.contains("displacement_scale") && truePBRData["displacement_scale"].is_number()) {
-        auto newDisplacementScale = truePBRData["displacement_scale"].get<float>();
-        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
+        const auto newDisplacementScale = truePBRData["displacement_scale"].get<float>();
+        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
     }
 
-    // "emmissive_scale" attribute
+    // "emmissive_scale" attribute.
     if (truePBRData.contains("emissive_scale") && truePBRData["emissive_scale"].is_number()) {
-        auto newEmissiveScale = truePBRData["emissive_scale"].get<float>();
+        const auto newEmissiveScale = truePBRData["emissive_scale"].get<float>();
         if (nifShader->GetEmissiveMultiple() != newEmissiveScale) {
             nifShader->SetEmissiveMultiple(newEmissiveScale);
-            changed = true;
+            isChanged = true;
         }
     }
 
-    // "emmissive_color" attribute
+    // "emmissive_color" attribute.
     if (truePBRData.contains("emissive_color") && truePBRData["emissive_color"].is_array()
         && truePBRData["emissive_color"].size() >= 4 && truePBRData["emissive_color"][0].is_number()
         && truePBRData["emissive_color"][1].is_number() && truePBRData["emissive_color"][2].is_number()
         && truePBRData["emissive_color"][3].is_number()) {
-        auto newEmissiveColor = Color4(truePBRData["emissive_color"][0].get<float>(),
-                                       truePBRData["emissive_color"][1].get<float>(),
-                                       truePBRData["emissive_color"][2].get<float>(),
-                                       truePBRData["emissive_color"][3].get<float>());
+        const auto newEmissiveColor = nifly::Color4(truePBRData["emissive_color"][0].get<float>(),
+                                                    truePBRData["emissive_color"][1].get<float>(),
+                                                    truePBRData["emissive_color"][2].get<float>(),
+                                                    truePBRData["emissive_color"][3].get<float>());
         if (nifShader->GetEmissiveColor() != newEmissiveColor) {
             nifShader->SetEmissiveColor(newEmissiveColor);
-            changed = true;
+            isChanged = true;
         }
     }
 
-    // "uv_scale" attribute
+    // "uv_scale" attribute.
     if (truePBRData.contains("uv_scale") && truePBRData["uv_scale"].is_number()) {
-        auto newUVScale = Vector2(truePBRData["uv_scale"].get<float>(), truePBRData["uv_scale"].get<float>());
-        changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
+        const auto newUVScale
+            = nifly::Vector2(truePBRData["uv_scale"].get<float>(), truePBRData["uv_scale"].get<float>());
+        isChanged |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->uvScale, newUVScale);
     }
 
-    // Enable PBR on the shape (always on, the legacy "pbr" JSON field is ignored)
-    changed |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
+    // Enable PBR on the shape (always on, the legacy "pbr" JSON field is ignored).
+    isChanged |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
 
-    return changed;
+    return isChanged;
 }
 
 void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
                                                   const nlohmann::json& truePBRData,
                                                   const std::wstring& matchedPath)
 {
-    // "lock_diffuse" attribute
+    // "lock_diffuse" attribute.
     if (!(truePBRData.contains("lock_diffuse") && truePBRData["lock_diffuse"].is_boolean()
           && truePBRData["lock_diffuse"].get<bool>())) {
-        auto newDiffuse = matchedPath + L".dds";
-        slots[static_cast<size_t>(PGEnums::TextureSlots::DIFFUSE)] = newDiffuse;
+        const auto newDiffuse = matchedPath + L".dds";
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Diffuse)] = newDiffuse;
     }
 
-    // "lock_normal" attribute
+    // "lock_normal" attribute.
     if (!(truePBRData.contains("lock_normal") && truePBRData["lock_normal"].is_boolean()
           && truePBRData["lock_normal"].get<bool>())) {
-        auto newNormal = matchedPath + L"_n.dds";
-        slots[static_cast<size_t>(PGEnums::TextureSlots::NORMAL)] = newNormal;
+        const auto newNormal = matchedPath + L"_n.dds";
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Normal)] = newNormal;
     }
 
-    // "emissive" attribute
+    // "emissive" attribute.
     if (truePBRData.contains("emissive") && truePBRData["emissive"].is_boolean()
         && !(truePBRData.contains("lock_emissive") && truePBRData["lock_emissive"].is_boolean()
              && truePBRData["lock_emissive"].get<bool>())) {
-        wstring newGlow;
-        if (truePBRData["emissive"].get<bool>()) {
+        std::wstring newGlow;
+        if (truePBRData["emissive"].get<bool>())
             newGlow = matchedPath + L"_g.dds";
-        }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::GLOW)] = newGlow;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Glow)] = newGlow;
     }
 
-    // "parallax" attribute
+    // "parallax" attribute.
     if (truePBRData.contains("parallax") && truePBRData["parallax"].is_boolean()
         && !(truePBRData.contains("lock_parallax") && truePBRData["lock_parallax"].is_boolean()
              && truePBRData["lock_parallax"].get<bool>())) {
-        wstring newParallax;
-        if (truePBRData["parallax"].get<bool>()) {
+        std::wstring newParallax;
+        if (truePBRData["parallax"].get<bool>())
             newParallax = matchedPath + L"_p.dds";
-        }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::PARALLAX)] = newParallax;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Parallax)] = newParallax;
     }
 
-    // "cubemap" attribute
+    // "cubemap" attribute.
     if (truePBRData.contains("cubemap") && truePBRData["cubemap"].is_string()
         && !(truePBRData.contains("lock_cubemap") && truePBRData["lock_cubemap"].is_boolean()
              && truePBRData["lock_cubemap"].get<bool>())) {
-        auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<string>());
-        slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = newCubemap;
+        const auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<std::string>());
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)] = newCubemap;
     } else {
-        slots[static_cast<size_t>(PGEnums::TextureSlots::CUBEMAP)] = L"";
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)] = L"";
     }
 
-    // "lock_rmaos" attribute
+    // "lock_rmaos" attribute.
     if (!(truePBRData.contains("lock_rmaos") && truePBRData["lock_rmaos"].is_boolean()
           && truePBRData["lock_rmaos"].get<bool>())) {
-        auto newRMAOS = matchedPath + L"_rmaos.dds";
-        slots[static_cast<size_t>(PGEnums::TextureSlots::ENVMASK)] = newRMAOS;
+        const auto newRMAOS = matchedPath + L"_rmaos.dds";
+        slots[static_cast<size_t>(PGEnums::TextureSlots::EnvMask)] = newRMAOS;
     }
 
-    // "lock_cnr" attribute
+    // "lock_cnr" attribute.
     if (!(truePBRData.contains("lock_cnr") && truePBRData["lock_cnr"].is_boolean()
           && truePBRData["lock_cnr"].get<bool>())) {
-        // "coat_normal" attribute
-        wstring newCNR;
+        // "coat_normal" attribute.
+        std::wstring newCNR;
         if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].is_boolean()
             && truePBRData["coat_normal"].get<bool>()) {
             newCNR = matchedPath + L"_cnr.dds";
         }
 
-        // Fuzz texture slot
+        // Fuzz texture slot.
         if (truePBRData.contains("fuzz") && truePBRData["fuzz"].is_object() && truePBRData["fuzz"].contains("texture")
             && truePBRData["fuzz"]["texture"].is_boolean() && truePBRData["fuzz"]["texture"].get<bool>()) {
             newCNR = matchedPath + L"_f.dds";
         }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::MULTILAYER)] = newCNR;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::MultiLayer)] = newCNR;
     }
 
-    // "lock_subsurface" attribute
+    // "lock_subsurface" attribute.
     if (!(truePBRData.contains("lock_subsurface") && truePBRData["lock_subsurface"].is_boolean()
           && truePBRData["lock_subsurface"].get<bool>())) {
-        // "subsurface_foliage" attribute
-        wstring newSubsurface;
+        // "subsurface_foliage" attribute.
+        std::wstring newSubsurface;
         if ((truePBRData.contains("subsurface_foliage") && truePBRData["subsurface_foliage"].is_boolean()
              && truePBRData["subsurface_foliage"].get<bool>())
             || (truePBRData.contains("subsurface") && truePBRData["subsurface"].is_boolean()
@@ -931,11 +912,11 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
             newSubsurface = matchedPath + L"_s.dds";
         }
 
-        slots[static_cast<size_t>(PGEnums::TextureSlots::BACKLIGHT)] = newSubsurface;
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Backlight)] = newSubsurface;
     }
 
-    // "SlotX" attributes
-    for (int i = 0; i < NUM_TEXTURE_SLOTS - 1; i++) {
+    // "SlotX" attributes.
+    for (int i = 0; i < numTextureSlots - 1; i++) {
         std::string slotName("slot");
         slotName += std::to_string(i + 1);
 
@@ -943,227 +924,220 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
             std::string newSlot = truePBRData[slotName].get<std::string>();
             StringUtil::toLowerASCIIFastInPlace(newSlot);
 
-            // Prepend "textures\\" if it's not already there
-            if (!newSlot.empty() && !newSlot.starts_with("textures\\")) {
+            // Prepend "textures\\" if it's not already there.
+            if (!newSlot.empty() && !newSlot.starts_with("textures\\"))
                 newSlot.insert(0, "textures\\");
-            }
 
             slots.at(i) = StringUtil::utf8toUTF16(newSlot);
         }
     }
 }
 
-auto PatcherMeshShaderTruePBR::enableTruePBROnShape(NiShader* nifShader,
-                                                    BSLightingShaderProperty* nifShaderBSLSP,
+bool PatcherMeshShaderTruePBR::enableTruePBROnShape(nifly::NiShader* nifShader,
+                                                    nifly::BSLightingShaderProperty* nifShaderBSLSP,
                                                     nlohmann::json& truePBRData,
-                                                    const wstring& matchedPath,
-                                                    PGTypes::TextureSet& newSlots) -> bool
+                                                    const std::wstring& matchedPath,
+                                                    PGTypes::TextureSet& newSlots)
 {
-    bool changed = false;
+    bool isChanged = false;
 
     applyOnePatchSlots(newSlots, truePBRData, matchedPath);
 
-    // "emissive" attribute
+    // "emissive" attribute.
     if (truePBRData.contains("emissive") && truePBRData["emissive"].is_boolean()) {
-        changed |= PGNIFUtil::configureShaderFlag(
-            nifShaderBSLSP, SLSF1_EXTERNAL_EMITTANCE, truePBRData["emissive"].get<bool>());
+        isChanged |= PGNIFUtil::configureShaderFlag(
+            nifShaderBSLSP, nifly::SLSF1_EXTERNAL_EMITTANCE, truePBRData["emissive"].get<bool>());
     }
 
-    // revert to default NIFShader type, remove flags used in other types
-    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_ENVIRONMENT_MAPPING);
-    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_HAIR_SOFT_LIGHTING);
-    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_PARALLAX);
-    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_GLOW_MAP);
-    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_FACEGEN_DETAIL_MAP);
+    // Revert to default NIFShader type, remove flags used in other types.
+    isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_ENVIRONMENT_MAPPING);
+    isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_HAIR_SOFT_LIGHTING);
+    isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_PARALLAX);
+    isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF2_GLOW_MAP);
+    isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_DETAIL_MAP);
 
-    // Enable PBR flag
-    changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_UNUSED01);
+    // Enable PBR flag.
+    isChanged |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01);
 
-    // Disable any unused flags that might cause issues
-    changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF1_EYE_ENVIRONMENT_MAPPING);
+    // Disable any unused flags that might cause issues.
+    isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_EYE_ENVIRONMENT_MAPPING);
 
-    // "subsurface" attribute
+    // "subsurface" attribute.
     if (truePBRData.contains("subsurface") && truePBRData["subsurface"].is_boolean()) {
-        changed |= PGNIFUtil::configureShaderFlag(
-            nifShaderBSLSP, SLSF2_RIM_LIGHTING, truePBRData["subsurface"].get<bool>());
+        isChanged |= PGNIFUtil::configureShaderFlag(
+            nifShaderBSLSP, nifly::SLSF2_RIM_LIGHTING, truePBRData["subsurface"].get<bool>());
     }
 
-    // "hair" attribute
-    if (truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>()) {
-        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
-    }
+    // "hair" attribute.
+    if (truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>())
+        isChanged |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_BACK_LIGHTING);
 
-    // "multilayer" attribute
+    // "multilayer" attribute.
     bool enableMultiLayer = false;
     if (truePBRData.contains("multilayer") && truePBRData["multilayer"].is_boolean()
         && truePBRData["multilayer"].get<bool>()) {
         enableMultiLayer = true;
 
-        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
-        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+        isChanged |= PGNIFUtil::setShaderType(nifShader, nifly::BSLSP_MULTILAYERPARALLAX);
+        isChanged |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_MULTI_LAYER_PARALLAX);
 
-        // "coat_color" attribute
+        // "coat_color" attribute.
         if (truePBRData.contains("coat_color") && truePBRData["coat_color"].size() >= 3
             && truePBRData["coat_color"][0].is_number() && truePBRData["coat_color"][1].is_number()
             && truePBRData["coat_color"][2].is_number()) {
-            auto newCoatColor = Vector3(truePBRData["coat_color"][0].get<float>(),
-                                        truePBRData["coat_color"][1].get<float>(),
-                                        truePBRData["coat_color"][2].get<float>());
+            const auto newCoatColor = nifly::Vector3(truePBRData["coat_color"][0].get<float>(),
+                                                     truePBRData["coat_color"][1].get<float>(),
+                                                     truePBRData["coat_color"][2].get<float>());
             if (nifShader->GetSpecularColor() != newCoatColor) {
                 nifShader->SetSpecularColor(newCoatColor);
-                changed = true;
+                isChanged = true;
             }
         }
 
-        // "coat_specular_level" attribute
+        // "coat_specular_level" attribute.
         if (truePBRData.contains("coat_specular_level") && truePBRData["coat_specular_level"].is_number()) {
-            auto newCoatSpecularLevel = truePBRData["coat_specular_level"].get<float>();
-            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, newCoatSpecularLevel);
+            const auto newCoatSpecularLevel = truePBRData["coat_specular_level"].get<float>();
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, newCoatSpecularLevel);
         }
 
-        // "coat_roughness" attribute
+        // "coat_roughness" attribute.
         if (truePBRData.contains("coat_roughness") && truePBRData["coat_roughness"].is_number()) {
-            auto newCoatRoughness = truePBRData["coat_roughness"].get<float>();
-            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, newCoatRoughness);
+            const auto newCoatRoughness = truePBRData["coat_roughness"].get<float>();
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, newCoatRoughness);
         }
 
-        // "coat_strength" attribute
+        // "coat_strength" attribute.
         if (truePBRData.contains("coat_strength") && truePBRData["coat_strength"].is_number()) {
-            auto newCoatStrength = truePBRData["coat_strength"].get<float>();
-            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newCoatStrength);
+            const auto newCoatStrength = truePBRData["coat_strength"].get<float>();
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newCoatStrength);
         }
 
-        // "coat_diffuse" attribute
+        // "coat_diffuse" attribute.
         if (truePBRData.contains("coat_diffuse") && truePBRData["coat_diffuse"].is_boolean()) {
-            changed |= PGNIFUtil::configureShaderFlag(
-                nifShaderBSLSP, SLSF2_EFFECT_LIGHTING, truePBRData["coat_diffuse"].get<bool>());
+            isChanged |= PGNIFUtil::configureShaderFlag(
+                nifShaderBSLSP, nifly::SLSF2_EFFECT_LIGHTING, truePBRData["coat_diffuse"].get<bool>());
         }
 
-        // "coat_parallax" attribute
+        // "coat_parallax" attribute.
         if (truePBRData.contains("coat_parallax") && truePBRData["coat_parallax"].is_boolean()) {
-            changed |= PGNIFUtil::configureShaderFlag(
-                nifShaderBSLSP, SLSF2_SOFT_LIGHTING, truePBRData["coat_parallax"].get<bool>());
+            isChanged |= PGNIFUtil::configureShaderFlag(
+                nifShaderBSLSP, nifly::SLSF2_SOFT_LIGHTING, truePBRData["coat_parallax"].get<bool>());
         }
 
-        // "coat_normal" attribute
+        // "coat_normal" attribute.
         if (truePBRData.contains("coat_normal") && truePBRData["coat_normal"].is_boolean()) {
-            changed |= PGNIFUtil::configureShaderFlag(
-                nifShaderBSLSP, SLSF2_BACK_LIGHTING, truePBRData["coat_normal"].get<bool>());
+            isChanged |= PGNIFUtil::configureShaderFlag(
+                nifShaderBSLSP, nifly::SLSF2_BACK_LIGHTING, truePBRData["coat_normal"].get<bool>());
         }
 
-        // "inner_uv_scale" attribute
+        // "inner_uv_scale" attribute.
         if (truePBRData.contains("inner_uv_scale") && truePBRData["inner_uv_scale"].is_number()) {
-            auto newInnerUVScale
-                = Vector2(truePBRData["inner_uv_scale"].get<float>(), truePBRData["inner_uv_scale"].get<float>());
-            changed |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->parallaxInnerLayerTextureScale, newInnerUVScale);
+            const auto newInnerUVScale = nifly::Vector2(truePBRData["inner_uv_scale"].get<float>(),
+                                                        truePBRData["inner_uv_scale"].get<float>());
+            isChanged |= PGNIFUtil::setShaderVec2(nifShaderBSLSP->parallaxInnerLayerTextureScale, newInnerUVScale);
         }
     } else if (truePBRData.contains("glint") && truePBRData["glint"].is_object()) {
-        // glint is enabled
+        // Glint is enabled.
         const auto& glintParams = truePBRData["glint"];
 
-        // Set shader type to MLP
-        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
-        // Enable Glint with FitSlope flag
-        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_FIT_SLOPE);
+        // Set shader type to MLP.
+        isChanged |= PGNIFUtil::setShaderType(nifShader, nifly::BSLSP_MULTILAYERPARALLAX);
+        // Enable Glint with FitSlope flag.
+        isChanged |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_FIT_SLOPE);
 
-        // Glint parameters
+        // Glint parameters.
         if (glintParams.contains("screen_space_scale") && glintParams["screen_space_scale"].is_number()) {
-            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness,
-                                                 glintParams["screen_space_scale"]);
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness,
+                                                   glintParams["screen_space_scale"]);
         }
 
         if (glintParams.contains("log_microfacet_density") && glintParams["log_microfacet_density"].is_number()) {
-            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale,
-                                                 glintParams["log_microfacet_density"]);
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale,
+                                                   glintParams["log_microfacet_density"]);
         }
 
         if (glintParams.contains("microfacet_roughness") && glintParams["microfacet_roughness"].is_number()) {
-            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u,
-                                                 glintParams["microfacet_roughness"]);
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u,
+                                                   glintParams["microfacet_roughness"]);
         }
 
         if (glintParams.contains("density_randomization") && glintParams["density_randomization"].is_number()) {
-            changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v,
-                                                 glintParams["density_randomization"]);
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v,
+                                                   glintParams["density_randomization"]);
         }
     } else if (truePBRData.contains("fuzz") && truePBRData["fuzz"].is_object()) {
-        // fuzz is enabled
+        // Fuzz is enabled.
         const auto& fuzzParams = truePBRData["fuzz"];
 
-        // Set shader type to MLP
-        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_MULTILAYERPARALLAX);
-        // Enable Fuzz with soft lighting flag
-        changed |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING);
+        // Set shader type to MLP.
+        isChanged |= PGNIFUtil::setShaderType(nifShader, nifly::BSLSP_MULTILAYERPARALLAX);
+        // Enable Fuzz with soft lighting flag.
+        isChanged |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_SOFT_LIGHTING);
 
-        // get color
-        auto fuzzColor = vector<float> {0.0F, 0.0F, 0.0F};
+        // Get color.
+        auto fuzzColor = std::vector<float> { 0, 0, 0 };
         if (fuzzParams.contains("color") && fuzzParams["color"].is_array() && fuzzParams["color"].size() == 3
             && fuzzParams["color"][0].is_number() && fuzzParams["color"][1].is_number()
             && fuzzParams["color"][2].is_number()) {
-            fuzzColor = fuzzParams["color"].get<vector<float>>();
+            fuzzColor = fuzzParams["color"].get<std::vector<float>>();
         }
 
-        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, fuzzColor[0]);
-        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, fuzzColor[1]);
-        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u, fuzzColor[2]);
+        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerThickness, fuzzColor[0]);
+        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxRefractionScale, fuzzColor[1]);
+        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.u, fuzzColor[2]);
 
-        // get weight
-        auto fuzzWeight = 1.0F;
-        if (fuzzParams.contains("weight") && fuzzParams["weight"].is_number()) {
+        // Get weight.
+        float fuzzWeight = 1;
+        if (fuzzParams.contains("weight") && fuzzParams["weight"].is_number())
             fuzzWeight = fuzzParams["weight"].get<float>();
-        }
 
-        changed |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v, fuzzWeight);
+        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->parallaxInnerLayerTextureScale.v, fuzzWeight);
     } else {
-        // Revert to default NIFShader type
-        changed |= PGNIFUtil::setShaderType(nifShader, BSLSP_DEFAULT);
+        // Revert to default NIFShader type.
+        isChanged |= PGNIFUtil::setShaderType(nifShader, nifly::BSLSP_DEFAULT);
     }
 
     if (!enableMultiLayer) {
-        // Clear multilayer flags
-        changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_MULTI_LAYER_PARALLAX);
+        // Clear multilayer flags.
+        isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF2_MULTI_LAYER_PARALLAX);
 
-        if (!(truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>())) {
-            changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_BACK_LIGHTING);
-        }
+        if (!(truePBRData.contains("hair") && truePBRData["hair"].is_boolean() && truePBRData["hair"].get<bool>()))
+            isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF2_BACK_LIGHTING);
 
-        if (!truePBRData.contains("fuzz") || !truePBRData["fuzz"].is_object()) {
-            changed |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, SLSF2_SOFT_LIGHTING);
-        }
+        if (!truePBRData.contains("fuzz") || !truePBRData["fuzz"].is_object())
+            isChanged |= PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF2_SOFT_LIGHTING);
     }
 
-    return changed;
+    return isChanged;
 }
 
 //
-// Helpers
+// Helpers.
 //
 
-auto PatcherMeshShaderTruePBR::abs2(Vector2 v) -> Vector2 { return {abs(v.u), abs(v.v)}; }
+nifly::Vector2 PatcherMeshShaderTruePBR::abs2(nifly::Vector2 v) { return { abs(v.u), abs(v.v) }; }
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
-auto PatcherMeshShaderTruePBR::autoUVScale(const vector<Vector2>* uvs,
-                                           const vector<Vector3>* verts,
-                                           vector<Triangle>& tris) -> Vector2
+nifly::Vector2 PatcherMeshShaderTruePBR::autoUVScale(const std::vector<nifly::Vector2>* uvs,
+                                                     const std::vector<nifly::Vector3>* verts,
+                                                     std::vector<nifly::Triangle>& tris)
 {
-    Vector2 scale;
-    for (const Triangle& t : tris) {
-        auto v1 = (*verts)[t.p1];
-        auto v2 = (*verts)[t.p2];
-        auto v3 = (*verts)[t.p3];
-        auto uv1 = (*uvs)[t.p1];
-        auto uv2 = (*uvs)[t.p2];
-        auto uv3 = (*uvs)[t.p3];
+    nifly::Vector2 scale;
+    for (const nifly::Triangle& t : tris) {
+        const auto v1 = (*verts)[t.p1];
+        const auto v2 = (*verts)[t.p2];
+        const auto v3 = (*verts)[t.p3];
+        const auto uv1 = (*uvs)[t.p1];
+        const auto uv2 = (*uvs)[t.p2];
+        const auto uv3 = (*uvs)[t.p3];
 
-        auto s = (abs2(uv2 - uv1) + abs2(uv3 - uv1)) / ((v2 - v1).length() + (v3 - v1).length());
-        scale += Vector2(1.0F / s.u, 1.0F / s.v);
+        const auto s = (abs2(uv2 - uv1) + abs2(uv3 - uv1)) / ((v2 - v1).length() + (v3 - v1).length());
+        scale += nifly::Vector2(1 / s.u, 1 / s.v);
     }
 
     scale *= 10.0 / 4.0;
     scale /= static_cast<float>(tris.size());
-    scale.u = min(scale.u, scale.v);
-    scale.v = min(scale.u, scale.v);
+    scale.u = std::min(scale.u, scale.v);
+    scale.v = std::min(scale.u, scale.v);
 
     return scale;
 }
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers)

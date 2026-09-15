@@ -8,8 +8,6 @@
 #include <string>
 #include <utility>
 
-using namespace std;
-
 PatcherMeshPre::PatcherMeshPre(std::filesystem::path nifPath,
                                nifly::NifFile* nif,
                                std::string patcherName)

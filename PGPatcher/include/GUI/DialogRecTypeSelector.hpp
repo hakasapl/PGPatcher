@@ -25,20 +25,20 @@ public:
      * @param parent Parent wxWindow, or nullptr for a top-level dialog.
      * @param title  Title text shown in the dialog's title bar.
      */
-    DialogRecTypeSelector(wxWindow* parent,
-                          const wxString& title = "Allowed Record Types");
+    explicit DialogRecTypeSelector(wxWindow* parent,
+                                   const wxString& title = "Allowed Record Types");
 
     /**
      * @brief Retrieve the set of record types that are currently checked.
      *
      * @return Unordered set of ModelRecordType values corresponding to checked list entries.
      */
-    [[nodiscard]] auto getSelectedRecordTypes() const -> std::unordered_set<PGPlugin::ModelRecordType>;
+    [[nodiscard]] std::unordered_set<PGPlugin::ModelRecordType> selectedRecordTypes() const;
 
     /**
      * @brief Populate the list with all available record types, checking those in the provided set.
      *
-     * Inserts every entry from PGPlugin::getAvailableRecTypeStrs() into the list and marks
+     * Inserts every entry from PGPlugin::availableRecTypeStrs() into the list and marks
      * each one checked if its corresponding ModelRecordType is present in selectedRecTypes.
      * Also resizes the dialog height to display all items without scrolling.
      *

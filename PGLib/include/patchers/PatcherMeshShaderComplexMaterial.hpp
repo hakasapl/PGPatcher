@@ -26,25 +26,25 @@ private:
     static std::shared_mutex s_metaCacheMutex; /** Mutex for material meta cache */
     static std::unordered_map<std::filesystem::path, nlohmann::json> s_metaCache; /** Cache for material meta */
 
-    // Options
+    // Options.
     inline static bool s_disableDynCubemap = false;
 
 public:
-    static inline const std::filesystem::path s_DYNCUBEMAPPATH = "textures\\cubemaps\\dynamic1pxcubemap_black.dds";
+    static inline const std::filesystem::path s_dynCubemapPath = "textures\\cubemaps\\dynamic1pxcubemap_black.dds";
 
     /**
      * @brief Get the Factory object
      *
      * @return PatcherShader::PatcherShaderFactory factory object for this patcher
      */
-    static auto getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory;
+    static PatcherMeshShader::PatcherMeshShaderFactory factory();
 
     /**
      * @brief Get the shader type for this patcher (CM)
      *
      * @return PGEnums::ShapeShader CM shader type
      */
-    static auto getShaderType() -> PGEnums::ShapeShader;
+    static PGEnums::ShapeShader shaderType();
 
     /**
      * @brief Load options for this patcher from a map of option strings
@@ -77,9 +77,9 @@ public:
      * @return true Shape can accomodate CM
      * @return false Shape cannot accomodate CM
      */
-    auto canApply(nifly::NiShape& nifShape,
-                  bool singlepassMATO,
-                  const PGPlugin::ModelRecordType& modelRecordType) -> bool override;
+    bool canApply(nifly::NiShape& nifShape,
+                  bool isSinglepassMATO,
+                  const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
      * @brief Check if shape can accomodate CM shader based on texture slots only
@@ -89,8 +89,8 @@ public:
      * @return true Match found
      * @return false No match found
      */
-    auto shouldApply(nifly::NiShape& nifShape,
-                     std::vector<PatcherMatch>& matches) -> bool override;
+    bool shouldApply(nifly::NiShape& nifShape,
+                     std::vector<PatcherMatch>& matches) override;
 
     /**
      * @brief Check if slots can accomodate CM shader
@@ -100,8 +100,8 @@ public:
      * @return true Match found
      * @return false No match found
      */
-    auto shouldApply(const PGTypes::TextureSet& oldSlots,
-                     std::vector<PatcherMatch>& matches) -> bool override;
+    bool shouldApply(const PGTypes::TextureSet& oldSlots,
+                     std::vector<PatcherMatch>& matches) override;
 
     /**
      * @brief Apply the CM shader to the shape
@@ -135,8 +135,8 @@ public:
     /**
      * @brief Hash of the material meta JSON attached to a match
      */
-    [[nodiscard]] auto getMatchExtraDataHash(const PatcherMatch& match) const -> uint64_t override;
+    [[nodiscard]] uint64_t matchExtraDataHash(const PatcherMatch& match) const override;
 
 private:
-    static auto getMaterialMeta(const std::filesystem::path& envMaskPath) -> nlohmann::json;
+    static nlohmann::json materialMeta(const std::filesystem::path& envMaskPath);
 };

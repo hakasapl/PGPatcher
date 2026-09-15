@@ -16,10 +16,10 @@
 class TaskTracker {
 public:
     /** @brief Possible outcomes for an individual job. */
-    enum class Result : uint8_t { SUCCESS, SUCCESS_WITH_WARNINGS, FAILURE };
+    enum class Result : uint8_t { Success, SuccessWithWarnings, Failure };
 
 private:
-    static constexpr int FULL_PERCENTAGE = 100;
+    static constexpr int fullPercentage = 100;
 
     int m_progressPrintModulo;
 
@@ -28,15 +28,15 @@ private:
     size_t m_lastPerc = 0;
     std::mutex m_numJobsCompletedMutex;
 
-    size_t m_totalRanJobs;
+    size_t m_totalRanJobs { 0 };
     std::function<void(size_t, size_t)> m_callbackFunc;
 
     std::unordered_map<Result, size_t> m_numJobsCompleted;
 
-    std::unordered_map<Result, std::string> m_ResultStr = {
-        {Result::SUCCESS, "COMPLETED"},
-        {Result::SUCCESS_WITH_WARNINGS, "COMPLETED WITH WARNINGS"},
-        {Result::FAILURE, "FAILED"},
+    std::unordered_map<Result, std::string> m_resultStr = {
+        { Result::Success, "COMPLETED" },
+        { Result::SuccessWithWarnings, "COMPLETED WITH WARNINGS" },
+        { Result::Failure, "FAILED" },
     };
 
 public:
@@ -73,7 +73,7 @@ public:
      *
      * @return true if the number of completed jobs equals totalJobs, false otherwise.
      */
-    [[nodiscard]] auto isCompleted() -> bool;
+    [[nodiscard]] bool isCompleted();
 
     /**
      * @brief Escalates result to currentResult if it is more severe, capped at threshold.
@@ -87,11 +87,11 @@ public:
      */
     static void updateResult(Result& result,
                              const Result& currentResult,
-                             const Result& threshold = Result::FAILURE);
+                             const Result& threshold = Result::Failure);
 
 private:
     void initJobStatus();
     void printJobStatus(bool force = false);
     void printJobSummary();
-    [[nodiscard]] auto getCompletedJobs() -> size_t;
+    [[nodiscard]] size_t completedJobs();
 };

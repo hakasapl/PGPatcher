@@ -18,7 +18,7 @@ class PatcherTextureHookConvertToCM : public PatcherTextureHook {
 private:
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* SHADER_NAME = "ParallaxToCM.hlsl";
+    static constexpr const char* shaderName = "ParallaxToCM.hlsl";
 
     static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
@@ -39,7 +39,7 @@ public:
      * @param texPath Path to the parallax texture to check.
      * @return true if the texture is in the process list; false otherwise.
      */
-    static auto isInProcessList(const std::filesystem::path& texPath) -> bool;
+    static bool isInProcessList(const std::filesystem::path& texPath);
 
     /**
      * @brief Computes the output filename for the generated Complex Material texture.
@@ -47,7 +47,7 @@ public:
      * @param texPath Path to the source parallax texture.
      * @return Filesystem path with the "_m.dds" suffix for the converted texture.
      */
-    static auto getOutputFilename(const std::filesystem::path& texPath) -> std::filesystem::path;
+    static std::filesystem::path outputFilename(const std::filesystem::path& texPath);
 
     /**
      * @brief Re-applies the texture map side effects of a previously generated output that is being reused
@@ -62,7 +62,7 @@ public:
      *
      * @return true if the shader was successfully initialized; false otherwise.
      */
-    static auto initShader() -> bool;
+    static bool initShader();
 
     /**
      * @brief Constructs a PatcherTextureHookConvertToCM instance for the given texture.
@@ -78,5 +78,5 @@ public:
      *
      * @return true if the patch was successfully applied; false otherwise.
      */
-    auto applyPatch() -> bool override;
+    bool applyPatch() override;
 };

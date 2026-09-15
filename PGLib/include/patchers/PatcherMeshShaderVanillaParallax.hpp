@@ -26,14 +26,14 @@ public:
      *
      * @return PatcherShader::PatcherShaderFactory Factory object
      */
-    static auto getFactory() -> PatcherMeshShader::PatcherMeshShaderFactory;
+    static PatcherMeshShader::PatcherMeshShaderFactory factory();
 
     /**
      * @brief Get the Shader Type for this patcher (Parallax)
      *
      * @return PGEnums::ShapeShader Parallax
      */
-    static auto getShaderType() -> PGEnums::ShapeShader;
+    static PGEnums::ShapeShader shaderType();
 
     /**
      * @brief Construct a new Patcher Vanilla Parallax object
@@ -51,9 +51,9 @@ public:
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
-    auto canApply(nifly::NiShape& nifShape,
-                  bool singlepassMATO,
-                  const PGPlugin::ModelRecordType& modelRecordType) -> bool override;
+    bool canApply(nifly::NiShape& nifShape,
+                  bool isSinglepassMATO,
+                  const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
      * @brief Check if a shape can be patched by this patcher (with slots)
@@ -63,8 +63,8 @@ public:
      * @return true Found matches
      * @return false No matches found
      */
-    auto shouldApply(nifly::NiShape& nifShape,
-                     std::vector<PatcherMatch>& matches) -> bool override;
+    bool shouldApply(nifly::NiShape& nifShape,
+                     std::vector<PatcherMatch>& matches) override;
 
     /**
      * @brief Check if slots can accomodate parallax
@@ -74,8 +74,8 @@ public:
      * @return true Found matches
      * @return false No matches found
      */
-    auto shouldApply(const PGTypes::TextureSet& oldSlots,
-                     std::vector<PatcherMatch>& matches) -> bool override;
+    bool shouldApply(const PGTypes::TextureSet& oldSlots,
+                     std::vector<PatcherMatch>& matches) override;
 
     /**
      * @brief Apply a match to a shape for parallax

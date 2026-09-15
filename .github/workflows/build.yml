@@ -32,6 +32,47 @@ jobs:
         run: |
           ./buildRelease.ps1 -NoZip
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+
+      - name: Restore clang-tidy
+        id: clang-tidy-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: clang-tidy
+          key: clang-tidy-${{ hashFiles('scripts/clang-tidy-version.txt') }}
+
+      - name: Install clang-tidy
+        if: steps.clang-tidy-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 15
+        run: |
+          $version = (Get-Content scripts/clang-tidy-version.txt -Raw).Trim()
+          $package = "clang+llvm-$version-x86_64-pc-windows-msvc"
+          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/$package.tar.zst"
+          Write-Host "Downloading $url"
+          curl.exe -fsSL --retry 5 --retry-all-errors -o llvm.tar.zst $url
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Write-Host "Extracting clang-tidy and its builtin headers from $([int]((Get-Item llvm.tar.zst).Length / 1MB)) MB"
+          New-Item -ItemType Directory clang-tidy | Out-Null
+          # GNU tar from Git for Windows, streaming through the zstd on PATH; the rest of the 4 GB package is not needed.
+          & "$env:ProgramFiles\Git\usr\bin\tar.exe" --zstd -xf llvm.tar.zst -C clang-tidy --strip-components=1 "$package/bin/clang-tidy.exe" "$package/lib/clang"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Remove-Item llvm.tar.zst
+          & clang-tidy\bin\clang-tidy.exe --version
+
+      - name: Save clang-tidy
+        if: steps.clang-tidy-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: clang-tidy
+          key: ${{ steps.clang-tidy-cache.outputs.cache-primary-key }}
+
+      - name: Run clang-tidy
+        timeout-minutes: 45
+        run: |
+          $env:PATH = "$PWD\clang-tidy\bin;$env:PATH"
+          python scripts/run_clang_tidy.py
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:

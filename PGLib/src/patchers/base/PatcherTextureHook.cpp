@@ -8,8 +8,6 @@
 #include <string>
 #include <utility>
 
-using namespace std;
-
 PatcherTextureHook::PatcherTextureHook(std::filesystem::path texPath,
                                        DirectX::ScratchImage* tex,
                                        std::string patcherName)

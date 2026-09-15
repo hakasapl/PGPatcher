@@ -17,7 +17,7 @@ namespace EnumStringHelper {
  *
  * @tparam Enum The enum type.
  */
-template <typename Enum> struct EnumStringEntry {
+template<typename Enum> struct EnumStringEntry {
     Enum value;
     std::string_view name;
 };
@@ -32,14 +32,14 @@ template <typename Enum> struct EnumStringEntry {
  * @param defaultValue Value returned when no match is found.
  * @return The matching enum value, or defaultValue if the string is not found.
  */
-template <typename Enum,
-          size_t N>
-constexpr auto enumFromString(std::string_view str,
+template<typename Enum,
+         size_t N>
+constexpr Enum enumFromString(std::string_view str,
                               const std::array<EnumStringEntry<Enum>,
                                                N>& table,
-                              Enum defaultValue) -> Enum
+                              Enum defaultValue)
 {
-    auto it = std::ranges::find(table, str, &EnumStringEntry<Enum>::name);
+    const auto it = std::ranges::find(table, str, &EnumStringEntry<Enum>::name);
     return (it != table.end()) ? it->value : defaultValue;
 }
 
@@ -53,14 +53,14 @@ constexpr auto enumFromString(std::string_view str,
  * @param defaultValue String returned when no match is found.
  * @return The string name corresponding to value, or defaultValue if not found.
  */
-template <typename Enum,
-          size_t N>
-constexpr auto stringFromEnum(Enum value,
-                              const std::array<EnumStringEntry<Enum>,
-                                               N>& table,
-                              std::string_view defaultValue) -> std::string_view
+template<typename Enum,
+         size_t N>
+constexpr std::string_view stringFromEnum(Enum value,
+                                          const std::array<EnumStringEntry<Enum>,
+                                                           N>& table,
+                                          std::string_view defaultValue)
 {
-    auto it = std::ranges::find(table, value, &EnumStringEntry<Enum>::value);
+    const auto it = std::ranges::find(table, value, &EnumStringEntry<Enum>::value);
     return (it != table.end()) ? it->name : defaultValue;
 }
 
@@ -72,17 +72,16 @@ constexpr auto stringFromEnum(Enum value,
  * @param table Array of EnumStringEntry mappings.
  * @return Vector containing every name string from the table, in order.
  */
-template <typename Enum,
-          size_t N>
-auto allEnumStrings(const std::array<EnumStringEntry<Enum>,
-                                     N>& table) -> std::vector<std::string>
+template<typename Enum,
+         size_t N>
+std::vector<std::string> allEnumStrings(const std::array<EnumStringEntry<Enum>,
+                                                         N>& table)
 {
     std::vector<std::string> result;
     result.reserve(N);
 
-    for (const auto& e : table) {
+    for (const auto& e : table)
         result.emplace_back(e.name);
-    }
 
     return result;
 }

@@ -21,13 +21,13 @@ class PGD3D {
 private:
     std::mutex m_d3dMutex;
 
-    static constexpr unsigned NUM_GPU_THREADS = 16;
-    static constexpr unsigned GPU_BUFFER_SIZE_MULTIPLE = 16;
-    static constexpr unsigned MAX_CHANNEL_VALUE = 255;
+    static constexpr unsigned numGPUThreads = 16;
+    static constexpr unsigned gpuBufferSizeMultiple = 16;
+    static constexpr unsigned maxChannelValue = 255;
 
     std::filesystem::path m_shaderPath;
 
-    // GPU objects
+    // GPU objects.
     Microsoft::WRL::ComPtr<ID3D11Device> m_ptrDevice; // GPU device
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_ptrContext; // GPU context
 
@@ -36,12 +36,12 @@ private:
     std::unordered_map<std::filesystem::path, DirectX::TexMetadata> m_ddsMetaDataCache;
     std::shared_mutex m_ddsMetaDataMutex;
 
-    // Global shader storage
+    // Global shader storage.
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> m_shaderCountAlphaValues;
 
 public:
     //
-    // Static Helpers
+    // Static Helpers.
     //
 
     /**
@@ -50,7 +50,7 @@ public:
      * @param hr HRESULT
      * @return std::wstring error message
      */
-    static auto getHRESULTErrorMessage(HRESULT hr) -> std::wstring;
+    static std::wstring hresultErrorMessage(HRESULT hr);
 
     /**
      * @brief Get the DXGI_FORMAT from a string
@@ -58,10 +58,10 @@ public:
      * @param format string representation of the DXGI_FORMAT
      * @return DXGI_FORMAT DXGI_FORMAT on success, DXGI_FORMAT_UNKNOWN on failure
      */
-    static auto getDXGIFormatFromString(const std::string& format) -> DXGI_FORMAT;
+    static DXGI_FORMAT dxgiFormatFromString(const std::string& format);
 
     //
-    // Instance Functions
+    // Instance Functions.
     //
 
     /**
@@ -70,7 +70,7 @@ public:
      * @param pgd Pointer to the PGDirectory object
      * @param shaderPath Path to shader folder
      */
-    PGD3D(std::filesystem::path shaderPath);
+    explicit PGD3D(std::filesystem::path shaderPath);
 
     /**
      * @brief Initialize GPU. This must be called before any other GPU functions
@@ -78,7 +78,7 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto initGPU() -> bool;
+    bool initGPU();
 
     /**
      * @brief Initialize internal shaders
@@ -86,10 +86,10 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto initShaders() -> bool;
+    bool initShaders();
 
     //
-    // Global Runners (they use helpers below)
+    // Global Runners (they use helpers below).
     //
 
     /**
@@ -102,20 +102,20 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto applyShaderToTexture(const DirectX::ScratchImage& inTexture,
+    bool applyShaderToTexture(const DirectX::ScratchImage& inTexture,
                               DirectX::ScratchImage& outTexture,
                               const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
                               const DXGI_FORMAT& outFormat = DXGI_FORMAT_R8G8B8A8_UNORM,
                               const UINT& outWidth = 0,
                               const UINT& outHeight = 0,
                               const void* shaderParams = nullptr,
-                              const UINT& shaderParamsSize = 0) -> bool;
+                              const UINT& shaderParamsSize = 0);
 
-    auto checkIfCM(const std::filesystem::path& ddsPath,
+    bool checkIfCM(const std::filesystem::path& ddsPath,
                    bool& result,
                    bool& hasEnvMask,
                    bool& hasGlosiness,
-                   bool& hasMetalness) -> bool;
+                   bool& hasMetalness);
 
     /**
      * @brief Count the number of alpha values in a texture
@@ -125,12 +125,12 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto countPixelValues(const DirectX::ScratchImage& image,
+    bool countPixelValues(const DirectX::ScratchImage& image,
                           std::array<int,
-                                     4>& outData) -> bool;
+                                     4>& outData);
 
     //
-    // GPU Helpers
+    // GPU Helpers.
     //
 
     /**
@@ -141,8 +141,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto initShader(const std::filesystem::path& filename,
-                    Microsoft::WRL::ComPtr<ID3D11ComputeShader>& outShader) -> bool;
+    bool initShader(const std::filesystem::path& filename,
+                    Microsoft::WRL::ComPtr<ID3D11ComputeShader>& outShader);
 
     /**
      * @brief Create a Texture2D object on the GPU from a ScratchImage
@@ -152,8 +152,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createTexture2D(const DirectX::ScratchImage& texture,
-                         Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) -> bool;
+    bool createTexture2D(const DirectX::ScratchImage& texture,
+                         Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest);
 
     /**
      * @brief Create a Texture2D object on the GPU from an existing Texture2D
@@ -163,8 +163,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createTexture2D(Microsoft::WRL::ComPtr<ID3D11Texture2D>& existingTexture,
-                         Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) -> bool;
+    bool createTexture2D(Microsoft::WRL::ComPtr<ID3D11Texture2D>& existingTexture,
+                         Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest);
 
     /**
      * @brief Create a Texture2D object from a description
@@ -174,8 +174,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createTexture2D(D3D11_TEXTURE2D_DESC& desc,
-                         Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest) -> bool;
+    bool createTexture2D(D3D11_TEXTURE2D_DESC& desc,
+                         Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest);
 
     /**
      * @brief Create a Shader Resource View for a Texture2D
@@ -185,8 +185,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createShaderResourceView(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
-                                  Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& dest) -> bool;
+    bool createShaderResourceView(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
+                                  Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& dest);
 
     /**
      * @brief Create a Unordered Access View object from a Texture2D
@@ -196,8 +196,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createUnorderedAccessView(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
-                                   Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest) -> bool;
+    bool createUnorderedAccessView(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
+                                   Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest);
 
     /**
      * @brief Create a Unordered Access View object from a generic resource and description
@@ -208,9 +208,9 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createUnorderedAccessView(const Microsoft::WRL::ComPtr<ID3D11Resource>& gpuResource,
+    bool createUnorderedAccessView(const Microsoft::WRL::ComPtr<ID3D11Resource>& gpuResource,
                                    const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc,
-                                   Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest) -> bool;
+                                   Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>& dest);
 
     /**
      * @brief Create a Buffer object
@@ -221,9 +221,9 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createBuffer(const void* data,
+    bool createBuffer(const void* data,
                       D3D11_BUFFER_DESC& desc,
-                      Microsoft::WRL::ComPtr<ID3D11Buffer>& dest) -> bool;
+                      Microsoft::WRL::ComPtr<ID3D11Buffer>& dest);
 
     /**
      * @brief Create a Constant Buffer object
@@ -234,9 +234,9 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto createConstantBuffer(const void* data,
+    bool createConstantBuffer(const void* data,
                               const UINT& size,
-                              Microsoft::WRL::ComPtr<ID3D11Buffer>& dest) -> bool;
+                              Microsoft::WRL::ComPtr<ID3D11Buffer>& dest);
 
     /**
      * @brief dispatch a compute shader
@@ -251,13 +251,13 @@ public:
      * @return true on success
      * @return false on failure
      */
-    [[nodiscard]] auto blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
+    [[nodiscard]] bool blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
                                         const std::vector<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>>& srvs,
                                         const std::vector<Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>>& uavs,
                                         const std::vector<Microsoft::WRL::ComPtr<ID3D11Buffer>>& constantBuffers,
                                         UINT threadGroupCountX,
                                         UINT threadGroupCountY,
-                                        UINT threadGroupCountZ) -> bool;
+                                        UINT threadGroupCountZ);
 
     /**
      * @brief read back a texture from the GPU
@@ -267,8 +267,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    [[nodiscard]] auto readBack(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& gpuResource,
-                                DirectX::ScratchImage& outImage) -> bool;
+    [[nodiscard]] bool readBack(const Microsoft::WRL::ComPtr<ID3D11Texture2D>& gpuResource,
+                                DirectX::ScratchImage& outImage);
 
     /**
      * @brief read back a buffer from the GPU
@@ -279,9 +279,9 @@ public:
      * @return true on success
      * @return false on failure
      */
-    template <typename T>
-    [[nodiscard]] auto readBack(const Microsoft::WRL::ComPtr<ID3D11Buffer>& gpuResource,
-                                std::vector<T>& outData) -> bool;
+    template<typename T>
+    [[nodiscard]] bool readBack(const Microsoft::WRL::ComPtr<ID3D11Buffer>& gpuResource,
+                                std::vector<T>& outData);
 
     /**
      * @brief Copy a resource on the GPU
@@ -305,7 +305,7 @@ public:
     void flushGPU();
 
     //
-    // Texture helpers
+    // Texture helpers.
     //
 
     /**
@@ -316,8 +316,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto getDDS(const std::filesystem::path& ddsPath,
-                DirectX::ScratchImage& dds) const -> bool;
+    bool getDDS(const std::filesystem::path& ddsPath,
+                DirectX::ScratchImage& dds) const;
 
     /**
      * @brief Get the DDS metadata from a path
@@ -327,8 +327,8 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto getDDSMetadata(const std::filesystem::path& ddsPath,
-                        DirectX::TexMetadata& ddsMeta) -> bool;
+    bool getDDSMetadata(const std::filesystem::path& ddsPath,
+                        DirectX::TexMetadata& ddsMeta);
 
     /**
      * @brief Pre-populate the DDS metadata cache with known metadata (from a previous run) so the file is not read
@@ -344,8 +344,9 @@ public:
      *
      * @return std::unordered_map<std::filesystem::path, DirectX::TexMetadata> metadata by DDS path
      */
-    [[nodiscard]] auto getDDSMetadataCacheSnapshot() -> std::unordered_map<std::filesystem::path,
-                                                                           DirectX::TexMetadata>;
+    [[nodiscard]] std::unordered_map<std::filesystem::path,
+                                     DirectX::TexMetadata>
+    ddsMetadataCacheSnapshot();
 
     /**
      * @brief Check if aspect ratio between two textures matches
@@ -355,18 +356,18 @@ public:
      * @return true on success
      * @return false on failure
      */
-    auto checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
-                                   const std::filesystem::path& ddsPath2) -> bool;
+    bool checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
+                                   const std::filesystem::path& ddsPath2);
 
 private:
     //
-    // Private Helpers
+    // Private Helpers.
     //
-    static auto isPowerOfTwo(unsigned int x) -> bool;
+    static bool isPowerOfTwo(unsigned x);
 
-    static auto loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPixels,
-                                            const size_t& width,
-                                            const size_t& height,
-                                            const size_t& mips,
-                                            DXGI_FORMAT format) -> DirectX::ScratchImage;
+    static DirectX::ScratchImage loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPixels,
+                                                             const size_t& width,
+                                                             const size_t& height,
+                                                             const size_t& mips,
+                                                             DXGI_FORMAT format);
 };

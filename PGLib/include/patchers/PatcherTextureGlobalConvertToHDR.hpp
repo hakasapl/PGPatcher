@@ -17,12 +17,12 @@
  */
 class PatcherTextureGlobalConvertToHDR : public PatcherTextureGlobal {
 private:
-    static inline float s_luminanceMult = 1.0F;
+    static inline float s_luminanceMult = 1;
     static inline DXGI_FORMAT s_outputFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* SHADER_NAME = "ParallaxToCM.hlsl";
+    static constexpr const char* shaderName = "ParallaxToCM.hlsl";
 
     struct ShaderParams {
         float luminanceMult;
@@ -34,14 +34,14 @@ public:
      *
      * @return true if the shader was successfully initialized; false otherwise.
      */
-    static auto initShader() -> bool;
+    static bool initShader();
 
     /**
      * @brief Get the Factory object
      *
      * @return PatcherShaderTransform::PatcherShaderTransformFactory
      */
-    static auto getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory;
+    static PatcherTextureGlobal::PatcherGlobalFactory factory();
 
     /**
      * @brief Loads patcher options from a string key-value map.

@@ -19,20 +19,20 @@ public:
     /**
      * @brief Whether the language was changed (the GUI needs to be rebuilt to apply it)
      */
-    [[nodiscard]] auto languageChanged() const -> bool;
+    [[nodiscard]] bool languageChanged() const;
 
     /**
      * @brief Whether the theme was changed (the GUI needs to be rebuilt to apply it)
      */
-    [[nodiscard]] auto themeChanged() const -> bool;
+    [[nodiscard]] bool themeChanged() const;
 
 private:
     PGConfig& m_pgc;
     wxComboBox* m_languageCombo;
     wxRadioBox* m_themeRadioBox;
     std::vector<PGLocale::Language> m_languages;
-    bool m_languageChanged = false;
-    bool m_themeChanged = false;
+    bool m_didLanguageChange = false;
+    bool m_didThemeChange = false;
 
     void onOkButtonPressed(wxCommandEvent& event);
 };

@@ -3,11 +3,9 @@
 #include <string>
 #include <utility>
 
-using namespace std;
-
-Patcher::Patcher(string patcherName)
+Patcher::Patcher(std::string patcherName)
     : m_patcherName(std::move(patcherName))
 {
 }
 
-auto Patcher::getPatcherName() const -> string { return m_patcherName; }
+std::string Patcher::patcherName() const { return m_patcherName; }

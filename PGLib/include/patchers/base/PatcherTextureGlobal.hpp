@@ -15,20 +15,20 @@
  */
 class PatcherTextureGlobal : public PatcherTexture {
 public:
-    // type definitions
+    // Type definitions.
     using PatcherGlobalFactory
         = std::function<std::unique_ptr<PatcherTextureGlobal>(std::filesystem::path, DirectX::ScratchImage*)>;
     using PatcherGlobalObject = std::unique_ptr<PatcherTextureGlobal>;
 
-    // Constructors
+    // Constructors.
     PatcherTextureGlobal(std::filesystem::path texPath,
                          DirectX::ScratchImage* tex,
                          std::string patcherName);
     virtual ~PatcherTextureGlobal() = default;
     PatcherTextureGlobal(const PatcherTextureGlobal& other) = default;
-    auto operator=(const PatcherTextureGlobal& other) -> PatcherTextureGlobal& = default;
+    PatcherTextureGlobal& operator=(const PatcherTextureGlobal& other) = default;
     PatcherTextureGlobal(PatcherTextureGlobal&& other) noexcept = default;
-    auto operator=(PatcherTextureGlobal&& other) noexcept -> PatcherTextureGlobal& = default;
+    PatcherTextureGlobal& operator=(PatcherTextureGlobal&& other) noexcept = default;
 
     /**
      * @brief Apply the patch to the texture if able

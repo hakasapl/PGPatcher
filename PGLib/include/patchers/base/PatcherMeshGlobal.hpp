@@ -15,20 +15,20 @@
  */
 class PatcherMeshGlobal : public PatcherMesh {
 public:
-    // type definitions
+    // Type definitions.
     using PatcherMeshGlobalFactory
         = std::function<std::unique_ptr<PatcherMeshGlobal>(std::filesystem::path, nifly::NifFile*)>;
     using PatcherMeshGlobalObject = std::unique_ptr<PatcherMeshGlobal>;
 
-    // Constructors
+    // Constructors.
     PatcherMeshGlobal(std::filesystem::path nifPath,
                       nifly::NifFile* nif,
                       std::string patcherName);
     virtual ~PatcherMeshGlobal() = default;
     PatcherMeshGlobal(const PatcherMeshGlobal& other) = default;
-    auto operator=(const PatcherMeshGlobal& other) -> PatcherMeshGlobal& = default;
+    PatcherMeshGlobal& operator=(const PatcherMeshGlobal& other) = default;
     PatcherMeshGlobal(PatcherMeshGlobal&& other) noexcept = default;
-    auto operator=(PatcherMeshGlobal&& other) noexcept -> PatcherMeshGlobal& = default;
+    PatcherMeshGlobal& operator=(PatcherMeshGlobal&& other) noexcept = default;
 
     /**
      * @brief Apply the patch to the NIFShape if able
@@ -36,5 +36,5 @@ public:
      * @return true Patch was applied
      * @return false Patch was not applied
      */
-    virtual auto applyPatch() -> bool = 0;
+    virtual bool applyPatch() = 0;
 };

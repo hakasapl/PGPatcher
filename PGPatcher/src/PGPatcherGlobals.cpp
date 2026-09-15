@@ -8,21 +8,21 @@
 #include <mutex>
 #include <utility>
 
-PGConfig* PGPatcherGlobals::s_PGC = nullptr;
-auto PGPatcherGlobals::getPGC() -> PGConfig* { return s_PGC; }
-void PGPatcherGlobals::setPGC(PGConfig* pgc) { s_PGC = pgc; }
+PGConfig* PGPatcherGlobals::s_pgc = nullptr;
+PGConfig* PGPatcherGlobals::pgc() { return s_pgc; }
+void PGPatcherGlobals::setPGC(PGConfig* pgc) { s_pgc = pgc; }
 
-std::filesystem::path PGPatcherGlobals::s_EXE_PATH = "";
-auto PGPatcherGlobals::getEXEPath() -> std::filesystem::path { return s_EXE_PATH; }
-void PGPatcherGlobals::setEXEPath(const std::filesystem::path& exePath) { s_EXE_PATH = exePath; }
+std::filesystem::path PGPatcherGlobals::s_exePath = "";
+std::filesystem::path PGPatcherGlobals::exePath() { return s_exePath; }
+void PGPatcherGlobals::setEXEPath(const std::filesystem::path& exePath) { s_exePath = exePath; }
 
-std::shared_ptr<WXLoggerSink<std::mutex>> PGPatcherGlobals::s_WXLoggerSink = nullptr;
-auto PGPatcherGlobals::getWXLoggerSink() -> std::shared_ptr<WXLoggerSink<std::mutex>> { return s_WXLoggerSink; }
+std::shared_ptr<WXLoggerSink<std::mutex>> PGPatcherGlobals::s_wxLoggerSink = nullptr;
+std::shared_ptr<WXLoggerSink<std::mutex>> PGPatcherGlobals::wxLoggerSink() { return s_wxLoggerSink; }
 void PGPatcherGlobals::setWXLoggerSink(std::shared_ptr<WXLoggerSink<std::mutex>> sink)
 {
-    s_WXLoggerSink = std::move(sink);
+    s_wxLoggerSink = std::move(sink);
 }
 
 bool PGPatcherGlobals::s_isDarkMode = false;
-auto PGPatcherGlobals::isDarkMode() -> bool { return s_isDarkMode; }
+bool PGPatcherGlobals::isDarkMode() { return s_isDarkMode; }
 void PGPatcherGlobals::setIsDarkMode(bool isDarkMode) { s_isDarkMode = isDarkMode; }

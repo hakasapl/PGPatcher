@@ -10,19 +10,19 @@
 #include <unordered_map>
 #include <vector>
 
-wxDECLARE_EVENT(s_EVT_PG_LOG_IGNORE_CHANGED,
+wxDECLARE_EVENT(s_evtPGLogIgnoreChanged,
                 wxCommandEvent);
 
 class PGLogMessageListCtrl : public wxListCtrl {
 private:
     bool m_allowIgnore;
-    bool m_showIgnored;
+    bool m_showIgnored { false };
     std::vector<wxString> m_allMessages;
     std::unordered_map<wxString, bool> m_ignoredItems;
 
-    static inline const wxColour s_IGNORED_MESSAGE_COLOR = wxColour(50, 50, 50);
+    static inline const wxColour s_ignoredMessageColor = wxColour(50, 50, 50);
 
-    enum class ContextMenu : uint16_t { ID_PG_IGNORE_ITEM = wxID_HIGHEST + 3, ID_PG_UNIGNORE_ITEM };
+    enum class ContextMenu : uint16_t { IgnoreItem = wxID_HIGHEST + 3, UnignoreItem };
 
 public:
     /**
@@ -62,14 +62,15 @@ public:
      *
      * @return Reference to the map from message text to ignored flag.
      */
-    [[nodiscard]] auto getIgnoreMap() const -> const std::unordered_map<wxString,
-                                                                        bool>&;
+    [[nodiscard]] const std::unordered_map<wxString,
+                                           bool>&
+    ignoreMap() const;
     /**
      * @brief Get the number of messages that are not ignored.
      *
      * @return Count of non-ignored messages.
      */
-    [[nodiscard]] auto getNumUnignoredMessages() const -> size_t;
+    [[nodiscard]] size_t numUnignoredMessages() const;
 
 private:
     /**

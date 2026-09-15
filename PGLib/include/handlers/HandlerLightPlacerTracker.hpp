@@ -16,10 +16,10 @@ private:
         std::filesystem::path jsonPath;
         std::mutex jsonMutex;
         nlohmann::json jsonData;
-        bool changed = false;
+        bool isChanged = false;
 
-        LPJSON(std::filesystem::path path,
-               nlohmann::json data = {})
+        explicit LPJSON(std::filesystem::path path,
+                        nlohmann::json data = { })
             : jsonPath(std::move(path))
             , jsonData(std::move(data))
         {

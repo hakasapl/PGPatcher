@@ -8,11 +8,11 @@
  */
 class Patcher {
 private:
-    // Instance vars
+    // Instance vars.
     std::string m_patcherName; /** Name of the patcher (used in log and UI elements) */
 
     // Each patcher needs to also implement these static methods:
-    // static auto getFactory()
+    // static auto factory()
 
 public:
     /**
@@ -22,12 +22,12 @@ public:
      * @param nif NIF object
      * @param patcherName Name of patcher
      */
-    Patcher(std::string patcherName);
+    explicit Patcher(std::string patcherName);
 
     /**
      * @brief Get the Patcher Name object
      *
      * @return std::string Patcher name
      */
-    [[nodiscard]] auto getPatcherName() const -> std::string;
+    [[nodiscard]] std::string patcherName() const;
 };

@@ -7,7 +7,7 @@
 
 class PGTextureMapListCtrl : public PGModifiableListCtrl {
 private:
-    wxComboBox* m_textureMapTypeCombo; /** Stores the texture map type combo box */
+    wxComboBox* m_textureMapTypeCombo { nullptr }; /** Stores the texture map type combo box */
 
 public:
     /**
@@ -40,6 +40,6 @@ private:
      * @param item List item index to check sub-item rectangles against.
      * @return Zero-based column index, or -1 if the point is not within any column.
      */
-    auto getColumnAtPosition(const wxPoint& pos,
-                             long item) -> int;
+    int columnAtPosition(const wxPoint& pos,
+                         long item);
 };

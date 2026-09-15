@@ -15,10 +15,10 @@
  */
 class PGPatcherGlobals {
 private:
-    static PGConfig* s_PGC;
-    static std::shared_ptr<WXLoggerSink<std::mutex>> s_WXLoggerSink;
+    static PGConfig* s_pgc;
+    static std::shared_ptr<WXLoggerSink<std::mutex>> s_wxLoggerSink;
 
-    static std::filesystem::path s_EXE_PATH;
+    static std::filesystem::path s_exePath;
 
     static bool s_isDarkMode;
 
@@ -26,16 +26,16 @@ public:
     PGPatcherGlobals() = delete;
     ~PGPatcherGlobals() = delete;
     PGPatcherGlobals(const PGPatcherGlobals&) = delete;
-    auto operator=(const PGPatcherGlobals&) -> PGPatcherGlobals& = delete;
+    PGPatcherGlobals& operator=(const PGPatcherGlobals&) = delete;
     PGPatcherGlobals(PGPatcherGlobals&&) = delete;
-    auto operator=(PGPatcherGlobals&&) -> PGPatcherGlobals& = delete;
+    PGPatcherGlobals& operator=(PGPatcherGlobals&&) = delete;
 
     /**
      * @brief Get the global PGConfig pointer.
      *
      * @return Pointer to the current PGConfig instance, or nullptr if not set.
      */
-    static auto getPGC() -> PGConfig*;
+    static PGConfig* pgc();
 
     /**
      * @brief Set the global PGConfig pointer.
@@ -49,7 +49,7 @@ public:
      *
      * @return Filesystem path of the executable directory.
      */
-    static auto getEXEPath() -> std::filesystem::path;
+    static std::filesystem::path exePath();
 
     /**
      * @brief Set the path to the running executable.
@@ -63,7 +63,7 @@ public:
      *
      * @return Shared pointer to the WXLoggerSink used for UI log capture.
      */
-    static auto getWXLoggerSink() -> std::shared_ptr<WXLoggerSink<std::mutex>>;
+    static std::shared_ptr<WXLoggerSink<std::mutex>> wxLoggerSink();
 
     /**
      * @brief Set the shared WXLoggerSink instance.
@@ -77,7 +77,7 @@ public:
      *
      * @return true if dark mode is active, false otherwise.
      */
-    static auto isDarkMode() -> bool;
+    static bool isDarkMode();
 
     /**
      * @brief Set the application dark-mode flag.

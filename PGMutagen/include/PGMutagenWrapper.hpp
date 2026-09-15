@@ -14,8 +14,8 @@
  */
 class PGMutagenWrapper {
 private:
-    static constexpr int NUM_PLUGIN_TEXTURE_SLOTS = 8;
-    static constexpr int DEFAULT_BUFFER_SIZE = 1024;
+    static constexpr int numPluginTextureSlots = 8;
+    static constexpr int defaultBufferSize = 1024;
 
     static std::mutex s_libMutex;
 
@@ -29,7 +29,7 @@ public:
     struct AlternateTexture {
         int slotID = 0; ///< Original texture slot index referenced by the plugin record.
         int slotIDNew = 0; ///< New texture slot index after patching (may differ from slotID).
-        std::array<std::wstring, NUM_PLUGIN_TEXTURE_SLOTS> slots; ///< Resolved texture paths for all slots.
+        std::array<std::wstring, numPluginTextureSlots> slots; ///< Resolved texture paths for all slots.
     };
 
     /**
@@ -37,12 +37,12 @@ public:
      */
     struct ModelUse {
         std::wstring modName; ///< Name of the plugin (mod) that owns this record.
-        unsigned int formID; ///< FormID of the record referencing this model.
+        unsigned formID = 0; ///< FormID of the record referencing this model.
         std::string subModel; ///< Sub-model identifier within the record.
-        bool isWeighted; ///< Whether the model uses a weighted (skinned) mesh.
+        bool isWeighted = false; ///< Whether the model uses a weighted (skinned) mesh.
         std::wstring meshFile; ///< Path to the mesh file referenced by this record.
-        bool singlepassMATO; ///< Whether this record uses single-pass MATO rendering.
-        bool isIgnored; ///< Whether this model use should be skipped during patching.
+        bool isSinglepassMATO = false; ///< Whether this record uses single-pass MATO rendering.
+        bool isIgnored = false; ///< Whether this model use should be skipped during patching.
         std::string type; ///< Record type string (e.g. "STAT", "ACTI").
         std::vector<AlternateTexture> alternateTextures; ///< List of alternate texture entries for this model.
     };
@@ -59,15 +59,15 @@ public:
     static void libInitialize(const int& gameType,
                               const std::wstring& exePath,
                               const std::wstring& dataPath,
-                              const std::vector<std::wstring>& loadOrder = {},
-                              const unsigned int& lang = 0);
+                              const std::vector<std::wstring>& loadOrder = { },
+                              const unsigned& lang = 0);
 
     /**
      * @brief Populates the internal plugin object graph, optionally merging an existing output mod.
      *
      * @param existingModPath Path to an existing output mod to merge into the session; empty to start fresh.
      */
-    static void libPopulateObjs(const std::filesystem::path& existingModPath = {});
+    static void libPopulateObjs(const std::filesystem::path& existingModPath = { });
 
     /**
      * @brief Resets mutable plugin-patching state to the post-populate baseline.
@@ -89,7 +89,7 @@ public:
      * @param modelPath Relative mesh path (e.g. "meshes/foo/bar.nif") to look up.
      * @return Vector of ModelUse structs describing each record that uses this model.
      */
-    static auto libGetModelUses(const std::wstring& modelPath) -> std::vector<ModelUse>;
+    static std::vector<ModelUse> libGetModelUses(const std::wstring& modelPath);
 
     /**
      * @brief Pushes updated model-use records back to the C# library for serialisation into the output plugin.
@@ -99,7 +99,7 @@ public:
     static void libSetModelUses(const std::vector<ModelUse>& modelUses);
 
 private:
-    // Helpers
-    static auto utf8toUTF16(const std::string& str) -> std::wstring;
-    static auto utf16toUTF8(const std::wstring& wStr) -> std::string;
+    // Helpers.
+    static std::wstring utf8toUTF16(const std::string& str);
+    static std::string utf16toUTF8(const std::wstring& wStr);
 };

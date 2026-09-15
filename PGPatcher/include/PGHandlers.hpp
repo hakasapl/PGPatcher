@@ -23,10 +23,10 @@
  */
 class PGHandlers {
 private:
-    // Global variables for crash handling
-    static inline std::atomic<bool> s_crashLogged {false};
+    // Global variables for crash handling.
+    static inline std::atomic<bool> s_crashLogged { false };
 
-    static constexpr const char* CRASHDUMP_DIR = "log";
+    static constexpr const char* crashDumpDir = "log";
 
     static inline _MINIDUMP_TYPE s_miniDumpType = MiniDumpWithPrivateWriteCopyMemory;
 
@@ -44,30 +44,29 @@ public:
      */
     static auto WINAPI customExceptionHandler(EXCEPTION_POINTERS* exceptionInfo) -> LONG
     {
-        if (s_crashLogged.exchange(true)) {
+        if (s_crashLogged.exchange(true))
             return EXCEPTION_CONTINUE_SEARCH;
-        }
 
-        // Get the current timestamp
+        // Get the current timestamp.
         std::string timestamp;
         const time_t t = time(nullptr);
-        tm tm {};
-        if (localtime_s(&tm, &t) == 0) {
+        tm tm { };
+        if (!localtime_s(&tm, &t)) {
             std::ostringstream oss;
             oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
             timestamp = "_" + oss.str();
         }
 
-        // Create the dump file path
+        // Create the dump file path.
         const std::filesystem::path dumpFilePath
-            = std::filesystem::path(CRASHDUMP_DIR) / ("pg_crash" + timestamp + ".dmp");
-        std::filesystem::create_directories(CRASHDUMP_DIR);
+            = std::filesystem::path(crashDumpDir) / ("pg_crash" + timestamp + ".dmp");
+        std::filesystem::create_directories(crashDumpDir);
 
-        // Post message to standard console
+        // Post message to standard console.
         std::cerr << "Uh oh! Really bad things happened. PGPatcher has crashed. Please wait while the crash dump \""
                   << dumpFilePath << "\" is generated. Please include this dump in your bug report.\n";
 
-        // Open the file for writing the dump
+        // Open the file for writing the dump.
         HANDLE hFile = CreateFileA(
             dumpFilePath.string().c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (hFile == INVALID_HANDLE_VALUE) {
@@ -75,7 +74,7 @@ public:
             return EXCEPTION_CONTINUE_SEARCH;
         }
 
-        // Write the dump
+        // Write the dump.
         MINIDUMP_EXCEPTION_INFORMATION dumpExceptionInfo;
         dumpExceptionInfo.ThreadId = GetCurrentThreadId();
         dumpExceptionInfo.ExceptionPointers = exceptionInfo;
@@ -86,7 +85,7 @@ public:
 
         CloseHandle(hFile);
 
-        // Continue searching or terminate the process
+        // Continue searching or terminate the process.
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
@@ -96,29 +95,27 @@ public:
      * @return Absolute path to the current executable, or an empty path if it cannot be
      *         determined or does not exist on disk.
      */
-    static auto getExePath() -> std::filesystem::path
+    static std::filesystem::path exePath()
     {
-        std::array<wchar_t, MAX_PATH> buffer {};
-        if (GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH) == 0) {
-            return {};
-        }
+        std::array<wchar_t, MAX_PATH> buffer { };
+        if (!GetModuleFileNameW(nullptr, buffer.data(), MAX_PATH))
+            return { };
 
         std::filesystem::path outPath = std::filesystem::path(buffer.data());
 
-        if (std::filesystem::exists(outPath)) {
+        if (std::filesystem::exists(outPath))
             return outPath;
-        }
 
-        return {};
+        return { };
     }
 
     /**
      * @brief Check whether the process is running under Mod Organizer 2's virtual filesystem.
      *
      * Looks for "usvfs_x64.dll", which MO2's USVFS layer injects, among the loaded modules of the
-     * current process (see PGModManager::getMO2DirFromUSVFS()).
+     * current process (see PGModManager::mo2DirFromUSVFS()).
      *
      * @return true if usvfs_x64.dll is loaded in the process, false otherwise.
      */
-    static auto isUnderUSVFS() -> bool { return !PGModManager::getMO2DirFromUSVFS().empty(); }
+    static bool isUnderUSVFS() { return !PGModManager::mo2DirFromUSVFS().empty(); }
 };

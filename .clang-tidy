@@ -1,21 +1,37 @@
 ---
+# Style reference: https://webkit.org/code-style-guidelines/
 Checks: "-*,
   cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
   llvm-include-order,
   misc-*,
   -misc-include-cleaner,
   -misc-no-recursion,
   modernize-*,
+  -modernize-use-trailing-return-type,
   performance-*,
   readability-*,
+  -readability-braces-around-statements,
   -readability-function-cognitive-complexity,
   -readability-identifier-length,
   -readability-magic-numbers"
-FormatStyle: webkit
+FormatStyle: file
 CheckOptions:
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.NamespaceCase
+    value: CamelCase
   - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
     value: CamelCase
   - key: readability-identifier-naming.FunctionCase
     value: camelBack
@@ -23,20 +39,45 @@ CheckOptions:
     value: camelBack
   - key: readability-identifier-naming.ParameterCase
     value: camelBack
-
+  - key: readability-identifier-naming.LocalVariableCase
+    value: camelBack
+  - key: readability-identifier-naming.StaticVariableCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: camelBack
   - key: readability-identifier-naming.PrivateMemberPrefix
     value: m_
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: camelBack
   - key: readability-identifier-naming.ProtectedMemberPrefix
     value: m_
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PublicMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ClassMemberPrefix
+    value: s_
+  - key: readability-identifier-naming.ClassMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ClassConstantPrefix
+    value: s_
+  - key: readability-identifier-naming.ClassConstantCase
+    value: camelBack
   - key: readability-identifier-naming.GlobalVariablePrefix
     value: s_
-
-  - key: readability-identifier-naming.ConstexprVariableCase
-    value: UPPER_CASE
+  - key: readability-identifier-naming.GlobalVariableCase
+    value: camelBack
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: s_
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: camelBack
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
   - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
-  - key: readability-identifier-naming.EnumConstantCase
-    value: UPPER_CASE
-
   - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value: true
+  - key: readability-implicit-bool-conversion.AllowPointerConditions
+    value: true
+  - key: readability-implicit-bool-conversion.AllowIntegerConditions
     value: true

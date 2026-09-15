@@ -22,7 +22,7 @@ public:
                          long style = wxLC_REPORT);
 
 private:
-    enum class ContextMenu : uint16_t { ID_PG_ADD_ITEM = wxID_HIGHEST + 1, ID_PG_REMOVE_ITEM };
+    enum class ContextMenu : uint16_t { AddItem = wxID_HIGHEST + 1, RemoveItem };
 
     /**
      * @brief Event handler responsible for deleting/adding items based on list edits

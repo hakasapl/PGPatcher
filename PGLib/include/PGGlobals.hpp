@@ -18,14 +18,14 @@
  */
 class PGGlobals {
 private:
-    static BethesdaGame* s_BG;
-    static PGDirectory* s_PGD;
-    static PGD3D* s_PGD3D;
-    static PGModManager* s_PGMM;
+    static BethesdaGame* s_bg;
+    static PGDirectory* s_pgd;
+    static PGD3D* s_pgD3D;
+    static PGModManager* s_pgmm;
 
 public:
     const static inline std::unordered_set<std::filesystem::path> s_foldersToMap
-        = {"meshes", "textures", "pbrnifpatcher", "lightplacer"};
+        = { "meshes", "textures", "pbrnifpatcher", "lightplacer" };
 
     /**
      * @brief Returns the global BethesdaGame instance.
@@ -33,14 +33,14 @@ public:
      * @return Pointer to the BethesdaGame object.
      * @throws std::runtime_error if the BethesdaGame has not been set.
      */
-    static auto getBG() -> BethesdaGame*;
+    static BethesdaGame* bg();
 
     /**
      * @brief Returns whether the global BethesdaGame pointer has been set.
      *
      * @return true if set, false otherwise.
      */
-    static auto isBGSet() -> bool;
+    static bool isBGSet();
 
     /**
      * @brief Sets the global BethesdaGame pointer.
@@ -55,14 +55,14 @@ public:
      * @return Pointer to the PGDirectory object.
      * @throws std::runtime_error if the PGDirectory has not been set.
      */
-    static auto getPGD() -> PGDirectory*;
+    static PGDirectory* pgd();
 
     /**
      * @brief Returns whether the global PGDirectory pointer has been set.
      *
      * @return true if set, false otherwise.
      */
-    static auto isPGDSet() -> bool;
+    static bool isPGDSet();
 
     /**
      * @brief Sets the global PGDirectory pointer.
@@ -77,14 +77,14 @@ public:
      * @return Pointer to the PGD3D object.
      * @throws std::runtime_error if PGD3D has not been set.
      */
-    static auto getPGD3D() -> PGD3D*;
+    static PGD3D* pgD3D();
 
     /**
      * @brief Returns whether the global PGD3D pointer has been set.
      *
      * @return true if set, false otherwise.
      */
-    static auto isPGD3DSet() -> bool;
+    static bool isPGD3DSet();
 
     /**
      * @brief Sets the global PGD3D pointer.
@@ -99,14 +99,14 @@ public:
      * @return Pointer to the PGModManager object.
      * @throws std::runtime_error if PGModManager has not been set.
      */
-    static auto getPGMM() -> PGModManager*;
+    static PGModManager* pgmm();
 
     /**
      * @brief Returns whether the global PGModManager pointer has been set.
      *
      * @return true if set, false otherwise.
      */
-    static auto isPGMMSet() -> bool;
+    static bool isPGMMSet();
 
     /**
      * @brief Sets the global PGModManager pointer.
@@ -120,5 +120,5 @@ public:
      *
      * @return Reference to the global file-saver TaskQueue.
      */
-    static auto getFileSaver() -> TaskQueue&;
+    static TaskQueue& fileSaver();
 };

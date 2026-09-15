@@ -4,10 +4,8 @@
 #include "GUI/components/PGModifiableListCtrl.hpp"
 #include "pgutil/PGEnums.hpp"
 
-using namespace std;
-
-// Disable owning memory checks because wxWidgets will take care of deleting the objects
-// Disable convert member functions to static because these functions need to be non-static for wxWidgets
+// Disable owning memory checks because wxWidgets will take care of deleting the objects.
+// Disable convert member functions to static because these functions need to be non-static for wxWidgets.
 // NOLINTBEGIN(cppcoreguidelines-owning-memory,readability-convert-member-functions-to-static)
 
 PGTextureMapListCtrl::PGTextureMapListCtrl(wxWindow* parent,
@@ -20,32 +18,31 @@ PGTextureMapListCtrl::PGTextureMapListCtrl(wxWindow* parent,
                            pt,
                            sz,
                            style)
-    , m_textureMapTypeCombo(nullptr)
+
 {
-    // Bind events
+    // Bind events.
     Bind(wxEVT_LEFT_DCLICK, &PGTextureMapListCtrl::onTextureRulesMapsChangeStart, this);
 }
 
 void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
 {
-    static const auto possibleTexTypes = PGEnums::getTexTypesStr();
-    // convert to wxArrayStr
+    static const auto possibleTexTypes = PGEnums::texTypesStr();
+    // Convert to wxArrayStr.
     wxArrayString wxPossibleTexTypes;
-    for (const auto& texType : possibleTexTypes) {
+    for (const auto& texType : possibleTexTypes)
         wxPossibleTexTypes.Add(texType);
-    }
 
     const wxPoint pos = event.GetPosition();
     int flags = 0;
     const long item = HitTest(pos, flags);
 
-    if (item != wxNOT_FOUND && ((flags & wxLIST_HITTEST_ONITEM) != 0)) {
-        const int column = getColumnAtPosition(pos, item);
+    if (item != wxNOT_FOUND && (flags & wxLIST_HITTEST_ONITEM)) {
+        const int column = columnAtPosition(pos, item);
         if (column == 0) {
-            // Start editing the first column
+            // Start editing the first column.
             EditLabel(item);
         } else if (column == 1) {
-            // Create dropdown for the second column
+            // Create dropdown for the second column.
             wxRect rect;
             GetSubItemRect(item, column, rect);
 
@@ -62,12 +59,11 @@ void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
                 SetItem(item, column, m_textureMapTypeCombo->GetValue());
                 m_textureMapTypeCombo->Show(false);
 
-                // Check if it's the last row and add a new blank row
-                if (item == GetItemCount() - 1) {
+                // Check if it's the last row and add a new blank row.
+                if (item == GetItemCount() - 1)
                     InsertItem(GetItemCount(), "");
-                }
 
-                // Fire event for list change
+                // Fire event for list change.
                 PGCustomListctrlChangedEvent changeEvt(GetId(), item);
                 changeEvt.SetEventObject(this);
                 wxPostEvent(this, changeEvt);
@@ -81,15 +77,14 @@ void PGTextureMapListCtrl::onTextureRulesMapsChangeStart(wxMouseEvent& event)
     }
 }
 
-auto PGTextureMapListCtrl::getColumnAtPosition(const wxPoint& pos,
-                                               long item) -> int
+int PGTextureMapListCtrl::columnAtPosition(const wxPoint& pos,
+                                           long item)
 {
     wxRect rect;
     for (int col = 0; col < GetColumnCount(); ++col) {
         GetSubItemRect(item, col, rect);
-        if (rect.Contains(pos)) {
+        if (rect.Contains(pos))
             return col;
-        }
     }
     return -1; // No column found
 }

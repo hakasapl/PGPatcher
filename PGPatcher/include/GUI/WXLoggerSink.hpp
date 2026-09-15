@@ -17,13 +17,13 @@
  * @brief spdlog sink that captures log messages for display in the wxWidgets UI.
  *
  * Critical-level messages trigger an immediate modal wxMessageBox and call exit(1).
- * Error-level messages are collected and accessible via getErrorMessages().
- * Warning-level messages are collected and accessible via getWarningMessages().
+ * Error-level messages are collected and accessible via errorMessages().
+ * Warning-level messages are collected and accessible via warningMessages().
  * All other levels are silently discarded.
  *
  * @tparam Mutex Mutex type used by the base spdlog sink (e.g., std::mutex).
  */
-template <typename Mutex> class WXLoggerSink : public spdlog::sinks::base_sink<Mutex> {
+template<typename Mutex> class WXLoggerSink : public spdlog::sinks::base_sink<Mutex> {
 private:
     std::vector<wxString> m_errorMessages;
     std::vector<wxString> m_warningMessages;
@@ -44,22 +44,23 @@ protected:
      */
     void sink_it_(const spdlog::details::log_msg& msg) override
     {
-        // Format message
+        // Format message.
         spdlog::memory_buf_t formatted;
         this->formatter_->format(msg, formatted);
 
         if (msg.level == spdlog::level::critical) {
-            // Convert to wxString
+            // Convert to wxString.
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
 
             wxMessageBox(wxMsg, "Critical Error", wxOK | wxICON_ERROR);
             exit(1);
-        } else if (msg.level == spdlog::level::err) {
-            // Convert to wxString
+        }
+        if (msg.level == spdlog::level::err) {
+            // Convert to wxString.
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
             m_errorMessages.push_back(wxMsg);
         } else if (msg.level == spdlog::level::warn) {
-            // Convert to wxString
+            // Convert to wxString.
             const wxString wxMsg = wxString::FromUTF8(fmt::to_string(formatted).c_str());
             m_warningMessages.push_back(wxMsg);
         }
@@ -76,7 +77,7 @@ public:
      *
      * @return true if at least one error message has been captured, false otherwise.
      */
-    [[nodiscard]] auto hasErrors() -> bool
+    [[nodiscard]] bool hasErrors()
     {
         std::scoped_lock<Mutex> lock(this->mutex_);
         return !m_errorMessages.empty();
@@ -86,7 +87,7 @@ public:
      *
      * @return true if at least one warning message has been captured, false otherwise.
      */
-    [[nodiscard]] auto hasWarnings() -> bool
+    [[nodiscard]] bool hasWarnings()
     {
         std::scoped_lock<Mutex> lock(this->mutex_);
         return !m_warningMessages.empty();
@@ -97,9 +98,9 @@ public:
      *
      * @return Vector of formatted error messages as wxStrings.
      */
-    [[nodiscard]] auto getErrorMessages() -> std::vector<wxString>
+    [[nodiscard]] std::vector<wxString> errorMessages()
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
+        const std::scoped_lock<Mutex> lock(this->mutex_);
         return m_errorMessages;
     }
     /**
@@ -107,9 +108,9 @@ public:
      *
      * @return Vector of formatted warning messages as wxStrings.
      */
-    [[nodiscard]] auto getWarningMessages() -> std::vector<wxString>
+    [[nodiscard]] std::vector<wxString> warningMessages()
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
+        const std::scoped_lock<Mutex> lock(this->mutex_);
         return m_warningMessages;
     }
 
@@ -122,7 +123,7 @@ public:
      */
     void markRunStart()
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
+        const std::scoped_lock<Mutex> lock(this->mutex_);
         m_runStartErrorCount = m_errorMessages.size();
         m_runStartWarningCount = m_warningMessages.size();
     }
@@ -135,12 +136,10 @@ public:
      */
     void resetToRunStart()
     {
-        std::scoped_lock<Mutex> lock(this->mutex_);
-        if (m_errorMessages.size() > m_runStartErrorCount) {
+        const std::scoped_lock<Mutex> lock(this->mutex_);
+        if (m_errorMessages.size() > m_runStartErrorCount)
             m_errorMessages.resize(m_runStartErrorCount);
-        }
-        if (m_warningMessages.size() > m_runStartWarningCount) {
+        if (m_warningMessages.size() > m_runStartWarningCount)
             m_warningMessages.resize(m_runStartWarningCount);
-        }
     }
 };

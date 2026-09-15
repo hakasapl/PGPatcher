@@ -19,20 +19,20 @@ protected:
     static inline std::mutex s_generatedFileTrackerMutex;
 
 public:
-    // type definitions
+    // Type definitions.
     using PatcherGlobalFactory
         = std::function<std::unique_ptr<PatcherTextureHook>(std::filesystem::path, DirectX::ScratchImage*)>;
     using PatcherGlobalObject = std::unique_ptr<PatcherTextureHook>;
 
-    // Constructors
+    // Constructors.
     PatcherTextureHook(std::filesystem::path texPath,
                        DirectX::ScratchImage* tex,
                        std::string patcherName);
     virtual ~PatcherTextureHook() = default;
     PatcherTextureHook(const PatcherTextureHook& other) = delete;
-    auto operator=(const PatcherTextureHook& other) -> PatcherTextureHook& = delete;
+    PatcherTextureHook& operator=(const PatcherTextureHook& other) = delete;
     PatcherTextureHook(PatcherTextureHook&& other) noexcept = default;
-    auto operator=(PatcherTextureHook&& other) noexcept -> PatcherTextureHook& = default;
+    PatcherTextureHook& operator=(PatcherTextureHook&& other) noexcept = default;
 
     /**
      * @brief Apply the patch to the texture if able
@@ -40,5 +40,5 @@ public:
      * @return true Patch was applied
      * @return false Patch was not applied
      */
-    virtual auto applyPatch() -> bool = 0;
+    virtual bool applyPatch() = 0;
 };

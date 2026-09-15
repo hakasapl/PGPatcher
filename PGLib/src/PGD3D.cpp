@@ -26,45 +26,44 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <windows.h>
 #include <wrl/client.h>
 
-using namespace std;
-using namespace StringUtil;
 using Microsoft::WRL::ComPtr;
 
-// We need to access unions as part of certain DX11 structures
-// reinterpret cast is needed often for type casting with DX11
+// We need to access unions as part of certain DX11 structures.
+// Reinterpret cast is needed often for type casting with DX11.
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-PGD3D::PGD3D(filesystem::path shaderPath)
+PGD3D::PGD3D(std::filesystem::path shaderPath)
     : m_shaderPath(std::move(shaderPath))
 {
 }
 
-auto PGD3D::checkIfCM(const filesystem::path& ddsPath,
+bool PGD3D::checkIfCM(const std::filesystem::path& ddsPath,
                       bool& result,
                       bool& hasEnvMask,
                       bool& hasGlosiness,
-                      bool& hasMetalness) -> bool
+                      bool& hasMetalness)
 {
-    // get metadata (should only pull headers, which is much faster)
-    DirectX::TexMetadata ddsImageMeta {};
+    // Get metadata (should only pull headers, which is much faster).
+    DirectX::TexMetadata ddsImageMeta { };
     if (!getDDSMetadata(ddsPath, ddsImageMeta)) {
         result = false;
         return false;
     }
 
-    // If Alpha is opaque move on
+    // If Alpha is opaque move on.
     if (ddsImageMeta.GetAlphaMode() == DirectX::TEX_ALPHA_MODE_OPAQUE) {
         result = false;
         return true;
     }
 
     // bool bcCompressed = false;
-    //  Only check DDS with alpha channels
+    // only check DDS with alpha channels.
     switch (ddsImageMeta.format) {
     case DXGI_FORMAT_BC2_UNORM:
     case DXGI_FORMAT_BC2_UNORM_SRGB:
@@ -105,14 +104,14 @@ auto PGD3D::checkIfCM(const filesystem::path& ddsPath,
         return true;
     }
 
-    // Read image
+    // Read image.
     DirectX::ScratchImage image;
     if (!getDDS(ddsPath, image)) {
         result = false;
         return false;
     }
 
-    array<int, 4> values {};
+    std::array<int, 4> values { };
     if (!countPixelValues(image, values)) {
         result = false;
         return false;
@@ -120,50 +119,45 @@ auto PGD3D::checkIfCM(const filesystem::path& ddsPath,
 
     const size_t numPixels = ddsImageMeta.width * ddsImageMeta.height;
     if (values[3] > numPixels / 2) {
-        // check alpha
+        // Check alpha.
         result = false;
         return true;
     }
 
-    if (values[0] > 0) {
+    if (values[0] > 0)
         hasEnvMask = true;
-    }
 
     if (values[1] > 0) {
-        // check green
+        // Check green.
         hasGlosiness = true;
     }
 
-    if (values[2] > 0) {
+    if (values[2] > 0)
         hasMetalness = true;
-    }
 
     result = true;
     return true;
 }
 
-auto PGD3D::countPixelValues(const DirectX::ScratchImage& image,
-                             array<int,
-                                   4>& outData) -> bool
+bool PGD3D::countPixelValues(const DirectX::ScratchImage& image,
+                             std::array<int,
+                                        4>& outData)
 {
-    if ((m_ptrContext == nullptr) || (m_ptrDevice == nullptr) || (m_shaderCountAlphaValues == nullptr)) {
-        throw runtime_error("GPU not initialized");
-    }
+    if ((!m_ptrContext) || (!m_ptrDevice) || (!m_shaderCountAlphaValues))
+        throw std::runtime_error("GPU not initialized");
 
-    // Create GPU texture
+    // Create GPU texture.
     ComPtr<ID3D11Texture2D> inputTex;
-    if (!createTexture2D(image, inputTex)) {
+    if (!createTexture2D(image, inputTex))
         return false;
-    }
 
-    // Create SRV
+    // Create SRV.
     ComPtr<ID3D11ShaderResourceView> inputSRV;
-    if (!createShaderResourceView(inputTex, inputSRV)) {
+    if (!createShaderResourceView(inputTex, inputSRV))
         return false;
-    }
 
-    // Create buffer for output
-    D3D11_BUFFER_DESC bufferDesc = {};
+    // Create buffer for output.
+    D3D11_BUFFER_DESC bufferDesc = { };
     bufferDesc.Usage = D3D11_USAGE_DEFAULT;
     bufferDesc.ByteWidth = sizeof(UINT) * 4;
     bufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
@@ -171,48 +165,45 @@ auto PGD3D::countPixelValues(const DirectX::ScratchImage& image,
     bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     bufferDesc.StructureByteStride = sizeof(UINT);
 
-    array<unsigned int, 4> outputData = {0, 0, 0, 0};
+    std::array<unsigned, 4> outputData = { 0, 0, 0, 0 };
     ComPtr<ID3D11Buffer> outputBuffer;
-    if (!createBuffer(outputData.data(), bufferDesc, outputBuffer)) {
+    if (!createBuffer(outputData.data(), bufferDesc, outputBuffer))
         return false;
-    }
 
-    // Create UAV for output buffer
-    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    // Create UAV for output buffer.
+    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = { };
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.FirstElement = 0;
     uavDesc.Buffer.NumElements = 4;
 
     ComPtr<ID3D11UnorderedAccessView> outputBufferUAV;
-    if (!createUnorderedAccessView(outputBuffer, uavDesc, outputBufferUAV)) {
+    if (!createUnorderedAccessView(outputBuffer, uavDesc, outputBufferUAV))
         return false;
-    }
 
-    // Dispatch shader
+    // Dispatch shader.
     const DirectX::TexMetadata imageMeta = image.GetMetadata();
     if (!blockingDispatch(m_shaderCountAlphaValues,
-                          {inputSRV},
-                          {outputBufferUAV},
-                          {},
+                          { inputSRV },
+                          { outputBufferUAV },
+                          { },
                           static_cast<UINT>(imageMeta.width),
                           static_cast<UINT>(imageMeta.height),
                           1)) {
         return false;
     }
 
-    // Clean Up Objects
+    // Clean Up Objects.
     inputTex.Reset();
     inputSRV.Reset();
 
-    // Read back data
+    // Read back data.
 
-    vector<array<int, 4>> data;
-    if (!readBack<array<int, 4>>(outputBuffer, data)) {
+    std::vector<std::array<int, 4>> data;
+    if (!readBack<std::array<int, 4>>(outputBuffer, data))
         return false;
-    }
 
-    // Cleanup
+    // Cleanup.
     outputBuffer.Reset();
     outputBufferUAV.Reset();
 
@@ -222,57 +213,55 @@ auto PGD3D::countPixelValues(const DirectX::ScratchImage& image,
     return true;
 }
 
-auto PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
-                                      const std::filesystem::path& ddsPath2) -> bool
+bool PGD3D::checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
+                                      const std::filesystem::path& ddsPath2)
 {
-    // get metadata (should only pull headers, which is much faster)
-    DirectX::TexMetadata ddsImageMeta1 {};
+    // Get metadata (should only pull headers, which is much faster).
+    DirectX::TexMetadata ddsImageMeta1 { };
     if (!getDDSMetadata(ddsPath1, ddsImageMeta1)) {
         Logger::error(L"Unable to process texture: {}", ddsPath1.wstring());
         return false;
     }
 
-    DirectX::TexMetadata ddsImageMeta2 {};
+    DirectX::TexMetadata ddsImageMeta2 { };
     if (!getDDSMetadata(ddsPath2, ddsImageMeta2)) {
         Logger::error(L"Unable to process texture: {}", ddsPath2.wstring());
         return false;
     }
 
-    // Validate dimensions before calculating aspect ratios
-    if (ddsImageMeta1.height == 0 || ddsImageMeta2.height == 0) {
-        if (ddsImageMeta1.height == 0) {
+    // Validate dimensions before calculating aspect ratios.
+    if (!ddsImageMeta1.height || !ddsImageMeta2.height) {
+        if (!ddsImageMeta1.height)
             Logger::error(L"Unable to process texture: {}", ddsPath1.wstring());
-        }
-        if (ddsImageMeta2.height == 0) {
+        if (!ddsImageMeta2.height)
             Logger::error(L"Unable to process texture: {}", ddsPath2.wstring());
-        }
         return false;
     }
 
-    // calculate aspect ratios
+    // Calculate aspect ratios.
     const float aspectRatio1 = static_cast<float>(ddsImageMeta1.width) / static_cast<float>(ddsImageMeta1.height);
     const float aspectRatio2 = static_cast<float>(ddsImageMeta2.width) / static_cast<float>(ddsImageMeta2.height);
 
-    // check if aspect ratios don't match
+    // Check if aspect ratios don't match.
     return aspectRatio1 == aspectRatio2;
 }
 
 //
-// GPU Code
+// GPU Code.
 //
 
-auto PGD3D::initGPU() -> bool
+bool PGD3D::initGPU()
 {
     const std::scoped_lock lock(m_d3dMutex);
 
-// initialize GPU device and context
+// Initialize GPU device and context.
 #ifdef _DEBUG
     UINT deviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else
     const UINT deviceFlags = 0;
 #endif
 
-    HRESULT hr {};
+    HRESULT hr { };
     hr = D3D11CreateDevice(nullptr, // Adapter (configured to use default)
                            D3D_DRIVER_TYPE_HARDWARE, // User Hardware
                            nullptr, // Irrelevant for hardware driver type
@@ -288,31 +277,30 @@ auto PGD3D::initGPU() -> bool
     return !FAILED(hr);
 }
 
-auto PGD3D::initShaders() -> bool
+bool PGD3D::initShaders()
 {
-    // Initialize shaders
+    // Initialize shaders.
     return initShader("CountAlphaValues.hlsl", m_shaderCountAlphaValues);
 }
 
-auto PGD3D::initShader(const std::filesystem::path& filename,
-                       ComPtr<ID3D11ComputeShader>& outShader) -> bool
+bool PGD3D::initShader(const std::filesystem::path& filename,
+                       ComPtr<ID3D11ComputeShader>& outShader)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    // Load shader
+    // Load shader.
     ComPtr<ID3DBlob> shaderBlob;
-    HRESULT hr {};
+    HRESULT hr { };
 #ifdef _DEBUG
     const DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG;
 #else
     const DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #endif
 
-    const filesystem::path shaderAbsPath = m_shaderPath / filename;
+    const std::filesystem::path shaderAbsPath = m_shaderPath / filename;
 
-    // Compile shader
+    // Compile shader.
     ComPtr<ID3DBlob> ptrErrorBlob;
     hr = D3DCompileFromFile(shaderAbsPath.c_str(),
                             nullptr,
@@ -323,11 +311,10 @@ auto PGD3D::initShader(const std::filesystem::path& filename,
                             0,
                             shaderBlob.ReleaseAndGetAddressOf(),
                             ptrErrorBlob.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) {
+    if (FAILED(hr))
         return false;
-    }
 
-    // Create compute shader on GPU
+    // Create compute shader on GPU.
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateComputeShader(
@@ -337,28 +324,27 @@ auto PGD3D::initShader(const std::filesystem::path& filename,
 }
 
 //
-// GPU Helpers
+// GPU Helpers.
 //
-auto PGD3D::isPowerOfTwo(unsigned int x) -> bool { return (x != 0U) && ((x & (x - 1)) == 0U); }
+bool PGD3D::isPowerOfTwo(unsigned x) { return (x != 0U) && ((x & (x - 1)) == 0U); }
 
-auto PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
-                            ComPtr<ID3D11Texture2D>& dest) -> bool
+bool PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
+                            ComPtr<ID3D11Texture2D>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    // Define error object
-    HRESULT hr {};
+    // Define error object.
+    HRESULT hr { };
 
-    // Verify dimention
-    auto textureMeta = texture.GetMetadata();
-    if (!isPowerOfTwo(static_cast<unsigned int>(textureMeta.width))
-        || !isPowerOfTwo(static_cast<unsigned int>(textureMeta.height))) {
+    // Verify dimention.
+    const auto textureMeta = texture.GetMetadata();
+    if (!isPowerOfTwo(static_cast<unsigned>(textureMeta.width))
+        || !isPowerOfTwo(static_cast<unsigned>(textureMeta.height))) {
         return false;
     }
 
-    // Create texture
+    // Create texture.
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = DirectX::CreateTexture(m_ptrDevice.Get(),
@@ -371,23 +357,21 @@ auto PGD3D::createTexture2D(const DirectX::ScratchImage& texture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
-                            ComPtr<ID3D11Texture2D>& dest) -> bool
+bool PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
+                            ComPtr<ID3D11Texture2D>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    // Smart Pointer to hold texture for output
+    // Smart Pointer to hold texture for output.
     D3D11_TEXTURE2D_DESC textureOutDesc;
     existingTexture->GetDesc(&textureOutDesc);
-    if (textureOutDesc.Width % 2 != 0 || textureOutDesc.Height % 2 != 0) {
+    if (textureOutDesc.Width % 2 || textureOutDesc.Height % 2)
         return false;
-    }
 
-    HRESULT hr {};
+    HRESULT hr { };
 
-    // Create texture
+    // Create texture.
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateTexture2D(&textureOutDesc, nullptr, dest.ReleaseAndGetAddressOf());
@@ -395,17 +379,16 @@ auto PGD3D::createTexture2D(ComPtr<ID3D11Texture2D>& existingTexture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
-                            ComPtr<ID3D11Texture2D>& dest) -> bool
+bool PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
+                            ComPtr<ID3D11Texture2D>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    // Define error object
-    HRESULT hr {};
+    // Define error object.
+    HRESULT hr { };
 
-    // Create texture
+    // Create texture.
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateTexture2D(&desc, nullptr, dest.ReleaseAndGetAddressOf());
@@ -413,22 +396,21 @@ auto PGD3D::createTexture2D(D3D11_TEXTURE2D_DESC& desc,
     return !FAILED(hr);
 }
 
-auto PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
-                                     ComPtr<ID3D11ShaderResourceView>& dest) -> bool
+bool PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
+                                     ComPtr<ID3D11ShaderResourceView>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    // Define error object
-    HRESULT hr {};
+    // Define error object.
+    HRESULT hr { };
 
-    // Create SRV for texture
-    D3D11_SHADER_RESOURCE_VIEW_DESC shaderDesc = {};
+    // Create SRV for texture.
+    D3D11_SHADER_RESOURCE_VIEW_DESC shaderDesc = { };
     shaderDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
     shaderDesc.Texture2D.MipLevels = -1;
 
-    // Create SRV
+    // Create SRV.
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateShaderResourceView(texture.Get(), &shaderDesc, dest.ReleaseAndGetAddressOf());
@@ -436,22 +418,21 @@ auto PGD3D::createShaderResourceView(const ComPtr<ID3D11Texture2D>& texture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
-                                      ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
+bool PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
+                                      ComPtr<ID3D11UnorderedAccessView>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    // Define error object
-    HRESULT hr {};
+    // Define error object.
+    HRESULT hr { };
 
-    // Create UAV for texture
-    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    // Create UAV for texture.
+    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = { };
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
 
-    // Create UAV
+    // Create UAV.
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateUnorderedAccessView(texture.Get(), &uavDesc, dest.ReleaseAndGetAddressOf());
@@ -459,15 +440,14 @@ auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Texture2D>& texture,
     return !FAILED(hr);
 }
 
-auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
+bool PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
                                       const D3D11_UNORDERED_ACCESS_VIEW_DESC& desc,
-                                      ComPtr<ID3D11UnorderedAccessView>& dest) -> bool
+                                      ComPtr<ID3D11UnorderedAccessView>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    HRESULT hr {};
+    HRESULT hr { };
 
     {
         const std::scoped_lock lock(m_d3dMutex);
@@ -476,18 +456,17 @@ auto PGD3D::createUnorderedAccessView(const ComPtr<ID3D11Resource>& gpuResource,
     return !FAILED(hr);
 }
 
-auto PGD3D::createBuffer(const void* data,
+bool PGD3D::createBuffer(const void* data,
                          D3D11_BUFFER_DESC& desc,
-                         ComPtr<ID3D11Buffer>& dest) -> bool
+                         ComPtr<ID3D11Buffer>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    D3D11_SUBRESOURCE_DATA initData = {};
+    D3D11_SUBRESOURCE_DATA initData = { };
     initData.pSysMem = data;
 
-    HRESULT hr {};
+    HRESULT hr { };
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateBuffer(&desc, &initData, dest.ReleaseAndGetAddressOf());
@@ -495,33 +474,32 @@ auto PGD3D::createBuffer(const void* data,
     return !FAILED(hr);
 }
 
-auto PGD3D::createConstantBuffer(const void* data,
+bool PGD3D::createConstantBuffer(const void* data,
                                  const UINT& size,
-                                 ComPtr<ID3D11Buffer>& dest) -> bool
+                                 ComPtr<ID3D11Buffer>& dest)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    // Define error object
-    HRESULT hr {};
+    // Define error object.
+    HRESULT hr { };
 
-    // Create buffer
-    D3D11_BUFFER_DESC cbDesc = {};
+    // Create buffer.
+    D3D11_BUFFER_DESC cbDesc = { };
     cbDesc.Usage = D3D11_USAGE_DYNAMIC;
-    cbDesc.ByteWidth = (size + GPU_BUFFER_SIZE_MULTIPLE) - (size % GPU_BUFFER_SIZE_MULTIPLE);
+    cbDesc.ByteWidth = (size + gpuBufferSizeMultiple) - (size % gpuBufferSizeMultiple);
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     cbDesc.MiscFlags = 0;
     cbDesc.StructureByteStride = 0;
 
-    // Create init data
+    // Create init data.
     D3D11_SUBRESOURCE_DATA cbInitData;
     cbInitData.pSysMem = data;
     cbInitData.SysMemPitch = 0;
     cbInitData.SysMemSlicePitch = 0;
 
-    // Create buffer
+    // Create buffer.
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateBuffer(&cbDesc, &cbInitData, dest.ReleaseAndGetAddressOf());
@@ -532,9 +510,8 @@ auto PGD3D::createConstantBuffer(const void* data,
 void PGD3D::copyResource(const ComPtr<ID3D11Resource>& src,
                          const ComPtr<ID3D11Resource>& dest)
 {
-    if (m_ptrContext == nullptr) {
-        throw runtime_error("Context not initialized");
-    }
+    if (!m_ptrContext)
+        throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
     m_ptrContext->CopyResource(dest.Get(), src.Get());
@@ -542,9 +519,8 @@ void PGD3D::copyResource(const ComPtr<ID3D11Resource>& src,
 
 void PGD3D::generateMips(const ComPtr<ID3D11ShaderResourceView>& srv)
 {
-    if (m_ptrContext == nullptr) {
-        throw runtime_error("Context not initialized");
-    }
+    if (!m_ptrContext)
+        throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
     m_ptrContext->GenerateMips(srv.Get());
@@ -552,116 +528,104 @@ void PGD3D::generateMips(const ComPtr<ID3D11ShaderResourceView>& srv)
 
 void PGD3D::flushGPU()
 {
-    if (m_ptrContext == nullptr) {
-        throw runtime_error("Context not initialized");
-    }
+    if (!m_ptrContext)
+        throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
     m_ptrContext->Flush();
 }
 
-auto PGD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
+bool PGD3D::blockingDispatch(const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
                              const std::vector<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>>& srvs,
                              const std::vector<Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView>>& uavs,
                              const std::vector<Microsoft::WRL::ComPtr<ID3D11Buffer>>& constantBuffers,
                              UINT threadGroupCountX,
                              UINT threadGroupCountY,
-                             UINT threadGroupCountZ) -> bool
+                             UINT threadGroupCountZ)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("GPU not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("GPU not initialized");
 
-    if (m_ptrContext == nullptr) {
-        throw runtime_error("Context not initialized");
-    }
+    if (!m_ptrContext)
+        throw std::runtime_error("Context not initialized");
 
     const std::scoped_lock lock(m_d3dMutex);
 
     m_ptrContext->CSSetShader(shader.Get(), nullptr, 0);
-    for (UINT i = 0; i < srvs.size(); i++) {
+    for (UINT i = 0; i < srvs.size(); i++)
         m_ptrContext->CSSetShaderResources(i, 1, srvs[i].GetAddressOf());
-    }
-    for (UINT i = 0; i < uavs.size(); i++) {
+    for (UINT i = 0; i < uavs.size(); i++)
         m_ptrContext->CSSetUnorderedAccessViews(i, 1, uavs[i].GetAddressOf(), nullptr);
-    }
-    for (UINT i = 0; i < constantBuffers.size(); i++) {
+    for (UINT i = 0; i < constantBuffers.size(); i++)
         m_ptrContext->CSSetConstantBuffers(i, 1, constantBuffers[i].GetAddressOf());
-    }
 
-    // Error object
-    HRESULT hr {};
+    // Error object.
+    HRESULT hr { };
 
-    // query
+    // Query.
     ComPtr<ID3D11Query> ptrQuery = nullptr;
-    D3D11_QUERY_DESC queryDesc = {};
+    D3D11_QUERY_DESC queryDesc = { };
     queryDesc.Query = D3D11_QUERY_EVENT;
     hr = m_ptrDevice->CreateQuery(&queryDesc, ptrQuery.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) {
+    if (FAILED(hr))
         return false;
-    }
 
-    // Run the shader
-    m_ptrContext->Dispatch((threadGroupCountX + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS,
-                           (threadGroupCountY + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS,
-                           (threadGroupCountZ + NUM_GPU_THREADS - 1) / NUM_GPU_THREADS);
+    // Run the shader.
+    m_ptrContext->Dispatch((threadGroupCountX + numGPUThreads - 1) / numGPUThreads,
+                           (threadGroupCountY + numGPUThreads - 1) / numGPUThreads,
+                           (threadGroupCountZ + numGPUThreads - 1) / numGPUThreads);
 
-    // end query
+    // End query.
     m_ptrContext->End(ptrQuery.Get());
 
-    // wait for shader to complete
+    // Wait for shader to complete.
     BOOL queryData = FALSE;
     hr = m_ptrContext->GetData(ptrQuery.Get(),
                                &queryData,
                                sizeof(queryData),
                                D3D11_ASYNC_GETDATA_DONOTFLUSH); // block until complete
-    if (FAILED(hr)) {
+    if (FAILED(hr))
         return false;
-    }
     ptrQuery.Reset();
 
-    // Clean up
-    static const array<ID3D11ShaderResourceView*, 1> nullSRV = {nullptr};
-    static const array<ID3D11UnorderedAccessView*, 1> nullUAV = {nullptr};
-    static const array<ID3D11Buffer*, 1> nullBuffer = {nullptr};
+    // Clean up.
+    static const std::array<ID3D11ShaderResourceView*, 1> nullSRV = { nullptr };
+    static const std::array<ID3D11UnorderedAccessView*, 1> nullUAV = { nullptr };
+    static const std::array<ID3D11Buffer*, 1> nullBuffer = { nullptr };
 
     m_ptrContext->CSSetShader(nullptr, nullptr, 0);
-    for (UINT i = 0; i < srvs.size(); i++) {
+    for (UINT i = 0; i < srvs.size(); i++)
         m_ptrContext->CSSetShaderResources(i, 1, nullSRV.data());
-    }
-    for (UINT i = 0; i < uavs.size(); i++) {
+    for (UINT i = 0; i < uavs.size(); i++)
         m_ptrContext->CSSetUnorderedAccessViews(i, 1, nullUAV.data(), nullptr);
-    }
-    for (UINT i = 0; i < constantBuffers.size(); i++) {
+    for (UINT i = 0; i < constantBuffers.size(); i++)
         m_ptrContext->CSSetConstantBuffers(i, 1, nullBuffer.data());
-    }
 
-    // return success
+    // Return success.
     return true;
 }
 
-auto PGD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
-                     DirectX::ScratchImage& outImage) -> bool
+bool PGD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
+                     DirectX::ScratchImage& outImage)
 {
-    if (m_ptrContext == nullptr) {
-        throw runtime_error("Context not initialized");
-    }
+    if (!m_ptrContext)
+        throw std::runtime_error("Context not initialized");
 
-    // Error object
-    HRESULT hr {};
+    // Error object.
+    HRESULT hr { };
 
-    // Grab texture description
+    // Grab texture description.
     D3D11_TEXTURE2D_DESC stagingTex2DDesc;
     gpuResource->GetDesc(&stagingTex2DDesc);
     const UINT mipLevels = stagingTex2DDesc.MipLevels; // Number of mip levels to read back
 
-    // Enable flags for CPU access
+    // Enable flags for CPU access.
     stagingTex2DDesc.Usage = D3D11_USAGE_STAGING;
     stagingTex2DDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     stagingTex2DDesc.BindFlags = 0;
     stagingTex2DDesc.MiscFlags = 0;
 
-    // Find bytes per pixel based on format
+    // Find bytes per pixel based on format.
     UINT bytesPerChannel = 1; // Default to 8-bit
     UINT numChannels = 4; // Default to RGBA
     switch (stagingTex2DDesc.Format) {
@@ -745,115 +709,109 @@ auto PGD3D::readBack(const ComPtr<ID3D11Texture2D>& gpuResource,
         bytesPerChannel = 1; // 8 bits per channel
         numChannels = 1; // R
         break;
-    // Add more cases for other formats if needed
+    // Add more cases for other formats if needed.
     default:
         bytesPerChannel = 1; // Assume 8-bit for unsupported formats
         numChannels = 4; // Assume RGBA for unsupported formats
     }
     const UINT bytesPerPixel = bytesPerChannel * numChannels;
 
-    // Create staging texture
+    // Create staging texture.
     ComPtr<ID3D11Texture2D> stagingTex2D;
-    if (!createTexture2D(stagingTex2DDesc, stagingTex2D)) {
+    if (!createTexture2D(stagingTex2DDesc, stagingTex2D))
         return false;
-    }
 
-    // Copy resource to staging texture
+    // Copy resource to staging texture.
     copyResource(gpuResource, stagingTex2D);
 
     std::vector<unsigned char> outputData;
 
-    // Iterate over each mip level and read back
+    // Iterate over each mip level and read back.
     {
         const std::scoped_lock lock(m_d3dMutex);
 
         for (UINT mipLevel = 0; mipLevel < mipLevels; ++mipLevel) {
-            // Get dimensions for the current mip level
+            // Get dimensions for the current mip level.
             const UINT mipWidth = std::max(1U, stagingTex2DDesc.Width >> mipLevel);
             const UINT mipHeight = std::max(1U, stagingTex2DDesc.Height >> mipLevel);
 
-            // Map the mip level to the CPU
+            // Map the mip level to the CPU.
             D3D11_MAPPED_SUBRESOURCE mappedResource;
             hr = m_ptrContext->Map(stagingTex2D.Get(), mipLevel, D3D11_MAP_READ, 0, &mappedResource);
 
-            if (FAILED(hr)) {
+            if (FAILED(hr))
                 return false;
-            }
 
-            // Copy the data from the mapped resource to the output vector
+            // Copy the data from the mapped resource to the output vector.
             auto* srcData = reinterpret_cast<unsigned char*>(mappedResource.pData);
             for (UINT row = 0; row < mipHeight; ++row) {
                 unsigned char* rowStart = srcData + (row * mappedResource.RowPitch);
                 outputData.insert(outputData.end(), rowStart, rowStart + (mipWidth * bytesPerPixel));
             }
 
-            // Unmap the resource for this mip level
+            // Unmap the resource for this mip level.
             m_ptrContext->Unmap(stagingTex2D.Get(), mipLevel);
         }
     }
 
     stagingTex2D.Reset();
 
-    // Import into directx scratchimage
+    // Import into directx scratchimage.
     outImage = loadRawPixelsToScratchImage(
         outputData, stagingTex2DDesc.Width, stagingTex2DDesc.Height, mipLevels, stagingTex2DDesc.Format);
 
     return true;
 }
 
-template <typename T>
-auto PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
-                     vector<T>& outData) -> bool
+template<typename T>
+bool PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
+                     std::vector<T>& outData)
 {
-    if (m_ptrDevice == nullptr) {
-        throw runtime_error("Device not initialized");
-    }
+    if (!m_ptrDevice)
+        throw std::runtime_error("Device not initialized");
 
-    if (m_ptrContext == nullptr) {
-        throw runtime_error("Context not initialized");
-    }
+    if (!m_ptrContext)
+        throw std::runtime_error("Context not initialized");
 
-    // Error object
-    HRESULT hr {};
+    // Error object.
+    HRESULT hr { };
 
-    // grab edge detection results
+    // Grab edge detection results.
     D3D11_BUFFER_DESC bufferDesc;
     gpuResource->GetDesc(&bufferDesc);
-    // Enable flags for CPU access
+    // Enable flags for CPU access.
     bufferDesc.Usage = D3D11_USAGE_STAGING;
     bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     bufferDesc.BindFlags = 0;
     bufferDesc.MiscFlags = 0;
     bufferDesc.StructureByteStride = 0;
 
-    // Create the staging buffer
+    // Create the staging buffer.
     ComPtr<ID3D11Buffer> stagingBuffer;
 
     hr = m_ptrDevice->CreateBuffer(&bufferDesc, nullptr, stagingBuffer.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) {
+    if (FAILED(hr))
         return false;
-    }
 
-    // copy resource
+    // Copy resource.
     copyResource(gpuResource, stagingBuffer);
 
-    // map resource to CPU
+    // Map resource to CPU.
     {
         const std::scoped_lock lock(m_d3dMutex);
 
         D3D11_MAPPED_SUBRESOURCE mappedResource;
         hr = m_ptrContext->Map(stagingBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
-        if (FAILED(hr)) {
+        if (FAILED(hr))
             return false;
-        }
 
-        // Access the texture data from MappedResource.pData
+        // Access the texture data from MappedResource.pData.
         const size_t numElements = bufferDesc.ByteWidth / sizeof(T);
-        vector<T> outputData(reinterpret_cast<T*>(mappedResource.pData),
-                             reinterpret_cast<T*>(mappedResource.pData) + numElements);
+        std::vector<T> outputData(reinterpret_cast<T*>(mappedResource.pData),
+                                  reinterpret_cast<T*>(mappedResource.pData) + numElements);
         outData = std::move(outputData);
 
-        // Cleaup
+        // Cleaup.
         m_ptrContext->Unmap(stagingBuffer.Get(), 0); // cleanup map
     }
 
@@ -863,43 +821,42 @@ auto PGD3D::readBack(const ComPtr<ID3D11Buffer>& gpuResource,
 }
 
 //
-// Texture Helpers
+// Texture Helpers.
 //
 
-auto PGD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readability-convert-member-functions-to-static)
-                   DirectX::ScratchImage& dds) const -> bool
+bool PGD3D::getDDS(const std::filesystem::path& ddsPath, // NOLINT(readability-convert-member-functions-to-static)
+                   DirectX::ScratchImage& dds) const
 {
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
 
     // Texture pixel data never influences mesh output directly (only derived classification does), so reading it
-    // must not register the texture as a dependency of the mesh being patched
+    // must not register the texture as a dependency of the mesh being patched.
     const PGRunCache::SuspendRecording suspendRecording;
 
-    HRESULT hr {};
+    HRESULT hr { };
 
     if (pgd->isLooseFile(ddsPath)) {
-        const filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
+        const std::filesystem::path fullPath = pgd->looseFileFullPath(ddsPath);
 
-        // Load DDS file
+        // Load DDS file.
         hr = DirectX::LoadFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
     } else if (pgd->isBSAFile(ddsPath)) {
-        vector<std::byte> ddsBytes;
+        std::vector<std::byte> ddsBytes;
         try {
-            ddsBytes = pgd->getFile(ddsPath);
+            ddsBytes = pgd->file(ddsPath);
         } catch (...) {
             Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
             return false;
         }
 
-        // Load DDS file
+        // Load DDS file.
         hr = DirectX::LoadFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, nullptr, dds);
     } else {
         return false;
     }
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
         return false;
-    }
 
     return true;
 }
@@ -907,142 +864,130 @@ auto PGD3D::getDDS(const filesystem::path& ddsPath, // NOLINT(readability-conver
 void PGD3D::seedDDSMetadata(const std::filesystem::path& ddsPath,
                             const DirectX::TexMetadata& ddsMeta)
 {
-    const unique_lock lock(m_ddsMetaDataMutex);
-    if (!m_ddsMetaDataCache.contains(ddsPath)) {
+    const std::unique_lock lock(m_ddsMetaDataMutex);
+    if (!m_ddsMetaDataCache.contains(ddsPath))
         m_ddsMetaDataCache[ddsPath] = ddsMeta;
-    }
 }
 
-auto PGD3D::getDDSMetadataCacheSnapshot() -> std::unordered_map<std::filesystem::path,
-                                                                DirectX::TexMetadata>
+std::unordered_map<std::filesystem::path,
+                   DirectX::TexMetadata>
+PGD3D::ddsMetadataCacheSnapshot()
 {
-    const shared_lock lock(m_ddsMetaDataMutex);
+    const std::shared_lock lock(m_ddsMetaDataMutex);
     return m_ddsMetaDataCache;
 }
 
-auto PGD3D::getDDSMetadata(const filesystem::path& ddsPath,
-                           DirectX::TexMetadata& ddsMeta) -> bool
+bool PGD3D::getDDSMetadata(const std::filesystem::path& ddsPath,
+                           DirectX::TexMetadata& ddsMeta)
 {
-    auto* const pgd = PGGlobals::getPGD();
+    auto* const pgd = PGGlobals::pgd();
 
     {
-        const shared_lock lock(m_ddsMetaDataMutex);
-        // TODO set cache to something on failure
+        const std::shared_lock lock(m_ddsMetaDataMutex);
+        // FIXME: Set the cache to something on failure.
         if (m_ddsMetaDataCache.contains(ddsPath)) {
             ddsMeta = m_ddsMetaDataCache.at(ddsPath);
             return true;
         }
     }
 
-    // See getDDS for why recording is suspended here
+    // See getDDS for why recording is suspended here.
     const PGRunCache::SuspendRecording suspendRecording;
 
-    HRESULT hr {};
+    HRESULT hr { };
 
     if (pgd->isLooseFile(ddsPath)) {
-        const filesystem::path fullPath = pgd->getLooseFileFullPath(ddsPath);
+        const std::filesystem::path fullPath = pgd->looseFileFullPath(ddsPath);
 
-        // Load DDS file
+        // Load DDS file.
         hr = DirectX::GetMetadataFromDDSFile(fullPath.c_str(), DirectX::DDS_FLAGS_NONE, ddsMeta);
     } else if (pgd->isBSAFile(ddsPath)) {
-        vector<std::byte> ddsBytes;
+        std::vector<std::byte> ddsBytes;
         try {
-            ddsBytes = pgd->getFile(ddsPath);
+            ddsBytes = pgd->file(ddsPath);
         } catch (...) {
             Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
             return false;
         }
 
-        // Load DDS file
+        // Load DDS file.
         hr = DirectX::GetMetadataFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, ddsMeta);
     } else {
         return false;
     }
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
         return false;
-    }
 
-    // update cache
+    // Update cache.
     {
-        const unique_lock lock(m_ddsMetaDataMutex);
-        if (!m_ddsMetaDataCache.contains(ddsPath)) {
+        const std::unique_lock lock(m_ddsMetaDataMutex);
+        if (!m_ddsMetaDataCache.contains(ddsPath))
             m_ddsMetaDataCache[ddsPath] = ddsMeta;
-        }
     }
 
     return true;
 }
 
-auto PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
+bool PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
                                  DirectX::ScratchImage& outTexture,
                                  const Microsoft::WRL::ComPtr<ID3D11ComputeShader>& shader,
                                  const DXGI_FORMAT& outFormat,
                                  const UINT& outWidth,
                                  const UINT& outHeight,
                                  const void* shaderParams,
-                                 const UINT& shaderParamsSize) -> bool
+                                 const UINT& shaderParamsSize)
 {
-    if (shader == nullptr) {
-        throw runtime_error("Shader was not initialized");
-    }
+    if (!shader)
+        throw std::runtime_error("Shader was not initialized");
 
-    if (inTexture.GetImageCount() < 1) {
+    if (inTexture.GetImageCount() < 1)
         return false;
-    }
 
     const DirectX::TexMetadata inputMeta = inTexture.GetMetadata();
 
-    // Load texture on GPU
+    // Load texture on GPU.
     ComPtr<ID3D11Texture2D> inputDDSGPU;
-    if (!createTexture2D(inTexture, inputDDSGPU)) {
+    if (!createTexture2D(inTexture, inputDDSGPU))
         return false;
-    }
 
-    // Create shader resource view
+    // Create shader resource view.
     ComPtr<ID3D11ShaderResourceView> inputDDSSRV;
-    if (!createShaderResourceView(inputDDSGPU, inputDDSSRV)) {
+    if (!createShaderResourceView(inputDDSGPU, inputDDSSRV))
         return false;
-    }
 
-    // Create constant parameter buffer
+    // Create constant parameter buffer.
     ComPtr<ID3D11Buffer> constantBuffer;
-    if (shaderParams != nullptr && !createConstantBuffer(shaderParams, shaderParamsSize, constantBuffer)) {
+    if (shaderParams && !createConstantBuffer(shaderParams, shaderParamsSize, constantBuffer))
         return false;
-    }
 
-    // Create output texture
-    D3D11_TEXTURE2D_DESC outputDDSDesc = {};
+    // Create output texture.
+    D3D11_TEXTURE2D_DESC outputDDSDesc = { };
     inputDDSGPU->GetDesc(&outputDDSDesc);
-    if (outWidth > 0) {
+    if (outWidth > 0)
         outputDDSDesc.Width = outWidth;
-    }
-    if (outHeight > 0) {
+    if (outHeight > 0)
         outputDDSDesc.Height = outHeight;
-    }
     outputDDSDesc.Format = outFormat;
     outputDDSDesc.MipLevels = 0; // Generate full mip chain
     outputDDSDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 
     ComPtr<ID3D11Texture2D> outputDDSGPU;
-    if (!createTexture2D(outputDDSDesc, outputDDSGPU)) {
+    if (!createTexture2D(outputDDSDesc, outputDDSGPU))
         return false;
-    }
 
     ComPtr<ID3D11UnorderedAccessView> outputDDSUAV;
-    if (!createUnorderedAccessView(outputDDSGPU, outputDDSUAV)) {
+    if (!createUnorderedAccessView(outputDDSGPU, outputDDSUAV))
         return false;
-    }
 
-    // Dispatch shader
-    vector<ComPtr<ID3D11Buffer>> constantBuffers;
-    if (shaderParams != nullptr) {
+    // Dispatch shader.
+    std::vector<ComPtr<ID3D11Buffer>> constantBuffers;
+    if (shaderParams)
         constantBuffers.push_back(constantBuffer);
-    }
 
     if (!blockingDispatch(shader,
-                          {inputDDSSRV},
-                          {outputDDSUAV},
+                          { inputDDSSRV },
+                          { outputDDSUAV },
                           constantBuffers,
                           static_cast<UINT>(inputMeta.width),
                           static_cast<UINT>(inputMeta.height),
@@ -1050,92 +995,85 @@ auto PGD3D::applyShaderToTexture(const DirectX::ScratchImage& inTexture,
         return false;
     }
 
-    // Release some objects
+    // Release some objects.
     inputDDSGPU.Reset();
     inputDDSSRV.Reset();
     constantBuffer.Reset();
 
-    // Generate mips
-    D3D11_TEXTURE2D_DESC outputDDSMipsDesc = {};
+    // Generate mips.
+    D3D11_TEXTURE2D_DESC outputDDSMipsDesc = { };
     outputDDSGPU->GetDesc(&outputDDSMipsDesc);
     outputDDSMipsDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
     outputDDSMipsDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
     ComPtr<ID3D11Texture2D> outputDDSMipsGPU;
-    if (!createTexture2D(outputDDSMipsDesc, outputDDSMipsGPU)) {
+    if (!createTexture2D(outputDDSMipsDesc, outputDDSMipsGPU))
         return false;
-    }
 
     ComPtr<ID3D11ShaderResourceView> outputMipsSRV;
-    if (!createShaderResourceView(outputDDSMipsGPU, outputMipsSRV)) {
+    if (!createShaderResourceView(outputDDSMipsGPU, outputMipsSRV))
         return false;
-    }
 
-    // Copy texture
+    // Copy texture.
     copyResource(outputDDSGPU.Get(), outputDDSMipsGPU.Get());
     generateMips(outputMipsSRV.Get());
     copyResource(outputDDSMipsGPU.Get(), outputDDSGPU.Get());
 
-    // cleanup
+    // Cleanup.
     outputDDSMipsGPU.Reset();
     outputMipsSRV.Reset();
 
-    // Read back texture
-    if (!readBack(outputDDSGPU, outTexture)) {
+    // Read back texture.
+    if (!readBack(outputDDSGPU, outTexture))
         return false;
-    }
 
-    // More cleaning
+    // More cleaning.
     outputDDSGPU.Reset();
     outputDDSUAV.Reset();
 
-    // Flush GPU to avoid leaks
+    // Flush GPU to avoid leaks.
     flushGPU();
 
     return true;
 }
 
-auto PGD3D::loadRawPixelsToScratchImage(const vector<unsigned char>& rawPixels,
-                                        const size_t& width,
-                                        const size_t& height,
-                                        const size_t& mips,
-                                        DXGI_FORMAT format) -> DirectX::ScratchImage
+DirectX::ScratchImage PGD3D::loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPixels,
+                                                         const size_t& width,
+                                                         const size_t& height,
+                                                         const size_t& mips,
+                                                         DXGI_FORMAT format)
 {
-    // Initialize a ScratchImage
+    // Initialize a ScratchImage.
     DirectX::ScratchImage image;
     const HRESULT hr = image.Initialize2D(format, width, height, 1,
                                           mips); // 1 array slice, 1 mipmap level
-    if (FAILED(hr)) {
-        return {};
-    }
+    if (FAILED(hr))
+        return { };
 
-    // Get the image data
+    // Get the image data.
     const DirectX::Image* img = image.GetImage(0, 0, 0);
-    if (img == nullptr) {
-        return {};
-    }
+    if (!img)
+        return { };
 
-    // Copy the raw pixel data into the image
+    // Copy the raw pixel data into the image.
     memcpy(img->pixels, rawPixels.data(), rawPixels.size());
 
     return image;
 }
 
-auto PGD3D::getHRESULTErrorMessage(HRESULT hr) -> wstring
+std::wstring PGD3D::hresultErrorMessage(HRESULT hr)
 {
-    // Get error message
+    // Get error message.
     const _com_error err(hr);
     return err.ErrorMessage();
 }
 
-auto PGD3D::getDXGIFormatFromString(const string& format) -> DXGI_FORMAT
+DXGI_FORMAT PGD3D::dxgiFormatFromString(const std::string& format)
 {
-    if (format == "rgba16f") {
+    if (format == "rgba16f")
         return DXGI_FORMAT_R16G16B16A16_FLOAT;
-    }
 
-    if (format == "rgba32f") {
+    if (format == "rgba32f")
         return DXGI_FORMAT_R32G32B32A32_FLOAT;
-    }
 
     return DXGI_FORMAT_UNKNOWN;
 }

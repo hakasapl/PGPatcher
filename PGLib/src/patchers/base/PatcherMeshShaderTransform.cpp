@@ -5,7 +5,6 @@
 #include "pgutil/PGEnums.hpp"
 #include <spdlog/spdlog.h>
 
-
 #include <filesystem>
 #include <string>
 #include <utility>

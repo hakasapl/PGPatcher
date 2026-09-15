@@ -11,37 +11,32 @@
 #include <unordered_map>
 #include <utility>
 
-using namespace std;
-
-auto PatcherTextureGlobalConvertToHDR::initShader() -> bool
+bool PatcherTextureGlobalConvertToHDR::initShader()
 {
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
-    if (s_shader != nullptr) {
+    if (s_shader)
         return true;
-    }
 
-    return pgd3d->initShader(SHADER_NAME, s_shader);
+    return pgd3d->initShader(shaderName, s_shader);
 }
 
-auto PatcherTextureGlobalConvertToHDR::getFactory() -> PatcherTextureGlobal::PatcherGlobalFactory
+auto PatcherTextureGlobalConvertToHDR::factory() -> PatcherTextureGlobal::PatcherGlobalFactory
 {
     return [](const std::filesystem::path& ddsPath, DirectX::ScratchImage* dds) {
         return std::make_unique<PatcherTextureGlobalConvertToHDR>(ddsPath, dds);
     };
 }
 
-void PatcherTextureGlobalConvertToHDR::loadOptions(const unordered_map<string,
-                                                                       string>& optionsStr)
+void PatcherTextureGlobalConvertToHDR::loadOptions(const std::unordered_map<std::string,
+                                                                            std::string>& optionsStr)
 {
     for (const auto& [option, value] : optionsStr) {
-        if (option == "luminance_mult") {
-            s_luminanceMult = stof(value);
-        }
+        if (option == "luminance_mult")
+            s_luminanceMult = std::stof(value);
 
-        if (option == "output_format") {
-            s_outputFormat = PGD3D::getDXGIFormatFromString(value);
-        }
+        if (option == "output_format")
+            s_outputFormat = PGD3D::dxgiFormatFromString(value);
     }
 }
 
@@ -55,15 +50,13 @@ PatcherTextureGlobalConvertToHDR::PatcherTextureGlobalConvertToHDR(std::filesyst
 
 void PatcherTextureGlobalConvertToHDR::applyPatch(bool& ddsModified)
 {
-    auto* pgd3d = PGGlobals::getPGD3D();
+    auto* pgd3d = PGGlobals::pgD3D();
 
     DirectX::ScratchImage newDDS;
-    ShaderParams params = {.luminanceMult = s_luminanceMult};
-    if (!pgd3d->applyShaderToTexture(
-            *getDDS(), newDDS, s_shader, s_outputFormat, 0, 0, &params, sizeof(ShaderParams))) {
+    ShaderParams params = { .luminanceMult = s_luminanceMult };
+    if (!pgd3d->applyShaderToTexture(*dds(), newDDS, s_shader, s_outputFormat, 0, 0, &params, sizeof(ShaderParams)))
         return;
-    }
 
-    *getDDS() = std::move(newDDS);
+    *dds() = std::move(newDDS);
     ddsModified = true;
 }

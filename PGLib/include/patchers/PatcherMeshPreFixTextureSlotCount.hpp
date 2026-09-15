@@ -10,7 +10,7 @@
 
 class PatcherMeshPreFixTextureSlotCount : public PatcherMeshPre {
 private:
-    constexpr static int SLOT_COUNT = 9;
+    constexpr static int slotCount = 9;
 
 public:
     /**
@@ -18,7 +18,7 @@ public:
      *
      * @return PatcherShaderTransform::PatcherShaderTransformFactory
      */
-    static auto getFactory() -> PatcherMeshPre::PatcherMeshPreFactory;
+    static PatcherMeshPre::PatcherMeshPreFactory factory();
 
     /**
      * @brief Construct a new PrePatcher Particle Lights To LP patcher
@@ -36,6 +36,6 @@ public:
      * @return true Shape was patched
      * @return false Shape was not patched
      */
-    auto applyPatch(PGTypes::TextureSet& slots,
-                    nifly::NiShape& nifShape) -> bool override;
+    bool applyPatch(PGTypes::TextureSet& slots,
+                    nifly::NiShape& nifShape) override;
 };

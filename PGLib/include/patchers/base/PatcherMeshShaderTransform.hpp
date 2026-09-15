@@ -21,12 +21,12 @@ private:
     PGEnums::ShapeShader m_toShader; /** Shader to transform to */
 
 public:
-    // Custom type definitions
+    // Custom type definitions.
     using PatcherMeshShaderTransformFactory
         = std::function<std::unique_ptr<PatcherMeshShaderTransform>(std::filesystem::path, nifly::NifFile*)>;
     using PatcherMeshShaderTransformObject = std::unique_ptr<PatcherMeshShaderTransform>;
 
-    // Constructors
+    // Constructors.
     PatcherMeshShaderTransform(std::filesystem::path nifPath,
                                nifly::NifFile* nif,
                                std::string patcherName,
@@ -34,13 +34,12 @@ public:
                                const PGEnums::ShapeShader& to);
     virtual ~PatcherMeshShaderTransform() = default;
     PatcherMeshShaderTransform(const PatcherMeshShaderTransform& other) = default;
-    auto operator=(const PatcherMeshShaderTransform& other) -> PatcherMeshShaderTransform& = default;
+    PatcherMeshShaderTransform& operator=(const PatcherMeshShaderTransform& other) = default;
     PatcherMeshShaderTransform(PatcherMeshShaderTransform&& other) noexcept = default;
-    auto operator=(PatcherMeshShaderTransform&& other) noexcept -> PatcherMeshShaderTransform& = default;
+    PatcherMeshShaderTransform& operator=(PatcherMeshShaderTransform&& other) noexcept = default;
 
-    virtual auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch,
-                                 bool canApplyBaseShader) -> bool
-        = 0;
+    virtual bool shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch,
+                                 bool canApplyBaseShader) = 0;
 
     /**
      * @brief Transform shader match to new shader match
@@ -48,7 +47,6 @@ public:
      * @param FromMatch shader match to transform
      * @return PatcherShader::PatcherMatch transformed match
      */
-    virtual auto transform(const PatcherMeshShader::PatcherMatch& fromMatch,
-                           PatcherMeshShader::PatcherMatch& result) -> bool
-        = 0;
+    virtual bool transform(const PatcherMeshShader::PatcherMatch& fromMatch,
+                           PatcherMeshShader::PatcherMatch& result) = 0;
 };

@@ -30,21 +30,21 @@ public:
      *
      * @return PatcherShaderTransform::PatcherShaderTransformFactory Factory object
      */
-    static auto getFactory() -> PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory;
+    static PatcherMeshShaderTransform::PatcherMeshShaderTransformFactory factory();
 
     /**
      * @brief Get the From Shader (Parallax)
      *
      * @return PGEnums::ShapeShader Parallax
      */
-    static auto getFromShader() -> PGEnums::ShapeShader;
+    static PGEnums::ShapeShader fromShader();
 
     /**
      * @brief Get the To Shader object (CM)
      *
      * @return PGEnums::ShapeShader (CM)
      */
-    static auto getToShader() -> PGEnums::ShapeShader;
+    static PGEnums::ShapeShader toShader();
 
     /**
      * @brief Construct a new Patcher Upgrade Parallax To CM patcher
@@ -62,8 +62,8 @@ public:
      * @param canApplyBaseShader true if the base parallax shader can be applied without transformation.
      * @return true if the transform should be applied; false if it should be skipped.
      */
-    auto shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch,
-                         bool canApplyBaseShader) -> bool override;
+    bool shouldTransform(const PatcherMeshShader::PatcherMatch& baseMatch,
+                         bool canApplyBaseShader) override;
 
     /**
      * @brief Transform shader match to new shader match
@@ -71,6 +71,6 @@ public:
      * @param fromMatch Match to transform
      * @return PatcherShader::PatcherMatch Transformed match
      */
-    auto transform(const PatcherMeshShader::PatcherMatch& fromMatch,
-                   PatcherMeshShader::PatcherMatch& result) -> bool override;
+    bool transform(const PatcherMeshShader::PatcherMatch& fromMatch,
+                   PatcherMeshShader::PatcherMatch& result) override;
 };
