@@ -6,10 +6,11 @@
 - All windows now show the PGPatcher icon in their title bar
 - Removed restriction that prevents grass meshes from being patched for PBR (CS will now support PBR grass)
 - Removed restriction that prevents rgb tint flag shapes from being patched for PBR
+- Changed layout of config buttons in the launcher window
 - Fixed restore defaults/load config logic mismatching with enable state of save config button
-- Changed layout of some buttons in the launcher window
 - Fixed some strings not in the localization files
-- Updated Russian localization with new strings
+- Fixed some cases of exceptions causing hangs in multithreaded context
+- Updated Russian localization with new strings (enbl1tenment)
 - Added Chinese simplified localization (LoyiNuts)
 
 ## [2.0.0] - 2026-09-10
