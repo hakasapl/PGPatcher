@@ -1,0 +1,382 @@
+{
+  "_language": "Français",
+  "common": {
+    "browse": "Parcourir",
+    "cancel": "Annuler",
+    "ok": "OK",
+    "close": "Fermer",
+    "errors": "Erreurs",
+    "error": "Erreur",
+    "enable": "Activer",
+    "disable": "Désactiver"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": {
+      "label": "Langue",
+      "tooltip": "Les langues sont lues depuis le dossier \"translations\""
+    },
+    "theme": {
+      "label": "Thème",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Système",
+      "tooltip": "\"Système\" suit le thème de Windows. Appliqué au redémarrage du lanceur."
+    }
+  },
+  "launcher": {
+    "title": "Lanceur PGPatcher %s",
+    "settingsButton": {
+      "tooltip": "Ouvrir les paramètres de PGPatcher"
+    },
+    "helpButton": {
+      "tooltip": "Ouvrir le wiki de PGPatcher"
+    },
+    "game": {
+      "title": "Jeu",
+      "location": {
+        "label": "Emplacement",
+        "tooltip": "Chemin vers le dossier du jeu (PAS le dossier data)"
+      },
+      "type": {
+        "label": "Type"
+      }
+    },
+    "modManager": {
+      "title": "Gestionnaire de mods",
+      "noneSuffix": " (Pas de résolution de conflits)"
+    },
+    "mo2Options": {
+      "title": "Options MO2",
+      "instanceLocation": {
+        "label": "Emplacement de l'instance",
+        "tooltip": "Chemin vers le dossier de l'instance MO2 (icône Dossier > Ouvrir le dossier de l'instance dans MO2)"
+      }
+    },
+    "output": {
+      "title": "Sortie",
+      "location": {
+        "help": "Emplacement",
+        "tooltip": "Chemin vers le dossier de sortie - Ce dossier doit être utilisé EXCLUSIVEMENT pour PGPatcher, il est recommandé d'en faire un dossier de mod"
+      },
+      "zip": {
+        "label": "Compresser la sortie (laisser désactivé si la sortie va dans un dossier de mod)",
+        "tooltip": "Compresse le dossier de sortie en zip après le traitement"
+      },
+      "pluginLang": {
+        "label": "Langue du plugin",
+        "placeholder": "Langue",
+        "tooltip": "Langue des chaînes intégrées dans le plugin de sortie. Si une traduction pour cette langue n'est pas disponible pour un enregistrement, la langue par défaut (généralement l'anglais) sera utilisée."
+      }
+    },
+    "prePatchers": {
+      "title": "Pré-patchers",
+      "fixMeshLighting": {
+        "label": "Corriger l'éclairage des meshes (ENB uniquement)",
+        "tooltip": "Corrige les meshes qui brillent (pour les utilisateurs d'ENB uniquement !)"
+      }
+    },
+    "shaderPatchers": {
+      "title": "Patchers de shaders",
+      "parallax": {
+        "label": "Parallax"
+      },
+      "complexMaterial": {
+        "label": "Complex Material"
+      },
+      "truePBR": {
+        "label": "TruePBR (CS uniquement)"
+      }
+    },
+    "shaderTransforms": {
+      "title": "Transformations de shaders",
+      "parallaxToCM": {
+        "label": "Passer le Parallax en Complex Material",
+        "tooltip": "Convertit les textures et meshes parallax en complex material lorsque nécessaire pour la compatibilité (fortement recommandé)"
+      }
+    },
+    "postPatchers": {
+      "title": "Post-patchers",
+      "disablePrePatchedMaterials": {
+        "label": "Désactiver les matériaux pré-patchés",
+        "tooltip": "Restaure les shaders par défaut si les textures parallax ou complex material sont manquantes (fortement recommandé, remplace la fonctionnalité auto-parallax)"
+      },
+      "fixSSS": {
+        "label": "Corriger le subsurface scattering vanilla",
+        "tooltip": "Corrige le subsurface scattering des meshes, en particulier le feuillage"
+      },
+      "hairFlowMap": {
+        "label": "Ajouter une flow map de cheveux (CS uniquement)",
+        "tooltip": "Ajoute des flow maps aux texture sets pour celles correspondant à la texture normale"
+      }
+    },
+    "buttons": {
+      "restoreDefaults": "Restaurer les valeurs par défaut",
+      "loadConfig": "Charger la configuration",
+      "saveConfig": "Enregistrer la configuration",
+      "startPatching": "Lancer le patch",
+      "startPatchingTooltip": "Génère la sortie depuis zéro (toute sortie précédente dans l'emplacement de sortie est remplacée)",
+      "updateOutput": "Mettre à jour la sortie",
+      "updateOutputTooltip": "Met à jour la sortie précédente dans l'emplacement de sortie : seuls les meshes dont les entrées ont changé depuis cette génération sont repatchés. Disponible lorsque l'emplacement de sortie contient une sortie précédente et que la compression en zip est désactivée."
+    },
+    "processing": {
+      "title": "Traitement",
+      "help": "Ces options permettent de personnaliser la génération de la sortie. Évitez de les modifier sauf si vous savez ce que vous faites.",
+      "allowedRecordTypes": "Types d'enregistrement autorisés",
+      "meshAllowlist": "Liste blanche de meshes",
+      "meshBlocklist": "Liste noire de meshes",
+      "textureRules": "Règles de textures",
+      "multithreading": {
+        "label": "Multithreading",
+        "tooltip": "Accélère l'exécution au prix d'une consommation de ressources plus importante"
+      },
+      "devMode": {
+        "label": "Activer le mode développeur de mods",
+        "tooltip": "Active certains avertissements pour aider les personnes développant des mods à travailler avec PGPatcher"
+      },
+      "debugLogging": {
+        "label": "Activer la journalisation de débogage",
+        "tooltip": "Active la journalisation de débogage dans le journal de sortie"
+      },
+      "traceLogging": {
+        "label": "Activer la journalisation de trace",
+        "tooltip": "Active la journalisation de trace dans le journal de sortie (très détaillée)"
+      }
+    },
+    "browse": {
+      "gameLocation": "Sélectionner l'emplacement du jeu",
+      "mo2InstanceLocation": "Sélectionner l'emplacement de l'instance MO2",
+      "outputLocation": "Sélectionner l'emplacement de sortie"
+    },
+    "confirmLoadConfig": {
+      "title": "Confirmer le chargement de la configuration",
+      "message": "Êtes-vous sûr de vouloir charger la configuration depuis le fichier ? Cette action écrasera tous les paramètres actuels non enregistrés."
+    },
+    "confirmRestoreDefaults": {
+      "title": "Confirmer la restauration des valeurs par défaut",
+      "message": "Êtes-vous sûr de vouloir restaurer les paramètres par défaut ? Cette action est irréversible."
+    },
+    "validation": {
+      "mo2RelativeGamePath": "Impossible de résoudre le chemin relatif du jeu depuis MO2 - assurez-vous d'avoir lancé PGPatcher depuis MO2"
+    }
+  },
+  "dialogs": {
+    "meshAllowlist": {
+      "title": "Liste blanche des règles de meshes",
+      "description": "Si des règles existent ici, seuls les meshes qui leur correspondent seront patchés. Entrez le chemin d'un mesh comme \"meshes/armor/helmet.nif\" ou utilisez des jokers (* est le joker) pour autoriser des dossiers/fichiers entiers. Clic droit pour ajouter/retirer des entrées."
+    },
+    "meshBlocklist": {
+      "title": "Liste noire des règles de meshes",
+      "description": "Tout mesh correspondant aux règles ici ne sera pas patché. Entrez le chemin d'un mesh comme \"meshes/armor/helmet.nif\" ou utilisez des jokers (* est le joker) pour exclure des dossiers/fichiers entiers. Clic droit pour ajouter/retirer des entrées."
+    },
+    "textureRules": {
+      "title": "Règles de textures",
+      "description": "Utilisez ceci pour indiquer à PGPatcher le type d'une texture si la détection automatique se trompe (très rare). Entrez le chemin complet de la texture comme \"textures/armor/helmet.dds\" et sélectionnez le type de texture. Les jokers ne sont PAS pris en charge ici. Une texture peut être ignorée en la définissant sur \"unknown\". Clic droit pour ajouter/retirer des entrées."
+    },
+    "recTypeSelector": {
+      "title": "Types d'enregistrement autorisés",
+      "description": "Décocher un type d'enregistrement l'exclura, ainsi que ses meshes associés, du patch. Seuls les types d'enregistrement possédant des modèles sont affichés."
+    }
+  },
+  "progress": {
+    "title": "Progression de la génération PGPatcher",
+    "overall": "Progression globale :",
+    "stopButton": "Arrêter la génération / Quitter",
+    "steps": {
+      "preparing": "Préparation",
+      "initGpu": "Initialisation du GPU",
+      "outputDir": "Création et validation du dossier de sortie",
+      "validatingPlugins": "Validation des plugins",
+      "initPluginPatching": "Initialisation du patch de plugins",
+      "initModManager": "Initialisation du gestionnaire de mods",
+      "populatingFileMap": "Constitution de la carte des fichiers",
+      "validatingDataFiles": "Validation des fichiers de données",
+      "initPatchers": "Initialisation des patchers",
+      "waitPluginInit": "Attente de l'initialisation des plugins",
+      "waitModManagerInit": "Attente de l'initialisation du gestionnaire de mods",
+      "loadingMeshes": "Chargement des meshes",
+      "readingNifs": "Lecture des NIF",
+      "classifyingTextures": "Classification des textures",
+      "patchingMeshes": "Patch des meshes",
+      "processingNifs": "Traitement des NIF",
+      "patchingTextures": "Patch des textures",
+      "processingTextures": "Traitement des textures",
+      "finalizing": "Finalisation",
+      "finishingWritingFiles": "Finalisation de l'écriture des fichiers",
+      "savingPlugins": "Enregistrement des plugins",
+      "deployingAssets": "Déploiement des ressources",
+      "savingDiffJson": "Enregistrement du Diff Json",
+      "savingUpdateCache": "Enregistrement du cache de mise à jour",
+      "creatingZipArchive": "Création de l'archive zip"
+    }
+  },
+  "completion": {
+    "title": "Génération PGPatcher terminée",
+    "message": "PGPatcher a terminé de générer la sortie.\n\nTemps de traitement : %lld secondes\nEmplacement de sortie :\n%s",
+    "showWarnings": "Afficher les avertissements",
+    "showWarningsCount": "Afficher les avertissements (%d)",
+    "showErrors": "Afficher les erreurs",
+    "showErrorsCount": "Afficher les erreurs (%d)",
+    "showIgnoredWarnings": "Afficher les avertissements ignorés",
+    "conflictManager": "Gestionnaire de conflits",
+    "helpButton": {
+      "tooltip": "Ouvrir le wiki des messages d'erreur de PGPatcher"
+    },
+    "openOutputLocation": "Ouvrir l'emplacement de sortie",
+    "openLogFile": "Ouvrir le fichier journal"
+  },
+  "conflictManager": {
+    "title": "Gestionnaire de conflits",
+    "help": "Veuillez trier vos mods pour déterminer quel mod PGPatcher utilise pour patcher les meshes, et où. Sélectionner des mods affichera les conflits. Le mod que vous avez sélectionné l'emporte sur les mods en vert, et perd face aux mods en rouge.",
+    "helpButton": {
+      "tooltip": "Ouvrir le wiki de la fenêtre des mods de PGPatcher"
+    },
+    "columns": {
+      "mod": "Mod",
+      "shader": "Shader"
+    },
+    "contextMenu": {
+      "showConflicts": "Afficher les conflits...",
+      "showMatches": "Afficher les correspondances...",
+      "openModFolder": "Ouvrir le dossier du mod"
+    },
+    "showAllMeshes": {
+      "label": "Afficher tous les meshes",
+      "tooltip": "Affiche tous les meshes, shapes et correspondances, qu'il y ait conflit ou non"
+    },
+    "lockMO2Order": {
+      "label": "Verrouiller sur l'ordre des fichiers non compressés MO2",
+      "tooltip": "Verrouille l'ordre sur celui de MO2. L'activation/désactivation reste possible. Gardez à l'esprit que les conflits PG ne sont pas les mêmes que les conflits de fichiers non compressés."
+    },
+    "search": {
+      "label": "Rechercher :",
+      "hint": "Rechercher des mods par nom..."
+    },
+    "highlightNewMods": {
+      "label": "Surligner les nouveaux mods",
+      "tooltip": "Surligne les mods que PGPatcher voit pour la première fois"
+    },
+    "winningModsOnTop": "Mods gagnants en haut",
+    "losingModsOnBottom": "Mods perdants en bas",
+    "restoreDefaultOrder": {
+      "label": "Restaurer l'ordre par défaut",
+      "tooltip": "Pour MO2, l'ordre par défaut est votre ordre des fichiers non compressés. Pour Vortex, l'ordre par défaut est par shader, puis par nom par ordre alphabétique."
+    },
+    "buttons": {
+      "saveAndUpdateOutput": "Enregistrer les modifications et mettre à jour la sortie",
+      "discardChanges": "Annuler les modifications",
+      "apply": "Appliquer",
+      "okay": "OK"
+    },
+    "confirmUnsavedChanges": {
+      "title": "Modifications non enregistrées",
+      "message": "Vous avez des modifications non enregistrées, êtes-vous sûr de vouloir fermer ?"
+    },
+    "confirmRestoreDefaultOrder": {
+      "title": "Confirmer la restauration de l'ordre par défaut",
+      "message": "Êtes-vous sûr de vouloir restaurer l'ordre des mods par défaut et réactiver tout mod désactivé manuellement ?"
+    },
+    "confirmRerunPatching": {
+      "title": "Relancer le patch",
+      "message": "Êtes-vous sûr de vouloir relancer l'étape de patch ?"
+    },
+    "confirmDiscardChanges": {
+      "title": "Confirmer l'annulation des modifications",
+      "message": "Êtes-vous sûr de vouloir annuler toutes les modifications ?"
+    },
+    "errors": {
+      "saveModConfig": "Échec de l'enregistrement de la configuration des mods dans modrules.json",
+      "saveUserConfig": "Échec de l'enregistrement de la configuration utilisateur dans user.json"
+    }
+  },
+  "matchViewer": {
+    "title": "Visionneuse de correspondances",
+    "filterLabel": {
+      "allConflicts": "Affichage de tous les conflits",
+      "conflictsForMod": "Affichage des conflits pour le mod : %s",
+      "conflictsBetweenMods": "Affichage des conflits entre les mods : %s",
+      "allMatches": "Affichage de toutes les correspondances",
+      "matchesForMod": "Affichage des correspondances pour le mod : %s",
+      "matchesForMods": "Affichage des correspondances pour les mods : %s"
+    },
+    "search": {
+      "label": "Rechercher :",
+      "hint": "Rechercher par chemin de mesh..."
+    },
+    "showDisabledMods": "Afficher les mods désactivés",
+    "onlyShowConflicts": "Afficher uniquement les conflits",
+    "showMismatches": "Afficher les incohérences potentielles",
+    "showMismatchesTooltip": "Affiche des icônes d'avertissement pour les meshes et correspondances présentant de possibles incohérences entre mods",
+    "panels": {
+      "meshes": "Meshes",
+      "shapes": "Shapes",
+      "matches": "Correspondances"
+    },
+    "columns": {
+      "meshPath": "Chemin du mesh",
+      "shape": "Shape",
+      "mod": "Mod",
+      "shader": "Shader",
+      "matchedFile": "Fichier correspondant"
+    },
+    "pluginUse": {
+      "label": "Filtrer par utilisation du plugin :",
+      "noneSelected": "(Aucune utilisation de plugin sélectionnée)"
+    },
+    "unnamedShape": "[ Sans nom ]",
+    "noMatches": "[Aucune correspondance - ce shape ne peut pas être patché]",
+    "untrackedMod": "[Mod non suivi/Vanilla]",
+    "warnings": {
+      "meshFromOtherMod": "Le mesh provient de %s, vérifiez que les UV correspondent",
+      "resultTexturesFromDifferentMods": "Les textures résultantes proviennent de plusieurs mods, vérifiez que c'est correct :"
+    },
+    "slots": {
+      "diffuse": "Diffuse",
+      "normal": "Normal",
+      "glow": "Glow",
+      "parallax": "Parallax",
+      "cubemap": "Cubemap",
+      "envMask": "Masque d'environnement",
+      "multilayer": "Multicouche",
+      "backlight": "Rétroéclairage",
+      "unused": "Inutilisé",
+      "unknown": "Inconnu"
+    },
+    "contextMenu": {
+      "copyName": "Copier le nom",
+      "open": "Ouvrir",
+      "copyModName": "Copier le nom du mod",
+      "openModFolder": "Ouvrir le dossier du mod",
+      "openMatchingFile": "Ouvrir le fichier correspondant"
+    },
+    "extraction": {
+      "title": "Extraction de fichier",
+      "message": "Ce fichier se trouve dans une archive BSA :\n%s\n\nSouhaitez-vous l'extraire vers un emplacement temporaire en lecture seule et l'ouvrir ? Il sera supprimé à la fermeture de cette boîte de dialogue.",
+      "errorTitle": "Erreur d'extraction",
+      "readFailed": "Erreur : Échec de la lecture du fichier.",
+      "createTempFailed": "Erreur : Échec de la création du fichier temporaire à %s",
+      "fileTooLarge": "Erreur : Le fichier est trop volumineux pour être extrait.",
+      "extractOpenFailed": "Erreur lors de la tentative d'extraction et d'ouverture du fichier : %s"
+    },
+    "errors": {
+      "dataDirUnavailable": "Impossible d'ouvrir le fichier : le dossier data n'est pas disponible.",
+      "deleteTempFailed": "Échec de la suppression du fichier temporaire %s : %s"
+    }
+  },
+  "components": {
+    "modifiableList": {
+      "add": "Ajouter",
+      "remove": "Retirer"
+    },
+    "logMessageList": {
+      "ignore": "Ignorer",
+      "unignore": "Ne plus ignorer"
+    },
+    "checkedDragList": {
+      "moveToTop": "Monter en haut",
+      "moveToBottom": "Descendre en bas",
+      "patchMeshes": "Patcher les meshes",
+      "ignoreMeshes": "Ignorer les meshes"
+    }
+  }
+}
