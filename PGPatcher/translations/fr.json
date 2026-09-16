@@ -36,7 +36,7 @@
       "title": "Jeu",
       "location": {
         "label": "Emplacement",
-        "tooltip": "Chemin vers le dossier du jeu (PAS le dossier data)"
+        "tooltip": "Chemin vers le dossier du jeu (et non le dossier data)"
       },
       "type": {
         "label": "Type"
@@ -44,7 +44,7 @@
     },
     "modManager": {
       "title": "Gestionnaire de mods",
-      "noneSuffix": " (Pas de résolution de conflits)"
+      "noneSuffix": " (Aucune résolution de conflits)"
     },
     "mo2Options": {
       "title": "Options MO2",
@@ -57,11 +57,11 @@
       "title": "Sortie",
       "location": {
         "help": "Emplacement",
-        "tooltip": "Chemin vers le dossier de sortie - Ce dossier doit être utilisé EXCLUSIVEMENT pour PGPatcher, il est recommandé d'en faire un dossier de mod"
+        "tooltip": "Chemin vers le dossier de sortie. Ce dossier doit être réservé exclusivement à PGPatcher ; il est recommandé d'utiliser un dossier de mod dédié."
       },
       "zip": {
-        "label": "Compresser la sortie (laisser désactivé si la sortie va dans un dossier de mod)",
-        "tooltip": "Compresse le dossier de sortie en zip après le traitement"
+        "label": "Compresser la sortie en ZIP (à laisser désactivé si la sortie est un dossier de mod)",
+        "tooltip": "Compresse le dossier de sortie dans une archive ZIP une fois le traitement terminé"
       },
       "pluginLang": {
         "label": "Langue du plugin",
@@ -91,8 +91,8 @@
     "shaderTransforms": {
       "title": "Transformations de shaders",
       "parallaxToCM": {
-        "label": "Passer le Parallax en Complex Material",
-        "tooltip": "Convertit les textures et meshes parallax en complex material lorsque nécessaire pour la compatibilité (fortement recommandé)"
+        "label": "Convertir le Parallax en Complex Material",
+        "tooltip": "Convertit les textures et meshes parallax en complex material quand cela est nécessaire pour la compatibilité (fortement recommandé)"
       }
     },
     "postPatchers": {
@@ -117,14 +117,14 @@
       "startPatching": "Lancer le patch",
       "startPatchingTooltip": "Génère la sortie depuis zéro (toute sortie précédente dans l'emplacement de sortie est remplacée)",
       "updateOutput": "Mettre à jour la sortie",
-      "updateOutputTooltip": "Met à jour la sortie précédente dans l'emplacement de sortie : seuls les meshes dont les entrées ont changé depuis cette génération sont repatchés. Disponible lorsque l'emplacement de sortie contient une sortie précédente et que la compression en zip est désactivée."
+      "updateOutputTooltip": "Met à jour la sortie précédente : seuls les meshes dont les fichiers d'origine ont changé depuis la dernière génération sont repatchés. Disponible lorsque l'emplacement de sortie contient une sortie précédente et que la compression en zip est désactivée."
     },
     "processing": {
       "title": "Traitement",
       "help": "Ces options permettent de personnaliser la génération de la sortie. Évitez de les modifier sauf si vous savez ce que vous faites.",
       "allowedRecordTypes": "Types d'enregistrement autorisés",
-      "meshAllowlist": "Liste blanche de meshes",
-      "meshBlocklist": "Liste noire de meshes",
+      "meshAllowlist": "Liste d'autorisation de meshes",
+      "meshBlocklist": "Liste de blocage de meshes",
       "textureRules": "Règles de textures",
       "multithreading": {
         "label": "Multithreading",
@@ -132,7 +132,7 @@
       },
       "devMode": {
         "label": "Activer le mode développeur de mods",
-        "tooltip": "Active certains avertissements pour aider les personnes développant des mods à travailler avec PGPatcher"
+        "tooltip": "Active certains avertissements utiles aux personnes qui développent des mods avec PGPatcher"
       },
       "debugLogging": {
         "label": "Activer la journalisation de débogage",
@@ -157,25 +157,40 @@
       "message": "Êtes-vous sûr de vouloir restaurer les paramètres par défaut ? Cette action est irréversible."
     },
     "validation": {
-      "mo2RelativeGamePath": "Impossible de résoudre le chemin relatif du jeu depuis MO2 - assurez-vous d'avoir lancé PGPatcher depuis MO2"
+      "gameLocationRequired": "L'emplacement du jeu est requis",
+      "gameLocationInvalid": "L'emplacement du jeu n'est pas valide. Vérifiez que le type de jeu et l'emplacement sont corrects.",
+      "mo2RelativeGamePath": "Impossible de résoudre le chemin relatif du jeu depuis MO2. Assurez-vous d'avoir lancé PGPatcher depuis MO2.",
+      "mo2InstanceRequired": "L'emplacement de l'instance MO2 est requis",
+      "mo2InstanceMissing": "L'emplacement de l'instance MO2 n'existe pas",
+      "mo2InstanceInvalid": "L'emplacement de l'instance MO2 n'est pas valide. Vérifiez que le fichier modorganizer.ini existe dans le dossier.",
+      "outputLocationRequired": "L'emplacement de sortie est requis",
+      "parallaxToCMRequiresPatchers": "Convertir le Parallax en Complex Material nécessite d'activer à la fois les patchers de shaders Complex Material et Parallax",
+      "meshAllowListEmptyEntry": "Entrée vide dans la liste d'autorisation de meshes",
+      "meshAllowListDuplicate": "Entrée en double dans la liste d'autorisation de meshes : %s",
+      "meshBlockListEmptyEntry": "Entrée vide dans la liste de blocage de meshes",
+      "meshBlockListDuplicate": "Entrée en double dans la liste de blocage de meshes : %s",
+      "textureRulesEmptyKey": "Clé vide dans les règles de textures",
+      "textureRulesDuplicate": "Entrée en double dans les règles de textures : %s",
+      "vanillaBSAListEmptyEntry": "Entrée vide dans la liste des BSA vanilla",
+      "vanillaBSAListDuplicate": "Entrée en double dans la liste des BSA vanilla : %s"
     }
   },
   "dialogs": {
     "meshAllowlist": {
-      "title": "Liste blanche des règles de meshes",
+      "title": "Règles de la liste d'autorisation de meshes",
       "description": "Si des règles existent ici, seuls les meshes qui leur correspondent seront patchés. Entrez le chemin d'un mesh comme \"meshes/armor/helmet.nif\" ou utilisez des jokers (* est le joker) pour autoriser des dossiers/fichiers entiers. Clic droit pour ajouter/retirer des entrées."
     },
     "meshBlocklist": {
-      "title": "Liste noire des règles de meshes",
-      "description": "Tout mesh correspondant aux règles ici ne sera pas patché. Entrez le chemin d'un mesh comme \"meshes/armor/helmet.nif\" ou utilisez des jokers (* est le joker) pour exclure des dossiers/fichiers entiers. Clic droit pour ajouter/retirer des entrées."
+      "title": "Règles de la liste de blocage de meshes",
+      "description": "Tout mesh correspondant à ces règles ne sera pas patché. Entrez le chemin d'un mesh comme \"meshes/armor/helmet.nif\" ou utilisez des jokers (* est le joker) pour exclure des dossiers/fichiers entiers. Clic droit pour ajouter/retirer des entrées."
     },
     "textureRules": {
       "title": "Règles de textures",
-      "description": "Utilisez ceci pour indiquer à PGPatcher le type d'une texture si la détection automatique se trompe (très rare). Entrez le chemin complet de la texture comme \"textures/armor/helmet.dds\" et sélectionnez le type de texture. Les jokers ne sont PAS pris en charge ici. Une texture peut être ignorée en la définissant sur \"unknown\". Clic droit pour ajouter/retirer des entrées."
+      "description": "Utilisez ceci pour indiquer à PGPatcher le type d'une texture si la détection automatique se trompe (très rare). Entrez le chemin complet de la texture comme \"textures/armor/helmet.dds\" et sélectionnez le type de texture. Les jokers ne sont pas pris en charge ici. Une texture peut être ignorée en la définissant sur \"unknown\". Clic droit pour ajouter/retirer des entrées."
     },
     "recTypeSelector": {
       "title": "Types d'enregistrement autorisés",
-      "description": "Décocher un type d'enregistrement l'exclura, ainsi que ses meshes associés, du patch. Seuls les types d'enregistrement possédant des modèles sont affichés."
+      "description": "Décocher un type d'enregistrement l'exclut du patch, ainsi que ses meshes associés. Seuls les types d'enregistrement possédant des modèles sont affichés."
     }
   },
   "progress": {
@@ -189,7 +204,7 @@
       "validatingPlugins": "Validation des plugins",
       "initPluginPatching": "Initialisation du patch de plugins",
       "initModManager": "Initialisation du gestionnaire de mods",
-      "populatingFileMap": "Constitution de la carte des fichiers",
+      "populatingFileMap": "Construction de la carte des fichiers",
       "validatingDataFiles": "Validation des fichiers de données",
       "initPatchers": "Initialisation des patchers",
       "waitPluginInit": "Attente de l'initialisation des plugins",
@@ -245,8 +260,8 @@
       "tooltip": "Affiche tous les meshes, shapes et correspondances, qu'il y ait conflit ou non"
     },
     "lockMO2Order": {
-      "label": "Verrouiller sur l'ordre des fichiers non compressés MO2",
-      "tooltip": "Verrouille l'ordre sur celui de MO2. L'activation/désactivation reste possible. Gardez à l'esprit que les conflits PG ne sont pas les mêmes que les conflits de fichiers non compressés."
+      "label": "Verrouiller sur l'ordre des loose files de MO2",
+      "tooltip": "Verrouille l'ordre sur celui de MO2. L'activation/désactivation individuelle reste possible. Gardez à l'esprit que les conflits PG ne sont pas les mêmes que les conflits de loose files."
     },
     "search": {
       "label": "Rechercher :",
@@ -260,7 +275,7 @@
     "losingModsOnBottom": "Mods perdants en bas",
     "restoreDefaultOrder": {
       "label": "Restaurer l'ordre par défaut",
-      "tooltip": "Pour MO2, l'ordre par défaut est votre ordre des fichiers non compressés. Pour Vortex, l'ordre par défaut est par shader, puis par nom par ordre alphabétique."
+      "tooltip": "Pour MO2, l'ordre par défaut correspond à l'ordre de vos loose files. Pour Vortex, l'ordre par défaut est par shader, puis par nom par ordre alphabétique."
     },
     "buttons": {
       "saveAndUpdateOutput": "Enregistrer les modifications et mettre à jour la sortie",
@@ -306,7 +321,7 @@
     "showDisabledMods": "Afficher les mods désactivés",
     "onlyShowConflicts": "Afficher uniquement les conflits",
     "showMismatches": "Afficher les incohérences potentielles",
-    "showMismatchesTooltip": "Affiche des icônes d'avertissement pour les meshes et correspondances présentant de possibles incohérences entre mods",
+    "showMismatchesTooltip": "Affiche des icônes d'avertissement sur les meshes et correspondances présentant d'éventuelles incohérences entre mods",
     "panels": {
       "meshes": "Meshes",
       "shapes": "Shapes",
