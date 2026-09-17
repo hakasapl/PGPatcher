@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Completed and improved the French localization (fr.json): translated the 15 keys added after the initial French translation, and revised several strings for more natural phrasing (cl3mus)
+- Updated French localization (cl3mus)
 
 ## [2.1.0] - 2026-09-15
 
