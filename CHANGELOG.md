@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Fixed PBR shader not removing Facegen_RGB_Tint flag if exists
+- Fixed alternate textures on skin tint shapes being patched (they are ignored in vanilla)
 - Updated French localization (cl3mus)
 
 ## [2.1.0] - 2026-09-15

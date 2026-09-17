@@ -15,3 +15,5 @@ vcpkg_installed
 # clangd cache
 .cache
 /CMakeSettings.json
+
+**__pycache__**
