@@ -1,5 +1,9 @@
 # Changelog
 
+## UNRELEASED
+
+- Fixed PBR shader not removing Facegen_RGB_Tint flag if exists
+
 ## [2.1.0] - 2026-09-15
 
 - Added DPI awareness for all GUI components
