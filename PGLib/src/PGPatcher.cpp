@@ -24,6 +24,7 @@
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
+#include "Shaders.hpp"
 #include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
 #include <boost/algorithm/string.hpp>
@@ -665,8 +666,14 @@ bool PGPatcher::processNIF(const std::filesystem::path& nifPath,
         curMeshShapeMeta.blockID = shapeBlockID;
         curMeshShapeMeta.shapeName = shapeName;
 
+        // The engine replaces the texture set of skin tint shapes with the actor's skin texture, so an
+        // alternate texture on one never renders. Ignore it to match vanilla behavior.
+        const auto* const shaderBSSP = dynamic_cast<nifly::BSShaderProperty*>(nif->GetShader(nifShape));
+        const bool isSkinTint
+            = (shaderBSSP != nullptr) && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF1_FACEGEN_RGB_TINT);
+
         PGTypes::TextureSet* ptrAltTex = nullptr;
-        if (alternateTextures.contains(oldIndex3D)) {
+        if (!isSkinTint && alternateTextures.contains(oldIndex3D)) {
             ptrAltTex = &alternateTextures.at(oldIndex3D);
         } else {
             // We want to include any texture sets that do not have alternate textures defined to be compared.
