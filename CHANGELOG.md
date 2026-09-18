@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.1] - 2026-09-17
 
 - Fixed PBR shader not removing Facegen_RGB_Tint flag if exists
 - Fixed alternate textures on skin tint shapes being patched (they are ignored in vanilla)
