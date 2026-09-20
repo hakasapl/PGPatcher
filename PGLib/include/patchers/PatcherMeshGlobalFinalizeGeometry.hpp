@@ -21,7 +21,8 @@
  */
 class PatcherMeshGlobalFinalizeGeometry : public PatcherMeshGlobal {
 private:
-    static constexpr float defaultSmoothAngle = 60.0F; /** < Default normal smoothing angle threshold, matches nifly's own default */
+    static constexpr float defaultSmoothAngle
+        = 60.0F; /** < Default normal smoothing angle threshold, matches nifly's own default */
 
 public:
     /**

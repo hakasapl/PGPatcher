@@ -15,21 +15,21 @@ PatcherMeshGlobal::PatcherMeshGlobalFactory PatcherMeshGlobalFinalizeGeometry::f
 
 PatcherMeshGlobalFinalizeGeometry::PatcherMeshGlobalFinalizeGeometry(std::filesystem::path nifPath,
                                                                      nifly::NifFile* nif)
-    : PatcherMeshGlobal(std::move(nifPath), nif, "FinalizeGeometry")
+    : PatcherMeshGlobal(std::move(nifPath),
+                        nif,
+                        "FinalizeGeometry")
 {
 }
 
 bool PatcherMeshGlobalFinalizeGeometry::applyPatch()
 {
     const auto shapes = nif()->GetShapes();
-    if (shapes.empty()) {
+    if (shapes.empty())
         return false;
-    }
 
     for (auto* shape : shapes) {
-        if (shape == nullptr) {
+        if (shape == nullptr)
             continue;
-        }
 
         // "Face Normals" / "Smooth Normals" - recompute per-vertex normals
         nif()->CalcNormalsForShape(shape, false, true, defaultSmoothAngle);
