@@ -740,8 +740,7 @@ std::optional<PGTypes::ObjectBounds> PGMeshPermutationTracker::computeObjectBoun
 
     // OBND stores each corner as a signed 16-bit integer; round outward so the box never shrinks, and clamp in the
     // (extremely unlikely) case a mesh exceeds the representable range.
-    const auto toInt16 = [](const float value,
-                            const bool roundUp) -> int16_t {
+    const auto toInt16 = [](const float value, const bool roundUp) -> int16_t {
         const auto rounded = roundUp ? std::ceil(value) : std::floor(value);
         return static_cast<int16_t>(std::clamp(rounded, int16Min, int16Max));
     };

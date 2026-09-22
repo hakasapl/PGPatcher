@@ -250,7 +250,8 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
 
         // "globalpatcher".
         if (paramJ.contains("globalpatcher") && paramJ["globalpatcher"].contains("recalculatebounds"))
-            paramJ["globalpatcher"]["recalculatebounds"].get_to<bool>(m_params.globalPatcher.isRecalculateBoundsEnabled);
+            paramJ["globalpatcher"]["recalculatebounds"].get_to<bool>(
+                m_params.globalPatcher.isRecalculateBoundsEnabled);
     }
 }
 

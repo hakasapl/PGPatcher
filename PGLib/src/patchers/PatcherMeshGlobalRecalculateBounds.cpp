@@ -15,21 +15,21 @@ PatcherMeshGlobal::PatcherMeshGlobalFactory PatcherMeshGlobalRecalculateBounds::
 
 PatcherMeshGlobalRecalculateBounds::PatcherMeshGlobalRecalculateBounds(std::filesystem::path nifPath,
                                                                        nifly::NifFile* nif)
-    : PatcherMeshGlobal(std::move(nifPath), nif, "RecalculateBounds")
+    : PatcherMeshGlobal(std::move(nifPath),
+                        nif,
+                        "RecalculateBounds")
 {
 }
 
 bool PatcherMeshGlobalRecalculateBounds::applyPatch()
 {
     const auto shapes = nif()->GetShapes();
-    if (shapes.empty()) {
+    if (shapes.empty())
         return false;
-    }
 
     for (auto* shape : shapes) {
-        if (shape == nullptr) {
+        if (shape == nullptr)
             continue;
-        }
 
         // "Update Bounds" - recompute the shape's bounding sphere
         shape->UpdateBounds();
