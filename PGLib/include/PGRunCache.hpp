@@ -269,7 +269,7 @@ public:
 
 private:
     static constexpr uint32_t formatMagic = 0x43524750; // "PGRC"
-    static constexpr uint32_t formatVersion = 2;
+    static constexpr uint32_t formatVersion = 3;
 
     static inline bool s_enabled = false;
     static inline std::filesystem::path s_cacheFile;

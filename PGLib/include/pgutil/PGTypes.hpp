@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -72,6 +73,14 @@ struct CMClassification {
     bool hasMetalness = false;
 
     bool operator==(const CMClassification& other) const = default;
+};
+
+/// @brief Bounding box of a mesh in model space, matching the layout of a plugin record's OBND subrecord.
+struct ObjectBounds {
+    std::array<int16_t, 3> min { };
+    std::array<int16_t, 3> max { };
+
+    bool operator==(const ObjectBounds& other) const = default;
 };
 
 /// @brief texture used by parallaxgen with type

@@ -95,7 +95,8 @@ public:
                             const bool& checkAllowedRecTypes = false,
                             const bool& excludeFacegens = false,
                             const std::function<void(size_t,
-                                                     size_t)>& progressCallback = { });
+                                                     size_t)>& progressCallback = { },
+                            const bool& computeObjectBounds = false);
 
     /**
      * @brief Run texture patcher
@@ -194,7 +195,8 @@ private:
                                         const bool& forceBasePatch = false,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                                         const bool& checkAllowedRecTypes = false,
-                                        const bool& excludeFacegens = false);
+                                        const bool& excludeFacegens = false,
+                                        const bool& computeObjectBounds = false);
 
     /**
      * @brief Replays the side effects of patching a NIF whose output from the previous run is still valid

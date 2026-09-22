@@ -309,6 +309,14 @@ void writeMeshResult(BinaryIO::Writer& w,
 
     writeIntMap(w, result.idxCorrections);
     writeIntMap(w, result.inverseIdxCorrectionsPatching);
+
+    w.writeBool(result.objectBounds.has_value());
+    if (result.objectBounds) {
+        for (const auto& value : result.objectBounds->min)
+            w.write<int16_t>(value);
+        for (const auto& value : result.objectBounds->max)
+            w.write<int16_t>(value);
+    }
 }
 
 PGMeshPermutationTracker::MeshResult readMeshResult(BinaryIO::Reader& r,
@@ -331,6 +339,16 @@ PGMeshPermutationTracker::MeshResult readMeshResult(BinaryIO::Reader& r,
 
     result.idxCorrections = readIntMap(r);
     result.inverseIdxCorrectionsPatching = readIntMap(r);
+
+    if (r.readBool()) {
+        PGTypes::ObjectBounds bounds;
+        for (auto& value : bounds.min)
+            value = r.read<int16_t>();
+        for (auto& value : bounds.max)
+            value = r.read<int16_t>();
+        result.objectBounds = bounds;
+    }
+
     return result;
 }
 

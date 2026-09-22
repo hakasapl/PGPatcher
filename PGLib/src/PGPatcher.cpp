@@ -81,7 +81,8 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             const bool& checkAllowedRecTypes,
                             const bool& excludeFacegens,
                             const std::function<void(size_t,
-                                                     size_t)>& progressCallback)
+                                                     size_t)>& progressCallback,
+                            const bool& computeObjectBounds)
 {
     auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
@@ -136,9 +137,15 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             &forceBasePatch,
                             &allowedModelRecTypes,
                             &checkAllowedRecTypes,
-                            &excludeFacegens] {
-            taskTracker.completeJob(patchNIF(
-                mesh, setModelUsesQueue, forceBasePatch, allowedModelRecTypes, checkAllowedRecTypes, excludeFacegens));
+                            &excludeFacegens,
+                            &computeObjectBounds] {
+            taskTracker.completeJob(patchNIF(mesh,
+                                             setModelUsesQueue,
+                                             forceBasePatch,
+                                             allowedModelRecTypes,
+                                             checkAllowedRecTypes,
+                                             excludeFacegens,
+                                             computeObjectBounds));
         });
     }
 
@@ -146,8 +153,16 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
     meshRunner.runTasks();
 
     // Apply the plugin model uses of all replayed meshes at once.
-    if (!replayedMeshResults.empty())
-        setModelUsesQueue.queueTask([results = std::move(replayedMeshResults)] { PGPlugin::setModelUses(results); });
+    if (!replayedMeshResults.empty()) {
+        if (computeObjectBounds) {
+            setModelUsesQueue.queueTask([results = replayedMeshResults] { PGPlugin::setModelUses(results); });
+            setModelUsesQueue.queueTask(
+                [results = std::move(replayedMeshResults)] { PGPlugin::setObjectBounds(results); });
+        } else {
+            setModelUsesQueue.queueTask(
+                [results = std::move(replayedMeshResults)] { PGPlugin::setModelUses(results); });
+        }
+    }
 
     // Final validation for weight variants.
     const auto weightVariantErrors = PGMeshPermutationTracker::validateWeightedVariants();
@@ -474,7 +489,8 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                                         const bool& forceBasePatch,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                                         const bool& checkAllowedRecTypes,
-                                        const bool& excludeFacegens)
+                                        const bool& excludeFacegens,
+                                        const bool& computeObjectBounds)
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -588,6 +604,8 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     // Save meshes.
     const auto saveResults = meshTracker.saveMeshes();
     setModelUsesQueue.queueTask([saveResults] { PGPlugin::setModelUses(saveResults.first); });
+    if (computeObjectBounds)
+        setModelUsesQueue.queueTask([saveResults] { PGPlugin::setObjectBounds(saveResults.first); });
 
     // Run handlers.
     for (const auto& meshResult : saveResults.first) {

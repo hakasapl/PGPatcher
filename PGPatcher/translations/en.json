@@ -110,6 +110,13 @@
         "tooltip": "Adds flow maps to texture sets for those that match the normal texture"
       }
     },
+    "globalPatchers": {
+      "title": "Global Patchers",
+      "recalculateBounds": {
+        "label": "Recalculate Bounds",
+        "tooltip": "Recalculates the bounds of every patched mesh (equivalent to NifSkope's Update Bounds), and the OBND (Object Bounds) of the plugin records that use them. This modifies plugin records, not just meshes."
+      }
+    },
     "buttons": {
       "restoreDefaults": "Restore Defaults",
       "loadConfig": "Load Config",

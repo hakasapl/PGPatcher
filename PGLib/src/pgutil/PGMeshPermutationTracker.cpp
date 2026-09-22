@@ -18,13 +18,16 @@
 #include <fmt/xchar.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -243,6 +246,9 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
 
         // Create directories if required.
         std::filesystem::create_directories(meshFilename.parent_path());
+
+        // Compute the mesh's bounding box for a later OBND update, before the blocks below mutate the buffer.
+        meshResult.objectBounds = computeObjectBounds(mesh);
 
         // Save Mesh file.
 
@@ -685,6 +691,65 @@ std::filesystem::path PGMeshPermutationTracker::meshPath(const std::filesystem::
         newNIFPath /= *it++;
 
     return newNIFPath;
+}
+
+std::optional<PGTypes::ObjectBounds> PGMeshPermutationTracker::computeObjectBounds(nifly::NifFile& nif)
+{
+    constexpr auto int16Min = static_cast<float>(std::numeric_limits<int16_t>::min());
+    constexpr auto int16Max = static_cast<float>(std::numeric_limits<int16_t>::max());
+
+    nifly::Vector3 boundsMin;
+    nifly::Vector3 boundsMax;
+    bool hasVertices = false;
+
+    for (auto* shape : nif.GetShapes()) {
+        if (!shape)
+            continue;
+
+        const auto* verts = nif.GetVertsForShape(shape);
+        if (!verts || verts->empty())
+            continue;
+
+        // GetNodeTransformToGlobal() only matches NiNode blocks by name, so it cannot be used for a shape (NiShape
+        // is not an NiNode); walk the shape's own parent chain instead, mirroring what that function does internally.
+        nifly::MatTransform transform = shape->GetTransformToParent();
+        for (auto* parent = nif.GetParentNode(shape); parent != nullptr; parent = nif.GetParentNode(parent))
+            transform = parent->GetTransformToParent().ComposeTransforms(transform);
+
+        for (const auto& vert : *verts) {
+            const auto pos = transform.ApplyTransform(vert);
+
+            if (!hasVertices) {
+                boundsMin = pos;
+                boundsMax = pos;
+                hasVertices = true;
+                continue;
+            }
+
+            boundsMin.x = std::min(boundsMin.x, pos.x);
+            boundsMin.y = std::min(boundsMin.y, pos.y);
+            boundsMin.z = std::min(boundsMin.z, pos.z);
+            boundsMax.x = std::max(boundsMax.x, pos.x);
+            boundsMax.y = std::max(boundsMax.y, pos.y);
+            boundsMax.z = std::max(boundsMax.z, pos.z);
+        }
+    }
+
+    if (!hasVertices)
+        return std::nullopt;
+
+    // OBND stores each corner as a signed 16-bit integer; round outward so the box never shrinks, and clamp in the
+    // (extremely unlikely) case a mesh exceeds the representable range.
+    const auto toInt16 = [](const float value,
+                            const bool roundUp) -> int16_t {
+        const auto rounded = roundUp ? std::ceil(value) : std::floor(value);
+        return static_cast<int16_t>(std::clamp(rounded, int16Min, int16Max));
+    };
+
+    PGTypes::ObjectBounds bounds;
+    bounds.min = { toInt16(boundsMin.x, false), toInt16(boundsMin.y, false), toInt16(boundsMin.z, false) };
+    bounds.max = { toInt16(boundsMax.x, true), toInt16(boundsMax.y, true), toInt16(boundsMax.z, true) };
+    return bounds;
 }
 
 std::vector<nifly::NiObject*> PGMeshPermutationTracker::comparableBlocks(const nifly::NifFile* nif)

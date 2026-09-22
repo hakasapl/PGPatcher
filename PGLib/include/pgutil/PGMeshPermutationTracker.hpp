@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -74,6 +75,9 @@ public:
         std::unordered_map<int, int> idxCorrections;
         /// @brief Index corrections mapping old 3D block indices to new indices after patching.
         std::unordered_map<int, int> inverseIdxCorrectionsPatching;
+        /// @brief Bounding box of the saved mesh in model space, computed across all shapes. Empty if the mesh has
+        /// no patchable shapes.
+        std::optional<PGTypes::ObjectBounds> objectBounds;
     };
 
 private:
@@ -292,6 +296,15 @@ private:
      */
     static std::filesystem::path meshPath(const std::filesystem::path& nifPath,
                                           const size_t& index);
+
+    /**
+     * @brief Computes the bounding box of a NIF in model space, across all patchable shapes, accounting for each
+     * shape's transform relative to the NIF root. Matches what the Creation Kit stores in a record's OBND subrecord.
+     *
+     * @param nif The NIF file to measure.
+     * @return The bounding box, or std::nullopt if the NIF has no patchable shapes with vertices.
+     */
+    static std::optional<PGTypes::ObjectBounds> computeObjectBounds(nifly::NifFile& nif);
 
     /**
      * @brief Returns all NiObject blocks from a NIF that are relevant for comparison.

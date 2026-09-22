@@ -1253,6 +1253,116 @@ public class PGMutagen
         }
     }
 
+    [UnmanagedCallersOnly(EntryPoint = "SetObjectBounds", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void SetObjectBounds(
+      [DNNE.C99Type("const unsigned int")] uint length,
+      [DNNE.C99Type("const uint8_t*")] byte* bufferPtr)
+    {
+        try
+        {
+            if (Env is null)
+            {
+                throw new Exception("Initialize must be called before SetObjectBounds");
+            }
+
+            if (OutMod is null)
+            {
+                throw new Exception("OutMod is null in SetObjectBounds");
+            }
+
+            if (length == 0 || bufferPtr == null)
+            {
+                return;
+            }
+
+            // Convert bufferPtr to span
+            Span<byte> bufferSpan = new(bufferPtr, (int)length);
+
+            // Load onto buffer
+            var buffer = new ByteBuffer(bufferSpan.ToArray());
+            var objectBoundsUpdates = PGMutagenBuffers.ObjectBoundsUpdates.GetRootAsObjectBoundsUpdates(buffer);
+
+            // Loop through each update
+            for (int i = 0; i < objectBoundsUpdates.UpdatesLength; i++)
+            {
+                var updateContainer = objectBoundsUpdates.Updates(i);
+                if (!updateContainer.HasValue)
+                {
+                    continue;
+                }
+
+                var update = updateContainer.Value;
+                var searchFormKey = new FormKey(update.ModName, update.FormId);
+
+                // Find winning record for this formkey
+                if (!ResolveModelRecord(searchFormKey, out var existingRecord))
+                {
+                    throw new Exception("Failed to resolve model record for formkey: " + searchFormKey);
+                }
+
+                if (existingRecord is not IObjectBoundedGetter existingBoundedRecord)
+                {
+                    // Record type does not support OBND, skip.
+                    continue;
+                }
+
+                var newBounds = new ObjectBounds
+                {
+                    First = new P3Int16(update.XMin, update.YMin, update.ZMin),
+                    Second = new P3Int16(update.XMax, update.YMax, update.ZMax),
+                };
+
+                var existingBounds = existingBoundedRecord.ObjectBounds;
+                if (existingBounds.First.Equals(newBounds.First) && existingBounds.Second.Equals(newBounds.Second))
+                {
+                    // Nothing to do for this record.
+                    continue;
+                }
+
+                // check if we already modified this record
+                IMajorRecord? modRecord = null;
+                if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
+                {
+                    // record already modified
+                    modRecord = value;
+                }
+                else
+                {
+                    try
+                    {
+                        // create a mutable copy of the existing record
+                        modRecord = existingRecord.DeepCopy();
+                    }
+                    catch (Exception)
+                    {
+                        MessageHandler.Log("Failed to copy model record: " + GetRecordDesc(existingRecord), 4);
+                        ModifiedRecords[searchFormKey] = null;
+                    }
+                }
+
+                if (modRecord is null)
+                {
+                    // invalid record, skip
+                    continue;
+                }
+
+                if (modRecord is not IObjectBounded modBoundedRecord)
+                {
+                    // Should not happen since existingRecord already implements IObjectBoundedGetter, but guard
+                    // against a DeepCopy() implementation that returns a different concrete type.
+                    continue;
+                }
+
+                modBoundedRecord.ObjectBounds = newBounds;
+                ModifiedRecords[searchFormKey] = modRecord;
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
     //
     // Helpers
     //
