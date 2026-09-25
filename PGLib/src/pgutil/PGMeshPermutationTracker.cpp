@@ -738,16 +738,16 @@ std::optional<PGTypes::ObjectBounds> PGMeshPermutationTracker::computeObjectBoun
     if (!hasVertices)
         return std::nullopt;
 
-    // OBND stores each corner as a signed 16-bit integer; round outward so the box never shrinks, and clamp in the
-    // (extremely unlikely) case a mesh exceeds the representable range.
-    const auto toInt16 = [int16Min, int16Max](const float value, const bool roundUp) -> int16_t {
-        const auto rounded = roundUp ? std::ceil(value) : std::floor(value);
-        return static_cast<int16_t>(std::clamp(rounded, int16Min, int16Max));
+    // OBND stores each corner as a signed 16-bit integer. The Creation Kit truncates toward zero (verified against
+    // vanilla records, e.g. -380.78 -> -380 and 313.70 -> 313), so do the same to match it. Clamp in the (extremely
+    // unlikely) case a mesh exceeds the representable range.
+    const auto toInt16 = [int16Min, int16Max](const float value) -> int16_t {
+        return static_cast<int16_t>(std::clamp(std::trunc(value), int16Min, int16Max));
     };
 
     PGTypes::ObjectBounds bounds;
-    bounds.min = { toInt16(boundsMin.x, false), toInt16(boundsMin.y, false), toInt16(boundsMin.z, false) };
-    bounds.max = { toInt16(boundsMax.x, true), toInt16(boundsMax.y, true), toInt16(boundsMax.z, true) };
+    bounds.min = { toInt16(boundsMin.x), toInt16(boundsMin.y), toInt16(boundsMin.z) };
+    bounds.max = { toInt16(boundsMax.x), toInt16(boundsMax.y), toInt16(boundsMax.z) };
     return bounds;
 }
 
