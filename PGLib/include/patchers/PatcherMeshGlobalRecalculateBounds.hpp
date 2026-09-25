@@ -12,11 +12,11 @@
  * a NIF, equivalent to running NifSkope's "Update Bounds" mesh operation on
  * the whole file.
  *
- * PGPatcher does not otherwise touch shape bounds, but a patched mesh's
- * geometry can differ from the source mesh's, which is what the bounding
- * sphere stored in the NIF was originally computed from. This patcher is
- * opt-in since recalculating this data is unnecessary (and wasted time) for
- * meshes whose bounds are already correct.
+ * PGPatcher does not modify geometry, so it never invalidates the bounds
+ * itself. This patcher is for source meshes whose stored bounds are already
+ * stale or wrong (e.g. edited or rescaled without updating them). It is opt-in
+ * since recalculating this data is unnecessary (and wasted time) for meshes
+ * whose bounds are already correct.
  */
 class PatcherMeshGlobalRecalculateBounds : public PatcherMeshGlobal {
 public:

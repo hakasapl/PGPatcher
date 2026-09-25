@@ -11,7 +11,7 @@
 - Updated French localization (cl3mus)
 
 ## [2.1.0] - 2026-09-15
->>>>>>> e2df02c (feat: recalculate plugin OBND (Object Bounds) after mesh patching)
+
 - Added DPI awareness for all GUI components
 - All windows now show the PGPatcher icon in their title bar
 - Removed restriction that prevents grass meshes from being patched for PBR (CS will now support PBR grass)

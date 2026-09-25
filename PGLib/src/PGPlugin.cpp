@@ -242,7 +242,7 @@ void PGPlugin::setObjectBounds(const std::vector<PGMeshPermutationTracker::MeshR
                 continue;
             }
 
-            if (!formKey.subMODL.empty()) {
+            if (formKey.subMODL != "MODL") {
                 // OBND is a single record-level field; only the primary model determines it.
                 continue;
             }

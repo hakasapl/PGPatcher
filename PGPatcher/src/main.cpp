@@ -308,6 +308,7 @@ uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
     hasher.add(params.postPatcher.disablePrePatchedMaterials);
     hasher.add(params.postPatcher.isFixSSSEnabled);
     hasher.add(params.postPatcher.isHairFlowMapEnabled);
+    hasher.add(params.globalPatcher.isRecalculateBoundsEnabled);
 
     hasher.add(args.considerAllMeshes);
     hasher.add(args.disableDynCubemap);
