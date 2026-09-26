@@ -114,7 +114,7 @@
       "title": "Global Patchers",
       "recalculateBounds": {
         "label": "Recalculate Bounds",
-        "tooltip": "Recalculates the bounds of every patched mesh (equivalent to NifSkope's Update Bounds), and the OBND (Object Bounds) of the plugin records that use them. This modifies plugin records, not just meshes."
+        "tooltip": "Recalculates the bounds of every patched mesh (equivalent to NifSkope's Update Bounds), and the OBND (Object Bounds) of the plugin records that use them. TREE and GRAS records are also updated when their mesh is not otherwise patched, since DynDOLOD relies on their OBND to generate LOD. This modifies plugin records, not just meshes."
       }
     },
     "buttons": {
