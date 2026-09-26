@@ -204,11 +204,13 @@ private:
      * @param nifPath relative path to the NIF file
      * @param replayedMeshResults collects the mesh results of all replayed NIFs so their plugin model uses can be
      * applied in a single batch
-     * @param replayedMeshResultsMutex mutex protecting replayedMeshResults
+     * @param replayedBoundsResults collects the bounds-only results (see patchNIF) of all replayed NIFs
+     * @param replayedMeshResultsMutex mutex protecting both replayed result vectors
      * @return TaskTracker::Result result of the replay
      */
     static TaskTracker::Result replayNIF(const std::filesystem::path& nifPath,
                                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
+                                         std::vector<PGMeshPermutationTracker::MeshResult>& replayedBoundsResults,
                                          std::mutex& replayedMeshResultsMutex);
 
     /**

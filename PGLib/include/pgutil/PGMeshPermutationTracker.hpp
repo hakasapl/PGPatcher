@@ -182,6 +182,14 @@ public:
     saveMeshes();
 
     /**
+     * @brief Computes the bounding box of the original (unpatched) mesh. Patching never modifies geometry, so this is
+     * also the bounding box of every output mesh, without requiring one to be produced.
+     *
+     * @return The bounding box, or std::nullopt if the mesh has no shapes with vertices.
+     */
+    std::optional<PGTypes::ObjectBounds> originalObjectBounds();
+
+    /**
      * @brief Validates all weighted mesh variants across all trackers, ensuring _0/_1 pairs are consistent.
      *
      * @return Errors that were logged, as (mesh path the error is about, message) pairs.

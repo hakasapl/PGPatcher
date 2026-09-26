@@ -92,6 +92,11 @@ nifly::NifFile* PGMeshPermutationTracker::stageMesh()
 
 void PGMeshPermutationTracker::ignoreBaseMesh() { m_ignoreBaseMesh = true; }
 
+std::optional<PGTypes::ObjectBounds> PGMeshPermutationTracker::originalObjectBounds()
+{
+    return computeObjectBounds(m_origNifFile);
+}
+
 bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
                                           bool isWeighted,
                                           const std::unordered_map<unsigned,
