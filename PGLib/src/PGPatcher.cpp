@@ -126,10 +126,11 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
 
     for (auto& [mesh, nifCache] : meshes) {
         if (skippable.contains(mesh)) {
-            meshRunner.addTask([&taskTracker, &mesh, &replayedMeshResults, &replayedBoundsResults, &replayedMeshResultsMutex] {
-                taskTracker.completeJob(
-                    replayNIF(mesh, replayedMeshResults, replayedBoundsResults, replayedMeshResultsMutex));
-            });
+            meshRunner.addTask(
+                [&taskTracker, &mesh, &replayedMeshResults, &replayedBoundsResults, &replayedMeshResultsMutex] {
+                    taskTracker.completeJob(
+                        replayNIF(mesh, replayedMeshResults, replayedBoundsResults, replayedMeshResultsMutex));
+                });
             continue;
         }
 
