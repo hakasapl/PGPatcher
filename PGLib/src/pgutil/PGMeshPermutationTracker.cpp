@@ -739,15 +739,10 @@ std::optional<PGTypes::ObjectBounds> PGMeshPermutationTracker::computeObjectBoun
         return std::nullopt;
 
     // OBND stores each corner as a signed 16-bit integer. The Creation Kit truncates toward zero (verified against
-    // vanilla records, e.g. -380.78 -> -380 and 313.70 -> 313), so do the same to match it. Exported meshes often
-    // carry float noise around whole numbers (e.g. -1023.9999 for -1024), which truncation would turn into the wrong
-    // integer, so values within a small tolerance of a whole number are snapped to it. Clamp in the (extremely
+    // vanilla records, e.g. -380.78 -> -380 and 313.70 -> 313), so do the same to match it. Clamp in the (extremely
     // unlikely) case a mesh exceeds the representable range.
-    constexpr float wholeNumberTolerance = 0.001F;
-    const auto toInt16 = [int16Min, int16Max, wholeNumberTolerance](const float value) -> int16_t {
-        const float nearest = std::round(value);
-        const float snapped = std::fabs(value - nearest) < wholeNumberTolerance ? nearest : std::trunc(value);
-        return static_cast<int16_t>(std::clamp(snapped, int16Min, int16Max));
+    const auto toInt16 = [int16Min, int16Max](const float value) -> int16_t {
+        return static_cast<int16_t>(std::clamp(std::trunc(value), int16Min, int16Max));
     };
 
     PGTypes::ObjectBounds bounds;
