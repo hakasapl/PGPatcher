@@ -289,8 +289,16 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     //
     // Global Patchers.
     //
-    // auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Global Patchers");
-    // rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, borderSize);
+    auto* globalPatcherSizer = new wxStaticBoxSizer(wxVERTICAL, this, pgTr("launcher.globalPatchers.title"));
+
+    m_globalPatcherRecalculateBoundsCheckbox
+        = new wxCheckBox(this, wxID_ANY, pgTr("launcher.globalPatchers.recalculateBounds.label"));
+    m_globalPatcherRecalculateBoundsCheckbox->SetToolTip(pgTr("launcher.globalPatchers.recalculateBounds.tooltip"));
+    m_globalPatcherRecalculateBoundsCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onGlobalPatcherRecalculateBoundsChange, this);
+    globalPatcherSizer->Add(m_globalPatcherRecalculateBoundsCheckbox, 0, wxALL, borderSize);
+
+    rightSizer->Add(globalPatcherSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Processing and RUN buttons.
@@ -568,6 +576,7 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
     m_postPatcherHairFlowMapCheckbox->SetValue(initParams.postPatcher.isHairFlowMapEnabled);
 
     // Global Patchers.
+    m_globalPatcherRecalculateBoundsCheckbox->SetValue(initParams.globalPatcher.isRecalculateBoundsEnabled);
 }
 
 // Component event handlers.
@@ -673,6 +682,11 @@ void LauncherWindow::onPostPatcherHairFlowMapChange([[maybe_unused]] wxCommandEv
     updateDisabledElements();
 }
 
+void LauncherWindow::onGlobalPatcherRecalculateBoundsChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
 void LauncherWindow::onMeshRulesAllowBtn([[maybe_unused]] wxCommandEvent& event)
 {
     DialogModifiableListCtrl dialog(
@@ -768,6 +782,7 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.postPatcher.isHairFlowMapEnabled = m_postPatcherHairFlowMapCheckbox->GetValue();
 
     // Global Patchers.
+    params.globalPatcher.isRecalculateBoundsEnabled = m_globalPatcherRecalculateBoundsCheckbox->GetValue();
 }
 
 void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event)

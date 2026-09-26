@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Added an optional "Recalculate Bounds" global patcher (recalculates the bounds of every patched mesh, equivalent to NifSkope's Update Bounds, and updates the OBND of the plugin records that use them)
+
 ## [2.1.1] - 2026-09-17
 
 - Fixed PBR shader not removing Facegen_RGB_Tint flag if exists

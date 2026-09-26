@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <mutex>
 #include <string>
@@ -97,6 +98,23 @@ public:
      * @param modelUses Updated list of ModelUse structs to write.
      */
     static void libSetModelUses(const std::vector<ModelUse>& modelUses);
+
+    /**
+     * @brief Describes an updated OBND (Object Bounds) value for a plugin record's primary model.
+     */
+    struct ObjectBoundsUpdate {
+        std::wstring modName; ///< Name of the plugin (mod) that owns this record.
+        unsigned formID = 0; ///< FormID of the record to update.
+        std::array<int16_t, 3> min { }; ///< Minimum corner of the bounding box.
+        std::array<int16_t, 3> max { }; ///< Maximum corner of the bounding box.
+    };
+
+    /**
+     * @brief Pushes updated OBND (Object Bounds) values back to the C# library for the given records.
+     *
+     * @param updates Updated list of ObjectBoundsUpdate structs to write.
+     */
+    static void libSetObjectBounds(const std::vector<ObjectBoundsUpdate>& updates);
 
 private:
     // Helpers.

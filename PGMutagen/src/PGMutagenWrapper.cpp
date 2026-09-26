@@ -297,6 +297,43 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
     }
 }
 
+void PGMutagenWrapper::libSetObjectBounds(const std::vector<ObjectBoundsUpdate>& updates)
+{
+    flatbuffers::FlatBufferBuilder builder(defaultBufferSize);
+
+    std::vector<flatbuffers::Offset<PGMutagenBuffers::ObjectBoundsUpdate>> updateOffsets;
+    updateOffsets.reserve(updates.size());
+
+    for (const auto& update : updates) {
+        const auto modNameOffset = builder.CreateString(utf16toUTF8(update.modName));
+
+        const auto updateOffset = PGMutagenBuffers::CreateObjectBoundsUpdate(builder,
+                                                                             modNameOffset,
+                                                                             update.formID,
+                                                                             update.min[0],
+                                                                             update.min[1],
+                                                                             update.min[2],
+                                                                             update.max[0],
+                                                                             update.max[1],
+                                                                             update.max[2]);
+        updateOffsets.push_back(updateOffset);
+    }
+
+    const auto updatesVectorOffset = builder.CreateVector(updateOffsets);
+    const auto updatesRoot = PGMutagenBuffers::CreateObjectBoundsUpdates(builder, updatesVectorOffset);
+    builder.Finish(updatesRoot);
+
+    uint8_t const* buf = builder.GetBufferPointer();
+    unsigned const size = builder.GetSize();
+
+    {
+        const std::scoped_lock lock(s_libMutex);
+        SetObjectBounds(size, buf);
+        libLogMessageIfExists();
+        libThrowExceptionIfExists();
+    }
+}
+
 std::wstring PGMutagenWrapper::utf8toUTF16(const std::string& str)
 {
     // Just return empty string if empty.

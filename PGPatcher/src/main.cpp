@@ -14,6 +14,7 @@
 #include "PGRunCache.hpp"
 #include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
+#include "patchers/PatcherMeshGlobalRecalculateBounds.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -307,6 +308,7 @@ uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
     hasher.add(params.postPatcher.disablePrePatchedMaterials);
     hasher.add(params.postPatcher.isFixSSSEnabled);
     hasher.add(params.postPatcher.isHairFlowMapEnabled);
+    hasher.add(params.globalPatcher.isRecalculateBoundsEnabled);
 
     hasher.add(args.considerAllMeshes);
     hasher.add(args.disableDynCubemap);
@@ -636,6 +638,10 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         Logger::debug("Adding Hair Flow Map post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::factory());
     }
+    if (params.globalPatcher.isRecalculateBoundsEnabled) {
+        Logger::debug("Adding Recalculate Bounds global patcher");
+        meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalRecalculateBounds::factory());
+    }
 
     const PatcherUtil::PatcherTextureSet texPatchers;
     PGPatcher::loadPatchers(meshPatchers, texPatchers);
@@ -753,7 +759,8 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                            params.processing.allowedModelRecordTypes,
                            true,
                            args.excludeFacegens,
-                           progressCallback);
+                           progressCallback,
+                           params.globalPatcher.isRecalculateBoundsEnabled);
 
     progressWindow->CallAfter([progressWindow] {
         progressWindow->setMainLabel(pgTr("progress.steps.patchingTextures"));

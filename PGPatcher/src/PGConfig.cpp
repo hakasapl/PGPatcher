@@ -249,6 +249,9 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
             paramJ["postpatcher"]["hairflowmap"].get_to<bool>(m_params.postPatcher.isHairFlowMapEnabled);
 
         // "globalpatcher".
+        if (paramJ.contains("globalpatcher") && paramJ["globalpatcher"].contains("recalculatebounds"))
+            paramJ["globalpatcher"]["recalculatebounds"].get_to<bool>(
+                m_params.globalPatcher.isRecalculateBoundsEnabled);
     }
 }
 
@@ -454,6 +457,7 @@ nlohmann::json PGConfig::userConfigJSON() const
     j["params"]["postpatcher"]["hairflowmap"] = m_params.postPatcher.isHairFlowMapEnabled;
 
     // "globalpatcher".
+    j["params"]["globalpatcher"]["recalculatebounds"] = m_params.globalPatcher.isRecalculateBoundsEnabled;
 
     return j;
 }

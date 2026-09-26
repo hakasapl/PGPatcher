@@ -125,6 +125,8 @@ public:
         // Outputs and side effects.
         std::vector<std::pair<std::wstring, OutputIdentity>> outputFiles; /**< Relative output path -> identity */
         std::vector<PGMeshPermutationTracker::MeshResult> meshResults;
+        /**< Object bounds of records whose mesh is not output (TREE/GRAS), see PGPatcher::patchNIF */
+        std::vector<PGMeshPermutationTracker::MeshResult> boundsResults;
         bool hasDiff = false;
         uint64_t crc32Original = 0;
         uint64_t crc32Patched = 0;
@@ -241,6 +243,7 @@ public:
 
         void setUses(const MeshUses& uses);
         void setMeshResults(const std::vector<PGMeshPermutationTracker::MeshResult>& results);
+        void setBoundsResults(const std::vector<PGMeshPermutationTracker::MeshResult>& results);
         void setDiff(uint64_t crc32Original,
                      uint64_t crc32Patched);
         void setMeta(const PGPatcher::MeshMeta& meta);
@@ -269,7 +272,7 @@ public:
 
 private:
     static constexpr uint32_t formatMagic = 0x43524750; // "PGRC"
-    static constexpr uint32_t formatVersion = 2;
+    static constexpr uint32_t formatVersion = 4;
 
     static inline bool s_enabled = false;
     static inline std::filesystem::path s_cacheFile;
