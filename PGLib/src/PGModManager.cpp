@@ -103,8 +103,9 @@ auto PGModManager::modFileMap() const -> const std::unordered_map<std::filesyste
 
 auto PGModManager::modByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>
 {
-    if (m_modFileMap.contains(relPath))
-        return m_modFileMap.at(relPath);
+    const auto it = m_modFileMap.find(relPath);
+    if (it != m_modFileMap.end())
+        return it->second;
 
     return nullptr;
 }

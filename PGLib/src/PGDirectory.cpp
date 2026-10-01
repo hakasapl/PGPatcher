@@ -76,7 +76,8 @@ void PGDirectory::findFiles()
 
     for (const auto& [path, file] : fileMap) {
         const auto& firstPath = path.begin()->wstring();
-        if (boost::iequals(firstPath, "textures") && boost::iequals(path.extension().wstring(), L".dds")) {
+        const auto extension = path.extension().wstring();
+        if (boost::iequals(firstPath, "textures") && boost::iequals(extension, L".dds")) {
             if (!isPathAscii(path)) {
                 // Skip non-ascii paths.
                 Logger::warn(L"Texture {} contains non-ascii characters which are not allowed", path.wstring());
@@ -86,18 +87,18 @@ void PGDirectory::findFiles()
             // Found a DDS.
             Logger::trace(
                 L"Found texture: {} / {}", path.wstring(), !file.bsaFile ? L"" : file.bsaFile->path.wstring());
-            m_unconfirmedTextures[path] = { };
+            m_unconfirmedTextures.try_emplace(path);
 
             {
                 // Add to textures set.
                 const std::unique_lock lock(m_texturesMutex);
                 m_textures.insert(path);
             }
-        } else if (boost::iequals(firstPath, "meshes") && boost::iequals(path.extension().wstring(), L".nif")) {
+        } else if (boost::iequals(firstPath, "meshes") && boost::iequals(extension, L".nif")) {
             // Found a NIF.
             Logger::trace(L"Found mesh: {} / {}", path.wstring(), !file.bsaFile ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedMeshes.insert(path);
-        } else if (boost::iequals(path.extension().wstring(), L".json")) {
+        } else if (boost::iequals(extension, L".json")) {
             // Found a JSON file.
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {
                 // Found PBR JSON config.
@@ -175,23 +176,24 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
     // Create runner.
     TaskPoolRunner runner(multithreading);
 
-    // Loop through each mesh to confirm textures.
+    // Loop through each mesh to confirm textures. The allowlist and blocklist are checked inside the task: matching
+    // every mesh against every glob is too slow to do up front on this thread.
     for (const auto& mesh : m_unconfirmedMeshes) {
-        if (!nifAllowlist.empty() && !checkGlobMatchInVector(mesh.wstring(), nifAllowlist)) {
-            // Skip mesh because it is not on allowlist.
-            Logger::debug(L"Skipping mesh due to allowlist: {}", mesh.wstring());
-            taskTracker.completeJob(TaskTracker::Result::Success);
-            continue;
-        }
+        runner.addTask([this, &taskTracker, &mesh, &multithreading, &nifAllowlist, &nifBlocklist] {
+            if (!nifAllowlist.empty() && !checkGlobMatchInVector(mesh.wstring(), nifAllowlist)) {
+                // Skip mesh because it is not on allowlist.
+                Logger::debug(L"Skipping mesh due to allowlist: {}", mesh.wstring());
+                taskTracker.completeJob(TaskTracker::Result::Success);
+                return;
+            }
 
-        if (!nifBlocklist.empty() && checkGlobMatchInVector(mesh.wstring(), nifBlocklist)) {
-            // Skip mesh because it is on blocklist.
-            Logger::debug(L"Skipping mesh due to blocklist: {}", mesh.wstring());
-            taskTracker.completeJob(TaskTracker::Result::Success);
-            continue;
-        }
+            if (!nifBlocklist.empty() && checkGlobMatchInVector(mesh.wstring(), nifBlocklist)) {
+                // Skip mesh because it is on blocklist.
+                Logger::debug(L"Skipping mesh due to blocklist: {}", mesh.wstring());
+                taskTracker.completeJob(TaskTracker::Result::Success);
+                return;
+            }
 
-        runner.addTask([this, &taskTracker, &mesh, &multithreading] {
             taskTracker.completeJob(mapTexturesFromNIF(mesh, multithreading));
         });
     }
@@ -589,15 +591,21 @@ void PGDirectory::updateUnconfirmedTexturesMap(const std::filesystem::path& path
                                                const PGEnums::TextureSlots& slot,
                                                const PGEnums::TextureType& type)
 {
-    // Use mutex to make this thread safe.
-    const std::scoped_lock lock(m_unconfirmedTexturesMutex);
+    // Check if texture is already in map. No texture is added or removed while votes are cast (findFiles() fills the
+    // map before the first vote), so the lookup itself needs no lock.
+    const auto it = m_unconfirmedTextures.find(path);
+    if (it == m_unconfirmedTextures.end())
+        return;
 
-    // Check if texture is already in map.
-    if (m_unconfirmedTextures.contains(path)) {
-        // Texture is present.
-        m_unconfirmedTextures[path].slots[slot]++;
-        m_unconfirmedTextures[path].types[type]++;
-    }
+    // Texture is present. A vote only touches the counters of its own texture, so a mutex chosen by texture makes this
+    // thread safe without making votes for different textures wait for each other.
+    auto& property = it->second;
+    const auto mutexIndex
+        = std::hash<const UnconfirmedTextureProperty*> { }(&property) % m_unconfirmedTextureMutexes.size();
+    const std::scoped_lock lock(m_unconfirmedTextureMutexes.at(mutexIndex));
+
+    property.slots[slot]++;
+    property.types[type]++;
 }
 
 void PGDirectory::addToTextureMaps(const std::filesystem::path& path,
