@@ -634,7 +634,8 @@ auto BethesdaDirectory::fileFromMap(const std::filesystem::path& filePath) -> Be
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
 
     const std::shared_lock lock(m_fileMapMutex);
-    if (!m_fileMap.contains(filePath)) {
+    const auto it = m_fileMap.find(filePath);
+    if (it == m_fileMap.end()) {
         return BethesdaFile {
             .path = std::filesystem::path(),
             .bsaFile = nullptr,
@@ -644,7 +645,7 @@ auto BethesdaDirectory::fileFromMap(const std::filesystem::path& filePath) -> Be
         };
     }
 
-    return m_fileMap.at(filePath);
+    return it->second;
 }
 
 void BethesdaDirectory::updateFileMap(const std::filesystem::path& filePath,
@@ -666,8 +667,11 @@ void BethesdaDirectory::updateFileMap(const std::filesystem::path& filePath,
 bool BethesdaDirectory::isFileInBSA(const std::filesystem::path& file,
                                     const std::vector<std::wstring>& bsaFiles)
 {
-    if (isBSAFile(file)) {
-        BethesdaFile const bethFile = fileFromMap(file);
+    if (m_fileMap.empty())
+        throw std::runtime_error("File map was not populated");
+
+    BethesdaFile const bethFile = fileFromMap(file);
+    if (bethFile.bsaFile) {
         std::filesystem::path const bsaFilepath = bethFile.bsaFile->path.filename();
         const std::wstring bsaFilename = bsaFilepath.wstring();
 
