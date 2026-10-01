@@ -368,7 +368,7 @@ public:
     /**
      * @brief Check if file or folder is hidden
      *
-     * @param entry Entry of a directory listing to check
+     * @param entry Entry of a directory listing to check.
      * @return true if file is hidden
      * @return false if file is not hidden
      */

@@ -15,10 +15,11 @@
 namespace FileUtil {
 
 /**
- * @brief One entry of a directory listing, with everything the listing itself knows about it.
+ * @brief One entry of a directory listing.
  *
- * Nothing here costs a further file system call. An entry that is a link is described by its target, the way
- * std::filesystem::directory_entry describes it.
+ * An entry is filled from the listing alone, so listing a directory costs no file system call per entry. Reparse points
+ * (symbolic links, junctions and the like) are the exception: they are described by their target, the way
+ * std::filesystem::directory_entry describes them, and listDirectory() queries the file system for each of them.
  */
 struct DirectoryEntry {
     std::wstring name; /**< Name of the entry without the directory */
@@ -52,7 +53,7 @@ std::vector<DirectoryEntry> listDirectory(const std::filesystem::path& directory
  * @brief Visits every entry below a directory.
  *
  * Behaves like std::filesystem::recursive_directory_iterator with skip_permission_denied: directories that cannot be
- * read are skipped, and links to directories are visited but not followed.
+ * read are skipped, and symbolic links and junctions to directories are visited but not followed.
  *
  * @param root Directory to walk.
  * @param visitor Called for every entry, see DirectoryVisitor.

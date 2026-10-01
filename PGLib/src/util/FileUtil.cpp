@@ -145,6 +145,9 @@ std::vector<DirectoryEntry> listDirectory(const std::filesystem::path& directory
             if (findData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
                 // The listing describes the link itself. Type, size and write time are those of its target, which is
                 // what std::filesystem::directory_entry reports as well.
+                //
+                // Symbolic links and junctions are the two tags std::filesystem::recursive_directory_iterator does not
+                // descend into. It enters a directory behind any other reparse tag, and so does walkDirectory().
                 entry.isLink = findData.dwReserved0 == IO_REPARSE_TAG_SYMLINK
                     || findData.dwReserved0 == IO_REPARSE_TAG_MOUNT_POINT;
 
