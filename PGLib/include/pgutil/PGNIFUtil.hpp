@@ -31,9 +31,9 @@ nifly::NifFile loadNIFFromBytes(const std::vector<std::byte>& nifBytes,
 
 /// @brief get a map containing the known texture suffixes
 /// @return the map containing the suffixes and the slot/type pairs
-std::map<std::wstring,
-         std::tuple<PGEnums::TextureSlots,
-                    PGEnums::TextureType>>
+const std::map<std::wstring,
+               std::tuple<PGEnums::TextureSlots,
+                          PGEnums::TextureType>>&
 texSuffixMap();
 
 /// @brief Deduct the texture type and slot usually used from the suffix of a texture
