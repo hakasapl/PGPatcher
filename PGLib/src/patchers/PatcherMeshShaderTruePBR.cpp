@@ -33,10 +33,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -127,22 +129,27 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         nlohmann::json json;
         bool isParsed = false;
         std::string parseError;
+        std::exception_ptr readError;
     };
     std::vector<ParsedConfig> parsedConfigs(pbrJSONs.size());
 
     TaskPoolRunner runner(shouldMultithread);
     for (size_t i = 0; i < pbrJSONs.size(); i++) {
         runner.addTask([pgd, &pbrJSONs, &parsedConfigs, i] {
-            const auto configFileBytes = pgd->file(pbrJSONs[i]);
-            std::string configFileStr(configFileBytes.size(), '\0');
-            std::memcpy(configFileStr.data(), configFileBytes.data(), configFileBytes.size());
-
             auto& parsedConfig = parsedConfigs[i];
             try {
+                const auto configFileBytes = pgd->file(pbrJSONs[i]);
+                std::string configFileStr(configFileBytes.size(), '\0');
+                std::memcpy(configFileStr.data(), configFileBytes.data(), configFileBytes.size());
+
                 parsedConfig.json = nlohmann::json::parse(configFileStr);
                 parsedConfig.isParsed = true;
             } catch (const nlohmann::json::parse_error& e) {
                 parsedConfig.parseError = e.what();
+            } catch (...) {
+                // Thrown again below on the calling thread. The runner would only record it and let the caller carry
+                // on with the configs that did load.
+                parsedConfig.readError = std::current_exception();
             }
         });
     }
@@ -151,14 +158,19 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
     runner.runTasks();
 
     if (ExceptionHandler::hasException()) {
-        // A file could not be read, the run is being aborted.
-        return;
+        // Something else in the run failed in the meantime. The runner skips its remaining tasks from then on, so
+        // configs may be missing.
+        throw std::runtime_error("TruePBR configs were not loaded because the run is being aborted");
     }
 
     size_t configOrder = 0;
     for (size_t i = 0; i < pbrJSONs.size(); i++) {
         const auto& config = pbrJSONs[i];
         auto& parsedConfig = parsedConfigs[i];
+
+        // A config that could not be read stops the run here, like it did when the configs were read one by one.
+        if (parsedConfig.readError)
+            std::rethrow_exception(parsedConfig.readError);
 
         // Check if Config is valid.
         if (!parsedConfig.isParsed) {

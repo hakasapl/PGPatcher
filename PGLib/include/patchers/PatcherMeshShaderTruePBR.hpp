@@ -136,7 +136,8 @@ public:
      * @brief Load statics from a list of PBRJSONs
      *
      * @param pbrJSONs PBR jsons files to load as PBR configs
-     * @param shouldMultithread Read and parse the files on the task pool (entries keep the order of pbrJSONs)
+     * @param shouldMultithread Read and parse the files on the task pool (entries keep the order of pbrJSONs).
+     * @throws std::runtime_error on the calling thread if a config file cannot be read.
      */
     static void loadStatics(const std::vector<std::filesystem::path>& pbrJSONs,
                             const bool& shouldMultithread = true);
