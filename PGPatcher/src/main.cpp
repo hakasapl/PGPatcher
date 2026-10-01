@@ -685,7 +685,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Any patcher initialization that requires PGD.
     if (params.shaderPatcher.isTruePBREnabled)
-        PatcherMeshShaderTruePBR::loadStatics(pgd->pbrJSONs());
+        PatcherMeshShaderTruePBR::loadStatics(pgd->pbrJSONs(), params.processing.multithread);
 
     // Extended texture classification (complex material detection) runs on a background
     // queue and adds shader types to mods as it completes. Wait for it here so mod enable

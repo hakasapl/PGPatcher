@@ -136,8 +136,10 @@ public:
      * @brief Load statics from a list of PBRJSONs
      *
      * @param pbrJSONs PBR jsons files to load as PBR configs
+     * @param shouldMultithread Read and parse the files on the task pool (entries keep the order of pbrJSONs)
      */
-    static void loadStatics(const std::vector<std::filesystem::path>& pbrJSONs);
+    static void loadStatics(const std::vector<std::filesystem::path>& pbrJSONs,
+                            const bool& shouldMultithread = true);
 
     /**
      * @brief Get the Shader Type object (TruePBR)
