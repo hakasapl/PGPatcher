@@ -329,31 +329,23 @@ void BethesdaDirectory::addLooseFilesToMap()
 {
     Logger::info("Adding loose files to file map.");
 
-    // Map top level folder (not recursive).
-    for (auto it
-         = std::filesystem::directory_iterator(m_dataDir, std::filesystem::directory_options::skip_permission_denied);
-         it != std::filesystem::directory_iterator();
-         ++it) {
-        const auto& entry = *it;
-
-        if (isHidden(entry.path()) || entry.is_directory())
-            continue;
-
-        const std::filesystem::path& filePath = entry.path();
-        std::filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
-        relativePath = boost::to_lower_copy(relativePath.wstring());
-
+    // Everything needed about an entry (hidden attribute, size, write time) comes with the directory listing, so no
+    // file is queried on its own.
+    const auto addEntry = [this](const std::wstring& relPath, const FileUtil::DirectoryEntry& entry) {
         // Check type of file, skip BSAs and ESPs.
-        if (!isFileAllowed(filePath))
+        if (!isFileAllowed(entry.name))
+            return;
+
+        const std::filesystem::path relativePath = boost::to_lower_copy(relPath);
+        updateFileMap(relativePath, nullptr, false, entry.mtime, entry.size);
+    };
+
+    // Map top level folder (not recursive).
+    for (const auto& entry : FileUtil::listDirectory(m_dataDir, true)) {
+        if (isHidden(entry) || entry.isDirectory)
             continue;
 
-        // A directory_entry caches size and write time from the directory listing so these are free.
-        std::error_code ec;
-        const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
-        ec.clear();
-        const auto size = entry.file_size(ec);
-
-        updateFileMap(relativePath, nullptr, false, static_cast<int64_t>(mtime), ec ? 0 : size);
+        addEntry(entry.name, entry);
     }
 
     // Loop through each folder to map.
@@ -363,36 +355,18 @@ void BethesdaDirectory::addLooseFilesToMap()
         if (!std::filesystem::exists(curCheckFolder))
             continue;
 
-        for (auto it = std::filesystem::recursive_directory_iterator(
-                 curCheckFolder, std::filesystem::directory_options::skip_permission_denied);
-             it != std::filesystem::recursive_directory_iterator();
-             ++it) {
-            const auto entry = *it;
-
-            if (isHidden(entry.path())) {
-                if (entry.is_directory()) {
+        const std::wstring folderPrefix = (folder / L"").wstring();
+        FileUtil::walkDirectory(
+            curCheckFolder,
+            [&addEntry, &folderPrefix](const std::wstring& relPath, const FileUtil::DirectoryEntry& entry) {
+                if (isHidden(entry)) {
                     // If it's a directory, don't recurse into it.
-                    it.disable_recursion_pending();
+                    return false;
                 }
-                continue;
-            }
 
-            const std::filesystem::path& filePath = entry.path();
-            std::filesystem::path relativePath = filePath.lexically_relative(m_dataDir);
-            relativePath = boost::to_lower_copy(relativePath.wstring());
-
-            // Check type of file, skip BSAs and ESPs.
-            if (!isFileAllowed(filePath))
-                continue;
-
-            // A directory_entry caches size and write time from the directory listing so these are free.
-            std::error_code ec;
-            const auto mtime = entry.last_write_time(ec).time_since_epoch().count();
-            ec.clear();
-            const auto size = entry.is_directory() ? 0 : entry.file_size(ec);
-
-            updateFileMap(relativePath, nullptr, false, static_cast<int64_t>(mtime), ec ? 0 : size);
-        }
+                addEntry(folderPrefix + relPath, entry);
+                return true;
+            });
     }
 }
 
@@ -707,19 +681,18 @@ bool BethesdaDirectory::checkGlob(const LPCWSTR& str,
     return false;
 }
 
-bool BethesdaDirectory::isHidden(const std::filesystem::path& path)
+bool BethesdaDirectory::isHidden(const FileUtil::DirectoryEntry& entry)
 {
     // Check if file is hidden in filesystem.
-    DWORD const fileAttributes = GetFileAttributesW(path.c_str());
-    if (fileAttributes != INVALID_FILE_ATTRIBUTES && (fileAttributes & FILE_ATTRIBUTE_HIDDEN))
+    if (entry.isHidden)
         return true;
 
     // Check if file is a dotfile.
-    if (path.filename().wstring().starts_with(L'.'))
+    if (entry.name.starts_with(L'.'))
         return true;
 
     // Check if file ends in .mohidden (MO2 hidden file).
-    if (boost::iequals(path.extension().wstring(), ".mohidden"))
+    if (boost::iequals(std::filesystem::path(entry.name).extension().wstring(), ".mohidden"))
         return true;
 
     return false;
