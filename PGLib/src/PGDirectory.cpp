@@ -589,15 +589,21 @@ void PGDirectory::updateUnconfirmedTexturesMap(const std::filesystem::path& path
                                                const PGEnums::TextureSlots& slot,
                                                const PGEnums::TextureType& type)
 {
-    // Use mutex to make this thread safe.
-    const std::scoped_lock lock(m_unconfirmedTexturesMutex);
+    // Check if texture is already in map. No texture is added or removed while votes are cast (findFiles() fills the
+    // map before the first vote), so the lookup itself needs no lock.
+    const auto it = m_unconfirmedTextures.find(path);
+    if (it == m_unconfirmedTextures.end())
+        return;
 
-    // Check if texture is already in map.
-    if (m_unconfirmedTextures.contains(path)) {
-        // Texture is present.
-        m_unconfirmedTextures[path].slots[slot]++;
-        m_unconfirmedTextures[path].types[type]++;
-    }
+    // Texture is present. A vote only touches the counters of its own texture, so a mutex chosen by texture makes this
+    // thread safe without making votes for different textures wait for each other.
+    auto& property = it->second;
+    const auto mutexIndex
+        = std::hash<const UnconfirmedTextureProperty*> { }(&property) % m_unconfirmedTextureMutexes.size();
+    const std::scoped_lock lock(m_unconfirmedTextureMutexes.at(mutexIndex));
+
+    property.slots[slot]++;
+    property.types[type]++;
 }
 
 void PGDirectory::addToTextureMaps(const std::filesystem::path& path,
