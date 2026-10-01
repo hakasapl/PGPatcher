@@ -36,9 +36,9 @@
 #include <vector>
 #include <windows.h>
 
-std::map<std::wstring,
-         std::tuple<PGEnums::TextureSlots,
-                    PGEnums::TextureType>>
+const std::map<std::wstring,
+               std::tuple<PGEnums::TextureSlots,
+                          PGEnums::TextureType>>&
 PGNIFUtil::texSuffixMap()
 {
     static const std::map<std::wstring, std::tuple<PGEnums::TextureSlots, PGEnums::TextureType>> textureSuffixMap = {
@@ -106,12 +106,14 @@ PGNIFUtil::defaultsFromSuffix(const std::filesystem::path& path)
 
     // Get the texture suffix.
     const auto pathWithoutExtension = path.parent_path() / path.stem();
-    const auto& pathStr = pathWithoutExtension.wstring();
+    auto pathStr = pathWithoutExtension.wstring();
+    // Faster ascii lower is okay here because ALL textures must be purely ascii by the time they reach here.
+    StringUtil::toLowerASCIIFastInPlace(pathStr);
 
     for (const auto& [suffix, slot] : suffixMap) {
-        if (boost::iends_with(pathStr, suffix)) {
+        if (pathStr.ends_with(suffix)) {
             // Check if PBR in prefix.
-            if (std::get<1>(slot) == PGEnums::TextureType::Height && boost::istarts_with(pathStr, L"textures\\pbr")) {
+            if (std::get<1>(slot) == PGEnums::TextureType::Height && pathStr.starts_with(L"textures\\pbr")) {
                 // This is a PBR heightmap so it gets a different texture type.
                 return { PGEnums::TextureSlots::Parallax, PGEnums::TextureType::HeightPBR };
             }
