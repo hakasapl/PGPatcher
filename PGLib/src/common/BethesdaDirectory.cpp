@@ -115,7 +115,8 @@ void BethesdaDirectory::populateFileMap(bool includeBSAs,
     }
 
     // Archives and loose files do not depend on each other, so the archives can be read on a second thread while the
-    // data folder is walked. updateFileMap() lets a loose file win over an archived one whichever is added first.
+    // data folder is walked. Both add to the map in a way that lets a loose file win over an archived one, whichever
+    // of the two is added first.
     std::exception_ptr bsaException;
     std::jthread bsaThread;
     if (includeBSAs && m_bg) {

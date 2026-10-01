@@ -377,7 +377,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Nothing uses the GPU before the file map is populated, so it is initialized in the background until then.
     TaskQueue gpuInit;
-    const auto initGPUTask = [pgd3d] {
+    bool isGPUReady = false;
+    const auto initGPUTask = [pgd3d, &isGPUReady] {
         // Check if GPU needs to be initialized.
         Logger::info("Initializing GPU");
         if (!pgd3d->initGPU()) {
@@ -389,6 +390,8 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
             Logger::critical("Failed to initialize internal shaders. Exiting.");
             return;
         }
+
+        isGPUReady = true;
     };
     if (params.processing.multithread)
         gpuInit.queueTask(initGPUTask);
@@ -561,6 +564,12 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     gpuInit.shutdown();
     cacheInit.waitForCompletion();
     cacheInit.shutdown();
+    if (!isGPUReady) {
+        // GPU initialization failed, which the task has reported, or it never ran. Either way the preparation ends
+        // here, like it did when the GPU was initialized on this thread.
+        return;
+    }
+
     PGRunCache::setPluginFingerprint(pluginFingerprint);
 
     // Update cache: texture metadata of unchanged textures does not need to be read again.

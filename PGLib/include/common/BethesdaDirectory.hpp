@@ -194,8 +194,8 @@ public:
     /**
      * @brief Populate file map with all files in the load order
      *
-     * @param includeBSAs Whether files in BSA archives are mapped as well
-     * @param shouldMultithread Whether the archives are read on a second thread while the loose files are mapped
+     * @param includeBSAs Whether files in BSA archives are mapped as well.
+     * @param shouldMultithread Whether the archives are read on a second thread while the loose files are mapped.
      */
     void populateFileMap(bool includeBSAs = true,
                          bool shouldMultithread = true);
