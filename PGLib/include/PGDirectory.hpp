@@ -47,9 +47,12 @@ private:
         std::unordered_map<PGEnums::TextureType, size_t> types;
     };
 
+    static constexpr size_t numUnconfirmedTextureMutexes = 64;
+
     // Temp Structures.
     std::unordered_map<std::filesystem::path, UnconfirmedTextureProperty> m_unconfirmedTextures;
-    std::mutex m_unconfirmedTexturesMutex;
+    std::array<std::mutex, numUnconfirmedTextureMutexes>
+        m_unconfirmedTextureMutexes; /**< Every unconfirmed texture is guarded by one of these, chosen by texture */
     std::unordered_set<std::filesystem::path> m_unconfirmedMeshes;
 
     struct TextureDetails {

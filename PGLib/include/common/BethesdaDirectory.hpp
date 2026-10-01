@@ -164,9 +164,9 @@ private:
     /**
      * @brief Gets a list of extensions to ignore when populating the file map
      *
-     * @return std::vector<std::wstring>
+     * @return const std::vector<std::wstring>&
      */
-    static std::vector<std::wstring> extensionBlocklist();
+    static const std::vector<std::wstring>& extensionBlocklist();
 
 public:
     /**
