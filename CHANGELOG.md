@@ -1,5 +1,9 @@
 # Changelog
 
+## UNRELEASED
+
+- Improved performance of the preparation steps that run before patching
+
 ## [2.1.1] - 2026-09-17
 
 - Fixed PBR shader not removing Facegen_RGB_Tint flag if exists

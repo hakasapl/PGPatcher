@@ -375,17 +375,25 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.initGpu")); });
 
-    // Check if GPU needs to be initialized.
-    Logger::info("Initializing GPU");
-    if (!pgd3d->initGPU()) {
-        Logger::critical("Failed to initialize GPU. Exiting.");
-        return;
-    }
+    // Nothing uses the GPU before the file map is populated, so it is initialized in the background until then.
+    TaskQueue gpuInit;
+    const auto initGPUTask = [pgd3d] {
+        // Check if GPU needs to be initialized.
+        Logger::info("Initializing GPU");
+        if (!pgd3d->initGPU()) {
+            Logger::critical("Failed to initialize GPU. Exiting.");
+            return;
+        }
 
-    if (!pgd3d->initShaders()) {
-        Logger::critical("Failed to initialize internal shaders. Exiting.");
-        return;
-    }
+        if (!pgd3d->initShaders()) {
+            Logger::critical("Failed to initialize internal shaders. Exiting.");
+            return;
+        }
+    };
+    if (params.processing.multithread)
+        gpuInit.queueTask(initGPUTask);
+    else
+        initGPUTask();
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(1, numPreparingSteps); });
     //
@@ -426,8 +434,18 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // "Start Patching" regenerates everything. Zipped outputs are always generated from scratch and leave no cache.
     if (updateOutput && params.output.zip)
         Logger::warn("Zip output is enabled, so the previous output cannot be updated and is generated from scratch");
-    PGRunCache::initialize(params.output.dir / PGRunCache::s_cacheFilename, !params.output.zip, !updateOutput);
-    PGRunCache::setConfigFingerprint(computeConfigFingerprint(params, args));
+
+    // Nothing reads the cache before the file map is populated, so a previous output is loaded in the background
+    // until then.
+    TaskQueue cacheInit;
+    const auto initCacheTask = [&params, &args, &updateOutput] {
+        PGRunCache::initialize(params.output.dir / PGRunCache::s_cacheFilename, !params.output.zip, !updateOutput);
+        PGRunCache::setConfigFingerprint(computeConfigFingerprint(params, args));
+    };
+    if (params.processing.multithread)
+        cacheInit.queueTask(initCacheTask);
+    else
+        initCacheTask();
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(2, numPreparingSteps); });
     //
@@ -453,8 +471,9 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     const std::wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
     Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
 
-    // Update cache: mesh uses can be reused from the previous run if no plugin changed.
-    PGRunCache::setPluginFingerprint(computePluginFingerprint(*bg, activePlugins));
+    // Update cache: mesh uses can be reused from the previous run if no plugin changed. The cache is given the
+    // fingerprint once it has been loaded.
+    const auto pluginFingerprint = computePluginFingerprint(*bg, activePlugins);
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(3, numPreparingSteps); });
     //
@@ -535,7 +554,14 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.populatingFileMap")); });
 
     // Init file map.
-    pgd->populateFileMap(true);
+    pgd->populateFileMap(true, params.processing.multithread);
+
+    // The GPU and the update cache are needed from here on.
+    gpuInit.waitForCompletion();
+    gpuInit.shutdown();
+    cacheInit.waitForCompletion();
+    cacheInit.shutdown();
+    PGRunCache::setPluginFingerprint(pluginFingerprint);
 
     // Update cache: texture metadata of unchanged textures does not need to be read again.
     PGRunCache::seedTextureMetadata();
