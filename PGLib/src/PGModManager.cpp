@@ -453,7 +453,10 @@ void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDi
                     if (boost::iequals(file.path().filename().wstring(), L"meta.ini"))
                         continue;
 
-                    const auto relPath = std::filesystem::relative(file, curModDir);
+                    // Every path the iterator yields starts with curModDir, so the relative path is a pure string
+                    // operation. std::filesystem::relative() canonicalizes both paths first, which opens the file
+                    // and the mod folder for every single file.
+                    const auto relPath = file.path().lexically_relative(curModDir);
                     const std::filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
                     // Check if already in map.
                     if (m_modFileMap.contains(relPathLower))
@@ -471,7 +474,7 @@ void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDi
         // Map any BSAs.
         for (const auto& file : std::filesystem::directory_iterator(curModDir)) {
             if (file.is_regular_file() && boost::iequals(file.path().extension().wstring(), ".bsa")) {
-                const auto relPath = std::filesystem::relative(file, curModDir);
+                const auto relPath = file.path().lexically_relative(curModDir);
                 const std::filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
                 // Check if already in map.
                 if (m_modFileMap.contains(relPathLower))
