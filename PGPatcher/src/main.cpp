@@ -376,8 +376,10 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.initGpu")); });
 
     // Nothing uses the GPU before the file map is populated, so it is initialized in the background until then.
-    TaskQueue gpuInit;
+    // The task sets isGPUReady, which is read once the queue has been shut down. It is declared before the queue so
+    // that it outlives the worker thread on every way out of this function.
     bool isGPUReady = false;
+    TaskQueue gpuInit;
     const auto initGPUTask = [pgd3d, &isGPUReady] {
         // Check if GPU needs to be initialized.
         Logger::info("Initializing GPU");
