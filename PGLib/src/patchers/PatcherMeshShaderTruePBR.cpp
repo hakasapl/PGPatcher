@@ -32,7 +32,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <map>
@@ -129,7 +128,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         nlohmann::json json;
         bool isParsed = false;
         std::string parseError;
-        std::exception_ptr readError;
+        std::exception_ptr exception;
     };
     std::vector<ParsedConfig> parsedConfigs(pbrJSONs.size());
 
@@ -140,7 +139,8 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             try {
                 const auto configFileBytes = pgd->file(pbrJSONs[i]);
                 std::string configFileStr(configFileBytes.size(), '\0');
-                std::memcpy(configFileStr.data(), configFileBytes.data(), configFileBytes.size());
+                std::ranges::transform(
+                    configFileBytes, configFileStr.begin(), [](std::byte b) { return static_cast<char>(b); });
 
                 parsedConfig.json = nlohmann::json::parse(configFileStr);
                 parsedConfig.isParsed = true;
@@ -149,7 +149,7 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
             } catch (...) {
                 // Thrown again below on the calling thread. The runner would only record it and let the caller carry
                 // on with the configs that did load.
-                parsedConfig.readError = std::current_exception();
+                parsedConfig.exception = std::current_exception();
             }
         });
     }
@@ -168,9 +168,11 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         const auto& config = pbrJSONs[i];
         auto& parsedConfig = parsedConfigs[i];
 
-        // A config that could not be read stops the run here, like it did when the configs were read one by one.
-        if (parsedConfig.readError)
-            std::rethrow_exception(parsedConfig.readError);
+        // file() throws for a config that is missing from the file map or from its archive. That stops the run here, on
+        // the calling thread, like it did when the configs were read one by one. A config that cannot be opened is not
+        // an exception: it comes back empty and is reported as a parse error below, which was the case before as well.
+        if (parsedConfig.exception)
+            std::rethrow_exception(parsedConfig.exception);
 
         // Check if Config is valid.
         if (!parsedConfig.isParsed) {
