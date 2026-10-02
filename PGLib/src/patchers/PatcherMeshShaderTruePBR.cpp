@@ -6,9 +6,11 @@
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
+#include "util/ExceptionHandler.hpp"
 #include "util/HashUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
+#include "util/TaskPoolRunner.hpp"
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -30,11 +32,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
-#include <iterator>
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -113,62 +116,109 @@ std::vector<std::string> PatcherMeshShaderTruePBR::truePBRConfigFilenameFields()
 }
 
 // Statics.
-void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::path>& pbrJSONs)
+void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::path>& pbrJSONs,
+                                           const bool& shouldMultithread)
 {
     auto* pgd = PGGlobals::pgd();
 
+    // Reading and parsing the files is independent work, and every file has to be opened on its own, so that part runs
+    // on the task pool. Everything that depends on the order of the configs happens afterwards, in the order of
+    // pbrJSONs.
+    struct ParsedConfig {
+        nlohmann::json json;
+        bool isParsed = false;
+        std::string parseError;
+        std::exception_ptr exception;
+    };
+    std::vector<ParsedConfig> parsedConfigs(pbrJSONs.size());
+
+    TaskPoolRunner runner(shouldMultithread);
+    for (size_t i = 0; i < pbrJSONs.size(); i++) {
+        runner.addTask([pgd, &pbrJSONs, &parsedConfigs, i] {
+            auto& parsedConfig = parsedConfigs[i];
+            try {
+                const auto configFileBytes = pgd->file(pbrJSONs[i]);
+                std::string configFileStr(configFileBytes.size(), '\0');
+                std::ranges::transform(
+                    configFileBytes, configFileStr.begin(), [](std::byte b) { return static_cast<char>(b); });
+
+                parsedConfig.json = nlohmann::json::parse(configFileStr);
+                parsedConfig.isParsed = true;
+            } catch (const nlohmann::json::parse_error& e) {
+                parsedConfig.parseError = e.what();
+            } catch (...) {
+                // Thrown again below on the calling thread. The runner would only record it and let the caller carry
+                // on with the configs that did load.
+                parsedConfig.exception = std::current_exception();
+            }
+        });
+    }
+
+    // Blocks until all tasks are done.
+    runner.runTasks();
+
+    if (ExceptionHandler::hasException()) {
+        // Something else in the run failed in the meantime. The runner skips its remaining tasks from then on, so
+        // configs may be missing.
+        throw std::runtime_error("TruePBR configs were not loaded because the run is being aborted");
+    }
+
     size_t configOrder = 0;
-    for (const auto& config : pbrJSONs) {
+    for (size_t i = 0; i < pbrJSONs.size(); i++) {
+        const auto& config = pbrJSONs[i];
+        auto& parsedConfig = parsedConfigs[i];
+
+        // file() throws for a config that is missing from the file map or from its archive. That stops the run here, on
+        // the calling thread, like it did when the configs were read one by one. A config that cannot be opened is not
+        // an exception: it comes back empty and is reported as a parse error below, which was the case before as well.
+        if (parsedConfig.exception)
+            std::rethrow_exception(parsedConfig.exception);
+
         // Check if Config is valid.
-        auto configFileBytes = pgd->file(config);
-        std::string configFileStr;
-        std::ranges::transform(
-            configFileBytes, std::back_inserter(configFileStr), [](std::byte b) { return static_cast<char>(b); });
-
-        try {
-            nlohmann::json j = nlohmann::json::parse(configFileStr);
-            nlohmann::json jDefaults;
-            nlohmann::json jEntries;
-
-            // Check if j is a json object.
-            if (j.is_object()) {
-                if (!j.contains("default") || !j.contains("entries"))
-                    continue;
-
-                jDefaults = j["default"];
-                jEntries = j["entries"];
-            } else {
-                jDefaults = nlohmann::json::object();
-                jEntries = j;
-            }
-
-            // Loop through each Element.
-            for (auto& element : jEntries) {
-                // Merge defaults with element.
-                for (const auto& [key, value] : jDefaults.items())
-                    if (!element.contains(key))
-                        element[key] = value;
-
-                // Preprocessing steps here.
-                if (element.contains("texture"))
-                    element["match_diffuse"] = element["texture"];
-
-                element["json"] = StringUtil::utf16toUTF8(config.wstring());
-
-                // Loop through filename Fields.
-                for (const auto& field : truePBRConfigFilenameFields())
-                    if (element.contains(field) && !boost::istarts_with(element[field].get<std::string>(), "\\"))
-                        element[field] = element[field].get<std::string>().insert(0, 1, '\\');
-
-                Logger::trace(L"TruePBR Config {} Loaded: {}", configOrder, StringUtil::utf8toUTF16(element.dump()));
-                truePBRConfigs()[configOrder++] = element;
-            }
-        } catch (nlohmann::json::parse_error& e) {
+        if (!parsedConfig.isParsed) {
             Logger::debug(L"Failed to parse TruePBR config JSON: {}. Error: {}",
                           config.wstring(),
-                          StringUtil::utf8toUTF16(e.what()));
+                          StringUtil::utf8toUTF16(parsedConfig.parseError));
             Logger::error(L"Failed to parse JSON: {}", config.wstring());
             continue;
+        }
+
+        nlohmann::json& j = parsedConfig.json;
+        nlohmann::json jDefaults;
+        nlohmann::json jEntries;
+
+        // Check if j is a json object.
+        if (j.is_object()) {
+            if (!j.contains("default") || !j.contains("entries"))
+                continue;
+
+            jDefaults = j["default"];
+            jEntries = j["entries"];
+        } else {
+            jDefaults = nlohmann::json::object();
+            jEntries = j;
+        }
+
+        // Loop through each Element.
+        for (auto& element : jEntries) {
+            // Merge defaults with element.
+            for (const auto& [key, value] : jDefaults.items())
+                if (!element.contains(key))
+                    element[key] = value;
+
+            // Preprocessing steps here.
+            if (element.contains("texture"))
+                element["match_diffuse"] = element["texture"];
+
+            element["json"] = StringUtil::utf16toUTF8(config.wstring());
+
+            // Loop through filename Fields.
+            for (const auto& field : truePBRConfigFilenameFields())
+                if (element.contains(field) && !boost::istarts_with(element[field].get<std::string>(), "\\"))
+                    element[field] = element[field].get<std::string>().insert(0, 1, '\\');
+
+            Logger::trace(L"TruePBR Config {} Loaded: {}", configOrder, StringUtil::utf8toUTF16(element.dump()));
+            truePBRConfigs()[configOrder++] = element;
         }
     }
 

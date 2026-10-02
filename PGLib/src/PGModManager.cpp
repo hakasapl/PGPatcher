@@ -5,6 +5,7 @@
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
+#include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
@@ -102,8 +103,9 @@ auto PGModManager::modFileMap() const -> const std::unordered_map<std::filesyste
 
 auto PGModManager::modByFile(const std::filesystem::path& relPath) const -> std::shared_ptr<Mod>
 {
-    if (m_modFileMap.contains(relPath))
-        return m_modFileMap.at(relPath);
+    const auto it = m_modFileMap.find(relPath);
+    if (it != m_modFileMap.end())
+        return it->second;
 
     return nullptr;
 }
@@ -432,47 +434,45 @@ void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDi
             }
 
             try {
-                for (auto it = std::filesystem::recursive_directory_iterator(
-                         curSearchDir, std::filesystem::directory_options::skip_permission_denied);
-                     it != std::filesystem::recursive_directory_iterator();
-                     ++it) {
-                    const auto file = *it;
-
-                    if (BethesdaDirectory::isHidden(file.path())) {
-                        if (file.is_directory()) {
+                // The directory listing already says whether an entry is hidden and whether it is a file, and the path
+                // relative to the mod folder follows from the walk, so no file has to be queried on its own.
+                const std::wstring folderPrefix = (folder / L"").wstring();
+                FileUtil::walkDirectory(
+                    curSearchDir,
+                    [this, &folderPrefix, &mod, &modPtr](const std::wstring& relPath,
+                                                         const FileUtil::DirectoryEntry& entry) {
+                        if (BethesdaDirectory::isHidden(entry)) {
                             // If it's a directory, don't recurse into it.
-                            it.disable_recursion_pending();
+                            return false;
                         }
-                        continue;
-                    }
 
-                    if (!std::filesystem::is_regular_file(file))
-                        continue;
+                        if (!entry.isRegularFile)
+                            return true;
 
-                    // Skip meta.ini file.
-                    if (boost::iequals(file.path().filename().wstring(), L"meta.ini"))
-                        continue;
+                        // Skip meta.ini file.
+                        if (boost::iequals(entry.name, L"meta.ini"))
+                            return true;
 
-                    const auto relPath = std::filesystem::relative(file, curModDir);
-                    const std::filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
-                    // Check if already in map.
-                    if (m_modFileMap.contains(relPathLower))
-                        continue;
+                        const std::filesystem::path relPathLower = StringUtil::toLowerASCII(folderPrefix + relPath);
+                        // Check if already in map.
+                        if (m_modFileMap.contains(relPathLower))
+                            return true;
 
-                    Logger::trace(L"Mapping file to mod: {} -> {}", relPathLower.wstring(), mod);
+                        Logger::trace(L"Mapping file to mod: {} -> {}", relPathLower.wstring(), mod);
 
-                    m_modFileMap[relPathLower] = modPtr;
-                }
+                        m_modFileMap[relPathLower] = modPtr;
+                        return true;
+                    });
             } catch (const std::filesystem::filesystem_error& e) {
                 Logger::error(L"Error reading mod directory {}: {}", mod, StringUtil::asciitoUTF16(e.what()));
             }
         }
 
         // Map any BSAs.
-        for (const auto& file : std::filesystem::directory_iterator(curModDir)) {
-            if (file.is_regular_file() && boost::iequals(file.path().extension().wstring(), ".bsa")) {
-                const auto relPath = std::filesystem::relative(file, curModDir);
-                const std::filesystem::path relPathLower = StringUtil::toLowerASCII(relPath.wstring());
+        for (const auto& entry : FileUtil::listDirectory(curModDir)) {
+            if (entry.isRegularFile
+                && boost::iequals(std::filesystem::path(entry.name).extension().wstring(), ".bsa")) {
+                const std::filesystem::path relPathLower = StringUtil::toLowerASCII(entry.name);
                 // Check if already in map.
                 if (m_modFileMap.contains(relPathLower))
                     continue;
