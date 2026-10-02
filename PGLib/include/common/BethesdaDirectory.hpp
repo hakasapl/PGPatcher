@@ -1,5 +1,6 @@
 #pragma once
 #include "common/BethesdaGame.hpp"
+#include "util/FileUtil.hpp"
 #include "util/StringUtil.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -371,11 +372,11 @@ public:
     /**
      * @brief Check if file or folder is hidden
      *
-     * @param path Path to check
+     * @param entry Entry of a directory listing to check.
      * @return true if file is hidden
      * @return false if file is not hidden
      */
-    static bool isHidden(const std::filesystem::path& path);
+    static bool isHidden(const FileUtil::DirectoryEntry& entry);
 
 private:
     /**
