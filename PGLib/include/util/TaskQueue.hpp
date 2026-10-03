@@ -16,7 +16,8 @@
  * @brief Single-threaded task queue that executes submitted callables serially on a background thread.
  *
  * Tasks are processed in FIFO order. If a task throws an exception it is captured via
- * ExceptionHandler and an optional callback is invoked; no further tasks are processed after that.
+ * ExceptionHandler and an optional callback is invoked; no further tasks are processed after that. Tasks that
+ * will not be processed anymore are dropped, so waitForCompletion() does not wait for them.
  */
 class TaskQueue {
 private:
@@ -53,7 +54,8 @@ public:
     /**
      * @brief Submits a callable to be executed on the background worker thread.
      *
-     * The task is silently dropped if ExceptionHandler::hasException() returns true.
+     * The task is silently dropped if ExceptionHandler::hasException() returns true or if the worker thread has
+     * already stopped.
      *
      * @tparam Func Callable type (any invocable that takes no arguments).
      * @param func The callable to enqueue.
@@ -67,6 +69,11 @@ public:
 
         {
             std::scoped_lock const lock(m_queueMutex);
+            if (!m_running) {
+                // The worker has stopped (shutdown, or an exception elsewhere), so the task would never run.
+                return;
+            }
+
             m_taskQueue.emplace(std::forward<Func>(func));
             m_queuedTasks++;
         }
