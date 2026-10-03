@@ -59,6 +59,12 @@ void TaskQueue::workerLoop()
             m_isBusy = false;
         }
     }
+
+    // Whatever is still queued will never run now. Drop it and say so, or waitForCompletion() would wait for it
+    // forever.
+    const std::scoped_lock lock(m_queueMutex);
+    m_taskQueue = { };
+    m_queuedTasks = 0;
 }
 
 bool TaskQueue::isWorking() const { return m_isBusy || m_queuedTasks > 0; }

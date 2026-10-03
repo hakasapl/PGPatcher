@@ -194,8 +194,12 @@ public:
 
     /**
      * @brief Populate file map with all files in the load order
+     *
+     * @param includeBSAs Whether files in BSA archives are mapped as well.
+     * @param shouldMultithread Whether the archives are read on a second thread while the loose files are mapped.
      */
-    void populateFileMap(bool includeBSAs = true);
+    void populateFileMap(bool includeBSAs = true,
+                         bool shouldMultithread = true);
 
     /**
      * @brief Get the file map vector, path of the files is is all lower case
@@ -438,6 +442,9 @@ private:
 
     /**
      * @brief Update the file map with
+     *
+     * A loose file replaces whatever is mapped for the path. An archived file replaces the file of an earlier archive
+     * but never a loose file, so loose files and archives can be added in either order.
      *
      * @param filePath path to update or add
      * @param bsaFile BSA file or nullptr if it doesn't exist

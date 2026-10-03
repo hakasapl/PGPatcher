@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <fileapi.h>
 #include <filesystem>
 #include <fstream>
@@ -36,6 +37,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -102,7 +104,8 @@ bool BethesdaDirectory::checkGlob(const std::wstring& str,
     return std::ranges::any_of(globListCstr, [&](LPCWSTR glob) { return PathMatchSpecW(strCstr, glob); });
 }
 
-void BethesdaDirectory::populateFileMap(bool includeBSAs)
+void BethesdaDirectory::populateFileMap(bool includeBSAs,
+                                        bool shouldMultithread)
 {
     // Clear map before populating.
     {
@@ -111,13 +114,34 @@ void BethesdaDirectory::populateFileMap(bool includeBSAs)
         m_generatedFileRestoreMap.clear();
     }
 
+    // Archives and loose files do not depend on each other, so the archives can be read on a second thread while the
+    // data folder is walked. Both add to the map in a way that lets a loose file win over an archived one, whichever
+    // of the two is added first. bsaException is declared before the thread so that it outlives it if the walk throws.
+    std::exception_ptr bsaException;
+    std::jthread bsaThread;
     if (includeBSAs && m_bg) {
-        // Add BSA files to file map.
-        addBSAFilesToMap();
+        if (shouldMultithread) {
+            bsaThread = std::jthread([this, &bsaException] {
+                try {
+                    addBSAFilesToMap();
+                } catch (...) {
+                    bsaException = std::current_exception();
+                }
+            });
+        } else {
+            // Add BSA files to file map.
+            addBSAFilesToMap();
+        }
     }
 
     // Add loose files to file map.
     addLooseFilesToMap();
+
+    // Anything the second thread threw is thrown from here, so a failure stops the caller like it does without it.
+    if (bsaThread.joinable())
+        bsaThread.join();
+    if (bsaException)
+        std::rethrow_exception(bsaException);
 }
 
 auto BethesdaDirectory::fileMap() const -> const std::map<std::filesystem::path,
@@ -686,7 +710,16 @@ void BethesdaDirectory::updateFileMap(const std::filesystem::path& filePath,
     const BethesdaFile newBFile
         = { .path = filePath, .bsaFile = std::move(bsaFile), .isGenerated = isGenerated, .mtime = mtime, .size = size };
 
-    m_fileMap[filePath] = newBFile;
+    const auto [it, isNew] = m_fileMap.try_emplace(filePath, newBFile);
+    if (isNew)
+        return;
+
+    // An archived file never replaces a loose file. Archives can be read while the loose files are mapped, so the two
+    // are added in either order.
+    if (newBFile.bsaFile && !it->second.bsaFile)
+        return;
+
+    it->second = newBFile;
 }
 
 bool BethesdaDirectory::isFileInBSA(const std::filesystem::path& file,
