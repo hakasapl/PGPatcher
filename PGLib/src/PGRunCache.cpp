@@ -309,6 +309,14 @@ void writeMeshResult(BinaryIO::Writer& w,
 
     writeIntMap(w, result.idxCorrections);
     writeIntMap(w, result.inverseIdxCorrectionsPatching);
+
+    w.writeBool(result.objectBounds.has_value());
+    if (result.objectBounds) {
+        for (const auto& value : result.objectBounds->min)
+            w.write<int16_t>(value);
+        for (const auto& value : result.objectBounds->max)
+            w.write<int16_t>(value);
+    }
 }
 
 PGMeshPermutationTracker::MeshResult readMeshResult(BinaryIO::Reader& r,
@@ -331,6 +339,16 @@ PGMeshPermutationTracker::MeshResult readMeshResult(BinaryIO::Reader& r,
 
     result.idxCorrections = readIntMap(r);
     result.inverseIdxCorrectionsPatching = readIntMap(r);
+
+    if (r.readBool()) {
+        PGTypes::ObjectBounds bounds;
+        for (auto& value : bounds.min)
+            value = r.read<int16_t>();
+        for (auto& value : bounds.max)
+            value = r.read<int16_t>();
+        result.objectBounds = bounds;
+    }
+
     return result;
 }
 
@@ -515,6 +533,10 @@ void writeRecord(BinaryIO::Writer& w,
     for (const auto& result : record.meshResults)
         writeMeshResult(w, st, result);
 
+    w.write<uint32_t>(static_cast<uint32_t>(record.boundsResults.size()));
+    for (const auto& result : record.boundsResults)
+        writeMeshResult(w, st, result);
+
     w.writeBool(record.hasDiff);
     w.write<uint64_t>(record.crc32Original);
     w.write<uint64_t>(record.crc32Patched);
@@ -632,6 +654,11 @@ PGRunCache::MeshRecord readRecord(BinaryIO::Reader& r,
     reserveBounded(record.meshResults, count);
     for (size_t i = 0; i < count; i++)
         record.meshResults.push_back(readMeshResult(r, st));
+
+    count = readCount<size_t>(r, 16);
+    reserveBounded(record.boundsResults, count);
+    for (size_t i = 0; i < count; i++)
+        record.boundsResults.push_back(readMeshResult(r, st));
 
     record.hasDiff = r.readBool();
     record.crc32Original = r.read<uint64_t>();
@@ -907,6 +934,11 @@ void PGRunCache::MeshRecorder::setUses(const MeshUses& uses) { m_record.uses = u
 void PGRunCache::MeshRecorder::setMeshResults(const std::vector<PGMeshPermutationTracker::MeshResult>& results)
 {
     m_record.meshResults = results;
+}
+
+void PGRunCache::MeshRecorder::setBoundsResults(const std::vector<PGMeshPermutationTracker::MeshResult>& results)
+{
+    m_record.boundsResults = results;
 }
 
 void PGRunCache::MeshRecorder::setDiff(uint64_t crc32Original,

@@ -110,6 +110,13 @@
         "tooltip": "Ajoute des flow maps aux texture sets pour celles correspondant à la texture normale"
       }
     },
+    "globalPatchers": {
+      "title": "Patchers globaux",
+      "recalculateBounds": {
+        "label": "Recalculer les bounds",
+        "tooltip": "Recalcule les bounds de chaque mesh patché (équivalent à \"Update Bounds\" de NifSkope), ainsi que l'OBND (Object Bounds) des records du plugin qui les utilisent. Les records TREE et GRAS sont aussi mis à jour lorsque leur mesh n'est pas patché par ailleurs, car DynDOLOD s'appuie sur leur OBND pour générer les LODs. Ceci modifie des records du plugin, pas seulement les meshes."
+      }
+    },
     "buttons": {
       "restoreDefaults": "Restaurer les valeurs par défaut",
       "loadConfig": "Charger la configuration",

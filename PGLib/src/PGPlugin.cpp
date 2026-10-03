@@ -224,6 +224,43 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
     PGMutagenWrapper::libSetModelUses(modelUses);
 }
 
+void PGPlugin::setObjectBounds(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults)
+{
+    if (!s_initialized)
+        return;
+
+    std::vector<PGMutagenWrapper::ObjectBoundsUpdate> updates;
+
+    for (const auto& meshResult : meshResults) {
+        if (!meshResult.objectBounds.has_value())
+            continue;
+
+        for (const auto& formKeyEntry : meshResult.altTexResults) {
+            const auto& formKey = formKeyEntry.first;
+            if (formKey.modKey.empty() || !formKey.formID) {
+                // Skip dummy use.
+                continue;
+            }
+
+            if (formKey.subMODL != "MODL") {
+                // OBND is a single record-level field; only the primary model determines it.
+                continue;
+            }
+
+            PGMutagenWrapper::ObjectBoundsUpdate update;
+            update.modName = formKey.modKey;
+            update.formID = formKey.formID;
+            update.min = meshResult.objectBounds->min;
+            update.max = meshResult.objectBounds->max;
+
+            updates.push_back(update);
+        }
+    }
+
+    if (!updates.empty())
+        PGMutagenWrapper::libSetObjectBounds(updates);
+}
+
 void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
                           ESMMode esmMode)
 {
