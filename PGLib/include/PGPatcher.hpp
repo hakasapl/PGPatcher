@@ -62,6 +62,9 @@ public:
 
     using MeshPatchInfo = std::map<std::filesystem::path, MeshMeta>;
 
+    /// Stages of patchMeshes() that a caller may want to show separately in its progress UI.
+    enum class MeshPatchStage : uint8_t { EvaluatingPreviousOutput, Patching };
+
 private:
     // Registered Patchers.
     static PatcherUtil::PatcherTextureSet s_texPatchers;
@@ -88,6 +91,10 @@ public:
      *
      * @param multiThread whether to use multithreading
      * @param excludeFacegens whether to skip patching facegen meshes
+     * @param progressCallback receives (completed, total) counts of the current stage
+     * @param stageCallback invoked when a new stage starts. When a previous output is updated, every mesh is
+     * evaluated before patching and the progress callback counts that evaluation first, so the stages are reported
+     * separately for progress displays.
      */
     static void patchMeshes(const bool& shouldMultithread = true,
                             const bool& forceBasePatch = false,
@@ -95,7 +102,8 @@ public:
                             const bool& checkAllowedRecTypes = false,
                             const bool& excludeFacegens = false,
                             const std::function<void(size_t,
-                                                     size_t)>& progressCallback = { });
+                                                     size_t)>& progressCallback = { },
+                            const std::function<void(MeshPatchStage)>& stageCallback = { });
 
     /**
      * @brief Run texture patcher

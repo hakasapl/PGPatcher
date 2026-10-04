@@ -5,6 +5,7 @@
 - Improved performance of the preparation steps that run before patching
 - Fixed Light Placer JSON patching when model paths are uppercase
 - Fixed Light Placer JSON acceptance criteria to match Light Placer itself
+- Fixed the mesh progress bar filling up twice under the same status when updating a previous output
 
 ## [2.1.1] - 2026-09-17
 

@@ -213,6 +213,7 @@
       "readingNifs": "Reading NIFs",
       "classifyingTextures": "Classifying textures",
       "patchingMeshes": "Patching meshes",
+      "evaluatingPreviousOutput": "Evaluating previous output",
       "processingNifs": "Processing NIFs",
       "patchingTextures": "Patching textures",
       "processingTextures": "Processing textures",

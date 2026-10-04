@@ -81,7 +81,8 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             const bool& checkAllowedRecTypes,
                             const bool& excludeFacegens,
                             const std::function<void(size_t,
-                                                     size_t)>& progressCallback)
+                                                     size_t)>& progressCallback,
+                            const std::function<void(MeshPatchStage)>& stageCallback)
 {
     auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
@@ -105,9 +106,15 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
     // Incremental runs: find the meshes whose previous output is still valid and remove outputs that are not.
     std::unordered_set<std::filesystem::path> skippable;
     if (PGRunCache::hasPreviousRun()) {
+        if (stageCallback)
+            stageCallback(MeshPatchStage::EvaluatingPreviousOutput);
+
         skippable = PGRunCache::evaluateMeshes(meshes, shouldMultithread, progressCallback);
         PGRunCache::pruneStaleOutputs(skippable);
     }
+
+    if (stageCallback)
+        stageCallback(MeshPatchStage::Patching);
 
     // Create task tracker.
     TaskTracker taskTracker("Mesh Patcher", meshes.size());

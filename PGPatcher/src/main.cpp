@@ -788,12 +788,24 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter(
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.processingNifs")); });
 
+    // Updating a previous output evaluates every mesh before patching, and both passes report to the step progress
+    // bar. Each pass gets its own label so the bar is not seen filling twice under the same status.
+    const auto meshPatchStageCallback = [progressWindow](PGPatcher::MeshPatchStage stage) {
+        progressWindow->CallAfter([progressWindow, stage] {
+            progressWindow->setStepLabel(stage == PGPatcher::MeshPatchStage::EvaluatingPreviousOutput
+                                             ? pgTr("progress.steps.evaluatingPreviousOutput")
+                                             : pgTr("progress.steps.processingNifs"));
+            progressWindow->setStepProgress(0, 1);
+        });
+    };
+
     PGPatcher::patchMeshes(params.processing.multithread,
                            args.considerAllMeshes,
                            params.processing.allowedModelRecordTypes,
                            true,
                            args.excludeFacegens,
-                           progressCallback);
+                           progressCallback,
+                           meshPatchStageCallback);
 
     progressWindow->CallAfter([progressWindow] {
         progressWindow->setMainLabel(pgTr("progress.steps.patchingTextures"));
