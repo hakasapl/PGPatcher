@@ -14,9 +14,11 @@
  *
  * PGPatcher does not modify geometry, so it never invalidates the bounds
  * itself. This patcher is for source meshes whose stored bounds are already
- * stale or wrong (e.g. edited or rescaled without updating them). It is opt-in
- * since recalculating this data is unnecessary (and wasted time) for meshes
- * whose bounds are already correct.
+ * stale or wrong (e.g. edited or rescaled by a mod without updating them).
+ * Only meshes PG outputs for another reason are affected, since a mesh is not
+ * written when its bounds are the only difference. It is opt-in since
+ * recalculating this data is unnecessary (and wasted time) for meshes whose
+ * bounds are already correct.
  */
 class PatcherMeshGlobalRecalculateBounds : public PatcherMeshGlobal {
 public:

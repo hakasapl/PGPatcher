@@ -82,7 +82,8 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             const bool& excludeFacegens,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback,
-                            const bool& computeObjectBounds)
+                            const std::function<void(MeshPatchStage)>& stageCallback,
+                            const bool& shouldComputeObjectBounds)
 {
     auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
@@ -106,9 +107,15 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
     // Incremental runs: find the meshes whose previous output is still valid and remove outputs that are not.
     std::unordered_set<std::filesystem::path> skippable;
     if (PGRunCache::hasPreviousRun()) {
+        if (stageCallback)
+            stageCallback(MeshPatchStage::EvaluatingPreviousOutput);
+
         skippable = PGRunCache::evaluateMeshes(meshes, shouldMultithread, progressCallback);
         PGRunCache::pruneStaleOutputs(skippable);
     }
+
+    if (stageCallback)
+        stageCallback(MeshPatchStage::Patching);
 
     // Create task tracker.
     TaskTracker taskTracker("Mesh Patcher", meshes.size());
@@ -141,14 +148,14 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             &allowedModelRecTypes,
                             &checkAllowedRecTypes,
                             &excludeFacegens,
-                            &computeObjectBounds] {
+                            &shouldComputeObjectBounds] {
             taskTracker.completeJob(patchNIF(mesh,
                                              setModelUsesQueue,
                                              forceBasePatch,
                                              allowedModelRecTypes,
                                              checkAllowedRecTypes,
                                              excludeFacegens,
-                                             computeObjectBounds));
+                                             shouldComputeObjectBounds));
         });
     }
 
@@ -157,18 +164,15 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
 
     // Apply the plugin model uses of all replayed meshes at once.
     if (!replayedMeshResults.empty()) {
-        if (computeObjectBounds) {
-            setModelUsesQueue.queueTask([results = replayedMeshResults] { PGPlugin::setModelUses(results); });
-            setModelUsesQueue.queueTask(
-                [results = std::move(replayedMeshResults)] { PGPlugin::setObjectBounds(results); });
-        } else {
-            setModelUsesQueue.queueTask(
-                [results = std::move(replayedMeshResults)] { PGPlugin::setModelUses(results); });
-        }
+        setModelUsesQueue.queueTask([results = std::move(replayedMeshResults), shouldComputeObjectBounds] {
+            PGPlugin::setModelUses(results);
+            if (shouldComputeObjectBounds)
+                PGPlugin::setObjectBounds(results);
+        });
     }
 
     // Bounds-only results of all replayed meshes (see patchNIF).
-    if (computeObjectBounds && !replayedBoundsResults.empty()) {
+    if (shouldComputeObjectBounds && !replayedBoundsResults.empty()) {
         setModelUsesQueue.queueTask(
             [results = std::move(replayedBoundsResults)] { PGPlugin::setObjectBounds(results); });
     }
@@ -198,9 +202,6 @@ void PGPatcher::patchTextures(const bool& shouldMultithread,
     auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
-
-    // Init Handlers.
-    HandlerLightPlacerTracker::init(pgd->lightPlacerJSONs());
 
     // Incremental runs: replay reused generated textures and delete generated textures nobody needs anymore.
     PGRunCache::finalizeHooks();
@@ -502,7 +503,7 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                                         const bool& checkAllowedRecTypes,
                                         const bool& excludeFacegens,
-                                        const bool& computeObjectBounds)
+                                        const bool& shouldComputeObjectBounds)
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -614,16 +615,25 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     }
 
     // Save meshes.
-    const auto saveResults = meshTracker.saveMeshes();
-    setModelUsesQueue.queueTask([saveResults] { PGPlugin::setModelUses(saveResults.first); });
-    if (computeObjectBounds)
-        setModelUsesQueue.queueTask([saveResults] { PGPlugin::setObjectBounds(saveResults.first); });
+    const auto saveResults = meshTracker.saveMeshes(shouldComputeObjectBounds);
+    setModelUsesQueue.queueTask([saveResults, shouldComputeObjectBounds] {
+        PGPlugin::setModelUses(saveResults.first);
+        if (shouldComputeObjectBounds)
+            PGPlugin::setObjectBounds(saveResults.first);
+    });
 
     // DynDOLOD reads the OBND of TREE and GRAS records to build their LOD, and mods that add or replace those meshes
-    // often leave it unset or stale. PG may not output these meshes at all, so their bounds are taken from the
-    // original mesh (patching never modifies geometry) rather than from a saved mesh.
+    // often leave it unset or stale. PG may not output these meshes at all, so for those records the bounds are taken
+    // from the original mesh instead. Patchers never move vertices, so this matches an output mesh, except for the
+    // records whose mesh PG does output: those already get their OBND from the saved mesh above.
     std::vector<PGMeshPermutationTracker::MeshResult> boundsResults;
-    if (computeObjectBounds) {
+    if (shouldComputeObjectBounds) {
+        std::unordered_set<PGMeshPermutationTracker::FormKey, PGMeshPermutationTracker::FormKeyHash> savedFormKeys;
+        for (const auto& meshResult : saveResults.first) {
+            for (const auto& formKeyEntry : meshResult.altTexResults)
+                savedFormKeys.insert(formKeyEntry.first);
+        }
+
         PGMeshPermutationTracker::MeshResult boundsResult;
         boundsResult.meshPath = nifPath;
         for (const auto& [formKey, attributes] : originalMeshUses) {
@@ -633,13 +643,17 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                 continue;
             if (checkAllowedRecTypes && !allowedModelRecTypes.contains(attributes.recType))
                 continue;
+            if (savedFormKeys.contains(formKey))
+                continue;
 
             boundsResult.altTexResults.emplace_back(formKey, std::unordered_map<unsigned, PGTypes::TextureSet> { });
         }
 
-        boundsResult.objectBounds = meshTracker.originalObjectBounds();
-        if (!boundsResult.altTexResults.empty() && boundsResult.objectBounds.has_value())
-            boundsResults.push_back(boundsResult);
+        if (!boundsResult.altTexResults.empty()) {
+            boundsResult.objectBounds = meshTracker.originalObjectBounds();
+            if (boundsResult.objectBounds.has_value())
+                boundsResults.push_back(boundsResult);
+        }
     }
     if (!boundsResults.empty())
         setModelUsesQueue.queueTask([boundsResults] { PGPlugin::setObjectBounds(boundsResults); });

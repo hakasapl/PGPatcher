@@ -52,6 +52,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -350,7 +351,8 @@ uint64_t computePluginFingerprint(const BethesdaGame& bg,
     return hasher.value();
 }
 
-void mainRunnerPrep(const ParallaxGenCLIArgs& args,
+// Returns false when the preparation stopped early, after reporting why. Nothing may be patched then.
+bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
                     const PGConfig::PGParams& params,
                     const bool& updateOutput,
                     const std::filesystem::path& exePath,
@@ -377,17 +379,30 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     //
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.initGpu")); });
 
-    // Check if GPU needs to be initialized.
-    Logger::info("Initializing GPU");
-    if (!pgd3d->initGPU()) {
-        Logger::critical("Failed to initialize GPU. Exiting.");
-        return;
-    }
+    // Nothing uses the GPU before the file map is populated, so it is initialized in the background until then.
+    // The task sets isGPUReady, which is read once the queue has been shut down. It is declared before the queue so
+    // that it outlives the worker thread on every way out of this function.
+    bool isGPUReady = false;
+    TaskQueue gpuInit;
+    const auto initGPUTask = [pgd3d, &isGPUReady] {
+        // Check if GPU needs to be initialized.
+        Logger::info("Initializing GPU");
+        if (!pgd3d->initGPU()) {
+            Logger::critical("Failed to initialize GPU. Exiting.");
+            return;
+        }
 
-    if (!pgd3d->initShaders()) {
-        Logger::critical("Failed to initialize internal shaders. Exiting.");
-        return;
-    }
+        if (!pgd3d->initShaders()) {
+            Logger::critical("Failed to initialize internal shaders. Exiting.");
+            return;
+        }
+
+        isGPUReady = true;
+    };
+    if (params.processing.multithread)
+        gpuInit.queueTask(initGPUTask);
+    else
+        initGPUTask();
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(1, numPreparingSteps); });
     //
@@ -408,28 +423,38 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
             Logger::debug(L"Output directory created: {}", params.output.dir.wstring());
     } catch (const std::filesystem::filesystem_error& e) {
         Logger::critical("Failed to create output directory: {}", e.what());
-        return;
+        return false;
     }
 
     // If output dir is the same as data dir meshes might get overwritten.
     if (std::filesystem::equivalent(params.output.dir, pgd->dataPath())) {
         Logger::critical("Output directory cannot be the same directory as your data folder. "
                          "Exiting.");
-        return;
+        return false;
     }
 
     // If output dir is a subdirectory of data dir vfs issues can occur.
     if (boost::istarts_with(params.output.dir.wstring(), bg->gameDataPath().wstring() + L"\\")) {
         Logger::critical("Output directory cannot be a subdirectory of your data folder. Exiting.");
-        return;
+        return false;
     }
 
     // Update cache: "Update Output" re-patches only what changed since the previous output in the output directory,
     // "Start Patching" regenerates everything. Zipped outputs are always generated from scratch and leave no cache.
     if (updateOutput && params.output.zip)
         Logger::warn("Zip output is enabled, so the previous output cannot be updated and is generated from scratch");
-    PGRunCache::initialize(params.output.dir / PGRunCache::s_cacheFilename, !params.output.zip, !updateOutput);
-    PGRunCache::setConfigFingerprint(computeConfigFingerprint(params, args));
+
+    // Nothing reads the cache before the file map is populated, so a previous output is loaded in the background
+    // until then.
+    TaskQueue cacheInit;
+    const auto initCacheTask = [&params, &args, &updateOutput] {
+        PGRunCache::initialize(params.output.dir / PGRunCache::s_cacheFilename, !params.output.zip, !updateOutput);
+        PGRunCache::setConfigFingerprint(computeConfigFingerprint(params, args));
+    };
+    if (params.processing.multithread)
+        cacheInit.queueTask(initCacheTask);
+    else
+        initCacheTask();
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(2, numPreparingSteps); });
     //
@@ -448,15 +473,16 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         Logger::critical(
             "DynDoLOD and TexGen outputs must be disabled prior to running PGPatcher. It is recommended to "
             "generate LODs after running PGPatcher with the PGPatcher output enabled.");
-        return;
+        return false;
     }
 
     // Log active plugins.
     const std::wstring loadOrderStr = boost::algorithm::join(activePlugins, L",");
     Logger::debug(L"Active Plugin Load Order: {}", loadOrderStr);
 
-    // Update cache: mesh uses can be reused from the previous run if no plugin changed.
-    PGRunCache::setPluginFingerprint(computePluginFingerprint(*bg, activePlugins));
+    // Update cache: mesh uses can be reused from the previous run if no plugin changed. The cache is given the
+    // fingerprint once it has been loaded.
+    const auto pluginFingerprint = computePluginFingerprint(*bg, activePlugins);
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(3, numPreparingSteps); });
     //
@@ -507,7 +533,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         // Make sure running is USVFS.
         if (!args.ignoreMO2Check && !PGHandlers::isUnderUSVFS()) {
             Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
-            return;
+            return false;
         }
 
         // MO2.
@@ -537,7 +563,20 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.populatingFileMap")); });
 
     // Init file map.
-    pgd->populateFileMap(true);
+    pgd->populateFileMap(true, params.processing.multithread);
+
+    // The GPU and the update cache are needed from here on.
+    gpuInit.waitForCompletion();
+    gpuInit.shutdown();
+    cacheInit.waitForCompletion();
+    cacheInit.shutdown();
+    if (!isGPUReady) {
+        // GPU initialization failed, which the task has reported, or it never ran. Either way the preparation ends
+        // here, like it did when the GPU was initialized on this thread.
+        return false;
+    }
+
+    PGRunCache::setPluginFingerprint(pluginFingerprint);
 
     // Update cache: texture metadata of unchanged textures does not need to be read again.
     PGRunCache::seedTextureMetadata();
@@ -559,13 +598,13 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
     if (std::filesystem::exists(pgStateFilePath)) {
         Logger::critical("PGPatcher meshes exist in your data directory, please delete before "
                          "re-running.");
-        return;
+        return false;
     }
 
     // Check if VRAMR Output is enabled.
     if (params.modManager.type != PGModManager::ModManagerType::None && pgd->isFile("vramroutput.tmp")) {
         Logger::critical("Please disable VRAMr output mod before running PGPatcher.");
-        return;
+        return false;
     }
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(7, numPreparingSteps); });
@@ -618,7 +657,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
         // Initialize patcher hooks.
         if (!PatcherTextureHookConvertToCM::initShader()) {
             Logger::critical("Failed to initialize ConvertToCM shader");
-            return;
+            return false;
         }
     }
     if (params.postPatcher.disablePrePatchedMaterials) {
@@ -631,7 +670,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
         if (!PatcherTextureHookFixSSS::initShader()) {
             Logger::critical("Failed to initialize FixSSS shader");
-            return;
+            return false;
         }
     }
     if (params.postPatcher.isHairFlowMapEnabled) {
@@ -706,6 +745,7 @@ void mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // The modrules.json file is deliberately not saved here: the state computed above is re-derived on every
     // run, and the file must only change when the user applies changes in the conflict manager.
+    return true;
 }
 
 void mainRunnerPatch(const ParallaxGenCLIArgs& args,
@@ -754,12 +794,24 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter(
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.processingNifs")); });
 
+    // Updating a previous output evaluates every mesh before patching, and both passes report to the step progress
+    // bar. Each pass gets its own label so the bar is not seen filling twice under the same status.
+    const auto meshPatchStageCallback = [progressWindow](PGPatcher::MeshPatchStage stage) {
+        progressWindow->CallAfter([progressWindow, stage] {
+            progressWindow->setStepLabel(stage == PGPatcher::MeshPatchStage::EvaluatingPreviousOutput
+                                             ? pgTr("progress.steps.evaluatingPreviousOutput")
+                                             : pgTr("progress.steps.processingNifs"));
+            progressWindow->setStepProgress(0, 1);
+        });
+    };
+
     PGPatcher::patchMeshes(params.processing.multithread,
                            args.considerAllMeshes,
                            params.processing.allowedModelRecordTypes,
                            true,
                            args.excludeFacegens,
                            progressCallback,
+                           meshPatchStageCallback,
                            params.globalPatcher.isRecalculateBoundsEnabled);
 
     progressWindow->CallAfter([progressWindow] {
@@ -984,20 +1036,29 @@ void mainRunner(ParallaxGenCLIArgs& args,
     const auto startTime = std::chrono::high_resolution_clock::now();
     long long timeTaken = 0;
 
-    // Dispatch the pre-generation task.
+    // Dispatch the pre-generation task. isPrepared is declared before the queue so that it outlives the worker thread
+    // that sets it.
+    std::atomic<bool> isPrepared = false;
     TaskQueue backgroundRunners;
-    backgroundRunners.queueTask([&args, &params, &updateOutput, &exePath, &progressWindow, &cfgDir, &progressCallback] {
-        mainRunnerPrep(args, params, updateOutput, exePath, cfgDir, progressWindow, progressCallback);
+    backgroundRunners.queueTask(
+        [&args, &params, &updateOutput, &exePath, &progressWindow, &cfgDir, &progressCallback, &isPrepared] {
+            isPrepared = mainRunnerPrep(args, params, updateOutput, exePath, cfgDir, progressWindow, progressCallback);
+            if (!isPrepared) {
+                // The preparation has reported why it stopped. Nothing is patched, and the output is left alone.
+                auto* const progressWindowPtr = progressWindow;
+                progressWindow->CallAfter([progressWindowPtr] { progressWindowPtr->EndModal(wxID_OK); });
+                return;
+            }
 
-        // Snapshot message counts after prep so re-runs of the patching step can discard
-        // messages from a previous patch run while keeping preparation-phase messages.
-        PGPatcherGlobals::wxLoggerSink()->markRunStart();
-        Logger::markRunStart();
+            // Snapshot message counts after prep so re-runs of the patching step can discard
+            // messages from a previous patch run while keeping preparation-phase messages.
+            PGPatcherGlobals::wxLoggerSink()->markRunStart();
+            Logger::markRunStart();
 
-        mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
-        auto* const progressWindowPtr = progressWindow;
-        progressWindow->CallAfter([progressWindowPtr] { progressWindowPtr->EndModal(wxID_OK); });
-    });
+            mainRunnerPatch(args, params, exePath, progressWindow, progressCallback);
+            auto* const progressWindowPtr = progressWindow;
+            progressWindow->CallAfter([progressWindowPtr] { progressWindowPtr->EndModal(wxID_OK); });
+        });
 
     // Show progress dialog (this will block until closed by one of the callafters).
     progressWindow->ShowModal();
@@ -1005,6 +1066,11 @@ void mainRunner(ParallaxGenCLIArgs& args,
     // Verify tasks are finished.
     ExceptionHandler::throwExceptionOnMainThread();
     backgroundRunners.waitForCompletion();
+
+    if (!isPrepared) {
+        // There is no finished run to show.
+        return;
+    }
 
     // Confirmation UI.
     const auto endTime = std::chrono::high_resolution_clock::now();

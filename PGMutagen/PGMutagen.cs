@@ -1300,9 +1300,13 @@ public class PGMutagen
                     throw new Exception("Failed to resolve model record for formkey: " + searchFormKey);
                 }
 
-                if (existingRecord is not IObjectBoundedGetter existingBoundedRecord)
+                // The OBND is only recomputed for the record types where it was verified to match the Creation Kit's
+                // own calculation from the model's geometry (statics, trees and grass). For other types, such as
+                // furniture, activators and moveable statics, the vanilla OBND is often authored differently, so it is
+                // left alone.
+                if (existingRecord is not (IStaticGetter or ITreeGetter or IGrassGetter)
+                    || existingRecord is not IObjectBoundedGetter existingBoundedRecord)
                 {
-                    // Record type does not support OBND, skip.
                     continue;
                 }
 

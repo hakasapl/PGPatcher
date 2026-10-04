@@ -185,9 +185,10 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     return true;
 }
 
-auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>,
-                                                         std::pair<unsigned long long,
-                                                                   unsigned long long>>
+auto PGMeshPermutationTracker::saveMeshes(const bool& shouldComputeObjectBounds)
+    -> std::pair<std::vector<MeshResult>,
+                 std::pair<unsigned long long,
+                           unsigned long long>>
 {
     auto* pgd = PGGlobals::pgd();
 
@@ -253,7 +254,8 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
         std::filesystem::create_directories(meshFilename.parent_path());
 
         // Compute the mesh's bounding box for a later OBND update, before the blocks below mutate the buffer.
-        meshResult.objectBounds = computeObjectBounds(mesh);
+        if (shouldComputeObjectBounds)
+            meshResult.objectBounds = computeObjectBounds(mesh);
 
         // Save Mesh file.
 
@@ -718,7 +720,7 @@ std::optional<PGTypes::ObjectBounds> PGMeshPermutationTracker::computeObjectBoun
         // GetNodeTransformToGlobal() only matches NiNode blocks by name, so it cannot be used for a shape (NiShape
         // is not an NiNode); walk the shape's own parent chain instead, mirroring what that function does internally.
         nifly::MatTransform transform = shape->GetTransformToParent();
-        for (auto* parent = nif.GetParentNode(shape); parent != nullptr; parent = nif.GetParentNode(parent))
+        for (auto* parent = nif.GetParentNode(shape); parent; parent = nif.GetParentNode(parent))
             transform = parent->GetTransformToParent().ComposeTransforms(transform);
 
         for (const auto& vert : *verts) {

@@ -3,7 +3,10 @@
 ## UNRELEASED
 
 - Improved performance of the preparation steps that run before patching
-- Added an optional "Recalculate Bounds" global patcher (recalculates the bounds of every patched mesh, equivalent to NifSkope's Update Bounds, and updates the OBND of the plugin records that use them)
+- Fixed Light Placer JSON patching when model paths are uppercase
+- Fixed Light Placer JSON acceptance criteria to match Light Placer itself
+- Fixed the mesh progress bar filling up twice under the same status when updating a previous output
+- Added an optional "Recalculate Bounds" global patcher (recalculates the bounds of every mesh PG outputs, equivalent to NifSkope's Update Bounds, and updates the OBND of the STAT, TREE and GRAS records that use them)
 
 ## [2.1.1] - 2026-09-17
 

@@ -28,10 +28,15 @@ bool PatcherMeshGlobalRecalculateBounds::applyPatch()
         return false;
 
     for (auto* shape : shapes) {
-        if (shape == nullptr)
+        if (!shape)
             continue;
 
-        // "Update Bounds" - recompute the shape's bounding sphere
+        // A shape without vertex positions would end up with a zero sphere.
+        const auto* verts = nif()->GetVertsForShape(shape);
+        if (!verts || verts->empty())
+            continue;
+
+        // Recompute the shape's bounding sphere, like NifSkope's "Update Bounds".
         shape->UpdateBounds();
     }
 
