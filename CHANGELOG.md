@@ -4,7 +4,7 @@
 
 - Improved performance of the preparation steps that run before patching
 - Fixed Light Placer JSON patching when model paths are uppercase
-- Fixed Light Placer JSON acceptance criteria to match Light Placer iteself
+- Fixed Light Placer JSON acceptance criteria to match Light Placer itself
 
 ## [2.1.1] - 2026-09-17
 
