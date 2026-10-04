@@ -1,0 +1,501 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/pbr.schema.json",
+  "title": "PGPatcher PBR JSON",
+  "description": "A TruePBR config that PGPatcher reads from every PBRNifPatcher\\*.json file in the load order. A file is either a plain array of entries, or an object with a \"default\" entry whose keys are copied into each entry of \"entries\" that does not set them itself. Within one file every entry that matches a shape is applied in order, so a later entry overrides the keys of an earlier one. Keys are case sensitive. Paths use backslashes and are matched without regard to case.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/entryList"
+    },
+    {
+      "$ref": "#/definitions/configWithDefaults"
+    }
+  ],
+  "examples": [
+    [
+      {
+        "match_diffuse": "landscape\\rock01",
+        "parallax": true,
+        "nif_filter": "landscape"
+      },
+      {
+        "match_diffuse": "rock01",
+        "rename": "rock01_pbr",
+        "lock_normal": true
+      }
+    ],
+    {
+      "$schema": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/pbr.schema.json",
+      "default": {
+        "emissive": false,
+        "parallax": true
+      },
+      "entries": [
+        {
+          "match_diffuse": "dwemer\\dwefloor01"
+        },
+        {
+          "match_diffuse": "dwemer\\dwelamp01",
+          "emissive": true,
+          "emissive_scale": 2
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "entryList": {
+      "type": "array",
+      "description": "A list of entries. Every entry needs at least one of the matching keys.",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/entry"
+          },
+          {
+            "$ref": "#/definitions/hasMatcher"
+          }
+        ]
+      }
+    },
+    "configWithDefaults": {
+      "type": "object",
+      "description": "Entries with shared defaults. Both \"default\" and \"entries\" are required, otherwise PGPatcher skips the whole file.",
+      "required": [
+        "default",
+        "entries"
+      ],
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Optional link to this schema for editor support. PGPatcher ignores it."
+        },
+        "default": {
+          "description": "Keys copied into every entry that does not set them itself.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/entry"
+            }
+          ]
+        },
+        "entries": {
+          "type": "array",
+          "description": "The entries of this file. Each needs a matching key unless \"default\" provides one.",
+          "items": {
+            "$ref": "#/definitions/entry"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "default": {
+            "$ref": "#/definitions/hasMatcher"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/definitions/hasMatcher"
+            }
+          }
+        }
+      }
+    },
+    "hasMatcher": {
+      "description": "At least one matching key, otherwise the entry can never apply to a shape.",
+      "anyOf": [
+        {
+          "required": [
+            "match_diffuse"
+          ]
+        },
+        {
+          "required": [
+            "match_normal"
+          ]
+        },
+        {
+          "required": [
+            "texture"
+          ]
+        },
+        {
+          "required": [
+            "path_contains"
+          ]
+        },
+        {
+          "required": [
+            "match1"
+          ]
+        },
+        {
+          "required": [
+            "match2"
+          ]
+        },
+        {
+          "required": [
+            "match3"
+          ]
+        },
+        {
+          "required": [
+            "match4"
+          ]
+        },
+        {
+          "required": [
+            "match5"
+          ]
+        },
+        {
+          "required": [
+            "match6"
+          ]
+        },
+        {
+          "required": [
+            "match7"
+          ]
+        },
+        {
+          "required": [
+            "match8"
+          ]
+        }
+      ]
+    },
+    "slotPath": {
+      "type": "string",
+      "description": "Sets this texture slot to the given path after every other key has been applied, so it overrides them. textures\\ is prepended when missing. An empty string clears the slot."
+    },
+    "matchSlot": {
+      "type": "string",
+      "description": "Matches shapes whose texture in this slot equals the given path exactly, ignoring case. textures\\ is prepended when missing. The output prefix is the matched path with pbr\\ inserted after textures\\ and the extension and the slot's usual suffix (such as _n) removed."
+    },
+    "rgb": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "rgba": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "entry": {
+      "type": "object",
+      "description": "One PBR entry. When it matches a shape, the shape is switched to the TruePBR shader and its texture slots are rebuilt from the PBR prefix, written as <prefix> below. The prefix is the matched texture path with pbr\\ inserted after textures\\, for example textures\\pbr\\landscape\\rock01. Texture slots are numbered 1 diffuse, 2 normal, 3 emissive, 4 height, 5 cubemap, 6 RMAOS, 7 coat normal/fuzz, 8 subsurface. Keys with a value of the wrong type are ignored.",
+      "properties": {
+        "match_diffuse": {
+          "type": "string",
+          "description": "Matches shapes whose diffuse texture path ends with this value. Give the path relative to the textures folder, for example \"landscape\\rock01\" or just \"rock01\"; the .dds extension is optional. The match starts at a folder boundary, so \"rock01\" does not match \"bigrock01\"."
+        },
+        "match_normal": {
+          "type": "string",
+          "description": "Matches shapes whose normal map path, with its _n suffix removed, ends with this value. Same format as match_diffuse. Do not include the _n suffix."
+        },
+        "texture": {
+          "type": "string",
+          "description": "Older name for match_diffuse. When both are present, texture wins."
+        },
+        "path_contains": {
+          "type": "string",
+          "description": "Matches shapes whose diffuse texture path contains this text anywhere, ignoring case. Slower than match_diffuse, because every shape is checked against every path_contains entry. The output prefix is the whole diffuse path with pbr\\ inserted after textures\\."
+        },
+        "match1": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "match2": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "match3": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "match4": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "match5": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "match6": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "match7": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "match8": {
+          "$ref": "#/definitions/matchSlot"
+        },
+        "nif_filter": {
+          "type": "string",
+          "description": "Restricts the entry to meshes whose path contains this text, ignoring case, for example \"architecture\\whiterun\"."
+        },
+        "rename": {
+          "type": "string",
+          "description": "Replaces the part matched by match_diffuse or match_normal in the output prefix; the folders before it are kept. For example match_diffuse \"rock01\" with rename \"rock01_pbr\" gives textures\\pbr\\landscape\\rock01_pbr for textures\\landscape\\rock01.dds."
+        },
+        "delete": {
+          "type": "boolean",
+          "description": "true deletes the shape from the mesh. No other key of the entry is applied."
+        },
+        "smooth_angle": {
+          "type": "number",
+          "description": "Recalculates the shape's normals and tangents, smoothing across edges whose angle is below this many degrees."
+        },
+        "auto_uv": {
+          "type": "number",
+          "description": "Computes a UV scale from the shape's texel density and divides it by this value, then writes it to the shader."
+        },
+        "uv_scale": {
+          "type": "number",
+          "description": "Sets both the U and V texture scale of the shader to this value."
+        },
+        "vertex_colors": {
+          "type": "boolean",
+          "description": "Turns vertex colors on or off for the shape and its shader."
+        },
+        "vertex_color_lum_mult": {
+          "type": "number",
+          "description": "Scales how far each vertex color is from full lightness, in HSL. 1 keeps the colors, values below 1 brighten them and values above 1 darken them. Only applies when the shape has vertex colors."
+        },
+        "vertex_color_sat_mult": {
+          "type": "number",
+          "description": "Multiplies the HSL saturation of each vertex color. Only applies when the shape has vertex colors."
+        },
+        "zbuffer_write": {
+          "type": "boolean",
+          "description": "Sets or clears the ZBuffer_Write shader flag."
+        },
+        "lock_diffuse": {
+          "type": "boolean",
+          "description": "true keeps the mesh's current diffuse texture instead of <prefix>.dds."
+        },
+        "lock_normal": {
+          "type": "boolean",
+          "description": "true keeps the mesh's current normal map instead of <prefix>_n.dds."
+        },
+        "emissive": {
+          "type": "boolean",
+          "description": "true puts <prefix>_g.dds in slot 3 and sets the External_Emittance flag; false clears both. Leave out to keep the mesh's slot and flag."
+        },
+        "lock_emissive": {
+          "type": "boolean",
+          "description": "true keeps the mesh's current slot 3 even when emissive is set. The External_Emittance flag still follows emissive."
+        },
+        "emissive_scale": {
+          "type": "number",
+          "description": "Emissive multiplier."
+        },
+        "emissive_color": {
+          "description": "RGBA emissive color.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/rgba"
+            }
+          ]
+        },
+        "parallax": {
+          "type": "boolean",
+          "description": "true puts <prefix>_p.dds in slot 4; false clears the slot. Leave out to keep the mesh's slot."
+        },
+        "lock_parallax": {
+          "type": "boolean",
+          "description": "true keeps the mesh's current slot 4 even when parallax is set."
+        },
+        "displacement_scale": {
+          "type": "number",
+          "description": "Scale of the height map displacement."
+        },
+        "cubemap": {
+          "type": "string",
+          "description": "Path for slot 5, for example \"textures\\cubemaps\\mycube.dds\". textures\\ is not prepended. Entries without this key clear slot 5."
+        },
+        "lock_cubemap": {
+          "type": "boolean",
+          "description": "true ignores the cubemap key, which leaves slot 5 cleared."
+        },
+        "lock_rmaos": {
+          "type": "boolean",
+          "description": "true keeps the mesh's current slot 6 instead of <prefix>_rmaos.dds."
+        },
+        "specular_level": {
+          "type": "number",
+          "description": "Specular level of the material."
+        },
+        "roughness_scale": {
+          "type": "number",
+          "description": "Multiplier for the roughness read from the RMAOS texture."
+        },
+        "subsurface": {
+          "type": "boolean",
+          "description": "Sets or clears the Rim_Lighting flag that enables subsurface scattering. true also puts <prefix>_s.dds in slot 8."
+        },
+        "subsurface_foliage": {
+          "type": "boolean",
+          "description": "true puts <prefix>_s.dds in slot 8 for foliage subsurface scattering."
+        },
+        "subsurface_color": {
+          "description": "RGB subsurface color. With multilayer, coat_color overrides it.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/rgb"
+            }
+          ]
+        },
+        "subsurface_opacity": {
+          "type": "number",
+          "description": "Opacity of the subsurface layer. With multilayer, coat_strength overrides it."
+        },
+        "lock_subsurface": {
+          "type": "boolean",
+          "description": "true keeps the mesh's current slot 8 instead of the _s texture. Without it the slot is cleared when no key puts a texture there."
+        },
+        "hair": {
+          "type": "boolean",
+          "description": "true marks the shape as PBR hair by setting the Back_Lighting flag. Otherwise the flag is cleared unless multilayer is on."
+        },
+        "multilayer": {
+          "type": "boolean",
+          "description": "true enables the two-layer coat material: the shader is switched to multilayer parallax and the coat_* keys and inner_uv_scale take effect. Takes priority over glint and fuzz."
+        },
+        "coat_color": {
+          "description": "RGB color of the coat layer. Requires multilayer.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/rgb"
+            }
+          ]
+        },
+        "coat_specular_level": {
+          "type": "number",
+          "description": "Specular level of the coat layer. Requires multilayer."
+        },
+        "coat_roughness": {
+          "type": "number",
+          "description": "Roughness of the coat layer. Requires multilayer."
+        },
+        "coat_strength": {
+          "type": "number",
+          "description": "Strength of the coat layer. Requires multilayer."
+        },
+        "coat_diffuse": {
+          "type": "boolean",
+          "description": "true puts <prefix>_s.dds in slot 8 as the coat diffuse map. With multilayer it also sets or clears the Effect_Lighting flag."
+        },
+        "coat_normal": {
+          "type": "boolean",
+          "description": "true puts <prefix>_cnr.dds, the coat normal and roughness map, in slot 7. With multilayer it also sets or clears the Back_Lighting flag."
+        },
+        "coat_parallax": {
+          "type": "boolean",
+          "description": "Sets or clears the Soft_Lighting flag that enables coat parallax. Requires multilayer."
+        },
+        "lock_cnr": {
+          "type": "boolean",
+          "description": "true keeps the mesh's current slot 7 instead of the _cnr or _f texture. Without it the slot is cleared when neither is used."
+        },
+        "inner_uv_scale": {
+          "type": "number",
+          "description": "UV scale of the coat layer. Requires multilayer."
+        },
+        "glint": {
+          "type": "object",
+          "description": "Glint (sparkle) parameters. Switches the shader to multilayer parallax with the Fit_Slope flag. Ignored when multilayer is true.",
+          "properties": {
+            "screen_space_scale": {
+              "type": "number",
+              "description": "Scale of the glints in screen space."
+            },
+            "log_microfacet_density": {
+              "type": "number",
+              "description": "Logarithm of the microfacet density."
+            },
+            "microfacet_roughness": {
+              "type": "number",
+              "description": "Roughness of the glint microfacets."
+            },
+            "density_randomization": {
+              "type": "number",
+              "description": "Randomization of the microfacet density."
+            }
+          },
+          "additionalProperties": false
+        },
+        "fuzz": {
+          "type": "object",
+          "description": "Fuzz (cloth sheen) parameters. Switches the shader to multilayer parallax with the Soft_Lighting flag. Ignored when multilayer is true or glint is present, except that texture still selects the _f map.",
+          "properties": {
+            "texture": {
+              "type": "boolean",
+              "description": "true puts <prefix>_f.dds, a fuzz map, in slot 7 instead of using color."
+            },
+            "color": {
+              "description": "RGB fuzz color. Defaults to [0, 0, 0].",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/rgb"
+                }
+              ]
+            },
+            "weight": {
+              "type": "number",
+              "description": "Fuzz weight. Defaults to 1."
+            }
+          },
+          "additionalProperties": false
+        },
+        "slot1": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "slot2": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "slot3": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "slot4": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "slot5": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "slot6": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "slot7": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "slot8": {
+          "$ref": "#/definitions/slotPath"
+        },
+        "pbr": {
+          "description": "Removed in PGPatcher 2.0.0. PBR is always enabled for a matched entry; delete this key.",
+          "not": {}
+        },
+        "env_mapping": {
+          "description": "Removed in PGPatcher 2.0.0 and has no effect; delete this key.",
+          "not": {}
+        },
+        "env_map_scale": {
+          "description": "Removed in PGPatcher 2.0.0 and has no effect; delete this key.",
+          "not": {}
+        },
+        "env_map_scale_mult": {
+          "description": "Removed in PGPatcher 2.0.0 and has no effect; delete this key.",
+          "not": {}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
