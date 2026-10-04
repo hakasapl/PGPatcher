@@ -175,9 +175,6 @@ void PGPatcher::patchTextures(const bool& shouldMultithread,
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
 
-    // Init Handlers.
-    HandlerLightPlacerTracker::init(pgd->lightPlacerJSONs());
-
     // Incremental runs: replay reused generated textures and delete generated textures nobody needs anymore.
     PGRunCache::finalizeHooks();
 
