@@ -174,7 +174,8 @@ public:
     /**
      * @brief Saves all committed output meshes to disk and returns their results with CRC statistics.
      *
-     * @param shouldComputeObjectBounds whether to compute the bounding box of each saved mesh (MeshResult::objectBounds)
+     * @param shouldComputeObjectBounds whether to compute the bounding box of each saved mesh
+     * (MeshResult::objectBounds)
      * @return Pair of (list of MeshResult, pair of (base CRC32, total bytes written)).
      */
     std::pair<std::vector<MeshResult>,

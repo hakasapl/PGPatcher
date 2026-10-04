@@ -629,10 +629,9 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     std::vector<PGMeshPermutationTracker::MeshResult> boundsResults;
     if (shouldComputeObjectBounds) {
         std::unordered_set<PGMeshPermutationTracker::FormKey, PGMeshPermutationTracker::FormKeyHash> savedFormKeys;
-        for (const auto& meshResult : saveResults.first) {
+        for (const auto& meshResult : saveResults.first)
             for (const auto& formKeyEntry : meshResult.altTexResults)
                 savedFormKeys.insert(formKeyEntry.first);
-        }
 
         PGMeshPermutationTracker::MeshResult boundsResult;
         boundsResult.meshPath = nifPath;
