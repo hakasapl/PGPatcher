@@ -8,6 +8,7 @@
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
+#include "patchers/PatcherMeshPreStockMarker.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 #include "patchers/PatcherMeshShaderTransformParallaxToCM.hpp"
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
@@ -16,8 +17,11 @@
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherUtil.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/ExceptionHandler.hpp"
+#include "util/StringUtil.hpp"
 
+#include "NifFile.hpp"
 #include <CLI/CLI.hpp>
 #include <cpptrace/from_current.hpp>
 #include <spdlog/common.h>
@@ -25,14 +29,21 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <iostream>
 #include <ranges>
+#include <stdexcept>
 #include <string>
+#include <system_error>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 #include <windows.h>
 
 namespace {
@@ -85,7 +96,166 @@ struct PGToolsCLIArgs {
         bool mapTexturesFromMeshes = false;
         bool highMem = false;
     } patch;
+
+    struct GenDiffBlocks {
+        CLI::App* subCommand = nullptr;
+        std::filesystem::path original;
+        std::filesystem::path patched;
+        std::filesystem::path output = "PGStock_Output";
+    } genDiffBlocks;
 };
+
+std::vector<std::byte> readFileBytes(const std::filesystem::path& path)
+{
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file)
+        throw std::runtime_error("Unable to open file: " + StringUtil::utf16toUTF8(path.wstring()));
+
+    const auto size = static_cast<std::streamoff>(file.tellg());
+    if (size < 0)
+        throw std::runtime_error("Unable to read file: " + StringUtil::utf16toUTF8(path.wstring()));
+
+    file.seekg(0, std::ios::beg);
+    std::vector<std::byte> bytes(static_cast<size_t>(size));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    file.read(reinterpret_cast<char*>(bytes.data()), size);
+    if (!file)
+        throw std::runtime_error("Unable to read file: " + StringUtil::utf16toUTF8(path.wstring()));
+
+    return bytes;
+}
+
+bool isNIFFile(const std::filesystem::path& path)
+{
+    std::error_code ec;
+    return std::filesystem::is_regular_file(path, ec)
+        && StringUtil::toLowerASCIIFast(path.extension().wstring()) == L".nif";
+}
+
+/**
+ * @brief Writes a copy of a patched mesh whose shapes carry PG_STOCK blocks for everything that differs from the
+ * original mesh
+ *
+ * @param originalFile Unpatched mesh
+ * @param patchedFile Patched mesh (left untouched)
+ * @param outputFile Where the copy is written
+ * @param[in,out] numMarkedShapes Incremented by the number of shapes that received a block
+ * @return true The copy was written
+ * @return false The meshes could not be processed (reported)
+ */
+bool markMeshPair(const std::filesystem::path& originalFile,
+                  const std::filesystem::path& patchedFile,
+                  const std::filesystem::path& outputFile,
+                  size_t& numMarkedShapes)
+{
+    const auto label = StringUtil::utf16toUTF8(patchedFile.wstring());
+
+    std::error_code ec;
+    if (std::filesystem::exists(outputFile, ec)
+        && (std::filesystem::equivalent(outputFile, patchedFile, ec)
+            || std::filesystem::equivalent(outputFile, originalFile, ec))) {
+        spdlog::error("{}: the output would overwrite an input mesh, skipping", label);
+        return false;
+    }
+
+    nifly::NifFile originalNif;
+    nifly::NifFile patchedNif;
+    try {
+        originalNif = PGNIFUtil::loadNIFFromBytes(readFileBytes(originalFile), false);
+        patchedNif = PGNIFUtil::loadNIFFromBytes(readFileBytes(patchedFile), false);
+    } catch (const std::exception& e) {
+        spdlog::error("{}: unable to load the meshes: {}", label, e.what());
+        return false;
+    }
+
+    numMarkedShapes += PatcherMeshPreStockMarker::markPatchedShapes(originalNif, patchedNif, patchedFile.wstring());
+
+    std::filesystem::create_directories(outputFile.parent_path(), ec);
+    patchedNif.PrettySortBlocks();
+    if (patchedNif.Save(outputFile, { .optimize = false, .sortBlocks = false })) {
+        spdlog::error("{}: unable to save {}", label, StringUtil::utf16toUTF8(outputFile.wstring()));
+        return false;
+    }
+
+    return true;
+}
+
+void runGenDiffBlocks(const PGToolsCLIArgs::GenDiffBlocks& args)
+{
+    const auto original = std::filesystem::absolute(args.original);
+    const auto patched = std::filesystem::absolute(args.patched);
+    const auto output = std::filesystem::absolute(args.output);
+
+    if (!std::filesystem::exists(original) || !std::filesystem::exists(patched)) {
+        spdlog::critical("The original and the patched path must both exist");
+        return;
+    }
+
+    const bool isOriginalFolder = std::filesystem::is_directory(original);
+    if (isOriginalFolder != std::filesystem::is_directory(patched)) {
+        spdlog::critical("The original and the patched path must both be folders or both be mesh files");
+        return;
+    }
+
+    // Original mesh, patched mesh and the path of the output relative to the output folder.
+    std::vector<std::tuple<std::filesystem::path, std::filesystem::path, std::filesystem::path>> meshPairs;
+    if (!isOriginalFolder) {
+        meshPairs.emplace_back(original, patched, patched.filename());
+    } else {
+        std::error_code ec;
+        if (std::filesystem::equivalent(output, original, ec) || std::filesystem::equivalent(output, patched, ec)) {
+            spdlog::critical("The output folder must differ from the original and the patched folder");
+            return;
+        }
+
+        // Every patched mesh with an original counterpart is a pair. A mesh that only exists on one side is reported.
+        std::unordered_set<std::wstring> patchedRelPaths;
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(
+                 patched, std::filesystem::directory_options::skip_permission_denied)) {
+            if (!isNIFFile(entry.path()))
+                continue;
+
+            const auto relPath = entry.path().lexically_relative(patched);
+            patchedRelPaths.insert(StringUtil::toLowerASCIIFast(relPath.wstring()));
+
+            const auto originalFile = original / relPath;
+            if (isNIFFile(originalFile)) {
+                meshPairs.emplace_back(originalFile, entry.path(), relPath);
+            } else {
+                spdlog::warn("{} only exists in the patched folder, skipping it",
+                             StringUtil::utf16toUTF8(relPath.wstring()));
+            }
+        }
+
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(
+                 original, std::filesystem::directory_options::skip_permission_denied)) {
+            if (!isNIFFile(entry.path()))
+                continue;
+
+            const auto relPath = entry.path().lexically_relative(original);
+            if (!patchedRelPaths.contains(StringUtil::toLowerASCIIFast(relPath.wstring()))) {
+                spdlog::warn("{} only exists in the original folder, skipping it",
+                             StringUtil::utf16toUTF8(relPath.wstring()));
+            }
+        }
+    }
+
+    size_t numWritten = 0;
+    size_t numMarkedShapes = 0;
+    size_t numFailed = 0;
+    for (const auto& [originalFile, patchedFile, relPath] : meshPairs)
+        if (markMeshPair(originalFile, patchedFile, output / relPath, numMarkedShapes))
+            numWritten++;
+        else
+            numFailed++;
+
+    spdlog::info("Wrote {} meshes with {} marked shapes to {}",
+                 numWritten,
+                 numMarkedShapes,
+                 StringUtil::utf16toUTF8(output.wstring()));
+    if (numFailed)
+        spdlog::warn("{} meshes could not be processed", numFailed);
+}
 
 void mainRunner(PGToolsCLIArgs& args)
 {
@@ -101,6 +271,12 @@ void mainRunner(PGToolsCLIArgs& args)
 #endif
 
     ExceptionHandler::setMainThread();
+
+    // Check if gendiffblocks subcommand was used.
+    if (args.genDiffBlocks.subCommand->parsed()) {
+        runGenDiffBlocks(args.genDiffBlocks);
+        return;
+    }
 
     // Check if patch subcommand was used.
     if (args.patch.subCommand->parsed()) {
@@ -179,6 +355,8 @@ void mainRunner(PGToolsCLIArgs& args)
 
         // Create patcher factory.
         PatcherUtil::PatcherMeshSet meshPatchers;
+        // The stock marker reverts pre-patched shapes to stock, so it has to run before every other patcher.
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
         if (patcherDefs.contains("fixmeshlighting"))
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
         if (patcherDefs.contains("fixtextureslotcount"))
@@ -282,6 +460,20 @@ void addArguments(CLI::App& app,
     args.patch.subCommand->add_option("output", args.patch.output, "Output directory")
         ->default_str("ParallaxGen_Output");
     args.patch.subCommand->add_flag("--high-mem", args.patch.highMem, "High memory usage mode (default: false)");
+
+    args.genDiffBlocks.subCommand = app.add_subcommand("gendiffblocks",
+                                                       "Record the stock state of pre-patched meshes in PG_STOCK extra "
+                                                       "data blocks, so that PGPatcher can patch them from stock");
+    args.genDiffBlocks.subCommand
+        ->add_option("original", args.genDiffBlocks.original, "Original (unpatched) mesh file or folder")
+        ->required();
+    args.genDiffBlocks.subCommand->add_option("patched", args.genDiffBlocks.patched, "Patched mesh file or folder")
+        ->required();
+    args.genDiffBlocks.subCommand
+        ->add_option("output",
+                     args.genDiffBlocks.output,
+                     "Output folder that receives the patched meshes with their PG_STOCK blocks")
+        ->default_str("PGStock_Output");
 }
 }
 

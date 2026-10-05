@@ -2,6 +2,7 @@
 
 #include "PGGlobals.hpp"
 #include "PGRunCache.hpp"
+#include "pgutil/PGMaterialState.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
@@ -89,11 +90,11 @@ nifly::NifFile* PGMeshPermutationTracker::stageMesh()
 
 void PGMeshPermutationTracker::ignoreBaseMesh() { m_ignoreBaseMesh = true; }
 
-bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
+auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
                                           bool isWeighted,
                                           const std::unordered_map<unsigned,
                                                                    PGTypes::TextureSet>& altTexResults,
-                                          const std::unordered_set<unsigned>& nonAltTexShapes)
+                                          const std::unordered_set<unsigned>& nonAltTexShapes) -> CommitResult
 {
     if (!m_stagedMeshPtr) {
         // No staged mesh to commit.
@@ -103,7 +104,7 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     // Check if this form key already exists.
     if (m_processedFormKeys.contains(formKey)) {
         // Already exists.
-        return false;
+        return CommitResult::AlreadyProcessed;
     }
 
     // Add to processed form keys.
@@ -135,7 +136,7 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
             m_stagedMesh.Clear();
 
             // No need to continue.
-            return false;
+            return CommitResult::MergedIntoOutput;
         }
     }
 
@@ -147,7 +148,7 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
         m_stagedMeshPtr = nullptr;
         m_stagedMesh.Clear();
 
-        return false;
+        return CommitResult::UnchangedFromOriginal;
     }
 
     if (isWeighted) {
@@ -174,7 +175,7 @@ bool PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     m_stagedMesh.Clear();
     m_stagedMeshOriginal3DIdx.clear();
 
-    return true;
+    return CommitResult::Added;
 }
 
 auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>,
@@ -353,7 +354,9 @@ void PGMeshPermutationTracker::processWeightVariant(const nifly::NifFile& mesh,
 }
 
 //
-// ANY changes in patchers that involve WRITING new properties must be included in the equality operators below.
+// Lighting shaders and texture sets are compared through PGMaterialState, which lists every field of the SSE mesh
+// format. ANY changes in patchers that involve WRITING other properties (effect shaders, geometry) must be included in
+// the equality operators below.
 //
 
 bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
@@ -573,47 +576,7 @@ bool PGMeshPermutationTracker::compareNiShape(const nifly::NiShape& shapeA,
 bool PGMeshPermutationTracker::compareBSLightingShaderProperty(const nifly::BSLightingShaderProperty& shaderA,
                                                                const nifly::BSLightingShaderProperty& shaderB)
 {
-    if (shaderA.emissiveColor != shaderB.emissiveColor)
-        return false;
-
-    if (shaderA.emissiveMultiple != shaderB.emissiveMultiple)
-        return false;
-
-    if (shaderA.alpha != shaderB.alpha)
-        return false;
-
-    if (shaderA.glossiness != shaderB.glossiness)
-        return false;
-
-    if (shaderA.specularColor != shaderB.specularColor)
-        return false;
-
-    if (shaderA.specularStrength != shaderB.specularStrength)
-        return false;
-
-    if (shaderA.softlighting != shaderB.softlighting)
-        return false;
-
-    if (shaderA.rimlightPower != shaderB.rimlightPower)
-        return false;
-
-    if (shaderA.subsurfaceColor.b != shaderB.subsurfaceColor.b || shaderA.subsurfaceColor.g != shaderB.subsurfaceColor.g
-        || shaderA.subsurfaceColor.r != shaderB.subsurfaceColor.r) {
-        return false;
-    }
-
-    if (shaderA.parallaxInnerLayerThickness != shaderB.parallaxInnerLayerThickness)
-        return false;
-
-    if (shaderA.parallaxRefractionScale != shaderB.parallaxRefractionScale)
-        return false;
-
-    if (shaderA.parallaxInnerLayerTextureScale.u != shaderB.parallaxInnerLayerTextureScale.u
-        || shaderA.parallaxInnerLayerTextureScale.v != shaderB.parallaxInnerLayerTextureScale.v) {
-        return false;
-    }
-
-    return true;
+    return PGMaterialState::isShaderEqual(shaderA, shaderB);
 }
 
 bool PGMeshPermutationTracker::compareBSEffectShaderProperty(const nifly::BSEffectShaderProperty& shaderA,
@@ -649,26 +612,7 @@ bool PGMeshPermutationTracker::compareBSShaderProperty(const nifly::BSShaderProp
 bool PGMeshPermutationTracker::compareBSShaderTextureSet(nifly::BSShaderTextureSet& texSetA,
                                                          nifly::BSShaderTextureSet& texSetB)
 {
-    auto texturesA = texSetA.textures;
-    auto texturesB = texSetB.textures;
-    const auto maxSize = std::max(texturesA.size(), texturesB.size());
-
-    for (uint32_t i = 0; i < maxSize; i++) {
-        const bool hasA = i < texturesA.size();
-        const bool hasB = i < texturesB.size();
-
-        if (hasA && hasB) {
-            if (!StringUtil::asciiFastIEquals(texturesA[i].get(), texturesB[i].get()))
-                return false;
-        } else if (hasA) {
-            if (!texturesA[i].get().empty())
-                return false;
-        } else { // hasB
-            if (!texturesB[i].get().empty())
-                return false;
-        }
-    }
-    return true;
+    return PGMaterialState::isTextureSetEqual(texSetA, texSetB);
 }
 
 std::filesystem::path PGMeshPermutationTracker::meshPath(const std::filesystem::path& nifPath,

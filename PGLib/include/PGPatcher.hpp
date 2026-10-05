@@ -240,6 +240,7 @@ private:
     static bool processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
                            MeshMeta& meshMeta,
+                           const PGPlugin::MeshUseAttributes& meshUse,
                            bool isSinglepassMATO,
                            const PGMeshPermutationTracker::FormKey& formKey,
                            const PGPlugin::ModelRecordType& modelRecordType,
@@ -290,7 +291,8 @@ private:
                                        const PatcherUtil::PatcherMeshObjectSet& patchers);
 
     static PatcherUtil::PatcherMeshObjectSet createNIFPatcherObjects(const std::filesystem::path& nifPath,
-                                                                     nifly::NifFile* nif);
+                                                                     nifly::NifFile* nif,
+                                                                     const PGPlugin::MeshUseAttributes& meshUse);
 
     // DDS Runners.
     static TaskTracker::Result patchDDS(const std::filesystem::path& ddsPath);

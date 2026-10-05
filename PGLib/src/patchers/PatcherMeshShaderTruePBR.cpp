@@ -326,18 +326,24 @@ bool PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
         if (StringUtil::toLowerASCIIFast(prefix).starts_with(L"textures\\pbr\\"))
             prefix.replace(0, texturePBRStrLength, L"textures\\");
 
+    // The "nif_filter" attribute is written for the paths of regular meshes. Facegen and BodySlide ShapeData meshes
+    // live elsewhere, so the filter does not apply to them: with an empty filter path every entry applies.
+    const auto& use = meshUse();
+    const std::wstring nifFilterPath
+        = (use.isFacegen || use.isBodySlideShapeData) ? std::wstring() : nifPath().wstring();
+
     std::map<size_t, std::tuple<nlohmann::json, std::wstring>> truePBRData;
     // "match_normal" attribute: Binary search for normal map.
-    getSlotMatch(truePBRData, searchPrefixes[1], truePBRNormalInverse(), nifPath().wstring());
+    getSlotMatch(truePBRData, searchPrefixes[1], truePBRNormalInverse(), nifFilterPath);
 
     // "match_diffuse" attribute: Binary search for diffuse map.
-    getSlotMatch(truePBRData, searchPrefixes[0], truePBRDiffuseInverse(), nifPath().wstring());
+    getSlotMatch(truePBRData, searchPrefixes[0], truePBRDiffuseInverse(), nifFilterPath);
 
     // "path_contains" attribute: Linear search for path_contains.
-    getPathContainsMatch(truePBRData, searchPrefixes[0], nifPath().wstring());
+    getPathContainsMatch(truePBRData, searchPrefixes[0], nifFilterPath);
 
     // "matchX" attribute: search exact match for each slot.
-    getMatchXMatch(truePBRData, oldSlots, nifPath().wstring());
+    getMatchXMatch(truePBRData, oldSlots, nifFilterPath);
 
     // Split data into individual JSONs.
     std::unordered_map<std::wstring, std::map<size_t, std::tuple<nlohmann::json, std::wstring>>> truePBROutputData;
@@ -433,7 +439,7 @@ void PatcherMeshShaderTruePBR::getSlotMatch(std::map<size_t,
                                             const std::wstring& texName,
                                             const std::map<std::wstring,
                                                            std::vector<size_t>>& lookup,
-                                            const std::wstring& nifPath)
+                                            const std::wstring& nifFilterPath)
 {
     // Binary search for map.
     auto mapReverse = StringUtil::toLowerASCIIFast(texName);
@@ -483,14 +489,14 @@ void PatcherMeshShaderTruePBR::getSlotMatch(std::map<size_t,
 
     // Loop through all matches.
     for (const auto& cfg : cfgs)
-        insertTruePBRData(truePBRData, texName, cfg, nifPath);
+        insertTruePBRData(truePBRData, texName, cfg, nifFilterPath);
 }
 
 void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
                                                              std::tuple<nlohmann::json,
                                                                         std::wstring>>& truePBRData,
                                                     const std::wstring& diffuse,
-                                                    const std::wstring& nifPath)
+                                                    const std::wstring& nifFilterPath)
 {
     // "patch_contains" attribute: Linear search for path_contains.
     auto& cache = pathLookupCache();
@@ -513,7 +519,7 @@ void PatcherMeshShaderTruePBR::getPathContainsMatch(std::map<size_t,
         }
 
         if (pathMatch)
-            insertTruePBRData(truePBRData, diffuse, config.first, nifPath);
+            insertTruePBRData(truePBRData, diffuse, config.first, nifFilterPath);
     }
 }
 
@@ -521,7 +527,7 @@ void PatcherMeshShaderTruePBR::getMatchXMatch(std::map<size_t,
                                                        std::tuple<nlohmann::json,
                                                                   std::wstring>>& truePBRData,
                                               const PGTypes::TextureSet& oldSlots,
-                                              const std::wstring& nifPath)
+                                              const std::wstring& nifFilterPath)
 {
     const auto& truePBRMatchXMap = PatcherMeshShaderTruePBR::truePBRMatchXMap();
     for (size_t i = 0; i < numTextureSlots - 1; i++) {
@@ -544,7 +550,7 @@ void PatcherMeshShaderTruePBR::getMatchXMatch(std::map<size_t,
 
         // Add to truePBRData.
         for (const auto& cfg : matchXMap.at(lookupStr))
-            insertTruePBRData(truePBRData, PGNIFUtil::texBase(lookupStr, curSlot), cfg, nifPath);
+            insertTruePBRData(truePBRData, PGNIFUtil::texBase(lookupStr, curSlot), cfg, nifFilterPath);
     }
 }
 
@@ -553,13 +559,16 @@ void PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
                                                                      std::wstring>>& truePBRData,
                                                  const std::wstring& texName,
                                                  size_t cfg,
-                                                 const std::wstring& nifPath)
+                                                 const std::wstring& nifFilterPath)
 {
     auto curCfg = truePBRConfigs()[cfg];
 
-    // Check if we should skip this due to nif filter (this is expsenive, so we do it last).
-    if (curCfg.contains("nif_filter") && !boost::icontains(nifPath, curCfg["nif_filter"].get<std::string>()))
+    // Check if we should skip this due to nif filter (this is expsenive, so we do it last). An empty filter path means
+    // the mesh is not subject to the filter.
+    if (!nifFilterPath.empty() && curCfg.contains("nif_filter")
+        && !boost::icontains(nifFilterPath, curCfg["nif_filter"].get<std::string>())) {
         return;
+    }
 
     // Find and check prefix value.
     // Add the PBR part to the texture path.

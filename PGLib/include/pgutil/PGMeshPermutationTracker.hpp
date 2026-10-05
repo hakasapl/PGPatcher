@@ -8,6 +8,7 @@
 #include "Shaders.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -149,6 +150,14 @@ public:
      */
     void ignoreBaseMesh();
 
+    /// @brief What became of a staged mesh in commitMesh().
+    enum class CommitResult : uint8_t {
+        Added, ///< The staged mesh is a new output mesh.
+        MergedIntoOutput, ///< The staged mesh equals an existing output mesh, which now serves this form key too.
+        UnchangedFromOriginal, ///< The staged mesh equals the original mesh, which stays in use unpatched.
+        AlreadyProcessed, ///< The form key was committed before.
+    };
+
     /**
      * @brief Commits the current staged mesh as a new output permutation for the given form key.
      *
@@ -159,13 +168,13 @@ public:
      * @param isWeighted Whether the mesh uses a weighted (body) variant requiring _1/_0 counterpart handling.
      * @param altTexResults Map from shape index to TextureSet for alternate texture overrides.
      * @param nonAltTexShapes Set of shape indices whose texture sets must match exactly.
-     * @return true if a new unique output mesh was added; false if deduplicated or already processed.
+     * @return What became of the staged mesh. Only CommitResult::Added means a new output mesh was created.
      */
-    bool commitMesh(const FormKey& formKey,
-                    bool isWeighted,
-                    const std::unordered_map<unsigned,
-                                             PGTypes::TextureSet>& altTexResults,
-                    const std::unordered_set<unsigned>& nonAltTexShapes);
+    CommitResult commitMesh(const FormKey& formKey,
+                            bool isWeighted,
+                            const std::unordered_map<unsigned,
+                                                     PGTypes::TextureSet>& altTexResults,
+                            const std::unordered_set<unsigned>& nonAltTexShapes);
 
     /**
      * @brief Saves all committed output meshes to disk and returns their results with CRC statistics.
@@ -244,7 +253,7 @@ private:
                                const nifly::NiShape& shapeB);
 
     /**
-     * @brief Compares two BSLightingShaderProperty blocks for equivalence.
+     * @brief Compares two BSLightingShaderProperty blocks for equivalence (every field of the SSE mesh format).
      *
      * @param shaderA First shader property.
      * @param shaderB Second shader property.

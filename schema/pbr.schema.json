@@ -238,7 +238,7 @@
         },
         "nif_filter": {
           "type": "string",
-          "description": "Restricts the entry to meshes whose path contains this text, ignoring case, for example \"architecture\\whiterun\"."
+          "description": "Restricts the entry to meshes whose path contains this text, ignoring case, for example \"architecture\\whiterun\". Only regular meshes are filtered: facegen and BodySlide ShapeData meshes get the entry regardless."
         },
         "rename": {
           "type": "string",

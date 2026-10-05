@@ -226,6 +226,7 @@ void writeUses(BinaryIO::Writer& w,
         flags |= attrs.isFacegen ? 4U : 0U;
         flags |= attrs.isIgnored ? 8U : 0U;
         flags |= attrs.isDummyUse ? 16U : 0U;
+        flags |= attrs.isBodySlideShapeData ? 32U : 0U;
         w.write<uint8_t>(flags);
         w.write<uint8_t>(static_cast<uint8_t>(attrs.recType));
 
@@ -253,6 +254,7 @@ PGRunCache::MeshUses readUses(BinaryIO::Reader& r,
         attrs.isFacegen = (flags & 4U) != 0U;
         attrs.isIgnored = (flags & 8U) != 0U;
         attrs.isDummyUse = (flags & 16U) != 0U;
+        attrs.isBodySlideShapeData = (flags & 32U) != 0U;
         attrs.recType = static_cast<PGPlugin::ModelRecordType>(r.read<uint8_t>());
 
         const auto altCount = readCount<size_t>(r, 8);
@@ -1189,7 +1191,7 @@ auto PGRunCache::collectOutputIdentities() -> std::unordered_map<std::wstring,
     std::unordered_map<std::wstring, OutputIdentity> identities;
 
     const auto generatedPath = outputRoot();
-    for (const auto& folder : { L"meshes", L"textures" }) {
+    for (const auto& folder : { L"meshes", L"textures", L"calientetools" }) {
         const auto folderPath = generatedPath / folder;
         std::error_code ec;
         if (!std::filesystem::is_directory(folderPath, ec))
@@ -1840,6 +1842,7 @@ void PGRunCache::pruneStaleOutputs(const std::unordered_set<std::filesystem::pat
 
     removeEmptyDirectories(generatedPath / "meshes");
     removeEmptyDirectories(generatedPath / "textures");
+    removeEmptyDirectories(generatedPath / "calientetools");
 
     Logger::info("Update cache: removed {} stale output files", removed);
 }
