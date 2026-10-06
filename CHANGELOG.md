@@ -1,6 +1,6 @@
 # Changelog
 
-## UNRELEASED
+## [2.1.2] - 2026-10-05
 
 - Improved performance of the preparation steps that run before patching
 - Fixed Light Placer JSON patching when model paths are uppercase
