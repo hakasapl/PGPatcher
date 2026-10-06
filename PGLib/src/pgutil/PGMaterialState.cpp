@@ -224,6 +224,9 @@ ShaderField color4Field(const char* key,
 }
 
 /// @brief Every field the SSE mesh format stores for a BSLightingShaderProperty, including the BSShaderProperty ones.
+/// The fields of later formats (the Fallout 4 wetness values, the Fallout 76 subsurface color and so on) are never
+/// read from or written to a Skyrim SE mesh, so they are left out on purpose. The "subsurface_color" of a PBR JSON is
+/// not that field: True PBR repurposes the specular color for it, which is covered below.
 const std::vector<ShaderField>& shaderFields()
 {
     static const std::vector<ShaderField> fields = {

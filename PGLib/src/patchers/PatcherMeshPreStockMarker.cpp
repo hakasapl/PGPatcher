@@ -382,8 +382,10 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
     // of this shape already hold its stock textures.
     auto* const textureSet = textureSetOf(nif, shader);
     if (textureSet && slots == PGNIFUtil::textureSlots(&nif, &nifShape)) {
+        // The count comes from mod authored JSON, so it is bounded before it drives an allocation.
         const auto textureCountIt = stock.find(keyTextureCount);
         if (textureCountIt != stock.end() && textureCountIt->is_number_unsigned()
+            && textureCountIt->get<uint64_t>() <= numTextureSlots
             && textureCountIt->get<unsigned>() != static_cast<unsigned>(textureSet->textures.size())) {
             textureSet->textures.resize(textureCountIt->get<unsigned>());
             isChanged = true;

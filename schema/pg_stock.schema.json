@@ -12,9 +12,10 @@
       "const": 1
     },
     "texture_count": {
-      "description": "Number of slots of the stock BSShaderTextureSet, when the patch changed it.",
+      "description": "Number of slots of the stock BSShaderTextureSet, when the patch changed it. Skyrim SE texture sets have 9 slots; a larger count is ignored.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 9
     },
     "textures": {
       "description": "Stock path of every texture slot the patch changed, keyed by slot index (0 to 8). An empty string is an empty slot.",

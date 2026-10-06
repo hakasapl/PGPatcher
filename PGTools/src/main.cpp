@@ -168,7 +168,7 @@ bool markMeshPair(const std::filesystem::path& originalFile,
         return false;
     }
 
-    numMarkedShapes += PatcherMeshPreStockMarker::markPatchedShapes(originalNif, patchedNif, patchedFile.wstring());
+    const auto numMarked = PatcherMeshPreStockMarker::markPatchedShapes(originalNif, patchedNif, patchedFile.wstring());
 
     std::filesystem::create_directories(outputFile.parent_path(), ec);
     patchedNif.PrettySortBlocks();
@@ -177,6 +177,8 @@ bool markMeshPair(const std::filesystem::path& originalFile,
         return false;
     }
 
+    // Only shapes of a mesh that was written count.
+    numMarkedShapes += numMarked;
     return true;
 }
 

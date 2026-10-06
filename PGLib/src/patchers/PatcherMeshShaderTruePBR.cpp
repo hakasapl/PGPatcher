@@ -563,7 +563,7 @@ void PatcherMeshShaderTruePBR::insertTruePBRData(std::map<size_t,
 {
     auto curCfg = truePBRConfigs()[cfg];
 
-    // Check if we should skip this due to nif filter (this is expsenive, so we do it last). An empty filter path means
+    // Check if we should skip this due to nif filter (this is expensive, so we do it last). An empty filter path means
     // the mesh is not subject to the filter.
     if (!nifFilterPath.empty() && curCfg.contains("nif_filter")
         && !boost::icontains(nifFilterPath, curCfg["nif_filter"].get<std::string>())) {
