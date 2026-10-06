@@ -132,6 +132,10 @@ bool PatcherMeshPreStockMarker::applyPatch(PGTypes::TextureSet& slots,
 void PatcherMeshPreStockMarker::finalizeMarker(nifly::NifFile& nif,
                                                nifly::NiShape& nifShape)
 {
+    // applyPatch() leaves the block of a shape without a lighting shader alone, so it is left alone here as well.
+    if (!dynamic_cast<nifly::BSLightingShaderProperty*>(nif.GetShader(&nifShape)))
+        return;
+
     auto* const marker = findMarker(nif, nifShape);
     if (!marker)
         return;
@@ -230,8 +234,11 @@ nlohmann::json PatcherMeshPreStockMarker::diffStock(nifly::NifFile& nif,
 
 bool PatcherMeshPreStockMarker::isEmptyStock(const nlohmann::json& stock)
 {
-    // Only the version is left.
-    return !stock.is_object() || stock.size() <= 1;
+    if (!stock.is_object())
+        return true;
+
+    // Only the version may be left.
+    return std::ranges::all_of(stock.items(), [](const auto& entry) { return entry.key() == keyVersion; });
 }
 
 nifly::NiStringExtraData* PatcherMeshPreStockMarker::findMarker(nifly::NifFile& nif,
@@ -369,9 +376,12 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
 {
     bool isChanged = false;
 
-    // Texture set.
+    // Texture set. It is only restored while the slots the patchers see mirror it. They do not when the plugin use has
+    // an alternate texture for this shape, which is patched in its own right, or when another shape of the NIF shares
+    // the texture set and was patched already, in which case the shared block has to keep that result and the slots
+    // of this shape already hold its stock textures.
     auto* const textureSet = textureSetOf(nif, shader);
-    if (textureSet) {
+    if (textureSet && slots == PGNIFUtil::textureSlots(&nif, &nifShape)) {
         const auto textureCountIt = stock.find(keyTextureCount);
         if (textureCountIt != stock.end() && textureCountIt->is_number_unsigned()
             && textureCountIt->get<unsigned>() != static_cast<unsigned>(textureSet->textures.size())) {
@@ -381,10 +391,6 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
 
         const auto texturesIt = stock.find(keyTextures);
         if (texturesIt != stock.end() && texturesIt->is_object()) {
-            // The slots the patchers see mirror the texture set of the NIF, unless the plugin use has an alternate
-            // texture for this shape. An alternate texture is patched in its own right and stays as it is.
-            const bool isNIFTextureSet = (slots == PGNIFUtil::textureSlots(&nif, &nifShape));
-
             for (const auto& [slotKey, texture] : texturesIt->items()) {
                 if (!texture.is_string())
                     continue;
@@ -398,8 +404,7 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
                     = StringUtil::toLowerASCIIFast(StringUtil::utf8toUTF16(texture.get<std::string>()));
                 isChanged |= PGNIFUtil::setTextureSlot(
                     &nif, &nifShape, static_cast<PGEnums::TextureSlots>(slot), stockTexture);
-                if (isNIFTextureSet)
-                    slots.at(slot) = stockTexture;
+                slots.at(slot) = stockTexture;
             }
         }
     }

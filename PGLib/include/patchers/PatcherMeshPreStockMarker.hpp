@@ -64,8 +64,9 @@ public:
      * After this ran the block holds the complete stock state of the shape; finalizeMarker() reduces it to the
      * differences once every patcher is done with the shape.
      *
-     * @param[in,out] slots Texture slots of the shape as seen by the patchers. They are replaced by the stock slots
-     * when they mirror the texture set of the NIF; an alternate texture from a plugin record is left alone.
+     * @param[in,out] slots Texture slots of the shape as seen by the patchers. The texture set of the NIF and these
+     * slots are only restored while they mirror each other: an alternate texture from a plugin record, and a texture
+     * set another shape already patched, are left alone.
      * @param nifShape Shape to patch
      * @return true Shape was reverted to its stock state
      * @return false Shape was not changed

@@ -6,7 +6,6 @@
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
-#include "util/StringUtil.hpp"
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
@@ -20,7 +19,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>

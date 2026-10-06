@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -306,11 +307,12 @@ nlohmann::json PGMaterialState::textureSlotsToJSON(const nifly::NifFile& nif,
 bool PGMaterialState::isTextureSetEqual(const nifly::BSShaderTextureSet& texSetA,
                                         const nifly::BSShaderTextureSet& texSetB)
 {
-    auto texturesA = texSetA.textures;
-    auto texturesB = texSetB.textures;
+    // The slot vectors only expose const access through data(), so view them instead of copying them.
+    const std::span<const nifly::NiString> texturesA(texSetA.textures.data(), texSetA.textures.size());
+    const std::span<const nifly::NiString> texturesB(texSetB.textures.data(), texSetB.textures.size());
     const auto maxSize = std::max(texturesA.size(), texturesB.size());
 
-    for (uint32_t i = 0; i < maxSize; i++) {
+    for (size_t i = 0; i < maxSize; i++) {
         const bool hasA = i < texturesA.size();
         const bool hasB = i < texturesB.size();
 
