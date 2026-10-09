@@ -286,6 +286,15 @@ public:
     static void setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
 
     /**
+     * @brief Updates the OBND (Object Bounds) of plugin records with the bounds computed for each mesh result's
+     * primary model. Only STAT, TREE and GRAS records are updated, the types for which the bounds were verified to
+     * match the Creation Kit's own. Results without bounds are skipped.
+     *
+     * @param meshResults List of MeshResult objects produced by PGMeshPermutationTracker::saveMeshes().
+     */
+    static void setObjectBounds(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
+
+    /**
      * @brief Saves the generated output plugin to the given directory.
      *
      * @param outputDir Directory in which to write the output plugin file.

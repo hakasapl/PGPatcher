@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -74,6 +75,9 @@ public:
         std::unordered_map<int, int> idxCorrections;
         /// @brief Index corrections mapping old 3D block indices to new indices after patching.
         std::unordered_map<int, int> inverseIdxCorrectionsPatching;
+        /// @brief Bounding box of the saved mesh in model space, computed across all shapes with vertices. Empty if the
+        /// mesh has none, or if bounds were not requested when saving.
+        std::optional<PGTypes::ObjectBounds> objectBounds;
     };
 
 private:
@@ -170,12 +174,23 @@ public:
     /**
      * @brief Saves all committed output meshes to disk and returns their results with CRC statistics.
      *
+     * @param shouldComputeObjectBounds whether to compute the bounding box of each saved mesh
+     * (MeshResult::objectBounds)
      * @return Pair of (list of MeshResult, pair of (base CRC32, total bytes written)).
      */
     std::pair<std::vector<MeshResult>,
               std::pair<unsigned long long,
                         unsigned long long>>
-    saveMeshes();
+    saveMeshes(const bool& shouldComputeObjectBounds = false);
+
+    /**
+     * @brief Computes the bounding box of the original (unpatched) mesh. Patchers never move vertices, so this matches
+     * the bounding box of an output mesh unless a patcher deleted a shape (e.g. the TruePBR delete attribute). It does
+     * not require an output mesh to be produced.
+     *
+     * @return The bounding box, or std::nullopt if the mesh has no shapes with vertices.
+     */
+    std::optional<PGTypes::ObjectBounds> originalObjectBounds();
 
     /**
      * @brief Validates all weighted mesh variants across all trackers, ensuring _0/_1 pairs are consistent.
@@ -292,6 +307,16 @@ private:
      */
     static std::filesystem::path meshPath(const std::filesystem::path& nifPath,
                                           const size_t& index);
+
+    /**
+     * @brief Computes the bounding box of a NIF in model space, across every shape with vertices (not only the ones
+     * PG can patch), accounting for each shape's transform relative to the NIF root. Truncated toward zero like the
+     * OBND subrecord the Creation Kit stores for statics, trees and grass.
+     *
+     * @param nif The NIF file to measure.
+     * @return The bounding box, or std::nullopt if the NIF has no shapes with vertices.
+     */
+    static std::optional<PGTypes::ObjectBounds> computeObjectBounds(nifly::NifFile& nif);
 
     /**
      * @brief Returns all NiObject blocks from a NIF that are relevant for comparison.

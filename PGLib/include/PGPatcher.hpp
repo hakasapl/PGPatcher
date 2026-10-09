@@ -103,7 +103,8 @@ public:
                             const bool& excludeFacegens = false,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback = { },
-                            const std::function<void(MeshPatchStage)>& stageCallback = { });
+                            const std::function<void(MeshPatchStage)>& stageCallback = { },
+                            const bool& shouldComputeObjectBounds = false);
 
     /**
      * @brief Run texture patcher
@@ -202,7 +203,8 @@ private:
                                         const bool& forceBasePatch = false,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                                         const bool& checkAllowedRecTypes = false,
-                                        const bool& excludeFacegens = false);
+                                        const bool& excludeFacegens = false,
+                                        const bool& shouldComputeObjectBounds = false);
 
     /**
      * @brief Replays the side effects of patching a NIF whose output from the previous run is still valid
@@ -210,11 +212,13 @@ private:
      * @param nifPath relative path to the NIF file
      * @param replayedMeshResults collects the mesh results of all replayed NIFs so their plugin model uses can be
      * applied in a single batch
-     * @param replayedMeshResultsMutex mutex protecting replayedMeshResults
+     * @param replayedBoundsResults collects the bounds-only results (see patchNIF) of all replayed NIFs
+     * @param replayedMeshResultsMutex mutex protecting both replayed result vectors
      * @return TaskTracker::Result result of the replay
      */
     static TaskTracker::Result replayNIF(const std::filesystem::path& nifPath,
                                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
+                                         std::vector<PGMeshPermutationTracker::MeshResult>& replayedBoundsResults,
                                          std::mutex& replayedMeshResultsMutex);
 
     /**
