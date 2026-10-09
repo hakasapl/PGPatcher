@@ -358,9 +358,10 @@ bool PatcherMeshPreStockMarker::parseMarker(const nifly::NiStringExtraData& mark
             return false;
         }
 
-        if (versionIt->get<unsigned>() > formatVersion) {
+        // Compared before any narrowing, so an oversized number cannot wrap around into a supported version.
+        if (versionIt->get<uint64_t>() > formatVersion) {
             error = fmt::format("version {} is newer than this version of PGPatcher supports",
-                                versionIt->get<unsigned>());
+                                versionIt->get<uint64_t>());
             return false;
         }
     }

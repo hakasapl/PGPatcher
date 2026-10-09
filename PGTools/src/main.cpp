@@ -133,6 +133,31 @@ bool isNIFFile(const std::filesystem::path& path)
 }
 
 /**
+ * @brief Checks whether a location is a folder or lies anywhere inside it
+ *
+ * @param subject Location to check (does not have to exist yet)
+ * @param folder Folder to check against
+ * @return true The location is the folder itself or one of its descendants
+ * @return false The location is somewhere else
+ */
+bool isPathWithin(const std::filesystem::path& subject,
+                  const std::filesystem::path& folder)
+{
+    std::error_code ec;
+    const auto canonicalSubject = std::filesystem::weakly_canonical(subject, ec);
+    if (ec)
+        return false;
+
+    const auto canonicalFolder = std::filesystem::weakly_canonical(folder, ec);
+    if (ec)
+        return false;
+
+    // Locations on different roots have no relative path at all.
+    const auto relative = canonicalSubject.lexically_relative(canonicalFolder);
+    return !relative.empty() && *relative.begin() != "..";
+}
+
+/**
  * @brief Writes a copy of a patched mesh whose shapes carry PG_STOCK blocks for everything that differs from the
  * original mesh
  *
@@ -170,8 +195,9 @@ bool markMeshPair(const std::filesystem::path& originalFile,
 
     const auto numMarked = PatcherMeshPreStockMarker::markPatchedShapes(originalNif, patchedNif, patchedFile.wstring());
 
+    // The blocks keep their order: sorting them can renumber the shapes, which the plugin of the mod addresses by index
+    // for its alternate textures. The new blocks simply follow the existing ones.
     std::filesystem::create_directories(outputFile.parent_path(), ec);
-    patchedNif.PrettySortBlocks();
     if (patchedNif.Save(outputFile, { .optimize = false, .sortBlocks = false })) {
         spdlog::error("{}: unable to save {}", label, StringUtil::utf16toUTF8(outputFile.wstring()));
         return false;
@@ -182,7 +208,14 @@ bool markMeshPair(const std::filesystem::path& originalFile,
     return true;
 }
 
-void runGenDiffBlocks(const PGToolsCLIArgs::GenDiffBlocks& args)
+/**
+ * @brief Runs the gendiffblocks command
+ *
+ * @param args Command arguments
+ * @return true Every mesh pair was written
+ * @return false The arguments were rejected or at least one mesh pair could not be processed (reported)
+ */
+bool runGenDiffBlocks(const PGToolsCLIArgs::GenDiffBlocks& args)
 {
     const auto original = std::filesystem::absolute(args.original);
     const auto patched = std::filesystem::absolute(args.patched);
@@ -190,13 +223,13 @@ void runGenDiffBlocks(const PGToolsCLIArgs::GenDiffBlocks& args)
 
     if (!std::filesystem::exists(original) || !std::filesystem::exists(patched)) {
         spdlog::critical("The original and the patched path must both exist");
-        return;
+        return false;
     }
 
     const bool isOriginalFolder = std::filesystem::is_directory(original);
     if (isOriginalFolder != std::filesystem::is_directory(patched)) {
         spdlog::critical("The original and the patched path must both be folders or both be mesh files");
-        return;
+        return false;
     }
 
     // Original mesh, patched mesh and the path of the output relative to the output folder.
@@ -204,10 +237,11 @@ void runGenDiffBlocks(const PGToolsCLIArgs::GenDiffBlocks& args)
     if (!isOriginalFolder) {
         meshPairs.emplace_back(original, patched, patched.filename());
     } else {
-        std::error_code ec;
-        if (std::filesystem::equivalent(output, original, ec) || std::filesystem::equivalent(output, patched, ec)) {
-            spdlog::critical("The output folder must differ from the original and the patched folder");
-            return;
+        // An output inside an input folder would be taken for input by the next run.
+        if (isPathWithin(output, original) || isPathWithin(output, patched)) {
+            spdlog::critical(
+                "The output folder must not be the original or the patched folder, nor lie inside one of them");
+            return false;
         }
 
         // Every patched mesh with an original counterpart is a pair. A mesh that only exists on one side is reported.
@@ -257,9 +291,17 @@ void runGenDiffBlocks(const PGToolsCLIArgs::GenDiffBlocks& args)
                  StringUtil::utf16toUTF8(output.wstring()));
     if (numFailed)
         spdlog::warn("{} meshes could not be processed", numFailed);
+
+    return numFailed == 0;
 }
 
-void mainRunner(PGToolsCLIArgs& args)
+/**
+ * @brief Runs the parsed command
+ *
+ * @param args Parsed arguments
+ * @return Exit code of the process
+ */
+int mainRunner(PGToolsCLIArgs& args)
 {
     // Welcome Message.
     spdlog::info("Welcome to PGTools version {}!", PG_FULL_VERSION);
@@ -275,10 +317,8 @@ void mainRunner(PGToolsCLIArgs& args)
     ExceptionHandler::setMainThread();
 
     // Check if gendiffblocks subcommand was used.
-    if (args.genDiffBlocks.subCommand->parsed()) {
-        runGenDiffBlocks(args.genDiffBlocks);
-        return;
-    }
+    if (args.genDiffBlocks.subCommand->parsed())
+        return runGenDiffBlocks(args.genDiffBlocks) ? 0 : 1;
 
     // Check if patch subcommand was used.
     if (args.patch.subCommand->parsed()) {
@@ -439,6 +479,8 @@ void mainRunner(PGToolsCLIArgs& args)
 
         spdlog::info("PGPatcher took {} seconds to complete", timeTaken);
     }
+
+    return 0;
 }
 
 void addArguments(CLI::App& app,
@@ -516,13 +558,13 @@ int main(int argC,
     }
 
     // Main Runner (Catches all exceptions).
-    CPPTRACE_TRY { mainRunner(args); }
+    int returnCode = 0;
+    CPPTRACE_TRY { returnCode = mainRunner(args); }
     CPPTRACE_CATCH(const std::exception& e)
     {
         ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
     }
 
-    int returnCode = 0;
     if (ExceptionHandler::hasException()) {
         ExceptionHandler::throwExceptionOnMainThread();
         returnCode = 1;

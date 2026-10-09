@@ -13,10 +13,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
+#include <limits>
 #include <span>
 #include <string>
 #include <vector>
@@ -39,6 +41,32 @@ nlohmann::json jsonFromColor(const nifly::Color4& value)
     return { jsonFloat(value.r), jsonFloat(value.g), jsonFloat(value.b), jsonFloat(value.a) };
 }
 
+/// @brief Reads a JSON number as a float. A number that is not finite as a float is malformed.
+bool floatFromJSON(const nlohmann::json& value,
+                   float& out)
+{
+    if (!value.is_number())
+        return false;
+
+    const auto asFloat = static_cast<float>(value.get<double>());
+    if (!std::isfinite(asFloat))
+        return false;
+
+    out = asFloat;
+    return true;
+}
+
+/// @brief Reads a JSON number as the unsigned 32 bit integer the mesh format stores. A larger number is malformed.
+bool unsignedFromJSON(const nlohmann::json& value,
+                      uint32_t& out)
+{
+    if (!value.is_number_unsigned() || value.get<uint64_t>() > std::numeric_limits<uint32_t>::max())
+        return false;
+
+    out = value.get<uint32_t>();
+    return true;
+}
+
 /// @brief Reads an array of exactly N numbers.
 template<size_t N>
 bool floatsFromJSON(const nlohmann::json& value,
@@ -48,13 +76,9 @@ bool floatsFromJSON(const nlohmann::json& value,
     if (!value.is_array() || value.size() != N)
         return false;
 
-    for (size_t i = 0; i < N; i++) {
-        const auto& element = value.at(i);
-        if (!element.is_number())
+    for (size_t i = 0; i < N; i++)
+        if (!floatFromJSON(value.at(i), out.at(i)))
             return false;
-
-        out.at(i) = element.get<float>();
-    }
 
     return true;
 }
@@ -81,11 +105,8 @@ ShaderField shaderTypeField()
         .read = [](const nifly::BSLightingShaderProperty& shader) { return nlohmann::json(shader.GetShaderType()); },
         .write =
             [](nifly::BSLightingShaderProperty& shader, const nlohmann::json& value) {
-                if (!value.is_number_unsigned())
-                    return false;
-
-                const auto newType = value.get<uint32_t>();
-                if (shader.GetShaderType() == newType)
+                uint32_t newType = 0;
+                if (!unsignedFromJSON(value, newType) || shader.GetShaderType() == newType)
                     return false;
 
                 shader.SetShaderType(newType);
@@ -105,11 +126,8 @@ ShaderField floatField(const char* key,
         = [member](const nifly::BSLightingShaderProperty& shader) { return nlohmann::json(jsonFloat(shader.*member)); },
         .write =
             [member](nifly::BSLightingShaderProperty& shader, const nlohmann::json& value) {
-                if (!value.is_number())
-                    return false;
-
-                const auto newValue = value.get<float>();
-                if (shader.*member == newValue)
+                float newValue = 0;
+                if (!floatFromJSON(value, newValue) || shader.*member == newValue)
                     return false;
 
                 shader.*member = newValue;
@@ -128,11 +146,8 @@ ShaderField unsignedField(const char* key,
         .read = [member](const nifly::BSLightingShaderProperty& shader) { return nlohmann::json(shader.*member); },
         .write =
             [member](nifly::BSLightingShaderProperty& shader, const nlohmann::json& value) {
-                if (!value.is_number_unsigned())
-                    return false;
-
-                const auto newValue = value.get<uint32_t>();
-                if (shader.*member == newValue)
+                uint32_t newValue = 0;
+                if (!unsignedFromJSON(value, newValue) || shader.*member == newValue)
                     return false;
 
                 shader.*member = newValue;
