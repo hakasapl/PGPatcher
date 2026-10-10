@@ -213,6 +213,7 @@
       "readingNifs": "Чтение файлов NIF",
       "classifyingTextures": "Классификация текстур",
       "patchingMeshes": "Патчинг мешей",
+      "evaluatingPreviousOutput": "Оценка предыдущего вывода",
       "processingNifs": "Обработка файлов NIF",
       "patchingTextures": "Патчинг текстур",
       "processingTextures": "Обработка текстур",

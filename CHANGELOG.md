@@ -7,6 +7,9 @@
 - Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
 - Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
 - Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
+
+## [2.1.2] - 2026-10-05
+
 - Improved performance of the preparation steps that run before patching
 - Fixed Light Placer JSON patching when model paths are uppercase
 - Fixed Light Placer JSON acceptance criteria to match Light Placer itself
