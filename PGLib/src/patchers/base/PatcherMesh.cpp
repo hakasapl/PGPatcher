@@ -130,10 +130,15 @@ PatcherMesh::PatcherMesh(std::filesystem::path nifPath,
     : Patcher(std::move(patcherName))
     , m_nifPath(std::move(nifPath))
     , m_nif(nif)
+    , m_meshUse()
 {
 }
 
 std::filesystem::path PatcherMesh::nifPath() const { return m_nifPath; }
+
+const PGPlugin::MeshUseAttributes& PatcherMesh::meshUse() const { return m_meshUse; }
+
+void PatcherMesh::setMeshUse(const PGPlugin::MeshUseAttributes& meshUse) { m_meshUse = meshUse; }
 
 nifly::NifFile* PatcherMesh::nif() const
 {

@@ -178,6 +178,8 @@ public:
         bool isSinglepassMATO = false;
         /// @brief True if this mesh is facegen
         bool isFacegen = false;
+        /// @brief True if this mesh is BodySlide ShapeData, which BodySlide builds its output meshes from
+        bool isBodySlideShapeData = false;
         /// @brief True if this mesh use should be excluded from patching.
         bool isIgnored = false;
         /// @brief True if this is a dummy use not actually tied to a plugin

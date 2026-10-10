@@ -305,7 +305,7 @@ private:
      * @param[out] truePBRData Data that matched
      * @param texName Texture name to match
      * @param lookup Lookup table to use
-     * @param nifPath NIF path to use
+     * @param nifFilterPath NIF path the "nif_filter" attribute is matched against, empty if the filter does not apply
      */
     static void getSlotMatch(std::map<size_t,
                                       std::tuple<nlohmann::json,
@@ -313,33 +313,33 @@ private:
                              const std::wstring& texName,
                              const std::map<std::wstring,
                                             std::vector<size_t>>& lookup,
-                             const std::wstring& nifPath);
+                             const std::wstring& nifFilterPath);
 
     /**
      * @brief Get path contains match for diffuse
      *
      * @param[out] truePBRData Data that matched
      * @param[out] diffuse Texture name to patch
-     * @param nifPath NIF path to use
+     * @param nifFilterPath NIF path the "nif_filter" attribute is matched against, empty if the filter does not apply
      */
     static void getPathContainsMatch(std::map<size_t,
                                               std::tuple<nlohmann::json,
                                                          std::wstring>>& truePBRData,
                                      const std::wstring& diffuse,
-                                     const std::wstring& nifPath);
+                                     const std::wstring& nifFilterPath);
 
     /**
      * @brief Get matchX match for a given lookup
      *
      * @param[out] truePBRData Data that matched
      * @param oldSlots Old slots to match
-     * @param nifPath NIF path to use
+     * @param nifFilterPath NIF path the "nif_filter" attribute is matched against, empty if the filter does not apply
      */
     static void getMatchXMatch(std::map<size_t,
                                         std::tuple<nlohmann::json,
                                                    std::wstring>>& truePBRData,
                                const PGTypes::TextureSet& oldSlots,
-                               const std::wstring& nifPath);
+                               const std::wstring& nifFilterPath);
 
     /**
      * @brief Inserts truepbr data if criteria is met
@@ -347,12 +347,13 @@ private:
      * @param[out] truePBRData Data to update
      * @param texName Texture name to insert
      * @param cfg Config ID
-     * @param nifPath NIF path to use
+     * @param nifFilterPath NIF path the "nif_filter" attribute is matched against. Empty when the mesh is not subject
+     * to the filter (facegen and BodySlide ShapeData meshes), in which case every entry applies.
      */
     static void insertTruePBRData(std::map<size_t,
                                            std::tuple<nlohmann::json,
                                                       std::wstring>>& truePBRData,
                                   const std::wstring& texName,
                                   size_t cfg,
-                                  const std::wstring& nifPath);
+                                  const std::wstring& nifFilterPath);
 };

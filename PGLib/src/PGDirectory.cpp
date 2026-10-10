@@ -98,6 +98,13 @@ void PGDirectory::findFiles()
             // Found a NIF.
             Logger::trace(L"Found mesh: {} / {}", path.wstring(), !file.bsaFile ? L"" : file.bsaFile->path.wstring());
             m_unconfirmedMeshes.insert(path);
+        } else if (boost::iequals(extension, L".nif") && PGNIFUtil::isBodySlideShapeDataMesh(path)) {
+            // Found a BodySlide ShapeData NIF. BodySlide builds its output meshes from these, so they are patched like
+            // any other mesh.
+            Logger::trace(L"Found BodySlide ShapeData mesh: {} / {}",
+                          path.wstring(),
+                          !file.bsaFile ? L"" : file.bsaFile->path.wstring());
+            m_unconfirmedMeshes.insert(path);
         } else if (boost::iequals(extension, L".json")) {
             // Found a JSON file.
             if (boost::iequals(firstPath, L"pbrnifpatcher")) {

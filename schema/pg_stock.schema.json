@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/pg_stock.schema.json",
+  "title": "PGPatcher PG_STOCK block",
+  "description": "Content of a NiStringExtraData block named PG_STOCK on a shape of a NIF. The block records the stock (unpatched) material of the shape: every texture slot and shader field a patch changed, with its value before the patch. PGPatcher reverts a shape that carries the block to this state before it patches the shape, so a pre-patched mesh is patched from stock instead of on top of the previous patch. Anything the block does not list is taken to be at its stock value already. Geometry (vertex colors, normals) is not recorded. PGPatcher writes the block on BodySlide ShapeData meshes it patches; `pgtools gendiffblocks` writes it for a mod from the original and the patched meshes. Paths are lower case with backslashes. The shader keys follow the field names NifSkope shows for a BSLightingShaderProperty.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "Version of this format. 1 when omitted.",
+      "type": "integer",
+      "const": 1
+    },
+    "texture_count": {
+      "description": "Number of slots of the stock BSShaderTextureSet, when the patch changed it. Skyrim SE texture sets have 9 slots; a larger count is ignored.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9
+    },
+    "textures": {
+      "description": "Stock path of every texture slot the patch changed, keyed by slot index (0 to 8). An empty string is an empty slot.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[0-8]$"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "shader": {
+      "description": "Stock value of every BSLightingShaderProperty field the patch changed.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shader_type": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shader_flags_1": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shader_flags_2": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uv_offset": {
+          "$ref": "#/definitions/vector2"
+        },
+        "uv_scale": {
+          "$ref": "#/definitions/vector2"
+        },
+        "emissive_color": {
+          "$ref": "#/definitions/vector3"
+        },
+        "emissive_multiple": {
+          "type": "number"
+        },
+        "texture_clamp_mode": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "alpha": {
+          "type": "number"
+        },
+        "refraction_strength": {
+          "type": "number"
+        },
+        "glossiness": {
+          "type": "number"
+        },
+        "specular_color": {
+          "$ref": "#/definitions/vector3"
+        },
+        "specular_strength": {
+          "type": "number"
+        },
+        "lighting_effect_1": {
+          "type": "number"
+        },
+        "lighting_effect_2": {
+          "type": "number"
+        },
+        "environment_map_scale": {
+          "type": "number"
+        },
+        "skin_tint_color": {
+          "$ref": "#/definitions/vector3"
+        },
+        "hair_tint_color": {
+          "$ref": "#/definitions/vector3"
+        },
+        "max_passes": {
+          "type": "number"
+        },
+        "scale": {
+          "type": "number"
+        },
+        "parallax_inner_layer_thickness": {
+          "type": "number"
+        },
+        "parallax_refraction_scale": {
+          "type": "number"
+        },
+        "parallax_inner_layer_texture_scale": {
+          "$ref": "#/definitions/vector2"
+        },
+        "parallax_envmap_strength": {
+          "type": "number"
+        },
+        "sparkle_parameters": {
+          "$ref": "#/definitions/vector4"
+        },
+        "eye_cubemap_scale": {
+          "type": "number"
+        },
+        "eye_left_reflection_center": {
+          "$ref": "#/definitions/vector3"
+        },
+        "eye_right_reflection_center": {
+          "$ref": "#/definitions/vector3"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "vector2": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "vector3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "vector4": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    }
+  },
+  "examples": [
+    {
+      "version": 1,
+      "textures": {
+        "0": "textures\\armor\\steel\\cuirass.dds",
+        "1": "textures\\armor\\steel\\cuirass_n.dds",
+        "6": ""
+      },
+      "shader": {
+        "shader_flags_2": 32801,
+        "glossiness": 80
+      }
+    }
+  ]
+}
