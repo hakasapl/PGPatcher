@@ -578,3 +578,11 @@ bool PGNIFUtil::isFacegenMesh(const std::filesystem::path& path)
     const auto relativePath = path.lexically_relative("meshes/actors/character/facegendata/facegeom");
     return !relativePath.empty() && relativePath.wstring().find(L"..") == std::string::npos;
 }
+
+bool PGNIFUtil::isBodySlideShapeDataMesh(const std::filesystem::path& path)
+{
+    // BodySlide reads the meshes of its projects from "CalienteTools\BodySlide\ShapeData\".
+    const std::filesystem::path lowerPath = StringUtil::toLowerASCIIFast(path.wstring());
+    const auto relativePath = lowerPath.lexically_relative("calientetools/bodyslide/shapedata");
+    return !relativePath.empty() && relativePath.wstring().find(L"..") == std::string::npos;
+}

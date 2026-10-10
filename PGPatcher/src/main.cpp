@@ -19,6 +19,7 @@
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
+#include "patchers/PatcherMeshPreStockMarker.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 #include "patchers/PatcherMeshShaderDefault.hpp"
 #include "patchers/PatcherMeshShaderTransformParallaxToCM.hpp"
@@ -617,6 +618,8 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Create patcher factory.
     PatcherUtil::PatcherMeshSet meshPatchers;
+    // The stock marker reverts pre-patched shapes to stock, so it has to run before every other patcher.
+    meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
     if (params.prePatcher.isFixMeshLightingEnabled) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
