@@ -2,8 +2,8 @@
 
 ## UNRELEASED
 
-- Added patching of BodySlide ShapeData meshes
-- Added the `PG_STOCK` extra data block for recording state of unpatched meshes
+- BodySlide ShapeData meshes will now be patched
+- Added the `PG_STOCK` extra data block for preserving initial mesh state
 - Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
 - Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
 - Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
