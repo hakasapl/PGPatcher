@@ -34,7 +34,7 @@ public:
      *
      * @param done      Number of completed items.
      * @param total     Total number of items.
-     * @param addToLabel If true, appends "done / total [ pct% ]" to the current main label.
+     * @param shouldAddToLabel If true, appends "done / total [ pct% ]" to the current main label.
      */
     void setMainProgress(int done,
                          int total,
@@ -52,7 +52,7 @@ public:
      *
      * @param done      Number of completed items in the current step.
      * @param total     Total number of items in the current step.
-     * @param addToLabel If true, appends "done / total [ pct% ]" to the current step label.
+     * @param shouldAddToLabel If true, appends "done / total [ pct% ]" to the current step label.
      */
     void setStepProgress(int done,
                          int total,

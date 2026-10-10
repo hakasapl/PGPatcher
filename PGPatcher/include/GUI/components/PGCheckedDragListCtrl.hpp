@@ -8,6 +8,13 @@
 #include <wx/listctrl.h>
 #include <wx/wx.h>
 
+/**
+ * @brief wxListCtrl with a checkbox per row and drag-and-drop reordering.
+ *
+ * The rows above the cutoff line are the checked ones and the only ones that can be dragged or moved; checking a row
+ * moves it to just above the line, unchecking moves it below. Rows can also be marked as meshes ignored (struck
+ * through). Fires pgEVT_CDLC_ITEM_CHECKED, pgEVT_CDLC_ITEM_DRAGGED and pgEVT_CDLC_MESHES_IGNORED_CHANGED.
+ */
 class PGCheckedDragListCtrl : public wxListCtrl {
 private:
     wxImageList* m_imagelist = nullptr; /** Image list for checkboxes */
@@ -103,21 +110,21 @@ public:
     [[nodiscard]] bool areMeshesIgnored(long item) const;
 
     /**
-     * @brief Set the Cutoff Line object
+     * @brief Set the cutoff line
      *
-     * @param index index of the cutoff line (-1 to disable cutoff)
+     * @param index index of the first row below the cutoff line (-1 to disable cutoff)
      */
     void setCutoffLine(int index);
 
     /**
-     * @brief Get the Cutoff Line object
+     * @brief Get the cutoff line
      *
-     * @return int index of the cutoff line (-1 if disabled)
+     * @return int index of the first row below the cutoff line (-1 if disabled)
      */
     [[nodiscard]] int cutoffLine() const;
 
     /**
-     * @brief Set the Dragging Enabled object
+     * @brief Set whether rows can be dragged
      *
      * @param enabled true to enable dragging, false to disable
      */
@@ -131,7 +138,7 @@ public:
     void setContextMoveEnabled(bool enabled);
 
     /**
-     * @brief Get the Dragging Enabled object
+     * @brief Get whether rows can be dragged
      *
      * @return true if dragging is enabled
      * @return false if dragging is disabled

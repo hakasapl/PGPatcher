@@ -52,7 +52,8 @@ public:
                 const int& progressPrintModulo = 1);
 
     /**
-     * @brief Registers a callback invoked on every logged progress update.
+     * @brief Registers a callback invoked on every logged progress update (whenever the percentage changes and is
+     * divisible by progressPrintModulo).
      *
      * @param callbackFunc Callable receiving (completedJobs, totalJobs) counts.
      */
@@ -83,7 +84,7 @@ public:
      *
      * @param result Aggregate result to potentially update.
      * @param currentResult The new individual result to incorporate.
-     * @param threshold Maximum severity allowed (defaults to FAILURE).
+     * @param threshold Maximum severity allowed (defaults to Result::Failure).
      */
     static void updateResult(Result& result,
                              const Result& currentResult,

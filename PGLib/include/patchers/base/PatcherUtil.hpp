@@ -16,13 +16,14 @@
 
 /**
  * @class PatcherUtil
- * @brief Utility class for code that uses patchers
+ * @brief Types that group the registered patchers
  */
 class PatcherUtil {
 public:
     /**
-     * @struct PatcherObjectSet
-     * @brief Stores the patcher objects for a given run
+     * @struct PatcherMeshObjectSet
+     * @brief Mesh patcher instances created for one mesh and plugin use. Transform patchers are keyed by the shader
+     * they transform from and paired with the shader they transform to
      */
     struct PatcherMeshObjectSet {
         std::vector<PatcherMeshGlobal::PatcherMeshGlobalObject> globalPatchers;
@@ -36,8 +37,8 @@ public:
     };
 
     /**
-     * @struct PatcherSet
-     * @brief Stores the patcher factories for a given run
+     * @struct PatcherMeshSet
+     * @brief Factories of the registered mesh patchers, same layout as PatcherMeshObjectSet
      */
     struct PatcherMeshSet {
         std::vector<PatcherMeshGlobal::PatcherMeshGlobalFactory> globalPatchers;
@@ -50,17 +51,20 @@ public:
         std::vector<PatcherMeshPost::PatcherMeshPostFactory> postPatchers;
     };
 
+    /// @brief Texture patcher instances created for one texture
     struct PatcherTextureObjectSet {
         std::vector<PatcherTextureGlobal::PatcherGlobalObject> globalPatchers;
     };
 
+    /// @brief Factories of the registered texture patchers
     struct PatcherTextureSet {
         std::vector<PatcherTextureGlobal::PatcherGlobalFactory> globalPatchers;
     };
 
     /**
      * @struct ShaderPatcherMatch
-     * @brief Describes a match with transform properties
+     * @brief A shader patcher's match for a shape, with the mod the matched file comes from (nullptr when unknown) and
+     * the shader a transform would turn it into (Unknown when none applies)
      */
     struct ShaderPatcherMatch {
         std::shared_ptr<PGModManager::Mod> mod;

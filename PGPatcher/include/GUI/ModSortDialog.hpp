@@ -66,6 +66,8 @@ private:
 public:
     /**
      * @brief Construct a new Mod Sort Dialog object
+     *
+     * @param parent Parent window, or nullptr for a top-level dialog
      */
     explicit ModSortDialog(wxWindow* parent = nullptr);
 
@@ -256,7 +258,7 @@ private:
     void highlightConflictingItems();
 
     /**
-     * @brief Clear all yellow highlights from the list
+     * @brief Resets every row to the base colors, then re-applies the new-mod highlights
      */
     void clearAllHighlights();
 
@@ -278,10 +280,13 @@ private:
     void updateModStatesLive();
 
     /**
-     * @brief Fills the list control with the given mod list
+     * @brief Fills the list control with the given mod list: enabled mods first, the cutoff line, then disabled mods.
+     * Mods without shaders and without meshes are left out
      *
      * @param modList List of mods to fill the list control with
-     * @param autoEnable If true, will autoenable any disabled mods that have shaders other than NONE
+     * @param autoEnable If true, will autoenable any disabled mods that have shaders other than ShapeShader::None
+     * @param shouldPreserveChecks If true, the checked and meshes-ignored state is taken from the rows currently in
+     * the list (or the row cache) instead of from the mods
      */
     void fillListCtrl(const std::vector<std::shared_ptr<PGModManager::Mod>>& modList,
                       bool autoEnable = false,

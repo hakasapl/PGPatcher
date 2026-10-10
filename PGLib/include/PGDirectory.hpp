@@ -36,6 +36,7 @@ class PGModManager;
  */
 class PGDirectory : public BethesdaDirectory {
 public:
+    /// @brief What is known about a mesh of the load order.
     struct NifCache {
         std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>
             meshUses; // list of mesh uses
@@ -81,31 +82,38 @@ private:
 
 public:
     /**
-     * @brief Constructs a PGDirectory using a BethesdaGame to resolve data paths.
+     * @brief Constructs a PGDirectory using a BethesdaGame to resolve data paths. PGGlobals::s_foldersToMap are mapped.
      *
-     * @param bg Pointer to the BethesdaGame instance providing game/data paths.
-     * @param outputPath Optional output directory path; defaults to empty (use game data path).
+     * @param bg Pointer to the BethesdaGame instance providing game/data paths. Must outlive this object.
+     * @param outputPath Output directory that generated files are read from and written to.
      */
     explicit PGDirectory(BethesdaGame* bg,
                          std::filesystem::path outputPath = "");
 
     /**
-     * @brief Constructs a PGDirectory using an explicit data directory path.
+     * @brief Constructs a PGDirectory for a plain data folder without a game (loose files only).
      *
-     * @param dataPath Absolute path to the Bethesda data directory.
-     * @param outputPath Optional output directory path; defaults to empty (use dataPath).
+     * @param dataPath Absolute path to the data directory.
+     * @param outputPath Output directory that generated files are read from and written to.
      */
     explicit PGDirectory(std::filesystem::path dataPath,
                          std::filesystem::path outputPath = "");
 
-    /// @brief Map all files in the load order to their type
+    /// @brief Finds the meshes, textures, PBR JSONs and Light Placer JSONs of the file map and classifies every texture
     ///
-    /// @param nifBlocklist Nifs to ignore for populating the mesh list
-    /// @param manualTextureMaps Overwrite the type of a texture
-    /// @param parallaxBSAExcludes Parallax maps contained in any of these BSAs are not considered for the file map
-    /// @param mapFromMeshes The texture type is deducted from the shader/texture set it is assigned to, if false use
-    /// only file suffix to determine type
-    /// @param multithreading Speedup mapping by multithreading
+    /// The slot and type of a texture are decided by a vote of the shapes that use it; a texture no mesh uses is
+    /// classified by its file name suffix. Environment masks are then classified as complex material textures on the
+    /// GPU, on a background queue when multithreading (see waitForCMClassification()). Plugin uses of the meshes are
+    /// looked up on another background queue (see waitForMeshMapping()). Requires a populated file map.
+    ///
+    /// @param nifBlocklist Globs of meshes to skip
+    /// @param nifAllowlist Globs of meshes to map; everything else is skipped when it is not empty
+    /// @param manualTextureMaps Textures whose type is given instead of classified
+    /// @param parallaxBSAExcludes Height maps and environment masks from these archives are not mapped (vanilla
+    /// archives, whose textures must not be taken for parallax or complex material textures)
+    /// @param multithreading Read the meshes on the task pool
+    /// @param progressCallback Receives (completed, total) counts while the meshes are read
+    /// @throws std::runtime_error if the file map was not populated
     void mapFiles(const std::vector<std::wstring>& nifBlocklist,
                   const std::vector<std::wstring>& nifAllowlist,
                   const std::vector<std::pair<std::wstring,
@@ -127,8 +135,19 @@ public:
     void waitForCMClassification();
 
 private:
+    /**
+     * @brief Collects the meshes, textures (ASCII paths only), PBR JSONs and Light Placer JSONs from the file map
+     *
+     * @throws std::runtime_error if the file map was not populated
+     */
     void findFiles();
 
+    /**
+     * @brief Casts the texture votes of one mesh (from the update cache when the mesh is unchanged), queues the lookup
+     * of its plugin uses and marks its mod as having meshes
+     *
+     * @return Result::Failure if the mesh could not be read
+     */
     TaskTracker::Result mapTexturesFromNIF(const std::filesystem::path& nifPath,
                                            const bool& multithreading = true);
 
@@ -150,23 +169,40 @@ private:
                                const PGEnums::TextureSlots& winningSlot,
                                const PGTypes::CMClassification& classification);
 
+    /**
+     * @brief Counts one vote for the slot and type of a texture. Thread safe; votes for unknown textures are dropped
+     */
     void updateUnconfirmedTexturesMap(const std::filesystem::path& path,
                                       const PGEnums::TextureSlots& slot,
                                       const PGEnums::TextureType& type);
 
+    /**
+     * @brief Records the final slot, type and attributes of a texture and tells the mod manager which shader the
+     * texture's mod provides
+     */
     void addToTextureMaps(const std::filesystem::path& path,
                           const PGEnums::TextureSlots& slot,
                           const PGEnums::TextureType& type,
                           const std::unordered_set<PGEnums::TextureAttribute>& attributes);
 
+    /**
+     * @brief Stores the plugin uses of a mesh. Thread safe
+     */
     void updateNifCache(const std::filesystem::path& path,
                         const std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                     PGPlugin::MeshUseAttributes>>& meshUses);
 
+    /**
+     * @brief Classifies an environment mask on the GPU, stores the result in the update cache and adds the texture to
+     * the texture maps. A texture that cannot be processed is logged and left out
+     */
     void checkIfCMAddToMap(const std::filesystem::path& texture,
                            const PGEnums::TextureSlots& winningSlot);
 
 public:
+    /**
+     * @brief Checks whether a string matches any glob of a list (MS-DOS wildcards, see PathMatchSpecW)
+     */
     static bool checkGlobMatchInVector(const std::wstring& check,
                                        const std::vector<std::wstring>& list);
 
@@ -178,7 +214,7 @@ public:
     /// There can be more than one textures for a name without the suffix, since there are more than one possible
     /// suffixes for certain texture slots. Full texture paths are stored in each item of the value set.
     ///
-    /// The decision between the two is handled later in the patching step. This ensures a _m doesn�t get replaced with
+    /// The decision between the two is handled later in the patching step. This ensures a _m doesn't get replaced with
     /// an _em in the mesh for example (if both are cm) Because usually the existing thing in the slot is what is wanted
     /// if there are 2 or more possible options.
     ///
@@ -203,9 +239,9 @@ public:
     textureMapConst(const PGEnums::TextureSlots& slot) const;
 
     /**
-     * @brief Returns the map of all discovered NIF mesh files and their cached data.
+     * @brief Returns the meshes that were mapped, with their plugin uses. Complete once waitForMeshMapping() returned.
      *
-     * @return Const reference to the mesh map keyed by relative path.
+     * @return Const reference to the mesh map keyed by lower case relative path.
      */
     [[nodiscard]] const std::unordered_map<std::filesystem::path,
                                            NifCache>&
@@ -280,7 +316,8 @@ public:
                         const PGEnums::TextureType& type);
 
     /**
-     * @brief Returns the texture type assigned to the specified texture path.
+     * @brief Returns the texture type assigned to the specified texture path. The lookup is recorded for the update
+     * cache, like hasTextureAttribute() and textureAttributes().
      *
      * @param path Relative texture path.
      * @return The assigned TextureType, or TextureType::Unknown if the path is not tracked.

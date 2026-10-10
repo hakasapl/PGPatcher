@@ -10,6 +10,12 @@
 #include <utility>
 #include <vector>
 
+/**
+ * @brief Keeps the Light Placer JSONs of the load order in step with the output meshes.
+ *
+ * A Light Placer JSON lists the models its lights attach to. When PGPatcher writes a duplicate of a mesh, the
+ * duplicate is added to every entry that lists the original, and the changed JSONs are written to the output folder.
+ */
 class HandlerLightPlacerTracker {
 private:
     struct LPJSON {
@@ -32,24 +38,25 @@ private:
 
 public:
     /**
-     * @brief Initializes the light placer tracker with the provided JSON files. NOT THREAD SAFE
+     * @brief Reads the given Light Placer JSONs from the data folder (loose files, through PGGlobals::pgd()) and
+     * indexes their model entries. A JSON Light Placer itself would reject is skipped with a warning. NOT THREAD SAFE
      *
-     * @param lpJSONs A vector of paths to the light placer JSON files to be tracked.
+     * @param lpJSONs Lower case relative paths of the Light Placer JSON files to track.
      */
     static void init(const std::vector<std::filesystem::path>& lpJSONs);
 
     /**
-     * @brief Handles the creation of a NIF file and updates the associated light placer JSONs. THIS IS THE ONLY METHOD
-     * THAT IS THREAD SAFE
+     * @brief Adds an output mesh to every Light Placer entry that lists the mesh it was created from. Nothing happens
+     * when both paths are equal. THIS IS THE ONLY METHOD THAT IS THREAD SAFE
      *
-     * @param baseNIFPath base NIF path
-     * @param createdNIFPath created NIF path (which may be the same)
+     * @param baseNIFPath lower case relative path of the original mesh
+     * @param createdNIFPath relative path of the output mesh (which may be the same)
      */
     static void handleNIFCreated(const std::filesystem::path& baseNIFPath,
                                  const std::filesystem::path& createdNIFPath);
 
     /**
-     * @brief Finalizes the light placer tracker, releasing any resources and cleaning up. NOT THREAD SAFE
+     * @brief Writes every changed JSON to the output folder and forgets all tracked JSONs. NOT THREAD SAFE
      */
     static void finalize();
 };

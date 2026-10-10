@@ -115,9 +115,10 @@ private:
 
 public:
     /**
-     * @brief Constructs a PGModManager for the given mod manager type.
+     * @brief Constructs a PGModManager for the given mod manager type. No mods are known until one of the populate
+     * functions ran.
      *
-     * @param mmType The mod manager type (NONE, VORTEX, or MODORGANIZER2).
+     * @param mmType The mod manager type (None, Vortex, or ModOrganizer2).
      */
     explicit PGModManager(const ModManagerType& mmType);
 
@@ -139,10 +140,12 @@ public:
     [[nodiscard]] std::shared_ptr<Mod> modByFile(const std::filesystem::path& relPath) const;
 
     /**
-     * @brief Finds the mod for a file, accounting for BSA-packed files by resolving the mod-lookup path via PGD.
+     * @brief Finds the mod for a file, accounting for BSA-packed files by resolving the mod-lookup path via PGD. The
+     * lookup is recorded for the update cache.
      *
-     * @param relPath Relative path of the file.
+     * @param relPath Lower case relative path of the file.
      * @return Shared pointer to the owning Mod, or nullptr if not found.
+     * @throws std::runtime_error if PGGlobals::pgd() is not set.
      */
     [[nodiscard]] std::shared_ptr<Mod> modByFileSmart(const std::filesystem::path& relPath) const;
 
@@ -176,7 +179,8 @@ public:
     [[nodiscard]] std::shared_ptr<Mod> mod(const std::wstring& modName) const;
 
     /**
-     * @brief Deserializes mod priority/enabled state from a JSON object into the mod map.
+     * @brief Deserializes mod priority/enabled/meshesignored state from a JSON object into the mod map, creating the
+     * mods that are not known yet. Loaded mods are not new.
      *
      * @param json JSON object mapping mod names to their stored properties.
      * @throws std::runtime_error if the JSON structure is invalid.
@@ -275,18 +279,25 @@ public:
     static std::wstring selectedProfileFromInstanceDir(const std::filesystem::path& instanceDir);
 
     /**
-     * @brief Populates the mod file map by reading the active MO2 profile's modlist.txt and mod directories.
+     * @brief Populates the mod file map from the active MO2 profile's modlist.txt: every enabled mod's files under the
+     * folders to map and its archives, the first mod in the list winning. Mods that are not in the list anymore are
+     * forgotten.
+     *
+     * A mod folder that is missing or that is the output directory stops the population with a critical error.
      *
      * @param instanceDir Path to the MO2 instance directory.
-     * @param outputDir Path to the PGPatcher output directory (treated as a special mod entry).
+     * @param outputDir Path to the PGPatcher output directory, which must not be an enabled mod.
+     * @throws std::runtime_error if modorganizer.ini or modlist.txt does not exist.
      */
     void populateModFileMapMO2(const std::filesystem::path& instanceDir,
                                const std::filesystem::path& outputDir);
 
     /**
-     * @brief Populates the mod file map by reading Vortex's deployment manifest from the given directory.
+     * @brief Populates the mod file map from vortex.deployment.json in the given directory. Only files under the
+     * folders to map are mapped; mods that are not deployed anymore are forgotten.
      *
-     * @param deploymentDir Path to the Vortex deployment directory.
+     * @param deploymentDir Directory holding vortex.deployment.json (the game's data folder).
+     * @throws std::runtime_error if the manifest is missing or lacks the "files" or "stagingPath" field.
      */
     void populateModFileMapVortex(const std::filesystem::path& deploymentDir);
 
@@ -294,7 +305,7 @@ public:
     /**
      * @brief Returns a list of all supported ModManagerType values.
      *
-     * @return Vector containing NONE, VORTEX, and MODORGANIZER2.
+     * @return Vector containing None, Vortex, and ModOrganizer2.
      */
     [[nodiscard]] static std::vector<ModManagerType> modManagerTypes();
 
@@ -310,7 +321,7 @@ public:
      * @brief Converts a display string to the corresponding ModManagerType enum value.
      *
      * @param type String name of the mod manager type.
-     * @return Corresponding ModManagerType, or NONE if unrecognized.
+     * @return Corresponding ModManagerType, or None if unrecognized.
      */
     [[nodiscard]] static ModManagerType modManagerTypeFromStr(const std::string& type);
 
@@ -320,33 +331,48 @@ public:
     [[nodiscard]] const std::filesystem::path& stagingLocation() const;
 
     /**
-     * @brief Normalizes persisted priority order to match dialog save semantics.
+     * @brief Enables new mods and renumbers priorities the way the mod sort dialog saves them.
      *
-     * Reconstructs visual ordering as enabled mods first, disabled mods second while preserving the
-     * relative order from either priority order or default mod-manager order. Enabled entries then get
-     * reassigned contiguous descending priority values. Only mods the mod sort dialog displays (mods
-     * with shaders or meshes) participate in the numbering, matching the dialog's own priority
-     * assignment; hidden mods keep their stored priority.
+     * New mods (not in modrules.json) that provide a shader better than the default one are enabled and given
+     * priorities above the current maximum. Then the mods the dialog displays (mods with shaders or meshes) are
+     * ordered enabled first, disabled second, keeping the relative order of the base ordering, and the enabled ones get
+     * contiguous descending priorities. Hidden mods keep their stored priority. Call after mapFiles() completed, so
+     * every mod's shaders are known.
      *
-     * @param useDefaultOrder If true, base ordering uses modsByDefaultOrder(); otherwise modsByPriority().
+     * @param useDefaultOrder If true (and the mod manager is MO2), the base ordering is modsByDefaultOrder();
+     * otherwise modsByPriority().
      */
     void updateStateFromModlist(bool useDefaultOrder) const;
 
     /**
-     * @brief Helper to add a shader type to the owning mod of a given file path.
+     * @brief Records that the mod owning a file provides a shader type. Nothing happens for a file without a mod.
      */
     void addShaderToModByFile(const std::filesystem::path& relPath,
                               const PGEnums::ShapeShader& shader) const;
 
 private:
+    /**
+     * @brief Orders two mods: by priority (higher first) when checkPriority is set, then by mod manager order (lower
+     * first), then by best shader (better first, mods with shaders before mods without), then by name.
+     */
     [[nodiscard]] static bool compareMods(const std::shared_ptr<Mod>& a,
                                           const std::shared_ptr<Mod>& b,
                                           bool checkPriority = true);
 
+    /**
+     * @brief Reads the value of a "key=" line of modorganizer.ini, without surrounding quotes and with doubled
+     * backslashes collapsed. @ByteArray(...) values are decoded when isByteArray is set.
+     *
+     * @return The value, or an empty string if the file or the key does not exist.
+     */
     static std::wstring mo2INIField(const std::filesystem::path& instanceDir,
                                     const std::string& fieldName,
                                     const bool& isByteArray = false);
 
+    /**
+     * @brief Returns the profiles and mods folders of an MO2 instance from modorganizer.ini, with %BASE_DIR% expanded
+     * and the instance folder's "profiles" and "mods" as defaults.
+     */
     static std::pair<std::filesystem::path,
                      std::filesystem::path>
     mo2FilePaths(const std::filesystem::path& instanceDir);

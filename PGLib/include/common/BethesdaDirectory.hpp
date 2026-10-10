@@ -21,6 +21,14 @@
 
 constexpr unsigned asciiUpperBound = 127;
 
+/**
+ * @brief Case-insensitive map of every file in a Bethesda data folder, loose or archived, as the game would resolve it.
+ *
+ * Only the folders in foldersToMap and the top level of the data folder are mapped. A loose file always wins over an
+ * archived one, and a later archive wins over an earlier one. Files written by PGPatcher can be registered as
+ * "generated" files, which shadow the original entry until clearGeneratedFiles() restores it. Keys are lower case
+ * paths relative to the data folder.
+ */
 class BethesdaDirectory {
 public:
     /**
@@ -74,11 +82,10 @@ public:
 private:
     /**
      * @struct BSAFile
-     * @brief Stores data about an individual BSA file
+     * @brief An opened BSA archive, shared by every file map entry that comes from it.
      *
-     * path stores the path to the BSA archive, preserving case from the original
-     * path version stores the version of the BSA archive archive stores the BSA
-     * archive object, which is where files can be accessed
+     * path is the archive's full path in the original case, relPath its lower case file name, version the archive
+     * format version and archive the parsed archive the files are read from.
      */
     struct BSAFile {
         BSAFile(std::filesystem::path p,
@@ -106,12 +113,10 @@ private:
 
     /**
      * @struct BethesdaFile
-     * @brief Structure which holds information about a specific file in the file
-     * map
+     * @brief One entry of the file map.
      *
-     * path stores the path to the file, preserving case from the original path
-     * bsa_file stores a shared pointer to a BSA file struct, or nullptr if the
-     * file is a loose file
+     * path is the lower case path relative to the data folder (empty for a lookup miss), bsaFile the archive the file
+     * comes from or nullptr for a loose or generated file.
      */
     struct BethesdaFile {
         std::filesystem::path path;
@@ -151,10 +156,7 @@ private:
     inline thread_local static FileQueryObserver* s_threadQueryObserver = nullptr;
 
     /**
-     * @brief Returns a vector of strings that represent the fields in the INI
-     * file that store information about BSA file loading
-     *
-     * @return std::vector<std::string>
+     * @brief The INI keys of the [Archive] section that list archives to load (sResourceArchiveList and friends).
      */
     static std::vector<std::string> iniBSAFields();
 
@@ -162,49 +164,48 @@ private:
      * @brief Builds the identity for a file map entry
      */
     static FileIdentity buildIdentity(const BethesdaFile& file);
+
     /**
-     * @brief Gets a list of extensions to ignore when populating the file map
-     *
-     * @return const std::vector<std::wstring>&
+     * @brief Extensions that are never mapped (archives and plugins), lower case.
      */
     static const std::vector<std::wstring>& extensionBlocklist();
 
 public:
     /**
-     * @brief Construct a new Bethesda Directory object
+     * @brief Constructs a directory for a game's data folder, so that archives can be mapped too.
      *
-     * @param bg BethesdaGame object corresponding to load order
-     * @param logging Whether to enable CLI logging
+     * @param bg Game whose data folder, INI files and plugin load order are used. Must outlive this object.
+     * @param foldersToMap Lower case top level folders of the data folder to map (e.g. "meshes", "textures").
+     * @param generatedPath Output folder that generated files are read from and written to.
      */
     BethesdaDirectory(BethesdaGame* bg,
                       std::unordered_set<std::filesystem::path> foldersToMap,
                       std::filesystem::path generatedPath = "");
 
     /**
-     * @brief Construct a new Bethesda Directory object without a game type, for generic folders only
+     * @brief Constructs a directory for a plain folder without a game. Only loose files can be mapped.
      *
-     * @param dataPath Data path
-     * @param generatedPath Generated path
-     * @param pgmm PGModManager object
-     * @param logging Whether to enable CLI logging
+     * @param dataPath Folder to treat as the data folder.
+     * @param foldersToMap Lower case top level folders of dataPath to map (e.g. "meshes", "textures").
+     * @param generatedPath Output folder that generated files are read from and written to.
      */
     BethesdaDirectory(std::filesystem::path dataPath,
                       std::unordered_set<std::filesystem::path> foldersToMap,
                       std::filesystem::path generatedPath = "");
 
     /**
-     * @brief Populate file map with all files in the load order
+     * @brief Clears and repopulates the file map with every file of the load order.
      *
-     * @param includeBSAs Whether files in BSA archives are mapped as well.
+     * @param includeBSAs Whether files in BSA archives are mapped as well. Ignored when there is no BethesdaGame.
      * @param shouldMultithread Whether the archives are read on a second thread while the loose files are mapped.
+     * @throws std::filesystem::filesystem_error if the data folder cannot be listed. An exception thrown while reading
+     * the archives is rethrown on the calling thread.
      */
     void populateFileMap(bool includeBSAs = true,
                          bool shouldMultithread = true);
 
     /**
-     * @brief Get the file map vector, path of the files is is all lower case
-     *
-     * @return std::map<std::filesystem::path, BethesdaFile>
+     * @brief Returns the file map. Keys are lower case paths relative to the data folder.
      */
     [[nodiscard]] const std::map<std::filesystem::path,
                                  BethesdaFile>&
@@ -225,62 +226,65 @@ public:
     [[nodiscard]] std::filesystem::path generatedPath() const;
 
     /**
-     * @brief Get bytes from a file in the load order. Throws runtime_error if file does not exist and logging is turned
-     * off
+     * @brief Reads a file of the load order, from the data folder, the output folder (generated files) or its archive.
      *
-     * @param relPath path to the file relative to the data directory
-     * @return std::vector<std::byte> vector of bytes of the file
+     * The read is reported to the thread's FileQueryObserver.
+     *
+     * @param relPath lower case path to the file relative to the data directory
+     * @return the file contents, or an empty vector if an archived file could not be extracted
+     * @throws std::runtime_error if the file is not in the file map or not in its archive
      */
     [[nodiscard]] std::vector<std::byte> file(const std::filesystem::path& relPath);
 
     /**
-     * @brief Create a Generated file in the file map
+     * @brief Maps a file written to the output folder, shadowing any entry of the load order at the same path.
      *
-     * @param relPath path of the generated file
+     * The shadowed entry is kept so that clearGeneratedFiles() can restore it.
+     *
+     * @param relPath lower case path of the generated file relative to the output folder
      */
     void addGeneratedFile(const std::filesystem::path& relPath);
 
     /**
-     * @brief Remove all generated-file entries from the in-memory file map.
+     * @brief Removes every generated file from the file map, restoring the load order entries they shadowed.
      *
-     * This is useful before a fresh patch run so generated files from a
-     * previous run do not remain marked as active inputs.
+     * Called before a patch run so files generated by a previous run are not taken for inputs.
      */
     void clearGeneratedFiles();
 
     /**
-     * @brief Check if a file in the load order is a loose file
+     * @brief Checks whether a file of the load order is a loose file (generated files count as loose).
      *
-     * @param relPath path to the file relative to the data directory
-     * @return true if file is a loose file
-     * @return false if file is not a loose file or doesn't exist
+     * @param relPath lower case path to the file relative to the data directory
+     * @return true if the file is mapped and does not come from an archive
+     * @throws std::runtime_error if the file map was not populated
      */
     [[nodiscard]] bool isLooseFile(const std::filesystem::path& relPath);
 
     /**
-     * @brief Check if a file in the load order is a file from a BSA
+     * @brief Checks whether a file of the load order comes from a BSA archive.
      *
-     * @param relPath path to the file relative to the data directory
-     * @return true if file is a BSA file
-     * @return false if file is not a BSA file or doesn't exist
+     * @param relPath lower case path to the file relative to the data directory
+     * @return true if the file is mapped and comes from an archive
+     * @throws std::runtime_error if the file map was not populated
      */
     [[nodiscard]] bool isBSAFile(const std::filesystem::path& relPath);
 
     /**
-     * @brief Check if a file exists in the load order
+     * @brief Checks whether a file exists in the load order. The query is reported to the thread's FileQueryObserver.
      *
-     * @param relPath path to the file relative to the data directory
-     * @return true if file exists in the load order
-     * @return false if file does not exist in the load order
+     * @param relPath lower case path to the file relative to the data directory
+     * @return true if the file is mapped
+     * @throws std::runtime_error if the file map was not populated
      */
     [[nodiscard]] bool isFile(const std::filesystem::path& relPath);
 
     /**
-     * @brief Check if a file is a generated file
+     * @brief Checks whether a file of the load order was registered with addGeneratedFile().
      *
-     * @param relPath path to the file relative to the data directory
-     * @return true if file is generated
-     * @return false if file is not generated
+     * @param relPath lower case path to the file relative to the data directory
+     * @return true if the file is mapped as a generated file
+     * @throws std::runtime_error if the file map was not populated
      */
     [[nodiscard]] bool isGenerated(const std::filesystem::path& relPath);
 
@@ -294,18 +298,20 @@ public:
     [[nodiscard]] bool isPrefix(const std::filesystem::path& relPath);
 
     /**
-     * @brief Get the full path of a loose file in the load order
+     * @brief Returns the full path of a loose file: in the output folder for a generated file, in the data folder for
+     * everything else (whether or not the file is mapped).
      *
-     * @param relPath path to the file relative to the data directory
-     * @return std::filesystem::path absolute path to the file
+     * @param relPath lower case path to the file relative to the data directory
+     * @return absolute path to the file
+     * @throws std::runtime_error if the file map was not populated
      */
     [[nodiscard]] std::filesystem::path looseFileFullPath(const std::filesystem::path& relPath);
 
     /**
-     * @brief Get the identity (source + modification time + size) of a file in the load order without reading it
+     * @brief Returns the identity (source, modification time and size) of a file in the load order without reading it.
      *
-     * @param relPath path to the file relative to the data directory
-     * @return FileIdentity identity, kind is NONE if the file does not exist in the load order
+     * @param relPath lower case path to the file relative to the data directory
+     * @return the identity, with kind Kind::None if the file is not in the load order
      */
     [[nodiscard]] FileIdentity fileIdentity(const std::filesystem::path& relPath);
 
@@ -317,13 +323,22 @@ public:
     static void setThreadFileQueryObserver(FileQueryObserver* observer);
 
     /**
-     * @brief Get the load order of BSAs
+     * @brief Returns the archives of the load order in load order: first the archives listed in the INI files, then the
+     * archives that belong to each active plugin. Archives in the data folder that nothing loads are logged as
+     * warnings.
      *
-     * @return std::vector<std::wstring> Names of BSA files ordered by load order.
-     * First element is loaded first.
+     * Requires a BethesdaGame.
+     *
+     * @return Archive file names in load order, the first element loads first.
      */
     [[nodiscard]] std::vector<std::wstring> bsaLoadOrder() const;
 
+    /**
+     * @brief Returns the path that identifies which mod a file comes from: the archive's lower case file name for an
+     * archived file, the path itself otherwise.
+     *
+     * @param relPath lower case path to the file relative to the data directory
+     */
     [[nodiscard]] std::filesystem::path modLookupFile(const std::filesystem::path& relPath);
 
     // Helpers.
@@ -338,10 +353,12 @@ public:
     [[nodiscard]] static bool isPathAscii(const std::filesystem::path& path);
 
     /**
-     * @brief Check if a file is in a list of BSA files
+     * @brief Checks whether a file of the load order comes from one of the given archives.
      *
-     * @param file File to check
-     * @param bsaFiles List of BSA files to check against
+     * @param file lower case path to the file relative to the data directory
+     * @param bsaFiles Archive file names to check against, compared without regard to case
+     * @return true if the file is archived and its archive is in the list
+     * @throws std::runtime_error if the file map was not populated
      */
     [[nodiscard]] bool isFileInBSA(const std::filesystem::path& file,
                                    const std::vector<std::wstring>& bsaFiles);
@@ -370,84 +387,81 @@ public:
                           const std::vector<std::wstring>& globList);
 
     /**
-     * @brief Check if file or folder is hidden
+     * @brief Checks whether a directory entry is hidden: it has the hidden attribute, its name starts with a dot, or it
+     * ends with .mohidden (a file hidden in Mod Organizer 2).
      *
      * @param entry Entry of a directory listing to check.
-     * @return true if file is hidden
-     * @return false if file is not hidden
+     * @return true if the entry is hidden
      */
     static bool isHidden(const FileUtil::DirectoryEntry& entry);
 
 private:
     /**
-     * @brief Looks through each BSA and adds files to the file map
+     * @brief Adds the files of every archive of bsaLoadOrder() to the file map. Requires a BethesdaGame.
      */
     void addBSAFilesToMap();
 
     /**
-     * @brief Looks through all loose files in the load order and adds to the file
-     * map
+     * @brief Adds the loose files of the data folder's top level and of the folders to map to the file map, skipping
+     * hidden entries and blocked extensions.
      */
     void addLooseFilesToMap();
 
     /**
-     * @brief Add files in a BSA to the file map
+     * @brief Adds the files of one archive to the file map. Files outside the folders to map and files with non-ASCII
+     * names are skipped, a missing or unreadable archive is logged.
      *
-     * @param bsaName BSA name to read files from
+     * @param bsaName Archive file name in the data folder
      */
     void addBSAToFileMap(const std::wstring& bsaName);
 
     /**
-     * @brief Check if a file being added to the file map should be added
+     * @brief Checks whether a file may enter the file map, which only its extension decides (see extensionBlocklist()).
      *
      * @param filePath File being checked
      * @return true if file should be added
-     * @return false if file should not be added
      */
     static bool isFileAllowed(const std::filesystem::path& filePath);
 
     /**
-     * @brief Get BSA files defined in INI files
-     *
-     * @return std::vector<std::wstring> list of BSAs in the order the INI has
-     * them
+     * @brief Returns the archives listed in the INI files, in the order the INI keys list them. The game's INI files
+     * are read first and INI files in the data folder override them key by key.
      */
     [[nodiscard]] std::vector<std::wstring> bsaFilesFromINIs() const;
 
     /**
-     * @brief Get BSA files in the data directory
-     *
-     * @return std::vector<std::wstring> list of BSAs in the data directory
+     * @brief Returns the file names of the archives in the data folder.
      */
     [[nodiscard]] std::vector<std::wstring> bsaFilesInDirectory() const;
 
     /**
-     * @brief gets BSA files that are loaded with a plugin
+     * @brief Returns the archives a plugin loads: "<plugin>.bsa" first, then "<plugin><digits>.bsa" and
+     * "<plugin> - <suffix>.bsa" in the order given.
      *
-     * @param bsaFileList List of BSA files to check
-     * @param pluginPrefix Plugin to check without extension
-     * @return std::vector<std::wstring> list of BSAs loaded with plugin
+     * @param bsaFileList Archive file names to pick from
+     * @param pluginPrefix Plugin file name without extension
      */
     [[nodiscard]] static std::vector<std::wstring>
     findBSAFilesFromPluginName(const std::vector<std::wstring>& bsaFileList,
                                const std::wstring& pluginPrefix);
 
     /**
-     * @brief Get a file object from the file map
+     * @brief Looks a file up in the file map.
      *
-     * @param filePath Path to get the object for
-     * @return BethesdaFile object of file in load order
+     * @param filePath lower case path to the file relative to the data directory
+     * @return the entry, or an entry with an empty path if the file is not mapped
      */
     [[nodiscard]] BethesdaFile fileFromMap(const std::filesystem::path& filePath);
 
     /**
-     * @brief Update the file map with
+     * @brief Adds a file to the file map or replaces its entry.
      *
      * A loose file replaces whatever is mapped for the path. An archived file replaces the file of an earlier archive
      * but never a loose file, so loose files and archives can be added in either order.
      *
-     * @param filePath path to update or add
-     * @param bsaFile BSA file or nullptr if it doesn't exist
+     * @param filePath lower case path to update or add
+     * @param bsaFile archive the file comes from, or nullptr for a loose file
+     * @param isGenerated whether the file is a generated file
      * @param mtime loose file last write time (file_time_type ticks), 0 if unknown
      * @param size loose file size in bytes, 0 if unknown
      */
@@ -466,18 +480,23 @@ private:
     [[nodiscard]] static std::vector<LPCWSTR> convertWStringToLPCWSTRVector(const std::vector<std::wstring>& original);
 
     /**
-     * @brief Checks whether a glob matches a provided list of globs
+     * @brief Checks whether any glob in the list matches a string, trying the glob that matched last time first.
      *
      * @param str String to check
-     * @param winningGlob Last glob that one (for performance)
+     * @param[in,out] winningGlob Glob that matched the previous call (updated when another glob matches)
      * @param globList List of globs to check
-     * @return true Any glob is the list mated
-     * @return false No globs in the list matched
+     * @return true if any glob matched
      */
     static bool checkGlob(const LPCWSTR& str,
                           LPCWSTR& winningGlob,
                           const std::vector<LPCWSTR>& globList);
 
+    /**
+     * @brief Reads one value from an INI file. Section and key are compared without regard to case, ';' and '#' start
+     * comment lines.
+     *
+     * @return the trimmed value, or an empty string if the file, section or key does not exist
+     */
     static std::wstring readINIValue(const std::filesystem::path& iniPath,
                                      const std::wstring& section,
                                      const std::wstring& key);

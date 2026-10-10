@@ -8,6 +8,13 @@
 #include <functional>
 #include <vector>
 
+/**
+ * @brief Runs a batch of independent tasks, either serially on the calling thread or on a thread pool.
+ *
+ * The pool has hardware_concurrency() - 2 threads (4 - 2 when the concurrency is unknown). A task that throws stops the
+ * batch: the exception is recorded in ExceptionHandler, the exception callback runs and runTasks() returns early. Each
+ * task runs with a Logger thread buffer so its log lines are not interleaved with those of other tasks.
+ */
 class TaskPoolRunner {
 private:
     boost::asio::thread_pool m_threadPool; /** Thread pool responsible for queueing tasks for multithreaded */
@@ -25,23 +32,31 @@ private:
 
 public:
     /**
-     * @brief Construct a new Parallax Gen Runner object
+     * @brief Constructs the runner and its thread pool.
      *
-     * @param multithread if true, use multithreading
+     * @param multithread If true, runTasks() posts the tasks to the thread pool, otherwise it runs them in order on the
+     * calling thread.
      */
     explicit TaskPoolRunner(const bool& multithread = true);
 
     /**
-     * @brief Add a task to the task list
+     * @brief Adds a task to the batch. Tasks only start in runTasks().
      *
-     * @param task Task to add (function<void()>)
+     * @param task Task to add.
      */
     void addTask(const std::function<void()>& task);
 
+    /**
+     * @brief Sets the callback invoked (on the throwing thread) when a task throws, for every runner.
+     *
+     * @param callback Callback, or an empty function to clear it.
+     */
     static void setExceptionCallback(const std::function<void()>& callback);
 
     /**
-     * @brief Blocking function that runs all tasks in the task list. Intended to be run from the main thread
+     * @brief Runs every added task and blocks until all of them completed or one of them threw.
+     *
+     * Meant to be called once, from the thread that owns the runner.
      */
     void runTasks();
 };

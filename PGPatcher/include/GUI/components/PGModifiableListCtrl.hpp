@@ -4,6 +4,12 @@
 #include <wx/listctrl.h>
 #include <wx/wx.h>
 
+/**
+ * @brief Single column list whose rows are edited in place.
+ *
+ * Activating a row edits it, a trailing blank row is kept so a new entry can be typed, clearing a row removes it, and
+ * the context menu adds or removes rows. Fires pgEVT_LISTCTRL_CHANGED after every change.
+ */
 class PGModifiableListCtrl : public wxListCtrl {
 public:
     /**

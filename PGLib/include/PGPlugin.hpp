@@ -83,12 +83,14 @@ public:
         },
     };
 
+    /// @brief Which output plugins get the ESM flag when they are saved.
     enum class ESMMode : uint8_t {
         PGPatcherOnly = 0, // ESM flag only PGPatcher.esp (default)
         All = 1, // ESM flag all output plugins
         None = 2, // do not ESM flag any output plugin
     };
 
+    /// @brief Plugin record types that carry models, named after their xEdit signatures.
     enum class ModelRecordType : uint8_t {
         Activator, // ACTI
         Ammunition, // AMMO
@@ -239,69 +241,74 @@ public:
     static std::vector<std::string> availableRecTypeStrs();
 
     /**
-     * @brief Returns the default set of ModelRecordType values that are enabled for patching.
-     *
-     * @return Unordered set of default-enabled ModelRecordType values.
+     * @brief Returns the record types enabled for patching by default (every type except Unknown).
      */
     static std::unordered_set<ModelRecordType> defaultRecTypeSet();
 
     /**
-     * @brief Initializes the PGMutagen library for the given game and language.
+     * @brief Initializes the PGMutagen library with the game's active load order.
      *
-     * Must be called before populateObjs(), modelUses(), or savePlugin().
+     * Must be called before populateObjs(), modelUses(), setModelUses() or savePlugin().
      *
-     * @param game The BethesdaGame instance providing game type and data path.
-     * @param exePath Path to the PGPatcher executable (for resolving relative paths).
-     * @param lang Plugin language to use when reading localized strings (default: ENGLISH).
+     * @param game The BethesdaGame instance providing game type, data path and active plugins.
+     * @param exePath Folder of the executable, where the .NET runtime resolves the PGMutagen assemblies.
+     * @param lang Plugin language to use when reading localized strings (default: PluginLang::English).
+     * @throws std::out_of_range for BethesdaGame::GameType::Unknown, std::runtime_error if the .NET runtime or the
+     * plugin environment fails to load.
      */
     static void initialize(const BethesdaGame& game,
                            const std::filesystem::path& exePath,
                            const PluginLang& lang = PluginLang::English);
 
     /**
-     * @brief Populates the internal object cache by reading all 3D model records from the loaded plugins.
+     * @brief Reads every model record of the load order (winning overrides) so modelUses() can answer, and captures the
+     * baseline resetPatchingState() returns to.
      *
-     * @param existingModPath Optional path to a pre-existing PGPatcher output plugin to merge with.
+     * @param existingModPath Path of the PGPatcher.esp of a previous run, if any. Its texture sets are carried over so
+     * texture sets created again get the same form IDs.
+     * @throws std::runtime_error if initialize() was not called or the plugins cannot be read.
      */
     static void populateObjs(const std::filesystem::path& existingModPath = { });
 
     /**
-     * @brief Resets plugin patching state to the baseline captured after populateObjs().
+     * @brief Resets plugin patching state to the baseline captured after populateObjs(). No-op before initialize().
      */
     static void resetPatchingState();
 
     /**
      * @brief Returns all plugin records that reference the given model path.
      *
-     * @param modelPath Wide-string relative model path (e.g., L"meshes\\foo\\bar.nif").
-     * @return Vector of (FormKey, MeshUseAttributes) pairs, sorted with weighted entries first.
+     * @param modelPath Relative model path (e.g., L"meshes\\foo\\bar.nif"), compared without regard to case.
+     * @return (FormKey, MeshUseAttributes) pairs: uses without alternate textures first, then weighted uses first, then
+     * by plugin name, form ID and sub model. Empty before initialize().
      */
     static std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                  MeshUseAttributes>>
     modelUses(const std::wstring& modelPath);
 
     /**
-     * @brief Updates plugin records with the patched mesh paths from all committed mesh results.
+     * @brief Updates the plugin records of every form key in the results with the output mesh path and the patched
+     * alternate textures. Dummy uses (no plugin) are skipped. No-op before initialize().
      *
      * @param meshResults List of MeshResult objects produced by PGMeshPermutationTracker::saveMeshes().
      */
     static void setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
 
     /**
-     * @brief Saves the generated output plugin to the given directory.
+     * @brief Writes PGPatcher.esp (new texture sets) and PG_<n>.esp (overridden records, split by master count) to the
+     * given directory. Nothing is written when no record changed.
      *
-     * @param outputDir Directory in which to write the output plugin file.
+     * @param outputDir Directory in which to write the output plugin files.
      * @param esmMode Which output plugins to ESM flag.
      */
     static void savePlugin(const std::filesystem::path& outputDir,
                            ESMMode esmMode);
 
     /**
-     * @brief Get the Plugin Path From Data Path object (removes textures or meshes from beginning of path)
+     * @brief Returns a data path the way plugins store it: without the leading "meshes" or "textures" folder
      *
-     * @param dataPath The data path to process
-     * @return std::filesystem::path The plugin path derived from the data path, or the original path if it does not
-     * start with "meshes" or "textures"
+     * @param dataPath Lower case path relative to the data folder
+     * @return The path without its first component, or the path itself if that is neither "meshes" nor "textures"
      */
     static std::filesystem::path pluginPathFromDataPath(const std::filesystem::path& dataPath);
 };

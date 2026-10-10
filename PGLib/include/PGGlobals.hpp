@@ -24,6 +24,7 @@ private:
     static PGModManager* s_pgmm;
 
 public:
+    /// @brief Top level folders of the data folder that PGDirectory maps (lower case).
     const static inline std::unordered_set<std::filesystem::path> s_foldersToMap
         = { "meshes", "textures", "pbrnifpatcher", "lightplacer", "calientetools" };
 
@@ -116,7 +117,8 @@ public:
     static void setPGMM(PGModManager* pgmm);
 
     /**
-     * @brief Returns the singleton TaskQueue used for serialized file-save operations.
+     * @brief Returns the TaskQueue that writes output meshes on a background thread. Drain it with waitForCompletion()
+     * before the output directory is read.
      *
      * @return Reference to the global file-saver TaskQueue.
      */

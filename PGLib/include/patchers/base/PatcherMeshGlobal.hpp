@@ -10,8 +10,8 @@
 #include <string>
 
 /**
- * @class PrePatcher
- * @brief Base class for prepatchers
+ * @class PatcherMeshGlobal
+ * @brief Base class for global patchers, which run once per mesh after every shape was patched
  */
 class PatcherMeshGlobal : public PatcherMesh {
 public:
@@ -31,7 +31,7 @@ public:
     PatcherMeshGlobal& operator=(PatcherMeshGlobal&& other) noexcept = default;
 
     /**
-     * @brief Apply the patch to the NIFShape if able
+     * @brief Apply the patch to the whole NIF if able
      *
      * @return true Patch was applied
      * @return false Patch was not applied

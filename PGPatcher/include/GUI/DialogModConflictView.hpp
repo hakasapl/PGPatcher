@@ -126,7 +126,7 @@ private:
     // ---- Helpers -----------------------------------------------------------
 
     /**
-     * @brief Rebuild the left mesh list from m_conflictData, applying
+     * @brief Rebuild the left mesh list from m_patchMeta, applying
      *        the search filter and the mod filter.
      */
     void rebuildMeshList();
@@ -147,7 +147,7 @@ private:
     void populatePluginUseList(const std::filesystem::path& meshPath);
 
     /**
-     * @brief Return true if @p meshData contains at least one shape where
+     * @brief Return true if @p meshMeta contains at least one shape where
      *        a match belongs to one of the filtered mods (or if m_filterMods
      *        is empty).
      */

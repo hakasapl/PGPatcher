@@ -45,7 +45,11 @@ public:
                                      nifly::NifFile* nif);
 
     /**
-     * @brief Check if a shape can be patched by this patcher (without looking at slots)
+     * @brief Check if a shape can take vanilla parallax (without looking at slots)
+     *
+     * Grass, single pass material objects, meshes with attached havok, skinned shapes, shapes with an alpha property,
+     * decals, mesh lighting and anisotropic lighting, and shader types other than default, parallax and environment
+     * map are rejected.
      *
      * @param nifShape Shape to check
      * @return true Shape can be patched
@@ -56,7 +60,7 @@ public:
                   const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
-     * @brief Check if a shape can be patched by this patcher (with slots)
+     * @brief Find the matches for a shape's texture set, see the texture set overload
      *
      * @param nifShape Shape to check
      * @param[out] matches Matches found
@@ -67,7 +71,8 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Check if slots can accomodate parallax
+     * @brief Find the height maps that match the normal map (or, failing that, the diffuse map) and have its aspect
+     * ratio. A match equal to the current parallax slot is listed last
      *
      * @param oldSlots Slots to check
      * @param[out] matches Matches found
@@ -78,33 +83,29 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Apply a match to a shape for parallax
+     * @brief Apply a parallax match to a shape: the shader, then the slots
      *
+     * @param[in,out] slots Slots of the shape, updated with the match
      * @param nifShape Shape to patch
      * @param match Match to apply
-     * @param[out] nifModified Whether the NIF was modified
-     * @param[out] shapeDeleted Whether the shape was deleted (always false)
-     * @return PGTypes::TextureSet New slots of shape
      */
     void applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape,
                     const PatcherMatch& match) override;
 
     /**
-     * @brief Apply a match to slots for parallax
+     * @brief Put the matched height map into the parallax slot
      *
-     * @param oldSlots Slots to patch
+     * @param[in,out] slots Slots to patch
      * @param match Match to apply
-     * @return PGTypes::TextureSet New slots
      */
     void applyPatchSlots(PGTypes::TextureSet& slots,
                          const PatcherMatch& match) override;
 
     /**
-     * @brief Apply parallax shader to a shape
+     * @brief Set the parallax shader type and flags on a shape and enable its vertex colors
      *
      * @param nifShape Shape to apply shader to
-     * @param nifModified Whether the NIF was modified
      */
     void applyShader(nifly::NiShape& nifShape) override;
 };
