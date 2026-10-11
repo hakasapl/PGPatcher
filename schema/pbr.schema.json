@@ -276,6 +276,28 @@
           "type": "boolean",
           "description": "Sets or clears the ZBuffer_Write shader flag."
         },
+        "alphaprop_flags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "Sets the flags of the shape's NiAlphaProperty, which turn alpha blending and alpha testing on and off and pick their modes, for example 4844 for alpha testing without blending. Only changes an existing NiAlphaProperty unless alphaprop_create is true. Other shapes that share the NiAlphaProperty keep their values, unless it has an animation controller, which keeps it shared. A value outside the range is ignored."
+        },
+        "alphaprop_thresh": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "Sets the alpha test threshold of the shape's NiAlphaProperty. Only changes an existing NiAlphaProperty unless alphaprop_create is true. Other shapes that share the NiAlphaProperty keep their values, unless it has an animation controller, which keeps it shared. A value outside the range is ignored."
+        },
+        "alphaprop_create": {
+          "type": "boolean",
+          "default": false,
+          "description": "true gives a shape without an NiAlphaProperty a new one, with flags 4844 (alpha testing without blending) and threshold 128 unless alphaprop_flags or alphaprop_thresh set them. false, the default, never adds an NiAlphaProperty: alphaprop_flags and alphaprop_thresh then only change one the shape already has."
+        },
+        "alphaprop_delete": {
+          "type": "boolean",
+          "default": false,
+          "description": "true removes the shape's NiAlphaProperty, if it has one, together with its animation controller if it has one. Other shapes that share it keep it. Takes priority over alphaprop_create, alphaprop_flags and alphaprop_thresh of the same entry; a later entry can still add a new one."
+        },
         "lock_diffuse": {
           "type": "boolean",
           "description": "true keeps the mesh's current diffuse texture instead of <prefix>.dds."

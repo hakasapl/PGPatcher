@@ -4,6 +4,7 @@
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 
 #include "Geometry.hpp"
@@ -43,7 +44,7 @@ bool PatcherMeshShaderDefault::canApply([[maybe_unused]] nifly::NiShape& nifShap
 bool PatcherMeshShaderDefault::shouldApply(nifly::NiShape& nifShape,
                                            std::vector<PatcherMatch>& matches)
 {
-    return shouldApply(textureSet(nifPath(), *nif(), nifShape), matches);
+    return shouldApply(PGNIFUtil::textureSlots(nif(), &nifShape), matches);
 }
 
 bool PatcherMeshShaderDefault::shouldApply(const PGTypes::TextureSet& oldSlots,

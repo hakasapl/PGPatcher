@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -380,6 +381,26 @@ TEST_F(PGMeshPermutationTrackerTest,
     effect = dynamic_cast<nifly::BSEffectShaderProperty*>(staged->GetShader(staged->GetShapes()[0]));
     effect->textureClampMode = 3;
     EXPECT_EQ(effectTracker.commitMesh(s_useB, false, { }, { 0 }), CommitResult::Added);
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       AlphaPropertiesAreCompared)
+{
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load();
+
+    // An added alpha property makes a different mesh, and the same one again merges into that output.
+    auto* staged = tracker.stageMesh();
+    EXPECT_TRUE(PGNIFUtil::setAlphaProperty(*staged, *staged->GetShapes()[0], std::nullopt, std::nullopt, true));
+    EXPECT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }), CommitResult::Added);
+    staged = tracker.stageMesh();
+    EXPECT_TRUE(PGNIFUtil::setAlphaProperty(*staged, *staged->GetShapes()[0], std::nullopt, std::nullopt, true));
+    EXPECT_EQ(tracker.commitMesh(s_useB, false, { }, { 0, 1 }), CommitResult::MergedIntoOutput);
+
+    // Another threshold is a different mesh again.
+    staged = tracker.stageMesh();
+    EXPECT_TRUE(PGNIFUtil::setAlphaProperty(*staged, *staged->GetShapes()[0], std::nullopt, 64, true));
+    EXPECT_EQ(tracker.commitMesh(s_useC, false, { }, { 0, 1 }), CommitResult::Added);
 }
 
 TEST_F(PGMeshPermutationTrackerTest,

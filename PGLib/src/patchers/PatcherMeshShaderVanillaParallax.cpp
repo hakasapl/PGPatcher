@@ -107,7 +107,7 @@ bool PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
 bool PatcherMeshShaderVanillaParallax::shouldApply(nifly::NiShape& nifShape,
                                                    std::vector<PatcherMatch>& matches)
 {
-    return shouldApply(textureSet(nifPath(), *nif(), nifShape), matches);
+    return shouldApply(PGNIFUtil::textureSlots(nif(), &nifShape), matches);
 }
 
 bool PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& oldSlots,
