@@ -104,8 +104,9 @@ The patchers, through `PGNIFUtil` and `PGMaterialState`, use these distinct nifl
   copy on write), add and delete `NiStringExtraData` blocks, grow a texture set to nine slots.
 
 On the engine side each of those is a separate problem: the engine's texture set has eight slots in a different
-order (its `kEnvironmentMask`, `kGlowMap`, `kHeight`, `kEnvironment` order is a permutation of the NIF order), the
-64-bit engine flag word is not a positional copy of SLSF1/SLSF2, a shader type change is a material class swap
+order (its `kEnvironmentMask`, `kGlowMap`, `kHeight`, `kEnvironment` order is a permutation of the NIF order), the 64-bit
+flag word is a positional copy of SLSF1 and SLSF2 (verified against CommonLib's enum, so flags at least map
+directly), a shader type change is a material class swap
 (`CreateMaterial`, copy members, `SetMaterial`) on materials that the engine pools between instances, slot writes
 must rebind `NiSourceTexture` objects, vertex streams are already uploaded, and render passes must be rebuilt.
 None of this can be validated against the offline output except by eye. The byte patch has none of it.
