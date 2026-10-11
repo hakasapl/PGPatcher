@@ -463,13 +463,16 @@ TEST_F(PGDirectoryTest,
     EXPECT_EQ(&m_pgd->textureMapConst(TextureSlots::Parallax), &map);
 }
 
-
 TEST(PGDirectoryPlainTest,
      MapTexturesBySuffixClassifiesWithoutReadingMeshes)
 {
     FakeGame fake;
-    for (const auto* texture : { L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds",
-                                 L"textures\\a\\stone_p.dds", L"textures\\a\\stone_m.dds" })
+    for (const auto* texture : {
+             L"textures\\a\\stone.dds",
+             L"textures\\a\\stone_n.dds",
+             L"textures\\a\\stone_p.dds",
+             L"textures\\a\\stone_m.dds",
+         })
         fake.writeDataFile(texture, "DDS");
     fake.writeMainINI("[Archive]\nsResourceArchiveList=Vanilla.bsa\n");
     TestUtil::BSABuilder vanilla;

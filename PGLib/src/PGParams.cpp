@@ -50,134 +50,134 @@ PGParams PGParams::defaults()
     return outParams;
 }
 
-void PGParams::readJSON(const nlohmann::json& paramJ)
+void PGParams::readJSON(const nlohmann::json& paramsJSON)
 {
     // "game".
-    if (paramJ.contains("game") && paramJ["game"].contains("dir"))
-        game.dir = StringUtil::utf8toUTF16(paramJ["game"]["dir"].get<std::string>());
-    if (paramJ.contains("game") && paramJ["game"].contains("type"))
-        paramJ["game"]["type"].get_to<BethesdaGame::GameType>(game.type);
+    if (paramsJSON.contains("game") && paramsJSON["game"].contains("dir"))
+        game.dir = StringUtil::utf8toUTF16(paramsJSON["game"]["dir"].get<std::string>());
+    if (paramsJSON.contains("game") && paramsJSON["game"].contains("type"))
+        paramsJSON["game"]["type"].get_to<BethesdaGame::GameType>(game.type);
 
     // "modmanager".
-    if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("type"))
-        paramJ["modmanager"]["type"].get_to<PGModManager::ModManagerType>(modManager.type);
-    if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir"))
-        paramJ["modmanager"]["mo2instancedir"].get_to<std::filesystem::path>(modManager.mo2InstanceDir);
-    if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useloosefileorder"))
-        paramJ["modmanager"]["mo2useloosefileorder"].get_to<bool>(modManager.shouldUseMO2LooseFileOrder);
+    if (paramsJSON.contains("modmanager") && paramsJSON["modmanager"].contains("type"))
+        paramsJSON["modmanager"]["type"].get_to<PGModManager::ModManagerType>(modManager.type);
+    if (paramsJSON.contains("modmanager") && paramsJSON["modmanager"].contains("mo2instancedir"))
+        paramsJSON["modmanager"]["mo2instancedir"].get_to<std::filesystem::path>(modManager.mo2InstanceDir);
+    if (paramsJSON.contains("modmanager") && paramsJSON["modmanager"].contains("mo2useloosefileorder"))
+        paramsJSON["modmanager"]["mo2useloosefileorder"].get_to<bool>(modManager.shouldUseMO2LooseFileOrder);
 
     // "output".
-    if (paramJ.contains("output") && paramJ["output"].contains("dir"))
-        output.dir = StringUtil::utf8toUTF16(paramJ["output"]["dir"].get<std::string>());
-    if (paramJ.contains("output") && paramJ["output"].contains("zip"))
-        paramJ["output"]["zip"].get_to<bool>(output.zip);
-    if (paramJ.contains("output") && paramJ["output"].contains("pluginlang"))
-        output.pluginLang = PGPlugin::pluginLangFromString(paramJ["output"]["pluginlang"].get<std::string>());
+    if (paramsJSON.contains("output") && paramsJSON["output"].contains("dir"))
+        output.dir = StringUtil::utf8toUTF16(paramsJSON["output"]["dir"].get<std::string>());
+    if (paramsJSON.contains("output") && paramsJSON["output"].contains("zip"))
+        paramsJSON["output"]["zip"].get_to<bool>(output.zip);
+    if (paramsJSON.contains("output") && paramsJSON["output"].contains("pluginlang"))
+        output.pluginLang = PGPlugin::pluginLangFromString(paramsJSON["output"]["pluginlang"].get<std::string>());
 
     // "processing".
-    if (paramJ.contains("processing") && paramJ["processing"].contains("multithread"))
-        paramJ["processing"]["multithread"].get_to<bool>(processing.multithread);
-    if (paramJ.contains("processing") && paramJ["processing"].contains("devmode"))
-        paramJ["processing"]["devmode"].get_to<bool>(processing.enableModDevMode);
-    if (paramJ.contains("processing") && paramJ["processing"].contains("enabledebuglogging"))
-        paramJ["processing"]["enabledebuglogging"].get_to<bool>(processing.enableDebugLogging);
-    if (paramJ.contains("processing") && paramJ["processing"].contains("enabletracelogging"))
-        paramJ["processing"]["enabletracelogging"].get_to<bool>(processing.enableTraceLogging);
-    if (paramJ.contains("processing") && paramJ["processing"].contains("allowlist"))
-        for (const auto& item : paramJ["processing"]["allowlist"])
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("multithread"))
+        paramsJSON["processing"]["multithread"].get_to<bool>(processing.multithread);
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("devmode"))
+        paramsJSON["processing"]["devmode"].get_to<bool>(processing.enableModDevMode);
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("enabledebuglogging"))
+        paramsJSON["processing"]["enabledebuglogging"].get_to<bool>(processing.enableDebugLogging);
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("enabletracelogging"))
+        paramsJSON["processing"]["enabletracelogging"].get_to<bool>(processing.enableTraceLogging);
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("allowlist"))
+        for (const auto& item : paramsJSON["processing"]["allowlist"])
             processing.allowList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
-    if (paramJ.contains("processing") && paramJ["processing"].contains("blocklist"))
-        for (const auto& item : paramJ["processing"]["blocklist"])
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("blocklist"))
+        for (const auto& item : paramsJSON["processing"]["blocklist"])
             processing.blockList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
-    if (paramJ.contains("processing") && paramJ["processing"].contains("texturemaps")) {
-        for (const auto& item : paramJ["processing"]["texturemaps"].items()) {
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("texturemaps")) {
+        for (const auto& item : paramsJSON["processing"]["texturemaps"].items()) {
             processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(item.key()),
                                                 PGEnums::texTypeFromStr(item.value().get<std::string>()));
         }
     }
-    if (paramJ.contains("processing") && paramJ["processing"].contains("vanillabsalist"))
-        for (const auto& item : paramJ["processing"]["vanillabsalist"])
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("vanillabsalist"))
+        for (const auto& item : paramsJSON["processing"]["vanillabsalist"])
             processing.vanillaBSAList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
-    if (paramJ.contains("processing") && paramJ["processing"].contains("allowedmodelrecordtypes")) {
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("allowedmodelrecordtypes")) {
         processing.allowedModelRecordTypes.clear();
 
-        for (const auto& item : paramJ["processing"]["allowedmodelrecordtypes"])
+        for (const auto& item : paramsJSON["processing"]["allowedmodelrecordtypes"])
             processing.allowedModelRecordTypes.insert(PGPlugin::recTypeFromString(item.get<std::string>()));
     }
 
     // "prepatcher".
-    if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("fixmeshlighting"))
-        paramJ["prepatcher"]["fixmeshlighting"].get_to<bool>(prePatcher.isFixMeshLightingEnabled);
+    if (paramsJSON.contains("prepatcher") && paramsJSON["prepatcher"].contains("fixmeshlighting"))
+        paramsJSON["prepatcher"]["fixmeshlighting"].get_to<bool>(prePatcher.isFixMeshLightingEnabled);
 
     // "shaderpatcher".
-    if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("parallax"))
-        paramJ["shaderpatcher"]["parallax"].get_to<bool>(shaderPatcher.isParallaxEnabled);
-    if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("complexmaterial"))
-        paramJ["shaderpatcher"]["complexmaterial"].get_to<bool>(shaderPatcher.isComplexMaterialEnabled);
-    if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("truepbr"))
-        paramJ["shaderpatcher"]["truepbr"].get_to<bool>(shaderPatcher.isTruePBREnabled);
+    if (paramsJSON.contains("shaderpatcher") && paramsJSON["shaderpatcher"].contains("parallax"))
+        paramsJSON["shaderpatcher"]["parallax"].get_to<bool>(shaderPatcher.isParallaxEnabled);
+    if (paramsJSON.contains("shaderpatcher") && paramsJSON["shaderpatcher"].contains("complexmaterial"))
+        paramsJSON["shaderpatcher"]["complexmaterial"].get_to<bool>(shaderPatcher.isComplexMaterialEnabled);
+    if (paramsJSON.contains("shaderpatcher") && paramsJSON["shaderpatcher"].contains("truepbr"))
+        paramsJSON["shaderpatcher"]["truepbr"].get_to<bool>(shaderPatcher.isTruePBREnabled);
 
     // "shadertransforms".
-    if (paramJ.contains("shadertransforms") && paramJ["shadertransforms"].contains("parallaxtocm"))
-        paramJ["shadertransforms"]["parallaxtocm"].get_to<bool>(shaderTransforms.isParallaxToCMEnabled);
+    if (paramsJSON.contains("shadertransforms") && paramsJSON["shadertransforms"].contains("parallaxtocm"))
+        paramsJSON["shadertransforms"]["parallaxtocm"].get_to<bool>(shaderTransforms.isParallaxToCMEnabled);
 
     // "postpatcher".
-    if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("disableprepatchedmaterials"))
-        paramJ["postpatcher"]["disableprepatchedmaterials"].get_to<bool>(postPatcher.disablePrePatchedMaterials);
-    if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("fixsss"))
-        paramJ["postpatcher"]["fixsss"].get_to<bool>(postPatcher.isFixSSSEnabled);
-    if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("hairflowmap"))
-        paramJ["postpatcher"]["hairflowmap"].get_to<bool>(postPatcher.isHairFlowMapEnabled);
+    if (paramsJSON.contains("postpatcher") && paramsJSON["postpatcher"].contains("disableprepatchedmaterials"))
+        paramsJSON["postpatcher"]["disableprepatchedmaterials"].get_to<bool>(postPatcher.disablePrePatchedMaterials);
+    if (paramsJSON.contains("postpatcher") && paramsJSON["postpatcher"].contains("fixsss"))
+        paramsJSON["postpatcher"]["fixsss"].get_to<bool>(postPatcher.isFixSSSEnabled);
+    if (paramsJSON.contains("postpatcher") && paramsJSON["postpatcher"].contains("hairflowmap"))
+        paramsJSON["postpatcher"]["hairflowmap"].get_to<bool>(postPatcher.isHairFlowMapEnabled);
 
     // "globalpatcher".
 }
 
-void PGParams::writeJSON(nlohmann::json& j) const
+void PGParams::writeJSON(nlohmann::json& paramsJSON) const
 {
     // "game".
-    j["game"]["dir"] = StringUtil::utf16toUTF8(game.dir.wstring());
-    j["game"]["type"] = game.type;
+    paramsJSON["game"]["dir"] = StringUtil::utf16toUTF8(game.dir.wstring());
+    paramsJSON["game"]["type"] = game.type;
 
     // "modmanager".
-    j["modmanager"]["type"] = modManager.type;
-    j["modmanager"]["mo2instancedir"] = StringUtil::utf16toUTF8(modManager.mo2InstanceDir.wstring());
-    j["modmanager"]["mo2useloosefileorder"] = modManager.shouldUseMO2LooseFileOrder;
+    paramsJSON["modmanager"]["type"] = modManager.type;
+    paramsJSON["modmanager"]["mo2instancedir"] = StringUtil::utf16toUTF8(modManager.mo2InstanceDir.wstring());
+    paramsJSON["modmanager"]["mo2useloosefileorder"] = modManager.shouldUseMO2LooseFileOrder;
 
     // "output".
-    j["output"]["dir"] = StringUtil::utf16toUTF8(output.dir.wstring());
-    j["output"]["zip"] = output.zip;
-    j["output"]["pluginlang"] = PGPlugin::stringFromPluginLang(output.pluginLang);
+    paramsJSON["output"]["dir"] = StringUtil::utf16toUTF8(output.dir.wstring());
+    paramsJSON["output"]["zip"] = output.zip;
+    paramsJSON["output"]["pluginlang"] = PGPlugin::stringFromPluginLang(output.pluginLang);
 
     // "processing".
-    j["processing"]["multithread"] = processing.multithread;
-    j["processing"]["devmode"] = processing.enableModDevMode;
-    j["processing"]["enabledebuglogging"] = processing.enableDebugLogging;
-    j["processing"]["enabletracelogging"] = processing.enableTraceLogging;
-    j["processing"]["allowlist"] = StringUtil::utf16VectorToUTF8(processing.allowList);
-    j["processing"]["blocklist"] = StringUtil::utf16VectorToUTF8(processing.blockList);
-    j["processing"]["texturemaps"] = nlohmann::json::object();
+    paramsJSON["processing"]["multithread"] = processing.multithread;
+    paramsJSON["processing"]["devmode"] = processing.enableModDevMode;
+    paramsJSON["processing"]["enabledebuglogging"] = processing.enableDebugLogging;
+    paramsJSON["processing"]["enabletracelogging"] = processing.enableTraceLogging;
+    paramsJSON["processing"]["allowlist"] = StringUtil::utf16VectorToUTF8(processing.allowList);
+    paramsJSON["processing"]["blocklist"] = StringUtil::utf16VectorToUTF8(processing.blockList);
+    paramsJSON["processing"]["texturemaps"] = nlohmann::json::object();
     for (const auto& [key, value] : processing.textureMaps)
-        j["processing"]["texturemaps"][StringUtil::utf16toUTF8(key)] = PGEnums::strFromTexType(value);
-    j["processing"]["vanillabsalist"] = StringUtil::utf16VectorToUTF8(processing.vanillaBSAList);
-    j["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
+        paramsJSON["processing"]["texturemaps"][StringUtil::utf16toUTF8(key)] = PGEnums::strFromTexType(value);
+    paramsJSON["processing"]["vanillabsalist"] = StringUtil::utf16VectorToUTF8(processing.vanillaBSAList);
+    paramsJSON["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
     for (const auto& item : processing.allowedModelRecordTypes)
-        j["processing"]["allowedmodelrecordtypes"].push_back(PGPlugin::stringFromRecType(item));
+        paramsJSON["processing"]["allowedmodelrecordtypes"].push_back(PGPlugin::stringFromRecType(item));
 
     // "prepatcher".
-    j["prepatcher"]["fixmeshlighting"] = prePatcher.isFixMeshLightingEnabled;
+    paramsJSON["prepatcher"]["fixmeshlighting"] = prePatcher.isFixMeshLightingEnabled;
 
     // "shaderpatcher".
-    j["shaderpatcher"]["parallax"] = shaderPatcher.isParallaxEnabled;
-    j["shaderpatcher"]["complexmaterial"] = shaderPatcher.isComplexMaterialEnabled;
-    j["shaderpatcher"]["truepbr"] = shaderPatcher.isTruePBREnabled;
+    paramsJSON["shaderpatcher"]["parallax"] = shaderPatcher.isParallaxEnabled;
+    paramsJSON["shaderpatcher"]["complexmaterial"] = shaderPatcher.isComplexMaterialEnabled;
+    paramsJSON["shaderpatcher"]["truepbr"] = shaderPatcher.isTruePBREnabled;
 
     // "shadertransforms".
-    j["shadertransforms"]["parallaxtocm"] = shaderTransforms.isParallaxToCMEnabled;
+    paramsJSON["shadertransforms"]["parallaxtocm"] = shaderTransforms.isParallaxToCMEnabled;
 
     // "postpatcher".
-    j["postpatcher"]["disableprepatchedmaterials"] = postPatcher.disablePrePatchedMaterials;
-    j["postpatcher"]["fixsss"] = postPatcher.isFixSSSEnabled;
-    j["postpatcher"]["hairflowmap"] = postPatcher.isHairFlowMapEnabled;
+    paramsJSON["postpatcher"]["disableprepatchedmaterials"] = postPatcher.disablePrePatchedMaterials;
+    paramsJSON["postpatcher"]["fixsss"] = postPatcher.isFixSSSEnabled;
+    paramsJSON["postpatcher"]["hairflowmap"] = postPatcher.isHairFlowMapEnabled;
 
     // "globalpatcher".
 }

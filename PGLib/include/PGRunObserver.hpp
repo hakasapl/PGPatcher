@@ -6,6 +6,7 @@
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGTypes.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -132,4 +133,7 @@ public:
         SuspendRecording(SuspendRecording&&) = delete;
         SuspendRecording& operator=(SuspendRecording&&) = delete;
     };
+
+private:
+    static inline std::atomic<PGRunObserver*> s_installed { nullptr };
 };

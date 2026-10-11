@@ -28,14 +28,16 @@ TEST(PGParamsTest,
     nlohmann::json json = nlohmann::json::object();
     PGParams::defaults().writeJSON(json);
 
-    for (const auto* section : { "game",
-                                 "modmanager",
-                                 "output",
-                                 "processing",
-                                 "prepatcher",
-                                 "shaderpatcher",
-                                 "shadertransforms",
-                                 "postpatcher" })
+    for (const auto* section : {
+             "game",
+             "modmanager",
+             "output",
+             "processing",
+             "prepatcher",
+             "shaderpatcher",
+             "shadertransforms",
+             "postpatcher",
+         })
         EXPECT_TRUE(json.contains(section)) << section;
 
     EXPECT_TRUE(json["game"].contains("dir"));

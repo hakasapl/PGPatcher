@@ -4,18 +4,11 @@
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGTypes.hpp"
 
-#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <string>
 #include <unordered_set>
 #include <vector>
-
-namespace {
-
-std::atomic<PGRunObserver*> s_installedObserver { nullptr };
-
-}
 
 void PGRunObserver::recordTextureType([[maybe_unused]] const std::filesystem::path& path,
                                       [[maybe_unused]] const PGEnums::TextureType& type)
@@ -97,11 +90,11 @@ PGRunObserver& PGRunObserver::current()
 {
     static PGRunObserver defaultObserver;
 
-    auto* const installed = s_installedObserver.load();
+    auto* const installed = s_installed.load();
     return installed ? *installed : defaultObserver;
 }
 
-void PGRunObserver::install(PGRunObserver* observer) { s_installedObserver.store(observer); }
+void PGRunObserver::install(PGRunObserver* observer) { s_installed.store(observer); }
 
 PGRunObserver::SuspendRecording::SuspendRecording() { current().suspendRecording(); }
 

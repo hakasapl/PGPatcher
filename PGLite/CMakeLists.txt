@@ -120,6 +120,9 @@ set(PGLIB_OFFLINE_SOURCES
 list(REMOVE_ITEM PGLIB_SOURCES ${PGLIB_OFFLINE_SOURCES})
 
 add_library(PGLibRuntime STATIC ${PGLIB_SOURCES} ${PGLIB_HEADERS})
+# The shared code is a C++20 code base and compiles as such here too (the plugin's own units need C++23 for
+# CommonLibSSE-NG), so a change that builds in one tree builds in the other.
+set_target_properties(PGLibRuntime PROPERTIES CXX_STANDARD 20)
 target_include_directories(PGLibRuntime PUBLIC "${PG_LIB_DIR}/include")
 target_link_libraries(PGLibRuntime PUBLIC
   spdlog::spdlog
