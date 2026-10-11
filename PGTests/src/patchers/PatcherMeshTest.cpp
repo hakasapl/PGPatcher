@@ -24,6 +24,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -191,7 +192,7 @@ TEST(PatcherMeshPlainTest,
     ExposedPatcher patcher(L"meshes\\a.nif", nullptr);
     EXPECT_EQ(patcher.patcherName(), "Default");
     EXPECT_EQ(patcher.nifPath(), L"meshes\\a.nif");
-    EXPECT_THROW(patcher.nif(), std::runtime_error);
+    EXPECT_THROW(std::ignore = patcher.nif(), std::runtime_error);
     std::vector<PatcherMatch> matches;
     EXPECT_THROW(patcher.shouldApply(*shape, matches), std::runtime_error);
 

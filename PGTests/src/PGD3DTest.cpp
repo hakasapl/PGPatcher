@@ -24,6 +24,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -130,10 +131,10 @@ TEST(PGD3DStaticTest,
     Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
     EXPECT_THROW(d3d.createBuffer(nullptr, bufferDesc, buffer), std::runtime_error);
     EXPECT_THROW(d3d.createConstantBuffer(nullptr, 16, buffer), std::runtime_error);
-    EXPECT_THROW(d3d.blockingDispatch(shader, { }, { }, { }, 1, 1, 1), std::runtime_error);
+    EXPECT_THROW(std::ignore = d3d.blockingDispatch(shader, { }, { }, { }, 1, 1, 1), std::runtime_error);
 
     DirectX::ScratchImage out;
-    EXPECT_THROW(d3d.readBack(texture, out), std::runtime_error);
+    EXPECT_THROW(std::ignore = d3d.readBack(texture, out), std::runtime_error);
     EXPECT_THROW(d3d.copyResource(nullptr, nullptr), std::runtime_error);
     EXPECT_THROW(d3d.generateMips(srv), std::runtime_error);
     EXPECT_THROW(d3d.flushGPU(), std::runtime_error);

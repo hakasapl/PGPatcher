@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -177,7 +178,7 @@ TEST(BethesdaGameTest,
     const FakeGame fake;
     const BethesdaGame game = fake.game();
     std::filesystem::remove(fake.pluginsFile());
-    EXPECT_THROW(game.activePlugins(), std::runtime_error);
+    EXPECT_THROW(std::ignore = game.activePlugins(), std::runtime_error);
 }
 
 TEST(BethesdaGameTest,

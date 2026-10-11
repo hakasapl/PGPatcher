@@ -25,6 +25,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -117,9 +118,9 @@ protected:
     void recordRun() const
     {
         PGRunCache::MeshRecorder recorder(meshPath);
-        m_pgd->isFile(L"textures\\a\\stone.dds");
-        m_pgd->isFile(L"textures\\a\\missing.dds");
-        m_pgd->file(meshPath);
+        std::ignore = m_pgd->isFile(L"textures\\a\\stone.dds"); // queried for the recorder
+        std::ignore = m_pgd->isFile(L"textures\\a\\missing.dds"); // queried for the recorder
+        std::ignore = m_pgd->file(meshPath); // queried for the recorder
         PGRunCache::recordTextureType(L"textures\\a\\stone_p.dds", TextureType::Height);
         PGRunCache::recordTextureAttribute(L"textures\\a\\stone_m.dds", TextureAttribute::CMMetalness, true);
         PGRunCache::recordTextureAttributes(L"textures\\a\\stone_m.dds",

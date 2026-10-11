@@ -36,6 +36,15 @@ python scripts/run_clang_tidy.py
 
 It picks up `buildRelease/` or `build/` automatically; pass `--build-dir` for anything else. It needs the LLVM release pinned in `scripts/clang-tidy-version.txt` first on PATH (CI downloads it from llvm-project; locally, install the same release) and refuses any other version. The script's docstring explains why a plain clang-tidy invocation is not enough here.
 
+The build itself has to stay warning free. The `Build PGPatcher` workflow keeps the output of its build and fails on any compiler, linker or C# warning in it (`scripts/check_build_warnings.py`; its docstring says what counts). To run the same check on your own build:
+
+```
+./buildRelease.ps1 -NoZip 2>&1 | Tee-Object build.log
+python scripts/check_build_warnings.py build.log
+```
+
+A warning is only printed for a file that was compiled, so after a header change check a from-scratch build rather than an incremental one.
+
 The [Webkit](https://webkit.org/code-style-guidelines/) style is used for all C++ code. Clang-format and clang-tidy will enforce this.
 
 ### Unit Tests

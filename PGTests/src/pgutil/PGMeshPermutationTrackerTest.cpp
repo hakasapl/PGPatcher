@@ -120,11 +120,11 @@ protected:
 TEST_F(PGMeshPermutationTrackerTest,
        ConstructorNeedsAMappedMesh)
 {
-    EXPECT_NO_THROW(std::make_unique<PGMeshPermutationTracker>(meshPath));
-    EXPECT_THROW(std::make_unique<PGMeshPermutationTracker>(L"meshes\\a\\missing.nif"), std::runtime_error);
+    EXPECT_NO_THROW(PGMeshPermutationTracker { meshPath });
+    EXPECT_THROW(PGMeshPermutationTracker { L"meshes\\a\\missing.nif" }, std::runtime_error);
 
     PGGlobals::setPGD(nullptr);
-    EXPECT_THROW(std::make_unique<PGMeshPermutationTracker>(meshPath), std::runtime_error);
+    EXPECT_THROW(PGMeshPermutationTracker { meshPath }, std::runtime_error);
 }
 
 TEST_F(PGMeshPermutationTrackerTest,

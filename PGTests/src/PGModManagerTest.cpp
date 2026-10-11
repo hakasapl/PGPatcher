@@ -16,6 +16,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -476,7 +477,7 @@ TEST(PGModManagerTest,
 
     // Without the global directory the archive cannot be resolved.
     PGGlobals::setPGD(nullptr);
-    EXPECT_THROW(pgmm.modByFileSmart(L"textures\\archived.dds"), std::runtime_error);
+    EXPECT_THROW(std::ignore = pgmm.modByFileSmart(L"textures\\archived.dds"), std::runtime_error);
 
     PGGlobals::setPGD(&pgd);
     EXPECT_EQ(pgmm.modByFileSmart(L"textures\\archived.dds"), pgmm.mod(L"TexMod"));

@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -134,18 +135,18 @@ TEST(BethesdaDirectoryTest,
     const TempDir dir;
     BethesdaDirectory bd(dir.path(), { L"meshes" }, dir / L"out");
 
-    EXPECT_THROW(bd.isFile(L"meshes\\a.nif"), std::runtime_error);
-    EXPECT_THROW(bd.isLooseFile(L"meshes\\a.nif"), std::runtime_error);
-    EXPECT_THROW(bd.isBSAFile(L"meshes\\a.nif"), std::runtime_error);
-    EXPECT_THROW(bd.isGenerated(L"meshes\\a.nif"), std::runtime_error);
-    EXPECT_THROW(bd.looseFileFullPath(L"meshes\\a.nif"), std::runtime_error);
-    EXPECT_THROW(bd.isFileInBSA(L"meshes\\a.nif", { }), std::runtime_error);
-    EXPECT_THROW(bd.file(L"meshes\\a.nif"), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.isFile(L"meshes\\a.nif"), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.isLooseFile(L"meshes\\a.nif"), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.isBSAFile(L"meshes\\a.nif"), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.isGenerated(L"meshes\\a.nif"), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.looseFileFullPath(L"meshes\\a.nif"), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.isFileInBSA(L"meshes\\a.nif", { }), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.file(L"meshes\\a.nif"), std::runtime_error);
     EXPECT_EQ(bd.fileIdentity(L"meshes\\a.nif").kind, BethesdaDirectory::FileIdentity::Kind::None);
     EXPECT_TRUE(bd.fileMap().empty());
 
     // Without a game there is no archive load order.
-    EXPECT_THROW(bd.bsaLoadOrder(), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.bsaLoadOrder(), std::runtime_error);
 }
 
 TEST(BethesdaDirectoryTest,
@@ -189,7 +190,7 @@ TEST(BethesdaDirectoryTest,
     EXPECT_EQ(bd.looseFileFullPath(L"meshes\\missing.nif"), data / L"meshes\\missing.nif");
     EXPECT_EQ(bd.modLookupFile(L"meshes\\a.nif"), L"meshes\\a.nif");
     EXPECT_EQ(bytesToString(bd.file(L"meshes\\sub\\b.nif")), "b");
-    EXPECT_THROW(bd.file(L"meshes\\missing.nif"), std::runtime_error);
+    EXPECT_THROW(std::ignore = bd.file(L"meshes\\missing.nif"), std::runtime_error);
 
     const auto identity = bd.fileIdentity(L"meshes\\a.nif");
     EXPECT_EQ(identity.kind, BethesdaDirectory::FileIdentity::Kind::Loose);
@@ -321,18 +322,18 @@ TEST(BethesdaDirectoryTest,
     EXPECT_TRUE(bd.isFile(L"meshes\\shared.nif"));
     EXPECT_FALSE(bd.isFile(L"meshes\\missing.nif"));
     EXPECT_TRUE(bd.isFile(L"meshes\\gen.nif"));
-    bd.file(L"meshes\\loose.nif");
-    EXPECT_THROW(bd.file(L"meshes\\missing.nif"), std::runtime_error);
+    std::ignore = bd.file(L"meshes\\loose.nif");
+    EXPECT_THROW(std::ignore = bd.file(L"meshes\\missing.nif"), std::runtime_error);
 
     // Other threads have their own (unset) observer.
     std::thread([&bd] {
-        bd.isFile(L"meshes\\shared.nif");
-        bd.file(L"meshes\\shared.nif");
+        std::ignore = bd.isFile(L"meshes\\shared.nif");
+        std::ignore = bd.file(L"meshes\\shared.nif");
     }).join();
 
     BethesdaDirectory::setThreadFileQueryObserver(nullptr);
-    bd.isFile(L"meshes\\shared.nif");
-    bd.file(L"meshes\\shared.nif");
+    std::ignore = bd.isFile(L"meshes\\shared.nif");
+    std::ignore = bd.file(L"meshes\\shared.nif");
 
     ASSERT_EQ(observer.isFileCalls.size(), 3U);
     EXPECT_EQ(observer.isFileCalls[0].path, L"meshes\\shared.nif");
