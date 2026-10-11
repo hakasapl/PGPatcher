@@ -9,7 +9,6 @@
 #include "patchers/PatcherMeshPreStockMarker.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
-#include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -685,11 +684,19 @@ bool PGPatcher::processNIF(const std::filesystem::path& nifPath,
     // Get shapes and index 3ds (this is in the order as they would show up as 3d indices in plugins).
     const auto shapes = PGNIFUtil::shapesWith3DIdx(nif);
 
+    // Patching a shape can delete blocks, such as its alpha property, which renumbers the blocks behind them, so the
+    // block IDs of the shapes are taken from the NIF as it was loaded.
+    std::vector<uint32_t> shapeBlockIDs;
+    shapeBlockIDs.reserve(shapes.size());
+    for (const auto& shape : shapes)
+        shapeBlockIDs.push_back(nif->GetBlockID(shape.first));
+
     meshMeta.formKeys.push_back(formKey);
 
+    size_t shapeIdx = 0;
     size_t shapeMetaIdx = 0;
     for (const auto& [nifShape, oldIndex3D] : shapes) {
-        const auto shapeBlockID = nif->GetBlockID(nifShape);
+        const auto shapeBlockID = shapeBlockIDs[shapeIdx++];
         const auto shapeName = nifShape->name.get();
         const Logger::Prefix shapePrefix(std::to_string(shapeBlockID) + "/" + shapeName + "/"
                                          + std::to_string(oldIndex3D));
@@ -723,8 +730,7 @@ bool PGPatcher::processNIF(const std::filesystem::path& nifPath,
             // We want to include any texture sets that do not have alternate textures defined to be compared.
             nonAltTexShapes.insert(oldIndex3D);
         }
-        if (!processNIFShape(nifPath,
-                             nif,
+        if (!processNIFShape(nif,
                              nifShape,
                              curMeshShapeMeta,
                              patcherObjects,
@@ -747,14 +753,10 @@ bool PGPatcher::processNIF(const std::filesystem::path& nifPath,
             meshMeta.globalPatchersApplied.push_back(globalPatcher->patcherName());
     }
 
-    // Clear texture sets cache for this NIF.
-    PatcherMeshShader::clearTextureSets(nifPath);
-
     return true;
 }
 
-bool PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
-                                nifly::NifFile* nif,
+bool PGPatcher::processNIFShape(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
                                 MeshShapeMeta& meshShapeMeta,
                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
@@ -769,10 +771,13 @@ bool PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
     if (!nifShape)
         throw std::runtime_error("NIFShape is null");
 
+    // A shader other shapes share is copied for this shape before any patcher writes it, see PGNIFUtil.
+    PGNIFUtil::unshareShader(*nif, *nifShape);
+
     // Prep.
     PGTypes::TextureSet slots;
     if (!alternateTexture) {
-        slots = PatcherMesh::textureSet(nifPath, *nif, *nifShape);
+        slots = PGNIFUtil::textureSlots(nif, nifShape);
     } else {
         Logger::trace("Alternate texture exist for this shape");
         slots = *alternateTexture;
@@ -884,8 +889,8 @@ bool PGPatcher::processNIFShape(const std::filesystem::path& nifPath,
     }
 
     if (!alternateTexture) {
-        // Assign texture set to nif.
-        PatcherMesh::setTextureSet(nifPath, *nif, *nifShape, slots);
+        // Assign texture set to nif. A texture set other shapes share is copied for this shape first, see PGNIFUtil.
+        PGNIFUtil::setTextureSlots(nif, nifShape, slots);
     } else {
         // Assign new slots to propogate upstream for alternate textures.
         *alternateTexture = slots;

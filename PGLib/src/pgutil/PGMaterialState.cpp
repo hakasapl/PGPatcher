@@ -18,13 +18,18 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
-#include <limits>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace {
+
+// Keys of the NiAlphaProperty fields, named after the fields NifSkope shows. PG_STOCK blocks store them, so they are
+// part of that format and never change.
+constexpr const char* keyAlphaFlags = "flags";
+constexpr const char* keyAlphaThreshold = "threshold";
 
 /// @brief Rounds a float to a double with at most nine significant digits, which reads back as the same float and
 /// keeps the JSON short.
@@ -54,24 +59,6 @@ bool floatFromJSON(const nlohmann::json& value,
         return false;
 
     out = asFloat;
-    return true;
-}
-
-/// @brief Reads a JSON number as the unsigned 32 bit integer the mesh format stores. A negative, fractional or larger
-/// number is malformed.
-bool unsignedFromJSON(const nlohmann::json& value,
-                      uint32_t& out)
-{
-    // nlohmann stores a non-negative integer as unsigned when it was parsed, but as signed when it was built from an
-    // int in code, so both integer kinds are accepted.
-    if (!value.is_number_integer())
-        return false;
-
-    const auto asInteger = value.get<int64_t>();
-    if (asInteger < 0 || std::cmp_greater(asInteger, std::numeric_limits<uint32_t>::max()))
-        return false;
-
-    out = static_cast<uint32_t>(asInteger);
     return true;
 }
 
@@ -114,7 +101,7 @@ ShaderField shaderTypeField()
         .write =
             [](nifly::BSLightingShaderProperty& shader, const nlohmann::json& value) {
                 uint32_t newType = 0;
-                if (!unsignedFromJSON(value, newType) || shader.GetShaderType() == newType)
+                if (!PGMaterialState::unsignedFromJSON(value, newType) || shader.GetShaderType() == newType)
                     return false;
 
                 shader.SetShaderType(newType);
@@ -155,7 +142,7 @@ ShaderField unsignedField(const char* key,
         .write =
             [member](nifly::BSLightingShaderProperty& shader, const nlohmann::json& value) {
                 uint32_t newValue = 0;
-                if (!unsignedFromJSON(value, newValue) || shader.*member == newValue)
+                if (!PGMaterialState::unsignedFromJSON(value, newValue) || shader.*member == newValue)
                     return false;
 
                 shader.*member = newValue;
@@ -355,4 +342,53 @@ bool PGMaterialState::isTextureSetEqual(const nifly::BSShaderTextureSet& texSetA
     }
 
     return true;
+}
+
+nlohmann::json PGMaterialState::alphaPropertyToJSON(const nifly::NifFile& nif,
+                                                    nifly::NiShape& nifShape)
+{
+    const auto* const alphaProperty = nif.GetAlphaProperty(&nifShape);
+    if (!alphaProperty)
+        return nullptr;
+
+    nlohmann::json out = nlohmann::json::object();
+    out[keyAlphaFlags] = alphaProperty->flags;
+    out[keyAlphaThreshold] = alphaProperty->threshold;
+
+    return out;
+}
+
+bool PGMaterialState::alphaPropertyFromJSON(nifly::NifFile& nif,
+                                            nifly::NiShape& nifShape,
+                                            const nlohmann::json& state)
+{
+    if (state.is_null())
+        return PGNIFUtil::deleteAlphaProperty(nif, nifShape);
+
+    if (!state.is_object())
+        return false;
+
+    std::optional<uint16_t> flags;
+    const auto flagsIt = state.find(keyAlphaFlags);
+    uint16_t newFlags = 0;
+    if (flagsIt != state.end() && unsignedFromJSON(*flagsIt, newFlags))
+        flags = newFlags;
+
+    std::optional<uint8_t> threshold;
+    const auto thresholdIt = state.find(keyAlphaThreshold);
+    uint8_t newThreshold = 0;
+    if (thresholdIt != state.end() && unsignedFromJSON(*thresholdIt, newThreshold))
+        threshold = newThreshold;
+
+    // An object stands for an existing alpha property, so a shape without one gets it back.
+    return PGNIFUtil::setAlphaProperty(nif, nifShape, flags, threshold, true);
+}
+
+bool PGMaterialState::isAlphaPropertyEqual(const nifly::NiAlphaProperty* alphaA,
+                                           const nifly::NiAlphaProperty* alphaB)
+{
+    if (!alphaA || !alphaB)
+        return alphaA == nullptr && alphaB == nullptr;
+
+    return alphaA->flags == alphaB->flags && alphaA->threshold == alphaB->threshold;
 }

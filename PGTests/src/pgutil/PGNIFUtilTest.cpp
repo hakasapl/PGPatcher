@@ -6,14 +6,19 @@
 #include "pgutil/PGTypes.hpp"
 #include "util/StringUtil.hpp"
 
+#include "Animation.hpp"
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
+#include "Object3d.hpp"
 #include "Shaders.hpp"
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
+#include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -27,6 +32,11 @@ using PGEnums::TextureSlots;
 using PGEnums::TextureType;
 using TestUtil::NIFBuilder;
 
+constexpr uint16_t alphaTestFlags = 4844;
+constexpr uint16_t alphaBlendFlags = 4845;
+constexpr uint8_t defaultThreshold = 128;
+constexpr uint8_t lowThreshold = 64;
+
 PGTypes::TextureSet stoneTextures()
 {
     PGTypes::TextureSet textures;
@@ -35,6 +45,42 @@ PGTypes::TextureSet stoneTextures()
     textures[3] = L"textures\\a\\stone_p.dds";
     textures[5] = L"textures\\a\\stone_m.dds";
     return textures;
+}
+
+/// @brief Gives the alpha property of a shape an alpha test controller with an interpolator and its data.
+void addAlphaController(nifly::NifFile& nif,
+                        nifly::NiShape& shape)
+{
+    auto& header = nif.GetHeader();
+    auto* alpha = nif.GetAlphaProperty(&shape);
+    ASSERT_NE(alpha, nullptr);
+
+    const auto dataID = header.AddBlock(std::make_unique<nifly::NiFloatData>());
+    auto interpolator = std::make_unique<nifly::NiFloatInterpolator>();
+    interpolator->dataRef.index = dataID;
+    const auto interpolatorID = header.AddBlock(std::move(interpolator));
+    auto controller = std::make_unique<nifly::BSNiAlphaPropertyTestRefController>();
+    controller->interpolatorRef.index = interpolatorID;
+    controller->targetRef.index = nif.GetBlockID(alpha);
+    alpha->controllerRef.index = header.AddBlock(std::move(controller));
+}
+
+/// @brief Adds a float interpolator with its own data, as the links of a vanilla animation sequence have.
+uint32_t addFloatInterpolator(nifly::NifFile& nif)
+{
+    auto& header = nif.GetHeader();
+    auto interpolator = std::make_unique<nifly::NiFloatInterpolator>();
+    interpolator->dataRef.index = header.AddBlock(std::make_unique<nifly::NiFloatData>());
+    return header.AddBlock(std::move(interpolator));
+}
+
+/// @brief Checks that every block but the root is referenced by another block.
+void expectNoLooseBlocks(nifly::NifFile& nif)
+{
+    auto& header = nif.GetHeader();
+    for (uint32_t blockID = 0; blockID < header.GetNumBlocks(); blockID++)
+        if (header.GetBlock<nifly::NiObject>(blockID) != nif.GetRootNode())
+            EXPECT_TRUE(header.IsBlockReferenced(blockID, false)) << header.GetBlockTypeStringById(blockID);
 }
 
 TEST(PGNIFUtilTest,
@@ -313,6 +359,330 @@ TEST(PGNIFUtilTest,
     EXPECT_TRUE(PGNIFUtil::setTextureSlots(&nif, shape, replacement));
     EXPECT_EQ(PGNIFUtil::textureSlots(&nif, shape), replacement);
     EXPECT_FALSE(PGNIFUtil::setTextureSlots(&nif, shape, replacement));
+
+    // Nothing to write for shapes without a shader.
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_FALSE(PGNIFUtil::setTextureSlots(&nif, shaderless, replacement));
+    EXPECT_FALSE(PGNIFUtil::setTextureSlots(nullptr, shape, replacement));
+    EXPECT_FALSE(PGNIFUtil::setTextureSlots(&nif, nullptr, replacement));
+
+    // An effect shader has no texture set; nifly maps its source texture to the first slot, which is written in place.
+    auto* effect = builder.addEffectShape("Effect", "textures\\fx.dds");
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::setTextureSlot(&nif, effect, TextureSlots::Diffuse, std::string("textures\\fx2.dds")));
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif, effect, TextureSlots::Diffuse), "textures\\fx2.dds");
+    EXPECT_FALSE(PGNIFUtil::setTextureSlot(&nif, effect, TextureSlots::Diffuse, std::string("textures\\fx2.dds")));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks);
+}
+
+TEST(PGNIFUtilTest,
+     TextureSlotSettersCopyASharedTextureSetForTheShapeThatChanges)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto* first = builder.addShape("First", stoneTextures());
+    auto* second = builder.addShape("Second");
+    auto* third = builder.addShape("Third");
+    // Share the texture set block of the first shape, as many vanilla meshes do.
+    const auto sharedBlock = builder.lightingShader(first)->textureSetRef.index;
+    builder.lightingShader(second)->textureSetRef.index = sharedBlock;
+    builder.lightingShader(third)->textureSetRef.index = sharedBlock;
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+
+    // Writing the textures a shape already has copies nothing.
+    EXPECT_FALSE(PGNIFUtil::setTextureSlots(&nif, second, stoneTextures()));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks);
+
+    // A change copies the block for the shape that changes, the others keep the original.
+    auto patched = stoneTextures();
+    patched[0] = L"textures\\a\\patched.dds";
+    EXPECT_TRUE(PGNIFUtil::setTextureSlots(&nif, second, patched));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 1);
+    EXPECT_NE(builder.lightingShader(second)->textureSetRef.index, sharedBlock);
+    EXPECT_EQ(builder.lightingShader(first)->textureSetRef.index, sharedBlock);
+    EXPECT_EQ(builder.lightingShader(third)->textureSetRef.index, sharedBlock);
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, second), patched);
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, first), stoneTextures());
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, third), stoneTextures());
+
+    // A block the shape alone uses changes in place, also through the single slot setter.
+    EXPECT_TRUE(
+        PGNIFUtil::setTextureSlot(&nif, second, TextureSlots::Normal, std::string("textures\\a\\patched_n.dds")));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 1);
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif, second, TextureSlots::Normal), "textures\\a\\patched_n.dds");
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif, first, TextureSlots::Normal), "textures\\a\\stone_n.dds");
+
+    // The single slot setter copies a shared block too, and the last sharer keeps the original in place.
+    EXPECT_TRUE(PGNIFUtil::setTextureSlot(&nif, third, TextureSlots::Glow, std::wstring(L"textures\\a\\stone_g.dds")));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 2);
+    EXPECT_NE(builder.lightingShader(third)->textureSetRef.index, sharedBlock);
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif, first, TextureSlots::Glow), "");
+    EXPECT_TRUE(PGNIFUtil::setTextureSlot(&nif, first, TextureSlots::Glow, std::wstring(L"textures\\a\\stone_g.dds")));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 2);
+    EXPECT_EQ(builder.lightingShader(first)->textureSetRef.index, sharedBlock);
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif, first, TextureSlots::Glow), "textures\\a\\stone_g.dds");
+    // The copies never leave the original without a user (the sets addShape() made for the sharers are loose by
+    // construction, so the whole mesh is not checked here).
+    EXPECT_TRUE(nif.GetHeader().IsBlockReferenced(sharedBlock, false));
+}
+
+TEST(PGNIFUtilTest,
+     UnshareShaderCopiesASharedShaderForTheShape)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto* first = builder.addShape("First", stoneTextures());
+    auto* second = builder.addShaderlessShape("Second");
+    // Share the shader of the first shape, and with it its texture set.
+    const auto sharedShader = first->ShaderPropertyRef()->index;
+    second->ShaderPropertyRef()->index = sharedShader;
+    const auto sharedSet = builder.lightingShader(first)->textureSetRef.index;
+    builder.lightingShader(first)->glossiness = 50;
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+
+    // The shape gets a copy of the shader with the same fields, which still references the shared texture set.
+    EXPECT_TRUE(PGNIFUtil::unshareShader(nif, *second));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 1);
+    EXPECT_NE(second->ShaderPropertyRef()->index, sharedShader);
+    EXPECT_EQ(first->ShaderPropertyRef()->index, sharedShader);
+    ASSERT_NE(builder.lightingShader(second), nullptr);
+    EXPECT_NE(builder.lightingShader(second), builder.lightingShader(first));
+    EXPECT_EQ(builder.lightingShader(second)->glossiness, 50);
+    EXPECT_EQ(builder.lightingShader(second)->shaderFlags1, builder.lightingShader(first)->shaderFlags1);
+    EXPECT_EQ(builder.lightingShader(second)->textureSetRef.index, sharedSet);
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, second), stoneTextures());
+
+    // Changes to the copy stay with the shape, and its first texture write copies the set as well.
+    builder.lightingShader(second)->glossiness = 80;
+    EXPECT_EQ(builder.lightingShader(first)->glossiness, 50);
+    EXPECT_TRUE(PGNIFUtil::setTextureSlot(&nif, second, TextureSlots::Diffuse, std::string("textures\\a\\other.dds")));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 2);
+    EXPECT_NE(builder.lightingShader(second)->textureSetRef.index, sharedSet);
+    EXPECT_EQ(builder.lightingShader(first)->textureSetRef.index, sharedSet);
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, first), stoneTextures());
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif, second, TextureSlots::Diffuse), "textures\\a\\other.dds");
+    expectNoLooseBlocks(nif);
+
+    // A shader only the shape uses stays as it is, and a shape without a shader has nothing to copy.
+    EXPECT_FALSE(PGNIFUtil::unshareShader(nif, *second));
+    EXPECT_FALSE(PGNIFUtil::unshareShader(nif, *first));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 2);
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_FALSE(PGNIFUtil::unshareShader(nif, *shaderless));
+
+    // A shader with a controller stays shared, since the controller animates that one block.
+    auto* animated = builder.addShape("Animated", stoneTextures());
+    auto* animatedSharer = builder.addShaderlessShape("AnimatedSharer");
+    animatedSharer->ShaderPropertyRef()->index = animated->ShaderPropertyRef()->index;
+    auto controller = std::make_unique<nifly::BSLightingShaderPropertyFloatController>();
+    controller->targetRef.index = animated->ShaderPropertyRef()->index;
+    builder.lightingShader(animated)->controllerRef.index = nif.GetHeader().AddBlock(std::move(controller));
+    const auto blocksWithController = nif.GetHeader().GetNumBlocks();
+    EXPECT_FALSE(PGNIFUtil::unshareShader(nif, *animatedSharer));
+    EXPECT_EQ(animatedSharer->ShaderPropertyRef()->index, animated->ShaderPropertyRef()->index);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithController);
+
+    // An effect shader is never copied: the shape patchers do not write one.
+    auto* effect = builder.addEffectShape("Effect", "textures\\fx.dds");
+    auto* effectSharer = builder.addShaderlessShape("EffectSharer");
+    effectSharer->ShaderPropertyRef()->index = effect->ShaderPropertyRef()->index;
+    const auto blocksWithEffect = nif.GetHeader().GetNumBlocks();
+    EXPECT_FALSE(PGNIFUtil::unshareShader(nif, *effectSharer));
+    EXPECT_EQ(effectSharer->ShaderPropertyRef()->index, effect->ShaderPropertyRef()->index);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithEffect);
+}
+
+TEST(PGNIFUtilTest,
+     SetAlphaPropertyCreatesOnlyOnRequestAndCopiesSharedBlocks)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto* shape = builder.addShape("Shape", stoneTextures());
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+
+    // Without the create flag a shape without an alpha property is left alone.
+    EXPECT_FALSE(PGNIFUtil::setAlphaProperty(nif, *shape, alphaBlendFlags, lowThreshold, false));
+    EXPECT_EQ(nif.GetAlphaProperty(shape), nullptr);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks);
+
+    // The create flag adds one, with the default for every value that is not given.
+    EXPECT_TRUE(PGNIFUtil::setAlphaProperty(nif, *shape, std::nullopt, lowThreshold, true));
+    auto* alpha = nif.GetAlphaProperty(shape);
+    ASSERT_NE(alpha, nullptr);
+    EXPECT_EQ(alpha->flags, alphaTestFlags);
+    EXPECT_EQ(alpha->threshold, lowThreshold);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 1);
+
+    // The same values change nothing, other values change the block in place, with or without the create flag.
+    EXPECT_FALSE(PGNIFUtil::setAlphaProperty(nif, *shape, alphaTestFlags, lowThreshold, true));
+    EXPECT_FALSE(PGNIFUtil::setAlphaProperty(nif, *shape, std::nullopt, std::nullopt, false));
+    EXPECT_TRUE(PGNIFUtil::setAlphaProperty(nif, *shape, alphaBlendFlags, std::nullopt, false));
+    EXPECT_EQ(alpha->flags, alphaBlendFlags);
+    EXPECT_EQ(alpha->threshold, lowThreshold);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 1);
+
+    // A shared alpha property is copied for the shape that changes, the other shape keeps the original.
+    auto* sharer = builder.addShape("Sharer", stoneTextures());
+    sharer->AlphaPropertyRef()->index = shape->AlphaPropertyRef()->index;
+    const auto blocksWithSharer = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::setAlphaProperty(nif, *sharer, std::nullopt, defaultThreshold, false));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithSharer + 1);
+    EXPECT_NE(sharer->AlphaPropertyRef()->index, shape->AlphaPropertyRef()->index);
+    EXPECT_EQ(nif.GetAlphaProperty(shape), alpha);
+    EXPECT_EQ(alpha->threshold, lowThreshold);
+    ASSERT_NE(nif.GetAlphaProperty(sharer), nullptr);
+    EXPECT_EQ(nif.GetAlphaProperty(sharer)->flags, alphaBlendFlags);
+    EXPECT_EQ(nif.GetAlphaProperty(sharer)->threshold, defaultThreshold);
+
+    // An alpha property with a controller stays shared: the controller animates that one block.
+    auto* animated = builder.addShape("Animated", stoneTextures());
+    auto* animatedSharer = builder.addShape("AnimatedSharer", stoneTextures());
+    const auto* const animatedAlpha = builder.addAlphaProperty(animated);
+    animatedSharer->AlphaPropertyRef()->index = animated->AlphaPropertyRef()->index;
+    addAlphaController(nif, *animated);
+    const auto blocksWithController = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::setAlphaProperty(nif, *animatedSharer, alphaBlendFlags, std::nullopt, false));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithController);
+    EXPECT_EQ(animatedSharer->AlphaPropertyRef()->index, animated->AlphaPropertyRef()->index);
+    EXPECT_EQ(animatedAlpha->flags, alphaBlendFlags);
+    expectNoLooseBlocks(nif);
+}
+
+TEST(PGNIFUtilTest,
+     DeleteAlphaPropertyOnlyDeletesWhatTheShapeAloneUses)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto* shape = builder.addShape("Shape", stoneTextures());
+    EXPECT_FALSE(PGNIFUtil::deleteAlphaProperty(nif, *shape)); // nothing to delete
+
+    // A shared block stays for the other shape.
+    auto* sharer = builder.addShape("Sharer", stoneTextures());
+    auto* alpha = builder.addAlphaProperty(shape, alphaBlendFlags, lowThreshold);
+    sharer->AlphaPropertyRef()->index = shape->AlphaPropertyRef()->index;
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif, *shape));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks);
+    EXPECT_EQ(nif.GetAlphaProperty(shape), nullptr);
+    EXPECT_EQ(nif.GetAlphaProperty(sharer), alpha);
+    EXPECT_FALSE(PGNIFUtil::deleteAlphaProperty(nif, *shape));
+
+    // A block only the shape uses goes, together with its controller, the interpolator and the data of that one.
+    addAlphaController(nif, *sharer);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 3);
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif, *sharer));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks - 1);
+    EXPECT_EQ(nif.GetAlphaProperty(sharer), nullptr);
+    expectNoLooseBlocks(nif);
+
+    // The shapes and their shaders are untouched by the deletion.
+    EXPECT_EQ(nif.GetShapes().size(), 2U);
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, shape), stoneTextures());
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, sharer), stoneTextures());
+
+    // A controller an animation sequence drives goes with the property, and the link of the sequence goes with the
+    // controller, together with the interpolator only that link used. The link to another controller stays.
+    auto* animated = builder.addShape("Animated", stoneTextures());
+    const auto* const animatedAlpha = builder.addAlphaProperty(animated);
+    addAlphaController(nif, *animated);
+    auto shaderController = std::make_unique<nifly::BSLightingShaderPropertyFloatController>();
+    auto* const shaderControllerPtr = shaderController.get();
+    shaderController->interpolatorRef.index = addFloatInterpolator(nif);
+    shaderController->targetRef.index = animated->ShaderPropertyRef()->index;
+    const auto shaderControllerID = nif.GetHeader().AddBlock(std::move(shaderController));
+    builder.lightingShader(animated)->controllerRef.index = shaderControllerID;
+    auto sequence = std::make_unique<nifly::NiControllerSequence>();
+    auto* const sequencePtr = sequence.get();
+    nifly::ControllerLink alphaLink;
+    alphaLink.controllerRef.index = animatedAlpha->controllerRef.index;
+    alphaLink.interpolatorRef.index = addFloatInterpolator(nif);
+    sequence->controlledBlocks.push_back(alphaLink);
+    nifly::ControllerLink shaderLink;
+    shaderLink.controllerRef.index = shaderControllerID;
+    shaderLink.interpolatorRef.index = addFloatInterpolator(nif);
+    sequence->controlledBlocks.push_back(shaderLink);
+    auto manager = std::make_unique<nifly::NiControllerManager>();
+    auto* const managerPtr = manager.get();
+    manager->controllerSequenceRefs.AddBlockRef(nif.GetHeader().AddBlock(std::move(sequence)));
+    manager->targetRef.index = nif.GetBlockID(nif.GetRootNode());
+    nif.GetRootNode()->controllerRef.index = nif.GetHeader().AddBlock(std::move(manager));
+    const auto blocksWithSequence = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif, *animated));
+    EXPECT_EQ(nif.GetAlphaProperty(animated), nullptr);
+    // The property, its controller, interpolator and data, and the interpolator and data of the erased link.
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithSequence - 6);
+    ASSERT_EQ(sequencePtr->controlledBlocks.size(), 1U);
+    EXPECT_EQ(sequencePtr->controlledBlocks[0].controllerRef.index, nif.GetBlockID(shaderControllerPtr));
+    expectNoLooseBlocks(nif);
+
+    // Two links of a sequence share one interpolator, which the controller of the first shape uses as well. Deleting
+    // that shape's property keeps the interpolator for the link of the other controller, which stays.
+    auto* twinA = builder.addShape("TwinA", stoneTextures());
+    auto* twinB = builder.addShape("TwinB", stoneTextures());
+    const auto* const twinAlphaA = builder.addAlphaProperty(twinA);
+    const auto* const twinAlphaB = builder.addAlphaProperty(twinB);
+    addAlphaController(nif, *twinA);
+    addAlphaController(nif, *twinB);
+    const auto* const twinControllerA
+        = nif.GetHeader().GetBlock<nifly::NiSingleInterpController>(twinAlphaA->controllerRef.index);
+    ASSERT_NE(twinControllerA, nullptr);
+    auto* const sharedInterpolator = nif.GetHeader().GetBlock<nifly::NiObject>(twinControllerA->interpolatorRef.index);
+    ASSERT_NE(sharedInterpolator, nullptr);
+    auto twinSequence = std::make_unique<nifly::NiControllerSequence>();
+    auto* const twinSequencePtr = twinSequence.get();
+    nifly::ControllerLink linkA;
+    linkA.controllerRef.index = twinAlphaA->controllerRef.index;
+    linkA.interpolatorRef.index = twinControllerA->interpolatorRef.index;
+    twinSequence->controlledBlocks.push_back(linkA);
+    nifly::ControllerLink linkB;
+    linkB.controllerRef.index = twinAlphaB->controllerRef.index;
+    linkB.interpolatorRef.index = twinControllerA->interpolatorRef.index;
+    twinSequence->controlledBlocks.push_back(linkB);
+    managerPtr->controllerSequenceRefs.AddBlockRef(nif.GetHeader().AddBlock(std::move(twinSequence)));
+    const auto blocksWithTwins = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif, *twinA));
+    EXPECT_EQ(nif.GetAlphaProperty(twinA), nullptr);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithTwins - 2); // the property and its controller only
+    ASSERT_NE(nif.GetAlphaProperty(twinB), nullptr);
+    ASSERT_EQ(twinSequencePtr->controlledBlocks.size(), 1U);
+    EXPECT_EQ(twinSequencePtr->controlledBlocks[0].controllerRef.index, twinAlphaB->controllerRef.index);
+    EXPECT_EQ(twinSequencePtr->controlledBlocks[0].interpolatorRef.index, nif.GetBlockID(sharedInterpolator));
+    expectNoLooseBlocks(nif);
+
+    // A block of the tree that another block uses stays with what it reaches, the rest of the tree goes.
+    auto* partial = builder.addShape("Partial", stoneTextures());
+    const auto* const partialAlpha = builder.addAlphaProperty(partial);
+    addAlphaController(nif, *partial);
+    const auto* const partialController
+        = nif.GetHeader().GetBlock<nifly::NiSingleInterpController>(partialAlpha->controllerRef.index);
+    ASSERT_NE(partialController, nullptr);
+    const auto sharedInterpolatorID = partialController->interpolatorRef.index;
+    auto partialShaderController = std::make_unique<nifly::BSLightingShaderPropertyFloatController>();
+    partialShaderController->interpolatorRef.index = sharedInterpolatorID;
+    partialShaderController->targetRef.index = partial->ShaderPropertyRef()->index;
+    builder.lightingShader(partial)->controllerRef.index = nif.GetHeader().AddBlock(std::move(partialShaderController));
+    const auto blocksWithPartial = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif, *partial));
+    EXPECT_EQ(nif.GetAlphaProperty(partial), nullptr);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithPartial - 2); // property and controller only
+    const auto* const keptShaderController = nif.GetHeader().GetBlock<nifly::NiSingleInterpController>(
+        builder.lightingShader(partial)->controllerRef.index);
+    ASSERT_NE(keptShaderController, nullptr);
+    const auto* const keptInterpolator
+        = nif.GetHeader().GetBlock<nifly::NiFloatInterpolator>(keptShaderController->interpolatorRef.index);
+    ASSERT_NE(keptInterpolator, nullptr);
+    EXPECT_NE(nif.GetHeader().GetBlock<nifly::NiFloatData>(keptInterpolator->dataRef.index), nullptr);
+
+    // A broken file whose alpha property references a scene graph block: nodes and shapes are never deleted.
+    auto* broken = builder.addShape("Broken", stoneTextures());
+    auto* brokenAlpha = builder.addAlphaProperty(broken);
+    brokenAlpha->controllerRef.index = nif.GetBlockID(nif.GetRootNode());
+    const auto blocksWithBroken = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif, *broken));
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), blocksWithBroken - 1);
+    EXPECT_EQ(nif.GetAlphaProperty(broken), nullptr);
+    ASSERT_NE(nif.GetRootNode(), nullptr);
+    EXPECT_EQ(nif.GetShapes().size(), 7U);
 }
 
 TEST(PGNIFUtilTest,
