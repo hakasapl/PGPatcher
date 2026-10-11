@@ -2,10 +2,13 @@
 
 Status: decided design as of 2026-10-11, including Hakan's decisions on the roadblocks and differences (no phases,
 blocks sorted as offline, weighted pair check kept, no caches or equivalence tooling, in-game notice when disabled,
-memory kept low). Section 10 lists the remaining defaults. Facts marked *verified* were read in this repository
-(branch `pglite`, commit fd2fd4c), in the Community Shaders (CS) sources on GitHub or in the IDA database of
-`SkyrimSE_1.7.99.exe`. Facts marked *to verify* are confirmed in the binary or in game when the code that depends on
-them is written.
+memory kept low), revised after the adversarial review of the same day. The review showed that the engine never loads
+a model by path, so the load hook of the first version is replaced by resource streams registered in the engine's
+resource registry (sections 3.1 and 4.2). Section 7 is the complete list of differences from the offline program.
+Section 10 lists the remaining defaults. Facts marked *verified* were read in this repository (branch `pglite`,
+commit fd2fd4c), in the Community Shaders (CS) sources on GitHub, in the CommonLibSSE-NG headers or in the IDA
+database of `SkyrimSE_1.7.99.exe`. Facts marked *to verify* are confirmed in the binary or in game when the code that
+depends on them is written.
 
 ## 1. What PGLite is
 
@@ -22,10 +25,10 @@ runtime. That wrapper is not built. The patchers keep calling nifly through `PGN
 do today, and PGLite applies them to the NIF data in memory before the engine parses it. Three verified facts decide
 this:
 
-1. CS decides that a shape is PBR inside its hook on `BSLightingShaderProperty::LoadBinary`, while the engine is
-   parsing the stream and before the texture set block is linked. Nothing later re-evaluates the flag. Any edit made
-   to loaded objects is therefore invisible to PBR, and "set the flag before CS reads it" can only be done by having
-   the flag in the parsed data. The stream patch does exactly that, without any CS class, export or API.
+1. CS decides that a shape is PBR inside its replacement of `BSLightingShaderProperty::LoadBinary`, while the engine
+   is parsing the stream and before the texture set block is linked. Nothing later re-evaluates the flag. Any edit
+   made to loaded objects is therefore invisible to PBR, and "set the flag before CS reads it" can only be done by
+   having the flag in the parsed data. The stream patch does exactly that, without any CS class, export or API.
 2. The patchers change geometry, not only materials: vanilla parallax adds a vertex color stream, TruePBR entries
    add or remove that stream, rewrite vertex colors in HSL (`vertex_color_lum_mult`, `vertex_color_sat_mult`),
    recompute normals and tangents (`smooth_angle`), delete shapes and add or delete blocks. On loaded objects these
@@ -33,36 +36,51 @@ this:
 3. Only the stream patch is comparable to the offline output: with blocks sorted the same way, the bytes PGLite
    hands the engine for a mesh are the bytes the offline run writes for the same use.
 
-What remains engine specific is the environment: one load hook, a memory stream, the record data (`TESDataHandler`
-instead of Mutagen), the in-memory record edits of the permutation system, settings, logging and the GUI.
+What remains engine specific is the environment: the resource streams PGLite registers with the engine, the record
+data (`TESDataHandler` instead of Mutagen), the in-memory record edits of the permutation system, file reads through
+the engine's resource layer, settings, logging and the GUI.
 
 ## 3. Engine and CS facts the design relies on
 
-### 3.1 NIF loading (verified in the 1.7.99 database)
+### 3.1 How the engine finds and reads a mesh (verified in the 1.7.99 database)
 
-| Function (1.7.99 image) | Role |
+The engine never opens a model by path. The chain is: path, 12-byte resource ID, registry record, stream object.
+
+| Step | What the engine does |
 |---|---|
-| `BSModelDB::Demand` 0x140FC9060 and `sub_140FC8D80` | Prefix `meshes\`, look the path up in the model entry database, load or queue the load. Every record model, including facegen heads (`sub_1403C2EC0` formats `FaceGeom\%s\%08X.NIF` and demands it), goes through here. |
-| Model loader `sub_140FC8480` | Constructs a `BSResourceNiBinaryStream` for the path, a `BSStream` (the game's `NiStream` subclass, vtable 0x1417EEDC8), calls `BSStream::Load(path, stream)` unconditionally, falls back to `Meshes\Marker_Error.NIF` when no top object came out, builds a root `NiNode` for several top objects, runs `BSModelProcessor::PostCreate` when `args.postProcess` is set. |
-| `BSStream::Load` 0x140FD12D0 `(this, const char* path, NiBinaryStream* stream)` | Opens a `BSResourceNiBinaryStream` itself when `stream` is null, copies the path into `NiStream::inputFilePath` (offset 0x108, which CS copies into its PBR material), then calls the load helper. Nine call sites: the model loader (two: normal and error fallback), the `.bto` distant object block loader (`sub_1405048A0`), a generic path loader (`sub_1401970B0`, sky and other hard coded NIFs) and five more. |
-| Load helper 0x140EE40A0 | `if (stream->good())`: store the stream in `NiStream::iStr` (offset 0x298), call vfunc 15 `LoadStream` (the parser), clear `iStr`. A stream that failed to open never reaches the parser. |
-| `NiMemStream` (vtable 0x141B4AEE8, ctor `sub_14156A6A0(this, buffer, size)`), `NiStream::Load2(buffer, len)` | The engine supports parsing from memory. |
-| `NiStream` vtable 0x141A47168 | Load1 at +8, Load2 at +16, Load3 at +24, LoadStream at +0x78. |
+| Path to ID | `BSResource::ID::GenerateFromPath` (CommonLib `RELOCATION_ID(68635, 69979)`, 1.7.99 `sub_140ED3EE0`) hashes the path into `{file hash, extension, directory hash}`. The lookup is case insensitive. |
+| Registry | One global registry (`qword_14331B4C0`: a `std::shared_mutex` at +0, the tables at +16). A record is 40 bytes: the ID at 0, flags at 12 (bit 31 marks an archive record), size at 16, a `BSFixedString` name at 24 and at 32 either a `BSResource::Stream*` (loose record) or the archive object (archive record). The record constructor `sub_140EC9A60` asks the stream for its name through `DoGetName`. |
+| Filling the registry | At startup (`sub_14065DBE0`): the INI archive lists, the hard coded `Update.bsa`, then for every plugin in load order `<name>.bsa` and `<name> - Textures.bsa` (`sub_1401C4CB0`), then the loose files through `BSResource::RegisterPrefix(prefix, root, Location*)` (`sub_140ECF570`; list form `sub_140ECF670`), whose traverser `sub_140ED2AF0` hashes each name, asks the location for a stream (`DoCreateStream`) and inserts the record. Loose records hold one lazily opened `LooseFileStream` each. |
+| Insert semantics | `sub_140EC8170(ctx, id, stream)`: a new ID gets a new record; an existing loose record gets its stream replaced; an existing archive record is converted to a loose record with the given stream. This is the rule that makes loose files override archives, and it is what PGLite relies on. |
+| Register a path with a stream | `sub_140ECEE30(const char* path, BSTSmartPointer<Stream>&)`: ID from the path, then the insert above. The engine uses it for sound aliases (`sub_140559E30`) and for its file cache validation (`sub_140ED9240`, "OnValid"). It takes the registry mutex itself. |
+| Resolve a path to a stream | `sub_140ECE860(const char* path, BSTSmartPointer<Stream>&, bool writeable, Location* optional)`: registry first (a loose record's stream is cloned, an archive record gets a fresh `ArchiveStream` or `CompressedArchiveStream`), then the location tree (`GlobalPaths`, `GlobalLocations`, `LooseFileLocation`) for files on disk that are not registered. It is the first call of the CommonLib-bound `BSResourceNiBinaryStream::ctor` (`RELOCATION_ID(69636, 71014)`, 1.7.99 0x140F00F80) and takes the registry mutex itself. |
+| Model entry | `BSModelDB::Demand` 0x140FC9060 and `sub_140FC8D80` prefix `meshes\` (`sub_140ECDC50`, which accepts an embedded `meshes\` and forward slashes), hash the path and look the ID up in the model entry database (`sub_14020BD20`). On a miss an entry is created only when the ID has a registry record, and the entry's stream is the record's stream (`sub_140EC8570`: loose records share their stream object, archive records spawn a stream). Facegen heads (`sub_1403C2EC0`) and queued and asynchronous loads go through the same entry database. |
+| Loader | `sub_140FC8480(BSTSmartPointer<Stream>*, ...)` receives the resolved stream. `sub_140F01090` wraps it in a `BSResourceNiBinaryStream`: sets the open flags, calls `DoOpen` (vfunc 1), allocates a buffer of `totalSize + 56` (`StreamBase::totalSize` at +8, 0x10000 when the stream is writable), and reads through `DoRead` (vfunc 6) and `DoSeek` (vfunc 8). Its destructor (0x140F01260) clears the flags, calls `DoClose` (vfunc 2) and releases the reference. Then `BSStream::Load` parses, falls back to `Meshes\Marker_Error.NIF` when no top object came out, builds a root `NiNode` for several top objects and runs `BSModelProcessor::PostCreate`. The path argument of `BSStream::Load` is the stream's own name and is null for files from archives that do not retain names (no vanilla archive does: BSA flag 0x10 is absent and `sResourceArchiveRetainFileNameList` is empty). |
+| Stream contract | CommonLib declares `BSResource::StreamBase` and `BSResource::Stream` with the full virtual layout: dtor, `DoOpen`, `DoClose`, `DoGetKey`, `DoGetInfo`, `DoClone`, `DoRead`, `DoWrite`, `DoSeek`, `DoSetEndOfStream`, `DoGetName`, `DoCreateAsync`. The reference count lives in the flags word (`kRefCountBeg` 0x1000), which sits at +0xC on SE and +0x10 on AE; CommonLib's `GetFlags()` resolves that at runtime. One entry is loaded by one thread at a time (other demanders spin in `sub_14020B970`), so a stream object is opened by one loader at a time; direct opens by path clone it. |
+| Registered locations | `BSResource::RegisterLocation` (CommonLib `RELOCATION_ID(68476, 69829)`) only inserts a `Location` into the priority list of `GlobalLocations` and mounts it. It registers no IDs. |
 
-The engine's 64-bit shader property flag word is a positional copy of the NIF's SLSF1 and SLSF2 words (verified
-against CommonLibSSE-NG's `EShaderPropertyFlag8`: `kMenuScreen` is 55, the loaded form of `SLSF2_UNUSED01` at bit
-23; `kVertexColors` 37; `kTreeAnim` 61). The stream patch never touches these.
+Two consequences shape PGLite: a virtual path that has no registry record is never loaded, whatever hook sits in the
+loader; and a registered record decides which bytes the engine parses, whatever the path string says. The engine's
+64-bit shader property flag word is a positional copy of the NIF's SLSF1 and SLSF2 words (verified against
+CommonLibSSE-NG's `EShaderPropertyFlag8`: `kMenuScreen` is 55, the loaded form of `SLSF2_UNUSED01` at bit 23;
+`kVertexColors` 37; `kTreeAnim` 61). The stream patch never touches these.
 
 ### 3.2 Community Shaders (verified in the `dev` sources)
 
-- TruePBR hooks `BSLightingShaderProperty` vfunc 0x18 (`LoadBinary`): after the original ran, `if
-  (property->flags.any(kMenuScreen))` the material is replaced with `BSLightingShaderMaterialPBR::Make()`, the PBR
-  flags are derived from the shader flags, `kVertexLighting` is set as the internal marker and legacy bits are
-  cleared. Textures load later from the texture set through the PBR material's own `OnLoadTextureSet`.
+- TruePBR replaces `BSLightingShaderProperty::LoadBinary` (vfunc 0x18) with its own parser; the original is not
+  called. After parsing, `if (property->flags.any(kMenuScreen))` the material is replaced with
+  `BSLightingShaderMaterialPBR::Make()`, the PBR flags are derived from the shader flags, `kVertexLighting` is set as
+  the internal marker and legacy bits are cleared. Textures load later from the texture set through the PBR
+  material's own `OnLoadTextureSet`. `inputFilePath` is used for logging only, so the name a PGLite stream reports
+  is irrelevant to CS.
 - Other TruePBR hooks: `GetRenderPasses` (vfunc 0x2A), `BSLightingShader::SetupMaterial/SetupGeometry`,
   `BGSTextureSet::ToShaderTextureSet` and `BSLightingShaderProperty::OnLoadTextureSet` (track the texture set being
   applied), `TESObjectSTAT::Clone3D` (PBR material objects). PBR alternate textures are recognized only through
   `Data\PBRTextureSets\*.json` by TXST editor ID, a registry read at startup.
+- Alternate texture swaps keep PBR: the engine swap (`sub_1401EE0E0`) re-sets the material, assigns the new texture
+  set, clears the textures and calls `OnLoadTextureSet`; CS's PBR material reloads RMAOS and the feature textures
+  from the new set. A texture set without a `PBRTextureSets` entry simply gets no extra data, which is what the
+  offline `PG_` TXST records get as well (verified in the 1.7.99 database and the CS sources).
 - Complex material and parallax are decided in the pixel shader: an environment mask whose mip 15 alpha is below
   `1 - 4/255` is a complex material, the material class selects the `ENVMAP` and `PARALLAX` techniques. No vertex
   color requirement in CS.
@@ -74,72 +92,90 @@ against CommonLibSSE-NG's `EShaderPropertyFlag8`: `kMenuScreen` is 55, the loade
 
 ### 4.1 Startup
 
-At `kDataLoaded`, in this order:
+PGLite's `kDataLoaded` handler posts one task to the SKSE task interface and returns. The task runs on the main
+thread on the next frame, after every plugin's `kDataLoaded` handler has run, so record edits other plugins make at
+data load (SkyPatcher-like tools) are already in place. The task does, synchronously:
 
 1. Detect the disable conditions (4.9). If any holds, log it, show the in-game notice, keep the GUI with the reason,
-   and leave the hook in pass-through mode.
-2. Build the uses map from `TESDataHandler` on the main thread (4.6). It is small and fast, and it is what lets the
-   hook pass through meshes without uses immediately (main menu and loading screen art).
-3. Start the background initialization: `BethesdaGame` and `BethesdaDirectory` for the running game (loose files and
-   archives in the engine's archive order, the active plugin list injected from `TESDataHandler`), `findFiles` and
-   suffix classification (4.5), TruePBR configs (`loadStatics` over the `pbrnifpatcher` JSONs in file map order),
-   the mod manager file map and `updateStateFromModlist` when a mod manager is configured, then the permutation
-   plan (4.4) and the record retargets on the main thread.
-4. Mark ready. Until then the hook passes through paths without uses and blocks loads of paths with uses on the
-   readiness latch, so no patchable mesh is ever cached unpatched for the session. This lengthens the first loading
-   screen by the initialization time; it never patches at boot.
+   and register nothing.
+2. Snapshot every record field the permutation system edits (model strings of every sub-model, alternate texture
+   index and texture set per entry) so Apply (4.8) can restore them.
+3. Build the uses map from `TESDataHandler` (4.6) and the record-only permutation plan (4.4): contexts, variant
+   numbers, which path keeps the original. Retarget the model strings of the records that get variants.
+4. Register one PGLite stream (4.2) for every path with uses and every variant path, through the engine's own
+   register-path function of 3.1. For a base path the stream wraps the engine's own stream for that path, resolved
+   through the engine's resolver before the registration replaces the record. A path whose file the engine cannot
+   resolve gets no stream and is left to the engine, exactly like a missing mesh offline.
+5. Start the background initialization thread.
 
-### 4.2 The load hook
+The background thread registers the facegen streams (one per NPC form whose `FaceGeom\<plugin>\<formid>.nif`
+resolves, unless `exclude facegens` is set), then builds the runtime environment: the texture file map (4.5), the
+complex material classification of every environment mask, the TruePBR configs (`loadStatics` over the
+`pbrnifpatcher` JSONs in file map order), the mod manager file map and `updateStateFromModlist` when a mod manager is
+configured. Then it marks the environment ready. Nothing in it needs the main thread. A stream opened before that
+point waits for the ready signal inside `DoOpen`; a loader thread waits silently, the main thread waits too when a
+synchronous demand hits a registered path before initialization is done (`MistMenu::Show` demands the loading screen
+model synchronously on the first load from the main menu), which lengthens that first loading screen by the
+remaining initialization time. It never deadlocks, because initialization waits for nothing that runs on the main
+thread, and it never patches at boot.
 
-The hook is on `BSStream::Load` itself: a call-site hook (`write_thunk_call`) at the two calls in the model loader,
-with an inline detour of the function as the fallback. It is not the `LoadStream` vtable hook, because virtual
-variant paths (4.4) have no file, the engine's own stream fails to open, and the load helper's `good()` check then
-never reaches `LoadStream`; the substitution has to happen before that check. The seven other call sites of
-`BSStream::Load` load sky, water, `.bto` blocks and other non-record NIFs that the offline patcher never touches, so
-leaving them unhooked is correct.
+Paths without uses are never registered and are never touched: main menu and loading screen art without record
+uses, sky, LOD, `.bto` blocks, interface meshes.
 
-Per call, with `path` normalized to lower case and backslashes:
+### 4.2 The resource streams
 
-1. Disabled, or `path` does not end in `.nif`, or does not start with `meshes\`: call the original.
-2. Facegen path test as offline (`PGNIFUtil::isFacegenMesh`; BodySlide ShapeData never loads in game), otherwise
-   look the path up in the uses map. No use and not facegen: call the original.
-3. Wait on the readiness latch.
-4. Resolve the request: a real path is its own base; a virtual variant path resolves to its original path and
-   variant number. Fetch or compute the path's patch plan (4.4), which patches every context of the original from
-   one parse the first time any member of the path is requested, or re-patches the one requested context when the
-   plan already exists.
-5. Hand a memory stream of the requested output to the original `BSStream::Load` with the requested name, so
-   `inputFilePath` carries it. For a real path whose output is unchanged, the original bytes are served. The input
-   bytes come from the engine's own stream for a real path and from a `BSResourceNiBinaryStream` on the original path
-   for a variant, so the input is always the bytes the engine would have parsed.
+PGLite does not hook the loader or `BSStream::Load`. It owns the stream objects the engine reads patched meshes from.
 
-Rules: any exception or nifly failure passes the original bytes through and logs once per path; the hook must never
-take the game down. `PGNIFUtil::loadNIFFromBytes` already wraps nifly in SEH and rejects truncated files, null
-shapes, dangling texture set references and non-ASCII texture paths exactly as offline. The hook runs on whichever
-thread the engine loads on: the resource loader threads for queued loads during cell attach and streaming, the main
-thread for synchronous demands such as equipping an item. Everything it touches is either per call (nifly objects),
-read only after startup (maps, TruePBR tables), or guarded (`PGD3D`, the Logger, the plan table). Two threads
-requesting members of the same path serialize on that path's plan entry, so a path is patched once.
+A PGLite stream is a `BSResource::Stream` subclass (CommonLib declares the virtual layout, 3.1) created for one
+registered path: a base path or a variant path, always with the family it belongs to (4.3) and its context. It is
+registered in the resource registry at startup and lives for the session; the engine's model entry for that ID
+shares it. Its behavior:
 
-The memory stream is a PGLite subclass of `RE::NiBinaryStream` (CommonLib declares the virtual layout and the read
-and write function pointers), so no engine allocator is involved. `NiMemStream` is the fallback.
+- `DoOpen`: wait for the environment (4.1); take the pipeline reader lock (4.8); fetch or compute the family's plan,
+  which patches every context of the family on the first open of any member (4.3, 4.4); produce the bytes of this
+  stream's context; set `totalSize`. On any exception or nifly failure, log once per path and serve the original
+  bytes instead; a stream must never take the game down. `PGNIFUtil::loadNIFFromBytes` already wraps nifly in SEH
+  and rejects truncated files, null shapes, dangling texture set references and non-ASCII texture paths exactly as
+  offline.
+- `DoRead`, `DoSeek`, `DoGetInfo`: serve the produced bytes. `DoClose`: drop them. Bytes exist only between open and
+  close; PGLite keeps plans, never meshes.
+- `DoClone`: a new PGLite stream for the same path and context, so a direct open by path (the resolver clones) has
+  its own position and buffer.
+- `DoGetName`: the registered path, which the registry stores as the record name and the loader passes to
+  `BSStream::Load`. `DoWrite`, `DoSetEndOfStream` and `DoCreateAsync` are unsupported, as for read-only engine streams.
+- The input bytes of a base path come from the wrapped engine stream (opened, read, closed inside `DoOpen`), so the
+  input is always what the engine itself would have parsed, with the engine's own loose-over-archive precedence. A
+  variant shares its base's wrapped stream.
 
-### 4.3 The patch of one path
+Threads: `DoOpen` runs on whichever thread loads the model, the resource loader threads for queued loads during cell
+attach and streaming, the main thread for synchronous demands such as equipping an item. Everything it touches is
+either per open (nifly objects, bytes), read only while the reader lock is held (maps, TruePBR tables, settings), or
+guarded (`PGD3D`, the Logger, the plan table). Two threads opening members of the same family serialize on the
+family's plan entry, so a family is patched once.
 
-For one original path the shared code runs exactly as `PGPatcher::patchNIF` runs offline, minus files: load the
-bytes once, create a `PGMeshPermutationTracker`, and for every use in the offline order stage a copy, run
-`processNIF` with that use's attributes (`createNIFPatcherObjects`, shapes in 3D index order, pre patchers with
-`StockMarker` first, `matches` and `sortMatches`, the winner's `applyPatch`, post patchers, texture set write-back or
-alternate texture result, `finalizeMarker`, `removeEmptyMarkers`, global patchers), then `commitMesh`, which merges
-identical results and keeps a use whose result equals the original on the original mesh. `saveMeshes` then sorts the
-blocks with `PrettySortBlocks`, exactly as offline, serializes every distinct output with
+### 4.3 The patch of one family
+
+A family is one original mesh with all its uses; for a weighted pair it is both files (4.4). For one family the
+shared code runs exactly as `PGPatcher::patchNIF` runs offline, minus files: load the bytes once, create a
+`PGMeshPermutationTracker`, and for every use in the offline order stage a copy, run `processNIF` with that use's
+attributes (`createNIFPatcherObjects`, shapes in 3D index order, pre patchers with `StockMarker` first, `matches` and
+`sortMatches`, the winner's `applyPatch`, post patchers, texture set write-back or alternate texture result,
+`finalizeMarker`, `removeEmptyMarkers`, global patchers), then `commitMesh`, which merges identical results and keeps
+a use whose result equals the original on the original mesh. `saveMeshes` then sorts the blocks with
+`PrettySortBlocks`, exactly as offline, serializes every distinct output with
 `Save(ostream, { .optimize = false, .sortBlocks = false })`, and returns the index corrections of every output. The
 tracker gains a mode that returns the serialized bytes instead of queuing files; nothing else in it changes.
 
-The result of the path is its plan: which uses map to which output, the bytes of the requested output (served and
-dropped), the alternate texture results per use, the index corrections per output, and for weighted paths the block
-type signature of each output. Only the plan is kept, not the bytes; a later request for another output of the same
-path re-runs the patch for that context, which is deterministic.
+The result of the family is its plan: which uses map to which output (the merge groups), the alternate texture
+results per use, the index corrections per output, and for weighted pairs the block type signature of each output.
+The bytes of the requested context are handed to the stream and dropped at close; a later open of another member
+re-runs the patch for that member's group (deterministic), always from the group's first member's context, because
+`compareMesh` ignores normals, tangents, positions and most effect shader fields and a merged-away member's own run
+could differ in exactly those (`smooth_angle` is the example).
+
+The first open of a family runs the whole family on the requesting thread, the main thread included. That is a
+hitch on synchronous demands of families with many contexts; it is measured in the in-game tests, not designed
+around up front (Hakan's ruling).
 
 Patchers available at runtime: the stock marker (restore half; its create half only fires on BodySlide ShapeData),
 Fix Mesh Lighting, Fix Texture Slot Count, Parallax, Complex Material, True PBR, the Default shader patcher, Restore
@@ -149,123 +185,188 @@ and Fix SSS (section 7). Excluded as offline-only: Particle Lights to Light Plac
 ### 4.4 The permutation system
 
 Offline, one NIF path serves many records while the result can depend on the record, so distinct results become
-duplicate files under `_pgpatcher_dups\N`, records are retargeted to them, alternate texture indices are corrected
-for the sorted and possibly reduced block layout, and patched alternate textures become new TXST records
-(`PGPatcher.cpp:561-633`, `PGMutagen.cs:961-1268`). The engine's model cache has the same shape as the output folder,
-one model per path, so the runtime keeps the mechanism and replaces files with virtual paths and plugin writes with
-in-memory record edits. It is part of the initial implementation, not a later phase.
+duplicate files under `meshes\_pgpatcher_dups\N\<path without meshes\>`, records are retargeted to them, alternate
+texture indices are corrected for the sorted and possibly reduced block layout, and patched alternate textures
+become new TXST records (`PGPatcher.cpp:561-633`, `PGMutagen.cs:961-1268`, `PGMeshPermutationTracker.cpp:616-630`).
+The engine's model cache has the same shape as the output folder, one model per path, so the runtime keeps the
+mechanism and replaces files with registered virtual paths and plugin writes with in-memory record edits. It is part
+of the initial implementation, not a later phase.
 
-**Context.** The per-use inputs that can change a result: alternate textures (3D index to the eight TXST paths, with
-the `textures\` prefix), whether the record type is in the allowed set, the record ignore flag (header flag
-0x01000000), mod level "meshes ignored", single-pass material object (STAT `DNAM` material with the MATO single-pass
-flag), the grass record type, and the weighted flag. Uses with equal contexts always patch identically.
+**Context.** The per-use inputs that can change a result: alternate textures (3D index to the eight TXST paths in
+NIF slot order, with the `textures\` prefix), whether the record type is in the allowed set (an ADDN use is always
+filtered, 4.6), the record ignore flag (header flag 0x01000000), single-pass material object (STAT `DNAM` material
+with the MATO single-pass flag), the grass record type, and the weighted flag. Uses with equal contexts always patch
+identically.
 
-**Plan at boot (records only, no mesh reading).** For every path with more than one distinct context, or with a
-context that must keep the original mesh, assign paths:
+**Plan at data load (records only, no mesh reading, main thread, 4.1).** Paths that the mesh block list and allow
+list exclude are skipped entirely: no plan, no stream, the engine loads the original, as offline. For every other
+path with more than one distinct context, or with a context that must keep the original mesh, assign paths:
 
 - The original path goes to the primary context, which is the first use in the offline ordering (uses without
-  alternate textures first, then weighted, then plugin name, form ID, sub model; `PGPlugin.cpp:136-150`). If any use
-  is filtered or ignored, the original path serves the unpatched mesh instead, exactly as `ignoreBaseMesh` does
-  offline, and every patched context gets a variant.
-- Every other context gets a virtual variant path, `meshes\_pgpatcher_dups\<n>\<original path>`, and the model
-  strings of its records (`TESModel::model`, including the ARMO and ARMA sub-models and destructible stage models)
-  are set to it. This is the runtime form of MODL retargeting and happens before anything loads.
+  alternate textures first, then weighted, then origin file name, local form ID, sub model; `PGPlugin.cpp:136-150`).
+  If any use is filtered or ignored, the original path serves the unpatched mesh instead, exactly as
+  `ignoreBaseMesh` does offline, and every patched context gets a variant.
+- Every other context gets a virtual variant path, `meshes\_pgpatcher_dups\<n>\<path without meshes\>`, and the
+  model strings of its records (`TESModel::model`, including the ARMO and ARMA sub-models and destructible stage
+  models) are set to it. Variant numbers come from one session counter that never restarts, so a plan computed after
+  Apply never reuses a name and a resident model of the previous plan is never served for a new context.
 
-**First request of a path (loader thread, inside the hook).** Patch every context from one parse as in 4.3, which
-also yields the offline merge: contexts whose results are identical share one output. The output of a group takes
-the lowest variant number of its members as its name; records of the other members are retargeted to that name by a
-main-thread task (`SKSE::TaskInterface`), so later instances share one model. A request for a member that was merged
-away is still served its group's bytes under the requested name, which leaves at most one transient duplicate model
-until the engine evicts it. Then the TXST step for every use of the path: every alternate texture whose patched slots
-differ from the TXST becomes a `BGSTextureSet` created through the form factory, deduplicated by its eight strings
-(case sensitive dedupe, case insensitive "unchanged" test, as `PGMutagen.cs:1194-1212`), the record's alternate
-texture entry is repointed to it and its 3D index replaced by the output's corrected index (`slotIDNew` logic of
-`PGPlugin::setModelUses`), and the entry is removed when its shape was deleted. The record edits of the requested
-context run before the load returns, and the engine applies the swap at `Clone3D` on the main thread afterwards, so
-even the instance that triggered the load sees the patched set; at that moment no instance of any record of that
-context exists yet, so the edits have no concurrent readers. Edits for merged-away contexts go through the same
-main-thread task as their retarget.
+Mod-level "meshes ignored" is a per-path rule that needs the mod manager file map, which is not available at data
+load, so it is applied when the family is first opened: every stream of an ignored path serves the original bytes.
+An ignored path with several contexts therefore holds several identical copies in the model cache until they are
+evicted; this is the price of planning from records alone (section 7).
+
+**First open of a family (the requesting thread, inside `DoOpen`, 4.2).** Patch every context from one parse as in
+4.3, which also yields the offline merge: contexts whose results are identical share one output and the group is
+named after the member with the lowest variant number. Then, before any bytes are returned, every record edit the
+patch determines is applied for every use of the family, not only the requested one:
+
+- Index corrections: each alternate texture entry's 3D index is replaced by its output's corrected index
+  (`slotIDNew` logic of `PGPlugin::setModelUses`); an entry whose shape was deleted gets index -1, which the engine's
+  swap application (`sub_1401ED800`) skips, so no array is resized.
+- Texture sets: every alternate texture whose patched slots differ from the TXST becomes a `BGSTextureSet` created
+  through the form factory and left unregistered (form ID 0, not in the form map, never saved, never purged with the
+  save's dynamic forms), carrying the eight paths only, as the offline records do (`PGMutagen.cs:1230-1241`),
+  deduplicated per family by its eight lower cased strings (case sensitive dedupe, case insensitive "unchanged" test,
+  as `PGMutagen.cs:1194-1212`), and the entry's texture set pointer is repointed to it. The swap needs only the
+  pointer. The eight strings are written in record order through the engine's slot mapping (below) without the
+  `textures\` prefix.
+
+These are single stores into records whose instances do not exist yet (no model of the family has finished loading
+when the first open runs, and a second thread opening a member waits on the family's plan entry), so they have no
+concurrent readers. The engine applies the swap when the instance's 3D is built, after the load returns.
+
+Records of merged-away members are then retargeted to the group's name by a main-thread task
+(`SKSE::TaskInterface`), so later instances share one model. Until that task runs, and for instances already created
+from a merged-away name, the engine holds one identical copy per merged-away context; it is evicted with its last
+instance. The bytes are identical in every case, so there is no visible difference.
+
+**TXST slot order.** The engine stores `BGSTextureSet::textures[8]` in record order (TX00 to TX07: diffuse, normal,
+environment mask, glow, height, environment, multilayer, backlight), while `GetTexturePath` and `SetTexturePath`
+(vfuncs 0x25 and 0x27) take NIF slot order. The runtime converts with the `BSTextureSet::Texture` enum: NIF slots 0
+to 7 map to record indices 0, 1, 3, 4, 5, 2, 6, 7. Reading a TXST for the uses map produces the eight paths in NIF
+slot order with the `textures\` prefix added, as Mutagen's named fields do offline (`PGMutagen.cs:1232-1239`,
+`1751-1758`); writing one reverses that. Paths are `BSFixedString`s (case insensitive), so they are lower cased
+before the dedupe. An alternate texture whose TXST does not resolve is eight empty strings (`PGMutagen.cs:851-872`).
 
 **Weighted pairs.** The engine derives `_1.nif` from a record's `_0.nif` by suffix, so a weighted use is registered
-under both paths (as `PGMutagen.cs:398-446` does) and the variant number of a context is the same for both paths of
-the pair. The offline check that both files of a pair produce the same block layout (`validateWeightedVariants`,
-block types only) is kept: each weighted path's plan stores the block type signature of every output, and when the
-counterpart's plan is computed the signatures are compared per variant and a mismatch is logged as an error and
-shown in the GUI warnings, exactly the offline behavior.
+under both paths (as `PGMutagen.cs:398-446` does) and both paths of a pair form one family: one plan, the same
+contexts and variant numbers for both files, and a context merges only when its results are identical in both files,
+so a record's single model string never points at `_0` and `_1` meshes of different contexts. The first open of
+either file patches both. The offline check that both files of a pair produce the same block layout
+(`validateWeightedVariants`, block types only) is kept on the two outputs of each context: a mismatch is logged as
+an error and shown in the GUI warnings, exactly the offline behavior, and the record components of a pair are edited
+once, with the `_0` output's index corrections. Nothing retains NifFile copies waiting for a counterpart.
 
 **Lifecycle.** Variants are ordinary model cache entries: created when a reference needs them, shared by every record
-of the context, released when the last instance is gone, rebuilt from the original file on the next visit. PGLite
-keeps plans, not bytes. The dynamic TXST forms get FF form IDs, are never saved and are recreated on the next game
-start.
+of the context, released when the last instance is gone, rebuilt through their stream on the next visit. PGLite
+keeps plans, not bytes. The unregistered TXST objects live for the session.
 
 ### 4.5 File map and texture classification
 
-`BethesdaDirectory` is reused for the file map: loose files walked under the data folder (works through MO2's
-virtual file system) and archive directory tables read with rsm-bsa in the engine's archive order (INI lists plus the
-archives of each active plugin, with the plugin list taken from `TESDataHandler`). It answers `isFile`, which
-archive a file comes from (needed by `vanillabsalist` and by mod attribution), reads for DDS headers and JSONs, and
-the texture enumeration.
+The runtime file map is textures only: meshes come from the uses map, and everything else PGLite reads (DDS files
+for classification and aspect ratio checks, TruePBR JSONs, mod rules) is read through the engine's resource layer:
+resolve the path with the engine's resolver (3.1) and read the stream. Those reads see exactly what the game sees,
+including archive precedence and MO2's virtual file system, and PGLite keeps no archive objects alive.
+
+Texture enumeration follows the engine's archive rule, read from the engine's INI settings at runtime: the two
+`sResourceArchiveList` lists, `Update.bsa`, then `<plugin>.bsa` and `<plugin> - Textures.bsa` for every active
+plugin in load order, their directory tables read once with rsm-bsa and the archives closed again, then the loose
+files under `Data\textures` (no hidden-file skip; the engine registers hidden files). Each texture entry stores its
+path once and the archive it came from (needed by `vanillabsalist` and by mod attribution). Offline's broader
+heuristic (`<name>N.bsa`, `<name> - Meshes.bsa`, `<name> - *.bsa`, INI lists from every `Data\*.ini`,
+`BethesdaDirectory.cpp:585-674`) accepts archives the engine never loads; that is an offline bug, listed as a
+follow-up and not changed by this design.
 
 Classification is by file name suffix (`PGNIFUtil::defaultsFromSuffix`), texture rules from the settings, and the
 `vanillabsalist` exclusion of height maps and environment masks inside the listed archives, with no mesh reading pass
-(section 7). Environment masks are added to the maps as environment masks first and classified as complex material
-lazily: the patchers resolve candidates through the directory (`PGDirectory::texturesForBase`, a small shared
-refactor replacing raw map access in `texMatch` callers), and the runtime directory classifies the masks of a base
-the first time a lookup touches it, through `PGD3D::checkIfCM` on PGLite's own D3D11 device with the compute shader
-compiled into the binary. Results are cached on disk by file identity like `PGRunCache` caches them offline, so a
-second session never decodes a mask again. Aspect ratio checks read DDS headers through the file map on demand.
+(section 7). Complex material detection runs during the background initialization over every environment mask, as
+offline runs it before `updateStateFromModlist`: `PGD3D::checkIfCM` on PGLite's own D3D11 device with the compute
+shader compiled into the binary, masks that fail classification dropped from the maps as offline does
+(`PGDirectory.cpp:305-308`). Results are cached on disk by file identity like `PGRunCache` caches them offline, so a
+second session never decodes a mask again and the first session pays once. Nothing classifies lazily, so the maps are
+immutable once the environment is ready and `texMatch` reads them without locks. `hasMeshes` of a mod, which the
+offline mesh reading pass sets, is set from the uses map: a mod has meshes when it owns a NIF with uses.
 
 ### 4.6 Plugin uses from the loaded game
 
 A runtime implementation of the `PGPlugin` interface replaces the Mutagen one and reproduces
-`PGMutagen.GetModelElems` and `PopulateModelUses`: the 35 record types (ADDN is enumerated offline but never patched
-and stays out), `MODL` with alternate textures for the modeled types, ARMO world models male and female, ARMA world
-and first person models per sex, destructible stage models for the types that have them, the lower case model path
-with the `meshes\` prefix, alternate textures by 3D index with the eight TXST paths, weighted registration under both
-suffixes when the ARMA weight slider flag is set for that sex, the ignore flag from the form header, and single pass
-from the STAT material's MATO. The loaded form is what the engine uses, so runtime record edits by other tools are
-seen (section 7). The record type of a use is the loaded form's type, mapped to the same 35 signatures.
+`PGMutagen.GetModelElems` and `PopulateModelUses`: the 35 record types, `MODL` with alternate textures for the
+modeled types, ARMO world models male and female, ARMA world and first person models per sex, destructible stage
+models for the types that have them, the lower case model path with the `meshes\` prefix, alternate textures by 3D
+index with the eight TXST paths (4.4), weighted registration under both suffixes when the ARMA weight slider flag is
+set for that sex, the ignore flag from the form header, and single pass from the STAT material's MATO. Details that
+make the runtime map equal the offline one:
 
-The allowed record types setting works as offline: the filter is applied per use with the use's record type
-(`PGPatcher.cpp:564-575` semantics), a filtered use keeps the original, unpatched mesh, and the remaining uses get
-variants; facegen is patched regardless of the setting, as its dummy use bypasses the filter offline.
+- ADDN uses are enumerated with the `Unknown` type, as offline (`GetXEditTypeFromType` has no ADDN case,
+  `PGMutagen.cs:1809-1848`), so the always-on record type filter always filters them and a mesh an ADDN shares with
+  other records keeps an unpatched base path, exactly as `ignoreBaseMesh` does offline.
+- Model strings are normalized the way the engine resolves them (`sub_140ECDC50`: an embedded `meshes\` is not
+  doubled, forward slashes are accepted), decoded as Windows-1252, lower cased. Offline keys on the lower cased
+  record string as written (`PGMutagen.cs:388`), which section 7 lists.
+- Engine defaults are not uses: `TESClimate::InitializeData` sets `Sky\Stars.nif` on every climate, which Mutagen
+  never sees; a CLMT night sky model equal to that default is skipped. The dump-and-compare check below finds any
+  other default.
+- The use ordering keys are the origin file name (`TESForm::GetFile(0)`) and the local form ID
+  (`TESForm::GetLocalFormID`, 24 bits, 12 for light plugins), which is what Mutagen's `FormKey` gives offline.
+- The ignore flag is bit 24 of `formFlags` (`kUnk24` in CommonLib); that it survives loading for all 35 types is
+  verified in game.
+- A facegen path that also has record uses is left unpatched with a log line, as offline (`PGPatcher.cpp:551-555`).
+- Facegen heads get one stream per NPC form (4.1); the dummy use bypasses the record type filter and disables the
+  TruePBR `nif_filter`, as offline.
+
+The loaded form is what the engine uses, so record edits made at data load by other tools are seen (section 7). The
+record type of a use is the loaded form's type, mapped to the same 35 signatures. The allowed record types setting
+works as offline: the filter is applied per use with the use's record type (`PGPatcher.cpp:564-575` semantics), a
+filtered use keeps the original, unpatched mesh, and the remaining uses get variants.
 
 Verification: dump the runtime uses map (path, record, sub model, context) once and compare it with what the
 offline run derives from the same load order, to confirm the loaded forms match Mutagen's winning overrides when no
-runtime tool edits records.
+runtime tool edits records, and that no engine default other than the climate one creates a use.
 
 ### 4.7 Conflict resolution
 
-`PGModManager` is reused as is: MO2 (`modorganizer.ini`, profile `modlist.txt`, mod folders walked for the folders
-to map) and Vortex (`vortex.deployment.json`). `modByFileSmart` resolves archived files through the file map's
-archive name. Mod shader attribution comes from the texture classification, so `updateStateFromModlist` runs after
-it, as offline. The MO2 instance is auto-detected (the running MO2 from the injected `usvfs_x64.dll` via
-`mo2DirFromUSVFS`, the global instance from MO2's `CurrentInstance` registry value, to verify) and confirmed in the
-GUI rather than typed.
+`PGModManager` is reused: MO2 (`modorganizer.ini`, profile `modlist.txt`, mod folders walked for the folders to map)
+and Vortex (`vortex.deployment.json`). The file map it builds keeps entries for textures and for meshes with uses
+only. `modByFileSmart` resolves archived files through the texture map's archive name. Mod shader attribution comes
+from the texture classification, so `updateStateFromModlist` runs after it, as offline, and `hasMeshes` comes from
+the uses map (4.5), so the mod list and the priority numbers are the offline ones. The MO2 instance is auto-detected
+(the running MO2 from the injected `usvfs_x64.dll` via `mo2DirFromUSVFS`, the global instance from MO2's
+`CurrentInstance` registry value, to verify) and confirmed in the GUI rather than typed.
 
 ### 4.8 Lifecycle and apply
 
-Patching happens only when the engine loads a file: cell attach behind loading screens, exterior streaming as cells
-enter the grid, actors and equipment, facegen heads, effects, menu previews, and the engine's own preloading. The
-engine's model cache serves repeat requests without a file load, buffered cells keep models resident after detach,
-and once the last instance is gone the model is dropped; the next visit reads the file and runs the hook again. The
+Patching happens only when the engine opens a registered stream: cell attach behind loading screens, exterior
+streaming as cells enter the grid, actors and equipment, facegen heads, effects, menu previews, and the engine's own
+preloading. The engine's model cache serves repeat requests without a file load, buffered cells keep models resident
+after detach, and once the last instance is gone the model is dropped; the next visit opens the stream again. The
 patched state lives only in the engine's objects, so unloading needs no PGLite bookkeeping, and PGLite stores no
 mesh bytes at all. Performance is evaluated after the first in-game tests; caches are not part of the design.
 
-Apply in the GUI saves the settings, re-registers the patchers, reloads texture rules and mod rules, drops the plan
-table, recomputes the permutation plan and the record retargets on the main thread. From then on every file load
-uses the new settings. What does not change is what is already loaded: PGLite never modifies loaded objects, so a
-model that is resident in the engine's cache (the current cell, buffered cells, equipped items, loaded actors) keeps
-the bytes it was built from until the engine drops it, which happens when its last instance is gone (leaving the
-area beyond the cell buffer, unequipping, cell purge, or loading a save). Returning to a place after the engine
-evicted its models shows the new settings; standing in the same cell after apply does not. A "reload the current
-cell's 3D" action (release and re-create the 3D of loaded references, reset actors) would make it immediate and is a
-later addition if wanted; it is not part of apply.
+The pipeline has one reader-writer lock. Every `DoOpen` holds it shared for the duration of its patch. Apply in the
+GUI takes it exclusively on the main thread (in-flight patches finish first, new opens wait), then: saves the
+settings, restores every record from the snapshot of 4.1, re-registers the patchers, reloads texture rules and mod
+rules, rebuilds the TruePBR tables and the mod states, drops the plan table, recomputes the plan from the restored
+records with fresh variant numbers, retargets the records, registers the new variant streams (re-registering an
+existing base path replaces its stream, 3.1), and releases the lock. Restoring from the snapshot is what makes Apply
+idempotent: indices are corrected once per plan, contexts are built from unmodified data, and no edit is applied
+twice. Instances of edited records exist at this point; the restore and the re-plan are plain stores on the main
+thread, the only thread that builds 3D from them.
+
+From then on every open uses the new settings. What does not change is what is already loaded: PGLite never modifies
+loaded objects, so a model that is resident in the engine's cache (the current cell, buffered cells, equipped items,
+loaded actors) keeps the bytes it was built from until the engine drops it, which happens when its last instance is
+gone (leaving the area beyond the cell buffer, unequipping, cell purge, or loading a save). Variants of the new plan
+have new names and are loaded fresh; the original path is the one name a resident model keeps. Returning to a place
+after the engine evicted its models shows the new settings; standing in the same cell after apply does not. A
+"reload the current cell's 3D" action (release and re-create the 3D of loaded references, reset actors) would make it
+immediate and is a later addition if wanted; it is not part of apply.
 
 ### 4.9 Disable conditions
 
 - An offline output is present: `ParallaxGen_Diff.json` in the load order (loose or archived) or `PGPatcher.esp`
-  active. Same check the offline patcher makes (`main.cpp:600-606`).
+  active. Stricter than the offline program, which checks only the loose `ParallaxGen_Diff.json` and VRAMr
+  (`main.cpp:600-612`).
 - Auto Parallax is installed (`AutoParallax.dll` in `SKSE\Plugins`): the two would edit the same materials.
 - Address Library missing or unsupported for the running game version.
 
@@ -280,7 +381,7 @@ ImGui plugin. Pages: mod manager (type, detected MO2 instance with confirm, MO2 
 (mods with shaders or meshes as `updateStateFromModlist` numbers them, drag to reorder, enable, meshes ignored; apply
 writes `modrules.json`); patcher checkboxes (Fix Mesh Lighting, Parallax, Complex Material, True PBR, Restore
 Default Shaders, Hair Flow Map); allowed record types; mesh allow list and block list; texture rules; a status panel
-(ready state, patched mesh and variant counts, disable reason) and the warnings and errors collected through the
+(ready state, patched family and variant counts, disable reason) and the warnings and errors collected through the
 Logger capture callback, deduplicated (weighted pair mismatches land here). English only. No conflict highlighting or
 viewer, as specified.
 
@@ -300,29 +401,39 @@ viewer, as specified.
 
 Prerequisite: the `featalphaprop` branch (copy-on-write texture sets and alpha properties in `PGNIFUtil`, which
 removes the per-path static texture set cache of `PatcherMesh`) is merged before implementation starts, so two
-paths can be patched on two threads without shared state.
+families can be patched on two threads without shared state.
 
 All of the following are behavior preserving, covered by unit tests as `CLAUDE.md` requires, and the offline output
 must stay byte identical on a reference load order.
 
 1. Split `PGPatcher.cpp`: the per-mesh pipeline (`processNIF`, `processNIFShape`, `matches`, `sortMatches`,
    `applyTransformIfNeeded`, `createNIFPatcherObjects`, patcher registry) moves to a shared unit; the offline runner
-   (`patchMeshes`, `patchNIF`, `replayNIF`, output directory, diff JSON, textures) stays offline.
+   (`patchMeshes`, `patchNIF`, `replayNIF`, output directory, diff JSON, textures) stays offline. The miniz include
+   (`PGPatcher.hpp:17`) goes with the runner.
 2. `PGPlugin` becomes an interface with the Mutagen implementation and the runtime one of 4.6. The header already
    has no Mutagen dependency.
 3. `PGMeshPermutationTracker` gets a save mode that returns the serialized bytes per output, with the same sorting
-   and index corrections, instead of queuing files, so the runtime uses the same staging, comparison, ordering and
-   weighted pair logic.
-4. `PGDirectory`: a mode without the mesh reading pass; `texturesForBase` with a classification hook for the lazy
-   complex material detection; the archive load order takes an injected plugin list.
-5. The update cache recording calls in `PGDirectory`, `PGNIFUtil::texMatch`, `PGModManager` and `matches()` go
-   behind a small observer interface that `PGRunCache` implements offline, so `PGRunCache` (which pulls in the
-   permutation tracker and the texture hooks) is not compiled into the DLL.
+   and index corrections as data, instead of queuing files, so the runtime uses the same staging, comparison and
+   ordering logic. The weighted pair check is split into the block type signature comparison, which both programs
+   use, and the offline bookkeeping that keeps NifFile copies until the counterpart arrives
+   (`processWeightVariant`, `PGMeshPermutationTracker.cpp:328-352`), which the runtime does not use.
+4. `PGDirectory` and `BethesdaDirectory`: a file provider seam (enumerate, exists, read, archive of a file) with the
+   current implementation offline and the engine-backed one of 4.5 at runtime; a textures-only mode without the mesh
+   reading pass; `hasMeshes` settable from outside; the archive load order built from an injected archive list.
+5. The update cache recording calls in `PGDirectory`, `PGNIFUtil::texMatch`, `PGModManager`, `matches()`, `PGD3D`
+   (`SuspendRecording`) and `saveMeshes` (`recordOutputFile`) go behind a small observer interface that `PGRunCache`
+   implements offline, so `PGRunCache` (which pulls in the permutation tracker and the texture hooks) is not compiled
+   into the DLL.
 6. `PGConfig`'s parameter struct and JSON (de)serialization move to PGLib without the wxWidgets-only parts.
 7. `PGD3D::initShader` loads compiled bytecode: the four shaders are compiled at build time with `fxc` and embedded.
    This removes the `cshaders` folder and the `D3DCompiler` dependency from both programs.
 8. `StringUtil` replaces its four `boost::locale::conv` calls with the Win32 conversion functions, so boost.locale
    is not linked into the DLL.
+9. `TaskQueue` and `TaskPoolRunner` (cpptrace, boost.asio, and the `ExceptionHandler` latch that stops all work and
+   makes `loadStatics` throw after one exception, `PatcherMeshShaderTruePBR.cpp:185`) leave `PGGlobals.hpp` and
+   `PGDirectory.hpp`, which every unit includes, and become offline-runner headers. The runtime uses plain threads
+   and never sets the latch; `loadStatics` checks it only when the offline runner installed it. `PGDirectory.cpp`'s
+   `boost/asio.hpp` include goes with it, so no winsock initialization runs in the DLL.
 
 ## 6. Build and packaging
 
@@ -331,7 +442,7 @@ PGLite/
   CMakeLists.txt        standalone configure: x64-windows-static, C++23 (CommonLibSSE-NG), /MT
   vcpkg.json            own manifest and baseline
   package/              SKSE/Plugins/PGLite.ini, textures/cubemaps/dynamic1pxcubemap_black.dds
-  include/ src/         entry point, hook and memory stream, runtime environment, permutation plan, GUI
+  include/ src/         entry point, resource streams and registration, runtime environment, permutation plan, GUI
 external/CommonLibSSE-NG   submodule (alandtse, ng branch): tests off, SE and AE on, VR off
 ```
 
@@ -339,13 +450,17 @@ The root configure uses a dynamic CRT, C++20 and builds PGLib as a DLL; a config
 second configure that compiles the shared PGLib sources a second time as a static library. `buildRelease.ps1` builds
 both and produces `PGLite.zip` as the second release artifact; `build.yml` gets a job that runs
 `check_build_warnings.py` on the PGLite log as well. Statically linked: CommonLibSSE-NG, nifly, spdlog, nlohmann-json,
-imgui (dx11 and win32), simpleini, DirectXTex (CPU side, DDS headers and `PGD3D`), rsm-bsa with lz4 and zlib, the
-header-only boost parts the shared code uses. Not linked: wxWidgets, CLI11, miniz, cpptrace, the .NET host,
-json-schema-validator. WebKit style and the review checklist apply; `run_clang_tidy.py` gets the PGLite compile
-commands. No unit tests for the PGLite module itself, as specified. The test deployment target is
-`C:\Users\hakasapl\AppData\Local\ModOrganizer\VANILLA\mods\PGRunner`.
+imgui (dx11 and win32), simpleini, DirectXTex (CPU side, DDS headers and `PGD3D`), rsm-bsa with lz4 and zlib (archive
+directory tables only), the header-only boost parts the shared code uses. Not linked, after the changes of section 5:
+wxWidgets, CLI11, miniz, cpptrace, boost.asio, boost.locale, the .NET host, json-schema-validator. WebKit style and
+the review checklist apply; `run_clang_tidy.py` gets the PGLite compile commands. No unit tests for the PGLite module
+itself, as specified. The test deployment target is `C:\Users\hakasapl\AppData\Local\ModOrganizer\VANILLA\mods\PGRunner`.
 
 ## 7. Differences from the offline patcher
+
+This is the complete list. A difference that is not here is a bug (section 1).
+
+**Patchers and textures**
 
 1. No texture generation. The Parallax to Complex Material transform and Fix SSS are GUI patchers offline that
    produce new DDS files; at runtime they do not exist. A shape whose parallax match fails `canApply` and would have
@@ -355,64 +470,132 @@ commands. No unit tests for the PGLite module itself, as specified. The test dep
    meshes are classified by a vote of the shapes that use them (`PGDirectory.cpp:395-597`); a texture whose name
    contradicts its use (an `_m` used as a glow map, a normal map without `_n`) is classified differently, which can
    change the matches of every mesh sharing its base name.
-3. Records are the live runtime state. Base Object Swapper, Seasons of Skyrim, SPID, SkyPatcher and similar tools
-   change records or references in memory; PGLite sees the changed record, the offline run sees the plugin files
-   (4.6 has the check that the two agree otherwise).
-4. Nothing is written: no duplicate files, no plugin files, no texture set plugin records (they are dynamic forms),
-   no diff JSON, no zip, no update cache, no Light Placer forwarding, no BodySlide ShapeData handling, no
-   `--consider-allmeshes`, no pgtools-only patchers.
-5. Settings changes apply to files loaded afterwards; models already resident in the engine keep the bytes they were
-   built from until the engine evicts them (4.8).
-6. A merged-away variant that was requested before its merge can be held once more in memory until evicted (4.4).
-   Visually identical to offline.
-7. The offline DynDOLOD refusal has no runtime equivalent and is not needed: `.bto` files never pass the hook and the
-   default block list keeps LOD and DynDOLOD meshes out.
-8. New behaviors: PGLite disables itself with a notice when an offline output or Auto Parallax is present; the GUI
-   is English only; `exclude facegens` and `disable dynamic cubemap` are ini options instead of command line flags.
+3. No pgtools-only patchers (Particle Lights to Light Placer, Convert to HDR) and no `--consider-allmeshes`: only
+   meshes with record uses and facegen heads are patched, which is the GUI program's behavior.
+
+**Records and the plugin step**
+
+4. Records are the live runtime state. Tools that edit records at data load (SkyPatcher and similar) are seen,
+   because PGLite plans one frame after `kDataLoaded`; tools that swap base objects per reference (Base Object
+   Swapper, Seasons of Skyrim) make the engine load another record's model, which has its own uses. The offline run
+   sees the plugin files (4.6 has the check that the two agree when no runtime tool edits records). A tool that
+   rewrites model strings after PGLite planned would undo a retarget; none is known to.
+5. Light Placer and any other mod that keys on model paths lose their effect on records that PGLite retargets to a
+   variant path. Offline, the Light Placer handler patcher adds every duplicate's path to the Light Placer configs
+   (`HandlerLightPlacerTracker`, `PGPatcher.cpp:636-639`); handler patchers are out of scope at runtime by decision,
+   so a record whose context is not the primary one (alternate textures, a filtered sibling, a different single-pass
+   or grass context) keeps its mesh but not its placed lights. Records that keep the original path are unaffected.
+   Variant names also use a session counter instead of the offline `1..N` per path (4.4); only path-keyed mods can
+   tell.
+6. Texture sets are in-memory objects: the eight paths only, as the offline records (`PGMutagen.cs:1230-1241`), but
+   with no form ID, no `PG_` editor ID, no plugin record and no persistence, created at first open instead of at the
+   end of the run, and deduplicated per family instead of per run. CS's `PBRTextureSets` registry knows neither
+   kind, so the result is the same.
+7. Weighted pairs are planned as one family (4.4): a context merges only when both files agree, and each record
+   component is edited once. Offline numbers each file's duplicates separately, relies on the layout check to flag a
+   divergence, and applies the index corrections once per file of the pair (Appendix B). Where offline would log a
+   mismatch and leave the record pointing at meshes of two contexts, the runtime logs the same mismatch and never
+   does.
+8. Model strings are normalized as the engine resolves them (4.6). Offline keys on the lower cased record string as
+   written (`PGMutagen.cs:388`), so a record whose model string uses forward slashes or carries its own `meshes\`
+   prefix is unpatched offline and patched at runtime.
+9. Facegen heads are enumerated from NPC forms, not from the file map: a facegen file for an NPC that is not in the
+   load order is patched offline and never considered at runtime, where it is never loaded either.
+10. A CLMT night sky model equal to the engine default `Sky\Stars.nif` is not a use (4.6); offline never sees it,
+    and a plugin that sets exactly that string is the one case the two disagree on.
+
+**Files and archives**
+
+11. Nothing is written: no duplicate files, no plugin files, no texture set plugin records, no diff JSON, no zip, no
+    update cache, no BodySlide ShapeData handling, no dynamic cubemap deployment (the package ships the texture).
+12. The archive set and the loose file set are the engine's (4.5): the INI lists, `Update.bsa`, `<plugin>.bsa` and
+    `<plugin> - Textures.bsa`, every loose file. Offline also reads `<name>N.bsa`, `<name> - Meshes.bsa` and
+    `<name> - *.bsa`, INI lists from every `Data\*.ini`, and skips hidden files; those are offline bugs left to a
+    follow-up, and the runtime does not reproduce them.
+13. Input bytes and every other file read come from the engine's resource layer, so they are what the game loads;
+    offline reads the data folder and archives itself. With the archive set of item 12 the bytes are the same.
+
+**Lifecycle**
+
+14. Settings changes apply to streams opened afterwards; models already resident in the engine keep the bytes they
+    were built from until the engine evicts them (4.8). Offline, a run rewrites every output.
+15. Duplicates in memory that offline does not have: contexts of a family that merge offline load as separate
+    models until the main-thread retarget runs (4.4), a model instanced from a merged-away name stays until evicted,
+    and a path ignored by a mod rule holds one copy per context because the rule is applied at first open rather
+    than at planning (4.4). All copies are byte identical; the waste is memory only.
+16. A failure while patching a family (exception, nifly failure) leaves that family unpatched, the original bytes
+    served and one log line written, and the session continues. Offline, an exception stops the run
+    (`ExceptionHandler`).
+17. The first open of a family runs on the requesting thread (4.3), the main thread included; offline patches on a
+    worker pool.
+
+**Program behavior**
+
+18. The offline DynDOLOD refusal has no runtime equivalent and is not needed: `.bto` files have no uses and the
+    default block list keeps LOD and DynDOLOD meshes out.
+19. PGLite disables itself with a notice when an offline output or Auto Parallax is present, with a stricter check
+    than offline (4.9).
+20. GUI and settings: English only; no conflict highlighting or viewer; `exclude facegens` and `disable dynamic
+    cubemap` are ini options instead of command line flags; `vanillabsalist` and the default mesh block list are
+    hidden defaults instead of editable settings; the MO2 instance is detected and confirmed instead of typed;
+    Apply restores the records from a snapshot before re-planning (4.8); the log lives next to the other SKSE logs.
 
 Explicitly the same: block order of the patched mesh (sorted as offline), the weighted `_0`/`_1` layout check, the
-allowed record types filter, `PG_IGNORE` extra data, `PG_STOCK` restore, Fix Texture Slot Count, facegen patched for
-a dummy use with the TruePBR `nif_filter` disabled, skin tint shapes ignoring alternate textures, the use ordering
-that picks which use keeps the original path, TruePBR config order (file map order), the dynamic cubemap texture,
-the `vanillabsalist` rule, mod attribution and priority semantics, the complex material classification thresholds
-(same shader), alternate texture and duplicate handling, and every shader, flag, slot, field and geometry edit the
-patchers make.
+allowed record types filter including the ADDN rule, the mesh block list and allow list, `PG_IGNORE` extra data,
+`PG_STOCK` restore, Fix Texture Slot Count, facegen patched for a dummy use with the TruePBR `nif_filter` disabled
+and a facegen path with record uses left unpatched, skin tint shapes ignoring alternate textures, the use ordering
+that picks which use keeps the original path, the `ignoreBaseMesh` rule, TruePBR config order (file map order), the
+dynamic cubemap texture, the `vanillabsalist` rule, mod attribution and priority semantics (`hasMeshes` from the
+uses map gives the same mod list), the complex material classification thresholds (same shader, classified before
+the mod states as offline, cached across sessions), alternate texture handling (3D index matching, eight paths in
+NIF slot order, eight empty strings for an unresolved set, the case rules of the dedupe), index corrections with -1
+for deleted shapes, the duplicate mechanism and its use ordering, and every shader, flag, slot, field and geometry
+edit the patchers make.
 
 ## 8. Implementation items to verify in the binary or in game
 
-1. **Hook targets per game version.** `BSStream::Load` and the two call sites in the model loader need Address
-   Library IDs and offsets for 1.5.97, 1.6.1170 and 1.7.x; 1.7.x needs Address Library format 5 and a
-   CommonLibSSE-NG revision that supports it. The inline detour is the fallback if call-site offsets prove fragile.
-   Reverse engineering happens when this is implemented.
-2. **Virtual paths reach the hook.** The decompiled loader calls `BSStream::Load` after a failed stream open, so
-   substitution works in principle; confirm in game that a missing file produces no earlier bail-out and no error
-   model, and that the entry database does not cache the failure.
-3. **Record edits at runtime.** Rewriting `TESModel::model` strings and alternate texture entries and creating
-   `BGSTextureSet` forms is the offline plugin step applied to the loaded forms. Verify that form creation from a
-   loader thread is safe or must be deferred (which would delay the TXST repoint past the first instance), and that
-   the engine's weighted suffix derivation works on the variant name.
-4. **CS and swapped texture sets.** Confirm that a PBR material stays PBR when an unregistered TXST is swapped onto
-   it and loads the new RMAOS and feature textures; the CS sources only show the swap hooks tracking the current set.
-5. **Startup gating.** The file map and the MO2 folder walk take seconds under usvfs; the first loading screen waits
-   for them. Order the startup so the main menu is not delayed (uses map first, pass-through for use-less paths).
-6. **Lazy complex material classification** runs on loader threads behind the `PGD3D` mutex; confirm device
-   creation inside the game process and the shader embedding.
-7. **Memory stream class**: a `NiBinaryStream` subclass has to satisfy the parser's read patterns (`get_info` is
-   used by the engine's buffered stream; the base implementation must suffice).
-8. **Memory.** Plans not bytes, the merge of identical results, and the disk-backed classification cache keep
-   PGLite's own footprint small; the transient duplicate of 4.4 is the one known waste.
-9. **Performance** is evaluated after the first in-game tests, not designed for up front.
+1. **Address Library IDs** for the two engine functions PGLite calls that CommonLib does not bind: the register-path
+   function (`sub_140ECEE30`) and the resolver (`sub_140ECE860`, the first call inside the bound
+   `BSResourceNiBinaryStream::ctor`, so it can also be found by following that call), for 1.5.97, 1.6.1170 and
+   1.7.x; 1.7.x needs Address Library format 5 and a CommonLibSSE-NG revision that supports it. Reverse engineering
+   happens when this is implemented.
+2. **Stream contract in game.** A PGLite stream satisfies the loader (open, `totalSize`, read, seek, close), the
+   per-entry single-open rule holds for queued and asynchronous loads as it does for synchronous ones, no model path
+   requests an asynchronous stream (`DoCreateAsync` is unsupported), `DoClone` is what direct opens receive, and the
+   `StreamBase` flags offset is read through CommonLib's accessor on both SE and AE.
+3. **Registration timing.** Everything registered at data load wins over records registered at startup (3.1 insert
+   semantics); the file cache validation that also registers paths (`sub_140ED9240`) runs only at startup; archive
+   registration (`ArchiveRegistrationTaskData`) is complete by `kDataLoaded`; an entry created before data load
+   keeps its old stream, so confirm that only meshes without uses are demanded before then.
+4. **Record edits at runtime.** Creating a `BGSTextureSet` through the form factory on a loader thread touches no
+   unsynchronized global state (otherwise the texture sets are created at data load for every alternate texture
+   entry and the unchanged ones are pointed back at their original set at first open); index -1 is skipped by every
+   swap path; `TESModel::model` writes at data load and in the main-thread retarget task are safe; the engine's
+   weighted suffix derivation works on a variant name; the ignore flag bit survives loading for all 35 types.
+5. **Uses map equality.** The dump-and-compare of 4.6, including engine defaults, Windows-1252 decoding, origin file
+   and local form ID ordering, and the ADDN rule.
+6. **Startup gating.** The texture map, the classification pass and the MO2 folder walk take seconds under usvfs; the
+   first loading screen waits for them when a save is loaded quickly. Measure, and confirm the main menu is not
+   delayed (the data-load task is records only).
+7. **Complex material classification in process:** device creation inside the game process next to ENB and ReShade
+   proxies, the shader embedding, the disk cache identity, and the cost of the first session's full pass.
+8. **Memory.** Plans not bytes, the merge of identical results, the textures-only file map with paths stored once
+   and no archive objects, the per-path stream objects (about a hundred bytes each plus a 40-byte registry record),
+   and the duplicates of section 7 keep PGLite's footprint small; measure on a large load order.
+9. **Performance** is evaluated after the first in-game tests, not designed for up front; the first-open hitch on
+   synchronous demands (4.3) is the known candidate.
 
 ## 9. Milestones
 
 1. PGLib seam work (section 5, after `featalphaprop` is merged) with tests; offline output byte identical on a
    reference load order.
-2. PGLite scaffold: configure, submodule, entry point, logging, ini, disable conditions with notices, the load hook
-   in pass-through mode, memory stream, release packaging and CI job. Deploy to the MO2 test mod folder.
-3. Runtime patching: file map and archive list, uses map, suffix classification and lazy complex material detection
-   with its cache, TruePBR configs, mod manager, readiness latch, the full per-path patch with the permutation
-   system (contexts, plan, record retargets, variants, merge, TXST forms, index corrections, weighted pair check).
-4. ImGui menu with all pages and apply.
+2. PGLite scaffold: configure, submodule, entry point, logging, ini, disable conditions with notices, the stream
+   class and registration serving unchanged bytes, release packaging and CI job. Deploy to the MO2 test mod folder.
+3. Runtime patching: uses map and record snapshot, texture map through the engine's resource layer, classification
+   with its cache, TruePBR configs, mod manager, the data-load plan with retargets and registration, the full family
+   patch with the permutation system (contexts, merge, record edits, TXST objects, index corrections, weighted
+   pairs).
+4. ImGui menu with all pages and apply with snapshot restore.
 5. In-game testing, performance evaluation, and the differences list in the README.
 
 ## 10. Working assumptions
@@ -420,38 +603,85 @@ patchers make.
 Defaults the design proceeds with unless overruled:
 
 1. Suffix-only classification without an import of the offline classification.
-2. Complex material detection through `PGD3D` on PGLite's own device with embedded shaders, lazily, with the disk
-   cache of 4.5.
+2. Complex material detection through `PGD3D` on PGLite's own device with embedded shaders, during initialization,
+   with the disk cache of 4.5.
 3. Apply affects the next load only; no forced scene refresh.
 4. English-only GUI.
 5. Supported runtimes 1.5.97, 1.6.1170 and 1.7.x; no VR.
-6. Call-site hooks on the two model loader calls to `BSStream::Load`, inline detour as fallback.
+6. No code hooks for file loading: registered streams only. The two engine functions of 8.1 are called, not hooked.
+7. Texture sets are created on the requesting thread at first open and left unregistered; data-load pre-creation is
+   the fallback of 8.4.
 
 ## Appendix A: reverse engineering notes (SkyrimSE_1.7.99)
 
-`BSModelDB::Demand` 0x140FC9060 -> `sub_140FC8D80` (prefixes `meshes\`, entry database at `qword_14219DEE8 + 208`)
--> loader `sub_140FC8480`. In the loader: `sub_140F01090` constructs the `BSResourceNiBinaryStream` (0x38 bytes),
-`sub_140EE3720` is the `NiStream` constructor (vtable 0x141A47168) followed by the `BSStream` vtable (0x1417EEDC8),
-`sub_140FD12D0` is `BSStream::Load(this, path, stream)`, the error model name lives in `qword_14331F590`,
-`qword_1421A3780` is the `TESModelDB::TESProcessor` singleton (vtable 0x1417F75F0, `PostCreate` at slot 1), and the
-notification after a load is a vfunc at +0x60 of `qword_14331D7C0`. `BSStream::Load` copies the path to +0x108 with
-`strcpy_s` and normalizes it with `sub_140EACC30`, then calls `sub_140EE40A0`, which checks `stream->good()`, stores
-the stream at +0x298 and calls vfunc 15. `sub_1403C2EC0` is the NPC head loader (formats the FaceGeom path through
-`sub_1403C2E00`, demands `.p` and `.nif` through `sub_140FC8D80`). `sub_1405048A0` loads `BGSDistantObjectBlock`
-(`.bto`) through `BSStream::Load`. `NiMemStream` constructors at `sub_14156A6A0`, `sub_14156A710`, `sub_14156A780`,
-`sub_14156A9B0`. `BSShaderProperty` flag word at offset 0x38 (CommonLib).
+Resource layer: `ID::GenerateFromPath` `sub_140ED3EE0` (wrapper `sub_140ED3C20(ID*, path)`); registry
+`qword_14331B4C0` (shared_mutex at +0, tables at +16, level count at +44), lookup `sub_140ECADC0`, find record
+`sub_140EC84A0`, record to stream `sub_140EC8570` (loose: shared pointer copy; archive: `ArchiveStream` or
+`CompressedArchiveStream`, name copied from the record), ID to stream `sub_140EC88B0` and `sub_140EC8800`, insert or
+replace `sub_140EC8170`, record constructor `sub_140EC9A60` (ID, zeroed flags and size, `DoGetName` into +24, stream
+at +32), register path with stream `sub_140ECEE30`, path to stream resolver `sub_140ECE860` (registry, clone for
+loose records, then `LocationTree::DoCreateStream` `sub_140ED1450`), lookup contexts with the registry lock
+`sub_140EC7C10`/`sub_140EC7C90` (both `std::scoped_lock<std::shared_mutex>`). Startup registration `sub_14065DBE0`
+(INI lists through `sub_140ECF2E0`, `Update.bsa` through `sub_140ECF080` to `sub_140EC5A90`, per plugin
+`sub_140ECED50` and `sub_1401C4CB0`, loose files through `RegisterPrefix` `sub_140ECF570(prefix, root, Location*)`
+or its list form `sub_140ECF670`, the directory list or all of `data\` depending on one INI switch
+`byte_1420B6070`). `RegisterPrefix` builds a `LocationTree` over the given location and `GlobalPaths`
+(`qword_14331B550`) and a 240-byte `Traverser` (vtable 0x141A44E28, `ProcessName` = `sub_140ED2AF0`: ID of the
+name after the root string via `sub_140ECF790`, `location->DoCreateStream`, insert, then the registration event
+dispatch `sub_140ED2860` over the listeners at `qword_14331B538 + 16`). `GlobalLocations` singleton
+`qword_14331B558`, `RegisterLocation` 0x140ECE210 to `sub_140ED2130` (priority list, `DoMount`),
+`GlobalLocations::DoCreateStream` `sub_140ED1290` (iterate locations). Loose files: `LooseFileLocation` vtable
+0x1417FF6E0 (`DoCreateStream` `sub_140ED4850`, `DoTraversePrefix` `sub_140ED4A60` with the recursive walk
+`sub_140ED6E90`, which passes names relative to the location root and registers files with the normal or archive
+attribute). Stream vtables: `Stream` 0x141A43C00, `ArchiveStream` 0x141A43C68, `CompressedArchiveStream`
+0x141A43CD8, `LooseFileStream` 0x141A453D8; `Location` 0x1417FF5B8 (12 slots, CommonLib order). Archive names are
+kept only for archives with BSA flag 0x10 or those in `sResourceArchiveRetainFileNameList`.
+
+Model loading: `BSModelDB::Demand` 0x140FC9060 -> `sub_140FC8D80` (prefixes `meshes\` through `sub_140ECDC50`, null
+path into the entry database, entry database at `qword_14219DEE8 + 208`) -> entry lookup `sub_14020BD20(db, &id,
+&entry, create)` (miss: registry `sub_140EC84A0`, entry `sub_14020B450`, stream `sub_140EC8570`) -> stream for the
+load `sub_140152E60` (the entry's stream, else the registry by the entry's ID, else the location's `DoCreateStream`
+with a path) -> loader `sub_140FC8480` (callers: synchronous `sub_14020B970`, asynchronous worker `sub_140152B50`,
+`sub_14020BED0`). `sub_140F01090(this, BSTSmartPointer<Stream>*, bool, bool)` is the `BSResourceNiBinaryStream`
+constructor from a stream (flags |= 8 or 14, `DoOpen`, buffer of `totalSize + 56`, read function `sub_140F016B0`
+calling `DoRead` or the buffered `sub_140F01CB0`); the path constructor is `BSResourceNiBinaryStream__ctor`
+0x140F00F80 (resolver, flags |= 0xA, `DoOpen`); the destructor 0x140F01260 clears the flags, calls `DoClose` and
+releases. `sub_140EE3720` is the `NiStream` constructor (vtable 0x141A47168) followed by the `BSStream` vtable
+(0x1417EEDC8), `sub_140FD12D0` is `BSStream::Load(this, path, stream)` (copies a non-null path to +0x108, calls
+`sub_140EE40A0`: `good()` check, stream at +0x298, vfunc 15), the error model name lives in `qword_14331F590`,
+`qword_1421A3780` is the `TESModelDB::TESProcessor` singleton (vtable 0x1417F75F0, `PostCreate` at slot 1).
+`sub_1403C2EC0` is the NPC head loader (formats the FaceGeom path through `sub_1403C2E00`, demands `.p` and `.nif`
+through `sub_140FC8D80`). `MistMenu::Show` 0x1409654B0 demands the loading screen model synchronously when no TES
+exists. Atmosphere and clouds load through the model database (`sub_14040B740`, `sub_14040BFD0`).
+
+Records: `TESModelTextureSwap::ApplySwap` `sub_1401ED800` -> `sub_1401EE0E0` skips entries with index -1, has an
+interlocked reentrancy counter and is also reached from `QueuedAnimationObject` (vtable slot 20 -> `sub_140194B70`
+-> `sub_1407D8340` -> `sub_14021C5F0`), so swaps are not main-thread only. `BGSTextureSet::GetTexturePath` and
+`SetTexturePath` (`sub_14032D880`, `sub_14032DA00`, vfuncs 0x25 and 0x27) permute NIF slots 2 to 5 onto record
+indices 3, 4, 5, 2; `GetTexture` `sub_14032D910` prepends `Data\Textures\`. `TESClimate::InitializeData`
+`sub_1402A5C30` sets `Sky\Stars.nif`. `BSShaderProperty` flag word at offset 0x38 (CommonLib).
 
 ## Appendix B: offline facts that constrain the runtime (verified in the repository)
 
 Alternate textures are matched by 3D index counted over `NiShape` and `NiParticleSystem` blocks in tree order
 (`PGNIFUtil.cpp:516-542`); the MODS name is never used. For an alternate texture shape the NIF keeps the vanilla
 texture set and gets the patched shader state, the patched paths go to a new TXST (`PGPatcher.cpp:773-779`,
-`886-892`; `PGMutagen.cs:1142-1255`). Record ignore is header flag 0x01000000 (`PGMutagen.cs:917-918`). The allowed
-record type filter is applied in C++ only (`PGPatcher.cpp:564-575`). Single pass comes from the STAT material's MATO
-flags and only disables parallax and restricts complex material (`PGMutagen.cs:901-906`,
-`PatcherMeshShaderVanillaParallax.cpp:58`, `PatcherMeshShaderComplexMaterial.cpp:101-106`). Weighted ARMA models are
-registered under both `_0` and `_1` (`PGMutagen.cs:398-446`), and the two outputs of a pair are compared by block
-types only (`PGMeshPermutationTracker.cpp:297-352`). The offline save sorts blocks and reports index corrections to
-the plugin (`PGMeshPermutationTracker.cpp:198-234`). TXST slot order equals NIF slot order 0 to 7; the NIF's ninth
-slot never reaches a plugin. `pbrtexturesets` appears only in the output cleanup list (`PGPatcher.cpp:306`); nothing
-writes it.
+`886-892`; `PGMutagen.cs:1142-1255`), which carries the eight paths and a `PG_` editor ID only, deduplicated across
+the run by its eight strings (`PGMutagen.cs:1215-1255`). Record ignore is header flag 0x01000000
+(`PGMutagen.cs:917-918`). The allowed record type filter is applied in C++ only and is always on
+(`PGPatcher.cpp:564-575`, `main.cpp:829-835`); ADDN uses carry the `Unknown` type and are therefore always filtered.
+"Meshes ignored" is decided per path from the mod that owns the NIF (`PGPatcher.cpp:493-503`). A facegen path with
+record uses is left unpatched (`PGPatcher.cpp:551-555`). Model strings are keyed lower cased as written
+(`PGMutagen.cs:388`). Single pass comes from the STAT material's MATO flags and only disables parallax and restricts
+complex material (`PGMutagen.cs:901-906`, `PatcherMeshShaderVanillaParallax.cpp:58`,
+`PatcherMeshShaderComplexMaterial.cpp:101-106`). Weighted ARMA models are registered under both `_0` and `_1`
+(`PGMutagen.cs:398-446`), and the two outputs of a pair are compared by block types only
+(`PGMeshPermutationTracker.cpp:297-352`). The offline save sorts blocks and reports index corrections to the plugin,
+-1 for removed shapes (`PGMeshPermutationTracker.cpp:198-234`). TXST paths are handled through Mutagen's named
+fields, which is why the offline code is unaffected by the engine's record order (`PGMutagen.cs:1232-1239`,
+`1751-1758`); the NIF's ninth slot never reaches a plugin. The review reports that `SetModelUses` runs once per file
+of a weighted pair against the same accumulated record copy with `altTexDict` keyed by the original slot IDs
+(`PGMutagen.cs:1097-1171`), so a deleted shape can be re-mapped twice offline; that is a PGLib follow-up to confirm
+and fix, not part of this design, and the runtime edits each record component once (4.4). An exception in a patch
+stops the offline run through `ExceptionHandler`. `pbrtexturesets` appears only in the output cleanup list
+(`PGPatcher.cpp:306`); nothing writes it.
