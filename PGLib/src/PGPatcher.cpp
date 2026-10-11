@@ -771,6 +771,9 @@ bool PGPatcher::processNIFShape(nifly::NifFile* nif,
     if (!nifShape)
         throw std::runtime_error("NIFShape is null");
 
+    // A shader other shapes share is copied for this shape before any patcher writes it, see PGNIFUtil.
+    PGNIFUtil::unshareShader(*nif, *nifShape);
+
     // Prep.
     PGTypes::TextureSet slots;
     if (!alternateTexture) {

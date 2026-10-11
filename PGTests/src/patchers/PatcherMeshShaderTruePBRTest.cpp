@@ -520,6 +520,7 @@ TEST_F(PatcherMeshShaderTruePBRTest,
 {
     TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\alpha.json", R"([
   {"texture": "a\\stone", "alphaprop_flags": 4845, "alphaprop_thresh": 64},
+  {"texture": "c\\metal", "alphaprop_delete": true},
   {"texture": "c\\metal", "alphaprop_create": true},
   {"texture": "c\\cloth", "alphaprop_create": true, "alphaprop_flags": 4109, "alphaprop_thresh": 0},
   {"texture": "a\\cobble01", "alphaprop_delete": true, "alphaprop_create": true, "alphaprop_flags": 1},
@@ -546,12 +547,16 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     EXPECT_EQ(alpha->flags, 4845U);
     EXPECT_EQ(alpha->threshold, 64U);
 
-    // Create adds one with the defaults, or with the values of the entry.
+    // Create adds one with the defaults, or with the values of the entry. A delete entry removes the property first,
+    // and the later entry of the same file adds the new one, so the old values are gone.
     auto* metal = m_builder.addShape("Metal", slots(L"textures\\c\\metal.dds"));
+    m_builder.addAlphaProperty(metal, 4845, 64);
+    const auto metalBlocks = nif.GetHeader().GetNumBlocks();
     apply(*metal, L"textures\\c\\metal.dds");
     ASSERT_NE(nif.GetAlphaProperty(metal), nullptr);
     EXPECT_EQ(nif.GetAlphaProperty(metal)->flags, 4844U);
     EXPECT_EQ(nif.GetAlphaProperty(metal)->threshold, 128U);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), metalBlocks);
     auto* cloth = m_builder.addShape("Cloth", slots(L"textures\\c\\cloth.dds"));
     apply(*cloth, L"textures\\c\\cloth.dds");
     ASSERT_NE(nif.GetAlphaProperty(cloth), nullptr);

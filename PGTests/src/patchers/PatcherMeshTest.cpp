@@ -112,8 +112,8 @@ protected:
 TEST_F(PatcherMeshTest,
        ShouldApplyReadsTheTexturesOfASharedBlockAsTheyAre)
 {
-    // The shapes share one texture set block, so a change through one of them is what the others see as well, until
-    // a shape writes its own result and gets a copy (see PGNIFUtilTest).
+    // The shapes share one texture set block, so shouldApply() reads the same textures for all of them. A shape that
+    // writes its own result gets a copy of the block, and the others keep reading the original (see PGNIFUtilTest).
     auto& nif = m_builder.nif();
     PatcherMeshShaderDefault patcher(meshPath, &nif);
     std::vector<PatcherMatch> matches;

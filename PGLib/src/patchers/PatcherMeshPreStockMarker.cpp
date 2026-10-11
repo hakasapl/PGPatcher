@@ -400,7 +400,8 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
 
     // Texture set. It is only restored while the slots the patchers see mirror it, which they do not when the plugin
     // use has an alternate texture for this shape: that one is patched in its own right. A texture set other shapes
-    // share is copied for this shape before it changes, so they keep their textures (see PGNIFUtil).
+    // share is copied for this shape before its textures change, so they keep their textures (see PGNIFUtil); the
+    // slot count is changed in place for every sharer.
     auto* const textureSet = textureSetOf(nif, shader);
     if (textureSet && slots == PGNIFUtil::textureSlots(&nif, &nifShape)) {
         // The count comes from mod authored JSON, so it is bounded before it drives an allocation.
@@ -437,7 +438,8 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
     if (shaderIt != stock.end() && shaderIt->is_object())
         isChanged |= PGMaterialState::shaderFromJSON(shader, *shaderIt);
 
-    // Alpha property. An alpha property other shapes share is copied for this shape as well (see PGNIFUtil).
+    // Alpha property. An alpha property other shapes share is copied for this shape as well, unless it has a
+    // controller (see PGNIFUtil).
     const auto alphaPropertyIt = stock.find(keyAlphaProperty);
     if (alphaPropertyIt != stock.end())
         isChanged |= PGMaterialState::alphaPropertyFromJSON(nif, nifShape, *alphaPropertyIt);

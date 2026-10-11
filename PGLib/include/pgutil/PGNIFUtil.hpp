@@ -140,14 +140,30 @@ bool configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                          const nifly::SkyrimShaderPropertyFlags2& flag,
                          const bool& enable);
 
-// Shared blocks. Vanilla meshes share alpha properties and texture sets between shapes. setAlphaProperty(),
-// setTextureSlot() and setTextureSlots() change them for the given shape alone: a block that other blocks also
-// reference is copied for the shape first, and a block only the shape uses is changed in place. The original keeps its
-// other users either way, so no block is left unreferenced. PGNIFUtil.cpp implements this once for both kinds of block.
-// An alpha property with a controller is the exception: the controller animates that one block, so it stays shared
-// and changes for every shape that uses it. A shader is never copied, so shapes that share a shader, which vanilla
-// meshes do not, also share every change to its texture set, as they do for its other fields. deleteAlphaProperty()
-// follows the same rule: it only deletes a block the shape alone uses.
+// Shared blocks. Vanilla meshes share alpha properties and texture sets between shapes, and a mesh can share a shader
+// between shapes as well. setAlphaProperty(), setTextureSlot() and setTextureSlots() change a block for the given
+// shape alone: a block that other blocks also reference is copied for the shape first, and a block only the shape uses
+// is changed in place. The original keeps its other users either way, so no block is left unreferenced. A shader is
+// written by many patchers through its pointer, so unshareShader() copies a shared one once, before the shape is
+// patched; the copy keeps the texture set until a write copies that too. PGNIFUtil.cpp implements this once for every
+// kind of block. A block with a controller is the exception: the controller animates that one block, so the block
+// stays shared and changes for every shape that uses it; shapes on a shader that stays shared also share its texture
+// set and every change to it. The number of texture slots is also changed in place for every sharer.
+// deleteAlphaProperty() follows the same rule: it only deletes blocks the shape alone uses, and the links of an
+// animation sequence to a deleted controller go with it, together with what only those links used.
+
+/// @brief Give a shape its own lighting shader if other shapes share it
+///
+/// The patchers write the shader of a shape through its pointer, so a shared shader is copied once before the shape
+/// is patched instead of at each write. The copy references the same texture set, which is copied on its first write.
+/// The shape patchers write lighting shaders only, so no other shader type is copied, and a shader with a controller
+/// stays shared together with its texture set (see the note on shared blocks above).
+///
+/// @param nif the NIF
+/// @param nifShape the shape
+/// @return true if the shader was copied
+bool unshareShader(nifly::NifFile& nif,
+                   nifly::NiShape& nifShape);
 
 /// @brief Set the flags and the alpha test threshold of the NiAlphaProperty of a shape
 ///
@@ -169,7 +185,8 @@ bool setAlphaProperty(nifly::NifFile& nif,
 /// @brief Remove the NiAlphaProperty from a shape
 ///
 /// Other blocks that share the alpha property keep it. Otherwise it is deleted, together with every block only it uses,
-/// such as an alpha test controller.
+/// such as an alpha test controller; the links of an animation sequence to that controller go with it, together with
+/// the interpolators only those links used.
 ///
 /// @param nif the NIF
 /// @param nifShape the shape

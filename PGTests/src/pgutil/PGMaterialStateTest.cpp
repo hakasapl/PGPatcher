@@ -413,16 +413,28 @@ TEST(PGMaterialStateTest,
     EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(256), byte));
     EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(-1), byte));
     EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(1.5), byte));
-    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(2.0), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(-0.5), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(256.0), byte));
     EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json("2"), byte));
     EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(true), byte));
     EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(nullptr), byte));
     EXPECT_EQ(byte, 255U); // untouched by the malformed values
 
+    // A float without a fraction counts as its integer, as it does for an "integer" of a JSON schema.
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(2.0), byte));
+    EXPECT_EQ(byte, 2U);
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json::parse("128.0"), byte));
+    EXPECT_EQ(byte, 128U);
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(255.0), byte));
+    EXPECT_EQ(byte, 255U);
+
     uint16_t word = 0;
     EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(65535), word));
     EXPECT_EQ(word, 65535U);
     EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(65536), word));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(65536.0), word));
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(65535.0), word));
+    EXPECT_EQ(word, 65535U);
 
     // Parsed numbers are unsigned, numbers built from an int are signed; both are read.
     uint32_t dword = 0;

@@ -12,8 +12,11 @@
  * @class PatcherMesh
  * @brief Base class for all mesh patchers: holds the NIF being patched and the plugin use it is patched for
  *
- * Shapes of a NIF may share one BSShaderTextureSet or NiAlphaProperty block. The setters of PGNIFUtil give a shape its
- * own copy of such a block before they change it, so a patch result never reaches the other shapes.
+ * Shapes of a NIF may share a shader, a BSShaderTextureSet or an NiAlphaProperty block. PGPatcher copies a shared
+ * lighting shader for a shape before the shape is patched, and the setters of PGNIFUtil give a shape its own copy of a
+ * shared texture set or alpha property before they change it, so a patch result does not reach the other shapes. A
+ * block with an animation controller stays shared, and so does a change to the number of texture slots (see the note
+ * on shared blocks in PGNIFUtil.hpp).
  */
 class PatcherMesh : public Patcher {
 private:

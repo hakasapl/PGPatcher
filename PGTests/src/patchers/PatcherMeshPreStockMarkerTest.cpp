@@ -378,4 +378,32 @@ TEST_F(PatcherMeshPreStockMarkerTest,
               nlohmann::json({ { "version", Marker::formatVersion },
                                { "alpha_property", { { "flags", 4844 }, { "threshold", 32 } } } }));
 }
+
+TEST_F(PatcherMeshPreStockMarkerTest,
+       RestoringASharedTextureSetCopiesItForTheMarkedShape)
+{
+    Marker patcher(meshPath, &nif());
+
+    // A second shape shares the texture set of the first one, as vanilla meshes do.
+    auto* sharer = m_builder.addShape("Sharer");
+    const auto sharedSet = m_shader->textureSetRef.index;
+    m_builder.lightingShader(sharer)->textureSetRef.index = sharedSet;
+
+    // Both shapes were patched to another diffuse through the shared block; only the first one carries a block.
+    const auto stock = Marker::captureStock(nif(), *m_shape);
+    m_builder.textureSet(m_shape)->textures[0].get() = "textures\\a\\patched.dds";
+    Marker::writeMarker(nif(), *m_shape, Marker::diffStock(nif(), *m_shape, stock));
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif(), sharer, TextureSlots::Diffuse), "textures\\a\\patched.dds");
+
+    // The restore gives the marked shape its own set with the stock textures and leaves the shared block alone.
+    auto current = PGNIFUtil::textureSlots(&nif(), m_shape);
+    const auto numBlocks = nif().GetHeader().GetNumBlocks();
+    EXPECT_TRUE(patcher.applyPatch(current, *m_shape));
+    EXPECT_EQ(nif().GetHeader().GetNumBlocks(), numBlocks + 1);
+    EXPECT_NE(m_shader->textureSetRef.index, sharedSet);
+    EXPECT_EQ(m_builder.lightingShader(sharer)->textureSetRef.index, sharedSet);
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif(), m_shape, TextureSlots::Diffuse), "textures\\a\\stone.dds");
+    EXPECT_EQ(current[0], L"textures\\a\\stone.dds");
+    EXPECT_EQ(PGNIFUtil::textureSlot(&nif(), sharer, TextureSlots::Diffuse), "textures\\a\\patched.dds");
+}
 }

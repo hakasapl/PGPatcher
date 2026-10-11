@@ -5,6 +5,7 @@
 #include "Shaders.hpp"
 #include <nlohmann/json.hpp>
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <utility>
@@ -121,7 +122,8 @@ bool isAlphaPropertyEqual(const nifly::NiAlphaProperty* alphaA,
  * @brief Reads a JSON number as one of the unsigned integer types the mesh format stores
  *
  * nlohmann stores a non-negative integer as unsigned when it was parsed, but as signed when it was built from an int
- * in code, so both integer kinds are accepted. A negative number, a fraction and a number the type cannot hold are
+ * in code, so both integer kinds are accepted. A float without a fraction, such as 128.0, counts as that integer, as
+ * it does for an "integer" of a JSON schema. A negative number, a fraction and a number the type cannot hold are
  * malformed. PBR JSON entries and PG_STOCK blocks read the fields of the mesh format with it, so they accept the same
  * values.
  *
@@ -134,14 +136,25 @@ template<typename T>
 bool unsignedFromJSON(const nlohmann::json& value,
                       T& out)
 {
-    if (!value.is_number_integer())
+    if (value.is_number_integer()) {
+        const auto asInteger = value.get<int64_t>();
+        if (asInteger < 0 || std::cmp_greater(asInteger, std::numeric_limits<T>::max()))
+            return false;
+
+        out = static_cast<T>(asInteger);
+        return true;
+    }
+
+    if (!value.is_number_float())
         return false;
 
-    const auto asInteger = value.get<int64_t>();
-    if (asInteger < 0 || std::cmp_greater(asInteger, std::numeric_limits<T>::max()))
+    // The bound is one past the largest value, which a double holds exactly for every unsigned type, while the largest
+    // 64 bit value itself would round up to it.
+    const auto number = value.get<double>();
+    if (number < 0 || number >= static_cast<double>(std::numeric_limits<T>::max()) + 1 || std::trunc(number) != number)
         return false;
 
-    out = static_cast<T>(asInteger);
+    out = static_cast<T>(number);
     return true;
 }
 

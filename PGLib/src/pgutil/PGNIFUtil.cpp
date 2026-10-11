@@ -7,6 +7,7 @@
 #include "pgutil/PGTypes.hpp"
 #include "util/StringUtil.hpp"
 
+#include "Animation.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Object3d.hpp"
@@ -326,8 +327,8 @@ bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
     return isChanged;
 }
 
-// Shared block helpers, see the note on shared blocks in PGNIFUtil.hpp. Alpha properties and texture sets are changed
-// through unshareBlock(), and an alpha property is deleted through deleteBlockTree().
+// Shared block helpers, see the note on shared blocks in PGNIFUtil.hpp. Shaders, alpha properties and texture sets are
+// copied through unshareBlock(), and an alpha property is deleted through deleteBlockTree().
 namespace {
 
 /// @brief Checks whether more than one reference points at a block.
@@ -382,9 +383,13 @@ nifly::BSShaderTextureSet* unshareTextureSet(nifly::NifFile& nif,
 }
 
 /// @brief Adds blocks, and every block they reach through their references, to a set
+///
+/// Scene graph blocks (nodes and shapes) are never reached: a property tree does not contain them, so a reference to
+/// one is a broken file. Pointers, such as the target of a controller, are followed only into the given blocks.
 void addReachableBlocks(const nifly::NiHeader& header,
                         std::vector<nifly::NiObject*> pending,
-                        std::unordered_set<nifly::NiObject*>& reached)
+                        std::unordered_set<nifly::NiObject*>& reached,
+                        const std::unordered_set<nifly::NiObject*>* ptrTargets = nullptr)
 {
     while (!pending.empty()) {
         auto* const block = pending.back();
@@ -396,8 +401,19 @@ void addReachableBlocks(const nifly::NiHeader& header,
         block->GetChildRefs(refs);
         for (const auto* const ref : refs) {
             auto* const child = header.GetBlock<nifly::NiObject>(ref);
-            if (child)
+            if (child && !dynamic_cast<nifly::NiAVObject*>(child))
                 pending.push_back(child);
+        }
+
+        if (!ptrTargets)
+            continue;
+
+        std::set<nifly::NiRef*> ptrs;
+        block->GetPtrs(ptrs);
+        for (const auto* const ptr : ptrs) {
+            auto* const target = header.GetBlock<nifly::NiObject>(ptr);
+            if (target && ptrTargets->contains(target))
+                pending.push_back(target);
         }
     }
 }
@@ -405,7 +421,10 @@ void addReachableBlocks(const nifly::NiHeader& header,
 /// @brief Deletes a block together with every block only it uses
 ///
 /// A block it reaches that a block outside of its reach references stays for that block, with everything that one
-/// reaches. References to the root block itself do not count: the root goes either way.
+/// reaches or points at. References to the root block itself do not count: the root goes unless a kept block points
+/// at it. The links of an animation sequence follow the controllers they drive instead of keeping them: a link to a
+/// deleted controller is removed, together with what only that link used, while a link whose controller stays keeps
+/// its interpolator.
 void deleteBlockTree(nifly::NifFile& nif,
                      nifly::NiObject& root)
 {
@@ -421,7 +440,15 @@ void deleteBlockTree(nifly::NifFile& nif,
             continue;
 
         std::set<nifly::NiRef*> refs;
-        block->GetChildRefs(refs);
+        auto* const sequence = dynamic_cast<nifly::NiSequence*>(block);
+        if (sequence) {
+            for (auto& link : sequence->controlledBlocks)
+                if (!treeBlocks.contains(header.GetBlock<nifly::NiObject>(link.controllerRef)))
+                    refs.insert(&link.interpolatorRef);
+        } else {
+            block->GetChildRefs(refs);
+        }
+
         for (const auto* const ref : refs) {
             auto* const child = header.GetBlock<nifly::NiObject>(ref);
             if (child && child != &root && treeBlocks.contains(child))
@@ -430,20 +457,69 @@ void deleteBlockTree(nifly::NifFile& nif,
     }
 
     std::unordered_set<nifly::NiObject*> keptBlocks;
-    addReachableBlocks(header, sharedBlocks, keptBlocks);
+    addReachableBlocks(header, sharedBlocks, keptBlocks, &treeBlocks);
 
-    // Deleting a block renumbers the blocks behind it, so delete from the back.
-    std::vector<uint32_t> deletedBlockIDs;
+    std::unordered_set<uint32_t> deletedBlockIDs;
     for (auto* const block : treeBlocks)
         if (!keptBlocks.contains(block))
-            deletedBlockIDs.push_back(nif.GetBlockID(block));
+            deletedBlockIDs.insert(nif.GetBlockID(block));
 
-    std::ranges::sort(deletedBlockIDs, std::greater<>());
-    for (const auto blockID : deletedBlockIDs)
+    // The links of an animation sequence to deleted blocks go with them. Their interpolators are deleted below if the
+    // links were their only users.
+    std::unordered_set<nifly::NiObject*> linkInterpolators;
+    for (uint32_t blockID = 0; blockID < header.GetNumBlocks(); blockID++) {
+        auto* const sequence = header.GetBlock<nifly::NiSequence>(blockID);
+        if (!sequence)
+            continue;
+
+        auto& links = sequence->controlledBlocks;
+        for (uint32_t i = links.size(); i > 0; i--) {
+            const auto& link = links[i - 1];
+            if (!deletedBlockIDs.contains(link.controllerRef.index)
+                && !deletedBlockIDs.contains(link.interpolatorRef.index)) {
+                continue;
+            }
+
+            auto* const interpolator = header.GetBlock<nifly::NiObject>(link.interpolatorRef);
+            if (interpolator && !deletedBlockIDs.contains(link.interpolatorRef.index))
+                linkInterpolators.insert(interpolator);
+
+            links.erase(i - 1);
+        }
+    }
+
+    // Deleting a block renumbers the blocks behind it, so delete from the back. The other blocks stay where they are.
+    std::vector<uint32_t> sortedBlockIDs(deletedBlockIDs.begin(), deletedBlockIDs.end());
+    std::ranges::sort(sortedBlockIDs, std::greater<>());
+    for (const auto blockID : sortedBlockIDs)
         header.DeleteBlock(blockID);
+
+    for (auto* const interpolator : linkInterpolators) {
+        const auto interpolatorID = nif.GetBlockID(interpolator);
+        if (interpolatorID != nifly::NIF_NPOS && !header.IsBlockReferenced(interpolatorID, false))
+            deleteBlockTree(nif, *interpolator);
+    }
 }
 
 } // namespace
+
+// Shader helpers.
+bool PGNIFUtil::unshareShader(nifly::NifFile& nif,
+                              nifly::NiShape& nifShape)
+{
+    auto* const shaderRef = nifShape.ShaderPropertyRef();
+    if (!shaderRef)
+        return false;
+
+    // The shape patchers write lighting shaders only, so no other shader type needs a copy. A shader with a controller
+    // stays shared, like an alpha property with one: the controller animates that one block.
+    auto& header = nif.GetHeader();
+    const auto* const shader = header.GetBlock<nifly::BSLightingShaderProperty>(shaderRef->index);
+    if (!shader || header.GetBlock(shader->controllerRef))
+        return false;
+
+    return unshareBlock(header, *shaderRef) != shader;
+}
 
 // Alpha property helpers.
 bool PGNIFUtil::setAlphaProperty(nifly::NifFile& nif,

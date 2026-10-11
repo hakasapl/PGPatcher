@@ -283,8 +283,9 @@ private:
                            std::unordered_set<unsigned>& nonAltTexShapes);
 
     /**
-     * @brief Patches one shape: pre patchers, the winning shader match (first enabled match of matches()) with its
-     * transform, post patchers, then the texture set is written back
+     * @brief Patches one shape: a shader shared with other shapes is copied for it, then pre patchers, the winning
+     * shader match (first enabled match of matches()) with its transform, post patchers, then the texture set is
+     * written back
      *
      * @param nif mesh the shape belongs to
      * @param nifShape shape to patch
