@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <exception>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -13,6 +14,13 @@
  * periodically calls throwExceptionOnMainThread() or hasException() to detect and report it.
  */
 class ExceptionHandler {
+public:
+    /**
+     * @brief Runs a task and records a std::exception it throws with setException(), returning whether the task
+     * completed. See runGuarded().
+     */
+    using TaskGuard = bool (*)(const std::function<void()>& task);
+
 private:
     static std::thread::id s_mainThreadId;
 
@@ -20,6 +28,7 @@ private:
     static std::mutex s_exceptionMutex;
     static std::exception s_exception;
     static std::string s_exceptionStackTrace;
+    static std::atomic<TaskGuard> s_taskGuard;
 
 public:
     /**
@@ -59,4 +68,26 @@ public:
      * A TaskPoolRunner runs tasks again afterwards; a TaskQueue whose worker thread already stopped stays stopped.
      */
     static void reset();
+
+    /**
+     * @brief Runs a task on the calling thread and records a std::exception it throws with setException().
+     *
+     * The installed task guard (setTaskGuard()) decides how the stack trace of the exception is obtained. Without one
+     * the trace is empty; the applications install cppTraceGuard() at startup.
+     *
+     * @param task Task to run.
+     * @return true if the task completed, false if it threw. Exceptions that are not a std::exception propagate.
+     */
+    static bool runGuarded(const std::function<void()>& task);
+
+    /**
+     * @brief Installs the task guard runGuarded() uses. nullptr restores the plain try/catch without a stack trace.
+     */
+    static void setTaskGuard(TaskGuard guard);
+
+    /**
+     * @brief Task guard that captures the stack trace of the exception with cpptrace. Defined in
+     * ExceptionHandlerCppTrace.cpp, which the runtime library does not compile.
+     */
+    static bool cppTraceGuard(const std::function<void()>& task);
 };

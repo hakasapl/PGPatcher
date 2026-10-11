@@ -126,11 +126,6 @@ try {
             $copyFile = $true
         }
 
-        # Check if is folder and name is "cshaders"
-        if ($_.PSIsContainer -and $_.Name -eq 'cshaders') {
-            $copyFile = $true
-        }
-
         # Check if is folder and name is "dotnetlib". If so, copy only .dll files, .pdb files, PGMutagen.runtimeconfig.json, and PGMutagen.deps.json
         if ($_.PSIsContainer -and $_.Name -eq 'dotnetlib') {
             Get-ChildItem -Path $_.FullName -Recurse | ForEach-Object {

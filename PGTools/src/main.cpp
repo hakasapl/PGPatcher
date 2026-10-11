@@ -315,6 +315,7 @@ int mainRunner(PGToolsCLIArgs& args)
 #endif
 
     ExceptionHandler::setMainThread();
+    ExceptionHandler::setTaskGuard(ExceptionHandler::cppTraceGuard);
 
     // Check if gendiffblocks subcommand was used.
     if (args.genDiffBlocks.subCommand->parsed())
@@ -331,7 +332,7 @@ int mainRunner(PGToolsCLIArgs& args)
 
         auto pgd = PGDirectory(args.patch.source, args.patch.output);
         PGGlobals::setPGD(&pgd);
-        auto pgd3D = PGD3D(exePath / "cshaders");
+        auto pgd3D = PGD3D();
         PGGlobals::setPGD3D(&pgd3D);
 
         // Check if GPU needs to be initialized.

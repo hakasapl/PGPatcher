@@ -146,8 +146,6 @@ std::filesystem::path executableDir()
     return std::filesystem::path(buffer.data()).parent_path();
 }
 
-std::filesystem::path shaderDir() { return executableDir() / L"cshaders"; }
-
 bool waitFor(const std::function<bool()>& predicate,
              int timeoutMs)
 {

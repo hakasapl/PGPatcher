@@ -88,7 +88,7 @@ protected:
     // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
     TestUtil::TempDir m_dir;
     std::unique_ptr<PGDirectory> m_pgd;
-    PGD3D m_d3d { TestUtil::shaderDir() };
+    PGD3D m_d3d;
     uint32_t m_behindBlockID = 0; /** Block ID of the second shape of the marker mesh as it was built */
     // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 

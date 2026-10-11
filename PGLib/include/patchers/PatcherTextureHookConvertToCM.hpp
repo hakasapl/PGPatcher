@@ -18,8 +18,6 @@ class PatcherTextureHookConvertToCM : public PatcherTextureHook {
 private:
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* shaderName = "ParallaxToCM.hlsl";
-
     static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 

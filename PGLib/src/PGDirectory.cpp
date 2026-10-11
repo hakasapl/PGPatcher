@@ -21,9 +21,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/asio.hpp>
 #include <boost/crc.hpp>
-#include <boost/thread.hpp>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>

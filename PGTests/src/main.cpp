@@ -54,6 +54,7 @@ int main(int argc,
 
     // The tests run on this thread, which is the main thread as far as ExceptionHandler is concerned.
     ExceptionHandler::setMainThread();
+    ExceptionHandler::setTaskGuard(ExceptionHandler::cppTraceGuard);
 
     return RUN_ALL_TESTS();
 }

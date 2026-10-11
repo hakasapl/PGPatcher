@@ -1,11 +1,13 @@
 #include "patchers/PatcherTextureHookFixSSS.hpp"
 
+#include "PGD3D.hpp"
 #include "PGGlobals.hpp"
 #include "PGRunCache.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 
+#include "SSSFix.h"
 #include <DirectXTex.h>
 #include <dxgiformat.h>
 
@@ -67,7 +69,7 @@ bool PatcherTextureHookFixSSS::initShader()
     if (s_shader)
         return true;
 
-    return pgd3d->initShader(shaderName, s_shader);
+    return pgd3d->initShader(PGD3D::ShaderBytecode(g_SSSFix), s_shader);
 }
 
 PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(std::filesystem::path ddsPath,

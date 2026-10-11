@@ -62,9 +62,6 @@ std::string pathToUTF8(const std::filesystem::path& path);
 /// @brief Folder of the test executable, which is the build's bin folder.
 std::filesystem::path executableDir();
 
-/// @brief The compute shader folder next to the executable.
-std::filesystem::path shaderDir();
-
 /// @brief Waits until the predicate returns true or the timeout passes. Returns the predicate's last value.
 bool waitFor(const std::function<bool()>& predicate,
              int timeoutMs = 5000);

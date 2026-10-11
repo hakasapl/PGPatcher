@@ -26,8 +26,6 @@ private:
     };
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* shaderName = "SSSFix.hlsl";
-
     static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 

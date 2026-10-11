@@ -1,30 +1,24 @@
 #pragma once
 
-#include <boost/asio.hpp>
-#include <boost/asio/thread_pool.hpp>
-
 #include <atomic>
 #include <cstddef>
 #include <functional>
 #include <vector>
 
 /**
- * @brief Runs a batch of independent tasks, either serially on the calling thread or on a thread pool.
+ * @brief Runs a batch of independent tasks, either serially on the calling thread or on a pool of threads.
  *
- * The pool has poolThreadCount() threads. A task that throws stops the batch: the exception is recorded in
- * ExceptionHandler, the exception callback runs and runTasks() returns early. Each task runs with a Logger thread
- * buffer so its log lines are not interleaved with those of other tasks.
+ * The pool has poolThreadCount() threads, which runTasks() starts and joins. A task that throws stops the batch: the
+ * exception is recorded in ExceptionHandler, the exception callback runs and the tasks that did not start yet are
+ * skipped. Each task runs with a Logger thread buffer so its log lines are not interleaved with those of other tasks.
  */
 class TaskPoolRunner {
 private:
-    boost::asio::thread_pool m_threadPool; /** Thread pool responsible for queueing tasks for multithreaded */
-
     const bool m_multithread; /** If true, run multithreaded */
+    const unsigned m_threadCount; /** Number of pool threads */
 
     std::vector<std::function<void()>> m_tasks; /** Task list to run */
     std::atomic<size_t> m_completedTasks; /** Counter of completed tasks */
-
-    static constexpr int loopInterval = 10; /** Task loop interval */
 
     static constexpr unsigned numStaticThreads = 2; /** Number of static threads to reserve for system */
 
@@ -34,9 +28,9 @@ private:
 
 public:
     /**
-     * @brief Constructs the runner and its thread pool.
+     * @brief Constructs the runner.
      *
-     * @param multithread If true, runTasks() posts the tasks to the thread pool, otherwise it runs them in order on the
+     * @param multithread If true, runTasks() runs the tasks on the thread pool, otherwise it runs them in order on the
      * calling thread.
      */
     explicit TaskPoolRunner(const bool& multithread = true);

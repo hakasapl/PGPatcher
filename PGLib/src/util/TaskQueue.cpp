@@ -2,8 +2,6 @@
 
 #include "util/ExceptionHandler.hpp"
 
-#include <cpptrace/from_current.hpp>
-
 #include <chrono>
 #include <cstddef>
 #include <exception>
@@ -51,13 +49,8 @@ void TaskQueue::workerLoop()
 
         if (task) {
             m_isBusy = true;
-            CPPTRACE_TRY { task(); }
-            CPPTRACE_CATCH(const std::exception& e)
-            {
-                ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
-                if (s_exceptionCallback)
-                    s_exceptionCallback();
-            }
+            if (!ExceptionHandler::runGuarded(task) && s_exceptionCallback)
+                s_exceptionCallback();
             m_isBusy = false;
         }
     }

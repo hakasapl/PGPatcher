@@ -1,11 +1,13 @@
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 
+#include "PGD3D.hpp"
 #include "PGGlobals.hpp"
 #include "PGRunCache.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 
+#include "ParallaxToCM.h"
 #include <DirectXTex.h>
 #include <dxgiformat.h>
 
@@ -65,7 +67,7 @@ bool PatcherTextureHookConvertToCM::initShader()
     if (s_shader)
         return true;
 
-    return pgd3d->initShader(shaderName, s_shader);
+    return pgd3d->initShader(PGD3D::ShaderBytecode(g_ParallaxToCM), s_shader);
 }
 
 PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::path ddsPath,

@@ -974,6 +974,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
                 const std::filesystem::path& exePath)
 {
     ExceptionHandler::setMainThread();
+    ExceptionHandler::setTaskGuard(ExceptionHandler::cppTraceGuard);
 
     // Define paths.
     PGPatcherGlobals::setEXEPath(exePath);
@@ -1040,7 +1041,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
     PGGlobals::setPGMM(&pgmm);
     auto pgd = PGDirectory(&bg, params.output.dir);
     PGGlobals::setPGD(&pgd);
-    auto pgd3d = PGD3D(exePath / "cshaders");
+    auto pgd3d = PGD3D();
     PGGlobals::setPGD3D(&pgd3d);
 
     // Create progress dialog object.

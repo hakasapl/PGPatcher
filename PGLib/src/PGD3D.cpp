@@ -5,6 +5,7 @@
 #include "PGRunCache.hpp"
 #include "util/Logger.hpp"
 
+#include "CountAlphaValues.h"
 #include <DirectXMath.h>
 #include <DirectXTex.h>
 #include <spdlog/spdlog.h>
@@ -17,13 +18,12 @@
 #include <cstring>
 #include <d3d11.h>
 #include <d3dcommon.h>
-#include <d3dcompiler.h>
-#include <dxcapi.h>
 #include <dxgi.h>
 #include <dxgiformat.h>
 #include <filesystem>
 #include <mutex>
 #include <shared_mutex>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -37,11 +37,6 @@ using Microsoft::WRL::ComPtr;
 // We need to access unions as part of certain DX11 structures.
 // Reinterpret cast is needed often for type casting with DX11.
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-
-PGD3D::PGD3D(std::filesystem::path shaderPath)
-    : m_shaderPath(std::move(shaderPath))
-{
-}
 
 bool PGD3D::checkIfCM(const std::filesystem::path& ddsPath,
                       bool& result,
@@ -280,45 +275,24 @@ bool PGD3D::initGPU()
 bool PGD3D::initShaders()
 {
     // Initialize shaders.
-    return initShader("CountAlphaValues.hlsl", m_shaderCountAlphaValues);
+    return initShader(ShaderBytecode(g_CountAlphaValues), m_shaderCountAlphaValues);
 }
 
-bool PGD3D::initShader(const std::filesystem::path& filename,
+bool PGD3D::initShader(ShaderBytecode bytecode,
                        ComPtr<ID3D11ComputeShader>& outShader)
 {
     if (!m_ptrDevice)
         throw std::runtime_error("GPU not initialized");
 
-    // Load shader.
-    ComPtr<ID3DBlob> shaderBlob;
-    HRESULT hr { };
-#ifdef _DEBUG
-    const DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG;
-#else
-    const DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#endif
-
-    const std::filesystem::path shaderAbsPath = m_shaderPath / filename;
-
-    // Compile shader.
-    ComPtr<ID3DBlob> ptrErrorBlob;
-    hr = D3DCompileFromFile(shaderAbsPath.c_str(),
-                            nullptr,
-                            nullptr,
-                            "main",
-                            "cs_5_0",
-                            dwShaderFlags,
-                            0,
-                            shaderBlob.ReleaseAndGetAddressOf(),
-                            ptrErrorBlob.ReleaseAndGetAddressOf());
-    if (FAILED(hr))
+    if (bytecode.empty())
         return false;
 
     // Create compute shader on GPU.
+    HRESULT hr { };
     {
         const std::scoped_lock lock(m_d3dMutex);
         hr = m_ptrDevice->CreateComputeShader(
-            shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, outShader.ReleaseAndGetAddressOf());
+            bytecode.data(), bytecode.size(), nullptr, outShader.ReleaseAndGetAddressOf());
     }
     return !FAILED(hr);
 }
