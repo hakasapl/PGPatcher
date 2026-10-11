@@ -4,6 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -85,17 +86,18 @@ bool getJSONFromBytes(const std::vector<std::byte>& bytes,
     return true;
 }
 
-bool saveJSON(const std::filesystem::path& filePath,
+void saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
               const bool& shouldBeReadable)
 {
     std::ofstream outputFile(filePath, std::ios::binary);
     if (!outputFile.is_open()) {
-        // Unable to open file.
-        return false;
+        // The callers rely on this throw: a configuration or output file that cannot be written has to be reported.
+        throw std::filesystem::filesystem_error(
+            "Unable to open file for writing", filePath, std::error_code(errno, std::generic_category()));
     }
 
-    // Only write errors throw; a file that cannot be opened returns false above.
+    // Write errors throw as well.
     outputFile.exceptions(std::ios::failbit | std::ios::badbit);
 
     if (shouldBeReadable)
@@ -104,7 +106,6 @@ bool saveJSON(const std::filesystem::path& filePath,
         outputFile << json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
 
     outputFile.close();
-    return true;
 }
 
 std::vector<DirectoryEntry> listDirectory(const std::filesystem::path& directory,

@@ -18,7 +18,7 @@
 std::unordered_set<std::wstring> Logger::s_existingMessages;
 std::shared_mutex Logger::s_existingMessagesMutex;
 std::unordered_set<std::wstring> Logger::s_runStartMessages;
-bool Logger::s_runStartMarked = false;
+bool Logger::s_isRunStartMarked = false;
 std::shared_mutex Logger::s_mtLogLock;
 thread_local std::vector<std::pair<spdlog::level::level_enum, std::variant<std::wstring, std::string>>>
     Logger::s_curBuffer;
@@ -121,13 +121,13 @@ void Logger::markRunStart()
 {
     const std::unique_lock lock(s_existingMessagesMutex);
     s_runStartMessages = s_existingMessages;
-    s_runStartMarked = true;
+    s_isRunStartMarked = true;
 }
 
 void Logger::resetToRunStart()
 {
     const std::unique_lock lock(s_existingMessagesMutex);
-    if (!s_runStartMarked)
+    if (!s_isRunStartMarked)
         return;
 
     s_existingMessages = s_runStartMessages;

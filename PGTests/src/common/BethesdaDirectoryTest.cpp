@@ -50,7 +50,8 @@ std::set<std::wstring> mappedPaths(const BethesdaDirectory& dir)
  * @brief A game whose data folder has archives of several plugins, an INI listed archive and loose files.
  *
  * Load order of the archives: Skyrim - Misc.bsa (INI), ModA.bsa, ModA - Textures.bsa, ModB.bsa. Unloaded.bsa belongs
- * to no plugin. meshes\shared.nif is in every archive, meshes\loose.nif is archived and loose.
+ * to no plugin, and neither does ModA².bsa (a superscript is not a digit). meshes\shared.nif is in every archive,
+ * meshes\loose.nif is archived and loose.
  */
 class ArchivedGame {
 private:
@@ -90,6 +91,11 @@ public:
         BSABuilder unloaded;
         unloaded.addFile("meshes\\unloaded.nif", "unloaded");
         unloaded.write(m_game.dataDir() / L"Unloaded.bsa");
+
+        // "ModA" followed by a superscript two: not one of the numbered archives of ModA.esp.
+        BSABuilder superscript;
+        superscript.addFile("meshes\\superscript.nif", "superscript");
+        superscript.write(m_game.dataDir() / L"ModA².bsa");
 
         m_game.writeDataFile(L"meshes\\loose.nif", "loose version");
         m_game.writeDataFile(L"meshes\\loose_only.nif", "loose only");
@@ -263,6 +269,7 @@ TEST(BethesdaDirectoryTest,
         EXPECT_FALSE(bd.isFile(L"scripts\\s.pex"));
         EXPECT_FALSE(bd.isFile(L"meshes\\plugin.esp"));
         EXPECT_FALSE(bd.isFile(L"meshes\\unloaded.nif"));
+        EXPECT_FALSE(bd.isFile(L"meshes\\superscript.nif"));
         EXPECT_TRUE(TestLog::contains(spdlog::level::warn, "Unloaded.bsa not loaded by any active plugin or INI"));
         EXPECT_TRUE(TestLog::contains(spdlog::level::warn, "BSA is in INI but does not exist"));
         EXPECT_TRUE(TestLog::contains(spdlog::level::warn, "contains non-ascii characters"));

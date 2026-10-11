@@ -43,14 +43,7 @@ void PatcherTextureHookConvertToCM::addToProcessList(const std::filesystem::path
 
 void PatcherTextureHookConvertToCM::replayGenerated(const std::filesystem::path& texPath)
 {
-    auto* pgd = PGGlobals::pgd();
-
-    const auto texBase = PGNIFUtil::texBase(texPath, PGEnums::TextureSlots::Parallax);
-    const auto newPath = texBase + L"_m.dds";
-
-    pgd->textureMap(PGEnums::TextureSlots::EnvMask)[texBase].insert(
-        { .path = newPath, .type = PGEnums::TextureType::ComplexMaterial });
-    pgd->setTextureType(newPath, PGEnums::TextureType::ComplexMaterial);
+    PGGlobals::pgd()->setTextureType(outputFilename(texPath), PGEnums::TextureType::ComplexMaterial);
 }
 
 bool PatcherTextureHookConvertToCM::isInProcessList(const std::filesystem::path& texPath)
@@ -127,9 +120,9 @@ bool PatcherTextureHookConvertToCM::applyPatch()
     if (FAILED(hr))
         return false;
 
-    // Add newly created file to complexMaterialMaps for later processing.
-    pgd->textureMap(PGEnums::TextureSlots::EnvMask)[texBase].insert(
-        { .path = newPath, .type = PGEnums::TextureType::ComplexMaterial });
+    // The generated map is deliberately not added to the texture maps: those hold the mapped textures that the shader
+    // patchers match directly and that the update cache digests, while a generated map is only reached through this
+    // hook. Its type is recorded for the texture type lookups.
     pgd->setTextureType(newPath, PGEnums::TextureType::ComplexMaterial);
 
     // Record generated output for incremental runs.

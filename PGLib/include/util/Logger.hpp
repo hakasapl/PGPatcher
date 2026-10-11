@@ -40,7 +40,7 @@ private:
 
     // Snapshot of s_existingMessages taken by markRunStart().
     static std::unordered_set<std::wstring> s_runStartMessages;
-    static bool s_runStartMarked;
+    static bool s_isRunStartMarked;
 
     // Held shared while a message is logged and exclusively while a thread buffer is flushed.
     static std::shared_mutex s_mtLogLock;

@@ -83,29 +83,30 @@ TEST(FileUtilTest,
     const TestUtil::TempDir dir;
     const nlohmann::json json = { { "b", 1 }, { "a", nlohmann::json::array({ "x", "y" }) } };
 
-    ASSERT_TRUE(FileUtil::saveJSON(dir / L"readable.json", json, true));
+    ASSERT_NO_THROW(FileUtil::saveJSON(dir / L"readable.json", json, true));
     const auto readable = TestUtil::readFile(dir / L"readable.json");
     EXPECT_NE(readable.find('\n'), std::string::npos);
     EXPECT_EQ(nlohmann::json::parse(readable), json);
 
-    ASSERT_TRUE(FileUtil::saveJSON(dir / L"compact.json", json, false));
+    ASSERT_NO_THROW(FileUtil::saveJSON(dir / L"compact.json", json, false));
     const auto compact = TestUtil::readFile(dir / L"compact.json");
     EXPECT_EQ(compact.find('\n'), std::string::npos);
     EXPECT_EQ(compact, json.dump());
 
     // Invalid UTF-8 is replaced instead of aborting the write.
     const nlohmann::json invalid = { { "s", "bad\xFF" } };
-    ASSERT_TRUE(FileUtil::saveJSON(dir / L"invalid.json", invalid, false));
+    ASSERT_NO_THROW(FileUtil::saveJSON(dir / L"invalid.json", invalid, false));
     EXPECT_EQ(nlohmann::json::parse(TestUtil::readFile(dir / L"invalid.json"))["s"], "bad\xEF\xBF\xBD");
 }
 
 TEST(FileUtilTest,
-     SaveJsonReturnsFalseWhenTheFileCannotBeOpened)
+     SaveJsonThrowsWhenTheFileCannotBeOpened)
 {
     const TestUtil::TempDir dir;
     const nlohmann::json json = { { "a", 1 } };
-    // The folder does not exist, so the file cannot be opened.
-    EXPECT_FALSE(FileUtil::saveJSON(dir / L"missing\\folder\\out.json", json, true));
+    // The folder does not exist, so the file cannot be opened. The callers (configuration saving, output JSONs) rely
+    // on the throw to report the failure.
+    EXPECT_THROW(FileUtil::saveJSON(dir / L"missing\\folder\\out.json", json, true), std::filesystem::filesystem_error);
     EXPECT_FALSE(std::filesystem::exists(dir / L"missing"));
 }
 

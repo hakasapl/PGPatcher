@@ -7,17 +7,12 @@
 - Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
 - Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
 - Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
-- Fixed the Restore Default Shaders post-patcher being listed as HairFlowMap in logs and the conflict viewer
+- Fixed the Restore Default Shaders post-patcher being named HairFlowMap in logs
 - Fixed the `pgtools` Convert to HDR patcher running the Parallax to Complex Material shader instead of its own
 - Fixed a plugin error from one run being reported again by every later plugin operation in the same session
 - Fixed plugin names with non-ASCII characters being read incorrectly from plugins
-- Fixed facegen mesh detection being case sensitive
 - Fixed truncated NIF files being patched as if they were complete
-- Fixed texture paths with non-ASCII characters not being rejected
 - Fixed folders inside the data directory being listed as files
-- Fixed game folder validation checking the default AppData folder instead of the configured one
-- Fixed an error when the output folder does not exist yet while reading the mod list
-- Fixed a crash in progress reporting when a step has no items
 - Fixed the thread count on systems with two or fewer logical processors
 
 ## [2.1.2] - 2026-10-05

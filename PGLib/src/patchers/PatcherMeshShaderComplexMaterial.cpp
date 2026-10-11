@@ -121,7 +121,8 @@ bool PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& ol
     auto* pgd = PGGlobals::pgd();
     auto* pgd3d = PGGlobals::pgD3D();
 
-    // A reference, not a static copy: the map belongs to the current directory and changes between runs.
+    // The live map of the current directory. It only holds mapped textures: the texture hooks do not add the maps they
+    // generate, which are reached through the Parallax to CM transform instead.
     const auto& cmBaseMap = pgd->textureMapConst(PGEnums::TextureSlots::EnvMask);
 
     matches.clear();

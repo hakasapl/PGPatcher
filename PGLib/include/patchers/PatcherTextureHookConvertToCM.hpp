@@ -54,8 +54,8 @@ public:
     static std::filesystem::path outputFilename(const std::filesystem::path& texPath);
 
     /**
-     * @brief Re-applies the texture map side effects of a previously generated output that is being reused
-     * (incremental runs) without regenerating the texture.
+     * @brief Records the texture type of a previously generated output that is being reused (incremental runs)
+     * without regenerating the texture. Generated maps are never added to the texture maps.
      *
      * @param texPath Path to the source parallax texture.
      */

@@ -54,7 +54,9 @@ public:
     static bool hasException();
 
     /**
-     * @brief Forgets the recorded exception, so a new one can be recorded and the task runners accept tasks again.
+     * @brief Forgets the recorded exception, so a new one can be recorded.
+     *
+     * A TaskPoolRunner runs tasks again afterwards; a TaskQueue whose worker thread already stopped stays stopped.
      */
     static void reset();
 };

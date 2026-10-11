@@ -733,7 +733,7 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
         return isChanged;
     }
 
-    if (!nifShader || !nifShaderBSLSP) {
+    if (!nifShaderBSLSP) {
         // Only lighting shader shapes carry PBR data.
         return isChanged;
     }

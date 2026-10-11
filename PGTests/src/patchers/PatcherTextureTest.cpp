@@ -106,12 +106,10 @@ TEST_F(PatcherTextureTest,
     PatcherTextureHookConvertToCM::reset();
     EXPECT_FALSE(PatcherTextureHookConvertToCM::isInProcessList(L"textures\\a\\stone_p.dds"));
 
-    // Replaying a generated texture of a previous run adds it to the maps without converting anything.
+    // Replaying a generated texture of a previous run records its type without converting anything. The generated map
+    // is not added to the texture maps, which only hold mapped textures.
     PatcherTextureHookConvertToCM::replayGenerated(L"textures\\a\\stone_p.dds");
-    EXPECT_TRUE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\a\\stone"));
-    EXPECT_TRUE(m_pgd->textureMapConst(TextureSlots::EnvMask)
-                    .at(L"textures\\a\\stone")
-                    .contains({ .path = L"textures\\a\\stone_m.dds", .type = TextureType::ComplexMaterial }));
+    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\a\\stone"));
     EXPECT_EQ(m_pgd->textureType(L"textures\\a\\stone_m.dds"), TextureType::ComplexMaterial);
 
     // A patcher without a texture cannot run.
@@ -133,9 +131,7 @@ TEST_F(PatcherTextureTest,
     EXPECT_FALSE(PatcherTextureHookFixSSS::isInProcessList(L"textures\\actors\\skin.dds"));
 
     PatcherTextureHookFixSSS::replayGenerated(L"textures\\actors\\skin.dds");
-    EXPECT_TRUE(m_pgd->textureMapConst(TextureSlots::Glow)
-                    .at(L"textures\\actors\\skin")
-                    .contains({ .path = L"textures\\actors\\skin_s.dds", .type = TextureType::SubsurfaceColor }));
+    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::Glow).contains(L"textures\\actors\\skin"));
     EXPECT_EQ(m_pgd->textureType(L"textures\\actors\\skin_s.dds"), TextureType::SubsurfaceColor);
 
     PatcherTextureHookFixSSS patcher(L"textures\\actors\\skin.dds", nullptr);
@@ -172,9 +168,8 @@ TEST_F(PatcherTextureTest,
     EXPECT_GT(row[(31 * 4) + 3], 200); // right: bright
     EXPECT_EQ(row[0], 0);
 
-    EXPECT_TRUE(m_pgd->textureMapConst(TextureSlots::EnvMask)
-                    .at(L"textures\\a\\stone")
-                    .contains({ .path = L"textures\\a\\stone_m.dds", .type = TextureType::ComplexMaterial }));
+    // The type is recorded; the generated map is not a texture map entry, it is reached through the hook.
+    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\a\\stone"));
     EXPECT_EQ(m_pgd->textureType(L"textures\\a\\stone_m.dds"), TextureType::ComplexMaterial);
 }
 

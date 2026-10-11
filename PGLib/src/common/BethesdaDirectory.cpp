@@ -661,7 +661,9 @@ std::vector<std::wstring> BethesdaDirectory::findBSAFilesFromPluginName(const st
             if (afterPrefix.starts_with(L' ') && !afterPrefix.starts_with(L" -"))
                 continue;
 
-            if (!afterPrefix.starts_with(L' ') && !iswdigit(afterPrefix[0]))
+            // Only the ASCII digits count ("ModA1.bsa"); iswdigit would also accept other Unicode digits.
+            const bool isDigit = afterPrefix[0] >= L'0' && afterPrefix[0] <= L'9';
+            if (!afterPrefix.starts_with(L' ') && !isDigit)
                 continue;
 
             bsaFilesFound.push_back(bsa);

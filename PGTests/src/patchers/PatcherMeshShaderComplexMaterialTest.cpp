@@ -1,5 +1,7 @@
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 
+#include "patchers/PatcherTextureHookConvertToCM.hpp"
+
 #include "DDSBuilder.hpp"
 #include "NIFBuilder.hpp"
 #include "PGD3D.hpp"
@@ -75,6 +77,7 @@ protected:
                  L"textures\\a\\bad.dds",
                  L"textures\\a\\bad_m.dds",
                  L"textures\\a\\wide_m.dds",
+                 L"textures\\a\\rock.dds",
              }) {
             TestUtil::DDSBuilder::writeDDS(dataDir() / texture, 64, 64);
         }
@@ -214,6 +217,30 @@ TEST_F(PatcherMeshShaderComplexMaterialTest,
     ASSERT_EQ(matches.size(), 2U);
     EXPECT_EQ(matches[0].matchedPath, L"textures\\a\\metal_m.dds");
     EXPECT_EQ(matches[1].matchedPath, L"textures\\a\\stone_m.dds");
+}
+
+TEST_F(PatcherMeshShaderComplexMaterialTest,
+       GeneratedMapsAreNotDirectCandidates)
+{
+    auto& nif = m_builder.nif();
+    PatcherMeshShaderComplexMaterial patcher(meshPath, &nif);
+    std::vector<PatcherMatch> matches;
+
+    // A map the Parallax to CM hook generates is reached through that transform, never as a direct match: replaying
+    // it records its type but adds nothing to the texture maps.
+    EXPECT_FALSE(patcher.shouldApply(slots(L"textures\\a\\rock.dds"), matches));
+    PatcherTextureHookConvertToCM::replayGenerated(L"textures\\a\\rock_p.dds");
+    EXPECT_FALSE(patcher.shouldApply(slots(L"textures\\a\\rock.dds"), matches));
+    EXPECT_TRUE(matches.empty());
+    EXPECT_EQ(m_pgd->textureType(L"textures\\a\\rock_m.dds"), TextureType::ComplexMaterial);
+
+    // A mapped map stays a candidate once a hook output took over its path, so the recorded matches do not depend on
+    // the order in which the meshes are patched.
+    TestUtil::DDSBuilder::writeDDS(m_dir / L"Output\\textures\\a\\stone_m.dds", 64, 64);
+    m_pgd->addGeneratedFile(L"textures\\a\\stone_m.dds");
+    EXPECT_TRUE(patcher.shouldApply(slots(L"textures\\a\\stone.dds"), matches));
+    ASSERT_EQ(matches.size(), 1U);
+    EXPECT_EQ(matches[0].matchedPath, L"textures\\a\\stone_m.dds");
 }
 
 TEST_F(PatcherMeshShaderComplexMaterialTest,
