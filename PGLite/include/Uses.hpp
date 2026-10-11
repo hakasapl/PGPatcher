@@ -86,6 +86,12 @@ public:
      */
     [[nodiscard]] static PGPlugin::ModelRecordType recordType(RE::FormType type);
 
+    /**
+     * @brief The other file of a weighted pair (_0.nif for _1.nif and the reverse), empty for a path that ends in
+     * neither.
+     */
+    [[nodiscard]] static std::filesystem::path weightCounterpart(const std::filesystem::path& path);
+
 private:
     std::unordered_map<std::filesystem::path, std::vector<RecordUse>> m_byPath;
 };

@@ -172,20 +172,6 @@ bool isSinglePassStatic(const RE::TESObjectSTAT& stat)
     return material && (material->directionalData.singlePass & singlePassFlag);
 }
 
-/// @brief The path of the other file of a weighted pair, empty when the path does not end in _0.nif or _1.nif.
-std::filesystem::path weightCounterpart(const std::filesystem::path& path)
-{
-    const auto str = path.wstring();
-    static constexpr std::wstring_view suffix0 = L"_0.nif";
-    static constexpr std::wstring_view suffix1 = L"_1.nif";
-    if (str.ends_with(suffix0))
-        return str.substr(0, str.size() - suffix0.size()) + std::wstring(suffix1);
-    if (str.ends_with(suffix1))
-        return str.substr(0, str.size() - suffix1.size()) + std::wstring(suffix0);
-
-    return { };
-}
-
 /// @brief The order the offline program patches the uses of a mesh in, see PGPlugin::modelUses().
 bool compareUses(const RecordUse& a,
                  const RecordUse& b)
@@ -493,6 +479,19 @@ PGPlugin::ModelRecordType Uses::recordType(RE::FormType type)
             return recType;
 
     return PGPlugin::ModelRecordType::Unknown;
+}
+
+std::filesystem::path Uses::weightCounterpart(const std::filesystem::path& path)
+{
+    const auto str = path.wstring();
+    static constexpr std::wstring_view suffix0 = L"_0.nif";
+    static constexpr std::wstring_view suffix1 = L"_1.nif";
+    if (str.ends_with(suffix0))
+        return str.substr(0, str.size() - suffix0.size()) + std::wstring(suffix1);
+    if (str.ends_with(suffix1))
+        return str.substr(0, str.size() - suffix1.size()) + std::wstring(suffix0);
+
+    return { };
 }
 
 }

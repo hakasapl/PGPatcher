@@ -1,15 +1,23 @@
 #pragma once
 
+#include "CMCache.hpp"
+#include "Environment.hpp"
+#include "PGD3D.hpp"
+#include "PGParams.hpp"
 #include "PatchStream.hpp"
+#include "Plan.hpp"
+#include "RecordEdits.hpp"
 #include "Settings.hpp"
 #include "Uses.hpp"
 
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -18,11 +26,26 @@ namespace PGLite {
 
 /**
  * @brief The lifecycle of the plugin (DESIGN.md sections 4.1, 4.8 and 4.9): the checks at plugin load, the data-load
- * task that reads the uses and registers the streams, the background initialization, and the bytes every stream
- * serves.
+ * task that reads the uses, plans and registers the streams, the background initialization of the environment, the
+ * bytes every stream serves, and Apply.
  */
 class Runtime final : public PatchStream::Provider {
 public:
+    /// @brief What the GUI shows about the state of the plugin.
+    struct Status {
+        bool isActive = false;
+        bool isReady = false;
+        std::optional<std::string> disableReason;
+        std::size_t uses = 0;
+        std::size_t usedMeshes = 0;
+        std::size_t families = 0;
+        std::size_t patchedFamilies = 0;
+        std::size_t variants = 0;
+        std::size_t streams = 0;
+        std::size_t textureSets = 0;
+        std::filesystem::path mo2Instance;
+    };
+
     /// @brief The one runtime of the process. It lives for the session and is never destroyed.
     static Runtime& instance();
 
@@ -38,23 +61,45 @@ public:
     /// @brief The values of PGLite.ini.
     [[nodiscard]] const Settings::Ini& ini() const { return m_ini; }
 
+    /// @brief The parameters the current plan and environment were built from.
+    [[nodiscard]] PGParams params() const;
+
     /// @brief Why PGLite is disabled, or nothing while it is active.
     [[nodiscard]] std::optional<std::string> disableReason() const;
 
     /// @brief Whether the data-load task registered its streams.
     [[nodiscard]] bool isActive() const { return m_isActive; }
 
-    /// @brief Whether the background initialization finished.
+    /// @brief Whether the background initialization finished, so patches can run.
     [[nodiscard]] bool isReady() const { return m_isReady; }
 
-    /// @brief The number of registered streams.
-    [[nodiscard]] std::size_t streamCount() const;
+    /// @brief The generation of the current plan; deferred record edits of an older plan do nothing.
+    [[nodiscard]] unsigned planGeneration() const { return m_planGeneration; }
+
+    /// @brief The current environment, nullptr before the background initialization finished. Main thread.
+    [[nodiscard]] Environment* environment() const { return m_environment.get(); }
+
+    [[nodiscard]] Status status() const;
+
+    /**
+     * @brief Apply (DESIGN.md section 4.8): saves the parameters, restores the records, rebuilds the environment and
+     * the plan with fresh variant numbers and registers the new variant streams. Main thread, blocks until in-flight
+     * patches finished.
+     *
+     * @return false if PGLite is not ready.
+     */
+    bool apply(const PGParams& params);
 
     // PatchStream::Provider.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
                                                                         SourceStream& source) override;
 
 private:
+    struct StreamEntry {
+        RE::BSTSmartPointer<RE::BSResource::Stream> stream;
+        std::shared_ptr<SourceStream> source;
+    };
+
     Runtime() = default;
 
     static void onMessage(SKSE::MessagingInterface::Message* message);
@@ -70,32 +115,55 @@ private:
                  bool shouldShowInGame);
 
     /**
-     * @brief Registers a stream for a path, wrapping the engine's own stream for it. A path the engine cannot resolve
-     * gets no stream.
+     * @brief The engine's own stream for a path, resolved before any registration of the path replaced it.
      *
-     * @return true if a stream was registered.
+     * @return The source, or nullptr if the engine cannot resolve the path.
      */
-    bool registerStream(const std::string& path);
+    [[nodiscard]] std::shared_ptr<SourceStream> resolveSource(const std::filesystem::path& path);
 
-    /// @brief Registers a stream for every path with uses.
-    void registerStreams();
+    /**
+     * @brief Registers a stream for a path unless one is registered already.
+     */
+    void registerStream(const std::filesystem::path& path,
+                        std::shared_ptr<SourceStream> source);
 
-    /// @brief The facegen paths of every NPC form, to be resolved in the background.
-    [[nodiscard]] std::vector<std::string> facegenPaths() const;
+    /// @brief Resolves the sources of every family of the plan and registers the streams of their members.
+    void registerPlanStreams();
 
-    /// @brief The background initialization: the facegen streams, then the environment.
-    void initializeInBackground(std::vector<std::string> facegenPaths);
+    /// @brief Adds the facegen families to the plan and registers their streams.
+    void registerFacegenStreams();
+
+    /// @brief The facegen paths of every NPC form. Main thread.
+    [[nodiscard]] std::vector<std::filesystem::path> facegenPaths() const;
+
+    /// @brief The background initialization: the GPU, the cache, the facegen streams, then the environment.
+    void initializeInBackground();
 
     /// @brief Blocks until the background initialization finished.
     void waitUntilReady();
 
     Settings::Ini m_ini;
+    PGParams m_params;
     mutable std::mutex m_stateMutex;
     std::optional<std::string> m_disableReason;
-    Uses m_uses;
 
-    std::unordered_map<std::string, RE::BSTSmartPointer<RE::BSResource::Stream>> m_streams;
+    Uses m_uses;
+    RecordSnapshot m_snapshot;
+    std::vector<std::filesystem::path> m_facegenPaths;
+    std::unique_ptr<Plan> m_plan;
+    std::atomic<unsigned> m_planGeneration { 0 };
+    unsigned m_variantCounter = 0;
+    TextureSetFactory m_textureSets;
+
+    PGD3D m_d3d;
+    CMCache m_cmCache;
+    std::unique_ptr<Environment> m_environment;
+
+    std::unordered_map<std::string, StreamEntry> m_streams;
     mutable std::mutex m_streamsMutex;
+
+    /// @brief Shared by every patch, exclusive for Apply.
+    std::shared_mutex m_pipelineLock;
 
     std::atomic<bool> m_isActive { false };
     std::atomic<bool> m_isReady { false };

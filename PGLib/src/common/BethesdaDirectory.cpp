@@ -713,6 +713,17 @@ void BethesdaDirectory::setFoldersToMap(std::unordered_set<std::filesystem::path
     m_foldersToMap = std::move(foldersToMap);
 }
 
+void BethesdaDirectory::retainFiles(const std::function<bool(const std::filesystem::path&)>& shouldKeep)
+{
+    const std::unique_lock lock(m_fileMapMutex);
+    for (auto it = m_fileMap.begin(); it != m_fileMap.end();) {
+        if (shouldKeep(it->first))
+            ++it;
+        else
+            it = m_fileMap.erase(it);
+    }
+}
+
 // Helpers.
 
 bool BethesdaDirectory::isPathAscii(const std::filesystem::path& path)

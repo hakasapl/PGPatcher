@@ -362,6 +362,14 @@ public:
     void setFoldersToMap(std::unordered_set<std::filesystem::path> foldersToMap);
 
     /**
+     * @brief Removes every file the predicate rejects from the file map. The PGLite runtime maps the meshes folder and
+     * keeps only the meshes with record uses this way, so their archives are known without mapping every mesh.
+     *
+     * @param shouldKeep Called with the lower case relative path of every mapped file.
+     */
+    void retainFiles(const std::function<bool(const std::filesystem::path&)>& shouldKeep);
+
+    /**
      * @brief Returns the archives of the load order in load order: first the archives listed in the INI files, then the
      * archives that belong to each active plugin, or the order given to setArchiveLoadOrder(). Archives in the data
      * folder that nothing loads are logged as warnings.

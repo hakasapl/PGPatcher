@@ -2,21 +2,31 @@
 
 #include "Runtime.hpp"
 
+#include "CMCache.hpp"
+#include "Environment.hpp"
 #include "Logging.hpp"
+#include "PGGlobals.hpp"
+#include "PGParams.hpp"
+#include "PGRunObserver.hpp"
 #include "PatchStream.hpp"
+#include "Plan.hpp"
 #include "Resources.hpp"
 #include "Settings.hpp"
 #include "Uses.hpp"
+#include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <exception>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <thread>
 #include <utility>
@@ -34,6 +44,24 @@ constexpr const wchar_t* autoParallaxDLL = L"AutoParallax.dll";
 /// @brief The meshes folder of the facegen heads, see TESNPC and the offline PGNIFUtil::isFacegenMesh().
 constexpr const char* facegenFolder = "meshes\\actors\\character\\facegendata\\facegeom";
 
+std::string pathString(const std::filesystem::path& path) { return StringUtil::utf16toWindows1252(path.wstring()); }
+
+/**
+ * @brief The task guard of the shared code at runtime: a failed task is logged and the others carry on. The offline
+ * guard latches the exception and stops every queue, which would stop PGLite for the session.
+ */
+bool runtimeTaskGuard(const std::function<void()>& task)
+{
+    try {
+        task();
+    } catch (const std::exception& e) {
+        Logger::error("A background task failed: {}", e.what());
+        return false;
+    }
+
+    return true;
+}
+
 }
 
 Runtime& Runtime::instance()
@@ -48,6 +76,7 @@ bool Runtime::load()
 {
     m_ini = Settings::readIni();
     Logging::initialize(m_ini.logLevel);
+    ExceptionHandler::setTaskGuard(&runtimeTaskGuard);
 
     const auto version = REL::Module::get().version();
     Logger::info("PGLite {} loading (runtime {})", PG_FULL_VERSION, version.string("."));
@@ -76,16 +105,41 @@ bool Runtime::load()
     return true;
 }
 
+PGParams Runtime::params() const
+{
+    const std::scoped_lock lock(m_stateMutex);
+    return m_params;
+}
+
 std::optional<std::string> Runtime::disableReason() const
 {
     const std::scoped_lock lock(m_stateMutex);
     return m_disableReason;
 }
 
-std::size_t Runtime::streamCount() const
+Runtime::Status Runtime::status() const
 {
-    const std::scoped_lock lock(m_streamsMutex);
-    return m_streams.size();
+    Status status;
+    status.isActive = m_isActive;
+    status.isReady = m_isReady;
+    status.disableReason = disableReason();
+    status.usedMeshes = m_uses.byPath().size();
+    for (const auto& [path, uses] : m_uses.byPath())
+        status.uses += uses.size();
+    if (m_plan) {
+        status.families = m_plan->families().size();
+        status.patchedFamilies = m_plan->patchedFamilyCount();
+        status.variants = m_plan->variantCount();
+    }
+    {
+        const std::scoped_lock lock(m_streamsMutex);
+        status.streams = m_streams.size();
+    }
+    status.textureSets = m_textureSets.size();
+    if (m_isReady && m_environment)
+        status.mo2Instance = m_environment->mo2InstanceDir();
+
+    return status;
 }
 
 void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
@@ -110,15 +164,31 @@ void Runtime::onDataLoaded()
             return;
         }
 
+        const auto started = std::chrono::steady_clock::now();
+        {
+            const std::scoped_lock lock(m_stateMutex);
+            m_params = Settings::readParams();
+        }
+
         Logger::info("Reading the record model uses");
         m_uses.build();
+        m_snapshot.capture(m_uses);
+        Logger::debug("Captured {} record models", m_snapshot.size());
 
-        registerStreams();
+        auto plan = std::make_unique<Plan>(++m_planGeneration);
+        plan->build(m_uses, params(), m_variantCounter);
+        plan->retargetRecords();
+        m_plan = std::move(plan);
+        registerPlanStreams();
+
+        m_facegenPaths = facegenPaths();
         m_isActive = true;
 
-        auto facegen = facegenPaths();
-        std::thread([this, paths = std::move(facegen)]() mutable { initializeInBackground(std::move(paths)); })
-            .detach();
+        const auto elapsed
+            = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+        Logger::info("Data-load task done in {} ms", elapsed.count());
+
+        std::thread([this] { initializeInBackground(); }).detach();
     } catch (const std::exception& e) {
         disable(std::format("its initialization failed: {}", e.what()), true);
     }
@@ -157,43 +227,83 @@ void Runtime::disable(const std::string& reason,
         MessageBoxW(nullptr, StringUtil::utf8toUTF16(text).c_str(), L"PGLite", MB_OK | MB_ICONWARNING);
 }
 
-bool Runtime::registerStream(const std::string& path)
+std::shared_ptr<SourceStream> Runtime::resolveSource(const std::filesystem::path& path)
 {
-    RE::BSTSmartPointer<RE::BSResource::Stream> engineStream;
-    if (!Resources::resolveStream(path, engineStream)) {
-        // Like a missing mesh offline: nothing to patch, the engine keeps looking for it itself.
-        Logger::debug("Not registered, the engine cannot resolve {}", path);
-        return false;
+    const auto pathStr = pathString(path);
+    {
+        // A registered path already has its source.
+        const std::scoped_lock lock(m_streamsMutex);
+        const auto it = m_streams.find(pathStr);
+        if (it != m_streams.end())
+            return it->second.source;
     }
+
+    RE::BSTSmartPointer<RE::BSResource::Stream> engineStream;
+    if (!Resources::resolveStream(pathStr, engineStream))
+        return nullptr;
 
     auto source = std::make_shared<SourceStream>();
     source->stream = std::move(engineStream);
-
-    RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(path, std::move(source), *this));
-    Resources::registerStream(path, stream);
-
-    const std::scoped_lock lock(m_streamsMutex);
-    m_streams[path] = std::move(stream);
-    return true;
+    return source;
 }
 
-void Runtime::registerStreams()
+void Runtime::registerStream(const std::filesystem::path& path,
+                             std::shared_ptr<SourceStream> source)
+{
+    const auto pathStr = pathString(path);
+    {
+        const std::scoped_lock lock(m_streamsMutex);
+        if (m_streams.contains(pathStr))
+            return;
+    }
+
+    RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(pathStr, source, *this));
+    Resources::registerStream(pathStr, stream);
+
+    const std::scoped_lock lock(m_streamsMutex);
+    m_streams[pathStr] = { .stream = std::move(stream), .source = std::move(source) };
+}
+
+void Runtime::registerPlanStreams()
 {
     std::size_t registered = 0;
     std::size_t unresolved = 0;
-    for (const auto& [path, uses] : m_uses.byPath()) {
-        if (registerStream(StringUtil::utf16toWindows1252(path.wstring())))
-            registered++;
-        else
+    for (const auto& family : m_plan->families()) {
+        if (family->isFacegen || !family->sources.empty())
+            continue;
+
+        std::vector<std::shared_ptr<SourceStream>> sources;
+        for (const auto& basePath : family->basePaths) {
+            auto source = resolveSource(basePath);
+            if (!source) {
+                // Like a missing mesh offline: nothing to patch, the engine keeps looking for it itself.
+                Logger::debug(L"Not registered, the engine cannot resolve {}", basePath.wstring());
+                break;
+            }
+
+            sources.push_back(std::move(source));
+        }
+
+        if (sources.size() != family->basePaths.size()) {
             unresolved++;
+            continue;
+        }
+
+        family->sources = std::move(sources);
+        for (const auto& member : family->members) {
+            for (std::size_t pathIndex = 0; pathIndex < member.paths.size(); pathIndex++) {
+                registerStream(member.paths.at(pathIndex), family->sources.at(pathIndex));
+                registered++;
+            }
+        }
     }
 
-    Logger::info("Registered {} mesh streams, {} used meshes are not in the load order", registered, unresolved);
+    Logger::info("Registered {} mesh streams ({} families have a mesh the engine cannot resolve)", registered, unresolved);
 }
 
-std::vector<std::string> Runtime::facegenPaths() const
+std::vector<std::filesystem::path> Runtime::facegenPaths() const
 {
-    std::vector<std::string> paths;
+    std::vector<std::filesystem::path> paths;
     if (m_ini.shouldExcludeFacegens)
         return paths;
 
@@ -212,29 +322,59 @@ std::vector<std::string> Runtime::facegenPaths() const
 
         auto path = std::format("{}\\{}\\{:08X}.nif", facegenFolder, file->GetFilename(), form->GetLocalFormID());
         StringUtil::toLowerASCIIFastInPlace(path);
-        if (m_uses.byPath().contains(StringUtil::windows1252toUTF16(path))) {
-            // Patched like any used mesh, which the offline program warns about and leaves unpatched.
-            Logger::warn("Facegen mesh has record uses and is left unpatched: {}", path);
+        const std::filesystem::path widePath = StringUtil::windows1252toUTF16(path);
+        if (m_uses.byPath().contains(widePath)) {
+            // The offline program warns about this and leaves the mesh unpatched.
+            Logger::warn("NIF has mesh uses but is detected as a facegen mesh: {}", path);
             continue;
         }
 
-        paths.push_back(std::move(path));
+        paths.push_back(widePath);
     }
 
     return paths;
 }
 
-void Runtime::initializeInBackground(std::vector<std::string> facegenPaths)
+void Runtime::registerFacegenStreams()
 {
-    try {
-        std::size_t registered = 0;
-        for (const auto& path : facegenPaths)
-            if (registerStream(path))
-                registered++;
+    std::size_t registered = 0;
+    for (const auto& path : m_facegenPaths) {
+        auto source = resolveSource(path);
+        if (!source)
+            continue;
 
-        Logger::info("Registered {} facegen streams of {} NPC forms", registered, facegenPaths.size());
+        auto& family = m_plan->addFacegenFamily(path);
+        family.sources.push_back(source);
+        registerStream(path, std::move(source));
+        registered++;
+    }
+
+    Logger::info("Registered {} facegen streams of {} NPC forms", registered, m_facegenPaths.size());
+}
+
+void Runtime::initializeInBackground()
+{
+    const auto started = std::chrono::steady_clock::now();
+    try {
+        if (!PGGlobals::isPGD3DSet()) {
+            Logger::info("Initializing the GPU");
+            if (!m_d3d.initGPU() || !m_d3d.initShaders())
+                throw std::runtime_error("the GPU could not be initialized");
+
+            PGGlobals::setPGD3D(&m_d3d);
+        }
+
+        m_cmCache.load(Settings::cmCacheFile());
+        PGRunObserver::install(&m_cmCache);
+
+        registerFacegenStreams();
+
+        auto environment = std::make_unique<Environment>(params(), m_ini);
+        environment->initialize(m_uses, m_cmCache);
+        m_environment = std::move(environment);
     } catch (const std::exception& e) {
-        Logger::critical("PGLite background initialization failed: {}", e.what());
+        // Every stream serves the original mesh then.
+        disable(std::format("its background initialization failed: {}", e.what()), true);
     }
 
     {
@@ -242,7 +382,9 @@ void Runtime::initializeInBackground(std::vector<std::string> facegenPaths)
         m_isReady = true;
     }
     m_readyCondition.notify_all();
-    Logger::info("PGLite is ready");
+
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    Logger::info("PGLite is ready ({} ms)", elapsed.count());
 }
 
 void Runtime::waitUntilReady()
@@ -254,17 +396,60 @@ void Runtime::waitUntilReady()
     m_readyCondition.wait(lock, [this] { return m_isReady.load(); });
 }
 
+bool Runtime::apply(const PGParams& params)
+{
+    if (!m_isActive || !m_isReady || !m_plan || disableReason())
+        return false;
+
+    Settings::writeParams(params);
+
+    const auto started = std::chrono::steady_clock::now();
+    const std::unique_lock lock(m_pipelineLock);
+    try {
+        m_snapshot.restore();
+        {
+            const std::scoped_lock stateLock(m_stateMutex);
+            m_params = params;
+        }
+
+        auto environment = std::make_unique<Environment>(params, m_ini);
+        environment->initialize(m_uses, m_cmCache);
+        m_environment = std::move(environment);
+
+        auto plan = std::make_unique<Plan>(++m_planGeneration);
+        plan->build(m_uses, params, m_variantCounter);
+        plan->retargetRecords();
+        m_plan = std::move(plan);
+        registerPlanStreams();
+        registerFacegenStreams();
+    } catch (const std::exception& e) {
+        Logger::critical("Apply failed, PGLite serves original meshes until the next apply: {}", e.what());
+        m_plan = std::make_unique<Plan>(++m_planGeneration);
+        return false;
+    }
+
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    Logger::info("Applied the settings in {} ms", elapsed.count());
+    return true;
+}
+
 std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::string& path,
                                                                 SourceStream& source)
 {
     try {
+        waitUntilReady();
+
+        const std::shared_lock lock(m_pipelineLock);
+        auto* const target = m_plan ? m_plan->target(path) : nullptr;
+        if (target && target->family && !target->family->sources.empty() && !disableReason())
+            return target->family->bytes(target->member, target->pathIndex, m_textureSets, m_plan->generation());
+
+        // A path of no current family (a variant of an earlier plan, or PGLite is disabled): the original mesh.
         auto bytes = std::make_shared<std::vector<std::byte>>();
-        {
-            const std::scoped_lock lock(source.mutex);
-            if (!Resources::readStream(*source.stream, *bytes)) {
-                Logger::error("Unable to read the original mesh of {}", path);
-                return nullptr;
-            }
+        const std::scoped_lock sourceLock(source.mutex);
+        if (!source.stream || !Resources::readStream(*source.stream, *bytes)) {
+            Logger::error("Unable to read the original mesh of {}", path);
+            return nullptr;
         }
 
         return bytes;
