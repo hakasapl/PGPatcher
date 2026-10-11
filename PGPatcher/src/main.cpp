@@ -571,6 +571,11 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     gpuInit.shutdown();
     cacheInit.waitForCompletion();
     cacheInit.shutdown();
+    if (ExceptionHandler::hasException()) {
+        // A worker thread's exception is latched instead of thrown here. The preparation stops before the patch phase
+        // deletes the previous output; the main thread reports the exception once the dialog closes.
+        return false;
+    }
     if (!isGPUReady) {
         // GPU initialization failed, which the task has reported, or it never ran. Either way the preparation ends
         // here, like it did when the GPU was initialized on this thread.
@@ -699,6 +704,8 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // Plugins required for map files.
     pluginInit.waitForCompletion();
     pluginInit.shutdown();
+    if (ExceptionHandler::hasException())
+        return false;
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(9, numPreparingSteps); });
 
@@ -712,6 +719,8 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // Mods required for map files.
     modManagerInit.waitForCompletion();
     modManagerInit.shutdown();
+    if (ExceptionHandler::hasException())
+        return false;
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(10, numPreparingSteps); });
 
@@ -730,6 +739,10 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
                   params.processing.vanillaBSAList,
                   params.processing.multithread,
                   progressCallback);
+    if (ExceptionHandler::hasException()) {
+        // The mapping tasks latch their exceptions as well.
+        return false;
+    }
 
     // Any patcher initialization that requires PGD.
     if (params.shaderPatcher.isTruePBREnabled)
@@ -742,6 +755,12 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter(
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.classifyingTextures")); });
     pgd->waitForCMClassification();
+
+    // The plugin mesh use lookups run on a background queue as well. Waiting for them here lets a failed lookup stop
+    // the preparation before the patch phase deletes the previous output; the wait in patchMeshes then returns at once.
+    pgd->waitForMeshMapping();
+    if (ExceptionHandler::hasException())
+        return false;
 
     // Assign new mod priorities for new mods.
     pgmm->updateStateFromModlist(params.modManager.shouldUseMO2LooseFileOrder);
@@ -758,6 +777,11 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                      const std::function<void(size_t,
                                               size_t)>& progressCallback)
 {
+    if (ExceptionHandler::hasException()) {
+        // A preparation thread failed: nothing is patched and the previous output stays as it is.
+        return;
+    }
+
     // Make sure the state is clean for the patch.
     PGPatcher::resetRunState();
     PGPlugin::resetPatchingState();
@@ -849,6 +873,12 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     //
     // END FINISH WRITING FILES.
     //
+
+    if (ExceptionHandler::hasException()) {
+        // A failed patch pass saves no plugin and is not recorded as a complete run; the main thread reports the
+        // exception once the dialog closes.
+        return;
+    }
 
     // Check for empty output.
     if (PGPatcher::isOutputEmpty()) {

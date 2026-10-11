@@ -29,6 +29,10 @@ bool PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] PGTypes::Tex
                                                    nifly::NiShape& nifShape)
 {
     auto* nifShader = nif()->GetShader(&nifShape);
+    if (!nifShader) {
+        // No shader, so no texture set to resize.
+        return false;
+    }
 
     auto* txstRec = nif()->GetHeader().GetBlock(nifShader->TextureSetRef());
     if (!txstRec)

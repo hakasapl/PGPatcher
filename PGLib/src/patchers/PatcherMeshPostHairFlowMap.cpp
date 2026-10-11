@@ -58,7 +58,8 @@ bool PatcherMeshPostHairFlowMap::applyPatch(PGTypes::TextureSet& slots,
         return false;
     }
 
-    static const auto flowMapBase = pgd->textureMapConst(PGEnums::TextureSlots::Backlight);
+    // A reference, not a static copy: the map belongs to the current directory and changes between runs.
+    const auto& flowMapBase = pgd->textureMapConst(PGEnums::TextureSlots::Backlight);
 
     const auto normalMapBase = PGNIFUtil::texBase(normalMap, PGEnums::TextureSlots::Normal);
     const auto foundMatches = PGNIFUtil::texMatch(normalMapBase, PGEnums::TextureType::HairFlowMap, flowMapBase);

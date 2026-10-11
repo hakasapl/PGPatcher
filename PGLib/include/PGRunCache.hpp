@@ -445,25 +445,50 @@ public:
     // Classification caches (used by PGDirectory::mapFiles)
     //
 
+    /**
+     * @brief Returns the texture votes of a mesh from the previous run if the mesh has the same identity, and keeps
+     * them for this run.
+     */
     static bool tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
                                       const BethesdaDirectory::FileIdentity& identity,
                                       std::vector<TextureVote>& votes);
+
+    /**
+     * @brief Keeps the texture votes of a mesh read in this run. Generated and missing files are not stored.
+     */
     static void storeMeshVotes(const std::filesystem::path& nifPath,
                                const BethesdaDirectory::FileIdentity& identity,
                                const std::vector<TextureVote>& votes);
+
+    /**
+     * @brief Returns the plugin uses of a mesh from the previous run if arePreviousMeshUsesValid().
+     */
     static bool tryGetCachedMeshUses(const std::filesystem::path& nifPath,
                                      MeshUses& uses);
+
+    /**
+     * @brief Returns the complex material classification of a texture from the previous run if the texture has the
+     * same identity, and keeps it for this run.
+     */
     static bool tryGetCachedCMClassification(const std::filesystem::path& texture,
                                              const BethesdaDirectory::FileIdentity& identity,
                                              CMClassification& result);
+
+    /**
+     * @brief Keeps the complex material classification of a texture made in this run.
+     */
     static void storeCMClassification(const std::filesystem::path& texture,
                                       const BethesdaDirectory::FileIdentity& identity,
                                       const CMClassification& result);
 
     //
-    // Recording (no-ops unless a MeshRecorder is active on the calling thread).
+    // Recording (no-ops unless a MeshRecorder is active on the calling thread). Each records the result of the
+    // corresponding query as a dependency of the mesh being patched.
     //
 
+    /**
+     * @brief Whether a MeshRecorder is active on this thread and recording is not suspended.
+     */
     static bool isRecording();
     static void recordTextureType(const std::filesystem::path& path,
                                   const PGEnums::TextureType& type);

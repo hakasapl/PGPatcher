@@ -39,14 +39,14 @@ public static class ExceptionHandler
     [UnmanagedCallersOnly(EntryPoint = "GetLastException", CallConvs = [typeof(CallConvCdecl)])]
     public static unsafe void GetLastException([DNNE.C99Type("wchar_t**")] IntPtr* errorMessagePtr)
     {
-        string? errorMessage = LastExceptionMessage ?? string.Empty;
-
         if (LastExceptionMessage.IsNullOrEmpty())
         {
             return;
         }
 
-        *errorMessagePtr = Marshal.StringToHGlobalUni(errorMessage);
+        // The message is handed over once: a call that succeeds afterwards must not report the old failure again.
+        *errorMessagePtr = Marshal.StringToHGlobalUni(LastExceptionMessage);
+        LastExceptionMessage = null;
     }
 }
 
@@ -182,6 +182,17 @@ public class PGMutagen
             GameType = (SkyrimRelease)gameType;
             OutMod = new SkyrimMod(ModKey.FromFileName("PGPatcher.esp"), GameType);
 
+            // A new environment starts without the patching state of a previous one
+            ModifiedRecords.Clear();
+            NewTextureSets = new Dictionary<string[], Tuple<ITextureSet, bool>>(new StructuralArrayComparer());
+            OutputMasterTracker.Clear();
+            OutputSplitMods.Clear();
+            allocatedFormIDs.Clear();
+            lastUsedFormID = 1;
+            InitialOutModTextureSets = [];
+            InitialAllocatedFormIDs = [];
+            InitialLastUsedFormID = 1;
+
             // First, convert the pointers to proper strings
             List<ModKey> loadOrderList = [];
             for (int i = 0; loadOrder[i] != IntPtr.Zero; i++)
@@ -264,6 +275,8 @@ public class PGMutagen
                 EncodingProvider = new Utf8EncodingWrapper()
             };
 
+            MessageHandler.Log("[Initialize] Load order: " + string.Join(", ", finalLoadOrderList.Select(x => x.FileName.String)), 1);
+
             try
             {
                 Env = GameEnvironment.Typical.Builder<ISkyrimMod, ISkyrimModGetter>((GameRelease)GameType)
@@ -272,6 +285,8 @@ public class PGMutagen
                     .WithOutputMod(OutMod)
                     .WithStringParameters(stringReadParams)
                     .Build();
+
+                MessageHandler.Log("[Initialize] Environment load order: " + string.Join(", ", Env.LoadOrder.ListedOrder.Select(x => x.ModKey.FileName.String + (x.Mod is null ? " (not loaded)" : string.Empty))), 1);
             }
             catch (Exception ex)
             {
@@ -522,14 +537,13 @@ public class PGMutagen
             string outputPath = Marshal.PtrToStringUni(outputPathPtr) ?? string.Empty;
 
             // Check if OutMod can be ESL flagged
-            if (maxFormID <= 0xFFF)
-            {
-                OutMod.IsSmallMaster = true;
-            }
-            if (esmMode != 2)
-            {
-                OutMod.IsMaster = true;
-            }
+            OutMod.IsSmallMaster = maxFormID <= 0xFFF;
+            OutMod.IsMaster = esmMode != 2;
+
+            // The split plugins are built from the modified records on every call, so that saving again (for example
+            // with another ESM mode) does not add the same records a second time.
+            OutputMasterTracker.Clear();
+            OutputSplitMods.Clear();
 
             bool OutModNeeded = OutMod.EnumerateMajorRecords().Any();
             bool HasModifiedRecords = ModifiedRecords.Count > 0;

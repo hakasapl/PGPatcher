@@ -12,27 +12,30 @@
 #include <vector>
 
 /**
- * @class PatcherVanilla
- * @brief Patcher for vanilla
+ * @class PatcherMeshShaderDefault
+ * @brief Shader patcher for the default (unpatched) shader
+ *
+ * It never changes a shape. Its matches are the shape's own diffuse and normal textures, so the mods that provide them
+ * take part in the mod conflict resolution and win when they have the higher priority.
  */
 class PatcherMeshShaderDefault : public PatcherMeshShader {
 public:
     /**
-     * @brief Get the Factory object for parallax patcher
+     * @brief Get the Factory object for this patcher
      *
-     * @return PatcherShader::PatcherShaderFactory Factory object
+     * @return PatcherMeshShader::PatcherMeshShaderFactory Factory object
      */
     static PatcherMeshShader::PatcherMeshShaderFactory factory();
 
     /**
-     * @brief Get the Shader Type for this patcher (Parallax)
+     * @brief Get the Shader Type for this patcher
      *
-     * @return PGEnums::ShapeShader Parallax
+     * @return PGEnums::ShapeShader None
      */
     static PGEnums::ShapeShader shaderType();
 
     /**
-     * @brief Construct a new Patcher Vanilla Parallax object
+     * @brief Construct a new default shader patcher
      *
      * @param nifPath NIF path to patch
      * @param nif NIF object to patch
@@ -41,18 +44,16 @@ public:
                              nifly::NifFile* nif);
 
     /**
-     * @brief Check if a shape can be patched by this patcher (without looking at slots)
+     * @brief Every shape can keep its shader
      *
-     * @param nifShape Shape to check
-     * @return true Shape can be patched
-     * @return false Shape cannot be patched
+     * @return true always
      */
     bool canApply(nifly::NiShape& nifShape,
                   bool isSinglepassMATO,
                   const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
-     * @brief Check if a shape can be patched by this patcher (with slots)
+     * @brief Find the matches for a shape's texture set, see the texture set overload
      *
      * @param nifShape Shape to check
      * @param[out] matches Matches found
@@ -63,10 +64,10 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Check if slots can accomodate parallax
+     * @brief Match the diffuse and normal textures of the slots that exist in the load order
      *
      * @param oldSlots Slots to check
-     * @param[out] matches Matches found
+     * @param[out] matches Matches found, one per existing texture
      * @return true Found matches
      * @return false No matches found
      */
@@ -74,33 +75,20 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Apply a match to a shape for parallax
-     *
-     * @param nifShape Shape to patch
-     * @param match Match to apply
-     * @param[out] nifModified Whether the NIF was modified
-     * @param[out] shapeDeleted Whether the shape was deleted (always false)
-     * @return PGTypes::TextureSet New slots of shape
+     * @brief Does nothing
      */
     void applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape,
                     const PatcherMatch& match) override;
 
     /**
-     * @brief Apply a match to slots for parallax
-     *
-     * @param oldSlots Slots to patch
-     * @param match Match to apply
-     * @return PGTypes::TextureSet New slots
+     * @brief Does nothing
      */
     void applyPatchSlots(PGTypes::TextureSet& slots,
                          const PatcherMatch& match) override;
 
     /**
-     * @brief Apply default shader to a shape (does nothing)
-     *
-     * @param nifShape Shape to apply shader to
-     * @param nifModified Whether the NIF was modified
+     * @brief Does nothing
      */
     void applyShader(nifly::NiShape& nifShape) override;
 };

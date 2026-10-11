@@ -12,18 +12,15 @@
 #include <spdlog/spdlog.h>
 
 #include <array>
-#include <combaseapi.h>
 #include <cstdint>
 #include <filesystem>
-#include <minwindef.h>
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
-#include <stringapiset.h>
 #include <utility>
 #include <vector>
-#include <winbase.h>
-#include <winnls.h>
+#include <windows.h>
 
 namespace {
 constexpr auto dotnetRuntimePreloadErrorMessage = "DotNet Wrapper: .NET runtime failed to preload (error: 0x{:08X}).";
@@ -191,6 +188,10 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
     if ((!buffer) || !length)
         return { };
 
+    // The C# side allocates the buffer with Marshal.AllocHGlobal, which is LocalAlloc on Windows, so it is released
+    // with LocalFree however this function returns.
+    const std::unique_ptr<uint8_t, decltype(&LocalFree)> bufferGuard(buffer, &LocalFree);
+
     flatbuffers::Verifier verifier(buffer, length);
     if (!PGMutagenBuffers::VerifyModelUsesBuffer(verifier))
         return { };
@@ -201,13 +202,16 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
     for (const auto* const mu : *modelUses->uses()) {
         auto curUse = ModelUse();
 
-        curUse.modName = std::wstring(mu->mod_name()->begin(), mu->mod_name()->end());
+        // Flatbuffer strings are UTF-8, so they are decoded rather than widened byte by byte. The verifier above has
+        // checked that every required string is present.
+        curUse.modName = utf8toUTF16(mu->mod_name()->str());
         curUse.formID = mu->form_id();
-        curUse.subModel = std::string(mu->sub_model()->begin(), mu->sub_model()->end());
+        curUse.subModel = mu->sub_model()->str();
+        curUse.meshFile = utf8toUTF16(mu->mesh_file()->str());
         curUse.isWeighted = mu->is_weighted();
         curUse.isSinglepassMATO = mu->singlepass_mato();
         curUse.isIgnored = mu->is_ignored();
-        curUse.type = std::string(mu->type()->begin(), mu->type()->end());
+        curUse.type = mu->type()->str();
 
         for (const auto* const altTex : *mu->alternate_textures()) {
             auto curAltTex = AlternateTexture();
@@ -222,7 +226,7 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
             for (int i = 0; std::cmp_less(i, numPluginTextureSlots) && std::cmp_less(i, textures->size()); ++i) {
                 const auto* texStr = textures->Get(i);
                 if (texStr)
-                    slots.at(i) = std::wstring(texStr->begin(), texStr->end());
+                    slots.at(i) = utf8toUTF16(texStr->str());
             }
 
             curAltTex.slots = slots;
@@ -232,8 +236,6 @@ auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::ve
 
         modelUsesOut.push_back(curUse);
     }
-
-    ::CoTaskMemFree(buffer);
 
     return modelUsesOut;
 }
@@ -249,6 +251,8 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
         const auto modNameOffset = builder.CreateString(utf16toUTF8(mu.modName));
         const auto subModelOffset = builder.CreateString(mu.subModel);
         const auto meshFileOffset = builder.CreateString(utf16toUTF8(mu.meshFile));
+        // The schema requires the type string even though the C# side does not read it back.
+        const auto typeOffset = builder.CreateString(mu.type);
 
         std::vector<flatbuffers::Offset<PGMutagenBuffers::AlternateTexture>> altTexOffsets;
         altTexOffsets.reserve(mu.alternateTextures.size());
@@ -277,7 +281,7 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
                                                                      meshFileOffset,
                                                                      false,
                                                                      false,
-                                                                     { },
+                                                                     typeOffset,
                                                                      altTexVectorOffset);
         modelUsesOffsets.push_back(modelUseOffset);
     }

@@ -22,11 +22,16 @@
 #include <unordered_map>
 #include <vector>
 
+/// @brief Length of the "textures\" prefix that is replaced with "textures\pbr\" in matched paths
 constexpr unsigned textureStrLength = 9;
 
 /**
  * @class PatcherMeshShaderTruePBR
- * @brief Patcher for True PBR
+ * @brief Shader patcher for True PBR, driven by the entries of the PBR JSON configs (PBRNifPatcher folder)
+ *
+ * An entry matches a shape by its normal or diffuse texture (match_normal, match_diffuse, path_contains) or by the
+ * exact content of a slot (match1 ... match8). Every matching entry is applied in config order, each one setting the
+ * shader flags, fields and texture slots its attributes ask for. The configs are loaded once with loadStatics().
  */
 class PatcherMeshShaderTruePBR : public PatcherMeshShader {
 private:
@@ -133,9 +138,9 @@ public:
     static PatcherMeshShader::PatcherMeshShaderFactory factory();
 
     /**
-     * @brief Load statics from a list of PBRJSONs
+     * @brief Load the PBR configs and build the lookup tables. Call once per process, before patching
      *
-     * @param pbrJSONs PBR jsons files to load as PBR configs
+     * @param pbrJSONs PBR json files to load as PBR configs, in load order
      * @param shouldMultithread Read and parse the files on the task pool (entries keep the order of pbrJSONs).
      * @throws std::runtime_error on the calling thread if a config is missing from the file map or from its archive.
      * A config that cannot be opened or parsed is reported as an error and skipped.
@@ -160,18 +165,17 @@ public:
                              nifly::NifFile* nif);
 
     /**
-     * @brief Check if shape can accomodate truepbr (without slots)
+     * @brief Every shape can take True PBR
      *
-     * @param nifShape Shape to check
-     * @return true Can accomodate
-     * @return false Cannot accomodate
+     * @return true always
      */
     bool canApply(nifly::NiShape& nifShape,
                   bool isSinglepassMATO,
                   const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
-     * @brief Check if shape can accomodate truepbr (with slots)
+     * @brief Find the matches for a shape's texture set. A shape that already has the PBR flag and an existing RMAOS
+     * texture gets a match without extra data first, which keeps it as it is
      *
      * @param nifShape Shape to check
      * @param[out] matches Matches found
@@ -182,10 +186,14 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Check if slots can accomodate truepbr
+     * @brief Find the PBR config entries that match the slots, grouped by config file
+     *
+     * Each match stands for one config file and carries its matching entries (in config order) as extra data. A match
+     * whose resulting textures do not all exist is dropped unless path checks are disabled. Slots that already hold an
+     * RMAOS texture without any matching entry get a match without extra data.
      *
      * @param oldSlots Slots to check
-     * @param[out] matches Matches found
+     * @param[out] matches Matches found, sorted so that the earliest config wins
      * @return true Found matches
      * @return false Didn't find matches
      */
@@ -193,28 +201,29 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Applies a match to a shape
+     * @brief Apply every entry of a match to a shape, in config order. A match without extra data leaves the shape
+     * alone (pre-patched mesh)
      *
+     * @param[in,out] slots Slots of the shape, updated by the entries
      * @param nifShape Shape to patch
      * @param match Match to apply
-     * @return PGTypes::TextureSet New slots of shape
      */
     void applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape,
                     const PatcherMatch& match) override;
 
     /**
-     * @brief Apply a match to slots
+     * @brief Apply the slot changes of every entry of a match, in config order
      *
-     * @param oldSlots Slots to patch
-     * @param[out] match Match to apply
-     * @return PGTypes::TextureSet New slots
+     * @param[in,out] slots Slots to patch
+     * @param match Match to apply
      */
     void applyPatchSlots(PGTypes::TextureSet& slots,
                          const PatcherMatch& match) override;
 
     /**
-     * @brief Apply pbr shader to a shape
+     * @brief Set the plain PBR shader (default type with the PBR flag) on a shape. Only used when a plugin use needs
+     * the generic PBR shader; entries apply their own shader through applyPatch()
      *
      * @param nifShape Shape to apply shader to
      */
@@ -226,24 +235,33 @@ public:
     [[nodiscard]] uint64_t matchExtraDataHash(const PatcherMatch& match) const override;
 
     /**
-     * @brief Load PBR options string
+     * @brief Load options for this patcher from pgtools option strings
      *
-     * @param optionsStr string to load
+     * @param optionsStr Options by name; "no_path_check" disables the texture existence check of matches,
+     * "print_nonexistent_paths" logs a warning for every texture a match refers to that does not exist
      */
     static void loadOptions(std::unordered_map<std::string,
                                                std::string>& optionsStr);
 
+    /**
+     * @brief Load options for this patcher
+     *
+     * @param checkPaths Drop matches whose textures do not exist
+     * @param shouldPrintNonExistentPaths Log a warning for every texture a match refers to that does not exist
+     */
     static void loadOptions(const bool& checkPaths,
                             const bool& shouldPrintNonExistentPaths);
 
 private:
     /**
-     * @brief Applies a single JSON config to a shape
+     * @brief Applies a single config entry to a shape: geometry attributes (delete, smooth_angle, auto_uv, vertex
+     * colors), shader fields, then enableTruePBROnShape()
      *
      * @param nifShape Shape to patch
-     * @param truePBRData Data to patch
+     * @param truePBRData Entry to apply
      * @param matchedPath Matched path (PBR prefix)
-     * @param[out] newSlots New slots of shape
+     * @param[in,out] newSlots Slots of the shape, updated by the entry
+     * @return true if the shape changed
      */
     bool applyOnePatch(nifly::NiShape* nifShape,
                        nlohmann::json& truePBRData,
@@ -251,25 +269,27 @@ private:
                        PGTypes::TextureSet& newSlots);
 
     /**
-     * @brief Applies a single JSON config to slots
+     * @brief Applies the slot changes of a single config entry: the PBR textures derived from the matched path unless
+     * locked, then the explicit slot1 ... slot8 attributes
      *
-     * @param oldSlots Slots to patch
-     * @param truePBRData Data to patch
+     * @param[in,out] slots Slots to patch
+     * @param truePBRData Entry to apply
      * @param matchedPath Matched path (PBR prefix)
-     * @return PGTypes::TextureSet New slots after patch
      */
     static void applyOnePatchSlots(PGTypes::TextureSet& slots,
                                    const nlohmann::json& truePBRData,
                                    const std::wstring& matchedPath);
 
     /**
-     * @brief Enables truepbr on a shape (always applied for a matched JSON entry)
+     * @brief Enables True PBR on a shape for a config entry: applies its slots, sets the PBR flag, clears the flags of
+     * other shaders and sets the shader type and fields of the entry's multilayer, glint or fuzz attributes
      *
      * @param nifShader Shader of shape
-     * @param nifShaderBSLSP Properties of shader
-     * @param truePBRData Data to enable truepbr with
+     * @param nifShaderBSLSP The same shader as a BSLightingShaderProperty
+     * @param truePBRData Entry to apply
      * @param matchedPath Matched path (PBR prefix)
-     * @param[out] newSlots New slots of shape
+     * @param[in,out] newSlots Slots of the shape, updated by the entry
+     * @return true if the shader changed
      */
     static bool enableTruePBROnShape(nifly::NiShader* nifShader,
                                      nifly::BSLightingShaderProperty* nifShaderBSLSP,
@@ -288,12 +308,12 @@ private:
     static nifly::Vector2 abs2(nifly::Vector2 v);
 
     /**
-     * @brief Math that calculates auto UV scale for a shape
+     * @brief Calculates the UV scale that gives a shape a uniform texel density (the "auto_uv" attribute)
      *
      * @param uvs UVs of shape
      * @param verts Vertices of shape
      * @param tris Triangles of shape
-     * @return nifly::Vector2
+     * @return nifly::Vector2 UV scale, the same in both directions
      */
     static nifly::Vector2 autoUVScale(const std::vector<nifly::Vector2>* uvs,
                                       const std::vector<nifly::Vector3>* verts,

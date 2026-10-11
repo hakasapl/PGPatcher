@@ -33,9 +33,17 @@
 #include <utility>
 #include <vector>
 
+/**
+ * @brief Runs the registered patchers over every mesh and texture of the load order.
+ *
+ * Meshes are patched once per plugin use (see PGMeshPermutationTracker), textures once. Alongside the output files it
+ * collects the data the conflict viewer shows (patchMeta()) and the CRC diff of changed base meshes (diffJSON()). With
+ * an update cache present (PGRunCache), meshes whose previous output is still valid are replayed instead of patched.
+ */
 class PGPatcher {
 public:
     // Mesh Patch Tracking structures (for meta info displayed to user later).
+    /// @brief One shader match of a shape, as shown in the conflict viewer.
     struct MatchMeta {
         std::shared_ptr<PGModManager::Mod> mod;
         PGEnums::ShapeShader shader { };
@@ -44,6 +52,7 @@ public:
         /// Owning mod of each non-empty result texture slot if this match is applied (tracked mods only)
         std::vector<std::pair<PGEnums::TextureSlots, std::shared_ptr<PGModManager::Mod>>> resultTextureMods;
     };
+    /// @brief What was done to one shape of a mesh, with its shader matches per plugin use.
     struct MeshShapeMeta {
         uint32_t blockID = 0;
         std::string shapeName;
@@ -54,12 +63,14 @@ public:
                            PGMeshPermutationTracker::FormKeyHash>
             matches;
     };
+    /// @brief What was done to one mesh. shapeMeta is keyed by the shape's position among the patchable shapes.
     struct MeshMeta {
         std::vector<std::string> globalPatchersApplied;
         std::vector<PGMeshPermutationTracker::FormKey> formKeys;
         std::map<size_t, MeshShapeMeta> shapeMeta;
     };
 
+    /// @brief Patch metadata of every patched mesh, keyed by lower case relative path.
     using MeshPatchInfo = std::map<std::filesystem::path, MeshMeta>;
 
     /// Stages of patchMeshes() that a caller may want to show separately in its progress UI.
@@ -78,7 +89,7 @@ private:
 
 public:
     /**
-     * @brief Allows patchers to be registered and used in the patching process.
+     * @brief Registers the patcher factories used by patchMeshes() and patchTextures().
      *
      * @param meshPatchers mesh patchers
      * @param texPatchers texture patchers
@@ -87,9 +98,16 @@ public:
                              const PatcherUtil::PatcherTextureSet& texPatchers);
 
     /**
-     * @brief Run mesh patcher
+     * @brief Patches every mesh of PGGlobals::pgd()->meshes() and applies the results to the plugins.
      *
-     * @param multiThread whether to use multithreading
+     * Waits for the mesh use mapping and texture classification of PGDirectory first. Model uses are applied through
+     * PGPlugin::setModelUses() and the Light Placer handler and weighted variant validation run at the end.
+     *
+     * @param shouldMultithread whether to patch on the task pool
+     * @param forceBasePatch also patch meshes that no plugin uses (pgtools, which has no plugins)
+     * @param allowedModelRecTypes plugin record types whose uses are patched, see checkAllowedRecTypes
+     * @param checkAllowedRecTypes when true, a use of a record type not in allowedModelRecTypes is skipped and the
+     * original mesh is kept for it
      * @param excludeFacegens whether to skip patching facegen meshes
      * @param progressCallback receives (completed, total) counts of the current stage
      * @param stageCallback invoked when a new stage starts. When a previous output is updated, every mesh is
@@ -107,32 +125,34 @@ public:
                             const bool& shouldComputeObjectBounds = false);
 
     /**
-     * @brief Run texture patcher
+     * @brief Patches every texture of PGGlobals::pgd()->textures(): runs the texture hooks the mesh patchers
+     * registered and the global texture patchers. Call after patchMeshes()
      *
-     * @param multiThread whether to use multithreading
+     * @param shouldMultithread whether to patch on the task pool
+     * @param progressCallback receives (completed, total) counts
      */
     static void patchTextures(const bool& shouldMultithread = true,
                               const std::function<void(size_t,
                                                        size_t)>& progressCallback = { });
 
     /**
-     * @brief Get the Patch Meta object
-     *
-     * @return std::map<std::filesystem::path, MeshMeta>
+     * @brief Returns a copy of the patch metadata collected since the last resetRunState()
      */
     static MeshPatchInfo patchMeta();
 
     /**
-     * @brief Sort matches according to a provided mod priority list.
+     * @brief Sorts shader matches so that the winning match comes first.
      *
-     * Matches are ordered by mod priority first, then by shader quality, with stable ordering within ties.
+     * Matches with a mod come before matches without one, higher mod priority first; ties are ordered by the shader
+     * the match results in (better first), then by matched path.
      */
     static void sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches);
 
     /**
-     * @brief Sort mesh patch metadata matches according to a provided mod priority list.
+     * @brief Sorts conflict viewer matches according to a mod priority list (first entry wins).
      *
-     * Matches are ordered by mod priority first, then by shader quality, with stable ordering within ties.
+     * Ties and mods not in the list are ordered by the shader the match results in (better first), then by matched
+     * path.
      */
     static void sortMatches(std::vector<MatchMeta>& matches,
                             const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList);
@@ -154,23 +174,28 @@ public:
     static void resetRunState();
 
     /**
-     * @brief Delets output directory in a smart way
+     * @brief Deletes the files and folders PGPatcher generates from the output directory.
      *
-     * @param preOutput whether this is being called pre or post output
-     * @param keepIncrementalOutput when true, the meshes and textures folders and the update cache are kept so the
-     * previous output can be updated incrementally
+     * Nothing is deleted, and a critical error is logged, when the directory holds anything PGPatcher did not create
+     * (meta.ini is tolerated).
+     *
+     * @param preOutput when true, the previous output zip is deleted as well
+     * @param shouldKeepIncrementalOutput when true, the meshes, textures and calientetools folders and the update cache
+     * are kept so the previous output can be updated incrementally
      */
     static void deleteOutputDir(const bool& preOutput = true,
                                 const bool& shouldKeepIncrementalOutput = false);
 
     /**
-     * @brief Check if the output directory is empty
+     * @brief Checks whether the output directory holds no files other than meta.ini and the update cache
      *
-     * @return true if the output directory is empty
-     * @return false if the output directory is not empty
+     * @return true if the output directory is missing or empty in that sense
      */
     static bool isOutputEmpty();
 
+    /**
+     * @brief Returns the CRC diff of the base meshes that changed: original and patched CRC32 per mesh path
+     */
     static nlohmann::json diffJSON();
 
     /**
@@ -193,10 +218,15 @@ private:
     // NIF Runners.
 
     /**
-     * @brief Patch a single NIF file
+     * @brief Patches one mesh for each of its plugin uses, saves the outputs and records them for the update cache
      *
-     * @param nifPath relative path to the NIF file
-     * @return TaskTracker::Result result of the patching process
+     * A mesh is skipped (Success) when its mod has meshes ignored, when it is a facegen mesh and those are excluded, or
+     * when nothing uses it and forceBasePatch is off. Facegen and BodySlide ShapeData meshes have no plugin uses and
+     * are patched for a dummy use.
+     *
+     * @param nifPath lower case relative path to the NIF file
+     * @param setModelUsesQueue queue the plugin updates are posted to
+     * @return Result::Failure if the mesh could not be processed
      */
     static TaskTracker::Result patchNIF(const std::filesystem::path& nifPath,
                                         TaskQueue& setModelUsesQueue,
@@ -230,16 +260,20 @@ private:
     // NIF Helpers.
 
     /**
-     * @brief Process a single NIF file
+     * @brief Patches a staged mesh for one plugin use: every patchable shape through processNIFShape(), then the
+     * global patchers
      *
-     * @param nifPath relative path to the NIF file
-     * @param nifBytes NIF file bytes (used for CRC calculation)
-     * @param[in,out] nifCache NIF cache JSON object to populate
-     * @param[out] createdNIFs map of created NIFs
-     * @param[out] nifModified whether the NIF file was modified
-     * @param forceShaders optional map of shape shaders to force (used for duplicate meshes in recursion)
-     * @return true if the NIF file was processed successfully
-     * @return false if the NIF file was not processed successfully
+     * @param nifPath lower case relative path to the NIF file
+     * @param nif staged mesh to patch in place
+     * @param[in,out] meshMeta patch metadata of the mesh, extended with this use
+     * @param meshUse the plugin use being patched
+     * @param isSinglepassMATO whether the use is a single pass material object
+     * @param formKey the plugin use being patched
+     * @param modelRecordType plugin record type of the use
+     * @param[in,out] alternateTextures alternate textures of the use by 3D shape index, patched in place
+     * @param[out] nonAltTexShapes 3D indices of the shapes that had no alternate texture (skin tint shapes always
+     * count as such, their alternate textures are ignored like the engine does)
+     * @return false if a shape could not be processed
      */
     static bool processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
@@ -253,18 +287,21 @@ private:
                            std::unordered_set<unsigned>& nonAltTexShapes);
 
     /**
-     * @brief Process a single NIF shape
+     * @brief Patches one shape: pre patchers, the winning shader match (first enabled match of matches()) with its
+     * transform, post patchers, then the texture set is written back
      *
-     * @param nifPath relative path to the NIF file
-     * @param nif loaded NIF file object
-     * @param nifShape NIF shape object (pointer) to process
-     * @param[out] shapeCache NIF shape cache JSON object to populate
-     * @param canApply map of shape shaders that can be applied to this shape
-     * @param patchers patcher objects created from registered patchers
-     * @param[out] shaderApplied shader that was applied to this shape
-     * @param forceShader optional shape shader to force (used for duplicate meshes in recursion)
-     * @return true if the NIF shape was processed successfully
-     * @return false if the NIF shape was not processed successfully
+     * @param nifPath lower case relative path to the NIF file
+     * @param nif mesh the shape belongs to
+     * @param nifShape shape to patch
+     * @param[in,out] meshShapeMeta patch metadata of the shape, extended with this use
+     * @param patchers patcher objects created for this mesh and use
+     * @param isSinglepassMATO whether the use is a single pass material object
+     * @param formKey the plugin use being patched
+     * @param modelRecordType plugin record type of the use
+     * @param[in,out] alternateTexture the use's alternate texture for this shape, patched in place instead of the
+     * mesh's texture set; nullptr when the shape has none
+     * @return true, a deleted shape ends processing early
+     * @throws std::runtime_error if nif or nifShape is null
      */
     static bool processNIFShape(const std::filesystem::path& nifPath,
                                 nifly::NifFile* nif,
@@ -276,6 +313,22 @@ private:
                                 const PGPlugin::ModelRecordType& modelRecordType,
                                 PGTypes::TextureSet* alternateTexture = nullptr);
 
+    /**
+     * @brief Collects the shader matches of a texture set from every shader patcher, sorted with the winner first
+     *
+     * Matches whose file is not in the load order are dropped and the conflicts between the matching mods are recorded
+     * in the mod manager. The digest of the full sorted list is recorded for the update cache. With patcherObjects and
+     * shape given, matches the shape cannot take (canApply()) are dropped unless a transform makes them applicable, in
+     * which case shaderTransformTo is set.
+     *
+     * @param slots texture set to match
+     * @param patchers shader patchers to ask
+     * @param isSinglepassMATO whether the use is a single pass material object
+     * @param modelRecordType plugin record type of the use
+     * @param patcherObjects patchers with a loaded mesh, for the canApply() checks. Optional, must come with shape
+     * @param shape shape the matches are for. Optional, must come with patcherObjects
+     * @throws std::runtime_error if only one of patcherObjects and shape is given or their patcher sets differ in size
+     */
     static std::vector<PatcherUtil::ShaderPatcherMatch> matches(const PGTypes::TextureSet& slots,
                                                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
                                                                 bool isSinglepassMATO,
@@ -285,22 +338,37 @@ private:
                                                                 nifly::NiShape* shape = nullptr);
 
     /**
-     * @brief Helper method to run a transform if needed on a match
+     * @brief Applies the transform of a match in place when it has one, so that the match then refers to the target
+     * shader
      *
-     * @param Match Match to run transform
-     * @param Patchers Patcher set to use
-     * @return ShaderPatcherMatch Transformed match
+     * @param[in,out] match match to transform
+     * @param patchers patcher set holding the transform
+     * @return true if a transform was applied
      */
     static bool applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
                                        const PatcherUtil::PatcherMeshObjectSet& patchers);
 
+    /**
+     * @brief Instantiates every registered mesh patcher for a mesh and plugin use
+     */
     static PatcherUtil::PatcherMeshObjectSet createNIFPatcherObjects(const std::filesystem::path& nifPath,
                                                                      nifly::NifFile* nif,
                                                                      const PGPlugin::MeshUseAttributes& meshUse);
 
     // DDS Runners.
+    /**
+     * @brief Patches one texture: runs the texture hooks registered for it, then the global texture patchers, and
+     * writes the texture to the output when a global patcher changed it
+     *
+     * @param ddsPath lower case relative path to the DDS file
+     * @return Result::Failure if the texture could not be read, converted or written
+     * @throws std::runtime_error if the path does not end in .dds
+     */
     static TaskTracker::Result patchDDS(const std::filesystem::path& ddsPath);
 
+    /**
+     * @brief Instantiates every registered texture patcher for a texture
+     */
     static PatcherUtil::PatcherTextureObjectSet createDDSPatcherObjects(const std::filesystem::path& ddsPath,
                                                                         DirectX::ScratchImage* dds);
 };

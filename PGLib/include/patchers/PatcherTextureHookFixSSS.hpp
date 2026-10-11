@@ -32,10 +32,14 @@ private:
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:
+    /**
+     * @brief Forgets every registered texture. Called at the start of a patch run.
+     */
     static void reset();
 
     /**
-     * @brief Registers a diffuse texture for SSS fixing and tracks the generated output file.
+     * @brief Registers a diffuse texture for SSS fixing and maps the output as a generated file. When the previous
+     * run's output can be reused (update cache), nothing is generated.
      *
      * @param texPath Path to the diffuse texture to be processed.
      */
@@ -58,8 +62,8 @@ public:
     static std::filesystem::path outputFilename(const std::filesystem::path& texPath);
 
     /**
-     * @brief Re-applies the texture map side effects of a previously generated output that is being reused
-     * (incremental runs) without regenerating the texture.
+     * @brief Records the texture type of a previously generated output that is being reused (incremental runs)
+     * without regenerating the texture. Generated maps are never added to the texture maps.
      *
      * @param texPath Path to the source diffuse texture.
      */
@@ -82,9 +86,11 @@ public:
                              DirectX::ScratchImage* dds);
 
     /**
-     * @brief Applies the SSS fix shader and writes the output subsurface color DDS.
+     * @brief Generates the half size BC2 subsurface color texture, writes it to the output folder and adds it to the
+     * texture maps.
      *
      * @return true if the patch was successfully applied; false otherwise.
+     * @throws std::runtime_error if the patcher has no image.
      */
     bool applyPatch() override;
 };

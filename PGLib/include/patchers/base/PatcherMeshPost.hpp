@@ -12,8 +12,8 @@
 #include <string>
 
 /**
- * @class PrePatcher
- * @brief Base class for prepatchers
+ * @class PatcherMeshPost
+ * @brief Base class for post patchers, which run on every patchable shape after its shader patcher
  */
 class PatcherMeshPost : public PatcherMesh {
 public:
@@ -35,6 +35,7 @@ public:
     /**
      * @brief Apply the patch to the NIFShape if able
      *
+     * @param[in,out] slots Texture slots of the shape as the patchers see them (written to the NIF afterwards)
      * @param nifShape Shape to apply patch to
      * @return true Patch was applied
      * @return false Patch was not applied

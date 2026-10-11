@@ -1,13 +1,10 @@
 #pragma once
 
-#include "util/StringUtil.hpp"
 #include <spdlog/common.h>
-#include <spdlog/spdlog.h>
 
 #include <fmt/base.h>
 #include <fmt/format.h>
 #include <fmt/xchar.h>
-#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <unordered_set>
@@ -24,26 +21,12 @@
  * - Threaded buffer mode: worker threads accumulate log entries that are flushed atomically via
  *   flushThreadedBuffer() to avoid interleaved output.
  * - Overloads for both std::string (UTF-8) and std::wstring (UTF-16) format strings.
+ *
+ * The templates only format; everything else happens in log(), which lives in PGLib.dll together with all the state.
+ * That way the executables and the DLL share one set of suppressed messages, one thread buffer and one capture
+ * callback per thread (inline members would give every module its own copy).
  */
 class Logger {
-private:
-    inline static std::unordered_set<std::wstring> s_existingMessages;
-    inline static std::shared_mutex s_existingMessagesMutex;
-
-    // Snapshot of s_existingMessages taken by markRunStart()
-    inline static std::unordered_set<std::wstring> s_runStartMessages;
-    inline static bool s_runStartMarked = false;
-
-    inline static std::shared_mutex s_mtLogLock;
-    inline thread_local static std::vector<
-        std::pair<spdlog::level::level_enum, std::variant<std::wstring, std::string>>>
-        s_curBuffer;
-    inline thread_local static bool s_isThreadedBufferActive;
-
-    thread_local static std::vector<std::wstring> s_prefixStack;
-    static std::wstring buildPrefixWString();
-    static std::string buildPrefixString();
-
 public:
     /**
      * @brief Callback type for capturing warning/error/critical messages emitted on the current thread.
@@ -52,45 +35,41 @@ public:
                                       const std::wstring&);
 
 private:
-    inline thread_local static MessageCaptureFn s_threadMessageCapture = nullptr;
+    static std::unordered_set<std::wstring> s_existingMessages;
+    static std::shared_mutex s_existingMessagesMutex;
 
-    static void captureMessage(const spdlog::level::level_enum& level,
-                               const std::wstring& message)
-    {
-        if (s_threadMessageCapture)
-            s_threadMessageCapture(level, message);
-    }
+    // Snapshot of s_existingMessages taken by markRunStart().
+    static std::unordered_set<std::wstring> s_runStartMessages;
+    static bool s_isRunStartMarked;
 
-    static void captureMessage(const spdlog::level::level_enum& level,
-                               const std::string& message)
-    {
-        if (s_threadMessageCapture)
-            s_threadMessageCapture(level, StringUtil::utf8toUTF16(message));
-    }
+    // Held shared while a message is logged and exclusively while a thread buffer is flushed.
+    static std::shared_mutex s_mtLogLock;
+    thread_local static std::vector<std::pair<spdlog::level::level_enum, std::variant<std::wstring, std::string>>>
+        s_curBuffer;
+    thread_local static bool s_isThreadedBufferActive;
+    thread_local static MessageCaptureFn s_threadMessageCapture;
 
-    static bool processMessage(const std::wstring& message)
-    {
-        {
-            const std::shared_lock lock(s_existingMessagesMutex);
-            if (s_existingMessages.contains(message)) {
-                // Don't log anything if already logged.
-                return false;
-            }
-        }
+    thread_local static std::vector<std::wstring> s_prefixStack;
+    static std::wstring buildPrefixWString();
+    static std::string buildPrefixString();
 
-        {
-            const std::unique_lock lock(s_existingMessagesMutex);
-            const auto [_, inserted] = s_existingMessages.insert(message);
-            return inserted; // true only for the first thread
-        }
-    }
+    /**
+     * @brief Returns whether a message is logged for the first time, and remembers it.
+     */
+    static bool shouldLog(const std::wstring& message);
 
-    template<typename... Args> static bool shouldLogString(const std::wstring& fmt) { return processMessage(fmt); }
+    /**
+     * @brief Logs a formatted message: warnings and above are handed to the thread's capture callback and dropped
+     * when they were logged before, then the message is buffered or passed to spdlog.
+     */
+    static void log(spdlog::level::level_enum level,
+                    const std::wstring& message);
 
-    template<typename... Args> static bool shouldLogString(const std::string& fmt)
-    {
-        return processMessage(StringUtil::utf8toUTF16(fmt));
-    }
+    /**
+     * @brief UTF-8 variant of log().
+     */
+    static void log(spdlog::level::level_enum level,
+                    const std::string& message);
 
 public:
     /**
@@ -177,19 +156,7 @@ public:
     static void critical(const std::wstring& fmt,
                          Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        captureMessage(spdlog::level::critical, resolvedStr);
-        if (!shouldLogString(resolvedStr))
-            return;
-
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::critical, resolvedStr);
-            return;
-        }
-
-        spdlog::critical(L"{}", resolvedStr);
+        log(spdlog::level::critical, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -203,19 +170,7 @@ public:
     static void error(const std::wstring& fmt,
                       Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        captureMessage(spdlog::level::err, resolvedStr);
-        if (!shouldLogString(resolvedStr))
-            return;
-
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::err, resolvedStr);
-            return;
-        }
-
-        spdlog::error(L"{}", resolvedStr);
+        log(spdlog::level::err, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -229,19 +184,7 @@ public:
     static void warn(const std::wstring& fmt,
                      Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        captureMessage(spdlog::level::warn, resolvedStr);
-        if (!shouldLogString(resolvedStr))
-            return;
-
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::warn, resolvedStr);
-            return;
-        }
-
-        spdlog::warn(L"{}", resolvedStr);
+        log(spdlog::level::warn, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -255,15 +198,7 @@ public:
     static void info(const std::wstring& fmt,
                      Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::info, resolvedStr);
-            return;
-        }
-
-        spdlog::info(L"{}", resolvedStr);
+        log(spdlog::level::info, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -277,15 +212,8 @@ public:
     static void debug(const std::wstring& fmt,
                       Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = buildPrefixWString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::debug, resolvedStr);
-            return;
-        }
-
-        spdlog::debug(L"{}", resolvedStr);
+        log(spdlog::level::debug,
+            buildPrefixWString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -299,15 +227,8 @@ public:
     static void trace(const std::wstring& fmt,
                       Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = buildPrefixWString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::trace, resolvedStr);
-            return;
-        }
-
-        spdlog::trace(L"{}", resolvedStr);
+        log(spdlog::level::trace,
+            buildPrefixWString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -321,19 +242,7 @@ public:
     static void critical(const std::string& fmt,
                          Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        captureMessage(spdlog::level::critical, resolvedStr);
-        if (!shouldLogString(resolvedStr))
-            return;
-
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::critical, resolvedStr);
-            return;
-        }
-
-        spdlog::critical("{}", resolvedStr);
+        log(spdlog::level::critical, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -347,19 +256,7 @@ public:
     static void error(const std::string& fmt,
                       Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        captureMessage(spdlog::level::err, resolvedStr);
-        if (!shouldLogString(resolvedStr))
-            return;
-
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::err, resolvedStr);
-            return;
-        }
-
-        spdlog::error("{}", resolvedStr);
+        log(spdlog::level::err, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -373,19 +270,7 @@ public:
     static void warn(const std::string& fmt,
                      Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        captureMessage(spdlog::level::warn, resolvedStr);
-        if (!shouldLogString(resolvedStr))
-            return;
-
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::warn, resolvedStr);
-            return;
-        }
-
-        spdlog::warn("{}", resolvedStr);
+        log(spdlog::level::warn, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -399,15 +284,7 @@ public:
     static void info(const std::string& fmt,
                      Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::info, resolvedStr);
-            return;
-        }
-
-        spdlog::info("{}", resolvedStr);
+        log(spdlog::level::info, fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -421,15 +298,8 @@ public:
     static void debug(const std::string& fmt,
                       Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = buildPrefixString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::debug, resolvedStr);
-            return;
-        }
-
-        spdlog::debug("{}", resolvedStr);
+        log(spdlog::level::debug,
+            buildPrefixString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 
     /**
@@ -443,14 +313,7 @@ public:
     static void trace(const std::string& fmt,
                       Args&&... moreArgs)
     {
-        const std::shared_lock lock(s_mtLogLock);
-
-        const auto resolvedStr = buildPrefixString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...);
-        if (s_isThreadedBufferActive) {
-            s_curBuffer.emplace_back(spdlog::level::trace, resolvedStr);
-            return;
-        }
-
-        spdlog::trace("{}", resolvedStr);
+        log(spdlog::level::trace,
+            buildPrefixString() + fmt::format(fmt::runtime(fmt), std::forward<Args>(moreArgs)...));
     }
 };

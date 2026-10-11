@@ -11,7 +11,8 @@
  * @brief C++ wrapper for the PGMutagen C# library that interfaces with Bethesda ES plugin files.
  *
  * Provides static methods for initializing the managed runtime, populating plugin object data,
- * retrieving and updating model uses, and finalizing the output plugin.
+ * retrieving and updating model uses, and finalizing the output plugin. Every call is serialized by one mutex, forwards
+ * the C# side's log messages to spdlog and throws std::runtime_error with the C# exception message if it failed.
  */
 class PGMutagenWrapper {
 private:
@@ -28,9 +29,9 @@ public:
      * @brief Holds an alternate texture assignment for a single texture slot in a model record.
      */
     struct AlternateTexture {
-        int slotID = 0; ///< Original texture slot index referenced by the plugin record.
-        int slotIDNew = 0; ///< New texture slot index after patching (may differ from slotID).
-        std::array<std::wstring, numPluginTextureSlots> slots; ///< Resolved texture paths for all slots.
+        int slotID = 0; ///< 3D index of the shape the alternate texture applies to.
+        int slotIDNew = 0; ///< 3D index of that shape in the output mesh; -1 deletes the alternate texture.
+        std::array<std::wstring, numPluginTextureSlots> slots; ///< Texture paths of the alternate texture set.
     };
 
     /**
@@ -40,7 +41,7 @@ public:
         std::wstring modName; ///< Name of the plugin (mod) that owns this record.
         unsigned formID = 0; ///< FormID of the record referencing this model.
         std::string subModel; ///< Sub-model identifier within the record.
-        bool isWeighted = false; ///< Whether the model uses a weighted (skinned) mesh.
+        bool isWeighted = false; ///< Whether the model is an armor addon model with the weight slider enabled.
         std::wstring meshFile; ///< Path to the mesh file referenced by this record.
         bool isSinglepassMATO = false; ///< Whether this record uses single-pass MATO rendering.
         bool isIgnored = false; ///< Whether this model use should be skipped during patching.
@@ -49,13 +50,16 @@ public:
     };
 
     /**
-     * @brief Initializes the PGMutagen C# library and loads the specified game's plugin data.
+     * @brief Loads the .NET runtime, then initializes the PGMutagen C# library with the game's plugins.
      *
-     * @param gameType  Integer identifier for the game type (maps to BethesdaGame::GameType).
-     * @param exePath   Path to the game executable.
+     * Plugins that are not in the data folder, cannot be read or have missing masters are skipped (and logged).
+     *
+     * @param gameType  Mutagen SkyrimRelease value (2 SkyrimSE, 3 SkyrimVR, 6 EnderalSE, 7 SkyrimSEGog).
+     * @param exePath   Folder of the executable, used as the base directory the .NET runtime resolves assemblies from.
      * @param dataPath  Path to the game's Data directory.
-     * @param loadOrder Ordered list of active plugin names; defaults to empty (auto-detected).
-     * @param lang      Language code used for localised string resolution; defaults to 0 (English).
+     * @param loadOrder Active plugin file names in load order.
+     * @param lang      Mutagen Language value for localized strings; 0 is English.
+     * @throws std::runtime_error if the .NET runtime fails to load or the plugin environment cannot be built.
      */
     static void libInitialize(const int& gameType,
                               const std::wstring& exePath,
@@ -64,21 +68,25 @@ public:
                               const unsigned& lang = 0);
 
     /**
-     * @brief Populates the internal plugin object graph, optionally merging an existing output mod.
+     * @brief Reads every model record of the load order (winning overrides) and captures the baseline that
+     * libResetPatchingState() returns to.
      *
-     * @param existingModPath Path to an existing output mod to merge into the session; empty to start fresh.
+     * @param existingModPath PGPatcher.esp of a previous run, whose texture sets are carried over so texture sets
+     * created again keep their form IDs; empty to start fresh.
+     * @throws std::runtime_error if libInitialize() was not called or a plugin cannot be read.
      */
     static void libPopulateObjs(const std::filesystem::path& existingModPath = { });
 
     /**
-     * @brief Resets mutable plugin-patching state to the post-populate baseline.
+     * @brief Drops every record change and new texture set made since libPopulateObjs().
      */
     static void libResetPatchingState();
 
     /**
-     * @brief Writes all pending changes to the output plugin file and finalises the session.
+     * @brief Writes PGPatcher.esp (new texture sets) and the PG_<n>.esp plugins holding the changed records to the
+     * output directory. Nothing is written when no record changed.
      *
-     * @param outputPath Path where the output plugin file should be written.
+     * @param outputPath Directory the plugins are written to.
      * @param esmMode    0 = ESM flag only PGPatcher.esp, 1 = ESM flag all output plugins, 2 = no ESM flags.
      */
     static void libFinalize(const std::filesystem::path& outputPath,
@@ -87,15 +95,18 @@ public:
     /**
      * @brief Retrieves all plugin records that reference the given model path.
      *
-     * @param modelPath Relative mesh path (e.g. "meshes/foo/bar.nif") to look up.
-     * @return Vector of ModelUse structs describing each record that uses this model.
+     * @param modelPath Mesh path relative to the data folder (e.g. L"meshes\\foo\\bar.nif"), compared without
+     * regard to case.
+     * @return One ModelUse per record model that uses the mesh, with its alternate textures; empty if none does.
      */
     static std::vector<ModelUse> libGetModelUses(const std::wstring& modelPath);
 
     /**
-     * @brief Pushes updated model-use records back to the C# library for serialisation into the output plugin.
+     * @brief Points the given record models at their output meshes and alternate texture sets. Only modName, formID,
+     * subModel, meshFile and alternateTextures are used; records that nothing changes stay untouched.
      *
-     * @param modelUses Updated list of ModelUse structs to write.
+     * @param modelUses Model uses to update.
+     * @throws std::runtime_error if a record or sub model cannot be found.
      */
     static void libSetModelUses(const std::vector<ModelUse>& modelUses);
 

@@ -60,6 +60,10 @@ bool PatcherMeshShaderVanillaParallax::canApply(nifly::NiShape& nifShape,
 
     auto* nifShader = nif()->GetShader(&nifShape);
     const auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
+    if (!nifShaderBSLSP) {
+        // Only lighting shaders can be parallax.
+        return false;
+    }
 
     // Check if nif has attached havok (Results in crashes for vanilla Parallax).
     if (m_hasAttachedHavok)
@@ -112,7 +116,8 @@ bool PatcherMeshShaderVanillaParallax::shouldApply(const PGTypes::TextureSet& ol
     auto* pgd = PGGlobals::pgd();
     auto* pgd3d = PGGlobals::pgD3D();
 
-    static const auto heightBaseMap = pgd->textureMapConst(PGEnums::TextureSlots::Parallax);
+    // A reference, not a static copy: the map belongs to the current directory and changes between runs.
+    const auto& heightBaseMap = pgd->textureMapConst(PGEnums::TextureSlots::Parallax);
 
     matches.clear();
 
@@ -177,6 +182,8 @@ void PatcherMeshShaderVanillaParallax::applyShader(nifly::NiShape& nifShape)
 {
     auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
+    if (!nifShaderBSLSP)
+        return;
 
     // Set NIFShader type to Parallax.
     PGNIFUtil::setShaderType(nifShader, nifly::BSLSP_PARALLAX);

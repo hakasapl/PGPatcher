@@ -41,7 +41,7 @@ VERSION_FILE = os.path.join(REPO_ROOT, 'scripts', 'clang-tidy-version.txt')
 
 # Directories holding first-party code. Everything else (external/, the build tree,
 # vcpkg_installed/) is somebody else's problem.
-PROJECT_DIRS = ('PGLib', 'PGPatcher', 'PGMutagen', 'PGTools')
+PROJECT_DIRS = ('PGLib', 'PGPatcher', 'PGMutagen', 'PGTools', 'PGTests')
 
 # Where a configured build tree usually lives, best first.
 BUILD_DIR_CANDIDATES = (

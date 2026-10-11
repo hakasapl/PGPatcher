@@ -133,7 +133,8 @@ void PGDirectory::waitForMeshMapping()
         return;
     }
 
-    if (m_meshUseMappingQueue.isProcessing()) {
+    // Wait while a task runs or is still queued; shutdown() drops queued tasks.
+    if (m_meshUseMappingQueue.isWorking()) {
         Logger::info("Waiting for plugin mesh use mapping to complete...");
         m_meshUseMappingQueue.waitForCompletion();
     }
@@ -149,7 +150,8 @@ void PGDirectory::waitForCMClassification()
         return;
     }
 
-    if (m_cmClassificationQueue.isProcessing()) {
+    // Wait while a task runs or is still queued; shutdown() drops queued tasks.
+    if (m_cmClassificationQueue.isWorking()) {
         Logger::info("Waiting for extended texture classification to complete...");
         m_cmClassificationQueue.waitForCompletion();
     }

@@ -24,12 +24,22 @@ private:
 
 public:
     /**
-     * @brief Construct a new Mod Sort Dialog object
+     * @brief Construct a new Completion Dialog object
+     *
+     * @param timeTaken Duration of the patching run shown in the completion message, in seconds
      */
     explicit CompletionDialog(const long long& timeTaken);
 
+    /**
+     * @brief Collapses the warning and error panes and restores the collapsed size before showing the dialog
+     */
     int ShowModal() override;
 
+    /**
+     * @brief Replaces the completion message with one for the given duration (after a patching re-run)
+     *
+     * @param timeTaken Duration of the patching run, in seconds
+     */
     void updateTimingInfo(const long long& timeTaken);
 
     /**

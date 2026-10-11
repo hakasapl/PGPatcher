@@ -13,6 +13,13 @@
  */
 class DialogSettings : public wxDialog {
 public:
+    /**
+     * @brief Construct a new Settings Dialog object
+     *
+     * @param parent Parent window
+     * @param pgc Config whose GUI language and theme the dialog shows; a changed selection is stored in it and saved to
+     * the user config when OK is pressed
+     */
     DialogSettings(wxWindow* parent,
                    PGConfig& pgc);
 

@@ -20,13 +20,14 @@
 
 /**
  * @class PGConfig
- * @brief Class responsible for PGPatcherruntime configuration and JSON file interaction
+ * @brief Holds the PGPatcher runtime configuration and reads and writes the JSON files of the cfg folder next to the
+ * executable
  */
 class PGConfig {
 public:
     /**
      * @struct PGParams
-     * @brief Struct that holds all the user-configurable parameters for ParallaxGen
+     * @brief Struct that holds all the user-configurable parameters for PGPatcher
      */
     struct PGParams {
         // Game.
@@ -153,7 +154,7 @@ public:
     };
 
 private:
-    static std::filesystem::path s_exePath; /** Stores the ExePath of ParallaxGen.exe */
+    static std::filesystem::path s_exePath; /** Folder containing PGPatcher.exe */
 
     PGParams m_params; /** Stores the configured parameters */
 
@@ -167,28 +168,31 @@ public:
     /**
      * @brief Loads required statics for the class
      *
-     * @param exePath Path to ParallaxGen.exe (folder)
+     * @param exePath Folder containing PGPatcher.exe; the cfg folder is resolved against it
      */
     static void loadStatics(const std::filesystem::path& exePath);
 
     /**
      * @brief Get the User Config File object
      *
-     * @return std::filesystem::path Path to user config file
+     * @return std::filesystem::path Path to user config file (cfg\settings.json)
+     * @throws std::runtime_error if loadStatics() was not called
      */
     [[nodiscard]] static std::filesystem::path userConfigFile();
 
     /**
      * @brief Get the Mod Config File object
      *
-     * @return std::filesystem::path Path to mod config file
+     * @return std::filesystem::path Path to mod config file (cfg\modrules.json)
+     * @throws std::runtime_error if loadStatics() was not called
      */
     [[nodiscard]] static std::filesystem::path modConfigFile();
 
     /**
      * @brief Get the Ignored Messages Config File object
      *
-     * @return std::filesystem::path Path to ignored messages config file
+     * @return std::filesystem::path Path to ignored messages config file (cfg\ignored_messages.json)
+     * @throws std::runtime_error if loadStatics() was not called
      */
     [[nodiscard]] static std::filesystem::path ignoredMessagesConfigFile();
 
@@ -217,7 +221,8 @@ public:
     static void resolveRelativePaths(PGParams& params);
 
     /**
-     * @brief Loads the config files in the `cfg` folder
+     * @brief Loads the user config (settings.json). The params fall back to defaultParams() when the file is missing
+     * or cannot be parsed
      */
     void loadConfig();
 
@@ -229,7 +234,7 @@ public:
     [[nodiscard]] PGParams params() const;
 
     /**
-     * @brief Set params (also saves to user json)
+     * @brief Set params in memory only (persisted on the next saveUserConfig)
      *
      * @param params new params to set
      */
@@ -283,22 +288,36 @@ public:
     [[nodiscard]] nlohmann::json userConfigJSON() const;
 
     /**
-     * @brief Saves user config to the user json file
+     * @brief Saves user config (userConfigJSON()) to the user json file
      *
-     * @return true if save was successful
+     * @return true if save was successful (a failure is logged as critical)
      */
     bool saveUserConfig();
 
     /**
-     * @brief Saves the current mod configuration to modrules.json
+     * @brief Saves the current mod configuration (PGGlobals::pgmm()->json()) to modrules.json
      *
-     * @return true if save was successful
+     * @return true if save was successful (a failure is logged as critical)
+     * @throws std::runtime_error if no mod manager is set
      */
     static bool saveModConfig();
 
+    /**
+     * @brief Reads the ignored warning messages from ignored_messages.json
+     *
+     * @return Message text to ignored flag; empty when the file does not exist
+     * @throws std::runtime_error if the file cannot be parsed or has the wrong format
+     */
     static std::unordered_map<wxString,
                               bool>
     ignoredMessagesConfig();
+
+    /**
+     * @brief Writes the ignored warning messages to ignored_messages.json
+     *
+     * @param ignoredItems Message text to ignored flag
+     * @return true if save was successful (a failure is logged as critical)
+     */
     static bool saveIgnoredMessagesConfig(const std::unordered_map<wxString,
                                                                    bool>& ignoredItems);
 

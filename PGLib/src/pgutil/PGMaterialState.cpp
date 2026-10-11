@@ -21,6 +21,7 @@
 #include <limits>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -56,14 +57,21 @@ bool floatFromJSON(const nlohmann::json& value,
     return true;
 }
 
-/// @brief Reads a JSON number as the unsigned 32 bit integer the mesh format stores. A larger number is malformed.
+/// @brief Reads a JSON number as the unsigned 32 bit integer the mesh format stores. A negative, fractional or larger
+/// number is malformed.
 bool unsignedFromJSON(const nlohmann::json& value,
                       uint32_t& out)
 {
-    if (!value.is_number_unsigned() || value.get<uint64_t>() > std::numeric_limits<uint32_t>::max())
+    // nlohmann stores a non-negative integer as unsigned when it was parsed, but as signed when it was built from an
+    // int in code, so both integer kinds are accepted.
+    if (!value.is_number_integer())
         return false;
 
-    out = value.get<uint32_t>();
+    const auto asInteger = value.get<int64_t>();
+    if (asInteger < 0 || std::cmp_greater(asInteger, std::numeric_limits<uint32_t>::max()))
+        return false;
+
+    out = static_cast<uint32_t>(asInteger);
     return true;
 }
 

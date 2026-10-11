@@ -28,9 +28,10 @@ public:
     static void setMainThread();
 
     /**
-     * @brief Logs a critical error message if an exception has been recorded, then returns.
+     * @brief Logs the recorded exception (type, message and stack trace) as a critical error, if there is one.
      *
-     * Must be called from the main thread; throws std::runtime_error if called from another thread.
+     * Despite the name nothing is rethrown. Must be called from the thread registered with setMainThread(); throws
+     * std::runtime_error when called from another thread.
      */
     static void throwExceptionOnMainThread();
 
@@ -51,4 +52,11 @@ public:
      * @return true if setException() has been called at least once, false otherwise.
      */
     static bool hasException();
+
+    /**
+     * @brief Forgets the recorded exception, so a new one can be recorded.
+     *
+     * A TaskPoolRunner runs tasks again afterwards; a TaskQueue whose worker thread already stopped stays stopped.
+     */
+    static void reset();
 };
