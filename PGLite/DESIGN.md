@@ -10,6 +10,13 @@ commit fd2fd4c), in the Community Shaders (CS) sources on GitHub, in the CommonL
 database of `SkyrimSE_1.7.99.exe`. Facts marked *to verify* are confirmed in the binary or in game when the code that
 depends on them is written.
 
+Implementation status (2026-10-11, branch `pglite-impl`): sections 4 to 6 and the milestones of section 9 are
+implemented. Deviations from the text: the two engine functions are only bound for the AE runtimes (1.6.x, 1.7.x);
+on 1.5.97 PGLite stays disabled with a notice until their SE IDs are known. `PGPlugin` keeps its static interface
+and the runtime provides its own implementation unit (`PGLite/src/PGPluginRuntime.cpp`) instead of a virtual
+interface. Texture set objects are deduplicated per session rather than per family. The menu reads its input from
+the engine's input event source and draws from the swap chain's Present; no engine function is hooked.
+
 ## 1. What PGLite is
 
 PGLite is an SKSE plugin (one statically linked DLL, CommonLibSSE-NG, Dear ImGui) that produces the same meshes the

@@ -28,6 +28,8 @@ public:
         bool shouldExcludeFacegens = false;
         /// @brief Whether complex material shapes keep their cubemap (--no-dyn-cubemap offline).
         bool shouldDisableDynamicCubemap = false;
+        /// @brief A development aid: the save (file name without extension) loaded when the main menu opens.
+        std::string loadSaveAtStart;
     };
 
     /// @brief F10.

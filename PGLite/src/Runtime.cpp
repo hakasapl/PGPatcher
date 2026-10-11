@@ -4,7 +4,9 @@
 
 #include "CMCache.hpp"
 #include "Environment.hpp"
+#include "Hooks.hpp"
 #include "Logging.hpp"
+#include "Menu.hpp"
 #include "PGGlobals.hpp"
 #include "PGParams.hpp"
 #include "PGRunObserver.hpp"
@@ -147,6 +149,12 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
     if (!message || message->type != SKSE::MessagingInterface::kDataLoaded)
         return;
 
+    // The development aid listens for the main menu from here on, which can open before the deferred task runs.
+    if (!instance().m_ini.loadSaveAtStart.empty()) {
+        if (auto* const ui = RE::UI::GetSingleton())
+            ui->AddEventSink<RE::MenuOpenCloseEvent>(&instance());
+    }
+
     // One frame later, after every plugin's data-load handler ran.
     SKSE::GetTaskInterface()->AddTask([] { instance().onDataLoaded(); });
 }
@@ -154,6 +162,11 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
 void Runtime::onDataLoaded()
 {
     try {
+        // The menu exists whether or not PGLite is active, so it can state the reason when it is not.
+        m_menu = std::make_unique<Menu>(*this);
+        if (!Hooks::install(*m_menu))
+            m_menu.reset();
+
         if (const auto reason = disableReason()) {
             RE::DebugMessageBox(std::format("PGLite is disabled because {}.", *reason).c_str());
             return;
@@ -189,9 +202,35 @@ void Runtime::onDataLoaded()
         Logger::info("Data-load task done in {} ms", elapsed.count());
 
         std::thread([this] { initializeInBackground(); }).detach();
+
+        if (!m_ini.loadSaveAtStart.empty()) {
+            // The main menu may be open already, in which case no event comes.
+            auto* const ui = RE::UI::GetSingleton();
+            if (ui && ui->IsMenuOpen(RE::MainMenu::MENU_NAME)) {
+                const RE::MenuOpenCloseEvent event { .menuName = RE::MainMenu::MENU_NAME, .opening = true };
+                ProcessEvent(&event, nullptr);
+            }
+        }
     } catch (const std::exception& e) {
         disable(std::format("its initialization failed: {}", e.what()), true);
     }
+}
+
+RE::BSEventNotifyControl Runtime::ProcessEvent(const RE::MenuOpenCloseEvent* event,
+                                               [[maybe_unused]] RE::BSTEventSource<RE::MenuOpenCloseEvent>* source)
+{
+    if (!event || !event->opening || event->menuName != RE::MainMenu::MENU_NAME || m_didLoadSaveAtStart.exchange(true))
+        return RE::BSEventNotifyControl::kContinue;
+
+    // A development aid (PGLite.ini [Debug] sLoadSaveAtStart): straight into a save, so a session can be tested
+    // without clicking through the menu.
+    Logger::info("Loading the save {} (sLoadSaveAtStart)", m_ini.loadSaveAtStart);
+    SKSE::GetTaskInterface()->AddTask([save = m_ini.loadSaveAtStart] {
+        if (auto* const manager = RE::BGSSaveLoadManager::GetSingleton())
+            manager->Load(save.c_str());
+    });
+
+    return RE::BSEventNotifyControl::kContinue;
 }
 
 std::optional<std::string> Runtime::detectDisableCondition() const
@@ -400,8 +439,6 @@ bool Runtime::apply(const PGParams& params)
 {
     if (!m_isActive || !m_isReady || !m_plan || disableReason())
         return false;
-
-    Settings::writeParams(params);
 
     const auto started = std::chrono::steady_clock::now();
     const std::unique_lock lock(m_pipelineLock);

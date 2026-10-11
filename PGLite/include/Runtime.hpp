@@ -24,12 +24,16 @@
 
 namespace PGLite {
 
+class Menu;
+
 /**
  * @brief The lifecycle of the plugin (DESIGN.md sections 4.1, 4.8 and 4.9): the checks at plugin load, the data-load
  * task that reads the uses, plans and registers the streams, the background initialization of the environment, the
  * bytes every stream serves, and Apply.
  */
-class Runtime final : public PatchStream::Provider {
+class Runtime final
+    : public PatchStream::Provider
+    , public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
 public:
     /// @brief What the GUI shows about the state of the plugin.
     struct Status {
@@ -82,9 +86,9 @@ public:
     [[nodiscard]] Status status() const;
 
     /**
-     * @brief Apply (DESIGN.md section 4.8): saves the parameters, restores the records, rebuilds the environment and
-     * the plan with fresh variant numbers and registers the new variant streams. Main thread, blocks until in-flight
-     * patches finished.
+     * @brief Apply (DESIGN.md section 4.8): restores the records, rebuilds the environment and the plan with fresh
+     * variant numbers and registers the new variant streams. The caller saves the settings first. Main thread,
+     * blocks until in-flight patches finished.
      *
      * @return false if PGLite is not ready.
      */
@@ -93,6 +97,10 @@ public:
     // PatchStream::Provider.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
                                                                         SourceStream& source) override;
+
+    // BSTEventSink<MenuOpenCloseEvent>: the development aid that loads a save when the main menu opens.
+    RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* event,
+                                          RE::BSTEventSource<RE::MenuOpenCloseEvent>* source) override;
 
 private:
     struct StreamEntry {
@@ -158,6 +166,7 @@ private:
     PGD3D m_d3d;
     CMCache m_cmCache;
     std::unique_ptr<Environment> m_environment;
+    std::unique_ptr<Menu> m_menu;
 
     std::unordered_map<std::string, StreamEntry> m_streams;
     mutable std::mutex m_streamsMutex;
@@ -167,6 +176,7 @@ private:
 
     std::atomic<bool> m_isActive { false };
     std::atomic<bool> m_isReady { false };
+    std::atomic<bool> m_didLoadSaveAtStart { false };
     std::mutex m_readyMutex;
     std::condition_variable m_readyCondition;
 };

@@ -2,6 +2,7 @@
 
 ## UNRELEASED
 
+- Added PGLite, an SKSE plugin that runs the patchers on every mesh as the game loads it (Skyrim 1.6.x and 1.7.x; see `PGLite/README.md` for its differences from the offline program)
 - BodySlide ShapeData meshes will now be patched
 - Added the `PG_STOCK` extra data block for preserving initial mesh state
 - Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder

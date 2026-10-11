@@ -22,6 +22,7 @@ namespace PGLite {
 namespace {
 
 constexpr const char* iniSection = "General";
+constexpr const char* debugSection = "Debug";
 
 }
 
@@ -79,6 +80,7 @@ Settings::Ini Settings::readIni()
     ini.logLevel = Logging::levelFromString(file.GetValue(iniSection, "sLogLevel", "info"));
     ini.shouldExcludeFacegens = file.GetBoolValue(iniSection, "bExcludeFacegens", false);
     ini.shouldDisableDynamicCubemap = file.GetBoolValue(iniSection, "bDisableDynamicCubemap", false);
+    ini.loadSaveAtStart = file.GetValue(debugSection, "sLoadSaveAtStart", "");
 
     return ini;
 }

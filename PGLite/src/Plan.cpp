@@ -235,6 +235,13 @@ void Family::patch(std::size_t wantedMember,
 
     editRecords(textureSets);
     retargetMergedMembers(generation);
+
+    std::size_t groups = 0;
+    for (std::size_t member = 0; member < members.size(); member++)
+        if (m_leaders.at(member) == member && !m_outputs.front().at(member).keepsOriginal)
+            groups++;
+
+    Logger::debug(L"Patched {} ({} contexts, {} distinct outputs)", basePaths.front().wstring(), members.size(), groups);
 }
 
 bool Family::patchMember(PGMeshPermutationTracker& tracker,
