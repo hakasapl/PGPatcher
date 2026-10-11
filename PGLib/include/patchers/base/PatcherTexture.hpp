@@ -8,27 +8,27 @@
 #include <string>
 
 /**
- * @class Patcher
- * @brief Base class for all patchers
+ * @class PatcherTexture
+ * @brief Base class for all texture patchers: holds the DDS being patched
  */
 class PatcherTexture : public Patcher {
 private:
     // Instance vars.
-    std::filesystem::path m_ddsPath; /** Stores the path to the NIF file currently being patched */
-    DirectX::ScratchImage* m_dds; /** Stores the NIF object itself */
+    std::filesystem::path m_ddsPath; /** Stores the path to the DDS file currently being patched */
+    DirectX::ScratchImage* m_dds; /** Stores the loaded DDS image itself */
 
 protected:
     /**
-     * @brief Get the NIF path for the current patcher (used only within child patchers)
+     * @brief Get the DDS path for the current patcher (used only within child patchers)
      *
-     * @return std::filesystem::path Path to NIF
+     * @return std::filesystem::path Path to the DDS relative to the data folder
      */
     [[nodiscard]] std::filesystem::path ddsPath() const;
 
     /**
-     * @brief Get the NIF object for the current patcher (used only within child patchers)
+     * @brief Get the DDS image for the current patcher (used only within child patchers)
      *
-     * @return nifly::NifFile* pointer to NIF object
+     * @return DirectX::ScratchImage* pointer to the loaded image, may be nullptr
      */
     [[nodiscard]] DirectX::ScratchImage* dds() const;
 
@@ -36,8 +36,8 @@ public:
     /**
      * @brief Construct a new Patcher object
      *
-     * @param nifPath Path to NIF being patched
-     * @param nif NIF object
+     * @param ddsPath Path to the DDS being patched
+     * @param dds Loaded DDS image
      * @param patcherName Name of patcher
      */
     PatcherTexture(std::filesystem::path ddsPath,

@@ -161,6 +161,10 @@ nifly::NifFile PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifByte
     if (!nif.IsValid() || !nif.GetHeader().IsValid())
         throw std::runtime_error("NIF did not load properly");
 
+    // nifly reads a truncated file without complaint, filling the missing blocks with whatever the short reads left.
+    if (nifStream.fail())
+        throw std::runtime_error("NIF is truncated");
+
     if (!shouldRunChecks)
         return nif;
 
@@ -195,6 +199,9 @@ nifly::NifFile PGNIFUtil::loadNIFFromBytes(const std::vector<std::byte>& nifByte
 bool PGNIFUtil::setShaderType(nifly::NiShader* nifShader,
                               const nifly::BSLightingShaderPropertyShaderType& type)
 {
+    if (!nifShader)
+        return false;
+
     if (nifShader->GetShaderType() != type) {
         nifShader->SetShaderType(type);
         return true;
@@ -229,19 +236,25 @@ bool PGNIFUtil::setShaderVec2(nifly::Vector2& value,
 bool PGNIFUtil::hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
                               const nifly::SkyrimShaderPropertyFlags1& flag)
 {
+    if (!nifShaderBSLSP)
+        return false;
+
     return (nifShaderBSLSP->shaderFlags1 & flag) != 0U;
 }
 
 bool PGNIFUtil::hasShaderFlag(const nifly::BSShaderProperty* nifShaderBSLSP,
                               const nifly::SkyrimShaderPropertyFlags2& flag)
 {
+    if (!nifShaderBSLSP)
+        return false;
+
     return (nifShaderBSLSP->shaderFlags2 & flag) != 0U;
 }
 
 bool PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                               const nifly::SkyrimShaderPropertyFlags1& flag)
 {
-    if (!hasShaderFlag(nifShaderBSLSP, flag)) {
+    if (nifShaderBSLSP && !hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags1 |= flag;
         return true;
     }
@@ -252,7 +265,7 @@ bool PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
 bool PGNIFUtil::setShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                               const nifly::SkyrimShaderPropertyFlags2& flag)
 {
-    if (!hasShaderFlag(nifShaderBSLSP, flag)) {
+    if (nifShaderBSLSP && !hasShaderFlag(nifShaderBSLSP, flag)) {
         nifShaderBSLSP->shaderFlags2 |= flag;
         return true;
     }
@@ -323,6 +336,9 @@ bool PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
                                const PGEnums::TextureSlots& slot,
                                const std::string& texturePath)
 {
+    if (!nif || !nifShape)
+        return false;
+
     std::string existingTex;
     nif->GetTextureSlot(nifShape, existingTex, static_cast<unsigned>(slot));
     if (!StringUtil::asciiFastIEquals(existingTex, texturePath)) {
@@ -349,6 +365,9 @@ std::string PGNIFUtil::textureSlot(const nifly::NifFile* nif,
                                    nifly::NiShape* nifShape,
                                    const PGEnums::TextureSlots& slot)
 {
+    if (!nif || !nifShape)
+        return { };
+
     std::string texture;
     nif->GetTextureSlot(nifShape, texture, static_cast<unsigned>(slot));
     StringUtil::toLowerASCIIFastInPlace(texture);
@@ -359,6 +378,8 @@ PGTypes::TextureSet PGNIFUtil::textureSlots(const nifly::NifFile* nif,
                                             nifly::NiShape* nifShape)
 {
     PGTypes::TextureSet outSlots;
+    if (!nif || !nifShape)
+        return outSlots;
 
     for (uint32_t i = 0; i < numTextureSlots; i++) {
         std::string texture;
@@ -575,7 +596,8 @@ bool PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
 bool PGNIFUtil::isFacegenMesh(const std::filesystem::path& path)
 {
     // All facegen paths start with "meshes\actors\character\facegendata\facegeom\".
-    const auto relativePath = path.lexically_relative("meshes/actors/character/facegendata/facegeom");
+    const std::filesystem::path lowerPath = StringUtil::toLowerASCIIFast(path.wstring());
+    const auto relativePath = lowerPath.lexically_relative("meshes/actors/character/facegendata/facegeom");
     return !relativePath.empty() && relativePath.wstring().find(L"..") == std::string::npos;
 }
 

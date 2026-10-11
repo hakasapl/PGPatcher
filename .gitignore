@@ -4,6 +4,9 @@ buildRelease
 dist
 install
 
+# build output captured for scripts/check_build_warnings.py
+build.log
+
 #vcpkg
 vcpkg_installed
 

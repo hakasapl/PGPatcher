@@ -47,9 +47,9 @@ public:
     static PGEnums::ShapeShader shaderType();
 
     /**
-     * @brief Load options for this patcher from a map of option strings
+     * @brief Load options for this patcher from pgtools option strings
      *
-     * @param optionsStr Map of option strings to load
+     * @param optionsStr Options by name; "disable_dyncubemap" disables the dynamic cubemap
      */
     static void loadOptions(std::unordered_map<std::string,
                                                std::string>& optionsStr);
@@ -73,6 +73,9 @@ public:
     /**
      * @brief Check if the shape can accomodate the CM shader (without looking at texture slots)
      *
+     * Grass, shader types other than default, environment map and parallax, and lighting flag combinations the CM
+     * shader does not support are rejected.
+     *
      * @param nifShape Shape to check
      * @return true Shape can accomodate CM
      * @return false Shape cannot accomodate CM
@@ -93,10 +96,11 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Check if slots can accomodate CM shader
+     * @brief Find the complex material textures that match the normal map (or, failing that, the diffuse map) and have
+     * its aspect ratio. A match equal to the current env mask slot is listed last
      *
      * @param oldSlots Slots to check
-     * @param matches Vector of matches
+     * @param[out] matches Matches, each carrying the texture's material meta JSON as extra data when it has one
      * @return true Match found
      * @return false No match found
      */
@@ -104,31 +108,31 @@ public:
                      std::vector<PatcherMatch>& matches) override;
 
     /**
-     * @brief Apply the CM shader to the shape
+     * @brief Apply the CM shader to the shape: shader type and flags, specular settings from the texture's attributes
+     * and material meta, then the slots
      *
-     * @param[in] nifShape Shape to apply to
+     * @param[in,out] slots Slots of the shape, updated with the match
+     * @param nifShape Shape to apply to
      * @param[in] match Match to apply
-     * @return PGTypes::TextureSet New slots after patching
      */
     void applyPatch(PGTypes::TextureSet& slots,
                     nifly::NiShape& nifShape,
                     const PatcherMatch& match) override;
 
     /**
-     * @brief Apply the CM shader to the slots
+     * @brief Apply the CM match to the slots: the env mask slot takes the match, the parallax slot is cleared and the
+     * cubemap slot gets the dynamic cubemap unless disabled by option or material meta
      *
-     * @param oldSlots Slots to apply to
+     * @param[in,out] slots Slots to apply to
      * @param match Match to apply
-     * @return PGTypes::TextureSet New slots after patching
      */
     void applyPatchSlots(PGTypes::TextureSet& slots,
                          const PatcherMatch& match) override;
 
     /**
-     * @brief Apply CM shader to a shape
+     * @brief Set the environment map shader type and flags on a shape
      *
      * @param nifShape Shape to apply shader to
-     * @param nifModified Whether the NIF was modified
      */
     void applyShader(nifly::NiShape& nifShape) override;
 
@@ -138,5 +142,10 @@ public:
     [[nodiscard]] uint64_t matchExtraDataHash(const PatcherMatch& match) const override;
 
 private:
+    /**
+     * @brief Read the material meta JSON next to a complex material texture (same path with .json extension). Cached
+     *
+     * @return the JSON, null when there is none or it cannot be parsed
+     */
     static nlohmann::json materialMeta(const std::filesystem::path& envMaskPath);
 };

@@ -401,8 +401,16 @@ void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDi
             return;
         }
 
-        // Check if mod dir is output dir.
-        if (std::filesystem::equivalent(curModDir, outputDir)) {
+        // Check if mod dir is output dir. The output dir may not exist yet, which is the one error that is ignored; any
+        // other failure to compare the two is reported like before.
+        std::error_code ec;
+        const bool isOutputDir = std::filesystem::equivalent(curModDir, outputDir, ec);
+        if (ec && std::filesystem::exists(outputDir)) {
+            throw std::filesystem::filesystem_error(
+                "Unable to compare mod directory with output directory", curModDir, outputDir, ec);
+        }
+
+        if (isOutputDir) {
             Logger::critical(L"If outputting to MO2 you must disable the mod {} first to prevent issues with MO2 VFS",
                              mod);
             return;

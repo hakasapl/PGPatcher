@@ -10,7 +10,8 @@
 
 /**
  * @class PatcherMeshShaderTransformParallaxToCM
- * @brief Transform patcher to upgrade Parallax to CM
+ * @brief Transform patcher that turns a parallax match into a complex material match whose texture is generated from
+ * the height map by PatcherTextureHookConvertToCM
  */
 class PatcherMeshShaderTransformParallaxToCM : public PatcherMeshShaderTransform {
 private:
@@ -66,10 +67,12 @@ public:
                          bool canApplyBaseShader) override;
 
     /**
-     * @brief Transform shader match to new shader match
+     * @brief Register the height map for conversion and point the match at the complex material texture that will be
+     * generated from it
      *
-     * @param fromMatch Match to transform
-     * @return PatcherShader::PatcherMatch Transformed match
+     * @param fromMatch Parallax match to transform
+     * @param[out] result Complex material match
+     * @return true always
      */
     bool transform(const PatcherMeshShader::PatcherMatch& fromMatch,
                    PatcherMeshShader::PatcherMatch& result) override;

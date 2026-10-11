@@ -28,12 +28,23 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - name: Build Artifact
-        run: |
-          ./buildRelease.ps1 -NoZip
-
       - name: Set up Python
         uses: actions/setup-python@v6
+
+      - name: Build Artifact
+        run: |
+          # Keep the build output for the warnings check; a failed build must still fail this step.
+          ./buildRelease.ps1 -NoZip 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Check Build Warnings
+        run: |
+          python scripts/check_build_warnings.py build.log
+
+      - name: Run Unit Tests
+        timeout-minutes: 30
+        run: |
+          ctest --test-dir buildRelease --output-on-failure --timeout 900
 
       - name: Restore clang-tidy
         id: clang-tidy-cache

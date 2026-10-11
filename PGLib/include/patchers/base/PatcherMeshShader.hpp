@@ -16,7 +16,9 @@
 
 /**
  * @class PatcherMeshShader
- * @brief Base class for shader patchers
+ * @brief Base class for shader patchers, which find the textures of one shader type for a shape and apply them
+ *
+ * shouldApply() finds matches without a mesh, so it also serves the update cache; canApply() needs the mesh.
  */
 class PatcherMeshShader : public PatcherMesh {
 public:
@@ -45,9 +47,11 @@ public:
     PatcherMeshShader& operator=(PatcherMeshShader&& other) noexcept = default;
 
     /**
-     * @brief Checks if a shape can be patched by this patcher (without looking at slots)
+     * @brief Checks if a shape can take this patcher's shader (without looking at slots)
      *
      * @param nifShape Shape to check
+     * @param isSinglepassMATO Whether the plugin use is a single pass material object
+     * @param modelRecordType Plugin record type of the use
      * @return true Shape can be patched
      * @return false Shape cannot be patched
      */
@@ -55,34 +59,36 @@ public:
                           bool isSinglepassMATO,
                           const PGPlugin::ModelRecordType& modelRecordType) = 0;
 
-    /// @brief  Methods that determine whether the patcher should apply to a shape
+    /// @brief Find the matches for a shape's texture set
     /// @param[in] nifShape shape to check
-    /// @param matches found matches
+    /// @param[out] matches found matches
     /// @return if any match was found
     virtual bool shouldApply(nifly::NiShape& nifShape,
                              std::vector<PatcherMatch>& matches) = 0;
 
-    /// @brief determine if the patcher should be applied to the shape
+    /// @brief Find the matches for a texture set
     /// @param[in] oldSlots array of texture slot textures
     /// @param[out] matches vector of matches for the given textures
     /// @return if any match was found
     virtual bool shouldApply(const PGTypes::TextureSet& oldSlots,
                              std::vector<PatcherMatch>& matches) = 0;
 
-    // Methods that apply the patch to a shape.
+    /// @brief Apply a match to a shape: its shader fields (applyShader()) and its texture slots (applyPatchSlots())
+    /// @param[in,out] slots texture slots of the shape, updated with the match
+    /// @param nifShape shape to patch
+    /// @param[in] match match to apply
     virtual void applyPatch(PGTypes::TextureSet& slots,
                             nifly::NiShape& nifShape,
                             const PatcherMatch& match) = 0;
 
-    /// @brief apply the matched texture to the texture slots
-    /// @param[in] oldSlots array of the slot textures
-    /// @param[in] match matching texture
-    /// @return new array containing the applied matched texture
+    /// @brief Apply a match to texture slots only
+    /// @param[in,out] slots texture slots, updated with the match
+    /// @param[in] match match to apply
     virtual void applyPatchSlots(PGTypes::TextureSet& slots,
                                  const PatcherMatch& match) = 0;
 
-    /// @brief apply the shader to the shape
-    /// @param[in] nifShape shape to apply the shader to
+    /// @brief Set the shader type and flags of this patcher's shader on a shape
+    /// @param nifShape shape to apply the shader to
     virtual void applyShader(nifly::NiShape& nifShape) = 0;
 
     /**

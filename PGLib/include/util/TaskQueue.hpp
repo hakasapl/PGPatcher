@@ -102,9 +102,10 @@ public:
     bool isProcessing() const;
 
     /**
-     * @brief Returns whether the queue has been shut down.
+     * @brief Returns whether the worker thread stopped, either through shutdown() or because an exception was recorded
+     * in ExceptionHandler.
      *
-     * @return true if shutdown() has been called and the worker thread is no longer running.
+     * @return true if no further tasks will be processed.
      */
     bool isShutdown() const;
 

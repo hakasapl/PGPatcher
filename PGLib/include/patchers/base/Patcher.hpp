@@ -18,8 +18,6 @@ public:
     /**
      * @brief Construct a new Patcher object
      *
-     * @param nifPath Path to NIF being patched
-     * @param nif NIF object
      * @param patcherName Name of patcher
      */
     explicit Patcher(std::string patcherName);

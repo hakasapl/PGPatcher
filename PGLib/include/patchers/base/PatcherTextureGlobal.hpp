@@ -10,8 +10,8 @@
 #include <string>
 
 /**
- * @class PrePatcher
- * @brief Base class for prepatchers
+ * @class PatcherTextureGlobal
+ * @brief Base class for global texture patchers, which run on every texture of the load order and change it in place
  */
 class PatcherTextureGlobal : public PatcherTexture {
 public:
@@ -33,8 +33,7 @@ public:
     /**
      * @brief Apply the patch to the texture if able
      *
-     * @return true Patch was applied
-     * @return false Patch was not applied
+     * @param[out] ddsModified Set to true when the texture changed (left alone otherwise)
      */
     virtual void applyPatch(bool& ddsModified) = 0;
 };

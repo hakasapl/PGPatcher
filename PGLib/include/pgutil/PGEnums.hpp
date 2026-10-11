@@ -26,14 +26,14 @@ static constexpr std::array<EnumStringHelper::EnumStringEntry<ShapeShader>, 5> s
     },
 };
 
-/// @brief get a string that represents the given shader
+/// @brief Get the display name of a shader type, e.g. "Complex Material"
 /// @param[in] shader shader type
-/// @return string containing the name of the shader
+/// @return the name, "Unknown" for a value that is not in shapeShaderTable
 std::string strFromShader(const ShapeShader& shader);
 
-/// @brief get the shader type from a string
-/// @param[in] shader string containing the name of the shader
-/// @return the shader type
+/// @brief Get the shader type from its display name (case-sensitive)
+/// @param[in] shader display name of the shader
+/// @return the shader type, ShapeShader::Unknown if the name is not known
 ShapeShader shaderFromStr(const std::string& shader);
 
 /// @brief zero-based index of texture in BSShaderTextureSet
@@ -111,7 +111,7 @@ static constexpr std::array<EnumStringHelper::EnumStringEntry<TextureType>, 21> 
 std::string strFromTexType(const TextureType& type);
 
 /**
- * @brief Converts a string name to the corresponding TextureType enum value.
+ * @brief Converts a string name to the corresponding TextureType enum value (case-sensitive).
  *
  * @param type String name of the texture type.
  * @return Corresponding TextureType, or TextureType::Unknown if not found.

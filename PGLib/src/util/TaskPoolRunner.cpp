@@ -18,15 +18,16 @@
 std::function<void()> TaskPoolRunner::s_exceptionCallback = nullptr;
 
 TaskPoolRunner::TaskPoolRunner(const bool& multithread)
-    : m_threadPool([] {
-        auto availableThreads = std::thread::hardware_concurrency();
-        if (!availableThreads)
-            availableThreads = 4;
-        return availableThreads - numStaticThreads;
-    }())
+    : m_threadPool(poolThreadCount(std::thread::hardware_concurrency()))
     , m_multithread(multithread)
     , m_completedTasks(0)
 {
+}
+
+unsigned TaskPoolRunner::poolThreadCount(unsigned hardwareConcurrency)
+{
+    const unsigned available = hardwareConcurrency ? hardwareConcurrency : defaultConcurrency;
+    return available > numStaticThreads ? available - numStaticThreads : 1;
 }
 
 void TaskPoolRunner::addTask(const std::function<void()>& task) { m_tasks.push_back(task); }

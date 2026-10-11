@@ -72,9 +72,12 @@ public:
      * @brief Constructs a BethesdaGame instance for the specified game type and paths.
      *
      * @param gameType    The type of game (e.g. SkyrimSE, SkyrimVR).
-     * @param gamePath    Path to the game's root installation directory. If empty, Steam registry is queried.
-     * @param appDataPath Path to the game's AppData directory. If empty, the system default is used.
-     * @param documentPath Path to the game's Documents directory. If empty, the system default is used.
+     * @param gamePath    Path to the game's root installation directory. If empty, the registry is queried.
+     * @param appDataPath Path to the game's local AppData directory (holds plugins.txt). If empty, the system default
+     * is used.
+     * @param documentPath Path to the game's Documents directory (holds the INI files). If empty, the system default is
+     * used.
+     * @throws std::runtime_error if no game path is known, it does not exist, or isGamePathValid() rejects it.
      */
     explicit BethesdaGame(GameType gameType,
                           const std::filesystem::path& gamePath = "",
@@ -117,11 +120,15 @@ public:
     [[nodiscard]] std::filesystem::path pluginsFile() const;
 
     /**
-     * @brief Returns the list of active plugins including Bethesda master files.
+     * @brief Returns the active plugins in load order: the Bethesda masters that exist in the data folder, the
+     * Creation Club plugins listed in Skyrim.ccc, then the plugins marked with '*' in plugins.txt.
      *
-     * @param trimExtension If true, file extensions are stripped from plugin names.
-     * @param lowercase     If true, plugin names are converted to lowercase.
-     * @return Vector of wide strings containing the active plugin names in load order.
+     * Only plugins that exist in the data folder are listed, each one once.
+     *
+     * @param shouldTrimExtension If true, file extensions are stripped from plugin names.
+     * @param shouldLowercase     If true, plugin names are converted to lowercase.
+     * @return Active plugin names in load order.
+     * @throws std::runtime_error if plugins.txt cannot be opened.
      */
     [[nodiscard]] std::vector<std::wstring> activePlugins(const bool& shouldTrimExtension = false,
                                                           const bool& shouldLowercase = false) const;
@@ -129,7 +136,7 @@ public:
     /**
      * @brief Returns all supported game types.
      *
-     * @return Vector of all known GameType enum values (excluding UNKNOWN).
+     * @return Vector of all known GameType enum values (excluding Unknown).
      */
     [[nodiscard]] static std::vector<GameType> gameTypes();
 
@@ -152,17 +159,23 @@ public:
     /**
      * @brief Checks whether the given directory is a valid installation path for the specified game type.
      *
+     * The directory must hold a Data folder with the game's main master (e.g. Skyrim.esm), and plugins.txt must exist
+     * in the game's local AppData folder, which the game creates on its first start.
+     *
      * @param gamePath Path to the candidate game installation directory.
-     * @param type     The game type to validate against.
-     * @return true if the path contains the expected game data files; false otherwise.
+     * @param type     The game type to validate against. GameType::Unknown is never valid.
+     * @param appDataPath Local AppData folder of the game that holds plugins.txt. If empty, the system default is used.
+     * @return true if both checks pass; false otherwise.
      */
     [[nodiscard]] static bool isGamePathValid(const std::filesystem::path& gamePath,
-                                              const GameType& type);
+                                              const GameType& type,
+                                              const std::filesystem::path& appDataPath = "");
 
     /**
-     * @brief Attempts to locate the game's installation path via the Steam registry.
+     * @brief Looks up the game's installation path in the registry ("Installed Path" of the game's Bethesda Softworks
+     * key, or the Sure AI key for Enderal).
      *
-     * @param type The game type to search for.
+     * @param type The game type to search for. SkyrimGOG has no registry key and always yields an empty path.
      * @return Filesystem path to the game's installation directory, or an empty path if not found.
      */
     [[nodiscard]] static std::filesystem::path findGamePathFromSteam(const GameType& type);

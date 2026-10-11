@@ -46,11 +46,14 @@
 BethesdaDirectory::BethesdaDirectory(BethesdaGame* bg,
                                      std::unordered_set<std::filesystem::path> foldersToMap,
                                      std::filesystem::path generatedPath)
-    : m_dataDir(bg->gameDataPath())
+    : m_dataDir(bg ? bg->gameDataPath() : std::filesystem::path())
     , m_generatedDir(std::move(generatedPath))
     , m_foldersToMap(std::move(foldersToMap))
     , m_bg(bg)
 {
+    if (!bg)
+        throw std::invalid_argument("BethesdaGame is null");
+
     // Log starting message.
     Logger::info(L"Opening Data Folder \"{}\"", m_dataDir.wstring());
 }
@@ -388,7 +391,9 @@ void BethesdaDirectory::addLooseFilesToMap()
                     return false;
                 }
 
-                addEntry(folderPrefix + relPath, entry);
+                // Only files are mapped; a directory is only walked.
+                if (!entry.isDirectory)
+                    addEntry(folderPrefix + relPath, entry);
                 return true;
             });
     }
@@ -528,6 +533,9 @@ void BethesdaDirectory::addBSAToFileMap(const std::wstring& bsaName)
 
 std::vector<std::wstring> BethesdaDirectory::bsaLoadOrder() const
 {
+    if (!m_bg)
+        throw std::runtime_error("BethesdaGame object is not set which is required to determine the BSA load order");
+
     // Get bsa files not loaded from esp (also initializes output vector).
     std::vector<std::wstring> outBSAOrder = bsaFilesFromINIs();
 
@@ -653,7 +661,9 @@ std::vector<std::wstring> BethesdaDirectory::findBSAFilesFromPluginName(const st
             if (afterPrefix.starts_with(L' ') && !afterPrefix.starts_with(L" -"))
                 continue;
 
-            if (!afterPrefix.starts_with(L' ') && (!isdigit(afterPrefix[0])))
+            // Only the ASCII digits count ("ModA1.bsa"); iswdigit would also accept other Unicode digits.
+            const bool isDigit = afterPrefix[0] >= L'0' && afterPrefix[0] <= L'9';
+            if (!afterPrefix.starts_with(L' ') && !isDigit)
                 continue;
 
             bsaFilesFound.push_back(bsa);

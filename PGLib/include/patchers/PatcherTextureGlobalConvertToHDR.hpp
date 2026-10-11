@@ -12,8 +12,8 @@
 #include <wrl/client.h>
 
 /**
- * @class PrePatcherParticleLightsToLP
- * @brief patcher to transform particle lights to LP
+ * @class PatcherTextureGlobalConvertToHDR
+ * @brief Global texture patcher that converts a texture to a floating point format, scaling its luminance
  */
 class PatcherTextureGlobalConvertToHDR : public PatcherTextureGlobal {
 private:
@@ -22,7 +22,7 @@ private:
 
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* shaderName = "ParallaxToCM.hlsl";
+    static constexpr const char* shaderName = "ConvertToHDR.hlsl";
 
     struct ShaderParams {
         float luminanceMult;
@@ -39,7 +39,7 @@ public:
     /**
      * @brief Get the Factory object
      *
-     * @return PatcherShaderTransform::PatcherShaderTransformFactory
+     * @return PatcherTextureGlobal::PatcherGlobalFactory
      */
     static PatcherTextureGlobal::PatcherGlobalFactory factory();
 
@@ -55,7 +55,7 @@ public:
                                                      std::string>& optionsStr);
 
     /**
-     * @brief Construct a new PrePatcher Particle Lights To LP patcher
+     * @brief Construct a new Convert To HDR patcher
      *
      * @param ddsPath dds path to be patched
      * @param dds dds object to be patched
@@ -64,10 +64,9 @@ public:
                                      DirectX::ScratchImage* dds);
 
     /**
-     * @brief Apply this patcher to DDS
+     * @brief Replace the image with its converted version. The image is left alone if the conversion fails
      *
-     * @return true DDS was patched
-     * @return false DDS was not patched
+     * @param[out] ddsModified Set to true when the image was replaced
      */
     void applyPatch(bool& ddsModified) override;
 };

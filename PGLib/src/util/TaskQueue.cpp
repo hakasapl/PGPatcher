@@ -37,8 +37,10 @@ void TaskQueue::workerLoop()
             std::unique_lock<std::mutex> lock(m_queueMutex);
             m_cv.wait(lock, [this] { return !m_taskQueue.empty() || !m_running; });
 
-            if (!m_running && m_taskQueue.empty())
+            if (!m_running) {
+                // Shutting down: whatever is still queued is dropped below.
                 break;
+            }
 
             if (!m_taskQueue.empty()) {
                 task = std::move(m_taskQueue.front());

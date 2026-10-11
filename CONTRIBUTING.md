@@ -36,11 +36,22 @@ python scripts/run_clang_tidy.py
 
 It picks up `buildRelease/` or `build/` automatically; pass `--build-dir` for anything else. It needs the LLVM release pinned in `scripts/clang-tidy-version.txt` first on PATH (CI downloads it from llvm-project; locally, install the same release) and refuses any other version. The script's docstring explains why a plain clang-tidy invocation is not enough here.
 
+The build itself has to stay warning free. The `Build PGPatcher` workflow keeps the output of its build and fails on any compiler, linker or C# warning in it (`scripts/check_build_warnings.py`; its docstring says what counts). To run the same check on your own build:
+
+```
+./buildRelease.ps1 -NoZip 2>&1 | Tee-Object build.log
+python scripts/check_build_warnings.py build.log
+```
+
+A warning is only printed for a file that was compiled, so after a header change check a from-scratch build rather than an incremental one.
+
 The [Webkit](https://webkit.org/code-style-guidelines/) style is used for all C++ code. Clang-format and clang-tidy will enforce this.
 
 ### Unit Tests
 
-There are none! As I work on this project for fun, I have no intention of writing unit tests. I am aware of the drawbacks of not doing so and have decided it is worth it to avoid the turmoil. If you would like to make and maintain unit tests for this project, I am happy to merge them.
+The `PGTests` module holds [googletest](https://github.com/google/googletest) unit tests for `PGLib` and `PGMutagen` (the GUI and the CLI are not unit tested). They build with the rest of the project (CMake's `BUILD_TESTING`, on by default) into `pgtests.exe` next to the application binaries, and run from that `bin` folder, either directly or through `ctest --test-dir buildRelease`. Tests that need a GPU or the vanilla Skyrim installation skip when those are not available; set `PG_TEST_SKYRIM_DIR` to point the vanilla tests at another installation.
+
+New code in `PGLib` or `PGMutagen` should come with tests. The helpers in `PGTests/include` build NIFs, DDS textures, BSAs, plugins and a fake game folder on the fly, so tests need no checked in game assets.
 
 ## Environment Setup
 

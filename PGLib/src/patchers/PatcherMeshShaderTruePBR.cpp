@@ -121,6 +121,17 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
 {
     auto* pgd = PGGlobals::pgd();
 
+    // The configs replace whatever an earlier call loaded.
+    truePBRConfigs().clear();
+    pathLookupJSONs().clear();
+    truePBRDiffuseInverse().clear();
+    truePBRNormalInverse().clear();
+    truePBRMatchXMap().clear();
+    {
+        const std::scoped_lock lock(pathLookupCacheMutex());
+        pathLookupCache().clear();
+    }
+
     // Reading and parsing the files is independent work, and every file has to be opened on its own, so that part runs
     // on the task pool. Everything that depends on the order of the configs happens afterwards, in the order of
     // pbrJSONs.
@@ -297,7 +308,7 @@ bool PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
 
     shouldApply(oldSlots, matches);
 
-    if (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01)) {
+    if (nifShaderBSLSP && PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01)) {
         // Check if RMAOS exists.
         const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::EnvMask)];
         if (!rmaosPath.empty() && pgd->isFile(rmaosPath)) {
@@ -643,6 +654,10 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
 
     auto* nifShader = nif()->GetShader(&nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
+    if (!nifShaderBSLSP) {
+        // Only lighting shaders carry the PBR flags.
+        return;
+    }
 
     // Set default PBR shader type.
     PGNIFUtil::setShaderType(nifShader, nifly::BSLSP_DEFAULT);
@@ -704,6 +719,9 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
 {
     bool isChanged = false;
 
+    if (!nifShape)
+        return isChanged;
+
     // Prep.
     auto* nifShader = nif()->GetShader(nifShape);
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
@@ -712,6 +730,11 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
     if (truePBRData.contains("delete") && truePBRData["delete"].is_boolean() && truePBRData["delete"]) {
         nif()->DeleteShape(nifShape);
         isChanged = true;
+        return isChanged;
+    }
+
+    if (!nifShaderBSLSP) {
+        // Only lighting shader shapes carry PBR data.
         return isChanged;
     }
 

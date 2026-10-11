@@ -13,6 +13,9 @@ Flagging these wastes a review cycle, because CI already fails the PR if they ar
 - **clang-tidy** — the `Build PGPatcher` workflow runs `scripts/run_clang_tidy.py` after the
   build. It covers identifier naming, explicit constructors, `override`/`final`, private data
   members, redundant lambda parentheses, `nullptr`, and else-after-return.
+- **Build warnings** — the `Build PGPatcher` workflow fails on any compiler, linker or C# warning
+  in the build output (`scripts/check_build_warnings.py`). Never comment on something the
+  compiler already reports, such as a discarded `[[nodiscard]]` result.
 
 ## Check these — no tool enforces them
 

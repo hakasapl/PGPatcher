@@ -17,6 +17,12 @@
 #include <winnt.h>
 #include <wrl/client.h>
 
+/**
+ * @brief Direct3D 11 compute helpers for reading and converting DDS textures on the GPU.
+ *
+ * initGPU() and initShaders() must succeed before any GPU function is used; the GPU functions throw std::runtime_error
+ * otherwise. Every device and context call is serialized by one mutex, so the object can be shared between threads.
+ */
 class PGD3D {
 private:
     std::mutex m_d3dMutex;
@@ -53,10 +59,11 @@ public:
     static std::wstring hresultErrorMessage(HRESULT hr);
 
     /**
-     * @brief Get the DXGI_FORMAT from a string
+     * @brief Get the DXGI_FORMAT for an output format name used in patcher options
      *
-     * @param format string representation of the DXGI_FORMAT
-     * @return DXGI_FORMAT DXGI_FORMAT on success, DXGI_FORMAT_UNKNOWN on failure
+     * @param format "rgba16f" or "rgba32f"
+     * @return DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT, or DXGI_FORMAT_UNKNOWN for any other
+     * string
      */
     static DXGI_FORMAT dxgiFormatFromString(const std::string& format);
 
@@ -65,15 +72,15 @@ public:
     //
 
     /**
-     * @brief Construct a new PGD3D object
+     * @brief Construct a new PGD3D object. Nothing touches the GPU until initGPU().
      *
-     * @param pgd Pointer to the PGDirectory object
-     * @param shaderPath Path to shader folder
+     * @param shaderPath Folder holding the HLSL compute shaders
      */
     explicit PGD3D(std::filesystem::path shaderPath);
 
     /**
-     * @brief Initialize GPU. This must be called before any other GPU functions
+     * @brief Create the D3D11 device and context on the default hardware adapter. This must be called before any
+     * other GPU function
      *
      * @return true on success
      * @return false on failure
@@ -81,7 +88,7 @@ public:
     bool initGPU();
 
     /**
-     * @brief Initialize internal shaders
+     * @brief Compile the shaders PGD3D uses itself (CountAlphaValues.hlsl)
      *
      * @return true on success
      * @return false on failure
@@ -93,14 +100,22 @@ public:
     //
 
     /**
-     * @brief Apply a shader to a texture
+     * @brief Run a compute shader over a texture and read the result back with a full mip chain
      *
-     * @param inTexture input texture
-     * @param shader shader to apply
-     * @param shaderParams shader parameters (const buffer)
+     * The shader is dispatched once per input pixel (16x16 thread groups) with the input texture in t0 and the output
+     * texture in u0.
+     *
+     * @param inTexture input texture, its dimensions must be powers of two
      * @param[out] outTexture output texture
+     * @param shader compiled shader to run
+     * @param outFormat format of the output texture
+     * @param outWidth width of the output texture, 0 for the input width
+     * @param outHeight height of the output texture, 0 for the input height
+     * @param shaderParams constant buffer contents for b0, or nullptr for none
+     * @param shaderParamsSize size of shaderParams in bytes
      * @return true on success
      * @return false on failure
+     * @throws std::runtime_error if shader is null or the GPU was not initialized
      */
     bool applyShaderToTexture(const DirectX::ScratchImage& inTexture,
                               DirectX::ScratchImage& outTexture,
@@ -111,6 +126,20 @@ public:
                               const void* shaderParams = nullptr,
                               const UINT& shaderParamsSize = 0);
 
+    /**
+     * @brief Classify an environment mask texture as a complex material texture
+     *
+     * A texture whose format has no alpha channel, or whose alpha is 255 for more than half of the pixels, is not a
+     * complex material texture. Otherwise the red, green and blue channels say which complex material features it
+     * carries. The out parameters are only ever set to true, so the caller initializes them.
+     *
+     * @param ddsPath lower case path of the texture relative to the data folder
+     * @param[out] result true if the texture is a complex material texture
+     * @param[out] hasEnvMask set when the red channel is used
+     * @param[out] hasGlosiness set when the green channel is used
+     * @param[out] hasMetalness set when the blue channel is used
+     * @return true if the texture could be read and classified, false otherwise (result is false then)
+     */
     bool checkIfCM(const std::filesystem::path& ddsPath,
                    bool& result,
                    bool& hasEnvMask,
@@ -118,12 +147,13 @@ public:
                    bool& hasMetalness);
 
     /**
-     * @brief Count the number of alpha values in a texture
+     * @brief Count, per channel, the pixels of the first mip level that carry a value (see CountAlphaValues.hlsl)
      *
      * @param image input image
-     * @param outData output data
+     * @param[out] outData number of pixels with red, green, blue >= 4/255 and the number of pixels with alpha 255
      * @return true on success
      * @return false on failure
+     * @throws std::runtime_error if the GPU or its shaders were not initialized
      */
     bool countPixelValues(const DirectX::ScratchImage& image,
                           std::array<int,
@@ -134,10 +164,10 @@ public:
     //
 
     /**
-     * @brief Compiles shader into a D3D11 Shader blob
+     * @brief Compile a compute shader (entry point "main", cs_5_0) and create it on the GPU
      *
-     * @param filename Filename of shader relative to "shaders" folder
-     * @param[out] outShader Output shader blob
+     * @param filename Shader file name relative to the shader folder given to the constructor
+     * @param[out] outShader Output shader
      * @return true on success
      * @return false on failure
      */
@@ -147,7 +177,7 @@ public:
     /**
      * @brief Create a Texture2D object on the GPU from a ScratchImage
      *
-     * @param texture ScratchImage to create texture from
+     * @param texture ScratchImage to create texture from, its dimensions must be powers of two
      * @param[out] dest Output texture
      * @return true on success
      * @return false on failure
@@ -156,9 +186,9 @@ public:
                          Microsoft::WRL::ComPtr<ID3D11Texture2D>& dest);
 
     /**
-     * @brief Create a Texture2D object on the GPU from an existing Texture2D
+     * @brief Create an empty Texture2D object with the description of an existing Texture2D
      *
-     * @param existingTexture Existing texture
+     * @param existingTexture Existing texture, its dimensions must be even
      * @param[out] dest Output texture
      * @return true on success
      * @return false on failure
@@ -239,15 +269,15 @@ public:
                               Microsoft::WRL::ComPtr<ID3D11Buffer>& dest);
 
     /**
-     * @brief dispatch a compute shader
+     * @brief Dispatch a compute shader and block until it finished
      *
      * @param shader shader to dispatch
-     * @param srvs shader resource views
-     * @param uavs unordered access views
-     * @param constantBuffers constant buffers
-     * @param threadGroupCountX thread group count X
-     * @param threadGroupCountY thread group count Y
-     * @param threadGroupCountZ thread group count Z
+     * @param srvs shader resource views, bound to t0, t1, ...
+     * @param uavs unordered access views, bound to u0, u1, ...
+     * @param constantBuffers constant buffers, bound to b0, b1, ...
+     * @param threadGroupCountX number of threads in X, dispatched in groups of 16
+     * @param threadGroupCountY number of threads in Y, dispatched in groups of 16
+     * @param threadGroupCountZ number of threads in Z, dispatched in groups of 16
      * @return true on success
      * @return false on failure
      */
@@ -271,9 +301,9 @@ public:
                                 DirectX::ScratchImage& outImage);
 
     /**
-     * @brief read back a buffer from the GPU
+     * @brief Read back a buffer from the GPU. Only defined in PGD3D.cpp, for the element types used there
      *
-     * @tparam T data type
+     * @tparam T element type
      * @param gpuResource buffer to read back
      * @param[out] outData output data
      * @return true on success
@@ -300,7 +330,7 @@ public:
     void generateMips(const Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& srv);
 
     /**
-     * @brief Flush GPU (clear any released variables)
+     * @brief Flush the device context so released resources are freed
      */
     void flushGPU();
 
@@ -309,23 +339,23 @@ public:
     //
 
     /**
-     * @brief Get the DDS image from a path
+     * @brief Load a DDS texture of the load order (loose or archived) through PGGlobals::pgd()
      *
-     * @param ddsPath path of DDS file (relative to data)
-     * @param dds output DDS image
+     * @param ddsPath lower case path of the DDS file relative to the data folder
+     * @param[out] dds loaded image
      * @return true on success
-     * @return false on failure
+     * @return false if the file is not in the load order or cannot be loaded
      */
     bool getDDS(const std::filesystem::path& ddsPath,
                 DirectX::ScratchImage& dds) const;
 
     /**
-     * @brief Get the DDS metadata from a path
+     * @brief Read the header of a DDS texture of the load order. Results are cached, so a texture is read once
      *
-     * @param ddsPath path of DDS file (relative to data)
-     * @param ddsMeta output DDS metadata
+     * @param ddsPath lower case path of the DDS file relative to the data folder
+     * @param[out] ddsMeta the metadata
      * @return true on success
-     * @return false on failure
+     * @return false if the file is not in the load order or cannot be read
      */
     bool getDDSMetadata(const std::filesystem::path& ddsPath,
                         DirectX::TexMetadata& ddsMeta);
@@ -349,12 +379,12 @@ public:
     ddsMetadataCacheSnapshot();
 
     /**
-     * @brief Check if aspect ratio between two textures matches
+     * @brief Check whether two textures have the same aspect ratio
      *
-     * @param ddsPath1 path of dds file 1
-     * @param ddsPath2 path of dds file 2
-     * @return true on success
-     * @return false on failure
+     * @param ddsPath1 lower case path of the first DDS file relative to the data folder
+     * @param ddsPath2 lower case path of the second DDS file relative to the data folder
+     * @return true if both headers could be read and the aspect ratios are equal
+     * @return false if they differ or a texture cannot be read (logged as an error)
      */
     bool checkIfAspectRatioMatches(const std::filesystem::path& ddsPath1,
                                    const std::filesystem::path& ddsPath2);

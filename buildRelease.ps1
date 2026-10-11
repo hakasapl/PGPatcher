@@ -103,9 +103,10 @@ try {
         # Bool to see if file should be copied
         $copyFile = $false
 
-        # Check if file ends in .dll or .pdb, or is a whitelisted .exe
+        # Check if file ends in .dll or .pdb, or is a whitelisted .exe. The unit test runtime (googletest) is not shipped
         $allowedExes = @('PGPatcher.exe', 'pgtools.exe')
-        if ($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') {
+        $testOnlyFiles = '^(gtest|gmock|pgtests)'
+        if (($_.Name -match '\.dll$' -or $_.Name -match '\.pdb$') -and $_.Name -notmatch $testOnlyFiles) {
             $copyFile = $true
         }
         if ($_.Name -match '\.exe$' -and $allowedExes -contains $_.Name) {

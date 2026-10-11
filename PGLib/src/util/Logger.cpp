@@ -6,13 +6,24 @@
 #include <spdlog/spdlog.h>
 
 #include <mutex>
+#include <shared_mutex>
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
-// Static thread-local variables.
+// Statics. Everything lives in this translation unit (PGLib.dll), see the class comment.
+std::unordered_set<std::wstring> Logger::s_existingMessages;
+std::shared_mutex Logger::s_existingMessagesMutex;
+std::unordered_set<std::wstring> Logger::s_runStartMessages;
+bool Logger::s_isRunStartMarked = false;
+std::shared_mutex Logger::s_mtLogLock;
+thread_local std::vector<std::pair<spdlog::level::level_enum, std::variant<std::wstring, std::string>>>
+    Logger::s_curBuffer;
+thread_local bool Logger::s_isThreadedBufferActive = false;
+thread_local Logger::MessageCaptureFn Logger::s_threadMessageCapture = nullptr;
 thread_local std::vector<std::wstring> Logger::s_prefixStack;
 
 // Helper function to build the full prefix string.
@@ -25,6 +36,64 @@ std::wstring Logger::buildPrefixWString()
 }
 
 std::string Logger::buildPrefixString() { return StringUtil::utf16toUTF8(buildPrefixWString()); }
+
+bool Logger::shouldLog(const std::wstring& message)
+{
+    {
+        const std::shared_lock lock(s_existingMessagesMutex);
+        if (s_existingMessages.contains(message)) {
+            // Don't log anything if already logged.
+            return false;
+        }
+    }
+
+    const std::unique_lock lock(s_existingMessagesMutex);
+    const auto [_, inserted] = s_existingMessages.insert(message);
+    return inserted; // true only for the first thread
+}
+
+void Logger::log(spdlog::level::level_enum level,
+                 const std::wstring& message)
+{
+    const std::shared_lock lock(s_mtLogLock);
+
+    if (level >= spdlog::level::warn) {
+        if (s_threadMessageCapture)
+            s_threadMessageCapture(level, message);
+
+        if (!shouldLog(message))
+            return;
+    }
+
+    if (s_isThreadedBufferActive) {
+        s_curBuffer.emplace_back(level, message);
+        return;
+    }
+
+    spdlog::log(level, L"{}", message);
+}
+
+void Logger::log(spdlog::level::level_enum level,
+                 const std::string& message)
+{
+    const std::shared_lock lock(s_mtLogLock);
+
+    if (level >= spdlog::level::warn) {
+        const auto wideMessage = StringUtil::utf8toUTF16(message);
+        if (s_threadMessageCapture)
+            s_threadMessageCapture(level, wideMessage);
+
+        if (!shouldLog(wideMessage))
+            return;
+    }
+
+    if (s_isThreadedBufferActive) {
+        s_curBuffer.emplace_back(level, message);
+        return;
+    }
+
+    spdlog::log(level, "{}", message);
+}
 
 // ScopedPrefix class implementation.
 Logger::Prefix::Prefix(const std::wstring& prefix)
@@ -52,13 +121,13 @@ void Logger::markRunStart()
 {
     const std::unique_lock lock(s_existingMessagesMutex);
     s_runStartMessages = s_existingMessages;
-    s_runStartMarked = true;
+    s_isRunStartMarked = true;
 }
 
 void Logger::resetToRunStart()
 {
     const std::unique_lock lock(s_existingMessagesMutex);
-    if (!s_runStartMarked)
+    if (!s_isRunStartMarked)
         return;
 
     s_existingMessages = s_runStartMessages;

@@ -10,9 +10,16 @@
 #include <unordered_map>
 #include <vector>
 
+/// @brief Fired by a PGLogMessageListCtrl whenever its content or the ignored state of a message changes.
 wxDECLARE_EVENT(s_evtPGLogIgnoreChanged,
                 wxCommandEvent);
 
+/**
+ * @brief Single column list of log messages whose entries can be marked as ignored through the context menu.
+ *
+ * Ignored messages are hidden, or shown greyed out with setShowIgnored(). The ignore map covers every message set with
+ * setLogMessages().
+ */
 class PGLogMessageListCtrl : public wxListCtrl {
 private:
     bool m_allowIgnore;
@@ -30,9 +37,7 @@ public:
      *
      * @param parent parent window
      * @param id window ID
-     * @param pt position
-     * @param sz size
-     * @param style window style (default wxLC_REPORT)
+     * @param allowIgnore whether the context menu offers to ignore and unignore messages
      */
     PGLogMessageListCtrl(wxWindow* parent,
                          wxWindowID id,

@@ -11,8 +11,9 @@
 #include <string>
 
 /**
- * @class PrePatcher
- * @brief Base class for prepatchers
+ * @class PatcherTextureHook
+ * @brief Base class for texture hooks: patchers that mesh patchers register a texture for, and that generate a new
+ * texture from it during the texture phase
  */
 class PatcherTextureHook : public PatcherTexture {
 protected:
@@ -35,10 +36,10 @@ public:
     PatcherTextureHook& operator=(PatcherTextureHook&& other) noexcept = default;
 
     /**
-     * @brief Apply the patch to the texture if able
+     * @brief Generate the output texture from the hooked texture and write it to the output folder
      *
-     * @return true Patch was applied
-     * @return false Patch was not applied
+     * @return true Output was written
+     * @return false Generation or writing failed
      */
     virtual bool applyPatch() = 0;
 };

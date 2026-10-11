@@ -634,7 +634,7 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
 
     // Run handlers.
     for (const auto& meshResult : saveResults.first) {
-        Logger::Prefix(L"Handler: " + meshResult.meshPath.wstring());
+        const Logger::Prefix handlerPrefix(L"Handler: " + meshResult.meshPath.wstring());
         HandlerLightPlacerTracker::handleNIFCreated(nifPath, meshResult.meshPath);
     }
     // Add to diff JSON.

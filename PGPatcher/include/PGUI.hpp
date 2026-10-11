@@ -6,6 +6,9 @@
 
 #include <string>
 
+/**
+ * @brief Entry points of the wxWidgets GUI: initializes the toolkit and shows the launcher and the mod order dialog
+ */
 class PGUI {
 private:
     static inline std::string s_appliedTheme; /** Theme last applied to the native appearance */
@@ -22,12 +25,17 @@ private:
 
 public:
     /**
-     * @brief Initialize the wxWidgets UI framwork
+     * @brief Initialize the wxWidgets UI framework (creates the wxApp) and apply the configured theme
+     *
+     * @throws std::runtime_error if wxWidgets fails to initialize
      */
     static void init();
 
     /**
      * @brief Shows the launcher dialog to the user (Hangs thread until user presses okay)
+     *
+     * The launcher is rebuilt after a language or theme change. PGPatcher restarts itself when the new theme cannot be
+     * applied in this process.
      *
      * @param pgc Config object backing the UI
      * @param[in,out] params Params to show in the UI, updated with the values set by the user

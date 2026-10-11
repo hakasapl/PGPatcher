@@ -66,7 +66,7 @@ void walkDirectory(const std::filesystem::path& root,
  * @brief Reads the entire contents of a file into a byte vector.
  *
  * @param filePath Path to the file to read.
- * @return A vector of bytes containing the file contents, or an empty vector on failure.
+ * @return The file contents, or an empty vector if the file cannot be opened.
  */
 std::vector<std::byte> fileBytes(const std::filesystem::path& filePath);
 
@@ -95,10 +95,11 @@ bool getJSONFromBytes(const std::vector<std::byte>& bytes,
  *
  * @param filePath Destination file path to write the JSON to.
  * @param json The JSON object to serialize.
- * @param readable If true, the output is pretty-printed with 2-space indentation; otherwise compact.
- * @return true if the file was written successfully, false otherwise.
+ * @param shouldBeReadable If true, the output is pretty-printed with 2-space indentation; otherwise compact.
+ * @throws std::filesystem::filesystem_error if the file cannot be opened for writing.
+ * @throws std::ios_base::failure on a write error.
  */
-bool saveJSON(const std::filesystem::path& filePath,
+void saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
               const bool& shouldBeReadable);
 

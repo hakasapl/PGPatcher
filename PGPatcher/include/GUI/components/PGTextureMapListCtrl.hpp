@@ -5,6 +5,10 @@
 #include <wx/listctrl.h>
 #include <wx/wx.h>
 
+/**
+ * @brief Two column PGModifiableListCtrl for texture type mappings: the texture path in the first column is edited in
+ * place and the texture type in the second is picked from a drop-down.
+ */
 class PGTextureMapListCtrl : public PGModifiableListCtrl {
 private:
     wxComboBox* m_textureMapTypeCombo { nullptr }; /** Stores the texture map type combo box */

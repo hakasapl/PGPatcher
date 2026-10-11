@@ -17,7 +17,7 @@
 #include <vector>
 
 /**
- * @brief wxDialog that allows the user to configure the PGPatcherparameters.
+ * @brief wxDialog that allows the user to configure the PGPatcher parameters.
  */
 class LauncherWindow : public wxDialog {
 public:
@@ -178,7 +178,7 @@ private:
     wxStaticBoxSizer* m_processingOptionsSizer; /** Stores the processing options */
 
     /**
-     * @brief Event handler responsible for showing the brose dialog when the user clicks on the browse button - for
+     * @brief Event handler responsible for showing the browse dialog when the user clicks on the browse button - for
      * game location
      *
      * @param event wxWidgets event object
@@ -186,15 +186,15 @@ private:
     void onBrowseGameLocation(wxCommandEvent& event);
 
     /**
-     * @brief Event handler responsible for showing the brose dialog when the user clicks on the browse button - for MO2
-     * instance location
+     * @brief Event handler responsible for showing the browse dialog when the user clicks on the browse button - for
+     * MO2 instance location
      *
      * @param event wxWidgets event object
      */
     void onBrowseMO2InstanceLocation(wxCommandEvent& event);
 
     /**
-     * @brief Event handler responsible for showing the brose dialog when the user clicks on the browse button - for
+     * @brief Event handler responsible for showing the browse dialog when the user clicks on the browse button - for
      * output location
      *
      * @param event wxWidgets event object
@@ -206,6 +206,11 @@ private:
      */
     void updateDisabledElements();
 
+    /**
+     * @brief Locks the game location and game type to the values read from the MO2 instance (modorganizer.ini) while
+     * MO2 is the selected mod manager, and unlocks them otherwise. The install location lock
+     * (setGamePathBasedOnExe()) is kept either way
+     */
     void updateMO2Items();
 
     //
@@ -277,12 +282,17 @@ private:
     void onClose(wxCloseEvent& event);
 
     /**
-     * @brief Saves current values to the config
+     * @brief Validates the current UI values and, when they are valid, stores them in PGC and saves the user config.
+     * Shows the validation errors otherwise
+     *
+     * @return true if the config was saved
      */
     bool saveConfig();
 
     /**
-     * @brief Set the Game Path Based On Exe location
+     * @brief Locks the game location to the game folder when PGPatcher.exe runs from two folders below it (for example
+     * Data\PGPatcher) and that folder is a valid install of the selected game type. Unlocks it otherwise. With MO2
+     * selected, updateMO2Items() is applied on top
      */
     void setGamePathBasedOnExe();
 };

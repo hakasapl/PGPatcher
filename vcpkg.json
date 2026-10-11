@@ -33,6 +33,10 @@
       "version>=": "0.7.3"
     },
     {
+      "name": "gtest",
+      "version>=": "1.15.2"
+    },
+    {
       "name": "directxtex",
       "features": [
         "dx11"
