@@ -131,7 +131,8 @@ std::string utf16toUTF8(const std::wstring& wStr)
 
 bool containsOnlyAscii(const std::string& str)
 {
-    return std::ranges::all_of(str, [](char wc) { return wc <= asciiUpperBound; });
+    // char is signed on MSVC, so bytes above 0x7F are negative unless they are widened as unsigned first.
+    return std::ranges::all_of(str, [](unsigned char ch) { return ch <= asciiUpperBound; });
 }
 
 bool containsOnlyAscii(const std::wstring& str)

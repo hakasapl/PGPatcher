@@ -163,11 +163,13 @@ public:
      * in the game's local AppData folder, which the game creates on its first start.
      *
      * @param gamePath Path to the candidate game installation directory.
-     * @param type     The game type to validate against.
+     * @param type     The game type to validate against. GameType::Unknown is never valid.
+     * @param appDataPath Local AppData folder of the game that holds plugins.txt. If empty, the system default is used.
      * @return true if both checks pass; false otherwise.
      */
     [[nodiscard]] static bool isGamePathValid(const std::filesystem::path& gamePath,
-                                              const GameType& type);
+                                              const GameType& type,
+                                              const std::filesystem::path& appDataPath = "");
 
     /**
      * @brief Looks up the game's installation path in the registry ("Installed Path" of the game's Bethesda Softworks

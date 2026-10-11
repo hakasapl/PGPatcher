@@ -95,7 +95,7 @@ std::unordered_map<std::filesystem::path, std::vector<std::pair<HandlerLightPlac
 
 void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& lpJSONs)
 {
-    static auto* const pgd = PGGlobals::pgd();
+    auto* const pgd = PGGlobals::pgd();
 
     // Clear stale model->JSON pointer mappings from prior runs.
     s_lightPlacerJSONMap.clear();
@@ -182,20 +182,17 @@ void HandlerLightPlacerTracker::handleNIFCreated(const std::filesystem::path& ba
 
 void HandlerLightPlacerTracker::finalize()
 {
-    // Get PGD object.
-    static const auto* const pgd = PGGlobals::pgd();
-    static const auto generatedDir = pgd->generatedPath();
-
-    // Loop through each LPJSON and save if changed.
+    // Loop through each LPJSON and save if changed. The output directory is only needed when something is written.
     for (const auto& lpJsonPtr : s_lightPlacerJSONs) {
-        if (lpJsonPtr->isChanged) {
-            const auto outputPath = generatedDir / lpJsonPtr->jsonPath;
-            // Ensure the directory exists.
-            if (!std::filesystem::exists(outputPath.parent_path()))
-                std::filesystem::create_directories(outputPath.parent_path());
+        if (!lpJsonPtr->isChanged)
+            continue;
 
-            FileUtil::saveJSON(outputPath, lpJsonPtr->jsonData, true);
-        }
+        const auto outputPath = PGGlobals::pgd()->generatedPath() / lpJsonPtr->jsonPath;
+        // Ensure the directory exists.
+        if (!std::filesystem::exists(outputPath.parent_path()))
+            std::filesystem::create_directories(outputPath.parent_path());
+
+        FileUtil::saveJSON(outputPath, lpJsonPtr->jsonData, true);
     }
 
     // Clear the static members.

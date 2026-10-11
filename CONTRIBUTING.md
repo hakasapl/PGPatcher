@@ -40,7 +40,9 @@ The [Webkit](https://webkit.org/code-style-guidelines/) style is used for all C+
 
 ### Unit Tests
 
-There are none! As I work on this project for fun, I have no intention of writing unit tests. I am aware of the drawbacks of not doing so and have decided it is worth it to avoid the turmoil. If you would like to make and maintain unit tests for this project, I am happy to merge them.
+The `PGTests` module holds [googletest](https://github.com/google/googletest) unit tests for `PGLib` and `PGMutagen` (the GUI and the CLI are not unit tested). They build with the rest of the project (CMake's `BUILD_TESTING`, on by default) into `pgtests.exe` next to the application binaries, and run from that `bin` folder, either directly or through `ctest --test-dir buildRelease`. Tests that need a GPU or the vanilla Skyrim installation skip when those are not available; set `PG_TEST_SKYRIM_DIR` to point the vanilla tests at another installation.
+
+New code in `PGLib` or `PGMutagen` should come with tests. The helpers in `PGTests/include` build NIFs, DDS textures, BSAs, plugins and a fake game folder on the fly, so tests need no checked in game assets.
 
 ## Environment Setup
 

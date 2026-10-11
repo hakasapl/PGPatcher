@@ -401,8 +401,10 @@ void PGModManager::populateModFileMapMO2(const std::filesystem::path& instanceDi
             return;
         }
 
-        // Check if mod dir is output dir.
-        if (std::filesystem::equivalent(curModDir, outputDir)) {
+        // Check if mod dir is output dir. The output dir may not exist yet, which equivalent() would otherwise throw
+        // for.
+        std::error_code ec;
+        if (std::filesystem::equivalent(curModDir, outputDir, ec)) {
             Logger::critical(L"If outputting to MO2 you must disable the mod {} first to prevent issues with MO2 VFS",
                              mod);
             return;

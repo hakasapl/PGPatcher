@@ -54,16 +54,16 @@ BethesdaGame::BethesdaGame(GameType gameType,
 
     this->m_gameDataPath = this->m_gamePath / "Data";
 
-    if (!isGamePathValid(this->m_gamePath, gameType)) {
-        // If the game path does not contain Skyrim.esm, throw an exception.
-        throw std::runtime_error("Game data path does not contain Skyrim.esm");
-    }
-
     // Define appdata path.
     if (appDataPath.empty())
         m_gameAppDataPath = gameAppdataSystemPath(m_objGameType);
     else
         m_gameAppDataPath = appDataPath;
+
+    if (!isGamePathValid(this->m_gamePath, gameType, m_gameAppDataPath)) {
+        // If the game path does not contain the game's master or plugins.txt is missing, throw an exception.
+        throw std::runtime_error("Game data path does not contain the game's master plugin or plugins.txt is missing");
+    }
 
     // Define document path.
     if (documentPath.empty())
@@ -73,20 +73,24 @@ BethesdaGame::BethesdaGame(GameType gameType,
 }
 
 bool BethesdaGame::isGamePathValid(const std::filesystem::path& gamePath,
-                                   const GameType& type)
+                                   const GameType& type,
+                                   const std::filesystem::path& appDataPath)
 {
+    if (type == GameType::Unknown || gamePath.empty())
+        return false;
+
     // Check if the game path is valid.
     const auto gameDataPath = gamePath / "Data";
     if (!std::filesystem::exists(gameDataPath) || !std::filesystem::is_directory(gameDataPath))
         return false;
 
     const auto checkPath = gameDataPath / dataCheckFile(type);
-    if (!std::filesystem::exists(checkPath))
+    if (!std::filesystem::is_regular_file(checkPath))
         return false;
 
     // Check if plugins.txt exists for this game type.
-    const std::filesystem::path pluginsFile = gameAppdataSystemPath(type) / "plugins.txt";
-    return std::filesystem::exists(pluginsFile);
+    const auto appData = appDataPath.empty() ? gameAppdataSystemPath(type) : appDataPath;
+    return std::filesystem::is_regular_file(appData / "plugins.txt");
 }
 
 // Statics.

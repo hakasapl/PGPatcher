@@ -32,6 +32,11 @@ jobs:
         run: |
           ./buildRelease.ps1 -NoZip
 
+      - name: Run Unit Tests
+        timeout-minutes: 30
+        run: |
+          ctest --test-dir buildRelease --output-on-failure --timeout 900
+
       - name: Set up Python
         uses: actions/setup-python@v6
 

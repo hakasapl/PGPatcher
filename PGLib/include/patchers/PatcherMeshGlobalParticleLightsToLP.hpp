@@ -79,9 +79,11 @@ private:
     /**
      * @brief Get LP JSON for a specific NIF controller
      *
+     * Only the emissive multiple controller of the effect shader is exported, as the fade controller of the light.
+     *
      * @param controller Controller to get JSON for
      * @param jsonField JSON field to store controller JSON in LP
-     * @return nlohmann::json JSON for controller
+     * @return nlohmann::json JSON for controller, empty if the controller is not exported
      */
     nlohmann::json getControllerJSON(nifly::NiTimeController* controller,
                                      std::string& jsonField);

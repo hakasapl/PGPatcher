@@ -24,10 +24,11 @@ TextureSet textureSlotsFromStr(const std::string& slots)
 std::string strFromTextureSlots(const TextureSet& slots)
 {
     std::string strSlots;
-    for (const auto& slot : slots) {
-        if (!strSlots.empty())
+    for (size_t i = 0; i < slots.size(); i++) {
+        // Every slot gets its separator, so empty leading slots keep later slots in place.
+        if (i)
             strSlots += ',';
-        strSlots += StringUtil::utf16toUTF8(slot);
+        strSlots += StringUtil::utf16toUTF8(slots.at(i));
     }
     return strSlots;
 }

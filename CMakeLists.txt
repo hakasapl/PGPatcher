@@ -95,6 +95,14 @@ add_subdirectory(PGLib)
 add_subdirectory(PGTools)
 
 #
+# Unit tests (run with ctest), see PGTests/CMakeLists.txt
+#
+include(CTest)
+if(BUILD_TESTING)
+  add_subdirectory(PGTests)
+endif()
+
+#
 # VC Redist DLLs include in build
 #
 if(DEFINED ENV{VCToolsRedistDir} AND NOT "$ENV{VCToolsRedistDir}" STREQUAL "")

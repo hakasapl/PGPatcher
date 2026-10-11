@@ -47,3 +47,11 @@ void ExceptionHandler::setException(const std::exception& e,
 }
 
 bool ExceptionHandler::hasException() { return s_exceptionThrown.load(); }
+
+void ExceptionHandler::reset()
+{
+    const std::scoped_lock lock(s_exceptionMutex);
+    s_exception = std::exception();
+    s_exceptionStackTrace.clear();
+    s_exceptionThrown.store(false);
+}

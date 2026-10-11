@@ -177,6 +177,7 @@ public:
      * @param bg Game whose data folder, INI files and plugin load order are used. Must outlive this object.
      * @param foldersToMap Lower case top level folders of the data folder to map (e.g. "meshes", "textures").
      * @param generatedPath Output folder that generated files are read from and written to.
+     * @throws std::invalid_argument if bg is null.
      */
     BethesdaDirectory(BethesdaGame* bg,
                       std::unordered_set<std::filesystem::path> foldersToMap,
@@ -289,15 +290,6 @@ public:
     [[nodiscard]] bool isGenerated(const std::filesystem::path& relPath);
 
     /**
-     * @brief Check if file is a directory
-     *
-     * @param relPath path to the file relative to the data directory
-     * @return true if file is a directory
-     * @return false if file is not a directory or doesn't exist
-     */
-    [[nodiscard]] bool isPrefix(const std::filesystem::path& relPath);
-
-    /**
      * @brief Returns the full path of a loose file: in the output folder for a generated file, in the data folder for
      * everything else (whether or not the file is mapped).
      *
@@ -327,9 +319,8 @@ public:
      * archives that belong to each active plugin. Archives in the data folder that nothing loads are logged as
      * warnings.
      *
-     * Requires a BethesdaGame.
-     *
      * @return Archive file names in load order, the first element loads first.
+     * @throws std::runtime_error if there is no BethesdaGame.
      */
     [[nodiscard]] std::vector<std::wstring> bsaLoadOrder() const;
 
@@ -362,17 +353,6 @@ public:
      */
     [[nodiscard]] bool isFileInBSA(const std::filesystem::path& file,
                                    const std::vector<std::wstring>& bsaFiles);
-
-    /**
-     * @brief Check if any component on a path is in a list of components
-     *
-     * @param path path to check
-     * @param components components to check against
-     * @return true if any component is in the path
-     * @return false if no component is in the path
-     */
-    static bool checkIfAnyComponentIs(const std::filesystem::path& path,
-                                      const std::vector<std::wstring>& components);
 
     /**
      * @brief Check if any glob in list matches string. Globs are basic MS-DOS wildcards, a * represents any number of

@@ -29,7 +29,7 @@ PatcherMeshPostRestoreDefaultShaders::PatcherMeshPostRestoreDefaultShaders(std::
                                                                            nifly::NifFile* nif)
     : PatcherMeshPost(std::move(nifPath),
                       nif,
-                      "HairFlowMap")
+                      "RestoreDefaultShaders")
 {
 }
 

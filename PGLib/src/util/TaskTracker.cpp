@@ -50,8 +50,9 @@ void TaskTracker::initJobStatus()
 
 void TaskTracker::printJobStatus(bool force)
 {
-    size_t combinedJobs = completedJobs();
-    size_t perc = combinedJobs * fullPercentage / m_totalJobs;
+    const size_t combinedJobs = completedJobs();
+    // A batch without jobs is complete from the start.
+    const size_t perc = m_totalJobs ? combinedJobs * fullPercentage / m_totalJobs : fullPercentage;
     if (force || perc != m_lastPerc) {
         m_lastPerc = perc;
 

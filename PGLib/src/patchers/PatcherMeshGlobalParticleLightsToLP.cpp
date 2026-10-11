@@ -150,6 +150,9 @@ bool PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
                                                            nifly::NiShape* shape,
                                                            nifly::BSEffectShaderProperty* effectShader)
 {
+    if (!node || !shape || !effectShader)
+        return false;
+
     // Start generating LP JSON.
     nlohmann::json lpJson;
 
@@ -192,6 +195,10 @@ bool PatcherMeshGlobalParticleLightsToLP::applySinglePatch(nifly::NiBillboardNod
 
     const auto vertData = shapeBSTriShape->vertData;
     const auto numVerts = vertData.size();
+    if (!numVerts) {
+        // Without vertices there is neither a color nor a radius to derive.
+        return false;
+    }
 
     // Set color.
     auto baseColor = effectShader->baseColor;
@@ -268,65 +275,35 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
     if (!controller)
         return controllerJson;
 
+    // Only the emissive multiple controller is exported, as the fade of the light.
     const auto* const floatController = dynamic_cast<nifly::BSEffectShaderPropertyFloatController*>(controller);
-    nifly::NiBlockRef<nifly::NiInterpController> interpRef;
-    if (floatController) {
-        if (floatController->typeOfControlledVariable) {
-            // We don't care about this controller (not controlling emissive mult).
-            return controllerJson;
-        }
-
-        interpRef = floatController->interpolatorRef;
-
-        jsonField = "fadeController";
-    }
-
-    const auto* const colorController = dynamic_cast<nifly::BSEffectShaderPropertyColorController*>(controller);
-    if (colorController) {
-        interpRef = colorController->interpolatorRef;
-
-        jsonField = "colorController";
-    }
-
-    if ((!floatController && !colorController) || (floatController && colorController)) {
-        // We don't care about this controller.
+    if (!floatController || floatController->typeOfControlledVariable) {
+        // Not a controller we care about.
         return controllerJson;
     }
 
+    jsonField = "fadeController";
+
+    const auto interpRef = floatController->interpolatorRef;
     if (interpRef.IsEmpty())
         return controllerJson;
 
     // Find data block.
-    nifly::NiFloatData const* fadeDataBlock = nullptr;
-    nifly::NiPosData const* colorDataBlock = nullptr;
+    const auto* const floatInterpolator = nif()->GetHeader().GetBlock<nifly::NiFloatInterpolator>(interpRef);
+    if (!floatInterpolator)
+        return controllerJson;
 
-    auto* const floatInterpolator = nif()->GetHeader().GetBlock<nifly::NiFloatInterpolator>(interpRef);
-    if (floatInterpolator) {
-        const auto dataRef = floatInterpolator->dataRef;
-        fadeDataBlock = nif()->GetHeader().GetBlock<nifly::NiFloatData>(dataRef);
-    }
-
-    const auto* const niPoint3Interpolator = dynamic_cast<nifly::NiPoint3Interpolator*>(floatInterpolator);
-    if (niPoint3Interpolator) {
-        const auto dataRef = niPoint3Interpolator->dataRef;
-        colorDataBlock = nif()->GetHeader().GetBlock<nifly::NiPosData>(dataRef);
-    }
-
-    if ((!fadeDataBlock && floatController) || (!colorDataBlock && colorController)) {
+    const auto dataRef = floatInterpolator->dataRef;
+    const auto* const fadeDataBlock = nif()->GetHeader().GetBlock<nifly::NiFloatData>(dataRef);
+    if (!fadeDataBlock) {
         // Could not find data block.
         return controllerJson;
     }
 
     controllerJson["keys"] = nlohmann::json::array();
 
-    nifly::NiKeyType interpolationType = nifly::NiKeyType::LINEAR_KEY;
-    if (floatController)
-        interpolationType = fadeDataBlock->data.GetInterpolationType();
-    else if (colorController)
-        interpolationType = colorDataBlock->data.GetInterpolationType();
-
     // Get interpolation method.
-    switch (interpolationType) {
+    switch (fadeDataBlock->data.GetInterpolationType()) {
     case nifly::NiKeyType::LINEAR_KEY:
         controllerJson["interpolation"] = "Linear";
         break;
@@ -343,53 +320,16 @@ nlohmann::json PatcherMeshGlobalParticleLightsToLP::getControllerJSON(nifly::NiT
     }
 
     // Add keys to JSON.
-    uint32_t numKeys = 0;
-    if (floatController)
-        numKeys = fadeDataBlock->data.GetNumKeys();
-    else if (colorController)
-        numKeys = colorDataBlock->data.GetNumKeys();
-
+    const auto numKeys = fadeDataBlock->data.GetNumKeys();
     for (uint32_t i = 0; i < numKeys; i++) {
-        if (floatController) {
-            const auto curKey = fadeDataBlock->data.GetKey(static_cast<int>(i));
+        const auto curKey = fadeDataBlock->data.GetKey(static_cast<int>(i));
 
-            controllerJson["keys"].push_back(nlohmann::json::object({
-                { "time", round(curKey.time * roundingValue) / roundingValue },
-                { "value", round(curKey.value * roundingValue) / roundingValue },
-                { "forward", round(curKey.forward * roundingValue) / roundingValue },
-                { "backward", round(curKey.backward * roundingValue) / roundingValue },
-            }));
-        } else if (colorController) {
-            const auto curKey = colorDataBlock->data.GetKey(static_cast<int>(i));
-
-            controllerJson["keys"].push_back(nlohmann::json::object({
-                { "time", round(curKey.time * roundingValue) / roundingValue },
-                {
-                    "color",
-                    nlohmann::json::array({
-                        static_cast<int>(curKey.value.x),
-                        static_cast<int>(curKey.value.y),
-                        static_cast<int>(curKey.value.z),
-                    }),
-                },
-                {
-                    "forward",
-                    nlohmann::json::array({
-                        static_cast<int>(curKey.forward.x),
-                        static_cast<int>(curKey.forward.y),
-                        static_cast<int>(curKey.forward.z),
-                    }),
-                },
-                {
-                    "backward",
-                    nlohmann::json::array({
-                        static_cast<int>(curKey.backward.x),
-                        static_cast<int>(curKey.backward.y),
-                        static_cast<int>(curKey.backward.z),
-                    }),
-                },
-            }));
-        }
+        controllerJson["keys"].push_back(nlohmann::json::object({
+            { "time", round(curKey.time * roundingValue) / roundingValue },
+            { "value", round(curKey.value * roundingValue) / roundingValue },
+            { "forward", round(curKey.forward * roundingValue) / roundingValue },
+            { "backward", round(curKey.backward * roundingValue) / roundingValue },
+        }));
     }
 
     return controllerJson;
@@ -463,4 +403,7 @@ void PatcherMeshGlobalParticleLightsToLP::finalize()
     std::ofstream lpJsonFile(outputJSON);
     lpJsonFile << mergedOutput.dump(2) << "\n";
     lpJsonFile.close();
+
+    // The lights were written, so a later call starts from scratch.
+    s_lpJsonData.clear();
 }

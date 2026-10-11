@@ -242,7 +242,7 @@ bool isShaderPatchableShape(nifly::NifFile& nif,
                             nifly::NiShape& nifShape);
 
 /// @brief Checks whether a NIF is a facegen mesh (under meshes\actors\character\facegendata\facegeom)
-/// @param[in] path lower case relative path of the NIF
+/// @param[in] path relative path of the NIF (any case)
 bool isFacegenMesh(std::filesystem::path const& path);
 
 /// @brief Checks whether a NIF is a BodySlide ShapeData mesh, which BodySlide builds its output meshes from

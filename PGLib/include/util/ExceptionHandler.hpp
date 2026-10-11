@@ -52,4 +52,9 @@ public:
      * @return true if setException() has been called at least once, false otherwise.
      */
     static bool hasException();
+
+    /**
+     * @brief Forgets the recorded exception, so a new one can be recorded and the task runners accept tasks again.
+     */
+    static void reset();
 };

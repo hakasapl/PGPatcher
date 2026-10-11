@@ -32,6 +32,10 @@ PGTypes::TextureSet PatcherMesh::textureSet(const std::filesystem::path& nifPath
                                             nifly::NiShape& nifShape)
 {
     auto* const nifShader = nif.GetShader(&nifShape);
+    if (!nifShader) {
+        // A shape without a shader has no textures.
+        return { };
+    }
     const auto texturesetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
 
     // Check if in patchedtexturesets.
@@ -49,6 +53,10 @@ bool PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
                                 const PGTypes::TextureSet& textures)
 {
     auto* const nifShader = nif.GetShader(&nifShape);
+    if (!nifShader) {
+        // A shape without a shader has no textures to set.
+        return false;
+    }
     const auto textureSetBlockID = nif.GetBlockID(nif.GetHeader().GetBlock(nifShader->TextureSetRef()));
 
     bool patchedBefore = false;
@@ -60,6 +68,12 @@ bool PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
 
     if (patchedBefore) {
         // This texture set has been patched before.
+        auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
+        if (!nifShaderBSLSP) {
+            // Only lighting shaders reference a texture set block.
+            return false;
+        }
+
         uint32_t newBlockID = 0;
 
         {
@@ -90,7 +104,6 @@ bool PatcherMesh::setTextureSet(const std::filesystem::path& nifPath,
             newBlockID = nif.GetHeader().AddBlock(std::move(newTextureSet));
         }
 
-        auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
         const nifly::NiBlockRef<nifly::BSShaderTextureSet> newBlockRef(newBlockID);
         nifShaderBSLSP->textureSetRef = newBlockRef;
 

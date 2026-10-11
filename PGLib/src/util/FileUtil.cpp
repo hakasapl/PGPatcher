@@ -89,13 +89,14 @@ bool saveJSON(const std::filesystem::path& filePath,
               const nlohmann::json& json,
               const bool& shouldBeReadable)
 {
-    std::ofstream outputFile;
-    outputFile.exceptions(std::ios::failbit | std::ios::badbit);
-    outputFile.open(filePath, std::ios::binary);
+    std::ofstream outputFile(filePath, std::ios::binary);
     if (!outputFile.is_open()) {
         // Unable to open file.
         return false;
     }
+
+    // Only write errors throw; a file that cannot be opened returns false above.
+    outputFile.exceptions(std::ios::failbit | std::ios::badbit);
 
     if (shouldBeReadable)
         outputFile << json.dump(2, ' ', false, nlohmann::detail::error_handler_t::replace);

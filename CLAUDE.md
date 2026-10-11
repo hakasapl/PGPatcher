@@ -1,10 +1,15 @@
 # PGPatcher
 
-C++20 on the MSVC toolchain, CMake + vcpkg. Four modules: `PGLib` (the shared library holding
+C++20 on the MSVC toolchain, CMake + vcpkg. Five modules: `PGLib` (the shared library holding
 most logic), `PGPatcher` (wxWidgets GUI), `PGTools` (CLI), `PGMutagen` (C#/.NET plugin access via
-a C++ wrapper). `external/` holds submodules and is never edited or linted.
+a C++ wrapper) and `PGTests` (googletest unit tests for `PGLib` and `PGMutagen`). `external/` holds
+submodules and is never edited or linted.
 
-There are no unit tests, by design — see `CONTRIBUTING.md`.
+The unit tests build with everything else into `bin/pgtests.exe`, which has to run from that `bin`
+folder (it delay loads the .NET host from `bin/dotnetlib`). Tests that need a GPU or the vanilla
+Skyrim installation skip when those are not available. Changes to `PGLib` or `PGMutagen` come with
+tests; the helpers in `PGTests/include` generate NIFs, DDS textures, BSAs, plugins and a fake game
+folder, so no game assets are checked in — see `CONTRIBUTING.md`.
 
 ## Code style
 
@@ -25,6 +30,7 @@ Two things that follow from it and are easy to get wrong:
 
 ```
 ./buildRelease.ps1 -NoZip                 # needs VCPKG_ROOT, flatc 25.2.10, a VS dev shell
+ctest --test-dir buildRelease --output-on-failure   # the unit tests (or run bin/pgtests.exe from bin)
 pre-commit run --all-files                # clang-format and the generic hooks
 python scripts/run_clang_tidy.py          # needs a configured *and built* tree
 ```
