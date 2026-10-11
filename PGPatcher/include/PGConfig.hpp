@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PGModManager.hpp"
+#include "PGParams.hpp"
 #include "PGPlugin.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -25,128 +26,8 @@
  */
 class PGConfig {
 public:
-    /**
-     * @struct PGParams
-     * @brief Struct that holds all the user-configurable parameters for PGPatcher
-     */
-    struct PGParams {
-        // Game.
-        struct Game {
-            std::filesystem::path dir;
-            BethesdaGame::GameType type = BethesdaGame::GameType::SkyrimSE;
-
-            bool operator==(const Game& other) const { return dir == other.dir && type == other.type; }
-        } game;
-
-        // Mod Manager.
-        struct ModManager {
-            PGModManager::ModManagerType type = PGModManager::ModManagerType::None;
-            std::filesystem::path mo2InstanceDir;
-            bool shouldUseMO2LooseFileOrder = true;
-
-            bool operator==(const ModManager& other) const
-            {
-                return type == other.type && mo2InstanceDir == other.mo2InstanceDir
-                    && shouldUseMO2LooseFileOrder == other.shouldUseMO2LooseFileOrder;
-            }
-        } modManager;
-
-        // Output.
-        struct Output {
-            std::filesystem::path dir;
-            bool zip = false;
-            PGPlugin::PluginLang pluginLang = PGPlugin::PluginLang::English;
-
-            bool operator==(const Output& other) const
-            {
-                return dir == other.dir && zip == other.zip && pluginLang == other.pluginLang;
-            }
-        } output;
-
-        // Processing.
-        struct Processing {
-            bool multithread = true;
-            bool enableModDevMode = false;
-            bool enableDebugLogging = false;
-            bool enableTraceLogging = false;
-            std::unordered_set<PGPlugin::ModelRecordType> allowedModelRecordTypes = PGPlugin::defaultRecTypeSet();
-            std::vector<std::wstring> vanillaBSAList;
-            std::vector<std::pair<std::wstring, PGEnums::TextureType>> textureMaps;
-            std::vector<std::wstring> allowList;
-            std::vector<std::wstring> blockList;
-
-            bool operator==(const Processing& other) const
-            {
-                return multithread == other.multithread && enableModDevMode == other.enableModDevMode
-                    && enableDebugLogging == other.enableDebugLogging && enableTraceLogging == other.enableTraceLogging
-                    && allowedModelRecordTypes == other.allowedModelRecordTypes
-                    && vanillaBSAList == other.vanillaBSAList && textureMaps == other.textureMaps
-                    && allowList == other.allowList && blockList == other.blockList;
-            }
-        } processing;
-
-        // Pre-Patchers.
-        struct PrePatcher {
-            bool isFixMeshLightingEnabled = false;
-
-            bool operator==(const PrePatcher& other) const
-            {
-                return isFixMeshLightingEnabled == other.isFixMeshLightingEnabled;
-            }
-        } prePatcher;
-
-        // Shader Patchers.
-        struct ShaderPatcher {
-            bool isParallaxEnabled = true;
-            bool isComplexMaterialEnabled = true;
-            bool isTruePBREnabled = false;
-
-            bool operator==(const ShaderPatcher& other) const
-            {
-                return isParallaxEnabled == other.isParallaxEnabled
-                    && isComplexMaterialEnabled == other.isComplexMaterialEnabled
-                    && isTruePBREnabled == other.isTruePBREnabled;
-            }
-        } shaderPatcher;
-
-        // Shader Transforms.
-        struct ShaderTransforms {
-            bool isParallaxToCMEnabled = false;
-
-            bool operator==(const ShaderTransforms& other) const
-            {
-                return isParallaxToCMEnabled == other.isParallaxToCMEnabled;
-            }
-        } shaderTransforms;
-
-        // Post-Patchers.
-        struct PostPatcher {
-            bool disablePrePatchedMaterials = true;
-            bool isFixSSSEnabled = false;
-            bool isHairFlowMapEnabled = false;
-
-            bool operator==(const PostPatcher& other) const
-            {
-                return disablePrePatchedMaterials == other.disablePrePatchedMaterials
-                    && isFixSSSEnabled == other.isFixSSSEnabled && isHairFlowMapEnabled == other.isHairFlowMapEnabled;
-            }
-        } postPatcher;
-
-        // Global Patchers.
-        struct GlobalPatcher {
-            bool operator==([[maybe_unused]] const GlobalPatcher& other) const { return true; }
-        } globalPatcher;
-
-        bool operator==(const PGParams& other) const
-        {
-            return game == other.game && modManager == other.modManager && output == other.output
-                && processing == other.processing && prePatcher == other.prePatcher
-                && shaderPatcher == other.shaderPatcher && shaderTransforms == other.shaderTransforms
-                && postPatcher == other.postPatcher && globalPatcher == other.globalPatcher;
-        }
-
-        bool operator!=(const PGParams& other) const { return !(*this == other); }
-    };
+    /// @brief The patching parameters, see PGParams (shared with the runtime).
+    using PGParams = ::PGParams;
 
 private:
     static std::filesystem::path s_exePath; /** Folder containing PGPatcher.exe */
@@ -334,11 +215,4 @@ private:
      * @param j JSON object to add
      */
     void addConfigJSON(const nlohmann::json& j);
-
-    /**
-     * @brief Replaces any / with \\ in a JSON object
-     *
-     * @param j JSON object to change
-     */
-    static void replaceForwardSlashes(nlohmann::json& j);
 };

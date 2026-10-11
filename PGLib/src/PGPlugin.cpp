@@ -15,81 +15,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-auto PGPlugin::pluginLangFromString(const std::string& lang) -> PluginLang
-{
-    return EnumStringHelper::enumFromString(lang, pluginLangTable, PluginLang::English);
-}
-
-std::string PGPlugin::stringFromPluginLang(const PluginLang& lang)
-{
-    return std::string(EnumStringHelper::stringFromEnum(lang, pluginLangTable, "English"));
-}
-
-std::vector<std::string> PGPlugin::availablePluginLangStrs()
-{
-    return EnumStringHelper::allEnumStrings(pluginLangTable);
-}
-
-auto PGPlugin::recTypeFromString(const std::string& recTypeStr) -> ModelRecordType
-{
-    return EnumStringHelper::enumFromString(recTypeStr, modelRecordTypeTable, ModelRecordType::Unknown);
-}
-
-std::string PGPlugin::stringFromRecType(const ModelRecordType& recType)
-{
-    return std::string(EnumStringHelper::stringFromEnum(recType, modelRecordTypeTable, ""));
-}
-
-std::vector<std::string> PGPlugin::availableRecTypeStrs()
-{
-    return EnumStringHelper::allEnumStrings(modelRecordTypeTable);
-}
-
-auto PGPlugin::defaultRecTypeSet() -> std::unordered_set<ModelRecordType>
-{
-    // These are enabled by default in the initial config.
-    static const std::unordered_set<ModelRecordType> defaultSet = {
-        ModelRecordType::Activator,
-        ModelRecordType::Ammunition,
-        ModelRecordType::AnimatedObject,
-        ModelRecordType::Armor,
-        ModelRecordType::ArmorAddon,
-        ModelRecordType::ArtObject,
-        ModelRecordType::BodyPartData,
-        ModelRecordType::Book,
-        ModelRecordType::CameraShot,
-        ModelRecordType::Climate,
-        ModelRecordType::Container,
-        ModelRecordType::Door,
-        ModelRecordType::Explosion,
-        ModelRecordType::Flora,
-        ModelRecordType::Furniture,
-        ModelRecordType::Grass,
-        ModelRecordType::Hazard,
-        ModelRecordType::HeadPart,
-        ModelRecordType::IdleMarker,
-        ModelRecordType::Impact,
-        ModelRecordType::Ingestible,
-        ModelRecordType::Ingredient,
-        ModelRecordType::Key,
-        ModelRecordType::LeveledNPC,
-        ModelRecordType::Light,
-        ModelRecordType::MaterialObject,
-        ModelRecordType::MiscItem,
-        ModelRecordType::MoveableStatic,
-        ModelRecordType::Projectile,
-        ModelRecordType::Scroll,
-        ModelRecordType::SoulGem,
-        ModelRecordType::StaticObject,
-        ModelRecordType::TalkingActivator,
-        ModelRecordType::Tree,
-        ModelRecordType::Weapon,
-    };
-
-    return defaultSet;
-}
-
 void PGPlugin::initialize(const BethesdaGame& game,
                           const std::filesystem::path& exePath,
                           const PluginLang& lang)
@@ -110,12 +35,10 @@ void PGPlugin::initialize(const BethesdaGame& game,
 
     s_initialized = true;
 }
-
 void PGPlugin::populateObjs(const std::filesystem::path& existingModPath)
 {
     PGMutagenWrapper::libPopulateObjs(existingModPath);
 }
-
 void PGPlugin::resetPatchingState()
 {
     if (!s_initialized)
@@ -123,7 +46,6 @@ void PGPlugin::resetPatchingState()
 
     PGMutagenWrapper::libResetPatchingState();
 }
-
 auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                                                  MeshUseAttributes>>
 {
@@ -174,7 +96,6 @@ auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair
 
     return result;
 }
-
 void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults)
 {
     if (!s_initialized)
@@ -223,37 +144,9 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
 
     PGMutagenWrapper::libSetModelUses(modelUses);
 }
-
 void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
                           ESMMode esmMode)
 {
     PGMutagenWrapper::libFinalize(outputDir, static_cast<int>(esmMode));
     // FIXME: Add to the generated files.
-}
-
-std::filesystem::path PGPlugin::pluginPathFromDataPath(const std::filesystem::path& dataPath)
-{
-    static const std::filesystem::path meshesPrefix = "meshes";
-    static const std::filesystem::path texturesPrefix = "textures";
-
-    auto relativePath = dataPath;
-
-    // Check if the first component is "meshes" or "textures".
-    if (!dataPath.empty()) {
-        auto iter = dataPath.begin();
-        if (*iter == meshesPrefix) {
-            // Erase the first component.
-            relativePath = std::filesystem::path { };
-            for (++iter; iter != dataPath.end(); ++iter)
-                relativePath /= *iter;
-        } else if (*iter == texturesPrefix) {
-            relativePath = std::filesystem::path { };
-            for (++iter; iter != dataPath.end(); ++iter)
-                relativePath /= *iter;
-        } else {
-            return dataPath;
-        }
-    }
-
-    return relativePath;
 }

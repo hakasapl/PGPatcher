@@ -10,11 +10,7 @@
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
-#include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
-#include <boost/container_hash/hash.hpp>
-#include <boost/functional/hash.hpp>
-#include <miniz.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
@@ -33,12 +29,18 @@
 #include <utility>
 #include <vector>
 
+class TaskQueue;
+
 /**
  * @brief Runs the registered patchers over every mesh and texture of the load order.
  *
  * Meshes are patched once per plugin use (see PGMeshPermutationTracker), textures once. Alongside the output files it
  * collects the data the conflict viewer shows (patchMeta()) and the CRC diff of changed base meshes (diffJSON()). With
  * an update cache present (PGRunCache), meshes whose previous output is still valid are replayed instead of patched.
+ *
+ * The per-mesh pipeline, processNIF() and the functions it uses (PGPatcherPipeline.cpp), is shared with the PGLite
+ * runtime, which patches a mesh when the game loads it; the runners that walk the load order and write files
+ * (PGPatcher.cpp) belong to the offline programs.
  */
 class PGPatcher {
 public:
@@ -253,7 +255,8 @@ private:
     static uint64_t digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
                                   const PatcherUtil::PatcherMeshObjectSet& patchers);
 
-    // NIF Helpers.
+public:
+    // NIF Helpers (the per-mesh pipeline).
 
     /**
      * @brief Patches a staged mesh for one plugin use: every patchable shape through processNIFShape(), then the
@@ -350,6 +353,7 @@ private:
                                                                      nifly::NifFile* nif,
                                                                      const PGPlugin::MeshUseAttributes& meshUse);
 
+private:
     // DDS Runners.
     /**
      * @brief Patches one texture: runs the texture hooks registered for it, then the global texture patchers, and
