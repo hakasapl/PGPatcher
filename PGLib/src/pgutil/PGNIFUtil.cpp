@@ -19,14 +19,19 @@
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <excpt.h>
 #include <filesystem>
+#include <functional>
 #include <istream>
 #include <map>
+#include <memory>
+#include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -321,14 +326,197 @@ bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
     return isChanged;
 }
 
+// Shared block helpers, see the note on shared blocks in PGNIFUtil.hpp. Alpha properties and texture sets are changed
+// through unshareBlock(), and an alpha property is deleted through deleteBlockTree().
+namespace {
+
+/// @brief Checks whether more than one reference points at a block.
+bool isSharedBlock(const nifly::NiHeader& header,
+                   uint32_t blockID)
+{
+    // Child indices, unlike child references, are collected without an allocation per block.
+    std::vector<uint32_t> childIDs;
+    size_t refCount = 0;
+    for (uint32_t curBlockID = 0; curBlockID < header.GetNumBlocks(); curBlockID++) {
+        auto* const block = header.GetBlock<nifly::NiObject>(curBlockID);
+        if (!block)
+            continue;
+
+        childIDs.clear();
+        block->GetChildIndices(childIDs);
+        refCount += static_cast<size_t>(std::ranges::count(childIDs, blockID));
+        if (refCount > 1)
+            return true;
+    }
+
+    return false;
+}
+
+/// @brief Gets the block a reference points to, ready to be changed for the block that holds the reference alone
+///
+/// A block that other blocks also reference is copied and the reference is pointed at the copy, which is returned. The
+/// other blocks keep the original. A block only this reference uses is returned as it is, to be changed in place.
+template<typename T>
+T* unshareBlock(nifly::NiHeader& header,
+                nifly::NiBlockRef<T>& ref)
+{
+    auto* const block = header.GetBlock(ref);
+    if (!block || !isSharedBlock(header, ref.index))
+        return block;
+
+    auto blockCopy = block->Clone();
+    auto* const copy = blockCopy.get();
+    ref.index = header.AddBlock(std::move(blockCopy));
+    return copy;
+}
+
+/// @brief Gets the texture set of a shape, ready to be changed for that shape alone (see unshareBlock())
+nifly::BSShaderTextureSet* unshareTextureSet(nifly::NifFile& nif,
+                                             nifly::NiShape& nifShape)
+{
+    auto* const shader = nif.GetShader(&nifShape);
+    if (!shader || !shader->TextureSetRef())
+        return nullptr;
+
+    return unshareBlock(nif.GetHeader(), *shader->TextureSetRef());
+}
+
+/// @brief Adds blocks, and every block they reach through their references, to a set
+void addReachableBlocks(const nifly::NiHeader& header,
+                        std::vector<nifly::NiObject*> pending,
+                        std::unordered_set<nifly::NiObject*>& reached)
+{
+    while (!pending.empty()) {
+        auto* const block = pending.back();
+        pending.pop_back();
+        if (!reached.insert(block).second)
+            continue;
+
+        std::set<nifly::NiRef*> refs;
+        block->GetChildRefs(refs);
+        for (const auto* const ref : refs) {
+            auto* const child = header.GetBlock<nifly::NiObject>(ref);
+            if (child)
+                pending.push_back(child);
+        }
+    }
+}
+
+/// @brief Deletes a block together with every block only it uses
+///
+/// A block it reaches that a block outside of its reach references stays for that block, with everything that one
+/// reaches. References to the root block itself do not count: the root goes either way.
+void deleteBlockTree(nifly::NifFile& nif,
+                     nifly::NiObject& root)
+{
+    auto& header = nif.GetHeader();
+
+    std::unordered_set<nifly::NiObject*> treeBlocks;
+    addReachableBlocks(header, { &root }, treeBlocks);
+
+    std::vector<nifly::NiObject*> sharedBlocks;
+    for (uint32_t blockID = 0; blockID < header.GetNumBlocks(); blockID++) {
+        auto* const block = header.GetBlock<nifly::NiObject>(blockID);
+        if (!block || treeBlocks.contains(block))
+            continue;
+
+        std::set<nifly::NiRef*> refs;
+        block->GetChildRefs(refs);
+        for (const auto* const ref : refs) {
+            auto* const child = header.GetBlock<nifly::NiObject>(ref);
+            if (child && child != &root && treeBlocks.contains(child))
+                sharedBlocks.push_back(child);
+        }
+    }
+
+    std::unordered_set<nifly::NiObject*> keptBlocks;
+    addReachableBlocks(header, sharedBlocks, keptBlocks);
+
+    // Deleting a block renumbers the blocks behind it, so delete from the back.
+    std::vector<uint32_t> deletedBlockIDs;
+    for (auto* const block : treeBlocks)
+        if (!keptBlocks.contains(block))
+            deletedBlockIDs.push_back(nif.GetBlockID(block));
+
+    std::ranges::sort(deletedBlockIDs, std::greater<>());
+    for (const auto blockID : deletedBlockIDs)
+        header.DeleteBlock(blockID);
+}
+
+} // namespace
+
+// Alpha property helpers.
+bool PGNIFUtil::setAlphaProperty(nifly::NifFile& nif,
+                                 nifly::NiShape& nifShape,
+                                 const std::optional<uint16_t>& flags,
+                                 const std::optional<uint8_t>& threshold,
+                                 bool shouldCreate)
+{
+    // Shape types without an alpha property reference cannot get one.
+    auto* const alphaPropertyRef = nifShape.AlphaPropertyRef();
+    if (!alphaPropertyRef)
+        return false;
+
+    auto& header = nif.GetHeader();
+    auto* alphaProperty = header.GetBlock(*alphaPropertyRef);
+    if (alphaProperty) {
+        if ((!flags || alphaProperty->flags == *flags) && (!threshold || alphaProperty->threshold == *threshold))
+            return false;
+
+        // A controller animates the one alpha property it targets, so a property with one stays shared and changes for
+        // every shape that uses it, which keeps all of them animated.
+        if (!header.GetBlock(alphaProperty->controllerRef))
+            alphaProperty = unshareBlock(header, *alphaPropertyRef);
+    } else {
+        if (!shouldCreate)
+            return false;
+
+        auto newAlphaProperty = std::make_unique<nifly::NiAlphaProperty>();
+        alphaProperty = newAlphaProperty.get();
+        alphaPropertyRef->index = header.AddBlock(std::move(newAlphaProperty));
+    }
+
+    if (flags)
+        alphaProperty->flags = *flags;
+
+    if (threshold)
+        alphaProperty->threshold = *threshold;
+
+    return true;
+}
+
+bool PGNIFUtil::deleteAlphaProperty(nifly::NifFile& nif,
+                                    nifly::NiShape& nifShape)
+{
+    auto* const alphaPropertyRef = nifShape.AlphaPropertyRef();
+    if (!alphaPropertyRef)
+        return false;
+
+    auto& header = nif.GetHeader();
+    auto* const alphaProperty = header.GetBlock(*alphaPropertyRef);
+    if (!alphaProperty)
+        return false;
+
+    alphaPropertyRef->Clear();
+    if (!header.IsBlockReferenced(nif.GetBlockID(alphaProperty), false))
+        deleteBlockTree(nif, *alphaProperty);
+
+    return true;
+}
+
 // Texture slot helpers.
 bool PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
                                nifly::NiShape* nifShape,
                                const PGEnums::TextureSlots& slot,
                                const std::wstring& texturePath)
 {
-    const auto texturePathStr = StringUtil::utf16toASCII(texturePath);
-    return setTextureSlot(nif, nifShape, slot, texturePathStr);
+    if (!nif || !nifShape || static_cast<size_t>(slot) >= numTextureSlots)
+        return false;
+
+    // A single slot is written like every slot, so both follow the same rules.
+    auto newSlots = textureSlots(nif, nifShape);
+    newSlots.at(static_cast<size_t>(slot)) = texturePath;
+    return setTextureSlots(nif, nifShape, newSlots);
 }
 
 bool PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
@@ -336,29 +524,35 @@ bool PGNIFUtil::setTextureSlot(nifly::NifFile* nif,
                                const PGEnums::TextureSlots& slot,
                                const std::string& texturePath)
 {
-    if (!nif || !nifShape)
-        return false;
-
-    std::string existingTex;
-    nif->GetTextureSlot(nifShape, existingTex, static_cast<unsigned>(slot));
-    if (!StringUtil::asciiFastIEquals(existingTex, texturePath)) {
-        auto newTex = texturePath;
-        nif->SetTextureSlot(nifShape, newTex, static_cast<unsigned>(slot));
-        return true;
-    }
-
-    return false;
+    return setTextureSlot(nif, nifShape, slot, StringUtil::asciitoUTF16(texturePath));
 }
 
 bool PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
                                 const PGTypes::TextureSet& newSlots)
 {
-    bool isChanged = false;
-    for (uint32_t i = 0; i < numTextureSlots; i++)
-        isChanged |= setTextureSlot(nif, nifShape, static_cast<PGEnums::TextureSlots>(i), newSlots.at(i));
+    if (!nif || !nifShape || !nif->GetShader(nifShape))
+        return false;
 
-    return isChanged;
+    // Making the texture set the shape's own takes a pass over every block, so it happens once for all changed slots.
+    std::vector<std::pair<unsigned, std::string>> changedSlots;
+    for (unsigned slot = 0; slot < numTextureSlots; slot++) {
+        std::string existingTex;
+        nif->GetTextureSlot(nifShape, existingTex, slot);
+        auto newTex = StringUtil::utf16toASCII(newSlots.at(slot));
+        if (!StringUtil::asciiFastIEquals(existingTex, newTex))
+            changedSlots.emplace_back(slot, std::move(newTex));
+    }
+
+    if (changedSlots.empty())
+        return false;
+
+    // An effect shader has no texture set to copy; its source texture is written below like before.
+    unshareTextureSet(*nif, *nifShape);
+    for (auto& [slot, texture] : changedSlots)
+        nif->SetTextureSlot(nifShape, texture, slot);
+
+    return true;
 }
 
 std::string PGNIFUtil::textureSlot(const nifly::NifFile* nif,

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/pg_stock.schema.json",
   "title": "PGPatcher PG_STOCK block",
-  "description": "Content of a NiStringExtraData block named PG_STOCK on a shape of a NIF. The block records the stock (unpatched) material of the shape: every texture slot and shader field a patch changed, with its value before the patch. PGPatcher reverts a shape that carries the block to this state before it patches the shape, so a pre-patched mesh is patched from stock instead of on top of the previous patch. Anything the block does not list is taken to be at its stock value already. Geometry (vertex colors, normals) is not recorded. PGPatcher writes the block on BodySlide ShapeData meshes it patches; `pgtools gendiffblocks` writes it for a mod from the original and the patched meshes. Paths are lower case with backslashes. The shader keys follow the field names NifSkope shows for a BSLightingShaderProperty.",
+  "description": "Content of a NiStringExtraData block named PG_STOCK on a shape of a NIF. The block records the stock (unpatched) material of the shape: every texture slot, shader field and alpha property field a patch changed, with its value before the patch. PGPatcher reverts a shape that carries the block to this state before it patches the shape, so a pre-patched mesh is patched from stock instead of on top of the previous patch. Anything the block does not list is taken to be at its stock value already. Geometry (vertex colors, normals) is not recorded. PGPatcher writes the block on BodySlide ShapeData meshes it patches; `pgtools gendiffblocks` writes it for a mod from the original and the patched meshes. Paths are lower case with backslashes. The shader and alpha property keys follow the field names NifSkope shows for a BSLightingShaderProperty and an NiAlphaProperty.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -121,6 +121,30 @@
           "$ref": "#/definitions/vector3"
         }
       }
+    },
+    "alpha_property": {
+      "description": "Stock NiAlphaProperty of the shape, when the patch changed it: the fields that differ, or every field when the patch removed the property. null when the shape had no NiAlphaProperty, which removes the one a patch added. A field left out of an object for a shape without an NiAlphaProperty takes its default value (flags 4844, threshold 128).",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "flags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "threshold": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          }
+        }
+      ]
     }
   },
   "definitions": {
@@ -160,6 +184,14 @@
       "shader": {
         "shader_flags_2": 32801,
         "glossiness": 80
+      }
+    },
+    {
+      "textures": {
+        "0": "textures\\clothes\\mageapprentice\\m\\robe.dds"
+      },
+      "alpha_property": {
+        "threshold": 128
       }
     }
   ]

@@ -299,4 +299,83 @@ TEST_F(PatcherMeshPreStockMarkerTest,
         "meshes\\x.nif: shape \"Extra\" only exists in the patched mesh, nothing to compare it with"));
 }
 
+TEST_F(PatcherMeshPreStockMarkerTest,
+       AlphaPropertyIsRecordedAndRestored)
+{
+    Marker patcher(meshPath, &nif());
+
+    // A shape without an alpha property records null, one with it records its fields.
+    auto stock = Marker::captureStock(nif(), *m_shape);
+    ASSERT_TRUE(stock.contains("alpha_property"));
+    EXPECT_TRUE(stock["alpha_property"].is_null());
+    auto* alpha = m_builder.addAlphaProperty(m_shape, 4845, 64);
+    stock = Marker::captureStock(nif(), *m_shape);
+    EXPECT_EQ(stock["alpha_property"], nlohmann::json({ { "flags", 4845 }, { "threshold", 64 } }));
+    EXPECT_TRUE(Marker::isEmptyStock(Marker::diffStock(nif(), *m_shape, stock)));
+
+    // Only the fields a patch changed are kept, with their stock values.
+    alpha->threshold = 200;
+    auto differences = Marker::diffStock(nif(), *m_shape, stock);
+    EXPECT_EQ(differences["alpha_property"], nlohmann::json({ { "threshold", 64 } }));
+    EXPECT_FALSE(differences.contains("textures"));
+
+    // The patched shape is reverted, and the block holds the complete stock state until it is trimmed again.
+    Marker::writeMarker(nif(), *m_shape, differences);
+    auto current = PGNIFUtil::textureSlots(&nif(), m_shape);
+    EXPECT_TRUE(patcher.applyPatch(current, *m_shape));
+    EXPECT_EQ(alpha->threshold, 64U);
+    EXPECT_EQ(nlohmann::json::parse(Marker::findMarker(nif(), *m_shape)->stringData.get()), stock);
+    EXPECT_FALSE(patcher.applyPatch(current, *m_shape)); // nothing left to revert
+
+    // A patch that removed the alpha property: the whole stock property is recorded and put back.
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif(), *m_shape));
+    differences = Marker::diffStock(nif(), *m_shape, stock);
+    EXPECT_EQ(differences["alpha_property"], stock["alpha_property"]);
+    Marker::writeMarker(nif(), *m_shape, differences);
+    EXPECT_TRUE(patcher.applyPatch(current, *m_shape));
+    alpha = nif().GetAlphaProperty(m_shape);
+    ASSERT_NE(alpha, nullptr);
+    EXPECT_EQ(alpha->flags, 4845U);
+    EXPECT_EQ(alpha->threshold, 64U);
+    EXPECT_EQ(nlohmann::json::parse(Marker::findMarker(nif(), *m_shape)->stringData.get()), stock);
+
+    // A recorded object with fields left out restores the defaults for them.
+    EXPECT_TRUE(PGNIFUtil::deleteAlphaProperty(nif(), *m_shape));
+    Marker::writeMarker(nif(), *m_shape, nlohmann::json({ { "alpha_property", { { "threshold", 32 } } } }));
+    EXPECT_TRUE(patcher.applyPatch(current, *m_shape));
+    alpha = nif().GetAlphaProperty(m_shape);
+    ASSERT_NE(alpha, nullptr);
+    EXPECT_EQ(alpha->flags, 4844U);
+    EXPECT_EQ(alpha->threshold, 32U);
+    EXPECT_EQ(nlohmann::json::parse(Marker::findMarker(nif(), *m_shape)->stringData.get())["alpha_property"],
+              nlohmann::json({ { "flags", 4844 }, { "threshold", 32 } }));
+
+    // A patch that added an alpha property to a shape without one: null is recorded and removes it again.
+    auto* plain = m_builder.addShape("Plain", slots(L"textures\\a\\stone.dds"));
+    const auto plainStock = Marker::captureStock(nif(), *plain);
+    m_builder.addAlphaProperty(plain);
+    differences = Marker::diffStock(nif(), *plain, plainStock);
+    ASSERT_TRUE(differences.contains("alpha_property"));
+    EXPECT_TRUE(differences["alpha_property"].is_null());
+    Marker::writeMarker(nif(), *plain, differences);
+    auto plainSlots = PGNIFUtil::textureSlots(&nif(), plain);
+    EXPECT_TRUE(patcher.applyPatch(plainSlots, *plain));
+    EXPECT_EQ(nif().GetAlphaProperty(plain), nullptr);
+    EXPECT_EQ(nlohmann::json::parse(Marker::findMarker(nif(), *plain)->stringData.get()), plainStock);
+
+    // A malformed value is ignored.
+    Marker::writeMarker(nif(), *plain, nlohmann::json({ { "alpha_property", "opaque" } }));
+    EXPECT_FALSE(patcher.applyPatch(plainSlots, *plain));
+    EXPECT_EQ(nif().GetAlphaProperty(plain), nullptr);
+
+    // gendiffblocks records the alpha property as well.
+    NIFBuilder patched;
+    auto* patchedShape = patched.addShape("Stone", slots(L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds"));
+    patched.addAlphaProperty(patchedShape, 4845, 64);
+    EXPECT_EQ(Marker::markPatchedShapes(nif(), patched.nif(), L"meshes\\x.nif"), 1U);
+    ASSERT_NE(Marker::findMarker(patched.nif(), *patchedShape), nullptr);
+    EXPECT_EQ(nlohmann::json::parse(Marker::findMarker(patched.nif(), *patchedShape)->stringData.get()),
+              nlohmann::json({ { "version", Marker::formatVersion },
+                               { "alpha_property", { { "flags", 4844 }, { "threshold", 32 } } } }));
+}
 }

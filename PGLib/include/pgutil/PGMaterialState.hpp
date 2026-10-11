@@ -5,9 +5,13 @@
 #include "Shaders.hpp"
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
+#include <limits>
+#include <utility>
+
 /**
- * @brief The material of a shape as the patchers see it: the fields of its BSLightingShaderProperty and its texture
- * set.
+ * @brief The material of a shape as the patchers see it: the fields of its BSLightingShaderProperty, its texture set
+ * and its NiAlphaProperty.
  *
  * One table lists every field the SSE mesh format stores for a BSLightingShaderProperty. The permutation tracker
  * compares materials with it to tell patched meshes apart, and the stock marker records and restores materials with
@@ -72,5 +76,73 @@ nlohmann::json textureSlotsToJSON(const nifly::NifFile& nif,
  */
 bool isTextureSetEqual(const nifly::BSShaderTextureSet& texSetA,
                        const nifly::BSShaderTextureSet& texSetB);
+
+/**
+ * @brief Serializes the NiAlphaProperty of a shape
+ *
+ * The keys follow the field names NifSkope shows for an NiAlphaProperty.
+ *
+ * @param nif NIF the shape belongs to
+ * @param nifShape Shape to serialize
+ * @return JSON object with the flags and the threshold, or null if the shape has no alpha property
+ */
+nlohmann::json alphaPropertyToJSON(const nifly::NifFile& nif,
+                                   nifly::NiShape& nifShape);
+
+/**
+ * @brief Applies an alpha property state to a shape
+ *
+ * Null removes the alpha property of the shape (see PGNIFUtil::deleteAlphaProperty()). An object sets every field it
+ * has, through PGNIFUtil::setAlphaProperty(), and gives a shape without an alpha property one with the default values
+ * for the fields it leaves out. A value that does not have the type of its field is ignored.
+ *
+ * @param nif NIF the shape belongs to
+ * @param nifShape Shape to change
+ * @param state JSON as returned by alphaPropertyToJSON(), possibly with fields left out
+ * @return true The alpha property of the shape changed
+ * @return false The shape already had this state
+ */
+bool alphaPropertyFromJSON(nifly::NifFile& nif,
+                           nifly::NiShape& nifShape,
+                           const nlohmann::json& state);
+
+/**
+ * @brief Compares two alpha properties exactly
+ *
+ * @param alphaA First alpha property, nullptr for a shape without one
+ * @param alphaB Second alpha property, nullptr for a shape without one
+ * @return true Neither exists, or every field is equal
+ * @return false Only one exists, or at least one field differs
+ */
+bool isAlphaPropertyEqual(const nifly::NiAlphaProperty* alphaA,
+                          const nifly::NiAlphaProperty* alphaB);
+
+/**
+ * @brief Reads a JSON number as one of the unsigned integer types the mesh format stores
+ *
+ * nlohmann stores a non-negative integer as unsigned when it was parsed, but as signed when it was built from an int
+ * in code, so both integer kinds are accepted. A negative number, a fraction and a number the type cannot hold are
+ * malformed. PBR JSON entries and PG_STOCK blocks read the fields of the mesh format with it, so they accept the same
+ * values.
+ *
+ * @param value JSON value to read
+ * @param[out] out Receives the number, and is left unchanged if the value is malformed
+ * @return true The value is a number of the type
+ * @return false The value is malformed
+ */
+template<typename T>
+bool unsignedFromJSON(const nlohmann::json& value,
+                      T& out)
+{
+    if (!value.is_number_integer())
+        return false;
+
+    const auto asInteger = value.get<int64_t>();
+    if (asInteger < 0 || std::cmp_greater(asInteger, std::numeric_limits<T>::max()))
+        return false;
+
+    out = static_cast<T>(asInteger);
+    return true;
+}
 
 } // namespace PGMaterialState

@@ -103,7 +103,6 @@ protected:
 
     void TearDown() override
     {
-        PatcherMesh::clearTextureSets(meshPath);
         PatcherTextureHookConvertToCM::reset();
         PatcherMeshShaderTransformParallaxToCM::loadOptions(true);
         PGGlobals::setPGD(nullptr);
@@ -111,76 +110,26 @@ protected:
 };
 
 TEST_F(PatcherMeshTest,
-       TextureSetReportsTheOriginalTexturesOfAPatchedSharedBlock)
+       ShouldApplyReadsTheTexturesOfASharedBlockAsTheyAre)
 {
+    // The shapes share one texture set block, so a change through one of them is what the others see as well, until
+    // a shape writes its own result and gets a copy (see PGNIFUtilTest).
     auto& nif = m_builder.nif();
-    for (auto* shape : m_shapes)
-        EXPECT_EQ(PatcherMesh::textureSet(meshPath, nif, *shape), original());
+    PatcherMeshShaderDefault patcher(meshPath, &nif);
+    std::vector<PatcherMatch> matches;
+    for (auto* shape : m_shapes) {
+        EXPECT_TRUE(patcher.shouldApply(*shape, matches));
+        ASSERT_EQ(matches.size(), 2U);
+    }
 
     auto patched = original();
-    patched[3] = L"textures\\a\\stone_p.dds";
-    EXPECT_TRUE(PatcherMesh::setTextureSet(meshPath, nif, *m_shapes[0], patched));
-    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, m_shapes[0]), patched);
-
-    // The shared block changed on disk, but the other shapes still see the textures they started with.
-    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, m_shapes[1]), patched);
-    EXPECT_EQ(PatcherMesh::textureSet(meshPath, nif, *m_shapes[1]), original());
-
-    // The same result for another shape of the block changes nothing.
-    EXPECT_FALSE(PatcherMesh::setTextureSet(meshPath, nif, *m_shapes[1], patched));
-    EXPECT_EQ(textureSetBlock(m_shapes[1]), textureSetBlock(m_shapes[0]));
-
-    // Once the bookkeeping of the mesh is cleared, the shapes report what the block holds now.
-    PatcherMesh::clearTextureSets(meshPath);
-    EXPECT_EQ(PatcherMesh::textureSet(meshPath, nif, *m_shapes[1]), patched);
-    PatcherMesh::clearTextureSets(meshPath); // clearing twice is fine
-}
-
-TEST_F(PatcherMeshTest,
-       DifferentResultsForASharedBlockGetTheirOwnBlock)
-{
-    auto& nif = m_builder.nif();
-    auto patchedA = original();
-    patchedA[3] = L"textures\\a\\stone_p.dds";
-    auto patchedB = original();
-    patchedB[5] = L"textures\\a\\stone_m.dds";
-    const auto numBlocks = nif.GetHeader().GetNumBlocks();
-    const auto sharedBlock = textureSetBlock(m_shapes[0]);
-
-    EXPECT_TRUE(PatcherMesh::setTextureSet(meshPath, nif, *m_shapes[0], patchedA));
-    EXPECT_TRUE(PatcherMesh::setTextureSet(meshPath, nif, *m_shapes[1], patchedB));
-    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 1);
-    EXPECT_EQ(textureSetBlock(m_shapes[0]), sharedBlock);
-    EXPECT_NE(textureSetBlock(m_shapes[1]), sharedBlock);
-    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, m_shapes[0]), patchedA);
-    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, m_shapes[1]), patchedB);
-
-    // Results seen before reuse the block that holds them instead of creating another one.
-    EXPECT_FALSE(PatcherMesh::setTextureSet(meshPath, nif, *m_shapes[2], patchedA));
-    EXPECT_EQ(textureSetBlock(m_shapes[2]), sharedBlock);
-    EXPECT_TRUE(PatcherMesh::setTextureSet(meshPath, nif, *m_shapes[3], patchedB));
-    EXPECT_EQ(textureSetBlock(m_shapes[3]), textureSetBlock(m_shapes[1]));
-    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 1);
-    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, m_shapes[3]), patchedB);
-
-    // The bookkeeping is per mesh path.
-    EXPECT_EQ(PatcherMesh::textureSet(L"meshes\\a\\another.nif", nif, *m_shapes[2]), patchedA);
-    PatcherMesh::clearTextureSets(L"meshes\\a\\another.nif");
-    EXPECT_EQ(PatcherMesh::textureSet(meshPath, nif, *m_shapes[2]), original());
-}
-
-TEST_F(PatcherMeshTest,
-       ShapesWithoutALightingShaderHaveNoTextureSetToPatch)
-{
-    NIFBuilder builder;
-    auto* bare = builder.addShaderlessShape("Bare");
-    EXPECT_EQ(PatcherMesh::textureSet(L"meshes\\x.nif", builder.nif(), *bare), PGTypes::TextureSet { });
-    EXPECT_FALSE(PatcherMesh::setTextureSet(L"meshes\\x.nif", builder.nif(), *bare, slots(L"textures\\a\\stone.dds")));
-
-    // nifly reports the source texture of an effect shader as the first slot.
-    auto* effect = builder.addEffectShape("Glow", "textures\\fx.dds");
-    EXPECT_EQ(PatcherMesh::textureSet(L"meshes\\x.nif", builder.nif(), *effect), slots(L"textures\\fx.dds"));
-    PatcherMesh::clearTextureSets(L"meshes\\x.nif");
+    patched[0] = L"textures\\a\\missing.dds";
+    EXPECT_TRUE(PGNIFUtil::setTextureSlots(&nif, m_shapes[0], patched));
+    EXPECT_NE(textureSetBlock(m_shapes[0]), textureSetBlock(m_shapes[1]));
+    EXPECT_TRUE(patcher.shouldApply(*m_shapes[0], matches));
+    EXPECT_EQ(matches.size(), 1U); // only the normal exists
+    EXPECT_TRUE(patcher.shouldApply(*m_shapes[1], matches));
+    EXPECT_EQ(matches.size(), 2U); // the other shapes keep the original block
 }
 
 TEST(PatcherMeshPlainTest,

@@ -5,6 +5,8 @@
 - BodySlide ShapeData meshes will now be patched
 - Added the `PG_STOCK` extra data block for preserving initial mesh state
 - Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
+- Added the `alphaprop_flags` and `alphaprop_thresh` PBR JSON fields, which set the flags and the alpha test threshold of a shape's NiAlphaProperty, and `alphaprop_create` and `alphaprop_delete`, which add an NiAlphaProperty to shapes that have none or remove it (both off by default)
+- Changed shapes that share a texture set or an NiAlphaProperty block to get their own copy of the block when a patch changes it, so the other shapes keep their values
 - Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
 - Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
 - Fixed the Restore Default Shaders post-patcher being named HairFlowMap in logs

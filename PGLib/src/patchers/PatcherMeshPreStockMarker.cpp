@@ -35,6 +35,7 @@ constexpr const char* keyVersion = "version";
 constexpr const char* keyTextureCount = "texture_count";
 constexpr const char* keyTextures = "textures";
 constexpr const char* keyShader = "shader";
+constexpr const char* keyAlphaProperty = "alpha_property";
 
 /// @brief Keeps the entries of stock whose value differs from the matching entry of current.
 nlohmann::json differingEntries(const nlohmann::json& stock,
@@ -100,7 +101,8 @@ bool PatcherMeshPreStockMarker::applyPatch(PGTypes::TextureSet& slots,
         // it again, so the comparison there sees the stock value of every field.
         nlohmann::json stock = captureStock(*nif(), nifShape);
         for (const auto& [key, value] : recorded.items()) {
-            if ((key == keyTextures || key == keyShader) && value.is_object() && stock.contains(key)) {
+            // The current alpha property is null when the shape has none, then the recorded fields are all there is.
+            if (value.is_object() && stock.contains(key) && stock.at(key).is_object()) {
                 for (const auto& [subKey, subValue] : value.items())
                     stock[key][subKey] = subValue;
                 continue;
@@ -110,6 +112,10 @@ bool PatcherMeshPreStockMarker::applyPatch(PGTypes::TextureSet& slots,
         }
 
         const bool isChanged = restoreStock(*nif(), nifShape, *shader, stock, slots);
+
+        // A shape without an alpha property gets one from a recorded object, with the default value of every field the
+        // object leaves out. The restored property is the complete stock one.
+        stock[keyAlphaProperty] = PGMaterialState::alphaPropertyToJSON(*nif(), nifShape);
         marker->stringData.get() = stock.dump();
 
         if (isChanged)
@@ -193,6 +199,7 @@ nlohmann::json PatcherMeshPreStockMarker::captureStock(nifly::NifFile& nif,
         stock[keyTextureCount] = static_cast<unsigned>(textureSet->textures.size());
 
     stock[keyShader] = PGMaterialState::shaderToJSON(*shader);
+    stock[keyAlphaProperty] = PGMaterialState::alphaPropertyToJSON(nif, nifShape);
 
     return stock;
 }
@@ -227,6 +234,20 @@ nlohmann::json PatcherMeshPreStockMarker::diffStock(nifly::NifFile& nif,
         const auto fields = differingEntries(*shaderIt, PGMaterialState::shaderToJSON(*shader));
         if (!fields.empty())
             differences[keyShader] = fields;
+    }
+
+    // Null stands for a shape without an alpha property.
+    const auto alphaPropertyIt = stock.find(keyAlphaProperty);
+    if (alphaPropertyIt != stock.end() && (alphaPropertyIt->is_null() || alphaPropertyIt->is_object())) {
+        const auto current = PGMaterialState::alphaPropertyToJSON(nif, nifShape);
+        if (alphaPropertyIt->is_object() && current.is_object()) {
+            const auto fields = differingEntries(*alphaPropertyIt, current);
+            if (!fields.empty())
+                differences[keyAlphaProperty] = fields;
+        } else if (*alphaPropertyIt != current) {
+            // Only one of them has an alpha property, so the stock state is recorded as a whole.
+            differences[keyAlphaProperty] = *alphaPropertyIt;
+        }
     }
 
     return differences;
@@ -377,10 +398,9 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
 {
     bool isChanged = false;
 
-    // Texture set. It is only restored while the slots the patchers see mirror it. They do not when the plugin use has
-    // an alternate texture for this shape, which is patched in its own right, or when another shape of the NIF shares
-    // the texture set and was patched already, in which case the shared block has to keep that result and the slots
-    // of this shape already hold its stock textures.
+    // Texture set. It is only restored while the slots the patchers see mirror it, which they do not when the plugin
+    // use has an alternate texture for this shape: that one is patched in its own right. A texture set other shapes
+    // share is copied for this shape before it changes, so they keep their textures (see PGNIFUtil).
     auto* const textureSet = textureSetOf(nif, shader);
     if (textureSet && slots == PGNIFUtil::textureSlots(&nif, &nifShape)) {
         // The count comes from mod authored JSON, so it is bounded before it drives an allocation.
@@ -416,6 +436,11 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
     const auto shaderIt = stock.find(keyShader);
     if (shaderIt != stock.end() && shaderIt->is_object())
         isChanged |= PGMaterialState::shaderFromJSON(shader, *shaderIt);
+
+    // Alpha property. An alpha property other shapes share is copied for this shape as well (see PGNIFUtil).
+    const auto alphaPropertyIt = stock.find(keyAlphaProperty);
+    if (alphaPropertyIt != stock.end())
+        isChanged |= PGMaterialState::alphaPropertyFromJSON(nif, nifShape, *alphaPropertyIt);
 
     // A patch may have removed the vertex colors of the geometry, which the stock flags cannot bring back. Keep the
     // flag in line with the geometry so the engine does not read colors that are not there.

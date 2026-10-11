@@ -9,7 +9,6 @@
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "TestUtil.hpp"
-#include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -112,7 +111,6 @@ protected:
     void TearDown() override
     {
         PatcherMeshShaderComplexMaterial::loadOptions(false);
-        PatcherMesh::clearTextureSets(meshPath);
         PGGlobals::setPGD3D(nullptr);
         PGGlobals::setPGD(nullptr);
     }
