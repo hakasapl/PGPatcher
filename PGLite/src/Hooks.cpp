@@ -46,7 +46,9 @@ bool Hooks::install(Menu& menu)
 
     inputManager->AddEventSink(&s_inputSink);
 
-    Logger::debug("Menu hooks installed");
+    Logger::debug("Menu hooks installed (input manager at {:#x}, swap chain at {:#x})",
+                  reinterpret_cast<std::uintptr_t>(inputManager), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                  reinterpret_cast<std::uintptr_t>(swapChain)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     return true;
 }
 
@@ -56,8 +58,19 @@ RE::BSEventNotifyControl Hooks::InputSink::ProcessEvent(RE::InputEvent* const* e
     if (!events || !s_menu)
         return RE::BSEventNotifyControl::kContinue;
 
-    for (const auto* event = *events; event; event = event->next)
+    for (const auto* event = *events; event; event = event->next) {
+        if (s_tracedEvents < maxTracedEvents) {
+            s_tracedEvents++;
+            const auto* const button = event->AsButtonEvent();
+            Logger::debug("Input event {}: type {} device {} code {}",
+                          s_tracedEvents,
+                          static_cast<int>(event->GetEventType()),
+                          static_cast<int>(event->GetDevice()),
+                          button ? button->GetIDCode() : 0);
+        }
+
         s_menu->handleInput(*event);
+    }
 
     return RE::BSEventNotifyControl::kContinue;
 }

@@ -2,10 +2,12 @@
 
 #include "PGParams.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <wrl/client.h>
@@ -36,12 +38,26 @@ public:
     /// @brief Drops the back buffer view before the swap chain resizes its buffers.
     void onResize();
 
-    /// @brief Reads one input event: the hotkey always, everything else while the menu is open.
+    /**
+     * @brief Queues one input event: the hotkey always, everything else while the menu is open. The engine dispatches
+     * input events from its task threads, so they are applied to Dear ImGui in render(), on the thread that draws.
+     */
     void handleInput(const RE::InputEvent& event);
 
     [[nodiscard]] bool isOpen() const { return m_isOpen; }
 
 private:
+    /// @brief One queued input event.
+    struct InputRecord {
+        enum class Kind : std::uint8_t { Hotkey, MouseMove, MouseButton, MouseWheel, Key, Character };
+
+        Kind kind = Kind::Hotkey;
+        bool isDown = false;
+        std::uint32_t code = 0;
+        float x = 0;
+        float y = 0;
+    };
+
     /// @brief One row of the mod list.
     struct ModRow {
         std::wstring name;
@@ -64,6 +80,10 @@ private:
     void open();
     void close();
     void setGameControls(bool isEnabled);
+
+    /// @brief Applies the queued input events to the menu and to Dear ImGui. Render thread.
+    void drainInput();
+    void applyInput(const InputRecord& record);
 
     /// @brief Copies the parameters and the mod list from the runtime into the working copy.
     void loadState();
@@ -88,8 +108,11 @@ private:
     Runtime* m_runtime;
     bool m_isInitialized = false;
     bool m_didFailInitialization = false;
-    bool m_isOpen = false;
+    std::atomic<bool> m_isOpen { false };
+    bool m_didAutoOpen = false;
     bool m_isStateLoaded = false;
+    std::mutex m_inputMutex;
+    std::vector<InputRecord> m_pendingInput;
     Microsoft::WRL::ComPtr<ID3D11Device> m_device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_context;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> m_backBufferView;

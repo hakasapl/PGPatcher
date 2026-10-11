@@ -81,6 +81,7 @@ Settings::Ini Settings::readIni()
     ini.shouldExcludeFacegens = file.GetBoolValue(iniSection, "bExcludeFacegens", false);
     ini.shouldDisableDynamicCubemap = file.GetBoolValue(iniSection, "bDisableDynamicCubemap", false);
     ini.loadSaveAtStart = file.GetValue(debugSection, "sLoadSaveAtStart", "");
+    ini.shouldOpenMenuAtStart = file.GetBoolValue(debugSection, "bOpenMenuAtStart", false);
 
     return ini;
 }

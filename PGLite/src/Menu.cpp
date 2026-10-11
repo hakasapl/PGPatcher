@@ -342,6 +342,7 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
         return false;
     }
 
+    Logger::debug("Menu initialized Dear ImGui for a {} x {} back buffer", desc.BufferDesc.Width, desc.BufferDesc.Height);
     m_isInitialized = true;
     return true;
 }
@@ -357,10 +358,28 @@ bool Menu::createBackBufferView(IDXGISwapChain* swapChain)
 
 void Menu::render(IDXGISwapChain* swapChain)
 {
-    if (!m_isOpen || m_didFailInitialization || !swapChain)
+    if (!m_isOpen && !m_didAutoOpen && m_runtime->ini().shouldOpenMenuAtStart && m_runtime->isReady()) {
+        // A development aid (PGLite.ini [Debug] bOpenMenuAtStart): the menu without the hotkey.
+        m_didAutoOpen = true;
+        Logger::debug("Opening the menu at start (bOpenMenuAtStart)");
+        open();
+    }
+
+    if (m_didFailInitialization || !swapChain)
         return;
 
     try {
+        if (!m_isInitialized && m_isOpen && !initialize(swapChain)) {
+            m_didFailInitialization = true;
+            Logger::error("The menu could not initialize Dear ImGui on the game's device");
+            m_isOpen = false;
+            return;
+        }
+
+        // The hotkey and, while open, the mouse and keys queued by the input threads.
+        drainInput();
+        if (!m_isOpen)
+            return;
         if (!m_isInitialized && !initialize(swapChain)) {
             m_didFailInitialization = true;
             Logger::error("The menu could not initialize Dear ImGui on the game's device");
@@ -420,9 +439,84 @@ void Menu::handleInput(const RE::InputEvent& event)
 {
     const auto* const button = event.AsButtonEvent();
     const bool isKeyboard = event.GetDevice() == RE::INPUT_DEVICE::kKeyboard;
+    if (button && isKeyboard && button->IsDown())
+        Logger::trace("Key down: scan code {:#x}", button->GetIDCode());
 
     // The hotkey, open or closed.
     if (button && isKeyboard && button->GetIDCode() == m_runtime->ini().menuKey && button->IsDown()) {
+        const std::scoped_lock lock(m_inputMutex);
+        m_pendingInput.push_back({ .kind = InputRecord::Kind::Hotkey });
+        return;
+    }
+
+    if (!m_isOpen)
+        return;
+
+    InputRecord record;
+    switch (event.GetEventType()) {
+    case RE::INPUT_EVENT_TYPE::kMouseMove: {
+        const auto* const move = static_cast<const RE::MouseMoveEvent*>(&event);
+        record.kind = InputRecord::Kind::MouseMove;
+        record.x = static_cast<float>(move->mouseInputX);
+        record.y = static_cast<float>(move->mouseInputY);
+        break;
+    }
+    case RE::INPUT_EVENT_TYPE::kChar: {
+        const auto* const character = static_cast<const RE::CharEvent*>(&event);
+        record.kind = InputRecord::Kind::Character;
+        record.code = character->keyCode;
+        break;
+    }
+    case RE::INPUT_EVENT_TYPE::kButton: {
+        if (!button || (!button->IsDown() && !button->IsUp()))
+            return;
+
+        record.isDown = button->IsDown();
+        record.code = button->GetIDCode();
+        if (event.GetDevice() == RE::INPUT_DEVICE::kMouse) {
+            if (record.code == mouseWheelUp || record.code == mouseWheelDown) {
+                if (!record.isDown)
+                    return;
+
+                record.kind = InputRecord::Kind::MouseWheel;
+            } else if (record.code < mouseButtonCount) {
+                record.kind = InputRecord::Kind::MouseButton;
+            } else {
+                return;
+            }
+            break;
+        }
+
+        if (!isKeyboard)
+            return;
+
+        record.kind = InputRecord::Kind::Key;
+        break;
+    }
+    default:
+        return;
+    }
+
+    const std::scoped_lock lock(m_inputMutex);
+    m_pendingInput.push_back(record);
+}
+
+void Menu::drainInput()
+{
+    std::vector<InputRecord> records;
+    {
+        const std::scoped_lock lock(m_inputMutex);
+        records.swap(m_pendingInput);
+    }
+
+    for (const auto& record : records)
+        applyInput(record);
+}
+
+void Menu::applyInput(const InputRecord& record)
+{
+    if (record.kind == InputRecord::Kind::Hotkey) {
+        Logger::debug("Menu hotkey pressed, the menu is {}", m_isOpen ? "closing" : "opening");
         if (m_isOpen)
             close();
         else
@@ -434,50 +528,34 @@ void Menu::handleInput(const RE::InputEvent& event)
         return;
 
     auto& io = ImGui::GetIO();
-    switch (event.GetEventType()) {
-    case RE::INPUT_EVENT_TYPE::kMouseMove: {
-        const auto* const move = static_cast<const RE::MouseMoveEvent*>(&event);
-        m_mouseX = std::clamp(m_mouseX + static_cast<float>(move->mouseInputX), 0.0F, io.DisplaySize.x);
-        m_mouseY = std::clamp(m_mouseY + static_cast<float>(move->mouseInputY), 0.0F, io.DisplaySize.y);
+    switch (record.kind) {
+    case InputRecord::Kind::MouseMove:
+        m_mouseX = std::clamp(m_mouseX + record.x, 0.0F, io.DisplaySize.x);
+        m_mouseY = std::clamp(m_mouseY + record.y, 0.0F, io.DisplaySize.y);
         io.AddMousePosEvent(m_mouseX, m_mouseY);
         break;
-    }
-    case RE::INPUT_EVENT_TYPE::kChar: {
-        const auto* const character = static_cast<const RE::CharEvent*>(&event);
-        io.AddInputCharacter(character->keyCode);
+    case InputRecord::Kind::Character:
+        io.AddInputCharacter(record.code);
         break;
-    }
-    case RE::INPUT_EVENT_TYPE::kButton: {
-        if (!button || (!button->IsDown() && !button->IsUp()))
-            break;
-
-        const bool isDown = button->IsDown();
-        if (event.GetDevice() == RE::INPUT_DEVICE::kMouse) {
-            const auto code = button->GetIDCode();
-            if (code == mouseWheelUp || code == mouseWheelDown) {
-                if (isDown)
-                    io.AddMouseWheelEvent(0, code == mouseWheelUp ? 1.0F : -1.0F);
-            } else if (code < mouseButtonCount) {
-                io.AddMouseButtonEvent(static_cast<int>(code), isDown);
-            }
-            break;
-        }
-
-        if (!isKeyboard)
-            break;
-
-        if (isDown && button->GetIDCode() == escapeScanCode) {
+    case InputRecord::Kind::MouseWheel:
+        io.AddMouseWheelEvent(0, record.code == mouseWheelUp ? 1.0F : -1.0F);
+        break;
+    case InputRecord::Kind::MouseButton:
+        io.AddMouseButtonEvent(static_cast<int>(record.code), record.isDown);
+        break;
+    case InputRecord::Kind::Key: {
+        if (record.isDown && record.code == escapeScanCode) {
             close();
             break;
         }
 
-        const auto key = imguiKeyOf(button->GetIDCode());
+        const auto key = imguiKeyOf(record.code);
         if (key == ImGuiKey_None)
             break;
 
         if (const auto modifier = modifierOf(key); modifier != ImGuiKey_None)
-            io.AddKeyEvent(modifier, isDown);
-        io.AddKeyEvent(key, isDown);
+            io.AddKeyEvent(modifier, record.isDown);
+        io.AddKeyEvent(key, record.isDown);
         break;
     }
     default:

@@ -45,10 +45,14 @@ private:
     static constexpr std::size_t presentIndex = 8;
     static constexpr std::size_t resizeBuffersIndex = 13;
 
+    /// @brief The first input events are logged, which shows whether the sink receives any.
+    static constexpr unsigned maxTracedEvents = 20;
+
     static inline decltype(&present) s_originalPresent = nullptr;
     static inline decltype(&resizeBuffers) s_originalResizeBuffers = nullptr;
     static inline Menu* s_menu = nullptr;
     static inline InputSink s_inputSink;
+    static inline unsigned s_tracedEvents = 0;
 };
 
 }
