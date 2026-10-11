@@ -3,7 +3,7 @@
 #include "PGD3D.hpp"
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -208,6 +208,38 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
     // Blocks until all tasks are done.
     runner.runTasks();
 
+    classifyUnconfirmedTextures(manualTextureMapsMap, parallaxBSAExcludes, multithreading);
+
+    // Cleanup.
+    m_unconfirmedTextures.clear();
+    m_unconfirmedMeshes.clear();
+}
+
+void PGDirectory::mapTexturesBySuffix(const std::vector<std::pair<std::wstring,
+                                                                  PGEnums::TextureType>>& manualTextureMaps,
+                                      const std::vector<std::wstring>& parallaxBSAExcludes)
+{
+    findFiles();
+
+    // Helpers.
+    const std::unordered_map<std::wstring, PGEnums::TextureType> manualTextureMapsMap(manualTextureMaps.begin(),
+                                                                                      manualTextureMaps.end());
+
+    Logger::info("Building texture mappings from file names");
+
+    // No mesh casts a vote, so every texture is classified by its suffix.
+    classifyUnconfirmedTextures(manualTextureMapsMap, parallaxBSAExcludes, false);
+
+    // Cleanup.
+    m_unconfirmedTextures.clear();
+    m_unconfirmedMeshes.clear();
+}
+
+void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstring,
+                                                                       PGEnums::TextureType>& manualTextureMapsMap,
+                                              const std::vector<std::wstring>& parallaxBSAExcludes,
+                                              const bool& multithreading)
+{
     // Loop through unconfirmed textures to confirm them.
     for (const auto& [texture, property] : m_unconfirmedTextures) {
         bool foundInstance = false;
@@ -255,7 +287,8 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
         if (winningType == PGEnums::TextureType::EnvironmentMask && !isFileInBSA(texture, parallaxBSAExcludes)) {
             // Reuse the classification of a previous run if the texture did not change.
             PGTypes::CMClassification cachedClassification;
-            if (PGRunCache::tryGetCachedCMClassification(texture, fileIdentity(texture), cachedClassification)) {
+            if (PGRunObserver::current().tryGetCachedCMClassification(
+                    texture, fileIdentity(texture), cachedClassification)) {
                 applyCMClassification(texture, winningSlot, cachedClassification);
                 continue;
             }
@@ -277,10 +310,6 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
             addToTextureMaps(texture, winningSlot, winningType, { });
         }
     }
-
-    // Cleanup.
-    m_unconfirmedTextures.clear();
-    m_unconfirmedMeshes.clear();
 }
 
 void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
@@ -306,7 +335,7 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
     }
 
     // Remember the result for incremental runs.
-    PGRunCache::storeCMClassification(texture, fileIdentity(texture), classification);
+    PGRunObserver::current().storeCMClassification(texture, fileIdentity(texture), classification);
 
     applyCMClassification(texture, winningSlot, classification);
 }
@@ -350,21 +379,21 @@ TaskTracker::Result PGDirectory::mapTexturesFromNIF(const std::filesystem::path&
     // Texture votes: reuse the votes of a previous run when the NIF did not change, otherwise read the NIF.
     const auto nifIdentity = fileIdentity(nifPath);
     std::vector<PGTypes::TextureVote> votes;
-    if (!PGRunCache::tryGetCachedMeshVotes(nifPath, nifIdentity, votes)) {
+    if (!PGRunObserver::current().tryGetCachedMeshVotes(nifPath, nifIdentity, votes)) {
         if (!readTextureVotesFromNIF(nifPath, votes)) {
             Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
             return TaskTracker::Result::Failure;
         }
 
-        PGRunCache::storeMeshVotes(nifPath, nifIdentity, votes);
+        PGRunObserver::current().storeMeshVotes(nifPath, nifIdentity, votes);
     }
 
     for (const auto& vote : votes)
         updateUnconfirmedTexturesMap(vote.texture, vote.slot, vote.type);
 
     // Mesh uses: reuse the previous run's uses when no plugin changed, otherwise ask the plugin library.
-    PGRunCache::MeshUses cachedUses;
-    if (PGRunCache::tryGetCachedMeshUses(nifPath, cachedUses)) {
+    PGRunObserver::MeshUses cachedUses;
+    if (PGRunObserver::current().tryGetCachedMeshUses(nifPath, cachedUses)) {
         updateNifCache(nifPath, cachedUses);
     } else if (multithreading) {
         m_meshUseMappingQueue.queueTask([this, nifPath] {
@@ -733,7 +762,7 @@ bool PGDirectory::hasTextureAttribute(const std::filesystem::path& path,
     }
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordTextureAttribute(path, attribute, result);
+    PGRunObserver::current().recordTextureAttribute(path, attribute, result);
 
     return result;
 }
@@ -748,7 +777,7 @@ std::unordered_set<PGEnums::TextureAttribute> PGDirectory::textureAttributes(con
     }
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordTextureAttributes(path, result);
+    PGRunObserver::current().recordTextureAttributes(path, result);
 
     return result;
 }
@@ -770,7 +799,7 @@ PGEnums::TextureType PGDirectory::textureType(const std::filesystem::path& path)
     }
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordTextureType(path, result);
+    PGRunObserver::current().recordTextureType(path, result);
 
     return result;
 }

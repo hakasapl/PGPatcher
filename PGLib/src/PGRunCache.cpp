@@ -772,6 +772,8 @@ void PGRunCache::captureLogMessage(spdlog::level::level_enum level,
 PGRunCache::MeshRecorder::MeshRecorder(std::filesystem::path nifPath)
     : m_nifPath(std::move(nifPath))
 {
+    installObserver();
+
     if (s_activeRecorder)
         throw std::runtime_error("Nested mesh recorders are not supported");
 
@@ -993,10 +995,102 @@ PGRunCache::SuspendRecording::~SuspendRecording()
 // Lifecycle.
 //
 
+void PGRunCache::Observer::recordTextureType(const std::filesystem::path& path,
+                                             const PGEnums::TextureType& type)
+{
+    PGRunCache::recordTextureType(path, type);
+}
+
+void PGRunCache::Observer::recordTextureAttribute(const std::filesystem::path& path,
+                                                  const PGEnums::TextureAttribute& attribute,
+                                                  bool value)
+{
+    PGRunCache::recordTextureAttribute(path, attribute, value);
+}
+
+void PGRunCache::Observer::recordTextureAttributes(const std::filesystem::path& path,
+                                                   const std::unordered_set<PGEnums::TextureAttribute>& attributes)
+{
+    PGRunCache::recordTextureAttributes(path, attributes);
+}
+
+void PGRunCache::Observer::recordTexMatch(const std::wstring& base,
+                                          const PGEnums::TextureType& type,
+                                          const std::vector<PGTypes::PGTexture>& results)
+{
+    PGRunCache::recordTexMatch(base, type, results);
+}
+
+void PGRunCache::Observer::recordModOfFile(const std::filesystem::path& path,
+                                           const std::wstring& modName)
+{
+    PGRunCache::recordModOfFile(path, modName);
+}
+
+void PGRunCache::Observer::recordMatches(const PGTypes::TextureSet& slots,
+                                         bool isSinglepassMATO,
+                                         const PGPlugin::ModelRecordType& recType,
+                                         uint64_t digest)
+{
+    PGRunCache::recordMatches(slots, isSinglepassMATO, recType, digest);
+}
+
+void PGRunCache::Observer::recordOutputFile(const std::filesystem::path& relPath,
+                                            uint64_t size)
+{
+    PGRunCache::recordOutputFile(relPath, size);
+}
+
+void PGRunCache::Observer::suspendRecording() { s_suspendDepth++; }
+
+void PGRunCache::Observer::resumeRecording()
+{
+    if (s_suspendDepth > 0)
+        s_suspendDepth--;
+}
+
+bool PGRunCache::Observer::tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
+                                                 const BethesdaDirectory::FileIdentity& identity,
+                                                 std::vector<PGTypes::TextureVote>& votes)
+{
+    return PGRunCache::tryGetCachedMeshVotes(nifPath, identity, votes);
+}
+
+void PGRunCache::Observer::storeMeshVotes(const std::filesystem::path& nifPath,
+                                          const BethesdaDirectory::FileIdentity& identity,
+                                          const std::vector<PGTypes::TextureVote>& votes)
+{
+    PGRunCache::storeMeshVotes(nifPath, identity, votes);
+}
+
+bool PGRunCache::Observer::tryGetCachedMeshUses(const std::filesystem::path& nifPath,
+                                                MeshUses& uses)
+{
+    return PGRunCache::tryGetCachedMeshUses(nifPath, uses);
+}
+
+bool PGRunCache::Observer::tryGetCachedCMClassification(const std::filesystem::path& texture,
+                                                        const BethesdaDirectory::FileIdentity& identity,
+                                                        PGTypes::CMClassification& result)
+{
+    return PGRunCache::tryGetCachedCMClassification(texture, identity, result);
+}
+
+void PGRunCache::Observer::storeCMClassification(const std::filesystem::path& texture,
+                                                 const BethesdaDirectory::FileIdentity& identity,
+                                                 const PGTypes::CMClassification& result)
+{
+    PGRunCache::storeCMClassification(texture, identity, result);
+}
+
+void PGRunCache::installObserver() { PGRunObserver::install(&s_observer); }
+
 void PGRunCache::initialize(const std::filesystem::path& cacheFile,
                             bool enabled,
                             bool ignoreExisting)
 {
+    installObserver();
+
     s_cacheFile = cacheFile;
     s_enabled = enabled;
     s_previous.reset();

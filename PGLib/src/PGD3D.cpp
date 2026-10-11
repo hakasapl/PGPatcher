@@ -2,7 +2,7 @@
 
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "util/Logger.hpp"
 
 #include "CountAlphaValues.h"
@@ -805,7 +805,7 @@ bool PGD3D::getDDS(const std::filesystem::path& ddsPath, // NOLINT(readability-c
 
     // Texture pixel data never influences mesh output directly (only derived classification does), so reading it
     // must not register the texture as a dependency of the mesh being patched.
-    const PGRunCache::SuspendRecording suspendRecording;
+    const PGRunObserver::SuspendRecording suspendRecording;
 
     HRESULT hr { };
 
@@ -866,7 +866,7 @@ bool PGD3D::getDDSMetadata(const std::filesystem::path& ddsPath,
     }
 
     // See getDDS for why recording is suspended here.
-    const PGRunCache::SuspendRecording suspendRecording;
+    const PGRunObserver::SuspendRecording suspendRecording;
 
     HRESULT hr { };
 

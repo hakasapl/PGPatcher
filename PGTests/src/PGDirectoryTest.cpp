@@ -463,4 +463,42 @@ TEST_F(PGDirectoryTest,
     EXPECT_EQ(&m_pgd->textureMapConst(TextureSlots::Parallax), &map);
 }
 
+
+TEST(PGDirectoryPlainTest,
+     MapTexturesBySuffixClassifiesWithoutReadingMeshes)
+{
+    FakeGame fake;
+    for (const auto* texture : { L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds",
+                                 L"textures\\a\\stone_p.dds", L"textures\\a\\stone_m.dds" })
+        fake.writeDataFile(texture, "DDS");
+    fake.writeMainINI("[Archive]\nsResourceArchiveList=Vanilla.bsa\n");
+    TestUtil::BSABuilder vanilla;
+    vanilla.addFile("textures\\v\\rock_p.dds", "DDS");
+    vanilla.write(fake.dataDir() / L"Vanilla.bsa");
+
+    // A mesh whose shape would cast a vote. It is neither mapped nor read.
+    writeMesh(fake, L"meshes\\a\\stone.nif", slots({ { 0, L"textures\\a\\stone.dds" } }));
+
+    BethesdaGame game = fake.game();
+    PGDirectory pgd(&game);
+    pgd.setFoldersToMap({ L"textures" });
+    EXPECT_THROW(pgd.mapTexturesBySuffix({ }, { }), std::runtime_error);
+    pgd.populateFileMap(true, false);
+    pgd.mapTexturesBySuffix({ { L"textures\\a\\stone_m.dds", TextureType::ComplexMaterial } }, { L"Vanilla.bsa" });
+
+    EXPECT_TRUE(pgd.meshes().empty());
+    EXPECT_FALSE(pgd.isFile(L"meshes\\a\\stone.nif"));
+    EXPECT_EQ(pgd.textures().size(), 5U);
+
+    const auto& normals = pgd.textureMapConst(TextureSlots::Normal);
+    ASSERT_TRUE(normals.contains(L"textures\\a\\stone"));
+    EXPECT_EQ(normals.at(L"textures\\a\\stone").begin()->path, L"textures\\a\\stone_n.dds");
+    const auto& heights = pgd.textureMapConst(TextureSlots::Parallax);
+    EXPECT_TRUE(heights.contains(L"textures\\a\\stone"));
+    EXPECT_FALSE(heights.contains(L"textures\\v\\rock")); // height map of a vanilla archive
+    // A diffuse texture has no suffix, so without a mesh vote it stays unclassified, as offline.
+    EXPECT_EQ(pgd.textureType(L"textures\\a\\stone.dds"), TextureType::Unknown);
+    EXPECT_EQ(pgd.textureType(L"textures\\a\\stone_m.dds"), TextureType::ComplexMaterial);
+    EXPECT_EQ(pgd.textureType(L"textures\\v\\rock_p.dds"), TextureType::Unknown);
+}
 }

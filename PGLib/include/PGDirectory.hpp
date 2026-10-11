@@ -124,6 +124,20 @@ public:
                                            size_t)>& progressCallback = { });
 
     /**
+     * @brief Classifies every texture of the file map by its file name suffix, the texture rules and the vanilla
+     * archive list, without reading any mesh: the mapping of the PGLite runtime, whose file map holds no meshes.
+     * Environment masks are classified as complex material textures on the calling thread. Requires a populated file
+     * map.
+     *
+     * @param manualTextureMaps Textures whose type is given instead of classified
+     * @param parallaxBSAExcludes Height maps and environment masks from these archives are not mapped
+     * @throws std::runtime_error if the file map was not populated
+     */
+    void mapTexturesBySuffix(const std::vector<std::pair<std::wstring,
+                                                         PGEnums::TextureType>>& manualTextureMaps,
+                             const std::vector<std::wstring>& parallaxBSAExcludes);
+
+    /**
      * @brief Blocks until all background plugin mesh-use mapping tasks have completed, then shuts down the queue.
      */
     void waitForMeshMapping();
@@ -141,6 +155,17 @@ private:
      * @throws std::runtime_error if the file map was not populated
      */
     void findFiles();
+
+    /**
+     * @brief Decides the slot and type of every unconfirmed texture from the votes cast so far (the file name suffix
+     * when there are none), applies the manual texture maps and the vanilla archive exclusion, and adds the textures
+     * to the texture maps. Environment masks go through the complex material classification, on the classification
+     * queue when multithreading.
+     */
+    void classifyUnconfirmedTextures(const std::unordered_map<std::wstring,
+                                                              PGEnums::TextureType>& manualTextureMapsMap,
+                                     const std::vector<std::wstring>& parallaxBSAExcludes,
+                                     const bool& multithreading);
 
     /**
      * @brief Casts the texture votes of one mesh (from the update cache when the mesh is unchanged), queues the lookup

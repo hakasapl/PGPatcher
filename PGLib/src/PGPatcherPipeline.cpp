@@ -5,7 +5,7 @@
 #include "PGGlobals.hpp"
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "patchers/PatcherMeshPreStockMarker.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "patchers/base/PatcherUtil.hpp"
@@ -364,7 +364,7 @@ std::vector<PatcherUtil::ShaderPatcherMatch> PGPatcher::matches(const PGTypes::T
     // Every lookup made while building the match list is covered by the digest recorded below, so individual
     // lookups are not recorded as dependencies.
     {
-        const PGRunCache::SuspendRecording suspendRecording;
+        const PGRunObserver::SuspendRecording suspendRecording;
 
         std::unordered_set<std::shared_ptr<PGModManager::Mod>, PGModManager::Mod::ModHash> modSet;
         if (patcherObjects && patchers.shaderPatchers.size() != patcherObjects->shaderPatchers.size())
@@ -483,7 +483,7 @@ std::vector<PatcherUtil::ShaderPatcherMatch> PGPatcher::matches(const PGTypes::T
     }
 
     // Record the digest as a dependency of the mesh being patched (no-op unless recording).
-    PGRunCache::recordMatches(slots, isSinglepassMATO, modelRecordType, matchesDigest);
+    PGRunObserver::current().recordMatches(slots, isSinglepassMATO, modelRecordType, matchesDigest);
 
     return matches;
 }

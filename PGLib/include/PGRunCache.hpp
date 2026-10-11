@@ -3,6 +3,7 @@
 #include "PGDirectory.hpp"
 #include "PGPatcher.hpp"
 #include "PGPlugin.hpp"
+#include "PGRunObserver.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
@@ -267,7 +268,56 @@ public:
         SuspendRecording& operator=(SuspendRecording&&) = delete;
     };
 
+    /**
+     * @brief The PGRunObserver that forwards to this cache, see installObserver().
+     */
+    class Observer final : public PGRunObserver {
+    public:
+        void recordTextureType(const std::filesystem::path& path,
+                               const PGEnums::TextureType& type) override;
+        void recordTextureAttribute(const std::filesystem::path& path,
+                                    const PGEnums::TextureAttribute& attribute,
+                                    bool value) override;
+        void recordTextureAttributes(const std::filesystem::path& path,
+                                     const std::unordered_set<PGEnums::TextureAttribute>& attributes) override;
+        void recordTexMatch(const std::wstring& base,
+                            const PGEnums::TextureType& type,
+                            const std::vector<PGTypes::PGTexture>& results) override;
+        void recordModOfFile(const std::filesystem::path& path,
+                             const std::wstring& modName) override;
+        void recordMatches(const PGTypes::TextureSet& slots,
+                           bool isSinglepassMATO,
+                           const PGPlugin::ModelRecordType& recType,
+                           uint64_t digest) override;
+        void recordOutputFile(const std::filesystem::path& relPath,
+                              uint64_t size) override;
+        void suspendRecording() override;
+        void resumeRecording() override;
+        bool tryGetCachedMeshVotes(const std::filesystem::path& nifPath,
+                                   const BethesdaDirectory::FileIdentity& identity,
+                                   std::vector<PGTypes::TextureVote>& votes) override;
+        void storeMeshVotes(const std::filesystem::path& nifPath,
+                            const BethesdaDirectory::FileIdentity& identity,
+                            const std::vector<PGTypes::TextureVote>& votes) override;
+        bool tryGetCachedMeshUses(const std::filesystem::path& nifPath,
+                                  MeshUses& uses) override;
+        bool tryGetCachedCMClassification(const std::filesystem::path& texture,
+                                          const BethesdaDirectory::FileIdentity& identity,
+                                          PGTypes::CMClassification& result) override;
+        void storeCMClassification(const std::filesystem::path& texture,
+                                   const BethesdaDirectory::FileIdentity& identity,
+                                   const PGTypes::CMClassification& result) override;
+    };
+
+    /**
+     * @brief Installs the cache as the PGRunObserver of the process, so the shared code reports its lookups and reads
+     * the cached classifications. Done by initialize() and by every MeshRecorder.
+     */
+    static void installObserver();
+
 private:
+    static inline Observer s_observer;
+
     static constexpr uint32_t formatMagic = 0x43524750; // "PGRC"
     static constexpr uint32_t formatVersion = 2;
 

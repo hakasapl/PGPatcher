@@ -1,7 +1,7 @@
 #include "pgutil/PGMeshPermutationTracker.hpp"
 
 #include "PGGlobals.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "pgutil/PGMaterialState.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
@@ -39,6 +39,22 @@ PGMeshPermutationTracker::PGMeshPermutationTracker(const std::filesystem::path& 
     auto* pgd = PGGlobals::pgd();
     if (!pgd->isFile(origMeshPath))
         throw std::runtime_error("Original mesh path does not exist: " + origMeshPath.string());
+}
+
+PGMeshPermutationTracker::PGMeshPermutationTracker(std::filesystem::path origMeshPath,
+                                                   const std::vector<std::byte>& nifBytes)
+    : m_origMeshPath(std::move(origMeshPath))
+{
+    // Calculate original CRC32.
+    boost::crc_32_type crcBeforeResult { };
+    crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
+    m_origCrc32 = crcBeforeResult.checksum();
+
+    // Load original NIF.
+    m_origNifFile = PGNIFUtil::loadNIFFromBytes(nifBytes, false);
+
+    // Store original shape indices.
+    m_origShapeIndices = get3dIndicesSet(&m_origNifFile);
 }
 
 void PGMeshPermutationTracker::load()
@@ -176,14 +192,10 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     return CommitResult::Added;
 }
 
-auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>,
-                                                         std::pair<unsigned long long,
-                                                                   unsigned long long>>
+auto PGMeshPermutationTracker::serializeMeshes() -> std::vector<SerializedOutput>
 {
-    auto* pgd = PGGlobals::pgd();
-
-    std::vector<MeshResult> output;
-    unsigned long long baseCrc32 = 0;
+    std::vector<SerializedOutput> outputs;
+    outputs.reserve(m_outputMeshes.size());
 
     // Loop through output meshes.
     for (size_t i = 0; i < m_outputMeshes.size(); i++) {
@@ -234,32 +246,62 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
             meshResult.idxCorrections[missingShape] = -1; // shape was removed
 
         // Get filename of mesh.
-        const auto meshRelPath = meshPath(m_origMeshPath, curIndex);
-        meshResult.meshPath = meshRelPath;
-        const auto meshFilename = pgd->generatedPath() / meshRelPath;
+        meshResult.meshPath = meshPath(m_origMeshPath, curIndex);
+
+        // Write to memory buffer.
+        std::ostringstream buffer(std::ios::binary);
+        if (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) != 0) {
+            // A mesh that we were able to open but cannot save will cause issues in-game because it might have
+            // partially saved.
+            Logger::critical(L"Unable to save NIF file {}", meshResult.meshPath.wstring());
+            return { };
+        }
+
+        SerializedOutput output { .result = meshResult, .bytes = buffer.str(), .blockKinds = blockTypeSignature(mesh) };
+        boost::crc_32_type crc;
+        crc.process_bytes(output.bytes.data(), output.bytes.size());
+        output.crc32 = crc.checksum();
+        outputs.push_back(std::move(output));
+    }
+
+    return outputs;
+}
+
+auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>,
+                                                         std::pair<unsigned long long,
+                                                                   unsigned long long>>
+{
+    auto* pgd = PGGlobals::pgd();
+
+    // Nothing is written over an existing output.
+    for (size_t i = 0; i < m_outputMeshes.size(); i++) {
+        const auto meshFilename = pgd->generatedPath() / meshPath(m_origMeshPath, m_ignoreBaseMesh ? i + 1 : i);
         if (std::filesystem::exists(meshFilename))
             throw std::runtime_error("Output mesh file already exists: " + meshFilename.string());
+    }
+
+    const auto serialized = serializeMeshes();
+    if (serialized.size() != m_outputMeshes.size()) {
+        // A mesh could not be serialized, which is logged.
+        return { };
+    }
+
+    std::vector<MeshResult> output;
+    unsigned long long baseCrc32 = 0;
+
+    for (size_t i = 0; i < serialized.size(); i++) {
+        const auto& curOutput = serialized.at(i);
+        const size_t curIndex = m_ignoreBaseMesh ? i + 1 : i;
+        const auto meshFilename = pgd->generatedPath() / curOutput.result.meshPath;
 
         // Create directories if required.
         std::filesystem::create_directories(meshFilename.parent_path());
 
-        // Save Mesh file.
-
-        // Write to memory buffer.
-        bool saveSuccess = false;
-        std::ostringstream buffer(std::ios::binary);
-        saveSuccess = (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) == 0);
-        const std::string& data = buffer.str();
-
-        if (curIndex == 0) {
-            // Get CRC32.
-            boost::crc_32_type crc;
-            crc.process_bytes(data.data(), data.size());
-            baseCrc32 = crc.checksum();
-        }
+        if (!curIndex)
+            baseCrc32 = curOutput.crc32;
 
         // Queue save to file saver.
-        PGGlobals::fileSaver().queueTask([data, meshFilename] {
+        PGGlobals::fileSaver().queueTask([data = curOutput.bytes, meshFilename] {
             std::ofstream file(meshFilename, std::ios::binary);
             if (file.is_open()) {
                 file.write(data.data(), static_cast<std::streamsize>(data.size()));
@@ -267,31 +309,39 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
             }
         });
 
-        if (saveSuccess) {
-            if (!curIndex)
-                Logger::debug("Saved patched base mesh");
-            else
-                Logger::debug("Saved patched duplicate mesh {}", std::to_string(curIndex));
-        } else {
-            // A mesh that we were able to open but cannot save will cause issues in-game because it might have
-            // partially saved.
-            Logger::critical(L"Unable to save NIF file {}", meshFilename.wstring());
-            return { };
-        }
+        if (!curIndex)
+            Logger::debug("Saved patched base mesh");
+        else
+            Logger::debug("Saved patched duplicate mesh {}", std::to_string(curIndex));
 
         // Tell PGD that this is a generated file.
-        pgd->addGeneratedFile(meshRelPath);
+        pgd->addGeneratedFile(curOutput.result.meshPath);
 
         // Record the output for incremental runs.
-        PGRunCache::recordOutputFile(meshRelPath, data.size());
+        PGRunObserver::current().recordOutputFile(curOutput.result.meshPath, curOutput.bytes.size());
 
-        output.push_back(meshResult);
+        output.push_back(curOutput.result);
     }
 
     if (m_ignoreBaseMesh)
         return { output, { m_origCrc32, 0 } };
 
     return { output, { m_origCrc32, baseCrc32 } };
+}
+
+auto PGMeshPermutationTracker::blockTypeSignature(const nifly::NifFile& mesh) -> std::vector<BlockKind>
+{
+    std::vector<BlockKind> kinds;
+    for (auto* const block : comparableBlocks(&mesh)) {
+        if (dynamic_cast<nifly::NiParticleSystem*>(block))
+            kinds.push_back(BlockKind::ParticleSystem);
+        else if (dynamic_cast<nifly::BSTriShape*>(block))
+            kinds.push_back(BlockKind::TriShape);
+        else
+            kinds.push_back(BlockKind::Shape);
+    }
+
+    return kinds;
 }
 
 std::vector<std::pair<std::filesystem::path,

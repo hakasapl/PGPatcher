@@ -86,6 +86,21 @@ public:
         std::unordered_map<int, int> inverseIdxCorrectionsPatching;
     };
 
+    /// @brief What the weighted (_0/_1) layout check tells the blocks of a mesh apart by, see blockTypeSignature().
+    enum class BlockKind : uint8_t { ParticleSystem, TriShape, Shape };
+
+    /// @brief One output mesh serialized in memory, see serializeMeshes().
+    struct SerializedOutput {
+        /// @brief The output and the plugin uses it serves, with its index corrections filled in.
+        MeshResult result;
+        /// @brief The bytes of the saved mesh.
+        std::string bytes;
+        /// @brief The block type signature of the mesh, see blockTypeSignature().
+        std::vector<BlockKind> blockKinds;
+        /// @brief CRC32 of the bytes.
+        unsigned long long crc32 = 0;
+    };
+
 private:
     std::filesystem::path m_origMeshPath;
     nifly::NifFile m_origNifFile;
@@ -130,6 +145,17 @@ public:
      * @throws std::runtime_error if the file is not in the file map of PGGlobals::pgd().
      */
     explicit PGMeshPermutationTracker(const std::filesystem::path& origMeshPath);
+
+    /**
+     * @brief Constructs a tracker for a mesh given as bytes, and loads it (do not call load()). Needs no file map; the
+     * PGLite runtime uses it with the bytes the game would read.
+     *
+     * @param origMeshPath Relative path (within the data directory) of the mesh the bytes belong to.
+     * @param nifBytes The mesh file.
+     * @throws std::runtime_error if the bytes are not a NIF.
+     */
+    PGMeshPermutationTracker(std::filesystem::path origMeshPath,
+                             const std::vector<std::byte>& nifBytes);
 
     // Plugin mesh staging.
     /**
@@ -205,6 +231,21 @@ public:
               std::pair<unsigned long long,
                         unsigned long long>>
     saveMeshes();
+
+    /**
+     * @brief Sorts the blocks of every output mesh and serializes it in memory: the same outputs, index corrections and
+     * bytes saveMeshes() writes, without touching the output directory. Call once per tracker.
+     *
+     * @return One entry per output mesh, in output order. Empty when a mesh could not be serialized (logged as
+     * critical).
+     */
+    std::vector<SerializedOutput> serializeMeshes();
+
+    /**
+     * @brief The block kinds of the shapes and particle systems of a mesh in 3D index order: what the weighted (_0/_1)
+     * layout check compares, so two meshes pass that check exactly when their signatures are equal.
+     */
+    static std::vector<BlockKind> blockTypeSignature(const nifly::NifFile& mesh);
 
     /**
      * @brief Reports every weighted mesh whose _0/_1 counterpart was also patched as weighted but produced a different
