@@ -80,11 +80,11 @@ std::vector<std::byte> alternateTexturesSub(const std::vector<PluginBuilder::Alt
     return data.data();
 }
 
-std::vector<std::byte> objectBoundsSub()
+std::vector<std::byte> objectBoundsSub(const PluginBuilder::ObjectBounds& bounds = { })
 {
     Bytes data;
-    for (int i = 0; i < 6; i++)
-        data.write<int16_t>(0);
+    for (const auto value : bounds)
+        data.write<int16_t>(value);
     return data.data();
 }
 }
@@ -111,11 +111,12 @@ void PluginBuilder::addStatic(uint32_t formID,
                               const std::string& model,
                               const std::vector<AlternateTexture>& alternateTextures,
                               uint32_t materialFormID,
-                              uint32_t recordFlags)
+                              uint32_t recordFlags,
+                              const ObjectBounds& bounds)
 {
     Bytes record;
     record.writeSubZString("EDID", editorID);
-    record.writeSub("OBND", objectBoundsSub());
+    record.writeSub("OBND", objectBoundsSub(bounds));
     record.writeSubZString("MODL", model);
     if (!alternateTextures.empty())
         record.writeSub("MODS", alternateTexturesSub(alternateTextures));
@@ -126,6 +127,20 @@ void PluginBuilder::addStatic(uint32_t formID,
     record.writeSub("DNAM", dnam.data());
 
     addRecord("STAT", formID, recordFlags, record.data());
+}
+
+void PluginBuilder::addModelRecord(const std::string& type,
+                                   uint32_t formID,
+                                   const std::string& editorID,
+                                   const std::string& model,
+                                   const ObjectBounds& bounds)
+{
+    Bytes record;
+    record.writeSubZString("EDID", editorID);
+    record.writeSub("OBND", objectBoundsSub(bounds));
+    record.writeSubZString("MODL", model);
+
+    addRecord(type, formID, 0, record.data());
 }
 
 void PluginBuilder::addTextureSet(uint32_t formID,

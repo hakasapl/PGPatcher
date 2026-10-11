@@ -11,6 +11,7 @@
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
+#include "Nodes.hpp"
 #include "Object3d.hpp"
 #include "Particles.hpp"
 #include "Shaders.hpp"
@@ -20,8 +21,10 @@
 #include <spdlog/common.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -436,6 +439,88 @@ TEST_F(PGMeshPermutationTrackerTest,
     stageWithTexture(tracker, "textures\\a\\patched.dds");
     ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }), CommitResult::Added);
     EXPECT_THROW(tracker.saveMeshes(), std::runtime_error);
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       OriginalObjectBoundsCoverTheLoadedMesh)
+{
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load();
+    // Both shapes are unit quads at the origin.
+    EXPECT_EQ(tracker.originalObjectBounds(), (PGTypes::ObjectBounds { .min = { 0, 0, 0 }, .max = { 1, 1, 0 } }));
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       ObjectBoundsAccountForTheTransformsOfEveryShape)
+{
+    NIFBuilder builder;
+    auto* first = builder.addShape("First");
+    first->transform.translation = nifly::Vector3(-2.7F, 5.5F, 3.9F);
+    // A shape below a scaled and moved node, which has to be placed in model space too.
+    auto* node = builder.addNode("Node");
+    node->transform.translation = nifly::Vector3(10.0F, 0.0F, 0.0F);
+    node->transform.scale = 2.0F;
+    auto* second = builder.addShape("Second", PGTypes::TextureSet(), nifly::BSLSP_DEFAULT, node);
+    second->transform.translation = nifly::Vector3(0.0F, 0.0F, -1.5F);
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+
+    // First spans x -2.7 to -1.7, y 5.5 to 6.5, z 3.9. Second spans x 10 to 12, y 0 to 2, z -3. The bounds are
+    // truncated toward zero, like the OBND the Creation Kit writes.
+    EXPECT_EQ(tracker.originalObjectBounds(), (PGTypes::ObjectBounds { .min = { -2, 0, -3 }, .max = { 12, 6, 3 } }));
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       ObjectBoundsAreClampedToTheRangeOfAnInt16)
+{
+    NIFBuilder builder;
+    auto* distant = builder.addShape("Distant");
+    distant->transform.translation = nifly::Vector3(40000.0F, -40000.0F, 0.0F);
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    EXPECT_EQ(tracker.originalObjectBounds(),
+              (PGTypes::ObjectBounds { .min = { INT16_MAX, INT16_MIN, 0 }, .max = { INT16_MAX, INT16_MIN, 0 } }));
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       AMeshWithoutVerticesHasNoObjectBounds)
+{
+    NIFBuilder builder;
+    builder.addNode("Empty");
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    EXPECT_EQ(tracker.originalObjectBounds(), std::nullopt);
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       SavedMeshesCarryTheirObjectBoundsWhenAsked)
+{
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load();
+    stageWithTexture(tracker, "textures\\a\\patched.dds");
+    ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }), CommitResult::Added);
+
+    const auto [results, crcs] = tracker.saveMeshes(true);
+    waitForFiles();
+    ASSERT_EQ(results.size(), 1U);
+    EXPECT_EQ(results[0].objectBounds, (PGTypes::ObjectBounds { .min = { 0, 0, 0 }, .max = { 1, 1, 0 } }));
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       SavedMeshesHaveNoObjectBoundsByDefault)
+{
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load();
+    stageWithTexture(tracker, "textures\\a\\patched.dds");
+    ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }), CommitResult::Added);
+
+    const auto [results, crcs] = tracker.saveMeshes();
+    waitForFiles();
+    ASSERT_EQ(results.size(), 1U);
+    EXPECT_EQ(results[0].objectBounds, std::nullopt);
 }
 
 TEST(PGMeshPermutationTrackerStaticTest,
