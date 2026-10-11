@@ -15,7 +15,11 @@ implemented. Deviations from the text: the two engine functions are only bound f
 on 1.5.97 PGLite stays disabled with a notice until their SE IDs are known. `PGPlugin` keeps its static interface
 and the runtime provides its own implementation unit (`PGLite/src/PGPluginRuntime.cpp`) instead of a virtual
 interface. Texture set objects are deduplicated per session rather than per family. The menu reads its input from
-the engine's input event source and draws from the swap chain's Present; no engine function is hooked.
+the engine's input event source and draws from the swap chain's Present; no engine function is hooked. The DLL
+imports two system runtimes besides Windows itself: `d3dcompiler_47.dll` (a Windows component; the Dear ImGui
+DirectX 11 backend compiles its two shaders at startup) and `vcomp140.dll` (the OpenMP runtime of the Visual
+C++ redistributable the game needs anyway, pulled in by DirectXTex as in the offline PGLib). The offline
+binaries no longer import the shader compiler.
 
 ## 1. What PGLite is
 

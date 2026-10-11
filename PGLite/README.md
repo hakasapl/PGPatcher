@@ -16,6 +16,8 @@ dynamic cubemap texture). Requirements:
 - No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) and no Auto Parallax.
   PGLite disables itself with an in-game notice when it finds one of them.
 - Community Shaders for complex material and True PBR, as with the offline program.
+- The Visual C++ 2015-2022 redistributable the game itself needs (`vcomp140.dll`) and `d3dcompiler_47.dll`,
+  which is part of Windows; everything else is linked into `PGLite.dll`.
 
 The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F10 by default). Settings live
 in `SKSE\Plugins\PGLite\settings.json` with the same keys as the offline `params`, so a settings file can be copied
