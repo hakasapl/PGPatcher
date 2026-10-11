@@ -398,9 +398,10 @@ std::optional<TestUtil::PluginBuilder::ObjectBounds> objectBoundsOf(const std::f
 }
 
 /**
- * @brief A game whose master has a record for every outcome of the object bounds, and the meshes they use: the stone and
- * the wood are patched (the stone is used by a static and an activator, the wood by a tree), the plain mesh is not
- * (a tree, grass and a static use it; grass is never patched, which is why its bounds are taken from the original mesh). Every shape sits away from the origin, so the bounds are recognizable.
+ * @brief A game whose master has a record for every outcome of the object bounds, and the meshes they use: the stone
+ * and the wood are patched (the stone is used by a static and an activator, the wood by a tree), the plain mesh is not
+ * (a tree, grass and a static use it; grass is never patched, which is why its bounds are taken from the original
+ * mesh). Every shape sits away from the origin, so the bounds are recognizable.
  */
 class PGPatcherObjectBoundsTest : public ::testing::Test {
 protected:

@@ -620,8 +620,7 @@ TEST_F(PGPluginTest,
        SetObjectBoundsAndSetModelUsesShareTheOverriddenRecord)
 {
     const PGTypes::ObjectBounds bounds { .min = { -10, -5, 0 }, .max = { 10, 5, 20 } };
-    PGPlugin::setModelUses(
-        { resultFor(masterKey(treeFormID), L"meshes\\_pgpatcher_dups\\1\\landscape\\tree.nif") });
+    PGPlugin::setModelUses({ resultFor(masterKey(treeFormID), L"meshes\\_pgpatcher_dups\\1\\landscape\\tree.nif") });
     PGPlugin::setObjectBounds({ boundsResultFor(masterKey(treeFormID), bounds) });
 
     const auto out = m_fake.gameDir() / L"Output";
