@@ -239,7 +239,8 @@ patch determines is applied for every use of the family, not only the requested 
   swap application (`sub_1401ED800`) skips, so no array is resized.
 - Texture sets: every alternate texture whose patched slots differ from the TXST becomes a `BGSTextureSet` created
   through the form factory and left unregistered (form ID 0, not in the form map, never saved, never purged with the
-  save's dynamic forms), carrying the eight paths only, as the offline records do (`PGMutagen.cs:1230-1241`),
+  save's dynamic forms; the factory's constructor assigns the next dynamic form ID and inserts the form into the
+  global map, verified in the 1.7.99 database, which PGLite undoes right after creation), carrying the eight paths only, as the offline records do (`PGMutagen.cs:1230-1241`),
   deduplicated per family by its eight lower cased strings (case sensitive dedupe, case insensitive "unchanged" test,
   as `PGMutagen.cs:1194-1212`), and the entry's texture set pointer is repointed to it. The swap needs only the
   pointer. The eight strings are written in record order through the engine's slot mapping (below) without the

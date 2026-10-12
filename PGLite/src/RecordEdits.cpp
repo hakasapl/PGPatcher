@@ -22,14 +22,10 @@ namespace {
 
 /// @brief The record index (TX00 to TX07) of every NIF texture slot, see Uses::textureSet().
 constexpr std::array<RE::BSTextureSet::Texture, 8> recordTextureOfSlot {
-    RE::BSTextureSet::Texture::kDiffuse,
-    RE::BSTextureSet::Texture::kNormal,
-    RE::BSTextureSet::Texture::kGlowMap,
-    RE::BSTextureSet::Texture::kHeight,
-    RE::BSTextureSet::Texture::kEnvironment,
-    RE::BSTextureSet::Texture::kEnvironmentMask,
-    RE::BSTextureSet::Texture::kMultilayer,
-    RE::BSTextureSet::Texture::kBacklightMask,
+    RE::BSTextureSet::Texture::kDiffuse,     RE::BSTextureSet::Texture::kNormal,
+    RE::BSTextureSet::Texture::kGlowMap,     RE::BSTextureSet::Texture::kHeight,
+    RE::BSTextureSet::Texture::kEnvironment, RE::BSTextureSet::Texture::kEnvironmentMask,
+    RE::BSTextureSet::Texture::kMultilayer,  RE::BSTextureSet::Texture::kBacklightMask,
 };
 
 constexpr std::wstring_view meshesPrefix = L"meshes\\";
@@ -114,8 +110,20 @@ RE::BGSTextureSet* TextureSetFactory::textureSet(const PGTypes::TextureSet& text
         set->SetTexturePath(recordTextureOfSlot.at(slot), path.c_str());
     }
 
+    // The constructor the factory runs gives the form the next dynamic form ID and puts it into the global form map
+    // (TESForm's constructor, 1.7.99), which is where a save load would meet it. The set is unregistered again, as
+    // DESIGN.md 4.4 requires: no form ID, no map entry, never saved, never purged. The swap needs the pointer only.
+    const auto formID = set->GetFormID();
+    if (formID) {
+        const auto [forms, formsLock] = RE::TESForm::GetAllForms();
+        const RE::BSWriteLockGuard guard { formsLock.get() };
+        if (forms)
+            forms->erase(formID);
+    }
+    set->formID = 0;
+
     if (m_sets.empty())
-        Logger::debug("Created the first texture set record (form ID {:08X})", set->GetFormID());
+        Logger::debug("Created the first texture set record (form ID {:08X} before unregistering it)", formID);
 
     m_sets.emplace(std::move(key), set);
     return set;
