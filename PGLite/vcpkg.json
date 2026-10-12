@@ -25,6 +25,7 @@
     "rapidcsv",
     "rsm-bsa",
     "simpleini",
+    "stb",
     {
       "name": "spdlog",
       "features": [

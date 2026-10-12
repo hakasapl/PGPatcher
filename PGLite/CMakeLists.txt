@@ -144,6 +144,18 @@ target_include_directories(PGLibRuntime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/sha
 #
 # The plugin
 #
+find_path(STB_INCLUDE_DIRS "stb_image.h")
+if(NOT STB_INCLUDE_DIRS)
+  message(FATAL_ERROR "stb_image.h was not found (vcpkg port stb)")
+endif()
+
+# The running animation of the offline launcher, embedded as a byte array so the DLL needs no file next to it.
+set(PG_RUNNING_GIF "${CMAKE_CURRENT_SOURCE_DIR}/../PGPatcher/resources/runningparallaxgen.gif")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PG_RUNNING_GIF}")
+file(READ "${PG_RUNNING_GIF}" PG_RUNNING_GIF_HEX HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," PG_RUNNING_GIF_BYTES "${PG_RUNNING_GIF_HEX}")
+configure_file(include/RunningGif.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/RunningGif.h" @ONLY)
+
 file(GLOB_RECURSE PGLITE_HEADERS CONFIGURE_DEPENDS include/*.hpp include/*.h)
 file(GLOB_RECURSE PGLITE_SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
@@ -169,5 +181,6 @@ target_compile_definitions(PGLite PRIVATE
   PG_VERSION_PATCH=${PG_VERSION_PATCH}
 )
 target_precompile_headers(PGLite PRIVATE include/PCH.h)
-target_include_directories(PGLite PRIVATE include ${SIMPLEINI_INCLUDE_DIRS})
+target_include_directories(PGLite PRIVATE include "${CMAKE_CURRENT_BINARY_DIR}/generated" ${SIMPLEINI_INCLUDE_DIRS}
+  ${STB_INCLUDE_DIRS})
 target_link_libraries(PGLite PRIVATE CommonLibSSE::CommonLibSSE PGLibRuntime imgui::imgui)

@@ -80,6 +80,7 @@ Settings::Ini Settings::readIni()
     ini.logLevel = Logging::levelFromString(file.GetValue(iniSection, "sLogLevel", "info"));
     ini.shouldExcludeFacegens = file.GetBoolValue(iniSection, "bExcludeFacegens", false);
     ini.shouldDisableDynamicCubemap = file.GetBoolValue(iniSection, "bDisableDynamicCubemap", false);
+    ini.shouldShowLoadingMessage = file.GetBoolValue(iniSection, "bShowLoadingMessage", true);
     ini.loadSaveAtStart = file.GetValue(debugSection, "sLoadSaveAtStart", "");
     ini.shouldOpenMenuAtStart = file.GetBoolValue(debugSection, "bOpenMenuAtStart", false);
     ini.shouldApplyAtStart = file.GetBoolValue(debugSection, "bApplyAtStart", false);
@@ -114,6 +115,33 @@ bool Settings::writeParams(const PGParams& params)
 
     try {
         params.writeJSON(settings["params"]);
+        FileUtil::saveJSON(settingsFile(), settings, true);
+    } catch (const std::exception& e) {
+        Logger::error("Unable to write settings.json: {}", e.what());
+        return false;
+    }
+
+    return true;
+}
+
+bool Settings::readIsEnabled()
+{
+    nlohmann::json settings;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.contains("pglite") || !settings["pglite"].is_object())
+        return true;
+
+    const auto& pglite = settings["pglite"];
+    return !pglite.contains("enabled") || !pglite["enabled"].is_boolean() || pglite["enabled"].get<bool>();
+}
+
+bool Settings::writeIsEnabled(bool isEnabled)
+{
+    nlohmann::json settings;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.is_object())
+        settings = nlohmann::json::object();
+
+    try {
+        settings["pglite"]["enabled"] = isEnabled;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
         Logger::error("Unable to write settings.json: {}", e.what());

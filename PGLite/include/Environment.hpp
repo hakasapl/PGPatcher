@@ -49,6 +49,15 @@ public:
                     CMCache& cmCache,
                     const std::function<void(const char*)>& reportStage = { });
 
+    /**
+     * @brief Gives a mod manager built outside the environment what the classification and the runtime give the
+     * installed one: the shaders of every mod from the classified textures and the TruePBR configs of the directory,
+     * and which mods own a mesh with uses. The menu's live mod list uses it.
+     */
+    static void attributeMods(PGModManager& modManager,
+                              PGDirectory& directory,
+                              const Uses& uses);
+
     [[nodiscard]] const PGParams& params() const { return m_params; }
     [[nodiscard]] const Settings::Ini& ini() const { return m_ini; }
     [[nodiscard]] PGDirectory* directory() const { return m_directory.get(); }

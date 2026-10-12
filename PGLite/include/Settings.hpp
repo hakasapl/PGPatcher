@@ -28,6 +28,8 @@ public:
         bool shouldExcludeFacegens = false;
         /// @brief Whether complex material shapes keep their cubemap (--no-dyn-cubemap offline).
         bool shouldDisableDynamicCubemap = false;
+        /// @brief Whether "Loading PGLite" and the step show in the top right corner while PGLite initializes.
+        bool shouldShowLoadingMessage = true;
         /// @brief A development aid: the save (file name without extension) loaded when the main menu opens.
         std::string loadSaveAtStart;
         /// @brief A development aid: open the menu once the runtime is ready, without the hotkey.
@@ -72,6 +74,16 @@ public:
      * @return false if the file could not be written (logged).
      */
     static bool writeParams(const PGParams& params);
+
+    /// @brief Whether PGLite is enabled, the "pglite" object of settings.json. A missing file or key means enabled.
+    [[nodiscard]] static bool readIsEnabled();
+
+    /**
+     * @brief Writes the enabled flag into the "pglite" object of settings.json, keeping everything else in the file.
+     *
+     * @return false if the file could not be written (logged).
+     */
+    static bool writeIsEnabled(bool isEnabled);
 
     /**
      * @brief Reads modrules.json.

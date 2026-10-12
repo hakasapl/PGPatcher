@@ -37,6 +37,8 @@ public:
     struct Status {
         bool isActive = false;
         bool isReady = false;
+        /// @brief The toggle of the status page: false means every stream serves the original mesh.
+        bool isEnabled = true;
         std::optional<std::string> disableReason;
         std::size_t uses = 0;
         std::size_t usedMeshes = 0;
@@ -78,6 +80,9 @@ public:
     /// @brief Whether the background initialization finished, so patches can run.
     [[nodiscard]] bool isReady() const { return m_isReady; }
 
+    /// @brief The toggle of the status page, persisted in settings.json. Any thread.
+    [[nodiscard]] bool isEnabled() const { return m_isEnabled; }
+
     /// @brief The generation of the current plan; deferred record edits of an older plan do nothing.
     [[nodiscard]] unsigned planGeneration() const { return m_planGeneration; }
 
@@ -95,9 +100,12 @@ public:
      * worker thread while the game's main thread waits inside Present, so no 3D is built while the records change;
      * blocks until in-flight patches finished.
      *
+     * @param isEnabled false restores the records and installs an empty plan instead, so every stream serves the
+     * original mesh until the next apply with true.
      * @return false if PGLite is not ready.
      */
-    bool apply(const PGParams& params);
+    bool apply(const PGParams& params,
+               bool isEnabled);
 
     // PatchStream::Provider.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
@@ -181,6 +189,7 @@ private:
 
     std::atomic<bool> m_isActive { false };
     std::atomic<bool> m_isReady { false };
+    std::atomic<bool> m_isEnabled { true };
     std::atomic<const char*> m_stage { nullptr };
     std::atomic<bool> m_didLoadSaveAtStart { false };
     std::mutex m_readyMutex;

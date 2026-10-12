@@ -272,6 +272,43 @@ void Environment::classifyTextures(CMCache& cmCache)
                  cmCache.size() - cachedBefore);
 }
 
+void Environment::attributeMods(PGModManager& modManager,
+                                PGDirectory& directory,
+                                const Uses& uses)
+{
+    // The shader a classified texture gives its mod, as PGDirectory::updateTextureType does during classification.
+    for (const auto& [path, file] : directory.fileMap()) {
+        const auto& native = path.native();
+        if (!native.starts_with(L"textures\\") || !native.ends_with(L".dds"))
+            continue;
+
+        auto shader = PGEnums::ShapeShader::None;
+        switch (directory.textureType(path)) {
+        case PGEnums::TextureType::Height:
+            shader = PGEnums::ShapeShader::VanillaParallax;
+            break;
+        case PGEnums::TextureType::ComplexMaterial:
+            shader = PGEnums::ShapeShader::ComplexMaterial;
+            break;
+        default:
+            break;
+        }
+        modManager.addShaderToModByFile(path, shader);
+    }
+    for (const auto& json : directory.pbrJSONs())
+        modManager.addShaderToModByFile(json, PGEnums::ShapeShader::TruePBR);
+
+    // A mod has meshes when it owns a mesh with uses (initializeModManager).
+    for (const auto& [path, recordUses] : uses.byPath()) {
+        const auto mod = modManager.modByFile(path);
+        if (!mod)
+            continue;
+
+        const std::unique_lock lock(mod->mutex);
+        mod->hasMeshes = true;
+    }
+}
+
 std::vector<std::wstring> Environment::engineArchiveOrder()
 {
     std::vector<std::wstring> candidates;

@@ -4,9 +4,11 @@
 
 #include "Environment.hpp"
 #include "Logging.hpp"
+#include "PGDirectory.hpp"
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
 #include "PGPlugin.hpp"
+#include "RunningGif.h"
 #include "Runtime.hpp"
 #include "Settings.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -340,6 +342,8 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
     platformIO.Platform_GetClipboardTextFn = &clipboardText;
     platformIO.Platform_SetClipboardTextFn = &setClipboardText;
     m_gameWindow = desc.OutputWindow;
+    m_uiScale = scale;
+    m_runningImage.load(EmbeddedImages::runningGif, EmbeddedImages::runningGifSize, *m_device.Get());
 
     if (!ImGui_ImplDX11_Init(m_device.Get(), m_context.Get())) {
         ImGui::DestroyContext();
@@ -375,14 +379,18 @@ void Menu::render(IDXGISwapChain* swapChain)
         // A development aid (PGLite.ini [Debug] bApplyAtStart): Apply and its progress frames without a click.
         m_didAutoApply = true;
         Logger::debug("Applying at start (bApplyAtStart)");
-        startApply();
+        startApply(m_runtime->isEnabled());
     }
 
     if (m_didFailInitialization || !swapChain)
         return;
 
+    // The loading message needs a frame while the menu is closed.
+    const bool shouldShowLoading = !m_isOpen && m_runtime->ini().shouldShowLoadingMessage && m_runtime->isActive()
+        && !m_runtime->isReady() && !m_runtime->disableReason();
+
     try {
-        if (!m_isInitialized && m_isOpen && !initialize(swapChain)) {
+        if (!m_isInitialized && (m_isOpen || shouldShowLoading) && !initialize(swapChain)) {
             m_didFailInitialization = true;
             Logger::error("The menu could not initialize Dear ImGui on the game's device");
             m_isOpen = false;
@@ -391,7 +399,7 @@ void Menu::render(IDXGISwapChain* swapChain)
 
         // The hotkey and, while open, the mouse and keys queued by the input threads.
         drainInput();
-        if (!m_isOpen)
+        if (!m_isOpen && !shouldShowLoading)
             return;
         if (!m_isInitialized && !initialize(swapChain)) {
             m_didFailInitialization = true;
@@ -676,29 +684,88 @@ void Menu::loadState()
 
     m_mo2InstanceDir = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
 
+    // The mod list follows the settings as edited (rebuildModList).
     m_mods.clear();
-    if (auto* const environment = m_runtime->isReady() ? m_runtime->environment() : nullptr) {
-        if (auto* const modManager = environment->modManager()) {
-            for (const auto& mod : modManager->modsByPriority()) {
-                const std::shared_lock lock(mod->mutex);
-                if (mod->shaders.empty() && !mod->hasMeshes)
-                    continue;
-
-                m_mods.push_back({ .name = mod->name,
-                                   .displayName = StringUtil::utf16toUTF8(mod->name),
-                                   .shaders = shaderNames(mod->shaders),
-                                   .isEnabled = mod->isEnabled,
-                                   .areMeshesIgnored = mod->areMeshesIgnored,
-                                   .hasMeshes = mod->hasMeshes,
-                                   .isNew = mod->isNew });
-            }
-        }
-    }
+    m_previewModManager.reset();
+    m_modListSignature.clear();
+    m_modListMessage.clear();
 
     m_isStateLoaded = true;
 }
 
-void Menu::startApply()
+void Menu::rebuildModList()
+{
+    const auto type = m_params.modManager.type;
+    const bool isMO2 = type == PGModManager::ModManagerType::ModOrganizer2;
+    const auto signature = std::format(
+        "{}|{}|{}", static_cast<int>(type), m_mo2InstanceDir, m_params.modManager.shouldUseMO2LooseFileOrder);
+    if (signature == m_modListSignature)
+        return;
+
+    m_modListSignature = signature;
+    m_mods.clear();
+    m_previewModManager.reset();
+    m_modListMessage.clear();
+    if (type == PGModManager::ModManagerType::None) {
+        m_modListMessage = "Without a mod manager there is no mod list to sort.";
+        return;
+    }
+
+    auto manager = std::make_unique<PGModManager>(type);
+    try {
+        nlohmann::json rules;
+        if (Settings::readModRules(rules))
+            manager->loadJSON(rules);
+
+        if (isMO2) {
+            // The checks of the offline launcher, with its messages.
+            const std::filesystem::path dir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
+            std::error_code ec;
+            if (dir.empty()) {
+                m_modListMessage = "MO2 Instance Location is required";
+                return;
+            }
+            if (!std::filesystem::exists(dir, ec)) {
+                m_modListMessage = "MO2 Instance Location does not exist";
+                return;
+            }
+            if (!PGModManager::isValidMO2InstanceDir(dir)) {
+                m_modListMessage = "MO2 Instance Location is not valid. Verify modorganizer.ini exists in the "
+                                   "directory.";
+                return;
+            }
+            manager->populateModFileMapMO2(dir, { });
+        } else {
+            manager->populateModFileMapVortex(Settings::dataFolder());
+        }
+
+        auto* const environment = m_runtime->environment();
+        if (environment && environment->directory())
+            Environment::attributeMods(*manager, *environment->directory(), m_runtime->uses());
+        manager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
+    } catch (const std::exception& e) {
+        Logger::error("The mod list could not be built: {}", e.what());
+        m_modListMessage = std::format("The mod list could not be built: {}", e.what());
+        return;
+    }
+
+    for (const auto& mod : manager->modsByPriority()) {
+        const std::shared_lock lock(mod->mutex);
+        if (mod->shaders.empty() && !mod->hasMeshes)
+            continue;
+
+        m_mods.push_back({ .name = mod->name,
+                           .displayName = StringUtil::utf16toUTF8(mod->name),
+                           .shaders = shaderNames(mod->shaders),
+                           .isEnabled = mod->isEnabled,
+                           .areMeshesIgnored = mod->areMeshesIgnored,
+                           .hasMeshes = mod->hasMeshes,
+                           .isNew = mod->isNew });
+    }
+    m_previewModManager = std::move(manager);
+}
+
+void Menu::startApply(bool isEnabled)
 {
     // The file holds every parameter with its full lists, as the offline program writes it.
     PGParams params = m_params;
@@ -715,39 +782,37 @@ void Menu::startApply()
     }
     params.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
 
-    if (!Settings::writeParams(params)) {
+    if (!Settings::writeParams(params) || !Settings::writeIsEnabled(isEnabled)) {
         m_applyMessage = "The settings could not be written, see the log.";
         return;
     }
 
     // The mod rules: the displayed mods as ordered and set here, every other mod as it was.
-    if (auto* const environment = m_runtime->environment()) {
-        if (auto* const modManager = environment->modManager()) {
-            auto rules = modManager->json();
-            int priority
-                = static_cast<int>(std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isEnabled; }));
-            for (const auto& row : m_mods) {
-                auto& rule = rules[row.displayName];
-                rule["priority"] = row.isEnabled ? priority-- : -1;
-                rule["enabled"] = row.isEnabled;
-                rule["meshesignored"] = row.areMeshesIgnored;
-            }
+    if (m_previewModManager) {
+        auto rules = m_previewModManager->json();
+        int priority = static_cast<int>(std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isEnabled; }));
+        for (const auto& row : m_mods) {
+            auto& rule = rules[row.displayName];
+            rule["priority"] = row.isEnabled ? priority-- : -1;
+            rule["enabled"] = row.isEnabled;
+            rule["meshesignored"] = row.areMeshesIgnored;
+        }
 
-            if (!Settings::writeModRules(rules)) {
-                m_applyMessage = "The mod rules could not be written, see the log.";
-                return;
-            }
+        if (!Settings::writeModRules(rules)) {
+            m_applyMessage = "The mod rules could not be written, see the log.";
+            return;
         }
     }
 
     // The runtime's apply runs on a worker thread; Present shows the progress until it is done (renderApplyFrame).
     m_applyMessage.clear();
+    m_applyIsEnabled = isEnabled;
     m_isApplyDone = false;
     m_didApplySucceed = false;
     m_applyStart = std::chrono::steady_clock::now();
     m_isApplying = true;
-    m_applyThread = std::thread([this, params] {
-        m_didApplySucceed = m_runtime->apply(params);
+    m_applyThread = std::thread([this, params, isEnabled] {
+        m_didApplySucceed = m_runtime->apply(params, isEnabled);
         m_isApplyDone = true;
     });
 }
@@ -758,23 +823,32 @@ void Menu::finishApply()
         m_applyThread.join();
 
     const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
-    m_applyMessage = m_didApplySucceed
-        ? std::format("Applied in {:.1f} s. Meshes loaded from now on use the new settings; resident models change "
-                      "when the game reloads them.",
-                      seconds)
-        : "Apply failed, see the log.";
+    if (!m_didApplySucceed)
+        m_applyMessage = "Apply failed, see the log.";
+    else if (m_applyIsEnabled)
+        m_applyMessage = std::format("Applied in {:.1f} s. Meshes loaded from now on use the new settings; resident "
+                                     "models change when the game reloads them.",
+                                     seconds);
+    else
+        m_applyMessage = std::format("PGLite is disabled ({:.1f} s). Meshes loaded from now on are the originals; "
+                                     "resident models change when the game reloads them.",
+                                     seconds);
     m_isStateLoaded = false;
 }
 
 void Menu::draw()
 {
+    drawLoadingMessage();
+    if (!m_isOpen)
+        return;
+
     if (!m_isStateLoaded)
         loadState();
     pollPickedFolder();
 
     const auto& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.6F, io.DisplaySize.y * 0.7F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.2F, io.DisplaySize.y * 0.15F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.5F, io.DisplaySize.y * 0.6F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.25F, io.DisplaySize.y * 0.2F), ImGuiCond_FirstUseEver);
 
     // No close button while Apply runs; the hotkey and Escape are ignored then too (applyInput).
     // The version in the title, as the offline launcher window; the part after ### keeps the window's identity.
@@ -796,7 +870,9 @@ void Menu::draw()
     }
 
     ImGui::BeginDisabled(m_isApplying);
-    if (ImGui::BeginTabBar("pages")) {
+    // The pages fill the window above the Apply row, which every page shares.
+    const auto applyRowHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
+    if (ImGui::BeginChild("pages", ImVec2(0, -applyRowHeight)) && ImGui::BeginTabBar("pages")) {
         if (ImGui::BeginTabItem("Status")) {
             drawStatus();
             ImGui::EndTabItem();
@@ -805,12 +881,8 @@ void Menu::draw()
             drawPatchers();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Mod Manager")) {
-            drawModManager();
-            ImGui::EndTabItem();
-        }
         if (ImGui::BeginTabItem("Conflict Manager")) {
-            drawMods();
+            drawConflictManager();
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Allowed Record Types")) {
@@ -831,11 +903,52 @@ void Menu::draw()
         }
         ImGui::EndTabBar();
     }
+    ImGui::EndChild();
+    drawApplyRow();
     ImGui::EndDisabled();
     ImGui::End();
 
     if (!isOpen)
         close();
+}
+
+void Menu::drawApplyRow()
+{
+    ImGui::Separator();
+    const bool canApply = m_runtime->isActive() && m_runtime->isReady() && !m_runtime->disableReason();
+    ImGui::BeginDisabled(!canApply);
+    if (ImGui::Button("Apply"))
+        startApply(m_runtime->isEnabled());
+    ImGui::EndDisabled();
+    ImGui::SetItemTooltip("Saves every page to settings.json and modrules.json and plans the meshes again. Meshes "
+                          "loaded from then on use the new settings; models the game already holds keep their state "
+                          "until it reloads them.");
+    ImGui::SameLine();
+    if (ImGui::Button("Discard Changes"))
+        m_isStateLoaded = false;
+    if (!m_applyMessage.empty()) {
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s", m_applyMessage.c_str());
+    }
+}
+
+void Menu::drawLoadingMessage()
+{
+    if (!m_runtime->ini().shouldShowLoadingMessage || !m_runtime->isActive() || m_runtime->isReady()
+        || m_runtime->disableReason())
+        return;
+
+    const auto& io = ImGui::GetIO();
+    const auto margin = 16 * m_uiScale;
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - margin, margin), ImGuiCond_Always, ImVec2(1, 0));
+    ImGui::SetNextWindowBgAlpha(0.6F);
+    constexpr auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav
+        | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
+    if (ImGui::Begin("##loading", nullptr, flags)) {
+        const auto* const stage = m_runtime->stage();
+        ImGui::Text("Loading PGLite: %s", stage ? stage : "starting");
+    }
+    ImGui::End();
 }
 
 void Menu::drawStatus()
@@ -847,15 +960,37 @@ void Menu::drawStatus()
     }
 
     const auto status = m_runtime->status();
-    if (status.disableReason)
+    if (status.disableReason) {
         ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "Disabled because %s.", status.disableReason->c_str());
-    else if (!status.isActive)
+    } else if (!status.isActive) {
         ImGui::TextUnformatted("Waiting for the game data.");
-    else if (!status.isReady)
+    } else if (!status.isReady) {
         ImGui::Text("Initializing: %s.",
                     status.stage ? status.stage : "the texture maps and the mod list are being built");
-    else
+    } else if (!status.isEnabled) {
+        ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "Disabled.");
+    } else if (m_runningImage.isLoaded()) {
+        // The running animation of the offline launcher next to the status, the text centered on it.
+        const auto imageSize = ImVec2(m_runningImage.size().x * m_uiScale, m_runningImage.size().y * m_uiScale);
+        const auto lineStart = ImGui::GetCursorPosY();
+        ImGui::SetCursorPosY(lineStart + (imageSize.y - ImGui::GetTextLineHeight()) / 2);
         ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "Active.");
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(lineStart);
+        ImGui::Image(m_runningImage.frame(), imageSize);
+    } else {
+        ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "Active.");
+    }
+
+    if (status.isActive && status.isReady && !status.disableReason) {
+        if (ImGui::Button(status.isEnabled ? "Disable PGLite" : "Enable PGLite"))
+            startApply(!status.isEnabled);
+        ImGui::SetItemTooltip(status.isEnabled
+                                  ? "Meshes loaded from then on are the originals; the setting is kept for the next "
+                                    "game start."
+                                  : "Meshes loaded from then on are patched again; the setting is kept for the next "
+                                    "game start.");
+    }
 
     ImGui::Separator();
     ImGui::Text("Record model uses: %zu, naming %zu distinct meshes", status.uses, status.usedMeshes);
@@ -879,23 +1014,6 @@ void Menu::drawStatus()
                           "record's set, like the offline plugin records.");
     if (!status.mo2Instance.empty())
         ImGui::Text("Mod Organizer 2 instance: %s", StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
-
-    ImGui::Separator();
-    ImGui::TextWrapped("Apply saves every page to settings.json and modrules.json and plans the meshes again. Meshes "
-                       "loaded from then on use the new settings; models the game already holds keep their current "
-                       "state until it reloads them.");
-    const bool canApply = status.isActive && status.isReady && !status.disableReason;
-    ImGui::BeginDisabled(!canApply);
-    if (ImGui::Button("Apply"))
-        startApply();
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (ImGui::Button("Discard Changes"))
-        m_isStateLoaded = false;
-    if (!m_applyMessage.empty()) {
-        ImGui::SameLine();
-        ImGui::TextWrapped("%s", m_applyMessage.c_str());
-    }
 }
 
 void Menu::drawPatchers()
@@ -1044,7 +1162,7 @@ void Menu::drawTextureRules()
     }
 }
 
-void Menu::drawModManager()
+void Menu::drawConflictManager()
 {
     // The choices of the offline launcher: the type names of PGModManager, "None" with its suffix.
     const auto types = PGModManager::modManagerTypes();
@@ -1065,8 +1183,8 @@ void Menu::drawModManager()
     if (ImGui::Combo("Mod Manager", &current, labelPointers.data(), static_cast<int>(labelPointers.size())))
         m_params.modManager.type = types.at(static_cast<std::size_t>(current));
 
-    if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
-        ImGui::SeparatorText("MO2 Options");
+    const bool isMO2 = m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2;
+    if (isMO2) {
         ImGui::TextUnformatted("Instance Location");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-(buttonWidth(browseLabel) + ImGui::GetStyle().ItemSpacing.x));
@@ -1075,25 +1193,27 @@ void Menu::drawModManager()
         ImGui::SameLine();
         if (ImGui::Button(browseLabel))
             browseForFolder(mo2InstanceDialogTitle);
+        ImGui::Checkbox("Lock to MO2 Loose File Order", &m_params.modManager.shouldUseMO2LooseFileOrder);
+        ImGui::SetItemTooltip("Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts are "
+                              "not the same as loose file conflicts.");
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
         ImGui::TextWrapped("The Vortex deployment manifest of the data folder is read.");
     }
-}
+    ImGui::Separator();
 
-void Menu::drawMods()
-{
     if (!m_runtime->isReady()) {
         ImGui::TextUnformatted("The mod list is available once the initialization finished.");
         return;
     }
 
-    ImGui::TextWrapped("Please sort your mods to determine what mod PGPatcher uses to patch meshes where.");
-    const bool isMO2 = m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2;
-    if (isMO2) {
-        ImGui::Checkbox("Lock to MO2 Loose File Order", &m_params.modManager.shouldUseMO2LooseFileOrder);
-        ImGui::SetItemTooltip("Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts are "
-                              "not the same as loose file conflicts.");
+    // The list follows the settings above as they are edited.
+    rebuildModList();
+    if (!m_modListMessage.empty()) {
+        ImGui::TextWrapped("%s", m_modListMessage.c_str());
+        return;
     }
+
+    ImGui::TextWrapped("Please sort your mods to determine what mod PGPatcher uses to patch meshes where.");
     const bool canReorder = !(isMO2 && m_params.modManager.shouldUseMO2LooseFileOrder);
     if (canReorder)
         ImGui::TextWrapped("Drag a mod onto another one to move it there.");
@@ -1119,6 +1239,7 @@ void Menu::drawMods()
 
         ImGui::TableNextColumn();
         const auto label = row.isNew ? row.displayName + " (new)" : row.displayName;
+        const auto* const shaders = row.shaders.empty() ? (row.hasMeshes ? "meshes only" : "") : row.shaders.c_str();
         // The selectable is as tall as the checkbox next to it, and the drop target covers the whole row including
         // the cell padding, so the rows leave no gap a mod cannot be dropped on.
         ImGui::Selectable(label.c_str(),
@@ -1130,12 +1251,19 @@ void Menu::drawMods()
         rowRect.Min.y -= rowPadding;
         rowRect.Max.y += rowPadding;
         if (canReorder) {
+            // The ghost that follows the cursor shows the row as it is in the list, a little translucent.
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.85F);
             if (ImGui::BeginDragDropSource()) {
                 const int index = static_cast<int>(i);
                 ImGui::SetDragDropPayload("PGLITE_MOD", &index, sizeof(index));
-                ImGui::TextUnformatted(row.displayName.c_str());
+                ImGui::TextUnformatted(label.c_str());
+                if (*shaders) {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("%s", shaders);
+                }
                 ImGui::EndDragDropSource();
             }
+            ImGui::PopStyleVar();
             if (ImGui::BeginDragDropTargetCustom(rowRect, ImGui::GetID("drop"))) {
                 if (const auto* const payload = ImGui::AcceptDragDropPayload("PGLITE_MOD")) {
                     moveFrom = *static_cast<const int*>(payload->Data);
@@ -1146,7 +1274,7 @@ void Menu::drawMods()
         }
 
         ImGui::TableNextColumn();
-        ImGui::TextUnformatted(row.shaders.empty() ? (row.hasMeshes ? "meshes only" : "") : row.shaders.c_str());
+        ImGui::TextUnformatted(shaders);
 
         ImGui::TableNextColumn();
         ImGui::Checkbox("##ignored", &row.areMeshesIgnored);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Gif.hpp"
+#include "PGModManager.hpp"
 #include "PGParams.hpp"
 
 #include <atomic>
@@ -7,6 +9,7 @@
 #include <cstdint>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -108,8 +111,15 @@ private:
     void loadState();
 
     /// @brief Writes the settings and the mod rules, then starts the runtime's apply on the worker thread.
-    void startApply();
+    void startApply(bool isEnabled);
     void finishApply();
+
+    /**
+     * @brief Builds the mod list from the mod manager settings as edited, when they changed: the mod manager is
+     * read, the mods get their shaders and meshes from the runtime's environment, and the shared ordering numbers
+     * them, so the list is the one the next apply installs.
+     */
+    void rebuildModList();
 
     void draw();
     void drawStatus();
@@ -117,9 +127,14 @@ private:
     void drawRecordTypes();
     void drawMeshRules();
     void drawTextureRules();
-    void drawModManager();
-    void drawMods();
+    void drawConflictManager();
     void drawMessages();
+
+    /// @brief Apply and Discard Changes, under every page.
+    void drawApplyRow();
+
+    /// @brief "Loading PGLite" in the top right corner while the runtime initializes (PGLite.ini bShowLoadingMessage).
+    void drawLoadingMessage();
 
     /// @brief Draws an editable list of strings with remove buttons and an add row.
     static void drawStringList(const char* id,
@@ -157,6 +172,8 @@ private:
     float m_mouseX = 0;
     float m_mouseY = 0;
     HWND m_gameWindow = nullptr;
+    float m_uiScale = 1;
+    AnimatedImage m_runningImage;
     std::mutex m_pickerMutex;
     bool m_isPickerOpen = false;
     std::optional<std::string> m_pickedFolder;
@@ -166,6 +183,7 @@ private:
     std::atomic<bool> m_isApplying { false };
     std::atomic<bool> m_isApplyDone { false };
     bool m_didApplySucceed = false;
+    bool m_applyIsEnabled = true;
     std::thread m_applyThread;
     std::chrono::steady_clock::time_point m_applyStart;
     Microsoft::WRL::ComPtr<ID3D11Texture2D> m_pausedFrame;
@@ -176,6 +194,9 @@ private:
     std::vector<std::string> m_blockList;
     std::vector<TextureRule> m_textureRules;
     std::vector<ModRow> m_mods;
+    std::unique_ptr<PGModManager> m_previewModManager;
+    std::string m_modListSignature;
+    std::string m_modListMessage;
     std::string m_mo2InstanceDir;
     std::string m_newAllowEntry;
     std::string m_newBlockEntry;

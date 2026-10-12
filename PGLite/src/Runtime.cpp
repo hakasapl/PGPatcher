@@ -126,6 +126,7 @@ Runtime::Status Runtime::status() const
     Status status;
     status.isActive = m_isActive;
     status.isReady = m_isReady;
+    status.isEnabled = m_isEnabled;
     status.disableReason = disableReason();
     status.usedMeshes = m_uses.byPath().size();
     for (const auto& [path, uses] : m_uses.byPath())
@@ -189,16 +190,23 @@ void Runtime::onDataLoaded()
             m_params = Settings::readParams();
         }
 
+        m_isEnabled = Settings::readIsEnabled();
         Logger::info("Reading the record model uses");
         m_uses.build();
         m_snapshot.capture(m_uses);
         Logger::debug("Captured {} record models", m_snapshot.size());
 
         auto plan = std::make_unique<Plan>(++m_planGeneration);
-        plan->build(m_uses, params(), m_variantCounter);
-        plan->retargetRecords();
+        if (m_isEnabled) {
+            plan->build(m_uses, params(), m_variantCounter);
+            plan->retargetRecords();
+        } else {
+            // The plan stays empty and nothing is registered: the game loads its meshes as if PGLite were absent.
+            Logger::info("PGLite is disabled in settings.json; meshes stay unpatched until it is enabled in the menu");
+        }
         m_plan = std::move(plan);
-        registerPlanStreams();
+        if (m_isEnabled)
+            registerPlanStreams();
 
         m_facegenPaths = facegenPaths();
         m_isActive = true;
@@ -417,8 +425,10 @@ void Runtime::initializeInBackground()
         m_cmCache.load(Settings::cmCacheFile());
         PGRunObserver::install(&m_cmCache);
 
-        reportStage("Registering the facegen streams");
-        registerFacegenStreams();
+        if (m_isEnabled) {
+            reportStage("Registering the facegen streams");
+            registerFacegenStreams();
+        }
 
         auto environment = std::make_unique<Environment>(params(), m_ini);
         environment->initialize(m_uses, m_cmCache, reportStage);
@@ -449,7 +459,8 @@ void Runtime::waitUntilReady()
     m_readyCondition.wait(lock, [this] { return m_isReady.load(); });
 }
 
-bool Runtime::apply(const PGParams& params)
+bool Runtime::apply(const PGParams& params,
+                    bool isEnabled)
 {
     if (!m_isActive || !m_isReady || !m_plan || disableReason())
         return false;
@@ -462,6 +473,15 @@ bool Runtime::apply(const PGParams& params)
         {
             const std::scoped_lock stateLock(m_stateMutex);
             m_params = params;
+        }
+        m_isEnabled = isEnabled;
+
+        if (!isEnabled) {
+            // Every stream serves the original mesh from now on; the environment is rebuilt by the apply that enables.
+            m_plan = std::make_unique<Plan>(++m_planGeneration);
+            m_stage = nullptr;
+            Logger::info("PGLite is disabled; meshes loaded from now on are the originals");
+            return true;
         }
 
         auto environment = std::make_unique<Environment>(params, m_ini);

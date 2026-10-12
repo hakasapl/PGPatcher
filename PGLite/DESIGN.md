@@ -394,16 +394,21 @@ ImGui plugin. Pages: mod manager (type, MO2 instance location with a folder dial
 (mods with shaders or meshes as `updateStateFromModlist` numbers them, drag to reorder, enable, meshes ignored; apply
 writes `modrules.json`); patcher checkboxes (Fix Mesh Lighting, Parallax, Complex Material, True PBR, Restore
 Default Shaders, Hair Flow Map); allowed record types; mesh allow list and block list; texture rules; a status panel
-(ready state, patched family and variant counts, disable reason) and the warnings and errors collected through the
-Logger capture callback, deduplicated (weighted pair mismatches land here). English only. No conflict highlighting or
+(ready state, patched family and variant counts, disable reason, a toggle that disables PGLite through an apply
+with an empty plan and enables it through a full one, persisted in `settings.json`) and the warnings and errors
+collected through the Logger capture callback, deduplicated (weighted pair mismatches land here). The conflict
+manager page builds its mod list from the mod manager settings as edited: the mod manager is read, the mods get
+their shaders from the classified textures of the current environment and their meshes from the uses, and the
+shared ordering numbers them, so the list is the one the next apply installs. While the runtime initializes, a
+"Loading PGLite" line with the step shows in the top right corner; the ini can hide it. English only. No conflict highlighting or
 viewer, as specified.
 
 ### 4.11 Files
 
-- `Data\SKSE\Plugins\PGLite.ini`: hotkey, log level, exclude facegens, disable dynamic cubemap.
+- `Data\SKSE\Plugins\PGLite.ini`: hotkey, log level, exclude facegens, disable dynamic cubemap, loading message.
 - `Data\SKSE\Plugins\PGLite\settings.json`: the offline `params.*` keys and nesting, so settings can be copied
   between the two programs, and as there the file holds every parameter with its full lists, the defaults applying
-  only when there is no file. The serialized
+  only when there is no file, and a `pglite` object of PGLite's own (`enabled`). The serialized
   keys are never renamed.
 - `Data\SKSE\Plugins\PGLite\modrules.json`: the offline schema.
 - `Data\SKSE\Plugins\PGLite\cmcache.bin`: the complex material classification cache (4.5), the one thing PGLite
