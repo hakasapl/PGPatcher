@@ -55,12 +55,6 @@ public:
     [[nodiscard]] const std::filesystem::path& mo2InstanceDir() const { return m_mo2InstanceDir; }
 
     /**
-     * @brief The MO2 instance of the running Mod Organizer: the portable instance next to the injected usvfs DLL, or
-     * the global instance the registry names. Empty when the game was not started through MO2.
-     */
-    [[nodiscard]] static std::filesystem::path detectMO2Instance();
-
-    /**
      * @brief The archives the engine loads, in load order: the two INI lists, Update.bsa, then the archives of every
      * loaded plugin. Only archives that exist in the data folder.
      */

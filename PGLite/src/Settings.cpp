@@ -88,22 +88,21 @@ Settings::Ini Settings::readIni()
 
 PGParams Settings::readParams()
 {
-    auto params = PGParams::defaults();
-
+    // As the offline program reads its user config: the file holds every parameter with its full lists, and the
+    // defaults apply only when there is no file.
     nlohmann::json settings;
-    if (!FileUtil::getJSON(settingsFile(), settings))
-        return params;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.contains("params"))
+        return PGParams::defaults();
 
     try {
         PGParams::replaceForwardSlashes(settings);
-        if (settings.contains("params"))
-            params.readJSON(settings["params"]);
+        PGParams params;
+        params.readJSON(settings["params"]);
+        return params;
     } catch (const std::exception& e) {
         Logger::error("Unable to read settings.json, the defaults are used: {}", e.what());
         return PGParams::defaults();
     }
-
-    return params;
 }
 
 bool Settings::writeParams(const PGParams& params)

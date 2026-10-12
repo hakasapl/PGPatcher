@@ -343,9 +343,7 @@ runtime tool edits records, and that no engine default other than the climate on
 and Vortex (`vortex.deployment.json`). The file map it builds keeps entries for textures and for meshes with uses
 only. `modByFileSmart` resolves archived files through the texture map's archive name. Mod shader attribution comes
 from the texture classification, so `updateStateFromModlist` runs after it, as offline, and `hasMeshes` comes from
-the uses map (4.5), so the mod list and the priority numbers are the offline ones. The MO2 instance is auto-detected
-(the running MO2 from the injected `usvfs_x64.dll` via `mo2DirFromUSVFS`, the global instance from MO2's
-`CurrentInstance` registry value, to verify) and confirmed in the GUI rather than typed.
+the uses map (4.5), so the mod list and the priority numbers are the offline ones. The MO2 instance location is typed or picked with a folder dialog, as in the offline launcher.
 
 ### 4.8 Lifecycle and apply
 
@@ -390,7 +388,7 @@ exist yet), and the GUI stays available and states the reason.
 ### 4.10 GUI (Dear ImGui)
 
 Hotkey from the ini. Device and context from `BSGraphics::Renderer`, present and input hooks chained like every other
-ImGui plugin. Pages: mod manager (type, detected MO2 instance with confirm, MO2 loose file order) and the mod list
+ImGui plugin. Pages: mod manager (type, MO2 instance location with a folder dialog, MO2 loose file order) and the mod list
 (mods with shaders or meshes as `updateStateFromModlist` numbers them, drag to reorder, enable, meshes ignored; apply
 writes `modrules.json`); patcher checkboxes (Fix Mesh Lighting, Parallax, Complex Material, True PBR, Restore
 Default Shaders, Hair Flow Map); allowed record types; mesh allow list and block list; texture rules; a status panel
@@ -402,7 +400,8 @@ viewer, as specified.
 
 - `Data\SKSE\Plugins\PGLite.ini`: hotkey, log level, exclude facegens, disable dynamic cubemap.
 - `Data\SKSE\Plugins\PGLite\settings.json`: the offline `params.*` keys and nesting, so settings can be copied
-  between the two programs; `vanillabsalist` and the default mesh block list stay hidden defaults. The serialized
+  between the two programs, and as there the file holds every parameter with its full lists, the defaults applying
+  only when there is no file. The serialized
   keys are never renamed.
 - `Data\SKSE\Plugins\PGLite\modrules.json`: the offline schema.
 - `Data\SKSE\Plugins\PGLite\cmcache.bin`: the complex material classification cache (4.5), the one thing PGLite
@@ -549,8 +548,7 @@ This is the complete list. A difference that is not here is a bug (section 1).
 19. PGLite disables itself with a notice when an offline output or Auto Parallax is present, with a stricter check
     than offline (4.9).
 20. GUI and settings: English only; no conflict highlighting or viewer; `exclude facegens` and `disable dynamic
-    cubemap` are ini options instead of command line flags; `vanillabsalist` and the default mesh block list are
-    hidden defaults instead of editable settings; the MO2 instance is detected and confirmed instead of typed;
+    cubemap` are ini options instead of command line flags;
     Apply restores the records from a snapshot before re-planning (4.8); the log lives next to the other SKSE logs.
 
 Explicitly the same: block order of the patched mesh (sorted as offline), the weighted `_0`/`_1` layout check, the

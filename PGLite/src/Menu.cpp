@@ -22,15 +22,23 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <d3d11.h>
 #include <dxgi.h>
 #include <exception>
 #include <filesystem>
 #include <format>
+#include <mutex>
+#include <objbase.h>
+#include <optional>
 #include <shared_mutex>
+#include <shobjidl.h>
 #include <string>
+#include <thread>
+#include <tuple>
 #include <utility>
 #include <vector>
+#include <windows.h>
 
 namespace PGLite {
 
@@ -45,7 +53,12 @@ constexpr float referenceHeight = 1080;
 constexpr float fontSize = 18;
 constexpr const char* fontFile = "C:\\Windows\\Fonts\\segoeui.ttf";
 
-/// @brief The game controls the menu takes over while it is open.
+// The labels of the offline launcher (PGPatcher/translations/en.json), so both programs read the same.
+constexpr const char* addLabel = "Add";
+constexpr const char* removeLabel = "Remove";
+constexpr const char* browseLabel = "Browse";
+constexpr const char* mo2InstanceDialogTitle = "Select MO2 Instance Location";
+
 /// @brief The ImGui key of a DirectInput scan code, ImGuiKey_None for keys the menu does not use.
 ImGuiKey imguiKeyOf(std::uint32_t scanCode)
 {
@@ -262,17 +275,6 @@ std::vector<std::wstring> toUTF16(const std::vector<std::string>& strings)
     return result;
 }
 
-/// @brief The entries of a list that are not hidden defaults.
-std::vector<std::wstring> withoutDefaults(const std::vector<std::wstring>& list,
-                                          const std::vector<std::wstring>& defaults)
-{
-    std::vector<std::wstring> result;
-    for (const auto& entry : list)
-        if (std::ranges::find(defaults, entry) == defaults.end())
-            result.push_back(entry);
-    return result;
-}
-
 std::string shaderNames(const std::set<PGEnums::ShapeShader>& shaders)
 {
     std::string names;
@@ -328,6 +330,12 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
     }
     ImGui::GetStyle().ScaleAllSizes(scale);
     ImGui::StyleColorsDark();
+
+    // Ctrl+C and Ctrl+V in the text fields; the DX11 backend brings no clipboard of its own.
+    auto& platformIO = ImGui::GetPlatformIO();
+    platformIO.Platform_GetClipboardTextFn = &clipboardText;
+    platformIO.Platform_SetClipboardTextFn = &setClipboardText;
+    m_gameWindow = desc.OutputWindow;
 
     if (!ImGui_ImplDX11_Init(m_device.Get(), m_context.Get())) {
         ImGui::DestroyContext();
@@ -576,10 +584,9 @@ void Menu::close() { m_isOpen = false; }
 
 void Menu::loadState()
 {
-    const auto defaults = PGParams::defaults();
     m_params = m_runtime->params();
     m_allowList = toUTF8(m_params.processing.allowList);
-    m_blockList = toUTF8(withoutDefaults(m_params.processing.blockList, defaults.processing.blockList));
+    m_blockList = toUTF8(m_params.processing.blockList);
 
     m_textureRules.clear();
     const auto typeNames = PGEnums::texTypesStr();
@@ -591,11 +598,8 @@ void Menu::loadState()
     }
 
     m_mo2InstanceDir = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
-    m_detectedMO2Instance = StringUtil::utf16toUTF8(Environment::detectMO2Instance().wstring());
 
     m_mods.clear();
-    m_canReorderMods = !(m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
-                         && m_params.modManager.shouldUseMO2LooseFileOrder);
     if (auto* const environment = m_runtime->isReady() ? m_runtime->environment() : nullptr) {
         if (auto* const modManager = environment->modManager()) {
             for (const auto& mod : modManager->modsByPriority()) {
@@ -619,40 +623,25 @@ void Menu::loadState()
 
 void Menu::apply()
 {
-    const auto defaults = PGParams::defaults();
-
-    // The lists the file holds: the user's entries; the defaults are added back when the file is read.
-    PGParams stored = m_params;
-    stored.processing.allowList = toUTF16(m_allowList);
-    stored.processing.blockList = toUTF16(m_blockList);
-    stored.processing.vanillaBSAList
-        = withoutDefaults(m_params.processing.vanillaBSAList, defaults.processing.vanillaBSAList);
-    stored.processing.textureMaps.clear();
+    // The file holds every parameter with its full lists, as the offline program writes it.
+    PGParams params = m_params;
+    params.processing.allowList = toUTF16(m_allowList);
+    params.processing.blockList = toUTF16(m_blockList);
+    params.processing.textureMaps.clear();
     const auto typeNames = PGEnums::texTypesStr();
     for (const auto& rule : m_textureRules) {
         if (rule.path.empty() || rule.typeIndex < 0 || rule.typeIndex >= static_cast<int>(typeNames.size()))
             continue;
 
-        stored.processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(rule.path),
+        params.processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(rule.path),
                                                    PGEnums::texTypeFromStr(typeNames.at(rule.typeIndex)));
     }
-    stored.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
+    params.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
 
-    if (!Settings::writeParams(stored)) {
+    if (!Settings::writeParams(params)) {
         m_applyMessage = "The settings could not be written, see the log.";
         return;
     }
-
-    // The runtime takes the full lists.
-    PGParams runtimeParams = stored;
-    runtimeParams.processing.blockList = defaults.processing.blockList;
-    runtimeParams.processing.blockList.insert(runtimeParams.processing.blockList.end(),
-                                              stored.processing.blockList.begin(),
-                                              stored.processing.blockList.end());
-    runtimeParams.processing.vanillaBSAList = defaults.processing.vanillaBSAList;
-    runtimeParams.processing.vanillaBSAList.insert(runtimeParams.processing.vanillaBSAList.end(),
-                                                   stored.processing.vanillaBSAList.begin(),
-                                                   stored.processing.vanillaBSAList.end());
 
     // The mod rules: the displayed mods as ordered and set here, every other mod as it was.
     if (auto* const environment = m_runtime->environment()) {
@@ -674,7 +663,7 @@ void Menu::apply()
         }
     }
 
-    m_applyMessage = m_runtime->apply(runtimeParams)
+    m_applyMessage = m_runtime->apply(params)
         ? "Applied. Meshes loaded from now on use the new settings; resident models change when the game reloads them."
         : "Apply failed, see the log.";
     m_isStateLoaded = false;
@@ -684,6 +673,7 @@ void Menu::draw()
 {
     if (!m_isStateLoaded)
         loadState();
+    pollPickedFolder();
 
     const auto& io = ImGui::GetIO();
     ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.6F, io.DisplaySize.y * 0.7F), ImGuiCond_FirstUseEver);
@@ -704,7 +694,15 @@ void Menu::draw()
             drawPatchers();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Record Types")) {
+        if (ImGui::BeginTabItem("Mod Manager")) {
+            drawModManager();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Conflict Manager")) {
+            drawMods();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Allowed Record Types")) {
             drawRecordTypes();
             ImGui::EndTabItem();
         }
@@ -714,14 +712,6 @@ void Menu::draw()
         }
         if (ImGui::BeginTabItem("Texture Rules")) {
             drawTextureRules();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Mod Manager")) {
-            drawModManager();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Mods")) {
-            drawMods();
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Messages")) {
@@ -765,11 +755,11 @@ void Menu::drawStatus()
                        "state until it reloads them.");
     const bool canApply = status.isActive && status.isReady && !status.disableReason;
     ImGui::BeginDisabled(!canApply);
-    if (ImGui::Button("Apply", ImVec2(120, 0)))
+    if (ImGui::Button("Apply"))
         apply();
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("Reload", ImVec2(120, 0)))
+    if (ImGui::Button("Discard Changes"))
         m_isStateLoaded = false;
     if (!m_applyMessage.empty()) {
         ImGui::SameLine();
@@ -779,32 +769,31 @@ void Menu::drawStatus()
 
 void Menu::drawPatchers()
 {
-    ImGui::SeparatorText("Pre-patchers");
-    ImGui::Checkbox("Fix Mesh Lighting", &m_params.prePatcher.isFixMeshLightingEnabled);
+    ImGui::SeparatorText("Pre-Patchers");
+    ImGui::Checkbox("Fix Mesh Lighting (ENB Only)", &m_params.prePatcher.isFixMeshLightingEnabled);
+    ImGui::SetItemTooltip("Fixes glowing meshes (For ENB users only!)");
 
-    ImGui::SeparatorText("Shader patchers");
+    ImGui::SeparatorText("Shader Patchers");
     ImGui::Checkbox("Parallax", &m_params.shaderPatcher.isParallaxEnabled);
     ImGui::Checkbox("Complex Material", &m_params.shaderPatcher.isComplexMaterialEnabled);
-    ImGui::Checkbox("True PBR", &m_params.shaderPatcher.isTruePBREnabled);
+    ImGui::Checkbox("TruePBR (CS Only)", &m_params.shaderPatcher.isTruePBREnabled);
 
-    ImGui::SeparatorText("Post-patchers");
-    ImGui::Checkbox("Restore Default Shaders (disable pre-patched materials)",
-                    &m_params.postPatcher.disablePrePatchedMaterials);
-    ImGui::Checkbox("Hair Flow Map", &m_params.postPatcher.isHairFlowMapEnabled);
+    ImGui::SeparatorText("Post-Patchers");
+    ImGui::Checkbox("Disable Pre-Patched Materials", &m_params.postPatcher.disablePrePatchedMaterials);
+    ImGui::SetItemTooltip("Restores shaders to default if parallax or complex material textures are missing (highly "
+                          "recommended, replaces auto parallax functionality)");
+    ImGui::Checkbox("Add Hair Flow Map (CS Only)", &m_params.postPatcher.isHairFlowMapEnabled);
+    ImGui::SetItemTooltip("Adds flow maps to texture sets for those that match the normal texture");
 
     ImGui::SeparatorText("Not available at runtime");
-    ImGui::TextWrapped(
-        "The Parallax to Complex Material transform and Fix SSS generate textures, which PGLite does not do.");
+    ImGui::TextWrapped("Upgrade Parallax to Complex Material and Fix Vanilla Subsurface Scattering generate textures, "
+                       "which PGLite does not do.");
 }
 
 void Menu::drawRecordTypes()
 {
-    ImGui::TextWrapped("A mesh use of an unchecked record type keeps the original, unpatched mesh.");
-    if (ImGui::Button("All"))
-        m_params.processing.allowedModelRecordTypes = PGPlugin::defaultRecTypeSet();
-    ImGui::SameLine();
-    if (ImGui::Button("None"))
-        m_params.processing.allowedModelRecordTypes.clear();
+    ImGui::TextWrapped("Unchecking a record type will exclude it and its associated meshes from being patched. Only "
+                       "record types with models are shown.");
 
     const auto names = PGPlugin::availableRecTypeStrs();
     if (ImGui::BeginTable("recordtypes", 5)) {
@@ -823,18 +812,25 @@ void Menu::drawRecordTypes()
     }
 }
 
+float Menu::buttonWidth(const char* label)
+{
+    return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
+}
+
 void Menu::drawStringList(const char* id,
                           std::vector<std::string>& items,
-                          std::string& newItem,
-                          const char* hint)
+                          std::string& newItem)
 {
+    // The text fields leave the room of the wider button, so the two columns line up.
+    const auto spacing = ImGui::GetStyle().ItemSpacing.x;
+    const auto buttonSize = ImVec2(std::max(buttonWidth(removeLabel), buttonWidth(addLabel)), 0);
     ImGui::PushID(id);
     for (std::size_t i = 0; i < items.size();) {
         ImGui::PushID(static_cast<int>(i));
-        ImGui::SetNextItemWidth(-80);
+        ImGui::SetNextItemWidth(-(buttonSize.x + spacing));
         ImGui::InputText("##entry", &items.at(i));
         ImGui::SameLine();
-        const bool shouldRemove = ImGui::Button("Remove");
+        const bool shouldRemove = ImGui::Button(removeLabel, buttonSize);
         ImGui::PopID();
         if (shouldRemove)
             items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
@@ -842,10 +838,10 @@ void Menu::drawStringList(const char* id,
             i++;
     }
 
-    ImGui::SetNextItemWidth(-80);
-    ImGui::InputTextWithHint("##new", hint, &newItem);
+    ImGui::SetNextItemWidth(-(buttonSize.x + spacing));
+    ImGui::InputText("##new", &newItem);
     ImGui::SameLine();
-    if (ImGui::Button("Add") && !newItem.empty()) {
+    if (ImGui::Button(addLabel, buttonSize) && !newItem.empty()) {
         items.push_back(newItem);
         newItem.clear();
     }
@@ -854,34 +850,50 @@ void Menu::drawStringList(const char* id,
 
 void Menu::drawMeshRules()
 {
-    ImGui::TextWrapped("Globs of mesh paths (MS-DOS wildcards, * matches any characters including backslashes). "
-                       "Meshes on the block list are never patched; when the allow list is not empty, only meshes on "
-                       "it are. The default block list (cameras, LOD, DynDOLOD, markers) always applies.");
-    ImGui::SeparatorText("Allow list");
-    drawStringList("allow", m_allowList, m_newAllowEntry, "meshes\\architecture\\*");
-    ImGui::SeparatorText("Block list");
-    drawStringList("block", m_blockList, m_newBlockEntry, "*\\effects\\*");
+    ImGui::SeparatorText("Mesh Allowlist");
+    ImGui::TextWrapped("If any rules exist here, only meshes matching them will be patched. Enter path to mesh like "
+                       "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire "
+                       "folders/files.");
+    drawStringList("allow", m_allowList, m_newAllowEntry);
+
+    ImGui::SeparatorText("Mesh Blocklist");
+    ImGui::TextWrapped("Any meshes matching rules here will not be patched. Enter path to mesh like "
+                       "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire "
+                       "folders/files.");
+    drawStringList("block", m_blockList, m_newBlockEntry);
 }
 
 void Menu::drawTextureRules()
 {
-    ImGui::TextWrapped("Textures whose type is given here instead of being read from their file name suffix.");
+    ImGui::TextWrapped("Use this to tell PGPatcher what type of texture something is if the auto detection is wrong "
+                       "(very rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select "
+                       "the type of texture. Wildcards are NOT supported here. A texture can be ignored by setting it "
+                       "to \"unknown\".");
     const auto typeNames = PGEnums::texTypesStr();
     std::vector<const char*> typeLabels;
     typeLabels.reserve(typeNames.size());
-    for (const auto& name : typeNames)
+    float comboWidth = 0;
+    for (const auto& name : typeNames) {
         typeLabels.push_back(name.c_str());
+        comboWidth = std::max(comboWidth, ImGui::CalcTextSize(name.c_str()).x);
+    }
+
+    // The path field leaves the room of the type combo and of the wider button.
+    const auto& style = ImGui::GetStyle();
+    comboWidth += style.FramePadding.x * 2 + ImGui::GetFrameHeight();
+    const auto buttonSize = ImVec2(std::max(buttonWidth(removeLabel), buttonWidth(addLabel)), 0);
+    const auto pathWidth = -(comboWidth + buttonSize.x + style.ItemSpacing.x * 2);
 
     for (std::size_t i = 0; i < m_textureRules.size();) {
         auto& rule = m_textureRules.at(i);
         ImGui::PushID(static_cast<int>(i));
-        ImGui::SetNextItemWidth(-320);
+        ImGui::SetNextItemWidth(pathWidth);
         ImGui::InputText("##path", &rule.path);
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(220);
+        ImGui::SetNextItemWidth(comboWidth);
         ImGui::Combo("##type", &rule.typeIndex, typeLabels.data(), static_cast<int>(typeLabels.size()));
         ImGui::SameLine();
-        const bool shouldRemove = ImGui::Button("Remove");
+        const bool shouldRemove = ImGui::Button(removeLabel, buttonSize);
         ImGui::PopID();
         if (shouldRemove)
             m_textureRules.erase(m_textureRules.begin() + static_cast<std::ptrdiff_t>(i));
@@ -889,13 +901,13 @@ void Menu::drawTextureRules()
             i++;
     }
 
-    ImGui::SetNextItemWidth(-320);
-    ImGui::InputTextWithHint("##newpath", "textures\\landscape\\dirt01_m.dds", &m_newTexturePath);
+    ImGui::SetNextItemWidth(pathWidth);
+    ImGui::InputText("##newpath", &m_newTexturePath);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(220);
+    ImGui::SetNextItemWidth(comboWidth);
     ImGui::Combo("##newtype", &m_newTextureType, typeLabels.data(), static_cast<int>(typeLabels.size()));
     ImGui::SameLine();
-    if (ImGui::Button("Add") && !m_newTexturePath.empty()) {
+    if (ImGui::Button(addLabel, buttonSize) && !m_newTexturePath.empty()) {
         m_textureRules.push_back({ .path = m_newTexturePath, .typeIndex = m_newTextureType });
         m_newTexturePath.clear();
     }
@@ -903,27 +915,37 @@ void Menu::drawTextureRules()
 
 void Menu::drawModManager()
 {
-    static const char* const typeLabels[] = { "None", "Vortex", "Mod Organizer 2" };
-    int type = static_cast<int>(m_params.modManager.type);
-    if (ImGui::Combo("Mod manager", &type, typeLabels, 3))
-        m_params.modManager.type = static_cast<PGModManager::ModManagerType>(type);
+    // The choices of the offline launcher: the type names of PGModManager, "None" with its suffix.
+    const auto types = PGModManager::modManagerTypes();
+    std::vector<std::string> labels;
+    std::vector<const char*> labelPointers;
+    int current = 0;
+    for (std::size_t i = 0; i < types.size(); i++) {
+        auto label = PGModManager::strFromModManagerType(types.at(i));
+        if (types.at(i) == PGModManager::ModManagerType::None)
+            label += " (No Conflict Resolution)";
+        labels.push_back(std::move(label));
+        if (types.at(i) == m_params.modManager.type)
+            current = static_cast<int>(i);
+    }
+    for (const auto& label : labels)
+        labelPointers.push_back(label.c_str());
+
+    if (ImGui::Combo("Mod Manager", &current, labelPointers.data(), static_cast<int>(labelPointers.size())))
+        m_params.modManager.type = types.at(static_cast<std::size_t>(current));
 
     if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
-        ImGui::InputText("Instance folder", &m_mo2InstanceDir);
-        if (m_detectedMO2Instance.empty()) {
-            ImGui::TextWrapped("No running Mod Organizer 2 instance was detected. Start the game through Mod Organizer "
-                               "2, or type the folder that holds its ModOrganizer.ini.");
-        } else {
-            ImGui::Text("Detected instance: %s", m_detectedMO2Instance.c_str());
-            if (ImGui::Button("Use the detected instance"))
-                m_mo2InstanceDir = m_detectedMO2Instance;
-        }
-        ImGui::Checkbox("Order mods like Mod Organizer 2 orders loose files",
-                        &m_params.modManager.shouldUseMO2LooseFileOrder);
+        ImGui::SeparatorText("MO2 Options");
+        ImGui::TextUnformatted("Instance Location");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-(buttonWidth(browseLabel) + ImGui::GetStyle().ItemSpacing.x));
+        ImGui::InputText("##instance", &m_mo2InstanceDir);
+        ImGui::SetItemTooltip("Path to the MO2 instance folder (Folder Icon > Open Instance folder in MO2)");
+        ImGui::SameLine();
+        if (ImGui::Button(browseLabel))
+            browseForFolder(mo2InstanceDialogTitle);
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
         ImGui::TextWrapped("The Vortex deployment manifest of the data folder is read.");
-    } else {
-        ImGui::TextWrapped("Without a mod manager, conflicting textures are resolved by shader quality and path only.");
     }
 }
 
@@ -934,21 +956,25 @@ void Menu::drawMods()
         return;
     }
 
-    ImGui::TextWrapped("Mods with shaders or meshes, the highest priority first. A disabled mod's textures are not "
-                       "used; a mod with its meshes ignored keeps its meshes unpatched.");
-    if (m_canReorderMods)
+    ImGui::TextWrapped("Please sort your mods to determine what mod PGPatcher uses to patch meshes where.");
+    const bool isMO2 = m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2;
+    if (isMO2) {
+        ImGui::Checkbox("Lock to MO2 Loose File Order", &m_params.modManager.shouldUseMO2LooseFileOrder);
+        ImGui::SetItemTooltip("Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts are "
+                              "not the same as loose file conflicts.");
+    }
+    const bool canReorder = !(isMO2 && m_params.modManager.shouldUseMO2LooseFileOrder);
+    if (canReorder)
         ImGui::TextWrapped("Drag a mod onto another one to move it there.");
-    else
-        ImGui::TextWrapped("The order follows Mod Organizer 2 (Mod Manager page).");
 
     if (!ImGui::BeginTable("mods", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY))
         return;
 
     ImGui::TableSetupScrollFreeze(0, 1);
-    ImGui::TableSetupColumn("Enabled", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableSetupColumn("##enabled", ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableSetupColumn("Mod", ImGuiTableColumnFlags_WidthStretch);
-    ImGui::TableSetupColumn("Shaders", ImGuiTableColumnFlags_WidthFixed);
-    ImGui::TableSetupColumn("Meshes ignored", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableSetupColumn("Shader", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableSetupColumn("Ignore Meshes", ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableHeadersRow();
 
     int moveFrom = -1;
@@ -964,7 +990,7 @@ void Menu::drawMods()
         const auto label = row.isNew ? row.displayName + " (new)" : row.displayName;
         ImGui::Selectable(
             label.c_str(), false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
-        if (m_canReorderMods) {
+        if (canReorder) {
             if (ImGui::BeginDragDropSource()) {
                 const int index = static_cast<int>(i);
                 ImGui::SetDragDropPayload("PGLITE_MOD", &index, sizeof(index));
@@ -1015,6 +1041,96 @@ void Menu::drawMessages()
         ImGui::PopStyleColor();
     }
     ImGui::EndChild();
+}
+
+void Menu::browseForFolder(const char* title)
+{
+    {
+        const std::scoped_lock lock(m_pickerMutex);
+        if (m_isPickerOpen)
+            return;
+
+        m_isPickerOpen = true;
+    }
+
+    // The dialog needs a single-threaded apartment with a message loop of its own, which Show() runs; the game window
+    // is its owner, so it stays in front of the game and the game keeps drawing meanwhile.
+    std::thread([this, owner = m_gameWindow, dialogTitle = StringUtil::utf8toUTF16(title)] {
+        std::optional<std::wstring> picked;
+        if (SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))) {
+            Microsoft::WRL::ComPtr<IFileDialog> dialog;
+            if (SUCCEEDED(
+                    CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog)))) {
+                FILEOPENDIALOGOPTIONS options = 0;
+                std::ignore = dialog->GetOptions(&options);
+                std::ignore = dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR);
+                std::ignore = dialog->SetTitle(dialogTitle.c_str());
+                Microsoft::WRL::ComPtr<IShellItem> item;
+                wchar_t* path = nullptr;
+                if (SUCCEEDED(dialog->Show(owner)) && SUCCEEDED(dialog->GetResult(&item))
+                    && SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) {
+                    picked = path;
+                    CoTaskMemFree(path);
+                }
+            }
+            CoUninitialize();
+        } else {
+            Logger::error("The folder dialog could not initialize COM");
+        }
+
+        const std::scoped_lock lock(m_pickerMutex);
+        m_isPickerOpen = false;
+        if (picked)
+            m_pickedFolder = StringUtil::utf16toUTF8(*picked);
+    }).detach();
+}
+
+void Menu::pollPickedFolder()
+{
+    const std::scoped_lock lock(m_pickerMutex);
+    if (!m_pickedFolder)
+        return;
+
+    m_mo2InstanceDir = *m_pickedFolder;
+    m_pickedFolder.reset();
+}
+
+const char* Menu::clipboardText([[maybe_unused]] ImGuiContext* context)
+{
+    s_clipboard.clear();
+    if (!OpenClipboard(nullptr))
+        return nullptr;
+
+    if (auto* const handle = GetClipboardData(CF_UNICODETEXT)) {
+        if (const auto* const text = static_cast<const wchar_t*>(GlobalLock(handle))) {
+            s_clipboard = StringUtil::utf16toUTF8(text);
+            GlobalUnlock(handle);
+        }
+    }
+    CloseClipboard();
+    return s_clipboard.c_str();
+}
+
+void Menu::setClipboardText([[maybe_unused]] ImGuiContext* context,
+                            const char* text)
+{
+    if (!text || !OpenClipboard(nullptr))
+        return;
+
+    const auto wide = StringUtil::utf8toUTF16(text);
+    const auto bytes = (wide.size() + 1) * sizeof(wchar_t);
+    if (auto* const handle = GlobalAlloc(GMEM_MOVEABLE, bytes)) {
+        if (auto* const buffer = GlobalLock(handle)) {
+            std::memcpy(buffer, wide.c_str(), bytes);
+            GlobalUnlock(handle);
+            EmptyClipboard();
+            if (!SetClipboardData(CF_UNICODETEXT, handle))
+                GlobalFree(handle);
+        } else {
+            GlobalFree(handle);
+        }
+    }
+    CloseClipboard();
 }
 
 }

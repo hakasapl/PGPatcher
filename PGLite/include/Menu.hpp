@@ -8,9 +8,13 @@
 #include <d3d11.h>
 #include <dxgi.h>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
+#include <windows.h>
 #include <wrl/client.h>
+
+struct ImGuiContext;
 
 namespace PGLite {
 
@@ -101,8 +105,22 @@ private:
     /// @brief Draws an editable list of strings with remove buttons and an add row.
     static void drawStringList(const char* id,
                                std::vector<std::string>& items,
-                               std::string& newItem,
-                               const char* hint);
+                               std::string& newItem);
+
+    /// @brief The width of a button with this label, so text fields can leave room for it.
+    static float buttonWidth(const char* label);
+
+    /**
+     * @brief Opens the folder dialog of the shell on its own thread; the game keeps running and draw() picks the
+     * chosen folder up. One dialog at a time.
+     */
+    void browseForFolder(const char* title);
+    void pollPickedFolder();
+
+    // The clipboard of Dear ImGui, the Windows one.
+    static const char* clipboardText(ImGuiContext* context);
+    static void setClipboardText(ImGuiContext* context,
+                                 const char* text);
 
     Runtime* m_runtime;
     bool m_isInitialized = false;
@@ -118,6 +136,11 @@ private:
     std::chrono::steady_clock::time_point m_lastFrame;
     float m_mouseX = 0;
     float m_mouseY = 0;
+    HWND m_gameWindow = nullptr;
+    std::mutex m_pickerMutex;
+    bool m_isPickerOpen = false;
+    std::optional<std::string> m_pickedFolder;
+    static inline std::string s_clipboard;
 
     // The working copy.
     PGParams m_params;
@@ -125,9 +148,7 @@ private:
     std::vector<std::string> m_blockList;
     std::vector<TextureRule> m_textureRules;
     std::vector<ModRow> m_mods;
-    bool m_canReorderMods = false;
     std::string m_mo2InstanceDir;
-    std::string m_detectedMO2Instance;
     std::string m_newAllowEntry;
     std::string m_newBlockEntry;
     std::string m_newTexturePath;

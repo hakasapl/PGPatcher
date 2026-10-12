@@ -19,7 +19,7 @@ dynamic cubemap texture). Requirements:
 - The Visual C++ 2015-2022 redistributable the game itself needs (`vcomp140.dll`) and `d3dcompiler_47.dll`,
   which is part of Windows; everything else is linked into `PGLite.dll`.
 
-The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F10 by default). Settings live
+The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F9 by default). Settings live
 in `SKSE\Plugins\PGLite\settings.json` with the same keys as the offline `params`, so a settings file can be copied
 between the two programs, and the mod rules in `SKSE\Plugins\PGLite\modrules.json`. The log is
 `My Games\Skyrim Special Edition\SKSE\PGLite.log`.
@@ -94,8 +94,7 @@ Program behavior:
 18. The offline DynDOLOD refusal has no runtime equivalent; `.bto` files have no uses.
 19. PGLite disables itself when an offline output or Auto Parallax is present, with a stricter check than offline.
 20. The menu is English only, without conflict highlighting or viewer; `exclude facegens` and `disable dynamic
-    cubemap` are ini options; `vanillabsalist` and the default mesh block list are hidden defaults; the MO2
-    instance is detected and confirmed instead of typed; the log lives next to the other SKSE logs.
+    cubemap` are ini options; the log lives next to the other SKSE logs.
 
 ## Development
 

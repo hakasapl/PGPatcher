@@ -39,7 +39,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <windows.h>
 
 namespace PGLite {
 
@@ -54,8 +53,6 @@ constexpr const char* archiveList2Setting = "sResourceArchiveList2:Archive";
 constexpr const wchar_t* updateArchive = L"Update.bsa";
 
 /// @brief MO2's global instance registry value and folder.
-constexpr const wchar_t* mo2RegistryKey = L"Software\\Mod Organizer Team\\Mod Organizer";
-constexpr const wchar_t* mo2RegistryValue = L"CurrentInstance";
 
 class Stopwatch {
 public:
@@ -155,11 +152,8 @@ void Environment::initializeModManager(const Uses& uses)
     try {
         if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
             m_mo2InstanceDir = m_params.modManager.mo2InstanceDir;
-            if (m_mo2InstanceDir.empty())
-                m_mo2InstanceDir = detectMO2Instance();
-
             if (m_mo2InstanceDir.empty()) {
-                Logger::warn("No Mod Organizer 2 instance is configured or detected, mods are not attributed");
+                Logger::warn("No Mod Organizer 2 instance is configured, mods are not attributed");
             } else {
                 Logger::info(L"Reading the Mod Organizer 2 instance {}", m_mo2InstanceDir.wstring());
                 m_modManager->populateModFileMapMO2(m_mo2InstanceDir, { });
@@ -266,49 +260,6 @@ void Environment::classifyTextures(CMCache& cmCache)
                  cmCache.size() - cachedBefore);
 }
 
-std::filesystem::path Environment::detectMO2Instance()
-{
-    const auto mo2Dir = PGModManager::mo2DirFromUSVFS();
-    if (mo2Dir.empty())
-        return { };
-
-    // A portable instance keeps its ini next to the executable.
-    if (PGModManager::isValidMO2InstanceDir(mo2Dir))
-        return mo2Dir;
-
-    // A global instance is named in the registry and lives under the local application data folder.
-    HKEY key = nullptr;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, mo2RegistryKey, 0, KEY_READ, &key) != ERROR_SUCCESS)
-        return { };
-
-    std::wstring instance(MAX_PATH, L'\0');
-    auto size = static_cast<DWORD>(instance.size() * sizeof(wchar_t));
-    DWORD type = 0;
-    const auto result = RegQueryValueExW(key,
-                                         mo2RegistryValue,
-                                         nullptr,
-                                         &type,
-                                         reinterpret_cast<LPBYTE>(instance.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-                                         &size);
-    RegCloseKey(key);
-    if (result != ERROR_SUCCESS || type != REG_SZ)
-        return { };
-
-    instance.resize(size / sizeof(wchar_t));
-    while (!instance.empty() && !instance.back())
-        instance.pop_back();
-    if (instance.empty())
-        return { };
-
-    std::vector<wchar_t> localAppData(MAX_PATH);
-    const auto length = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData.data(), static_cast<DWORD>(localAppData.size()));
-    if (!length || length >= localAppData.size())
-        return { };
-
-    const auto instanceDir = std::filesystem::path(localAppData.data()) / L"ModOrganizer" / instance;
-    return PGModManager::isValidMO2InstanceDir(instanceDir) ? instanceDir : std::filesystem::path();
-}
-
 std::vector<std::wstring> Environment::engineArchiveOrder()
 {
     std::vector<std::wstring> candidates;
@@ -355,8 +306,8 @@ void Environment::registerPatchers(const PGParams& params,
     if (params.prePatcher.isFixMeshLightingEnabled)
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
 
-    const bool hasShaderPatcher = params.shaderPatcher.isParallaxEnabled || params.shaderPatcher.isComplexMaterialEnabled
-        || params.shaderPatcher.isTruePBREnabled;
+    const bool hasShaderPatcher = params.shaderPatcher.isParallaxEnabled
+        || params.shaderPatcher.isComplexMaterialEnabled || params.shaderPatcher.isTruePBREnabled;
     if (hasShaderPatcher)
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::factory());
 
