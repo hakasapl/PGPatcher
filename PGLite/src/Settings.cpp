@@ -65,7 +65,7 @@ std::filesystem::path Settings::settingsFile() { return configFolder() / L"setti
 
 std::filesystem::path Settings::modRulesFile() { return configFolder() / L"modrules.json"; }
 
-std::filesystem::path Settings::cmCacheFile() { return configFolder() / L"cmcache.bin"; }
+std::filesystem::path Settings::classificationCacheFile() { return configFolder() / L"classification.bin"; }
 
 std::filesystem::path Settings::translationsFolder() { return configFolder() / L"translations"; }
 

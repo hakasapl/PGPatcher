@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CMCache.hpp"
+#include "ClassificationCache.hpp"
 #include "Environment.hpp"
 #include "PGD3D.hpp"
 #include "PGParams.hpp"
@@ -21,6 +21,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace PGLite {
@@ -101,6 +102,15 @@ public:
     /// Any thread.
     [[nodiscard]] const char* stage() const { return m_stage; }
 
+    /// @brief The progress of the step when it reports one (the meshes read so far and the meshes to read), zero
+    /// totals otherwise. Any thread.
+    [[nodiscard]] std::pair<std::size_t,
+                            std::size_t>
+    progress() const
+    {
+        return { m_progressDone, m_progressTotal };
+    }
+
     /**
      * @brief Apply (DESIGN.md section 4.8): restores the records, rebuilds the environment and the plan with fresh
      * variant numbers and registers the new variant streams. The caller saves the settings first. Runs on the menu's
@@ -132,8 +142,14 @@ private:
 
     static void onMessage(SKSE::MessagingInterface::Message* message);
 
-    /// @brief The task posted at data load; runs on the main thread one frame later.
+    /// @brief The data-load work: the disable conditions, the uses, the plan, the streams, the background thread.
     void onDataLoaded();
+
+    /**
+     * @brief Blocks the data-load handler until the background initialization is done, so the main menu opens with
+     * PGLite ready (DESIGN.md section 4.1). Gives up with a warning after a long wait.
+     */
+    void waitForInitialization() const;
 
     /// @brief The conditions of DESIGN.md section 4.9 that need the loaded game, or nothing.
     [[nodiscard]] std::optional<std::string> detectDisableCondition() const;
@@ -185,7 +201,7 @@ private:
     TextureGenerator m_textures;
 
     PGD3D m_d3d;
-    CMCache m_cmCache;
+    ClassificationCache m_cache;
     std::unique_ptr<Environment> m_environment;
     std::unique_ptr<Menu> m_menu;
 
@@ -199,6 +215,8 @@ private:
     std::atomic<bool> m_isReady { false };
     std::atomic<bool> m_isEnabled { true };
     std::atomic<const char*> m_stage { nullptr };
+    std::atomic<std::size_t> m_progressDone { 0 };
+    std::atomic<std::size_t> m_progressTotal { 0 };
     std::atomic<bool> m_didLoadSaveAtStart { false };
     std::mutex m_readyMutex;
     std::condition_variable m_readyCondition;

@@ -760,7 +760,7 @@ void Menu::rebuildModList()
 
         auto* const environment = m_runtime->environment();
         if (environment && environment->directory())
-            Environment::attributeMods(*manager, *environment->directory(), m_runtime->uses());
+            Environment::attributeMods(*manager, *environment->directory());
         manager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
     } catch (const std::exception& e) {
         Logger::error("The mod list could not be built: {}", e.what());
@@ -948,7 +948,6 @@ void Menu::drawApplyRow()
     if (ImGui::Button(tr("conflictManager.buttons.apply").c_str()))
         startApply(m_runtime->isEnabled());
     ImGui::EndDisabled();
-    ImGui::SetItemTooltip("%s", tr("pglite.apply.tooltip").c_str());
     ImGui::SameLine();
     if (ImGui::Button(tr("conflictManager.buttons.discardChanges").c_str()))
         m_isStateLoaded = false;
@@ -973,9 +972,14 @@ void Menu::drawLoadingMessage()
         | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("##loading", nullptr, flags)) {
         const auto* const stage = m_runtime->stage();
+        const auto [done, total] = m_runtime->progress();
+        const auto stageText = tr(stage ? stage : "pglite.status.starting");
         if (m_runningImage.isLoaded())
             drawOverlayImage(m_runningImage, m_runningImage.size().y * m_uiScale * 0.5F);
-        ImGui::Text(tr("pglite.status.loading").c_str(), tr(stage ? stage : "pglite.status.starting").c_str());
+        if (total)
+            ImGui::Text(tr("pglite.status.loadingProgress").c_str(), stageText.c_str(), done, total);
+        else
+            ImGui::Text(tr("pglite.status.loading").c_str(), stageText.c_str());
     }
     ImGui::End();
 }
@@ -1066,21 +1070,14 @@ void Menu::drawStatus()
     if (status.isActive && status.isReady && !status.disableReason) {
         if (ImGui::Button(tr(status.isEnabled ? "pglite.status.disable" : "pglite.status.enable").c_str()))
             startApply(!status.isEnabled);
-        ImGui::SetItemTooltip(
-            "%s", tr(status.isEnabled ? "pglite.status.disableTooltip" : "pglite.status.enableTooltip").c_str());
     }
 
     ImGui::Separator();
     ImGui::Text(tr("pglite.status.uses").c_str(), status.uses, status.usedMeshes);
-    ImGui::SetItemTooltip("%s", tr("pglite.status.usesTooltip").c_str());
     ImGui::Text(tr("pglite.status.families").c_str(), status.families, status.facegenFamilies, status.patchedFamilies);
-    ImGui::SetItemTooltip("%s", tr("pglite.status.familiesTooltip").c_str());
     ImGui::Text(tr("pglite.status.variants").c_str(), status.variants);
-    ImGui::SetItemTooltip("%s", tr("pglite.status.variantsTooltip").c_str());
     ImGui::Text(tr("pglite.status.streams").c_str(), status.streams);
-    ImGui::SetItemTooltip("%s", tr("pglite.status.streamsTooltip").c_str());
     ImGui::Text(tr("pglite.status.textureSets").c_str(), status.textureSets);
-    ImGui::SetItemTooltip("%s", tr("pglite.status.textureSetsTooltip").c_str());
     ImGui::Text(tr("pglite.status.textures").c_str(),
                 status.texturesFromCache,
                 status.texturesGenerated,
@@ -1095,7 +1092,6 @@ void Menu::drawPatchers()
     ImGui::SeparatorText(tr("launcher.prePatchers.title").c_str());
     ImGui::Checkbox(tr("launcher.prePatchers.fixMeshLighting.label").c_str(),
                     &m_params.prePatcher.isFixMeshLightingEnabled);
-    ImGui::SetItemTooltip("%s", tr("launcher.prePatchers.fixMeshLighting.tooltip").c_str());
 
     ImGui::SeparatorText(tr("launcher.shaderPatchers.title").c_str());
     ImGui::Checkbox(tr("launcher.shaderPatchers.parallax.label").c_str(), &m_params.shaderPatcher.isParallaxEnabled);
@@ -1106,16 +1102,12 @@ void Menu::drawPatchers()
     ImGui::SeparatorText(tr("launcher.shaderTransforms.title").c_str());
     ImGui::Checkbox(tr("launcher.shaderTransforms.parallaxToCM.label").c_str(),
                     &m_params.shaderTransforms.isParallaxToCMEnabled);
-    ImGui::SetItemTooltip("%s", tr("launcher.shaderTransforms.parallaxToCM.tooltip").c_str());
 
     ImGui::SeparatorText(tr("launcher.postPatchers.title").c_str());
     ImGui::Checkbox(tr("launcher.postPatchers.disablePrePatchedMaterials.label").c_str(),
                     &m_params.postPatcher.disablePrePatchedMaterials);
-    ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.disablePrePatchedMaterials.tooltip").c_str());
     ImGui::Checkbox(tr("launcher.postPatchers.fixSSS.label").c_str(), &m_params.postPatcher.isFixSSSEnabled);
-    ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.fixSSS.tooltip").c_str());
     ImGui::Checkbox(tr("launcher.postPatchers.hairFlowMap.label").c_str(), &m_params.postPatcher.isHairFlowMapEnabled);
-    ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.hairFlowMap.tooltip").c_str());
 }
 
 void Menu::drawRecordTypes()
@@ -1273,13 +1265,11 @@ void Menu::drawConflictManager()
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-(buttonWidth(browseLabel.c_str()) + ImGui::GetStyle().ItemSpacing.x));
         ImGui::InputText("##instance", &m_mo2InstanceDir);
-        ImGui::SetItemTooltip("%s", tr("launcher.mo2Options.instanceLocation.tooltip").c_str());
         ImGui::SameLine();
         if (ImGui::Button(browseLabel.c_str()))
             browseForFolder(tr("launcher.browse.mo2InstanceLocation").c_str());
         ImGui::Checkbox(tr("conflictManager.lockMO2Order.label").c_str(),
                         &m_params.modManager.shouldUseMO2LooseFileOrder);
-        ImGui::SetItemTooltip("%s", tr("conflictManager.lockMO2Order.tooltip").c_str());
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
         ImGui::TextWrapped("%s", tr("pglite.conflictManager.vortex").c_str());
     }
@@ -1422,7 +1412,6 @@ void Menu::drawSettings()
         PGTranslation::init(Settings::translationsFolder(), code);
         m_shouldRebuildFonts = true;
     }
-    ImGui::SetItemTooltip("%s", tr("settings.language.tooltip").c_str());
 }
 
 void Menu::rebuildFonts()

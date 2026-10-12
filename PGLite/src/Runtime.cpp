@@ -2,7 +2,7 @@
 
 #include "Runtime.hpp"
 
-#include "CMCache.hpp"
+#include "ClassificationCache.hpp"
 #include "Environment.hpp"
 #include "Hooks.hpp"
 #include "Logging.hpp"
@@ -47,6 +47,10 @@ constexpr const wchar_t* autoParallaxDLL = L"AutoParallax.dll";
 
 /// @brief The meshes folder of the facegen heads, see TESNPC and the offline PGNIFUtil::isFacegenMesh().
 constexpr const char* facegenFolder = "meshes\\actors\\character\\facegendata\\facegeom";
+
+/// @brief The longest the data-load handler waits for the initialization before the main menu opens without it.
+constexpr auto maxInitializationWait = std::chrono::minutes(10);
+constexpr auto initializationPollInterval = std::chrono::milliseconds(50);
 
 std::string pathString(const std::filesystem::path& path) { return StringUtil::utf16toWindows1252(path.wstring()); }
 
@@ -172,24 +176,52 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
     if (!message || message->type != SKSE::MessagingInterface::kDataLoaded)
         return;
 
-    // The development aid listens for the main menu from here on, which can open before the deferred task runs.
-    if (!instance().m_ini.loadSaveAtStart.empty()) {
+    auto& runtime = instance();
+
+    // The development aid listens for the main menu from here on.
+    if (!runtime.m_ini.loadSaveAtStart.empty()) {
         if (auto* const ui = RE::UI::GetSingleton())
-            ui->AddEventSink<RE::MenuOpenCloseEvent>(&instance());
+            ui->AddEventSink<RE::MenuOpenCloseEvent>(&runtime);
     }
 
-    // One frame later, after every plugin's data-load handler ran.
-    SKSE::GetTaskInterface()->AddTask([] { instance().onDataLoaded(); });
+    // The menu exists whether or not PGLite is active, so it can state the reason when it is not; its hooks draw the
+    // loading line into the frames presented during the wait below.
+    runtime.m_menu = std::make_unique<Menu>(runtime);
+    if (!Hooks::install(*runtime.m_menu))
+        runtime.m_menu.reset();
+
+    // This message comes on the thread that loaded the data, while the main thread waits for the load and opens the
+    // main menu the moment it completes, and a loading-screen thread presents frames. The work is done here, on the
+    // thread that owns the records at this point as every plugin's data-load handler does, and the handler then waits
+    // until the initialization is done, so the main menu opens with PGLite ready (DESIGN.md section 4.1).
+    runtime.onDataLoaded();
+    runtime.waitForInitialization();
+}
+
+void Runtime::waitForInitialization() const
+{
+    if (!m_isActive)
+        return;
+
+    const auto started = std::chrono::steady_clock::now();
+    while (!m_isReady && !disableReason()) {
+        if (std::chrono::steady_clock::now() - started > maxInitializationWait) {
+            Logger::warn("The initialization did not finish in {} minutes, the main menu opens without it",
+                         maxInitializationWait.count());
+            return;
+        }
+
+        std::this_thread::sleep_for(initializationPollInterval);
+    }
+
+    const auto elapsed
+        = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    Logger::info("The main menu was held for {} ms", elapsed.count());
 }
 
 void Runtime::onDataLoaded()
 {
     try {
-        // The menu exists whether or not PGLite is active, so it can state the reason when it is not.
-        m_menu = std::make_unique<Menu>(*this);
-        if (!Hooks::install(*m_menu))
-            m_menu.reset();
-
         if (const auto reason = disableReason()) {
             RE::DebugMessageBox(std::format("PGLite is disabled because {}.", *reason).c_str());
             return;
@@ -426,7 +458,15 @@ void Runtime::registerFacegenStreams()
 void Runtime::initializeInBackground()
 {
     const auto started = std::chrono::steady_clock::now();
-    const auto reportStage = [this](const char* stage) { m_stage = stage; };
+    const auto reportStage = [this](const char* stage) {
+        m_progressTotal = 0;
+        m_progressDone = 0;
+        m_stage = stage;
+    };
+    const auto reportProgress = [this](std::size_t done, std::size_t total) {
+        m_progressTotal = total;
+        m_progressDone = done;
+    };
     try {
         if (!PGGlobals::isPGD3DSet()) {
             reportStage("progress.steps.initGpu");
@@ -438,8 +478,8 @@ void Runtime::initializeInBackground()
         }
 
         reportStage("pglite.stages.loadingClassificationCache");
-        m_cmCache.load(Settings::cmCacheFile());
-        PGRunObserver::install(&m_cmCache);
+        m_cache.load(Settings::classificationCacheFile());
+        PGRunObserver::install(&m_cache);
 
         if (m_isEnabled) {
             reportStage("pglite.stages.registeringFacegenStreams");
@@ -447,7 +487,7 @@ void Runtime::initializeInBackground()
         }
 
         auto environment = std::make_unique<Environment>(params(), m_ini);
-        environment->initialize(m_uses, m_cmCache, reportStage);
+        environment->initialize(m_cache, reportStage, reportProgress);
         m_environment = std::move(environment);
         m_textures.onEnvironmentReplaced(*m_environment->directory());
     } catch (const std::exception& e) {
@@ -456,6 +496,7 @@ void Runtime::initializeInBackground()
     }
 
     m_stage = nullptr;
+    m_progressTotal = 0;
     {
         const std::scoped_lock lock(m_readyMutex);
         m_isReady = true;
@@ -502,7 +543,7 @@ bool Runtime::apply(const PGParams& params,
         }
 
         auto environment = std::make_unique<Environment>(params, m_ini);
-        environment->initialize(m_uses, m_cmCache, [this](const char* stage) { m_stage = stage; });
+        environment->initialize(m_cache, [this](const char* stage) { m_stage = stage; });
         m_environment = std::move(environment);
         // The textures generated so far stay known to the new directory, as the hooks made them known to the old one.
         m_textures.onEnvironmentReplaced(*m_environment->directory());

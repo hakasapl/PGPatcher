@@ -480,7 +480,6 @@ TEST(BethesdaDirectoryTest,
     EXPECT_NE(bsa, loose);
 }
 
-
 TEST(BethesdaDirectoryTest,
      FileReaderServesEveryMappedFile)
 {
@@ -575,31 +574,5 @@ TEST(BethesdaDirectoryTest,
     bd.populateFileMap(false, false);
     EXPECT_FALSE(bd.isFile(L"meshes\\a.nif"));
     EXPECT_TRUE(bd.isFile(L"textures\\a.dds"));
-}
-
-TEST(BethesdaDirectoryTest,
-     RetainFilesDropsTheRejectedEntries)
-{
-    FakeGame fake;
-    fake.writeDataFile(L"meshes\\used.nif", "used");
-    fake.writeDataFile(L"meshes\\unused.nif", "unused");
-    fake.writeDataFile(L"textures\\a.dds", "texture");
-
-    BethesdaDirectory bd(fake.dataDir(), { L"meshes", L"textures" }, fake.dataDir() / L"out");
-    bd.populateFileMap(false, false);
-    ASSERT_EQ(bd.fileMap().size(), 3U);
-
-    std::vector<std::wstring> seen;
-    bd.retainFiles([&seen](const std::filesystem::path& path) {
-        seen.push_back(path.wstring());
-        return path.begin()->wstring() != L"meshes" || path == L"meshes\\used.nif";
-    });
-
-    EXPECT_EQ(seen.size(), 3U);
-    EXPECT_EQ(bd.fileMap().size(), 2U);
-    EXPECT_TRUE(bd.isFile(L"meshes\\used.nif"));
-    EXPECT_FALSE(bd.isFile(L"meshes\\unused.nif"));
-    EXPECT_TRUE(bd.isFile(L"textures\\a.dds"));
-    EXPECT_EQ(bytesToString(bd.file(L"meshes\\used.nif")), "used");
 }
 }

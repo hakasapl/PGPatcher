@@ -215,26 +215,6 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
     m_unconfirmedMeshes.clear();
 }
 
-void PGDirectory::mapTexturesBySuffix(const std::vector<std::pair<std::wstring,
-                                                                  PGEnums::TextureType>>& manualTextureMaps,
-                                      const std::vector<std::wstring>& parallaxBSAExcludes)
-{
-    findFiles();
-
-    // Helpers.
-    const std::unordered_map<std::wstring, PGEnums::TextureType> manualTextureMapsMap(manualTextureMaps.begin(),
-                                                                                      manualTextureMaps.end());
-
-    Logger::info("Building texture mappings from file names");
-
-    // No mesh casts a vote, so every texture is classified by its suffix.
-    classifyUnconfirmedTextures(manualTextureMapsMap, parallaxBSAExcludes, false);
-
-    // Cleanup.
-    m_unconfirmedTextures.clear();
-    m_unconfirmedMeshes.clear();
-}
-
 void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstring,
                                                                        PGEnums::TextureType>& manualTextureMapsMap,
                                               const std::vector<std::wstring>& parallaxBSAExcludes,

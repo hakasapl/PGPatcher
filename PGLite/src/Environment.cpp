@@ -2,7 +2,7 @@
 
 #include "Environment.hpp"
 
-#include "CMCache.hpp"
+#include "ClassificationCache.hpp"
 #include "PGGlobals.hpp"
 #include "PGPatcher.hpp"
 #include "PGRunObserver.hpp"
@@ -53,8 +53,8 @@ namespace {
 /// @brief The texture of the package, which marks no mod as a texture mod.
 constexpr std::wstring_view dynamicCubemapTexture = L"textures\\cubemaps\\dynamic1pxcubemap_black.dds";
 
-/// @brief The top level folders of the data folder the runtime maps: textures and the TruePBR configs. Meshes are
-/// mapped too and pruned to the used ones right after, so archived meshes can be attributed to their mod.
+/// @brief The top level folders of the data folder the runtime maps: the textures, the TruePBR configs and the meshes
+/// the mesh reading pass classifies the textures from.
 const std::unordered_set<std::filesystem::path> foldersToMap = { L"textures", L"pbrnifpatcher", L"meshes" };
 
 constexpr const char* archiveListSetting = "sResourceArchiveList:Archive";
@@ -121,9 +121,9 @@ Environment::~Environment()
         PGGlobals::setPGMM(nullptr);
 }
 
-void Environment::initialize(const Uses& uses,
-                             CMCache& cmCache,
-                             const std::function<void(const char*)>& reportStage)
+void Environment::initialize(ClassificationCache& cache,
+                             const std::function<void(const char*)>& reportStage,
+                             const ProgressCallback& reportProgress)
 {
     const Stopwatch stopwatch;
     const auto stage = [&reportStage](const char* name) {
@@ -132,17 +132,19 @@ void Environment::initialize(const Uses& uses,
     };
 
     stage("progress.steps.initModManager");
-    initializeModManager(uses);
+    initializeModManager();
     stage("progress.steps.populatingFileMap");
-    initializeDirectory(uses);
-    stage("progress.steps.classifyingTextures");
-    classifyTextures(cmCache);
+    initializeDirectory();
+    stage("pglite.stages.readingMeshes");
+    classifyTextures(cache, reportProgress);
 
     if (m_params.shaderPatcher.isTruePBREnabled) {
         stage("pglite.stages.loadingTruePBRConfigs");
         Logger::info("Loading {} TruePBR configs", m_directory->pbrJSONs().size());
         PatcherMeshShaderTruePBR::loadStatics(m_directory->pbrJSONs(), m_params.processing.multithread);
     }
+
+    switchToEngineReads();
 
     if (m_modManager) {
         // Shader attribution of every mod is complete now, so the mod list and the priorities are the offline ones.
@@ -156,7 +158,7 @@ void Environment::initialize(const Uses& uses,
     Logger::info("Runtime environment ready in {} ms", stopwatch.milliseconds());
 }
 
-void Environment::initializeModManager(const Uses& uses)
+void Environment::initializeModManager()
 {
     m_modManager = std::make_unique<PGModManager>(m_params.modManager.type);
 
@@ -187,40 +189,34 @@ void Environment::initializeModManager(const Uses& uses)
         m_modManager = std::make_unique<PGModManager>(PGModManager::ModManagerType::None);
     }
 
+    // The mesh reading pass marks the mods that own a mesh, as offline.
     PGGlobals::setPGMM(m_modManager.get());
-
-    // A mod has meshes when it owns a mesh with uses: what the offline mesh reading pass sets.
-    if (m_modManager->modFileMap().empty())
-        return;
-
-    std::size_t modsWithMeshes = 0;
-    for (const auto& mod : m_modManager->mods()) {
-        const std::shared_lock lock(mod->mutex);
-        if (mod->hasMeshes)
-            modsWithMeshes++;
-    }
-
-    for (const auto& [path, recordUses] : uses.byPath()) {
-        // Only loose meshes resolve here; archived ones are attributed once the file map knows their archive.
-        const auto mod = m_modManager->modByFile(path);
-        if (!mod)
-            continue;
-
-        const std::unique_lock lock(mod->mutex);
-        mod->hasMeshes = true;
-    }
-
-    Logger::debug("{} mods had meshes before the uses were applied", modsWithMeshes);
 }
 
-void Environment::initializeDirectory(const Uses& uses)
+void Environment::initializeDirectory()
 {
     const Stopwatch stopwatch;
 
+    // The directory reads as offline until switchToEngineReads(): loose files from the data folder (the mod manager's
+    // virtual file system is process wide, so they are the files the game sees) and archived files from its own
+    // archive tables, built from the engine's archive set. The engine's resolver takes the registry lock exclusively
+    // for every read, and the mesh reading pass reads every mesh on the task pool, which would starve the main thread.
     m_directory = std::make_unique<PGDirectory>(Settings::dataFolder(), std::filesystem::path());
     m_directory->setFoldersToMap(foldersToMap);
     m_directory->setShouldSkipHiddenFiles(false);
     m_directory->setArchiveLoadOrder(engineArchiveOrder());
+
+    Logger::info("Building the file map");
+    m_directory->populateFileMap(true, m_params.processing.multithread);
+    PGGlobals::setPGD(m_directory.get());
+
+    Logger::info("File map of {} files built in {} ms", m_directory->fileMap().size(), stopwatch.milliseconds());
+}
+
+void Environment::switchToEngineReads()
+{
+    // Every read goes through the engine from here on, what the game itself loads for a path; the archive tables are
+    // not needed anymore.
     m_directory->setFileReader([](const std::filesystem::path& relPath) {
         std::vector<std::byte> bytes;
         if (!Resources::readFile(StringUtil::utf16toWindows1252(relPath.wstring()), bytes))
@@ -228,61 +224,41 @@ void Environment::initializeDirectory(const Uses& uses)
 
         return bytes;
     });
-
-    Logger::info("Building the file map");
-    m_directory->populateFileMap(true, m_params.processing.multithread);
-
-    // Meshes stay in the map only when they have uses, so a mod rule or a conflict can be attributed to the archive a
-    // mesh comes from without keeping every mesh of the load order.
-    const auto& used = uses.byPath();
-    m_directory->retainFiles([&used](const std::filesystem::path& path) {
-        const auto& folder = path.begin()->wstring();
-        if (folder != L"meshes")
-            return true;
-
-        return used.contains(path);
-    });
-
-    // The reads go through the engine from here on; the archive tables are not needed anymore.
     m_directory->dropArchiveContents();
-
-    PGGlobals::setPGD(m_directory.get());
-
-    if (m_modManager && !m_modManager->modFileMap().empty()) {
-        for (const auto& [path, recordUses] : used) {
-            if (!m_directory->isBSAFile(path))
-                continue;
-
-            const auto mod = m_modManager->modByFileSmart(path);
-            if (!mod)
-                continue;
-
-            const std::unique_lock lock(mod->mutex);
-            mod->hasMeshes = true;
-        }
-    }
-
-    Logger::info("File map of {} files built in {} ms", m_directory->fileMap().size(), stopwatch.milliseconds());
 }
 
-void Environment::classifyTextures(CMCache& cmCache)
+void Environment::classifyTextures(ClassificationCache& cache,
+                                   const ProgressCallback& reportProgress)
 {
     const Stopwatch stopwatch;
-    const auto cachedBefore = cmCache.size();
+    const auto cmBefore = cache.cmCount();
+    const auto meshesBefore = cache.meshCount();
 
-    Logger::info("Classifying textures");
-    m_directory->mapTexturesBySuffix(m_params.processing.textureMaps, m_params.processing.vanillaBSAList);
-    cmCache.save();
+    // The offline mapping pass: every mesh of the load order casts the texture votes of its shapes (from the cache when
+    // the mesh did not change), then the textures are classified and the environment masks go through the complex
+    // material classification. The uses of the meshes come from the loaded game (PGPluginRuntime).
+    Logger::info("Reading the meshes and classifying the textures");
+    m_directory->mapFiles(m_params.processing.blockList,
+                          m_params.processing.allowList,
+                          m_params.processing.textureMaps,
+                          m_params.processing.vanillaBSAList,
+                          m_params.processing.multithread,
+                          reportProgress);
+    m_directory->waitForMeshMapping();
+    m_directory->waitForCMClassification();
+    cache.save();
 
-    Logger::info("Classified {} textures in {} ms ({} complex material classifications added to the cache)",
+    Logger::info("Read {} meshes ({} added to the cache) and classified {} textures ({} complex material "
+                 "classifications added to the cache) in {} ms",
+                 m_directory->meshes().size(),
+                 cache.meshCount() - meshesBefore,
                  m_directory->textures().size(),
-                 stopwatch.milliseconds(),
-                 cmCache.size() - cachedBefore);
+                 cache.cmCount() - cmBefore,
+                 stopwatch.milliseconds());
 }
 
 void Environment::attributeMods(PGModManager& modManager,
-                                PGDirectory& directory,
-                                const Uses& uses)
+                                PGDirectory& directory)
 {
     // The shader a classified texture gives its mod, as PGDirectory::updateTextureType does during classification.
     for (const auto& [path, file] : directory.fileMap()) {
@@ -310,9 +286,9 @@ void Environment::attributeMods(PGModManager& modManager,
     for (const auto& json : directory.pbrJSONs())
         modManager.addShaderToModByFile(json, PGEnums::ShapeShader::TruePBR);
 
-    // A mod has meshes when it owns a mesh with uses (initializeModManager).
-    for (const auto& [path, recordUses] : uses.byPath()) {
-        const auto mod = modManager.modByFile(path);
+    // A mod has meshes when it owns a mesh the mesh reading pass read, as PGDirectory::mapTexturesFromNIF marks it.
+    for (const auto& [path, cache] : directory.meshes()) {
+        const auto mod = modManager.modByFileSmart(path);
         if (!mod)
             continue;
 

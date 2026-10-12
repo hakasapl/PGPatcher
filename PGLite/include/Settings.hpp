@@ -62,7 +62,7 @@ public:
     [[nodiscard]] static std::filesystem::path iniFile();
     [[nodiscard]] static std::filesystem::path settingsFile();
     [[nodiscard]] static std::filesystem::path modRulesFile();
-    [[nodiscard]] static std::filesystem::path cmCacheFile();
+    [[nodiscard]] static std::filesystem::path classificationCacheFile();
 
     /// @brief Data\SKSE\Plugins\PGLite\translations, the translation files of the offline program.
     [[nodiscard]] static std::filesystem::path translationsFolder();

@@ -21,9 +21,10 @@ translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubem
 
 The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F8 by default). Its status page
 has a toggle that disables PGLite (meshes loaded from then on are the originals) and enables it again, kept across
-game starts. While PGLite initializes after the game data loaded, "Loading PGLite" and the current step show in the
-top right corner (`bShowLoadingMessage=false` in the ini hides it), and after the first start a welcome line with the
-menu key shows there until the menu was opened once (`bShowWelcomeMessage=false` hides it for good). The menu's strings come from the translation
+game starts. After the game data loaded, the game waits until PGLite is ready before the main menu opens; "Loading
+PGLite", the current step and the meshes read so far show in the top right corner meanwhile
+(`bShowLoadingMessage=false` in the ini hides the line, not the wait), and after the first start a welcome line with
+the menu key shows there until the menu was opened once (`bShowWelcomeMessage=false` hides it for good). The menu's strings come from the translation
 files of the offline launcher, and its Settings page picks the language. Settings live
 in `SKSE\Plugins\PGLite\settings.json` with the same keys as the offline `params`, so a settings file can be copied
 between the two programs, and the mod rules in `SKSE\Plugins\PGLite\modrules.json`. The log is
@@ -35,9 +36,11 @@ At data load PGLite reads every record model of the loaded game, plans the varia
 use with different alternate textures or material contexts, points those records at virtual paths under
 `meshes\_pgpatcher_dups\`, and registers one resource stream per path with the engine. Opening such a stream patches
 the mesh (every context of it at once), corrects the alternate texture indices of its records and creates the texture
-set records the patched alternate textures need. The textures-only file map, the texture classification (complex
-material detection runs on the GPU and is cached in `SKSE\Plugins\PGLite\cmcache.bin`), the True PBR configs and the
-mod manager data are built on a background thread right after data load.
+set records the patched alternate textures need. The file map, the mesh reading pass that classifies the textures by
+the shapes that use them (every mesh of the load order is read, and the result is kept per mesh in
+`SKSE\Plugins\PGLite\classification.bin`, so a later start reads only the meshes that changed), the complex material
+detection (on the GPU, cached in the same file), the True PBR configs and the mod manager data are built on a
+background thread right after data load; the loading line in the top right corner counts the meshes read.
 
 The Parallax to Complex Material transform and Fix SSS generate their textures the first time a patched mesh needs
 them, from the texture the game itself would load, and keep them in `SKSE\Plugins\PGLite\cache`. A cached texture is
@@ -63,9 +66,9 @@ Patchers and textures:
 1. The Parallax to Complex Material transform and Fix SSS generate their textures the first time a patched mesh
    needs them, from the texture the game would load, into `SKSE\Plugins\PGLite\cache` instead of the output folder;
    the engine reads them from there. The images are the ones the offline program writes.
-2. Textures are classified by file name suffix, the texture rules and the vanilla archive list only. The offline
-   vote of the shapes that use a texture does not run, so a texture whose name contradicts its use is classified
-   differently.
+2. The texture votes of the meshes and the complex material classifications are cached across game starts in
+   `SKSE\Plugins\PGLite\classification.bin`; offline keeps them in the update cache of the output folder. The
+   classification itself is the same.
 3. No pgtools-only patchers (Particle Lights to Light Placer, Convert to HDR) and no `--consider-allmeshes`.
 
 Records and the plugin step:

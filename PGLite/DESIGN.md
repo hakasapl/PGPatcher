@@ -22,7 +22,8 @@ imports two system runtimes besides Windows itself: `d3dcompiler_47.dll` (a Wind
 DirectX 11 backend compiles its two shaders at startup) and `vcomp140.dll` (the OpenMP runtime of the Visual
 C++ redistributable the game needs anyway, pulled in by DirectXTex as in the offline PGLib). The offline
 binaries no longer import the shader compiler. The two texture generating patchers run at runtime with a texture cache
-(4.12), which replaces the first difference the original section 7 listed.
+(4.12), which replaces the first difference the original section 7 listed, and the mesh reading pass runs at startup
+with its votes cached per mesh (4.5), which replaces the second.
 
 ## 1. What PGLite is
 
@@ -106,9 +107,12 @@ CommonLibSSE-NG's `EShaderPropertyFlag8`: `kMenuScreen` is 55, the loaded form o
 
 ### 4.1 Startup
 
-PGLite's `kDataLoaded` handler posts one task to the SKSE task interface and returns. The task runs on the main
-thread on the next frame, after every plugin's `kDataLoaded` handler has run, so record edits other plugins make at
-data load (SkyPatcher-like tools) are already in place. The task does, synchronously:
+The game loads its data on a thread of its own while the main thread waits for the load and a loading-screen thread
+presents frames; `kDataLoaded` is sent on the loading thread, to every plugin's handler in turn, and the main thread
+opens the main menu the moment the load completes. PGLite's handler creates the menu, installs its hooks (4.10) and
+does the data-load work itself, on the thread that owns the records at this point as every other handler does (the
+record edits of the handlers that ran before it, SkyPatcher-like tools among them, are in place; a handler that runs
+after it and edits a model string undoes a retarget, which none is known to do). It does, synchronously:
 
 1. Detect the disable conditions (4.9). If any holds, log it, show the in-game notice, keep the GUI with the reason,
    and register nothing.
@@ -120,18 +124,20 @@ data load (SkyPatcher-like tools) are already in place. The task does, synchrono
    register-path function of 3.1. For a base path the stream wraps the engine's own stream for that path, resolved
    through the engine's resolver before the registration replaces the record. A path whose file the engine cannot
    resolve gets no stream and is left to the engine, exactly like a missing mesh offline.
-5. Start the background initialization thread.
+5. Start the background initialization thread, then wait until it is done. The load does not complete while the
+   handler waits, so the main menu opens with PGLite ready and no save is loaded into a half built environment; the
+   loading-screen thread keeps presenting frames meanwhile, with the loading line of 4.10 and the progress of the
+   mesh reading pass drawn into them. This is how Community Shaders holds the main menu for its shader compilation,
+   and plugins that wait this way take their turns. The wait gives up with a warning after ten minutes.
 
 The background thread registers the facegen streams (one per NPC form whose `FaceGeom\<plugin>\<formid>.nif`
-resolves, unless `exclude facegens` is set), then builds the runtime environment: the texture file map (4.5), the
-complex material classification of every environment mask, the TruePBR configs (`loadStatics` over the
-`pbrnifpatcher` JSONs in file map order), the mod manager file map and `updateStateFromModlist` when a mod manager is
-configured. Then it marks the environment ready. Nothing in it needs the main thread. A stream opened before that
-point waits for the ready signal inside `DoOpen`; a loader thread waits silently, the main thread waits too when a
-synchronous demand hits a registered path before initialization is done (`MistMenu::Show` demands the loading screen
-model synchronously on the first load from the main menu), which lengthens that first loading screen by the
-remaining initialization time. It never deadlocks, because initialization waits for nothing that runs on the main
-thread, and it never patches at boot.
+resolves, unless `exclude facegens` is set), then builds the runtime environment: the file map (4.5), the mesh
+reading pass and the texture classification with the complex material classification of every environment mask, the
+TruePBR configs (`loadStatics` over the `pbrnifpatcher` JSONs in file map order), the switch of the directory's reads
+to the engine's resource layer, the mod manager file map and `updateStateFromModlist` when a mod manager is
+configured. Then it marks the environment ready, which ends the wait of the data-load handler; a loader thread that
+opens a registered stream before the ready signal waits for it inside `DoOpen`. It never deadlocks, because
+initialization waits for nothing that runs on the main thread or the loading thread, and it never patches at boot.
 
 Paths without uses are never registered and are never touched: main menu and loading screen art without record
 uses, sky, LOD, `.bto` blocks, interface meshes.
@@ -279,10 +285,14 @@ keeps plans, not bytes. The unregistered TXST objects live for the session.
 
 ### 4.5 File map and texture classification
 
-The runtime file map is textures only: meshes come from the uses map, and everything else PGLite reads (DDS files
-for classification and aspect ratio checks, TruePBR JSONs, mod rules) is read through the engine's resource layer:
-resolve the path with the engine's resolver (3.1) and read the stream. Those reads see exactly what the game sees,
-including archive precedence and MO2's virtual file system, and PGLite keeps no archive objects alive.
+The runtime file map holds the textures, the TruePBR configs and every mesh of the load order. During the background
+initialization the directory reads as offline: loose files from the data folder (the mod manager's virtual file
+system is process wide, so they are the files the game sees) and archived files from its own archive tables, built
+from the engine's archive set below. The engine's resolver (3.1) takes the registry lock exclusively for every read,
+and the mesh reading pass reads every mesh on the task pool, which would starve the engine's own loading. Once the
+pass and the TruePBR configs are done the archive tables are dropped and every later read (DDS metadata during a
+patch, mod rules) goes through the engine's resource layer: resolve the path with the engine's resolver and read the
+stream, exactly what the game loads for the path.
 
 Texture enumeration follows the engine's archive rule, read from the engine's INI settings at runtime: the two
 `sResourceArchiveList` lists, `Update.bsa`, then `<plugin>.bsa` and `<plugin> - Textures.bsa` for every active
@@ -293,15 +303,26 @@ heuristic (`<name>N.bsa`, `<name> - Meshes.bsa`, `<name> - *.bsa`, INI lists fro
 `BethesdaDirectory.cpp:585-674`) accepts archives the engine never loads; that is an offline bug, listed as a
 follow-up and not changed by this design.
 
-Classification is by file name suffix (`PGNIFUtil::defaultsFromSuffix`), texture rules from the settings, and the
-`vanillabsalist` exclusion of height maps and environment masks inside the listed archives, with no mesh reading pass
-(section 7). Complex material detection runs during the background initialization over every environment mask, as
-offline runs it before `updateStateFromModlist`: `PGD3D::checkIfCM` on PGLite's own D3D11 device with the compute
-shader compiled into the binary, masks that fail classification dropped from the maps as offline does
-(`PGDirectory.cpp:305-308`). Results are cached on disk by file identity like `PGRunCache` caches them offline, so a
-second session never decodes a mask again and the first session pays once. Nothing classifies lazily, so the maps are
-immutable once the environment is ready and `texMatch` reads them without locks. `hasMeshes` of a mod, which the
-offline mesh reading pass sets, is set from the uses map: a mod has meshes when it owns a NIF with uses.
+Classification is the offline one, `PGDirectory::mapFiles`: the mesh reading pass reads every mesh of the load order
+on the task pool during the background initialization and casts the texture votes of its shader patchable shapes,
+the votes decide the slot and type of every texture a mesh uses, a texture no mesh uses is classified by its file
+name suffix (`PGNIFUtil::defaultsFromSuffix`), then the texture rules from the settings and the `vanillabsalist`
+exclusion of height maps and environment masks inside the listed archives apply. The mesh allow list and block list
+skip meshes as offline, and the pass marks the mod of every mesh it reads as having meshes (`hasMeshes`), which is
+what `updateStateFromModlist` lists. The uses of a mesh come from the loaded game (`PGPluginRuntime`). Complex
+material detection runs in the same pass over every environment mask, as offline runs it before
+`updateStateFromModlist`: `PGD3D::checkIfCM` on PGLite's own D3D11 device with the compute shader compiled into the
+binary, masks that fail classification dropped from the maps as offline does (`PGDirectory.cpp:305-308`).
+
+The votes of every mesh and the classification of every mask are cached on disk by file identity (the modification
+time and size of a loose file, the name, modification time and size of the archive of an archived one, the identity
+the offline update cache uses) in `classification.bin` through the `PGRunObserver` calls the shared code makes
+(`tryGetCachedMeshVotes`, `storeMeshVotes`, `tryGetCachedCMClassification`, `storeCMClassification`), so a session
+reads only the meshes and masks that are new or changed, and the first session pays once. The file carries the PGLite
+version that wrote it and is rebuilt by another version, since the votes depend on the code that casts them; it is
+rewritten with the entries of the current load order only. While the pass runs, the loading line shows the meshes
+read so far (4.10). Nothing classifies lazily, so the maps are immutable once the environment is ready and `texMatch`
+reads them without locks.
 
 ### 4.6 Plugin uses from the loaded game
 
@@ -400,10 +421,11 @@ counts, generated texture counts, disable reason, a toggle that disables PGLite 
 with an empty plan and enables it through a full one, persisted in `settings.json`) and the warnings and errors
 collected through the Logger capture callback, deduplicated (weighted pair mismatches land here). The conflict
 manager page builds its mod list from the mod manager settings as edited: the mod manager is read, the mods get
-their shaders from the classified textures of the current environment and their meshes from the uses, and the
-shared ordering numbers them, so the list is the one the next apply installs. While the runtime initializes, a
-"Loading PGLite" line with the step shows in the top right corner, and after the first start a welcome line with the
-menu key until the menu was opened once (recorded in `settings.json`); the ini can hide either. The title bar carries
+their shaders from the classified textures of the current environment and their meshes from the mesh reading pass, and the
+shared ordering numbers them, so the list is the one the next apply installs. While the runtime initializes (and the
+main menu waits, 4.1) a "Loading PGLite" line with the step, and the meshes read so far during the mesh reading pass,
+shows in the top right corner; after the first start a welcome line with the menu key shows there until the menu was
+opened once (recorded in `settings.json`); the ini can hide either line. The title bar carries
 the icon of the offline launcher. The strings come from the
 offline translation files through PGLib's PGTranslation (the offline PGLocale wraps it for wxWidgets); the plugin
 ships the files under `SKSE\Plugins\PGLite\translations`, its Settings page picks the language, and the font atlas
@@ -420,7 +442,8 @@ specified.
   serialized
   keys are never renamed.
 - `Data\SKSE\Plugins\PGLite\modrules.json`: the offline schema.
-- `Data\SKSE\Plugins\PGLite\cmcache.bin`: the complex material classification cache (4.5).
+- `Data\SKSE\Plugins\PGLite\classification.bin`: the classification cache (4.5), the texture votes of every mesh and
+  the complex material classification of every environment mask by file identity.
 - `Data\SKSE\Plugins\PGLite\cache\`: the generated textures with their key files (4.12). Both caches can be deleted
   at any time.
 - `My Games\Skyrim Special Edition\SKSE\PGLite.log` through spdlog and the Logger facade.
@@ -479,8 +502,8 @@ must stay byte identical on a reference load order.
    use, and the offline bookkeeping that keeps NifFile copies until the counterpart arrives
    (`processWeightVariant`, `PGMeshPermutationTracker.cpp:328-352`), which the runtime does not use.
 4. `PGDirectory` and `BethesdaDirectory`: a file provider seam (enumerate, exists, read, archive of a file) with the
-   current implementation offline and the engine-backed one of 4.5 at runtime; a textures-only mode without the mesh
-   reading pass; `hasMeshes` settable from outside; the archive load order built from an injected archive list.
+   current implementation offline and the engine-backed one of 4.5 at runtime; `hasMeshes` settable from outside; the
+   archive load order built from an injected archive list.
 5. The update cache recording calls in `PGDirectory`, `PGNIFUtil::texMatch`, `PGModManager`, `matches()`, `PGD3D`
    (`SuspendRecording`) and `saveMeshes` (`recordOutputFile`) go behind a small observer interface that `PGRunCache`
    implements offline, so `PGRunCache` (which pulls in the permutation tracker and the texture hooks) is not compiled
@@ -532,10 +555,10 @@ This is the complete list. A difference that is not here is a bug (section 1).
    moment the first patched mesh that names it is produced, from the bytes the engine serves for its source, and is
    kept under `SKSE\Plugins\PGLite\cache` (4.12) instead of the output folder; the engine reads it through a
    registered stream. Offline generates every registered texture after all meshes, in the texture phase.
-2. Texture classification is by suffix, texture rules and the vanilla archive list only. Offline, textures used by
-   meshes are classified by a vote of the shapes that use them (`PGDirectory.cpp:395-597`); a texture whose name
-   contradicts its use (an `_m` used as a glow map, a normal map without `_n`) is classified differently, which can
-   change the matches of every mesh sharing its base name.
+2. The texture votes of the mesh reading pass and the complex material classifications are cached across sessions
+   by file identity in `SKSE\Plugins\PGLite\classification.bin` (4.5); offline keeps them in the update cache of the
+   output folder, and only when the output is updated. The classification itself is the same code
+   (`PGDirectory::mapFiles`).
 3. No pgtools-only patchers (Particle Lights to Light Placer, Convert to HDR) and no `--consider-allmeshes`: only
    meshes with record uses and facegen heads are patched, which is the GUI program's behavior.
 
