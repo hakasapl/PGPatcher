@@ -46,14 +46,6 @@ constexpr float fontSize = 18;
 constexpr const char* fontFile = "C:\\Windows\\Fonts\\segoeui.ttf";
 
 /// @brief The game controls the menu takes over while it is open.
-constexpr auto frozenControls = static_cast<RE::ControlMap::UEFlag>(
-    static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kMovement) | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kLooking)
-    | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kActivate) | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kMenu)
-    | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kConsole) | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kPOVSwitch)
-    | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kFighting) | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kSneaking)
-    | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kMainFour) | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kWheelZoom)
-    | static_cast<std::uint32_t>(RE::ControlMap::UEFlag::kJumping));
-
 /// @brief The ImGui key of a DirectInput scan code, ImGuiKey_None for keys the menu does not use.
 ImGuiKey imguiKeyOf(std::uint32_t scanCode)
 {
@@ -342,7 +334,8 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
         return false;
     }
 
-    Logger::debug("Menu initialized Dear ImGui for a {} x {} back buffer", desc.BufferDesc.Width, desc.BufferDesc.Height);
+    Logger::debug(
+        "Menu initialized Dear ImGui for a {} x {} back buffer", desc.BufferDesc.Width, desc.BufferDesc.Height);
     m_isInitialized = true;
     return true;
 }
@@ -577,21 +570,9 @@ void Menu::open()
         m_mouseY = io.DisplaySize.y / 2;
         io.AddMousePosEvent(m_mouseX, m_mouseY);
     }
-
-    setGameControls(false);
 }
 
-void Menu::close()
-{
-    m_isOpen = false;
-    setGameControls(true);
-}
-
-void Menu::setGameControls(bool isEnabled)
-{
-    if (auto* const controlMap = RE::ControlMap::GetSingleton())
-        controlMap->ToggleControls(frozenControls, isEnabled, false);
-}
+void Menu::close() { m_isOpen = false; }
 
 void Menu::loadState()
 {
@@ -665,8 +646,9 @@ void Menu::apply()
     // The runtime takes the full lists.
     PGParams runtimeParams = stored;
     runtimeParams.processing.blockList = defaults.processing.blockList;
-    runtimeParams.processing.blockList.insert(
-        runtimeParams.processing.blockList.end(), stored.processing.blockList.begin(), stored.processing.blockList.end());
+    runtimeParams.processing.blockList.insert(runtimeParams.processing.blockList.end(),
+                                              stored.processing.blockList.begin(),
+                                              stored.processing.blockList.end());
     runtimeParams.processing.vanillaBSAList = defaults.processing.vanillaBSAList;
     runtimeParams.processing.vanillaBSAList.insert(runtimeParams.processing.vanillaBSAList.end(),
                                                    stored.processing.vanillaBSAList.begin(),
@@ -676,7 +658,8 @@ void Menu::apply()
     if (auto* const environment = m_runtime->environment()) {
         if (auto* const modManager = environment->modManager()) {
             auto rules = modManager->json();
-            int priority = static_cast<int>(std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isEnabled; }));
+            int priority
+                = static_cast<int>(std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isEnabled; }));
             for (const auto& row : m_mods) {
                 auto& rule = rules[row.displayName];
                 rule["priority"] = row.isEnabled ? priority-- : -1;
@@ -758,15 +741,14 @@ void Menu::drawStatus()
     const auto status = m_runtime->status();
 
     ImGui::Text("PGLite %s", PG_FULL_VERSION);
-    if (status.disableReason) {
+    if (status.disableReason)
         ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "Disabled because %s.", status.disableReason->c_str());
-    } else if (!status.isActive) {
+    else if (!status.isActive)
         ImGui::TextUnformatted("Waiting for the game data.");
-    } else if (!status.isReady) {
+    else if (!status.isReady)
         ImGui::TextUnformatted("Initializing: the texture maps and the mod list are being built.");
-    } else {
+    else
         ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "Active.");
-    }
 
     ImGui::Separator();
     ImGui::Text("Record model uses: %zu of %zu meshes", status.uses, status.usedMeshes);
@@ -806,11 +788,13 @@ void Menu::drawPatchers()
     ImGui::Checkbox("True PBR", &m_params.shaderPatcher.isTruePBREnabled);
 
     ImGui::SeparatorText("Post-patchers");
-    ImGui::Checkbox("Restore Default Shaders (disable pre-patched materials)", &m_params.postPatcher.disablePrePatchedMaterials);
+    ImGui::Checkbox("Restore Default Shaders (disable pre-patched materials)",
+                    &m_params.postPatcher.disablePrePatchedMaterials);
     ImGui::Checkbox("Hair Flow Map", &m_params.postPatcher.isHairFlowMapEnabled);
 
     ImGui::SeparatorText("Not available at runtime");
-    ImGui::TextWrapped("The Parallax to Complex Material transform and Fix SSS generate textures, which PGLite does not do.");
+    ImGui::TextWrapped(
+        "The Parallax to Complex Material transform and Fix SSS generate textures, which PGLite does not do.");
 }
 
 void Menu::drawRecordTypes()
@@ -934,7 +918,8 @@ void Menu::drawModManager()
             if (ImGui::Button("Use the detected instance"))
                 m_mo2InstanceDir = m_detectedMO2Instance;
         }
-        ImGui::Checkbox("Order mods like Mod Organizer 2 orders loose files", &m_params.modManager.shouldUseMO2LooseFileOrder);
+        ImGui::Checkbox("Order mods like Mod Organizer 2 orders loose files",
+                        &m_params.modManager.shouldUseMO2LooseFileOrder);
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
         ImGui::TextWrapped("The Vortex deployment manifest of the data folder is read.");
     } else {
@@ -977,7 +962,8 @@ void Menu::drawMods()
 
         ImGui::TableNextColumn();
         const auto label = row.isNew ? row.displayName + " (new)" : row.displayName;
-        ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
+        ImGui::Selectable(
+            label.c_str(), false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
         if (m_canReorderMods) {
             if (ImGui::BeginDragDropSource()) {
                 const int index = static_cast<int>(i);
@@ -1022,8 +1008,8 @@ void Menu::drawMessages()
         return;
 
     for (const auto& message : messages) {
-        const auto color = message.level >= spdlog::level::err ? ImVec4(1.0F, 0.45F, 0.45F, 1.0F)
-                                                               : ImVec4(1.0F, 0.85F, 0.4F, 1.0F);
+        const auto color
+            = message.level >= spdlog::level::err ? ImVec4(1.0F, 0.45F, 0.45F, 1.0F) : ImVec4(1.0F, 0.85F, 0.4F, 1.0F);
         ImGui::PushStyleColor(ImGuiCol_Text, color);
         ImGui::TextWrapped("%s", message.text.c_str());
         ImGui::PopStyleColor();

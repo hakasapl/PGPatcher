@@ -79,6 +79,8 @@ bool Runtime::load()
     m_ini = Settings::readIni();
     Logging::initialize(m_ini.logLevel);
     ExceptionHandler::setTaskGuard(&runtimeTaskGuard);
+    // The input redirect of the menu writes one call into the SKSE trampoline (Hooks).
+    SKSE::AllocTrampoline(Hooks::trampolineSize);
 
     const auto version = REL::Module::get().version();
     Logger::info("PGLite {} loading (runtime {})", PG_FULL_VERSION, version.string("."));
@@ -240,7 +242,8 @@ std::optional<std::string> Runtime::detectDisableCondition() const
 
     auto* const dataHandler = RE::TESDataHandler::GetSingleton();
     if (dataHandler
-        && (dataHandler->LookupLoadedModByName(offlinePlugin) || dataHandler->LookupLoadedLightModByName(offlinePlugin)))
+        && (dataHandler->LookupLoadedModByName(offlinePlugin)
+            || dataHandler->LookupLoadedLightModByName(offlinePlugin)))
         return "the offline PGPatcher plugin is active (PGPatcher.esp)";
 
     if (GetModuleHandleW(autoParallaxDLL) || std::filesystem::exists(Settings::pluginsFolder() / autoParallaxDLL))
@@ -337,7 +340,8 @@ void Runtime::registerPlanStreams()
         }
     }
 
-    Logger::info("Registered {} mesh streams ({} families have a mesh the engine cannot resolve)", registered, unresolved);
+    Logger::info(
+        "Registered {} mesh streams ({} families have a mesh the engine cannot resolve)", registered, unresolved);
 }
 
 std::vector<std::filesystem::path> Runtime::facegenPaths() const
@@ -422,7 +426,8 @@ void Runtime::initializeInBackground()
     }
     m_readyCondition.notify_all();
 
-    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    const auto elapsed
+        = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
     Logger::info("PGLite is ready ({} ms)", elapsed.count());
 }
 
@@ -465,7 +470,8 @@ bool Runtime::apply(const PGParams& params)
         return false;
     }
 
-    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    const auto elapsed
+        = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
     Logger::info("Applied the settings in {} ms", elapsed.count());
     return true;
 }

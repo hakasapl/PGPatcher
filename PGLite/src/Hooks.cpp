@@ -27,9 +27,17 @@ bool Hooks::install(Menu& menu)
         return false;
     }
 
-    auto* const inputManager = RE::BSInputDeviceManager::GetSingleton();
-    if (!inputManager) {
-        Logger::error("The input manager is unavailable, the menu is disabled");
+    // Address Library IDs of BSInputDeviceManager::PollInputDevices. The dispatch call sits at the same offset in SE
+    // and AE (checked in the 1.7.99 database and in the 1.7.104 executable: `mov rcx, rsi` and `lea rdx, [rsp+40h]`
+    // load the source and the address of the event list head right before it). Only the opcode is checked, because
+    // another plugin that redirected the call first has already replaced its target.
+    const REL::Relocation<std::uintptr_t> pollSite { REL::RelocationID(67315, 68617), pollDispatchCallOffset };
+    const auto site = pollSite.address();
+    const auto opcode
+        = *reinterpret_cast<const std::uint8_t*>(site); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    if (opcode != callOpcode) {
+        Logger::error(
+            "The input dispatch call site holds {:#x} instead of a call ({:#x}), the menu is disabled", opcode, site);
         return false;
     }
 
@@ -41,38 +49,47 @@ bool Hooks::install(Menu& menu)
     };
     s_originalPresent = reinterpret_cast<decltype(&present)>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         vtable.write_vfunc(presentIndex, &present));
-    s_originalResizeBuffers = reinterpret_cast<decltype(&resizeBuffers)>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        vtable.write_vfunc(resizeBuffersIndex, &resizeBuffers));
+    s_originalResizeBuffers
+        = reinterpret_cast<decltype(&resizeBuffers)>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            vtable.write_vfunc(resizeBuffersIndex, &resizeBuffers));
 
-    inputManager->AddEventSink(&s_inputSink);
+    s_originalDispatch = SKSE::GetTrampoline().write_call<5>(site, &dispatchInput);
 
-    Logger::debug("Menu hooks installed (input manager at {:#x}, swap chain at {:#x})",
-                  reinterpret_cast<std::uintptr_t>(inputManager), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    Logger::debug("Menu hooks installed (input dispatch call at {:#x} went to {:#x}, swap chain at {:#x})",
+                  site,
+                  s_originalDispatch.address(),
                   reinterpret_cast<std::uintptr_t>(swapChain)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     return true;
 }
 
-RE::BSEventNotifyControl Hooks::InputSink::ProcessEvent(RE::InputEvent* const* events,
-                                                        [[maybe_unused]] RE::BSTEventSource<RE::InputEvent*>* source)
+void Hooks::dispatchInput(RE::BSTEventSource<RE::InputEvent*>* source,
+                          RE::InputEvent* const* events)
 {
-    if (!events || !s_menu)
-        return RE::BSEventNotifyControl::kContinue;
+    if (events && s_menu) {
+        for (const auto* event = *events; event; event = event->next) {
+            if (s_tracedEvents < maxTracedEvents) {
+                s_tracedEvents++;
+                const auto* const button = event->AsButtonEvent();
+                Logger::debug("Input event {}: type {} device {} code {}",
+                              s_tracedEvents,
+                              static_cast<int>(event->GetEventType()),
+                              static_cast<int>(event->GetDevice()),
+                              button ? button->GetIDCode() : 0);
+            }
 
-    for (const auto* event = *events; event; event = event->next) {
-        if (s_tracedEvents < maxTracedEvents) {
-            s_tracedEvents++;
-            const auto* const button = event->AsButtonEvent();
-            Logger::debug("Input event {}: type {} device {} code {}",
-                          s_tracedEvents,
-                          static_cast<int>(event->GetEventType()),
-                          static_cast<int>(event->GetDevice()),
-                          button ? button->GetIDCode() : 0);
+            s_menu->handleInput(*event);
         }
-
-        s_menu->handleInput(*event);
     }
 
-    return RE::BSEventNotifyControl::kContinue;
+    if (s_menu && s_menu->isOpen()) {
+        // The game sees no input while the menu is open. Keys still held resume when the devices poll them after the
+        // close; the source is still called, as the engine does every frame.
+        static constexpr RE::InputEvent* const noEvents[] = { nullptr };
+        s_originalDispatch(source, noEvents);
+        return;
+    }
+
+    s_originalDispatch(source, events);
 }
 
 HRESULT WINAPI Hooks::present(IDXGISwapChain* swapChain,

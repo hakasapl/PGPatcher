@@ -79,7 +79,6 @@ private:
     bool createBackBufferView(IDXGISwapChain* swapChain);
     void open();
     void close();
-    void setGameControls(bool isEnabled);
 
     /// @brief Applies the queued input events to the menu and to Dear ImGui. Render thread.
     void drainInput();
