@@ -62,16 +62,10 @@ size_t rootValueEnd(const std::string& text)
     return text.size();
 }
 
-/**
- * @brief Parses a Light Placer config the way Light Placer itself does (glaze with its default options): a byte order
- * mark is rejected, whatever follows the root value is ignored, and the root has to be an array.
- *
- * @param fullPath Path of the JSON file.
- * @param[out] out Parsed JSON.
- * @return true if Light Placer would load the file.
- */
-bool parseLightPlacerJSON(const std::filesystem::path& fullPath,
-                          nlohmann::json& out)
+} // namespace
+
+bool HandlerLightPlacerTracker::parseLightPlacerJSON(const std::filesystem::path& fullPath,
+                                                     nlohmann::json& out)
 {
     const auto bytes = FileUtil::fileBytes(fullPath);
     std::string text;
@@ -85,8 +79,6 @@ bool parseLightPlacerJSON(const std::filesystem::path& fullPath,
     out = nlohmann::json::parse(std::string_view(text).substr(0, rootValueEnd(text)), nullptr, false);
     return out.is_array();
 }
-
-} // namespace
 
 // Statics.
 std::vector<std::unique_ptr<HandlerLightPlacerTracker::LPJSON>> HandlerLightPlacerTracker::s_lightPlacerJSONs;

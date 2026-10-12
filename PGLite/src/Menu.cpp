@@ -664,6 +664,10 @@ void Menu::applyInput(const InputRecord& record)
 
 void Menu::open()
 {
+    // A disabled PGLite has no menu; the notice at data load said why.
+    if (m_runtime->disableReason())
+        return;
+
     m_isOpen = true;
     m_isStateLoaded = false;
     m_applyMessage.clear();
@@ -1035,10 +1039,7 @@ void Menu::drawStatus()
     }
 
     const auto status = m_runtime->status();
-    if (status.disableReason) {
-        ImGui::TextColored(
-            ImVec4(1.0F, 0.5F, 0.3F, 1.0F), tr("pglite.status.disabledBecause").c_str(), status.disableReason->c_str());
-    } else if (!status.isActive) {
+    if (!status.isActive) {
         ImGui::TextUnformatted(tr("pglite.status.waitingForData").c_str());
     } else if (!status.isReady) {
         ImGui::Text(tr("pglite.status.initializing").c_str(),

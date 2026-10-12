@@ -109,13 +109,14 @@ CommonLibSSE-NG's `EShaderPropertyFlag8`: `kMenuScreen` is 55, the loaded form o
 
 The game loads its data on a thread of its own while the main thread waits for the load and a loading-screen thread
 presents frames; `kDataLoaded` is sent on the loading thread, to every plugin's handler in turn, and the main thread
-opens the main menu the moment the load completes. PGLite's handler creates the menu, installs its hooks (4.10) and
-does the data-load work itself, on the thread that owns the records at this point as every other handler does (the
+opens the main menu the moment the load completes. PGLite's handler checks the disable conditions (4.9), then
+creates the menu, installs its hooks (4.10) and does the data-load work itself, on the thread that owns the records
+at this point as every other handler does (the
 record edits of the handlers that ran before it, SkyPatcher-like tools among them, are in place; a handler that runs
 after it and edits a model string undoes a retarget, which none is known to do). It does, synchronously:
 
-1. Detect the disable conditions (4.9). If any holds, log it, show the in-game notice, keep the GUI with the reason,
-   and register nothing.
+1. Detect the disable conditions (4.9) before anything is installed. If any holds, log it, show the in-game notice
+   and install nothing: no hooks, no menu, no streams.
 2. Snapshot every record field the permutation system edits (model strings of every sub-model, alternate texture
    index and texture set per entry) so Apply (4.8) can restore them.
 3. Build the uses map from `TESDataHandler` (4.6) and the record-only permutation plan (4.4): contexts, variant
@@ -407,7 +408,9 @@ immediate and is a later addition if wanted; it is not part of apply.
 
 In every case PGLite logs the reason, shows a notice ("PGLite is disabled because X is present", an in-game message
 box after data load; a Windows message box at plugin load for the Address Library case, when the game UI does not
-exist yet), and the GUI stays available and states the reason.
+exist yet) and installs nothing else: no hooks, no menu, no streams, and the hotkey does nothing. A failure after the
+hooks are installed (the data-load work or the background initialization) disables PGLite the same way; the hooks
+stay, and the menu refuses to open.
 
 ### 4.10 GUI (Dear ImGui)
 
@@ -446,6 +449,8 @@ specified.
   the complex material classification of every environment mask by file identity.
 - `Data\SKSE\Plugins\PGLite\cache\`: the generated textures with their key files (4.12). Both caches can be deleted
   at any time.
+- `Data\LightPlacer\PGLite_Variants.json`: the Light Placer config of the variant paths (4.13), rewritten at data
+  load and at every Apply.
 - `My Games\Skyrim Special Edition\SKSE\PGLite.log` through spdlog and the Logger facade.
 - The package ships `textures\cubemaps\dynamic1pxcubemap_black.dds`, which the offline run deploys into its output.
 
@@ -480,6 +485,26 @@ folder. At runtime the same hooks run, and the registered textures are made the 
   session and empties the hooks' lists; the first patch after Apply registers its textures with the new directory.
 - The ini flag `bForceAlwaysCM` is the offline `--force-always-cm`: every parallax match is upgraded, not only the
   ones whose shape cannot keep parallax.
+
+### 4.13 Light Placer
+
+Light Placer reads its JSON configs under `Data\LightPlacer` at its plugin load (`std::filesystem`, so through the
+mod manager's virtual file system and never through the engine's resource layer), builds its tables at data load,
+and attaches the lights of a `models` entry by the model string of the record whose 3D loads, compared case
+insensitively and otherwise literally (`LightManager::AttachLightsImpl`, `SourceData`). A record PGLite points at a
+variant path has another model string, so its lights would be lost; offline, `HandlerLightPlacerTracker` appends
+every duplicate's path to the entries that list the original and writes the changed configs to the output.
+
+`LightPlacerBridge` is the runtime counterpart. After the plan is built, at data load and at every Apply, it reads
+the configs as Light Placer does (the same folder walk, the same parser rules through the handler's
+`parseLightPlacerJSON`), and for every `models` entry that lists a model of a family with variants (the model strings
+compared lower case with backslashes, as the offline handler compares them) writes one entry with the same `lights`
+and the variant strings as the records hold them (without the `meshes\` prefix) into
+`Data\LightPlacer\PGLite_Variants.json`, deleting the file when there is nothing to write. Light Placer has no API,
+but its `ReloadLP` console command reads every config again and rebuilds its tables, so the bridge runs it through a
+`Script` form on the main thread once the data load (or Apply) is done. The file also stays on disk, so the next
+session's Light Placer reads it at its plugin load; a stale entry names a variant path that embeds the original mesh
+path and can only ever carry that mesh's lights. Nothing happens when `po3_LightPlacer.dll` is not loaded.
 
 ## 5. Shared code: PGLib changes
 
@@ -569,13 +594,12 @@ This is the complete list. A difference that is not here is a bug (section 1).
    Swapper, Seasons of Skyrim) make the engine load another record's model, which has its own uses. The offline run
    sees the plugin files (4.6 has the check that the two agree when no runtime tool edits records). A tool that
    rewrites model strings after PGLite planned would undo a retarget; none is known to.
-5. Light Placer and any other mod that keys on model paths lose their effect on records that PGLite retargets to a
-   variant path. Offline, the Light Placer handler patcher adds every duplicate's path to the Light Placer configs
-   (`HandlerLightPlacerTracker`, `PGPatcher.cpp:636-639`); handler patchers are out of scope at runtime by decision,
-   so a record whose context is not the primary one (alternate textures, a filtered sibling, a different single-pass
-   or grass context) keeps its mesh but not its placed lights. Records that keep the original path are unaffected.
-   Variant names also use a session counter instead of the offline `1..N` per path (4.4); only path-keyed mods can
-   tell.
+5. Light Placer gets the lights of its model entries on the variant paths through a config PGLite writes and a
+   reload it asks for (4.13), where offline the handler patcher adds every duplicate's path to the configs
+   themselves (`HandlerLightPlacerTracker`, `PGPatcher.cpp:636-639`); within a session this depends on Light
+   Placer's `ReloadLP` console command. Any other mod that keys on model paths loses its effect on records that
+   PGLite retargets to a variant path. Variant names also use a session counter instead of the offline `1..N` per
+   path (4.4); only path-keyed mods can tell.
 6. Texture sets are in-memory objects: the eight paths only, as the offline records (`PGMutagen.cs:1230-1241`), but
    with no form ID, no `PG_` editor ID, no plugin record and no persistence, created at first open instead of at the
    end of the run, and deduplicated per family instead of per run. CS's `PBRTextureSets` registry knows neither

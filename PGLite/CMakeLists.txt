@@ -111,8 +111,8 @@ set(PGLIB_OFFLINE_SOURCES
   "${PG_LIB_DIR}/src/PGRunCache.cpp"
   # The stack trace task guard (cpptrace).
   "${PG_LIB_DIR}/src/util/ExceptionHandlerCppTrace.cpp"
-  # Handler patchers are out of scope at runtime (DESIGN.md section 7).
-  "${PG_LIB_DIR}/src/handlers/HandlerLightPlacerTracker.cpp"
+  # The pgtools-only particle lights patcher (DESIGN.md section 7). The Light Placer handler stays in: its config
+  # parser serves the runtime's Light Placer bridge (section 4.13).
   "${PG_LIB_DIR}/src/patchers/PatcherMeshGlobalParticleLightsToLP.cpp"
 )
 list(REMOVE_ITEM PGLIB_SOURCES ${PGLIB_OFFLINE_SOURCES})

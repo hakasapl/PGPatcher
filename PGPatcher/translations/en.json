@@ -406,7 +406,6 @@
       "applying": "Applying, the game is paused: %s (%.1f s)",
       "applyingShort": "Applying the settings.",
       "working": "working",
-      "disabledBecause": "Disabled because %s.",
       "waitingForData": "Waiting for the game data.",
       "initializing": "Initializing: %s.",
       "initializingDefault": "the texture maps and the mod list are being built",

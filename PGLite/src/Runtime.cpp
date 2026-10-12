@@ -5,6 +5,7 @@
 #include "ClassificationCache.hpp"
 #include "Environment.hpp"
 #include "Hooks.hpp"
+#include "LightPlacerBridge.hpp"
 #include "Logging.hpp"
 #include "Menu.hpp"
 #include "PGGlobals.hpp"
@@ -178,14 +179,24 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
 
     auto& runtime = instance();
 
+    // A disabled PGLite installs nothing, no hooks, no menu, no streams: the notice is all the game sees of it.
+    if (const auto reason = runtime.disableReason()) {
+        RE::DebugMessageBox(std::format("PGLite is disabled because {}.", *reason).c_str());
+        return;
+    }
+
+    if (const auto reason = runtime.detectDisableCondition()) {
+        runtime.disable(*reason, true);
+        return;
+    }
+
     // The development aid listens for the main menu from here on.
     if (!runtime.m_ini.loadSaveAtStart.empty()) {
         if (auto* const ui = RE::UI::GetSingleton())
             ui->AddEventSink<RE::MenuOpenCloseEvent>(&runtime);
     }
 
-    // The menu exists whether or not PGLite is active, so it can state the reason when it is not; its hooks draw the
-    // loading line into the frames presented during the wait below.
+    // The menu's hooks draw the loading line into the frames presented during the wait below.
     runtime.m_menu = std::make_unique<Menu>(runtime);
     if (!Hooks::install(*runtime.m_menu))
         runtime.m_menu.reset();
@@ -222,16 +233,6 @@ void Runtime::waitForInitialization() const
 void Runtime::onDataLoaded()
 {
     try {
-        if (const auto reason = disableReason()) {
-            RE::DebugMessageBox(std::format("PGLite is disabled because {}.", *reason).c_str());
-            return;
-        }
-
-        if (const auto reason = detectDisableCondition()) {
-            disable(*reason, true);
-            return;
-        }
-
         const auto started = std::chrono::steady_clock::now();
         {
             const std::scoped_lock lock(m_stateMutex);
@@ -255,6 +256,7 @@ void Runtime::onDataLoaded()
         m_plan = std::move(plan);
         if (m_isEnabled)
             registerPlanStreams();
+        LightPlacerBridge::update(*m_plan);
 
         m_facegenPaths = facegenPaths();
         m_isActive = true;
@@ -537,6 +539,7 @@ bool Runtime::apply(const PGParams& params,
         if (!isEnabled) {
             // Every stream serves the original mesh from now on; the environment is rebuilt by the apply that enables.
             m_plan = std::make_unique<Plan>(++m_planGeneration);
+            LightPlacerBridge::update(*m_plan);
             m_stage = nullptr;
             Logger::info("PGLite is disabled; meshes loaded from now on are the originals");
             return true;
@@ -556,6 +559,7 @@ bool Runtime::apply(const PGParams& params,
         m_stage = "pglite.stages.registeringStreams";
         registerPlanStreams();
         registerFacegenStreams();
+        LightPlacerBridge::update(*m_plan);
     } catch (const std::exception& e) {
         Logger::critical("Apply failed, PGLite serves original meshes until the next apply: {}", e.what());
         m_plan = std::make_unique<Plan>(++m_planGeneration);

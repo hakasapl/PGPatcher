@@ -14,7 +14,8 @@ translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubem
   Skyrim SE 1.5.97 is not supported yet: the two engine functions PGLite calls are not known there, and PGLite stays
   disabled with a notice.
 - No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) and no Auto Parallax.
-  PGLite disables itself with an in-game notice when it finds one of them.
+  PGLite disables itself with an in-game notice when it finds one of them, and installs nothing else then (no menu,
+  no hooks).
 - Community Shaders for complex material and True PBR, as with the offline program.
 - The Visual C++ 2015-2022 redistributable the game itself needs (`vcomp140.dll`) and `d3dcompiler_47.dll`,
   which is part of Windows; everything else is linked into `PGLite.dll`.
@@ -75,8 +76,10 @@ Records and the plugin step:
 
 4. Records are the live game state: edits other tools make at data load are seen, and base object swappers make
    the engine load another record's model, with its own uses.
-5. Light Placer and other mods that key on model paths lose their effect on records that PGLite points at a variant
-   path; handler patchers are out of scope at runtime. Variant names use a session counter, not `1..N` per path.
+5. Light Placer lights follow the records PGLite points at a variant path: PGLite writes
+   `LightPlacer\PGLite_Variants.json` with the lights of every entry that lists a retargeted model and asks Light
+   Placer to reload its configs (its `ReloadLP` console command) after data load and after Apply. Other mods that key
+   on model paths lose their effect on those records. Variant names use a session counter, not `1..N` per path.
 6. Texture sets are in-memory objects with the eight paths only: no form ID, no `PG_` editor ID, no plugin record,
    created at the first load of a mesh and deduplicated per session.
 7. Weighted pairs are planned as one family: a context merges only when both files agree, and each record

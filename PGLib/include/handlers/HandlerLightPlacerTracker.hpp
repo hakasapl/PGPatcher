@@ -38,6 +38,17 @@ private:
 
 public:
     /**
+     * @brief Parses a Light Placer config the way Light Placer itself does (glaze with its default options): a byte
+     * order mark is rejected, whatever follows the root value is ignored, and the root has to be an array.
+     *
+     * @param fullPath Path of the JSON file.
+     * @param[out] out Parsed JSON.
+     * @return true if Light Placer would load the file.
+     */
+    static bool parseLightPlacerJSON(const std::filesystem::path& fullPath,
+                                     nlohmann::json& out);
+
+    /**
      * @brief Reads the given Light Placer JSONs from the data folder (loose files, through PGGlobals::pgd()) and
      * indexes their model entries. A JSON Light Placer itself would reject is skipped with a warning. NOT THREAD SAFE
      *
