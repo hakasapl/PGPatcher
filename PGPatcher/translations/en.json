@@ -428,7 +428,8 @@
       "textureSetsTooltip": "In-memory texture sets for patched alternate textures whose slots differ from the record's set, like the offline plugin records.",
       "mo2Instance": "Mod Organizer 2 instance: %s",
       "loading": "Loading PGLite: %s",
-      "starting": "starting"
+      "starting": "starting",
+      "welcome": "Welcome to PGLite, please configure your Mod Manager in the Settings (%s)"
     },
     "apply": {
       "tooltip": "Saves every page to settings.json and modrules.json and plans the meshes again. Meshes loaded from then on use the new settings; models the game already holds keep their state until it reloads them.",

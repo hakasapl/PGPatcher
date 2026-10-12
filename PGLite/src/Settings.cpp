@@ -83,6 +83,7 @@ Settings::Ini Settings::readIni()
     ini.shouldExcludeFacegens = file.GetBoolValue(iniSection, "bExcludeFacegens", false);
     ini.shouldDisableDynamicCubemap = file.GetBoolValue(iniSection, "bDisableDynamicCubemap", false);
     ini.shouldShowLoadingMessage = file.GetBoolValue(iniSection, "bShowLoadingMessage", true);
+    ini.shouldShowWelcomeMessage = file.GetBoolValue(iniSection, "bShowWelcomeMessage", true);
     ini.loadSaveAtStart = file.GetValue(debugSection, "sLoadSaveAtStart", "");
     ini.shouldOpenMenuAtStart = file.GetBoolValue(debugSection, "bOpenMenuAtStart", false);
     ini.shouldApplyAtStart = file.GetBoolValue(debugSection, "bApplyAtStart", false);
@@ -174,6 +175,33 @@ bool Settings::writeLanguage(const std::string& language)
 
     try {
         settings["pglite"]["language"] = language;
+        FileUtil::saveJSON(settingsFile(), settings, true);
+    } catch (const std::exception& e) {
+        Logger::error("Unable to write settings.json: {}", e.what());
+        return false;
+    }
+
+    return true;
+}
+
+bool Settings::readDidOpenMenu()
+{
+    nlohmann::json settings;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.contains("pglite") || !settings["pglite"].is_object())
+        return false;
+
+    const auto& pglite = settings["pglite"];
+    return pglite.contains("didOpenMenu") && pglite["didOpenMenu"].is_boolean() && pglite["didOpenMenu"].get<bool>();
+}
+
+bool Settings::writeDidOpenMenu()
+{
+    nlohmann::json settings;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.is_object())
+        settings = nlohmann::json::object();
+
+    try {
+        settings["pglite"]["didOpenMenu"] = true;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
         Logger::error("Unable to write settings.json: {}", e.what());

@@ -82,6 +82,9 @@ bool Runtime::load()
     ExceptionHandler::setTaskGuard(&runtimeTaskGuard);
     // The menu's strings; the stage names the runtime reports are keys of the same table.
     PGTranslation::init(Settings::translationsFolder(), Settings::readLanguage());
+    if (PGTranslation::availableLanguages().empty())
+        Logger::warn(L"No translation files in {}, the menu shows its keys instead of its texts",
+                     Settings::translationsFolder().wstring());
     // The input redirect of the menu writes one call into the SKSE trampoline (Hooks).
     SKSE::AllocTrampoline(Hooks::trampolineSize);
 

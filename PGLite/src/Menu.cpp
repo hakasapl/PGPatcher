@@ -3,6 +3,7 @@
 #include "Menu.hpp"
 
 #include "Environment.hpp"
+#include "Icon.h"
 #include "Logging.hpp"
 #include "PGDirectory.hpp"
 #include "PGModManager.hpp"
@@ -23,7 +24,9 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -297,6 +300,7 @@ std::string shaderNames(const std::set<PGEnums::ShapeShader>& shaders)
 Menu::Menu(Runtime& runtime)
     : m_runtime(&runtime)
     , m_lastFrame(std::chrono::steady_clock::now())
+    , m_didOpenMenu(Settings::readDidOpenMenu())
 {
 }
 
@@ -344,6 +348,7 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
     platformIO.Platform_SetClipboardTextFn = &setClipboardText;
     m_gameWindow = desc.OutputWindow;
     m_runningImage.load(EmbeddedImages::runningGif, EmbeddedImages::runningGifSize, *m_device.Get());
+    m_icon.loadIcon(EmbeddedImages::icon, EmbeddedImages::iconSize, *m_device.Get());
 
     if (!ImGui_ImplDX11_Init(m_device.Get(), m_context.Get())) {
         ImGui::DestroyContext();
@@ -385,12 +390,14 @@ void Menu::render(IDXGISwapChain* swapChain)
     if (m_didFailInitialization || !swapChain)
         return;
 
-    // The loading message needs a frame while the menu is closed.
-    const bool shouldShowLoading = !m_isOpen && m_runtime->ini().shouldShowLoadingMessage && m_runtime->isActive()
-        && !m_runtime->isReady() && !m_runtime->disableReason();
+    // The loading and welcome messages need a frame while the menu is closed.
+    const auto& ini = m_runtime->ini();
+    const bool shouldShowOverlay = !m_isOpen && m_runtime->isActive() && !m_runtime->disableReason()
+        && ((ini.shouldShowLoadingMessage && !m_runtime->isReady())
+            || (ini.shouldShowWelcomeMessage && !m_didOpenMenu && m_runtime->isReady()));
 
     try {
-        if (!m_isInitialized && (m_isOpen || shouldShowLoading) && !initialize(swapChain)) {
+        if (!m_isInitialized && (m_isOpen || shouldShowOverlay) && !initialize(swapChain)) {
             m_didFailInitialization = true;
             Logger::error("The menu could not initialize Dear ImGui on the game's device");
             m_isOpen = false;
@@ -399,7 +406,7 @@ void Menu::render(IDXGISwapChain* swapChain)
 
         // The hotkey and, while open, the mouse and keys queued by the input threads.
         drainInput();
-        if (!m_isOpen && !shouldShowLoading)
+        if (!m_isOpen && !shouldShowOverlay)
             return;
         if (!m_isInitialized && !initialize(swapChain)) {
             m_didFailInitialization = true;
@@ -660,6 +667,11 @@ void Menu::open()
     m_isOpen = true;
     m_isStateLoaded = false;
     m_applyMessage.clear();
+    if (!m_didOpenMenu) {
+        // The welcome message has done its job.
+        m_didOpenMenu = true;
+        std::ignore = Settings::writeDidOpenMenu();
+    }
     m_lastFrame = std::chrono::steady_clock::now();
     if (m_isInitialized) {
         auto& io = ImGui::GetIO();
@@ -848,6 +860,7 @@ void Menu::finishApply()
 void Menu::draw()
 {
     drawLoadingMessage();
+    drawWelcomeMessage();
     if (!m_isOpen)
         return;
 
@@ -860,12 +873,29 @@ void Menu::draw()
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.25F, io.DisplaySize.y * 0.2F), ImGuiCond_FirstUseEver);
 
     // No close button while Apply runs; the hotkey and Escape are ignored then too (applyInput).
-    // The version in the title, as the offline launcher window; the part after ### keeps the window's identity.
-    const auto title = std::format("PGLite {}###PGLite", PG_FULL_VERSION);
+    // The version in the title, as the offline launcher window, and its icon drawn into the title bar over the room
+    // leading spaces leave it; the part after ### keeps the window's identity.
+    const auto iconSize = ImGui::GetFontSize();
+    const auto& style = ImGui::GetStyle();
+    const auto spaceCount = m_icon.isLoaded()
+        ? static_cast<std::size_t>(std::ceil((iconSize + style.ItemInnerSpacing.x) / ImGui::CalcTextSize(" ").x))
+        : 0;
+    const auto title = std::format("{}PGLite {}###PGLite", std::string(spaceCount, ' '), PG_FULL_VERSION);
     bool isOpen = true;
     if (!ImGui::Begin(title.c_str(), m_isApplying ? nullptr : &isOpen, ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         return;
+    }
+
+    if (m_icon.isLoaded()) {
+        const auto position = ImGui::GetWindowPos();
+        const ImVec2 iconMin(position.x + style.FramePadding.x, position.y + style.FramePadding.y);
+        const ImVec2 iconMax(iconMin.x + iconSize, iconMin.y + iconSize);
+        auto* const drawList = ImGui::GetWindowDrawList();
+        drawList->PushClipRect(
+            position, ImVec2(position.x + ImGui::GetWindowWidth(), position.y + ImGui::GetFrameHeight()), false);
+        drawList->AddImage(m_icon.frame(), iconMin, iconMax);
+        drawList->PopClipRect();
     }
 
     if (m_isApplying) {
@@ -939,9 +969,53 @@ void Menu::drawLoadingMessage()
         | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("##loading", nullptr, flags)) {
         const auto* const stage = m_runtime->stage();
+        if (m_runningImage.isLoaded())
+            drawOverlayImage(m_runningImage, m_runningImage.size().y * m_uiScale * 0.5F);
         ImGui::Text(tr("pglite.status.loading").c_str(), tr(stage ? stage : "pglite.status.starting").c_str());
     }
     ImGui::End();
+}
+
+void Menu::drawOverlayImage(const AnimatedImage& image,
+                            float height)
+{
+    // The image at the left of the line, the text that follows centered on it.
+    const auto size = ImVec2(height * image.size().x / image.size().y, height);
+    const auto lineStart = ImGui::GetCursorPosY();
+    ImGui::Image(image.frame(), size);
+    ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x * 2);
+    ImGui::SetCursorPosY(lineStart + (size.y - ImGui::GetTextLineHeight()) / 2);
+}
+
+void Menu::drawWelcomeMessage()
+{
+    if (!m_runtime->ini().shouldShowWelcomeMessage || m_didOpenMenu || !m_runtime->isActive() || !m_runtime->isReady()
+        || m_runtime->disableReason())
+        return;
+
+    const auto& io = ImGui::GetIO();
+    const auto margin = 16 * m_uiScale;
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - margin, margin), ImGuiCond_Always, ImVec2(1, 0));
+    ImGui::SetNextWindowBgAlpha(0.6F);
+    constexpr auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav
+        | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
+    if (ImGui::Begin("##welcome", nullptr, flags)) {
+        if (m_icon.isLoaded())
+            drawOverlayImage(m_icon, ImGui::GetFontSize() * 2);
+        ImGui::Text(tr("pglite.status.welcome").c_str(), keyName(m_runtime->ini().menuKey).c_str());
+    }
+    ImGui::End();
+}
+
+std::string Menu::keyName(unsigned scanCode)
+{
+    // DirectInput scan codes are the keyboard's, bit 7 marking an extended key, which GetKeyNameText takes in bit 24.
+    const auto parameter = static_cast<LONG>(((scanCode & 0x7FU) << 16U) | ((scanCode & 0x80U) ? (1U << 24U) : 0U));
+    std::array<wchar_t, 64> name = { };
+    if (GetKeyNameTextW(parameter, name.data(), static_cast<int>(name.size())) > 0)
+        return StringUtil::utf16toUTF8(name.data());
+
+    return std::format("{}", scanCode);
 }
 
 void Menu::drawStatus()
@@ -964,12 +1038,13 @@ void Menu::drawStatus()
     } else if (!status.isEnabled) {
         ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "%s", tr("pglite.status.disabled").c_str());
     } else if (m_runningImage.isLoaded()) {
-        // The running animation of the offline launcher next to the status, the text centered on it.
-        const auto imageSize = ImVec2(m_runningImage.size().x * m_uiScale, m_runningImage.size().y * m_uiScale);
+        // The running animation of the offline launcher at half size next to the status, the text centered on it.
+        const auto imageSize
+            = ImVec2(m_runningImage.size().x * m_uiScale * 0.5F, m_runningImage.size().y * m_uiScale * 0.5F);
         const auto lineStart = ImGui::GetCursorPosY();
         ImGui::SetCursorPosY(lineStart + (imageSize.y - ImGui::GetTextLineHeight()) / 2);
         ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "%s", tr("pglite.status.active").c_str());
-        ImGui::SameLine();
+        ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x * 3);
         ImGui::SetCursorPosY(lineStart);
         ImGui::Image(m_runningImage.frame(), imageSize);
     } else {

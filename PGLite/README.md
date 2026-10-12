@@ -22,7 +22,8 @@ translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubem
 The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F8 by default). Its status page
 has a toggle that disables PGLite (meshes loaded from then on are the originals) and enables it again, kept across
 game starts. While PGLite initializes after the game data loaded, "Loading PGLite" and the current step show in the
-top right corner (`bShowLoadingMessage=false` in the ini hides it). The menu's strings come from the translation
+top right corner (`bShowLoadingMessage=false` in the ini hides it), and after the first start a welcome line with the
+menu key shows there until the menu was opened once (`bShowWelcomeMessage=false` hides it for good). The menu's strings come from the translation
 files of the offline launcher, and its Settings page picks the language. Settings live
 in `SKSE\Plugins\PGLite\settings.json` with the same keys as the offline `params`, so a settings file can be copied
 between the two programs, and the mod rules in `SKSE\Plugins\PGLite\modrules.json`. The log is

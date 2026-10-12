@@ -141,6 +141,16 @@ private:
     /// @brief "Loading PGLite" in the top right corner while the runtime initializes (PGLite.ini bShowLoadingMessage).
     void drawLoadingMessage();
 
+    /// @brief The welcome message in the top right corner until the menu was opened once (bShowWelcomeMessage).
+    void drawWelcomeMessage();
+
+    /// @brief The name of a key by its DirectInput scan code, as the keyboard layout calls it.
+    [[nodiscard]] static std::string keyName(unsigned scanCode);
+
+    /// @brief An image at the left of an overlay line, the text that follows centered on it.
+    static void drawOverlayImage(const AnimatedImage& image,
+                                 float height);
+
     /// @brief Draws an editable list of strings with remove buttons and an add row.
     static void drawStringList(const char* id,
                                std::vector<std::string>& items,
@@ -167,6 +177,7 @@ private:
     std::atomic<bool> m_isOpen { false };
     bool m_didAutoOpen = false;
     bool m_didAutoApply = false;
+    bool m_didOpenMenu = false;
     bool m_isStateLoaded = false;
     std::mutex m_inputMutex;
     std::vector<InputRecord> m_pendingInput;
@@ -179,6 +190,7 @@ private:
     HWND m_gameWindow = nullptr;
     float m_uiScale = 1;
     AnimatedImage m_runningImage;
+    AnimatedImage m_icon;
     ImVector<ImWchar> m_glyphRanges;
     bool m_shouldRebuildFonts = false;
     std::vector<PGTranslation::Language> m_languages;

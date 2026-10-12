@@ -11,7 +11,8 @@
 namespace PGLite {
 
 /**
- * @brief An animated GIF as Dear ImGui textures: one texture per frame, the frame chosen by the time since loading.
+ * @brief An image as Dear ImGui textures: one texture per frame, the frame chosen by the time since loading. A GIF
+ * gives its frames and delays; an icon gives one frame.
  */
 class AnimatedImage {
 public:
@@ -23,6 +24,15 @@ public:
     bool load(const unsigned char* data,
               std::size_t size,
               ID3D11Device& device);
+
+    /**
+     * @brief Decodes the largest PNG entry of a Windows icon (.ico) and uploads it as the one frame.
+     *
+     * @return false if the icon has no PNG entry the decoder handles or a texture could not be created (logged).
+     */
+    bool loadIcon(const unsigned char* data,
+                  std::size_t size,
+                  ID3D11Device& device);
 
     [[nodiscard]] bool isLoaded() const { return !m_frames.empty(); }
 
@@ -41,6 +51,14 @@ private:
 
     /// @brief GIF frames without a delay are shown this long.
     static constexpr int defaultFrameMs = 100;
+
+    /// @brief Uploads RGBA frames stored one after the other; delays may be null for a still image.
+    bool upload(const unsigned char* pixels,
+                int width,
+                int height,
+                int frameCount,
+                const int* delays,
+                ID3D11Device& device);
 
     std::vector<Frame> m_frames;
     int m_width = 0;

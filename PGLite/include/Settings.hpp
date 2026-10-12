@@ -31,6 +31,8 @@ public:
         bool shouldDisableDynamicCubemap = false;
         /// @brief Whether "Loading PGLite" and the step show in the top right corner while PGLite initializes.
         bool shouldShowLoadingMessage = true;
+        /// @brief Whether the welcome message shows in the top right corner until the menu was opened once.
+        bool shouldShowWelcomeMessage = true;
         /// @brief A development aid: the save (file name without extension) loaded when the main menu opens.
         std::string loadSaveAtStart;
         /// @brief A development aid: open the menu once the runtime is ready, without the hotkey.
@@ -98,6 +100,16 @@ public:
      * @return false if the file could not be written (logged).
      */
     static bool writeLanguage(const std::string& language);
+
+    /// @brief Whether the menu was opened once, the "pglite" object of settings.json; the welcome message ends then.
+    [[nodiscard]] static bool readDidOpenMenu();
+
+    /**
+     * @brief Records in the "pglite" object of settings.json that the menu was opened, keeping everything else.
+     *
+     * @return false if the file could not be written (logged).
+     */
+    static bool writeDidOpenMenu();
 
     /**
      * @brief Reads modrules.json.
