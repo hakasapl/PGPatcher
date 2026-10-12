@@ -156,10 +156,13 @@ bool AnimatedImage::upload(const unsigned char* pixels,
     return !m_frames.empty();
 }
 
-ImTextureID AnimatedImage::frame() const
+ImTextureID AnimatedImage::frame(bool isAnimated) const
 {
     if (m_frames.empty())
         return 0;
+    if (!isAnimated)
+        return reinterpret_cast<ImTextureID>(
+            m_frames.front().view.Get()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
     const auto elapsed
         = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_start).count();

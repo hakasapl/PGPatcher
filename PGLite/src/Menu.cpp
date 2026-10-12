@@ -869,8 +869,8 @@ void Menu::draw()
     pollPickedFolder();
 
     const auto& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.5F, io.DisplaySize.y * 0.6F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.25F, io.DisplaySize.y * 0.2F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.4F, io.DisplaySize.y * 0.5F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.3F, io.DisplaySize.y * 0.25F), ImGuiCond_FirstUseEver);
 
     // No close button while Apply runs; the hotkey and Escape are ignored then too (applyInput).
     // The version in the title, as the offline launcher window, and its icon drawn into the title bar over the room
@@ -1035,20 +1035,28 @@ void Menu::drawStatus()
     } else if (!status.isReady) {
         ImGui::Text(tr("pglite.status.initializing").c_str(),
                     tr(status.stage ? status.stage : "pglite.status.initializingDefault").c_str());
-    } else if (!status.isEnabled) {
-        ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "%s", tr("pglite.status.disabled").c_str());
-    } else if (m_runningImage.isLoaded()) {
-        // The running animation of the offline launcher at half size next to the status, the text centered on it.
-        const auto imageSize
-            = ImVec2(m_runningImage.size().x * m_uiScale * 0.5F, m_runningImage.size().y * m_uiScale * 0.5F);
-        const auto lineStart = ImGui::GetCursorPosY();
-        ImGui::SetCursorPosY(lineStart + (imageSize.y - ImGui::GetTextLineHeight()) / 2);
-        ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "%s", tr("pglite.status.active").c_str());
-        ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x * 3);
-        ImGui::SetCursorPosY(lineStart);
-        ImGui::Image(m_runningImage.frame(), imageSize);
     } else {
-        ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "%s", tr("pglite.status.active").c_str());
+        const auto color = status.isEnabled ? ImVec4(0.5F, 1.0F, 0.5F, 1.0F) : ImVec4(1.0F, 0.5F, 0.3F, 1.0F);
+        const auto text = tr(status.isEnabled ? "pglite.status.active" : "pglite.status.disabled");
+        if (m_runningImage.isLoaded()) {
+            // The running animation of the offline launcher at half size at the left of the status, frozen while
+            // PGLite is disabled, the text centered on it and the block padded all around.
+            const auto& style = ImGui::GetStyle();
+            const auto padding = style.ItemSpacing.y * 2;
+            const auto imageSize
+                = ImVec2(m_runningImage.size().x * m_uiScale * 0.5F, m_runningImage.size().y * m_uiScale * 0.5F);
+            ImGui::Dummy(ImVec2(0, padding));
+            ImGui::Indent(padding);
+            const auto lineStart = ImGui::GetCursorPosY();
+            ImGui::Image(m_runningImage.frame(status.isEnabled), imageSize);
+            ImGui::SameLine(0, style.ItemSpacing.x * 2);
+            ImGui::SetCursorPosY(lineStart + (imageSize.y - ImGui::GetTextLineHeight()) / 2);
+            ImGui::TextColored(color, "%s", text.c_str());
+            ImGui::Unindent(padding);
+            ImGui::Dummy(ImVec2(0, padding));
+        } else {
+            ImGui::TextColored(color, "%s", text.c_str());
+        }
     }
 
     if (status.isActive && status.isReady && !status.disableReason) {

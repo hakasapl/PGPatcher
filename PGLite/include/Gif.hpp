@@ -39,8 +39,8 @@ public:
     /// @brief The size of a frame in pixels.
     [[nodiscard]] ImVec2 size() const { return { static_cast<float>(m_width), static_cast<float>(m_height) }; }
 
-    /// @brief The texture of the frame that is due now, for ImGui::Image().
-    [[nodiscard]] ImTextureID frame() const;
+    /// @brief The texture of the frame that is due now, or of the first frame when not animated, for ImGui::Image().
+    [[nodiscard]] ImTextureID frame(bool isAnimated = true) const;
 
 private:
     struct Frame {
