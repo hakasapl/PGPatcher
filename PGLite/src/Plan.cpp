@@ -241,7 +241,8 @@ void Family::patch(std::size_t wantedMember,
         if (m_leaders.at(member) == member && !m_outputs.front().at(member).keepsOriginal)
             groups++;
 
-    Logger::debug(L"Patched {} ({} contexts, {} distinct outputs)", basePaths.front().wstring(), members.size(), groups);
+    Logger::debug(
+        L"Patched {} ({} contexts, {} distinct outputs)", basePaths.front().wstring(), members.size(), groups);
 }
 
 bool Family::patchMember(PGMeshPermutationTracker& tracker,
@@ -441,8 +442,8 @@ void Plan::build(const Uses& uses,
                     if (family->basePaths.at(i) == named)
                         recordPath = i;
 
-                const bool isFiltered
-                    = use.attributes.isIgnored || (!use.attributes.isDummyUse && !allowed.contains(use.attributes.recType));
+                const bool isFiltered = use.attributes.isIgnored
+                    || (!use.attributes.isDummyUse && !allowed.contains(use.attributes.recType));
                 if (isFiltered) {
                     // Exactly ignoreBaseMesh offline: the original path keeps the unpatched mesh.
                     family->isBaseUnpatched = true;
@@ -451,8 +452,9 @@ void Plan::build(const Uses& uses,
                 }
 
                 const auto context = contextOf(use);
-                auto member = std::ranges::find_if(
-                    family->members, [&context](const Family::Member& candidate) { return candidate.context == context; });
+                auto member = std::ranges::find_if(family->members, [&context](const Family::Member& candidate) {
+                    return candidate.context == context;
+                });
                 if (member == family->members.end()) {
                     Family::Member newMember;
                     newMember.context = context;

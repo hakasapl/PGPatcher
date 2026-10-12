@@ -34,7 +34,8 @@ bool Resources::isRuntimeSupported() { return REL::Module::IsAE(); }
 std::filesystem::path Resources::addressLibraryFile()
 {
     const auto version = REL::Module::get().version().string();
-    const auto name = REL::Module::IsAE() ? std::format("versionlib-{}.bin", version) : std::format("version-{}.bin", version);
+    const auto name
+        = REL::Module::IsAE() ? std::format("versionlib-{}.bin", version) : std::format("version-{}.bin", version);
     return Settings::pluginsFolder() / name;
 }
 

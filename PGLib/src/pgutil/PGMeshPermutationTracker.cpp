@@ -332,14 +332,13 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
 auto PGMeshPermutationTracker::blockTypeSignature(const nifly::NifFile& mesh) -> std::vector<BlockKind>
 {
     std::vector<BlockKind> kinds;
-    for (auto* const block : comparableBlocks(&mesh)) {
+    for (auto* const block : comparableBlocks(&mesh))
         if (dynamic_cast<nifly::NiParticleSystem*>(block))
             kinds.push_back(BlockKind::ParticleSystem);
         else if (dynamic_cast<nifly::BSTriShape*>(block))
             kinds.push_back(BlockKind::TriShape);
         else
             kinds.push_back(BlockKind::Shape);
-    }
 
     return kinds;
 }

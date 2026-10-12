@@ -538,7 +538,6 @@ TEST_F(PGMeshPermutationTrackerTest,
     EXPECT_TRUE(PGMeshPermutationTracker::validateWeightedVariants().empty()); // the state was cleared
 }
 
-
 TEST_F(PGMeshPermutationTrackerTest,
        BytesConstructorNeedsNoFileMap)
 {

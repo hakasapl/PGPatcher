@@ -30,7 +30,8 @@ namespace {
 class FileSink final : public spdlog::sinks::base_sink<std::mutex> {
 public:
     explicit FileSink(const std::filesystem::path& path)
-        : m_file(path, std::ios::binary | std::ios::trunc)
+        : m_file(path,
+                 std::ios::binary | std::ios::trunc)
     {
     }
 
