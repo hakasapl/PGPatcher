@@ -123,26 +123,26 @@ void Environment::initialize(const Uses& uses,
             reportStage(name);
     };
 
-    stage("Reading the mod manager");
+    stage("progress.steps.initModManager");
     initializeModManager(uses);
-    stage("Building the file map");
+    stage("progress.steps.populatingFileMap");
     initializeDirectory(uses);
-    stage("Classifying textures");
+    stage("progress.steps.classifyingTextures");
     classifyTextures(cmCache);
 
     if (m_params.shaderPatcher.isTruePBREnabled) {
-        stage("Loading the TruePBR configs");
+        stage("pglite.stages.loadingTruePBRConfigs");
         Logger::info("Loading {} TruePBR configs", m_directory->pbrJSONs().size());
         PatcherMeshShaderTruePBR::loadStatics(m_directory->pbrJSONs(), m_params.processing.multithread);
     }
 
     if (m_modManager) {
         // Shader attribution of every mod is complete now, so the mod list and the priorities are the offline ones.
-        stage("Ordering the mods");
+        stage("pglite.stages.orderingMods");
         m_modManager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
     }
 
-    stage("Registering the patchers");
+    stage("progress.steps.initPatchers");
     registerPatchers(m_params, m_ini);
 
     Logger::info("Runtime environment ready in {} ms", stopwatch.milliseconds());

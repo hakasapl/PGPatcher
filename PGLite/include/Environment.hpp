@@ -42,7 +42,7 @@ public:
      *
      * @param uses The record model uses, which decide which meshes stay in the file map and which mods have meshes.
      * @param cmCache The classification cache, saved after the classification.
-     * @param reportStage Called with the name of every step as it starts, for the GUI.
+     * @param reportStage Called with the translation key of every step as it starts, for the GUI.
      * @throws std::runtime_error if the file map cannot be built.
      */
     void initialize(const Uses& uses,

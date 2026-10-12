@@ -8,6 +8,7 @@
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
 #include "PGPlugin.hpp"
+#include "PGTranslation.hpp"
 #include "RunningGif.h"
 #include "Runtime.hpp"
 #include "Settings.hpp"
@@ -25,6 +26,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <d3d11.h>
 #include <dxgi.h>
@@ -55,12 +57,13 @@ constexpr float minDeltaTime = 1.0F / 1000;
 constexpr float referenceHeight = 1080;
 constexpr float fontSize = 18;
 constexpr const char* fontFile = "C:\\Windows\\Fonts\\segoeui.ttf";
+/// @brief Microsoft YaHei, merged for the Chinese translation.
+constexpr const char* cjkFontFile = "C:\\Windows\\Fonts\\msyh.ttc";
+/// @brief The first code point the Latin and Cyrillic font does not cover.
+constexpr ImWchar firstCJKCodePoint = 0x2E80;
 
-// The labels of the offline launcher (PGPatcher/translations/en.json), so both programs read the same.
-constexpr const char* addLabel = "Add";
-constexpr const char* removeLabel = "Remove";
-constexpr const char* browseLabel = "Browse";
-constexpr const char* mo2InstanceDialogTitle = "Select MO2 Instance Location";
+/// @brief A string of the translation files (PGPatcher/translations), which both programs share.
+std::string tr(const char* key) { return PGTranslation::tr(key); }
 
 /// @brief The ImGui key of a DirectInput scan code, ImGuiKey_None for keys the menu does not use.
 ImGuiKey imguiKeyOf(std::uint32_t scanCode)
@@ -329,11 +332,9 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
     float scale = 1;
     if (SUCCEEDED(swapChain->GetDesc(&desc)) && desc.BufferDesc.Height)
         scale = std::clamp(static_cast<float>(desc.BufferDesc.Height) / referenceHeight, 1.0F, 2.0F);
+    m_uiScale = scale;
 
-    if (!io.Fonts->AddFontFromFileTTF(fontFile, fontSize * scale)) {
-        io.Fonts->AddFontDefault();
-        io.FontGlobalScale = scale;
-    }
+    rebuildFonts();
     ImGui::GetStyle().ScaleAllSizes(scale);
     ImGui::StyleColorsDark();
 
@@ -342,7 +343,6 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
     platformIO.Platform_GetClipboardTextFn = &clipboardText;
     platformIO.Platform_SetClipboardTextFn = &setClipboardText;
     m_gameWindow = desc.OutputWindow;
-    m_uiScale = scale;
     m_runningImage.load(EmbeddedImages::runningGif, EmbeddedImages::runningGifSize, *m_device.Get());
 
     if (!ImGui_ImplDX11_Init(m_device.Get(), m_context.Get())) {
@@ -421,6 +421,12 @@ void Menu::render(IDXGISwapChain* swapChain)
 
 void Menu::drawFrame(IDXGISwapChain* swapChain)
 {
+    // A language change rebuilds the atlas between frames, never inside one.
+    if (m_shouldRebuildFonts) {
+        m_shouldRebuildFonts = false;
+        rebuildFonts();
+    }
+
     DXGI_SWAP_CHAIN_DESC desc = { };
     if (FAILED(swapChain->GetDesc(&desc)))
         return;
@@ -684,6 +690,8 @@ void Menu::loadState()
 
     m_mo2InstanceDir = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
 
+    m_languages = PGTranslation::availableLanguages();
+
     // The mod list follows the settings as edited (rebuildModList).
     m_mods.clear();
     m_previewModManager.reset();
@@ -707,7 +715,7 @@ void Menu::rebuildModList()
     m_previewModManager.reset();
     m_modListMessage.clear();
     if (type == PGModManager::ModManagerType::None) {
-        m_modListMessage = "Without a mod manager there is no mod list to sort.";
+        m_modListMessage = tr("pglite.conflictManager.noModManager");
         return;
     }
 
@@ -722,16 +730,15 @@ void Menu::rebuildModList()
             const std::filesystem::path dir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
             std::error_code ec;
             if (dir.empty()) {
-                m_modListMessage = "MO2 Instance Location is required";
+                m_modListMessage = tr("launcher.validation.mo2InstanceRequired");
                 return;
             }
             if (!std::filesystem::exists(dir, ec)) {
-                m_modListMessage = "MO2 Instance Location does not exist";
+                m_modListMessage = tr("launcher.validation.mo2InstanceMissing");
                 return;
             }
             if (!PGModManager::isValidMO2InstanceDir(dir)) {
-                m_modListMessage = "MO2 Instance Location is not valid. Verify modorganizer.ini exists in the "
-                                   "directory.";
+                m_modListMessage = tr("launcher.validation.mo2InstanceInvalid");
                 return;
             }
             manager->populateModFileMapMO2(dir, { });
@@ -745,7 +752,10 @@ void Menu::rebuildModList()
         manager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
     } catch (const std::exception& e) {
         Logger::error("The mod list could not be built: {}", e.what());
-        m_modListMessage = std::format("The mod list could not be built: {}", e.what());
+        m_modListMessage = tr("pglite.conflictManager.couldNotBuild");
+        const auto placeholder = m_modListMessage.find("%s");
+        if (placeholder != std::string::npos)
+            m_modListMessage.replace(placeholder, 2, e.what());
         return;
     }
 
@@ -783,7 +793,7 @@ void Menu::startApply(bool isEnabled)
     params.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
 
     if (!Settings::writeParams(params) || !Settings::writeIsEnabled(isEnabled)) {
-        m_applyMessage = "The settings could not be written, see the log.";
+        m_applyMessage = tr("pglite.apply.settingsNotWritten");
         return;
     }
 
@@ -799,7 +809,7 @@ void Menu::startApply(bool isEnabled)
         }
 
         if (!Settings::writeModRules(rules)) {
-            m_applyMessage = "The mod rules could not be written, see the log.";
+            m_applyMessage = tr("pglite.apply.modRulesNotWritten");
             return;
         }
     }
@@ -823,16 +833,15 @@ void Menu::finishApply()
         m_applyThread.join();
 
     const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
-    if (!m_didApplySucceed)
-        m_applyMessage = "Apply failed, see the log.";
-    else if (m_applyIsEnabled)
-        m_applyMessage = std::format("Applied in {:.1f} s. Meshes loaded from now on use the new settings; resident "
-                                     "models change when the game reloads them.",
-                                     seconds);
-    else
-        m_applyMessage = std::format("PGLite is disabled ({:.1f} s). Meshes loaded from now on are the originals; "
-                                     "resident models change when the game reloads them.",
-                                     seconds);
+    if (!m_didApplySucceed) {
+        m_applyMessage = tr("pglite.apply.failed");
+    } else {
+        // The strings carry a printf placeholder for the seconds, as every translated string does.
+        const auto text = tr(m_applyIsEnabled ? "pglite.apply.applied" : "pglite.apply.disabledResult");
+        std::vector<char> buffer(text.size() + 32);
+        std::snprintf(buffer.data(), buffer.size(), text.c_str(), seconds); // NOLINT(cppcoreguidelines-pro-type-vararg)
+        m_applyMessage = buffer.data();
+    }
     m_isStateLoaded = false;
 }
 
@@ -863,8 +872,8 @@ void Menu::draw()
         const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
         const auto* const stage = m_runtime->stage();
         ImGui::TextColored(ImVec4(1.0F, 0.85F, 0.4F, 1.0F),
-                           "Applying, the game is paused: %s (%.1f s)",
-                           stage ? stage : "working",
+                           tr("pglite.status.applying").c_str(),
+                           tr(stage ? stage : "pglite.status.working").c_str(),
                            seconds);
         ImGui::Separator();
     }
@@ -873,34 +882,20 @@ void Menu::draw()
     // The pages fill the window above the Apply row, which every page shares.
     const auto applyRowHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
     if (ImGui::BeginChild("pages", ImVec2(0, -applyRowHeight)) && ImGui::BeginTabBar("pages")) {
-        if (ImGui::BeginTabItem("Status")) {
-            drawStatus();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Patchers")) {
-            drawPatchers();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Conflict Manager")) {
-            drawConflictManager();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Allowed Record Types")) {
-            drawRecordTypes();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Mesh Rules")) {
-            drawMeshRules();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Texture Rules")) {
-            drawTextureRules();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Messages")) {
-            drawMessages();
-            ImGui::EndTabItem();
-        }
+        const auto page = [](const char* key, auto&& draw) {
+            if (ImGui::BeginTabItem(tr(key).c_str())) {
+                draw();
+                ImGui::EndTabItem();
+            }
+        };
+        page("pglite.tabs.status", [this] { drawStatus(); });
+        page("pglite.tabs.patchers", [this] { drawPatchers(); });
+        page("conflictManager.title", [this] { drawConflictManager(); });
+        page("launcher.processing.allowedRecordTypes", [this] { drawRecordTypes(); });
+        page("pglite.tabs.meshRules", [this] { drawMeshRules(); });
+        page("launcher.processing.textureRules", [this] { drawTextureRules(); });
+        page("pglite.tabs.messages", [this] { drawMessages(); });
+        page("settings.title", [this] { drawSettings(); });
         ImGui::EndTabBar();
     }
     ImGui::EndChild();
@@ -917,14 +912,12 @@ void Menu::drawApplyRow()
     ImGui::Separator();
     const bool canApply = m_runtime->isActive() && m_runtime->isReady() && !m_runtime->disableReason();
     ImGui::BeginDisabled(!canApply);
-    if (ImGui::Button("Apply"))
+    if (ImGui::Button(tr("conflictManager.buttons.apply").c_str()))
         startApply(m_runtime->isEnabled());
     ImGui::EndDisabled();
-    ImGui::SetItemTooltip("Saves every page to settings.json and modrules.json and plans the meshes again. Meshes "
-                          "loaded from then on use the new settings; models the game already holds keep their state "
-                          "until it reloads them.");
+    ImGui::SetItemTooltip("%s", tr("pglite.apply.tooltip").c_str());
     ImGui::SameLine();
-    if (ImGui::Button("Discard Changes"))
+    if (ImGui::Button(tr("conflictManager.buttons.discardChanges").c_str()))
         m_isStateLoaded = false;
     if (!m_applyMessage.empty()) {
         ImGui::SameLine();
@@ -946,7 +939,7 @@ void Menu::drawLoadingMessage()
         | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("##loading", nullptr, flags)) {
         const auto* const stage = m_runtime->stage();
-        ImGui::Text("Loading PGLite: %s", stage ? stage : "starting");
+        ImGui::Text(tr("pglite.status.loading").c_str(), tr(stage ? stage : "pglite.status.starting").c_str());
     }
     ImGui::End();
 }
@@ -955,94 +948,86 @@ void Menu::drawStatus()
 {
     if (m_isApplying) {
         // The runtime's plan and environment are being replaced; the counters return with the result.
-        ImGui::TextUnformatted("Applying the settings.");
+        ImGui::TextUnformatted(tr("pglite.status.applyingShort").c_str());
         return;
     }
 
     const auto status = m_runtime->status();
     if (status.disableReason) {
-        ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "Disabled because %s.", status.disableReason->c_str());
+        ImGui::TextColored(
+            ImVec4(1.0F, 0.5F, 0.3F, 1.0F), tr("pglite.status.disabledBecause").c_str(), status.disableReason->c_str());
     } else if (!status.isActive) {
-        ImGui::TextUnformatted("Waiting for the game data.");
+        ImGui::TextUnformatted(tr("pglite.status.waitingForData").c_str());
     } else if (!status.isReady) {
-        ImGui::Text("Initializing: %s.",
-                    status.stage ? status.stage : "the texture maps and the mod list are being built");
+        ImGui::Text(tr("pglite.status.initializing").c_str(),
+                    tr(status.stage ? status.stage : "pglite.status.initializingDefault").c_str());
     } else if (!status.isEnabled) {
-        ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "Disabled.");
+        ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "%s", tr("pglite.status.disabled").c_str());
     } else if (m_runningImage.isLoaded()) {
         // The running animation of the offline launcher next to the status, the text centered on it.
         const auto imageSize = ImVec2(m_runningImage.size().x * m_uiScale, m_runningImage.size().y * m_uiScale);
         const auto lineStart = ImGui::GetCursorPosY();
         ImGui::SetCursorPosY(lineStart + (imageSize.y - ImGui::GetTextLineHeight()) / 2);
-        ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "Active.");
+        ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "%s", tr("pglite.status.active").c_str());
         ImGui::SameLine();
         ImGui::SetCursorPosY(lineStart);
         ImGui::Image(m_runningImage.frame(), imageSize);
     } else {
-        ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "Active.");
+        ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "%s", tr("pglite.status.active").c_str());
     }
 
     if (status.isActive && status.isReady && !status.disableReason) {
-        if (ImGui::Button(status.isEnabled ? "Disable PGLite" : "Enable PGLite"))
+        if (ImGui::Button(tr(status.isEnabled ? "pglite.status.disable" : "pglite.status.enable").c_str()))
             startApply(!status.isEnabled);
-        ImGui::SetItemTooltip(status.isEnabled
-                                  ? "Meshes loaded from then on are the originals; the setting is kept for the next "
-                                    "game start."
-                                  : "Meshes loaded from then on are patched again; the setting is kept for the next "
-                                    "game start.");
+        ImGui::SetItemTooltip(
+            "%s", tr(status.isEnabled ? "pglite.status.disableTooltip" : "pglite.status.enableTooltip").c_str());
     }
 
     ImGui::Separator();
-    ImGui::Text("Record model uses: %zu, naming %zu distinct meshes", status.uses, status.usedMeshes);
-    ImGui::SetItemTooltip("Every model a loaded record names, counted once per record and sub-model. Many records "
-                          "name the same mesh, so there are more uses than meshes.");
-    ImGui::Text("Mesh families: %zu planned (%zu facegen heads among them), %zu patched so far",
-                status.families,
-                status.facegenFamilies,
-                status.patchedFamilies);
-    ImGui::SetItemTooltip("One family per used mesh the mesh rules allow (a weighted pair counts once) and one per "
-                          "facegen head. A family is patched the first time the game loads one of its meshes.");
-    ImGui::Text("Variant paths: %zu", status.variants);
-    ImGui::SetItemTooltip("Duplicate mesh paths under meshes\\_pgpatcher_dups for records whose alternate textures or "
-                          "material differ from the primary use of the mesh, like the offline duplicates.");
-    ImGui::Text("Registered streams: %zu", status.streams);
-    ImGui::SetItemTooltip("Paths PGLite serves to the engine: every used mesh, every variant path and every facegen "
-                          "head. Apply registers new variant paths; the old ones stay registered but are never opened "
-                          "again.");
-    ImGui::Text("Texture set records created: %zu", status.textureSets);
-    ImGui::SetItemTooltip("In-memory texture sets for patched alternate textures whose slots differ from the "
-                          "record's set, like the offline plugin records.");
+    ImGui::Text(tr("pglite.status.uses").c_str(), status.uses, status.usedMeshes);
+    ImGui::SetItemTooltip("%s", tr("pglite.status.usesTooltip").c_str());
+    ImGui::Text(tr("pglite.status.families").c_str(), status.families, status.facegenFamilies, status.patchedFamilies);
+    ImGui::SetItemTooltip("%s", tr("pglite.status.familiesTooltip").c_str());
+    ImGui::Text(tr("pglite.status.variants").c_str(), status.variants);
+    ImGui::SetItemTooltip("%s", tr("pglite.status.variantsTooltip").c_str());
+    ImGui::Text(tr("pglite.status.streams").c_str(), status.streams);
+    ImGui::SetItemTooltip("%s", tr("pglite.status.streamsTooltip").c_str());
+    ImGui::Text(tr("pglite.status.textureSets").c_str(), status.textureSets);
+    ImGui::SetItemTooltip("%s", tr("pglite.status.textureSetsTooltip").c_str());
     if (!status.mo2Instance.empty())
-        ImGui::Text("Mod Organizer 2 instance: %s", StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
+        ImGui::Text(tr("pglite.status.mo2Instance").c_str(),
+                    StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
 }
 
 void Menu::drawPatchers()
 {
-    ImGui::SeparatorText("Pre-Patchers");
-    ImGui::Checkbox("Fix Mesh Lighting (ENB Only)", &m_params.prePatcher.isFixMeshLightingEnabled);
-    ImGui::SetItemTooltip("Fixes glowing meshes (For ENB users only!)");
+    ImGui::SeparatorText(tr("launcher.prePatchers.title").c_str());
+    ImGui::Checkbox(tr("launcher.prePatchers.fixMeshLighting.label").c_str(),
+                    &m_params.prePatcher.isFixMeshLightingEnabled);
+    ImGui::SetItemTooltip("%s", tr("launcher.prePatchers.fixMeshLighting.tooltip").c_str());
 
-    ImGui::SeparatorText("Shader Patchers");
-    ImGui::Checkbox("Parallax", &m_params.shaderPatcher.isParallaxEnabled);
-    ImGui::Checkbox("Complex Material", &m_params.shaderPatcher.isComplexMaterialEnabled);
-    ImGui::Checkbox("TruePBR (CS Only)", &m_params.shaderPatcher.isTruePBREnabled);
+    ImGui::SeparatorText(tr("launcher.shaderPatchers.title").c_str());
+    ImGui::Checkbox(tr("launcher.shaderPatchers.parallax.label").c_str(), &m_params.shaderPatcher.isParallaxEnabled);
+    ImGui::Checkbox(tr("launcher.shaderPatchers.complexMaterial.label").c_str(),
+                    &m_params.shaderPatcher.isComplexMaterialEnabled);
+    ImGui::Checkbox(tr("launcher.shaderPatchers.truePBR.label").c_str(), &m_params.shaderPatcher.isTruePBREnabled);
 
-    ImGui::SeparatorText("Post-Patchers");
-    ImGui::Checkbox("Disable Pre-Patched Materials", &m_params.postPatcher.disablePrePatchedMaterials);
-    ImGui::SetItemTooltip("Restores shaders to default if parallax or complex material textures are missing (highly "
-                          "recommended, replaces auto parallax functionality)");
-    ImGui::Checkbox("Add Hair Flow Map (CS Only)", &m_params.postPatcher.isHairFlowMapEnabled);
-    ImGui::SetItemTooltip("Adds flow maps to texture sets for those that match the normal texture");
+    ImGui::SeparatorText(tr("launcher.postPatchers.title").c_str());
+    ImGui::Checkbox(tr("launcher.postPatchers.disablePrePatchedMaterials.label").c_str(),
+                    &m_params.postPatcher.disablePrePatchedMaterials);
+    ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.disablePrePatchedMaterials.tooltip").c_str());
+    ImGui::Checkbox(tr("launcher.postPatchers.hairFlowMap.label").c_str(), &m_params.postPatcher.isHairFlowMapEnabled);
+    ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.hairFlowMap.tooltip").c_str());
 
-    ImGui::SeparatorText("Not available at runtime");
-    ImGui::TextWrapped("Upgrade Parallax to Complex Material and Fix Vanilla Subsurface Scattering generate textures, "
-                       "which PGLite does not do.");
+    ImGui::SeparatorText(tr("pglite.patchers.notAvailable").c_str());
+    ImGui::TextWrapped(tr("pglite.patchers.notAvailableText").c_str(),
+                       tr("launcher.shaderTransforms.parallaxToCM.label").c_str(),
+                       tr("launcher.postPatchers.fixSSS.label").c_str());
 }
 
 void Menu::drawRecordTypes()
 {
-    ImGui::TextWrapped("Unchecking a record type will exclude it and its associated meshes from being patched. Only "
-                       "record types with models are shown.");
+    ImGui::TextWrapped("%s", tr("dialogs.recTypeSelector.description").c_str());
 
     const auto names = PGPlugin::availableRecTypeStrs();
     if (ImGui::BeginTable("recordtypes", 5)) {
@@ -1071,15 +1056,17 @@ void Menu::drawStringList(const char* id,
                           std::string& newItem)
 {
     // The text fields leave the room of the wider button, so the two columns line up.
+    const auto addLabel = tr("components.modifiableList.add");
+    const auto removeLabel = tr("components.modifiableList.remove");
     const auto spacing = ImGui::GetStyle().ItemSpacing.x;
-    const auto buttonSize = ImVec2(std::max(buttonWidth(removeLabel), buttonWidth(addLabel)), 0);
+    const auto buttonSize = ImVec2(std::max(buttonWidth(removeLabel.c_str()), buttonWidth(addLabel.c_str())), 0);
     ImGui::PushID(id);
     for (std::size_t i = 0; i < items.size();) {
         ImGui::PushID(static_cast<int>(i));
         ImGui::SetNextItemWidth(-(buttonSize.x + spacing));
         ImGui::InputText("##entry", &items.at(i));
         ImGui::SameLine();
-        const bool shouldRemove = ImGui::Button(removeLabel, buttonSize);
+        const bool shouldRemove = ImGui::Button(removeLabel.c_str(), buttonSize);
         ImGui::PopID();
         if (shouldRemove)
             items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
@@ -1090,7 +1077,7 @@ void Menu::drawStringList(const char* id,
     ImGui::SetNextItemWidth(-(buttonSize.x + spacing));
     ImGui::InputText("##new", &newItem);
     ImGui::SameLine();
-    if (ImGui::Button(addLabel, buttonSize) && !newItem.empty()) {
+    if (ImGui::Button(addLabel.c_str(), buttonSize) && !newItem.empty()) {
         items.push_back(newItem);
         newItem.clear();
     }
@@ -1099,25 +1086,18 @@ void Menu::drawStringList(const char* id,
 
 void Menu::drawMeshRules()
 {
-    ImGui::SeparatorText("Mesh Allowlist");
-    ImGui::TextWrapped("If any rules exist here, only meshes matching them will be patched. Enter path to mesh like "
-                       "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire "
-                       "folders/files.");
+    ImGui::SeparatorText(tr("launcher.processing.meshAllowlist").c_str());
+    ImGui::TextWrapped("%s", tr("pglite.meshRules.allowlist").c_str());
     drawStringList("allow", m_allowList, m_newAllowEntry);
 
-    ImGui::SeparatorText("Mesh Blocklist");
-    ImGui::TextWrapped("Any meshes matching rules here will not be patched. Enter path to mesh like "
-                       "\"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire "
-                       "folders/files.");
+    ImGui::SeparatorText(tr("launcher.processing.meshBlocklist").c_str());
+    ImGui::TextWrapped("%s", tr("pglite.meshRules.blocklist").c_str());
     drawStringList("block", m_blockList, m_newBlockEntry);
 }
 
 void Menu::drawTextureRules()
 {
-    ImGui::TextWrapped("Use this to tell PGPatcher what type of texture something is if the auto detection is wrong "
-                       "(very rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select "
-                       "the type of texture. Wildcards are NOT supported here. A texture can be ignored by setting it "
-                       "to \"unknown\".");
+    ImGui::TextWrapped("%s", tr("pglite.textureRules.description").c_str());
     const auto typeNames = PGEnums::texTypesStr();
     std::vector<const char*> typeLabels;
     typeLabels.reserve(typeNames.size());
@@ -1128,9 +1108,11 @@ void Menu::drawTextureRules()
     }
 
     // The path field leaves the room of the type combo and of the wider button.
+    const auto addLabel = tr("components.modifiableList.add");
+    const auto removeLabel = tr("components.modifiableList.remove");
     const auto& style = ImGui::GetStyle();
     comboWidth += style.FramePadding.x * 2 + ImGui::GetFrameHeight();
-    const auto buttonSize = ImVec2(std::max(buttonWidth(removeLabel), buttonWidth(addLabel)), 0);
+    const auto buttonSize = ImVec2(std::max(buttonWidth(removeLabel.c_str()), buttonWidth(addLabel.c_str())), 0);
     const auto pathWidth = -(comboWidth + buttonSize.x + style.ItemSpacing.x * 2);
 
     for (std::size_t i = 0; i < m_textureRules.size();) {
@@ -1142,7 +1124,7 @@ void Menu::drawTextureRules()
         ImGui::SetNextItemWidth(comboWidth);
         ImGui::Combo("##type", &rule.typeIndex, typeLabels.data(), static_cast<int>(typeLabels.size()));
         ImGui::SameLine();
-        const bool shouldRemove = ImGui::Button(removeLabel, buttonSize);
+        const bool shouldRemove = ImGui::Button(removeLabel.c_str(), buttonSize);
         ImGui::PopID();
         if (shouldRemove)
             m_textureRules.erase(m_textureRules.begin() + static_cast<std::ptrdiff_t>(i));
@@ -1156,7 +1138,7 @@ void Menu::drawTextureRules()
     ImGui::SetNextItemWidth(comboWidth);
     ImGui::Combo("##newtype", &m_newTextureType, typeLabels.data(), static_cast<int>(typeLabels.size()));
     ImGui::SameLine();
-    if (ImGui::Button(addLabel, buttonSize) && !m_newTexturePath.empty()) {
+    if (ImGui::Button(addLabel.c_str(), buttonSize) && !m_newTexturePath.empty()) {
         m_textureRules.push_back({ .path = m_newTexturePath, .typeIndex = m_newTextureType });
         m_newTexturePath.clear();
     }
@@ -1172,7 +1154,7 @@ void Menu::drawConflictManager()
     for (std::size_t i = 0; i < types.size(); i++) {
         auto label = PGModManager::strFromModManagerType(types.at(i));
         if (types.at(i) == PGModManager::ModManagerType::None)
-            label += " (No Conflict Resolution)";
+            label += tr("launcher.modManager.noneSuffix");
         labels.push_back(std::move(label));
         if (types.at(i) == m_params.modManager.type)
             current = static_cast<int>(i);
@@ -1180,29 +1162,33 @@ void Menu::drawConflictManager()
     for (const auto& label : labels)
         labelPointers.push_back(label.c_str());
 
-    if (ImGui::Combo("Mod Manager", &current, labelPointers.data(), static_cast<int>(labelPointers.size())))
+    if (ImGui::Combo(tr("launcher.modManager.title").c_str(),
+                     &current,
+                     labelPointers.data(),
+                     static_cast<int>(labelPointers.size())))
         m_params.modManager.type = types.at(static_cast<std::size_t>(current));
 
     const bool isMO2 = m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2;
     if (isMO2) {
-        ImGui::TextUnformatted("Instance Location");
+        const auto browseLabel = tr("common.browse");
+        ImGui::TextUnformatted(tr("launcher.mo2Options.instanceLocation.label").c_str());
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(-(buttonWidth(browseLabel) + ImGui::GetStyle().ItemSpacing.x));
+        ImGui::SetNextItemWidth(-(buttonWidth(browseLabel.c_str()) + ImGui::GetStyle().ItemSpacing.x));
         ImGui::InputText("##instance", &m_mo2InstanceDir);
-        ImGui::SetItemTooltip("Path to the MO2 instance folder (Folder Icon > Open Instance folder in MO2)");
+        ImGui::SetItemTooltip("%s", tr("launcher.mo2Options.instanceLocation.tooltip").c_str());
         ImGui::SameLine();
-        if (ImGui::Button(browseLabel))
-            browseForFolder(mo2InstanceDialogTitle);
-        ImGui::Checkbox("Lock to MO2 Loose File Order", &m_params.modManager.shouldUseMO2LooseFileOrder);
-        ImGui::SetItemTooltip("Locks order to MO2. Enable/disable is still enabled. Keep in mind that PG conflicts are "
-                              "not the same as loose file conflicts.");
+        if (ImGui::Button(browseLabel.c_str()))
+            browseForFolder(tr("launcher.browse.mo2InstanceLocation").c_str());
+        ImGui::Checkbox(tr("conflictManager.lockMO2Order.label").c_str(),
+                        &m_params.modManager.shouldUseMO2LooseFileOrder);
+        ImGui::SetItemTooltip("%s", tr("conflictManager.lockMO2Order.tooltip").c_str());
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
-        ImGui::TextWrapped("The Vortex deployment manifest of the data folder is read.");
+        ImGui::TextWrapped("%s", tr("pglite.conflictManager.vortex").c_str());
     }
     ImGui::Separator();
 
     if (!m_runtime->isReady()) {
-        ImGui::TextUnformatted("The mod list is available once the initialization finished.");
+        ImGui::TextUnformatted(tr("pglite.conflictManager.notReady").c_str());
         return;
     }
 
@@ -1213,19 +1199,21 @@ void Menu::drawConflictManager()
         return;
     }
 
-    ImGui::TextWrapped("Please sort your mods to determine what mod PGPatcher uses to patch meshes where.");
+    ImGui::TextWrapped("%s", tr("pglite.conflictManager.help").c_str());
     const bool canReorder = !(isMO2 && m_params.modManager.shouldUseMO2LooseFileOrder);
     if (canReorder)
-        ImGui::TextWrapped("Drag a mod onto another one to move it there.");
+        ImGui::TextWrapped("%s", tr("pglite.conflictManager.dragHint").c_str());
 
     if (!ImGui::BeginTable("mods", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY))
         return;
 
+    const auto meshesOnly = tr("pglite.conflictManager.meshesOnly");
+    const auto newSuffix = tr("pglite.conflictManager.newSuffix");
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("##enabled", ImGuiTableColumnFlags_WidthFixed);
-    ImGui::TableSetupColumn("Mod", ImGuiTableColumnFlags_WidthStretch);
-    ImGui::TableSetupColumn("Shader", ImGuiTableColumnFlags_WidthFixed);
-    ImGui::TableSetupColumn("Ignore Meshes", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableSetupColumn(tr("conflictManager.columns.mod").c_str(), ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn(tr("conflictManager.columns.shader").c_str(), ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableSetupColumn(tr("components.checkedDragList.ignoreMeshes").c_str(), ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableHeadersRow();
 
     int moveFrom = -1;
@@ -1238,8 +1226,9 @@ void Menu::drawConflictManager()
         ImGui::Checkbox("##enabled", &row.isEnabled);
 
         ImGui::TableNextColumn();
-        const auto label = row.isNew ? row.displayName + " (new)" : row.displayName;
-        const auto* const shaders = row.shaders.empty() ? (row.hasMeshes ? "meshes only" : "") : row.shaders.c_str();
+        const auto label = row.isNew ? row.displayName + newSuffix : row.displayName;
+        const auto* const shaders
+            = row.shaders.empty() ? (row.hasMeshes ? meshesOnly.c_str() : "") : row.shaders.c_str();
         // The selectable is as tall as the checkbox next to it, and the drop target covers the whole row including
         // the cell padding, so the rows leave no gap a mod cannot be dropped on.
         ImGui::Selectable(label.c_str(),
@@ -1292,9 +1281,9 @@ void Menu::drawConflictManager()
 void Menu::drawMessages()
 {
     const auto messages = Logging::messages();
-    ImGui::Text("%zu warnings and errors this session", messages.size());
+    ImGui::Text(tr("pglite.messages.count").c_str(), messages.size());
     ImGui::SameLine();
-    if (ImGui::Button("Clear"))
+    if (ImGui::Button(tr("pglite.messages.clear").c_str()))
         Logging::clearMessages();
 
     if (!ImGui::BeginChild("messages", ImVec2(0, 0), ImGuiChildFlags_Borders))
@@ -1308,6 +1297,69 @@ void Menu::drawMessages()
         ImGui::PopStyleColor();
     }
     ImGui::EndChild();
+}
+
+void Menu::drawSettings()
+{
+    if (m_languages.empty()) {
+        ImGui::TextWrapped("%s", tr("pglite.settings.noTranslations").c_str());
+        return;
+    }
+
+    // The languages of the translations folder by their own names; a change takes effect at once and is kept.
+    std::vector<const char*> names;
+    names.reserve(m_languages.size());
+    int current = 0;
+    const auto currentCode = PGTranslation::currentLanguage();
+    for (std::size_t i = 0; i < m_languages.size(); i++) {
+        const auto& language = m_languages.at(i);
+        names.push_back(language.displayName.empty() ? language.code.c_str() : language.displayName.c_str());
+        if (language.code == currentCode)
+            current = static_cast<int>(i);
+    }
+
+    if (ImGui::Combo(tr("settings.language.label").c_str(), &current, names.data(), static_cast<int>(names.size()))) {
+        const auto& code = m_languages.at(static_cast<std::size_t>(current)).code;
+        std::ignore = Settings::writeLanguage(code);
+        PGTranslation::init(Settings::translationsFolder(), code);
+        m_shouldRebuildFonts = true;
+    }
+    ImGui::SetItemTooltip("%s", tr("settings.language.tooltip").c_str());
+}
+
+void Menu::rebuildFonts()
+{
+    auto& io = ImGui::GetIO();
+    io.Fonts->Clear();
+
+    // The Latin and Cyrillic ranges plus every glyph of the loaded translation; a CJK font is merged for those.
+    ImFontGlyphRangesBuilder builder;
+    builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+    builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+    for (const auto& text : PGTranslation::allStrings())
+        builder.AddText(text.c_str());
+    m_glyphRanges.clear();
+    builder.BuildRanges(&m_glyphRanges);
+    bool needsCJK = false;
+    for (int i = 0; i + 1 < m_glyphRanges.Size; i += 2)
+        needsCJK = needsCJK || m_glyphRanges[i + 1] >= firstCJKCodePoint;
+
+    const auto size = fontSize * m_uiScale;
+    if (!io.Fonts->AddFontFromFileTTF(fontFile, size, nullptr, m_glyphRanges.Data)) {
+        io.Fonts->AddFontDefault();
+        io.FontGlobalScale = m_uiScale;
+    } else if (needsCJK) {
+        ImFontConfig merge;
+        merge.MergeMode = true;
+        if (!io.Fonts->AddFontFromFileTTF(cjkFontFile, size, &merge, m_glyphRanges.Data))
+            Logger::warn("The CJK font {} is unavailable, the translation shows placeholders for its glyphs",
+                         cjkFontFile);
+    }
+    io.Fonts->Build();
+
+    // The backend uploads the new atlas on its next frame.
+    if (m_isInitialized)
+        ImGui_ImplDX11_InvalidateDeviceObjects();
 }
 
 void Menu::browseForFolder(const char* title)

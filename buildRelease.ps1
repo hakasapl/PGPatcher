@@ -281,6 +281,11 @@ try {
     Write-Host "Copying contents of $pglitePkgDir to $pgliteTempDir..."
     Copy-Item -Path (Join-Path $pglitePkgDir '*') -Destination $pgliteTempDir -Recurse -Force
 
+    # The translation files are the offline launcher's; PGLite reads them from SKSE\Plugins\PGLite\translations.
+    $pgliteTranslationsDir = Join-Path -Path $pglitePluginsDir -ChildPath "PGLite\translations"
+    New-Item -Path $pgliteTranslationsDir -ItemType Directory -Force | Out-Null
+    Copy-Item -Path (Join-Path $scriptDir 'PGPatcher\translations\*.json') -Destination $pgliteTranslationsDir -Force
+
     if (-not $NoZip) {
         Write-Host "Creating zip file: $pgliteZipFile"
         if (Test-Path -Path $pgliteZipFile) {

@@ -6,6 +6,7 @@
 #include <spdlog/common.h>
 
 #include <filesystem>
+#include <string>
 
 namespace PGLite {
 
@@ -58,6 +59,9 @@ public:
     [[nodiscard]] static std::filesystem::path modRulesFile();
     [[nodiscard]] static std::filesystem::path cmCacheFile();
 
+    /// @brief Data\SKSE\Plugins\PGLite\translations, the translation files of the offline program.
+    [[nodiscard]] static std::filesystem::path translationsFolder();
+
     /**
      * @brief Reads PGLite.ini. A missing file or key gives the default.
      */
@@ -84,6 +88,16 @@ public:
      * @return false if the file could not be written (logged).
      */
     static bool writeIsEnabled(bool isEnabled);
+
+    /// @brief The language code of the "pglite" object of settings.json; empty (English) when there is none.
+    [[nodiscard]] static std::string readLanguage();
+
+    /**
+     * @brief Writes the language code into the "pglite" object of settings.json, keeping everything else in the file.
+     *
+     * @return false if the file could not be written (logged).
+     */
+    static bool writeLanguage(const std::string& language);
 
     /**
      * @brief Reads modrules.json.

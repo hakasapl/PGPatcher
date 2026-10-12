@@ -49,7 +49,8 @@ public:
         std::size_t streams = 0;
         std::size_t textureSets = 0;
         std::filesystem::path mo2Instance;
-        /// @brief The step the background initialization or Apply is at, nullptr when neither runs.
+        /// @brief The step the background initialization or Apply is at as a translation key, nullptr when neither
+        /// runs.
         const char* stage = nullptr;
     };
 
@@ -91,7 +92,8 @@ public:
 
     [[nodiscard]] Status status() const;
 
-    /// @brief The step the background initialization or Apply is at, nullptr when neither runs. Any thread.
+    /// @brief The step the background initialization or Apply is at as a translation key, nullptr when neither runs.
+    /// Any thread.
     [[nodiscard]] const char* stage() const { return m_stage; }
 
     /**

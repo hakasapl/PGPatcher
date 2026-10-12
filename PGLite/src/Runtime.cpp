@@ -10,6 +10,7 @@
 #include "PGGlobals.hpp"
 #include "PGParams.hpp"
 #include "PGRunObserver.hpp"
+#include "PGTranslation.hpp"
 #include "PatchStream.hpp"
 #include "Plan.hpp"
 #include "Resources.hpp"
@@ -79,6 +80,8 @@ bool Runtime::load()
     m_ini = Settings::readIni();
     Logging::initialize(m_ini.logLevel);
     ExceptionHandler::setTaskGuard(&runtimeTaskGuard);
+    // The menu's strings; the stage names the runtime reports are keys of the same table.
+    PGTranslation::init(Settings::translationsFolder(), Settings::readLanguage());
     // The input redirect of the menu writes one call into the SKSE trampoline (Hooks).
     SKSE::AllocTrampoline(Hooks::trampolineSize);
 
@@ -413,7 +416,7 @@ void Runtime::initializeInBackground()
     const auto reportStage = [this](const char* stage) { m_stage = stage; };
     try {
         if (!PGGlobals::isPGD3DSet()) {
-            reportStage("Initializing the GPU");
+            reportStage("progress.steps.initGpu");
             Logger::info("Initializing the GPU");
             if (!m_d3d.initGPU() || !m_d3d.initShaders())
                 throw std::runtime_error("the GPU could not be initialized");
@@ -421,12 +424,12 @@ void Runtime::initializeInBackground()
             PGGlobals::setPGD3D(&m_d3d);
         }
 
-        reportStage("Loading the classification cache");
+        reportStage("pglite.stages.loadingClassificationCache");
         m_cmCache.load(Settings::cmCacheFile());
         PGRunObserver::install(&m_cmCache);
 
         if (m_isEnabled) {
-            reportStage("Registering the facegen streams");
+            reportStage("pglite.stages.registeringFacegenStreams");
             registerFacegenStreams();
         }
 
@@ -468,7 +471,7 @@ bool Runtime::apply(const PGParams& params,
     const auto started = std::chrono::steady_clock::now();
     const std::unique_lock lock(m_pipelineLock);
     try {
-        m_stage = "Restoring the records";
+        m_stage = "pglite.stages.restoringRecords";
         m_snapshot.restore();
         {
             const std::scoped_lock stateLock(m_stateMutex);
@@ -488,12 +491,12 @@ bool Runtime::apply(const PGParams& params,
         environment->initialize(m_uses, m_cmCache, [this](const char* stage) { m_stage = stage; });
         m_environment = std::move(environment);
 
-        m_stage = "Planning the meshes";
+        m_stage = "pglite.stages.planningMeshes";
         auto plan = std::make_unique<Plan>(++m_planGeneration);
         plan->build(m_uses, params, m_variantCounter);
         plan->retargetRecords();
         m_plan = std::move(plan);
-        m_stage = "Registering the streams";
+        m_stage = "pglite.stages.registeringStreams";
         registerPlanStreams();
         registerFacegenStreams();
     } catch (const std::exception& e) {

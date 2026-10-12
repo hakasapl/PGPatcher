@@ -3,6 +3,7 @@
 #include "Gif.hpp"
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
+#include "PGTranslation.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -129,6 +130,10 @@ private:
     void drawTextureRules();
     void drawConflictManager();
     void drawMessages();
+    void drawSettings();
+
+    /// @brief The font atlas with the glyphs of the loaded translation; a CJK font is merged when it needs one.
+    void rebuildFonts();
 
     /// @brief Apply and Discard Changes, under every page.
     void drawApplyRow();
@@ -174,6 +179,9 @@ private:
     HWND m_gameWindow = nullptr;
     float m_uiScale = 1;
     AnimatedImage m_runningImage;
+    ImVector<ImWchar> m_glyphRanges;
+    bool m_shouldRebuildFonts = false;
+    std::vector<PGTranslation::Language> m_languages;
     std::mutex m_pickerMutex;
     bool m_isPickerOpen = false;
     std::optional<std::string> m_pickedFolder;

@@ -394,5 +394,86 @@
       "patchMeshes": "Patch Meshes",
       "ignoreMeshes": "Ignore Meshes"
     }
+  },
+  "pglite": {
+    "tabs": {
+      "status": "Status",
+      "patchers": "Patchers",
+      "meshRules": "Mesh Rules",
+      "messages": "Messages"
+    },
+    "status": {
+      "applying": "Applying, the game is paused: %s (%.1f s)",
+      "applyingShort": "Applying the settings.",
+      "working": "working",
+      "disabledBecause": "Disabled because %s.",
+      "waitingForData": "Waiting for the game data.",
+      "initializing": "Initializing: %s.",
+      "initializingDefault": "the texture maps and the mod list are being built",
+      "disabled": "Disabled.",
+      "active": "Active.",
+      "enable": "Enable PGLite",
+      "enableTooltip": "Meshes loaded from then on are patched again; the setting is kept for the next game start.",
+      "disable": "Disable PGLite",
+      "disableTooltip": "Meshes loaded from then on are the originals; the setting is kept for the next game start.",
+      "uses": "Record model uses: %zu, naming %zu distinct meshes",
+      "usesTooltip": "Every model a loaded record names, counted once per record and sub-model. Many records name the same mesh, so there are more uses than meshes.",
+      "families": "Mesh families: %zu planned (%zu facegen heads among them), %zu patched so far",
+      "familiesTooltip": "One family per used mesh the mesh rules allow (a weighted pair counts once) and one per facegen head. A family is patched the first time the game loads one of its meshes.",
+      "variants": "Variant paths: %zu",
+      "variantsTooltip": "Duplicate mesh paths under meshes\\_pgpatcher_dups for records whose alternate textures or material differ from the primary use of the mesh, like the offline duplicates.",
+      "streams": "Registered streams: %zu",
+      "streamsTooltip": "Paths PGLite serves to the engine: every used mesh, every variant path and every facegen head. Apply registers new variant paths; the old ones stay registered but are never opened again.",
+      "textureSets": "Texture set records created: %zu",
+      "textureSetsTooltip": "In-memory texture sets for patched alternate textures whose slots differ from the record's set, like the offline plugin records.",
+      "mo2Instance": "Mod Organizer 2 instance: %s",
+      "loading": "Loading PGLite: %s",
+      "starting": "starting"
+    },
+    "apply": {
+      "tooltip": "Saves every page to settings.json and modrules.json and plans the meshes again. Meshes loaded from then on use the new settings; models the game already holds keep their state until it reloads them.",
+      "applied": "Applied in %.1f s. Meshes loaded from now on use the new settings; resident models change when the game reloads them.",
+      "disabledResult": "PGLite is disabled (%.1f s). Meshes loaded from now on are the originals; resident models change when the game reloads them.",
+      "failed": "Apply failed, see the log.",
+      "settingsNotWritten": "The settings could not be written, see the log.",
+      "modRulesNotWritten": "The mod rules could not be written, see the log."
+    },
+    "patchers": {
+      "notAvailable": "Not available at runtime",
+      "notAvailableText": "%s and %s generate textures, which PGLite does not do."
+    },
+    "meshRules": {
+      "allowlist": "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire folders/files.",
+      "blocklist": "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire folders/files."
+    },
+    "textureRules": {
+      "description": "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\"."
+    },
+    "conflictManager": {
+      "help": "Please sort your mods to determine what mod PGPatcher uses to patch meshes where.",
+      "noModManager": "Without a mod manager there is no mod list to sort.",
+      "vortex": "The Vortex deployment manifest of the data folder is read.",
+      "notReady": "The mod list is available once the initialization finished.",
+      "dragHint": "Drag a mod onto another one to move it there.",
+      "meshesOnly": "meshes only",
+      "newSuffix": " (new)",
+      "couldNotBuild": "The mod list could not be built: %s"
+    },
+    "messages": {
+      "count": "%zu warnings and errors this session",
+      "clear": "Clear"
+    },
+    "settings": {
+      "noTranslations": "No translation files were found in SKSE\\Plugins\\PGLite\\translations."
+    },
+    "stages": {
+      "restoringRecords": "Restoring the records",
+      "planningMeshes": "Planning the meshes",
+      "registeringStreams": "Registering the streams",
+      "loadingClassificationCache": "Loading the classification cache",
+      "registeringFacegenStreams": "Registering the facegen streams",
+      "loadingTruePBRConfigs": "Loading the TruePBR configs",
+      "orderingMods": "Ordering the mods"
+    }
   }
 }

@@ -6,8 +6,8 @@ folder, there is no output mod and no patching step before the game starts. The 
 
 ## Installation
 
-Install the `PGLite` archive like any SKSE plugin (`SKSE\Plugins\PGLite.dll`, `SKSE\Plugins\PGLite.ini` and the
-dynamic cubemap texture). Requirements:
+Install the `PGLite` archive like any SKSE plugin (`SKSE\Plugins\PGLite.dll`, `SKSE\Plugins\PGLite.ini`, the
+translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubemap texture). Requirements:
 
 - Skyrim Special Edition 1.6.x or 1.7.x (the Anniversary Edition runtimes), SKSE and the
   [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version.
@@ -22,7 +22,8 @@ dynamic cubemap texture). Requirements:
 The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F8 by default). Its status page
 has a toggle that disables PGLite (meshes loaded from then on are the originals) and enables it again, kept across
 game starts. While PGLite initializes after the game data loaded, "Loading PGLite" and the current step show in the
-top right corner (`bShowLoadingMessage=false` in the ini hides it). Settings live
+top right corner (`bShowLoadingMessage=false` in the ini hides it). The menu's strings come from the translation
+files of the offline launcher, and its Settings page picks the language. Settings live
 in `SKSE\Plugins\PGLite\settings.json` with the same keys as the offline `params`, so a settings file can be copied
 between the two programs, and the mod rules in `SKSE\Plugins\PGLite\modrules.json`. The log is
 `My Games\Skyrim Special Edition\SKSE\PGLite.log`.
@@ -97,7 +98,7 @@ Program behavior:
 
 18. The offline DynDOLOD refusal has no runtime equivalent; `.bto` files have no uses.
 19. PGLite disables itself when an offline output or Auto Parallax is present, with a stricter check than offline.
-20. The menu is English only, without conflict highlighting or viewer; `exclude facegens` and `disable dynamic
+20. The menu has no conflict highlighting or viewer; `exclude facegens` and `disable dynamic
     cubemap` are ini options; the log lives next to the other SKSE logs.
 
 ## Development

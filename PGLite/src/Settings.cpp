@@ -67,6 +67,8 @@ std::filesystem::path Settings::modRulesFile() { return configFolder() / L"modru
 
 std::filesystem::path Settings::cmCacheFile() { return configFolder() / L"cmcache.bin"; }
 
+std::filesystem::path Settings::translationsFolder() { return configFolder() / L"translations"; }
+
 Settings::Ini Settings::readIni()
 {
     Ini ini;
@@ -142,6 +144,36 @@ bool Settings::writeIsEnabled(bool isEnabled)
 
     try {
         settings["pglite"]["enabled"] = isEnabled;
+        FileUtil::saveJSON(settingsFile(), settings, true);
+    } catch (const std::exception& e) {
+        Logger::error("Unable to write settings.json: {}", e.what());
+        return false;
+    }
+
+    return true;
+}
+
+std::string Settings::readLanguage()
+{
+    nlohmann::json settings;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.contains("pglite") || !settings["pglite"].is_object())
+        return { };
+
+    const auto& pglite = settings["pglite"];
+    if (!pglite.contains("language") || !pglite["language"].is_string())
+        return { };
+
+    return pglite["language"].get<std::string>();
+}
+
+bool Settings::writeLanguage(const std::string& language)
+{
+    nlohmann::json settings;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.is_object())
+        settings = nlohmann::json::object();
+
+    try {
+        settings["pglite"]["language"] = language;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
         Logger::error("Unable to write settings.json: {}", e.what());

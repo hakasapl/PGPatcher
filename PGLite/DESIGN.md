@@ -400,15 +400,18 @@ collected through the Logger capture callback, deduplicated (weighted pair misma
 manager page builds its mod list from the mod manager settings as edited: the mod manager is read, the mods get
 their shaders from the classified textures of the current environment and their meshes from the uses, and the
 shared ordering numbers them, so the list is the one the next apply installs. While the runtime initializes, a
-"Loading PGLite" line with the step shows in the top right corner; the ini can hide it. English only. No conflict highlighting or
-viewer, as specified.
+"Loading PGLite" line with the step shows in the top right corner; the ini can hide it. The strings come from the
+offline translation files through PGLib's PGTranslation (the offline PGLocale wraps it for wxWidgets); the plugin
+ships the files under `SKSE\Plugins\PGLite\translations`, its Settings page picks the language, and the font atlas
+is rebuilt with the glyphs of the loaded translation, a CJK font merged in when it needs one. No conflict highlighting or viewer, as
+specified.
 
 ### 4.11 Files
 
 - `Data\SKSE\Plugins\PGLite.ini`: hotkey, log level, exclude facegens, disable dynamic cubemap, loading message.
 - `Data\SKSE\Plugins\PGLite\settings.json`: the offline `params.*` keys and nesting, so settings can be copied
   between the two programs, and as there the file holds every parameter with its full lists, the defaults applying
-  only when there is no file, and a `pglite` object of PGLite's own (`enabled`). The serialized
+  only when there is no file, and a `pglite` object of PGLite's own (`enabled`, `language`). The serialized
   keys are never renamed.
 - `Data\SKSE\Plugins\PGLite\modrules.json`: the offline schema.
 - `Data\SKSE\Plugins\PGLite\cmcache.bin`: the complex material classification cache (4.5), the one thing PGLite
@@ -554,7 +557,7 @@ This is the complete list. A difference that is not here is a bug (section 1).
     default block list keeps LOD and DynDOLOD meshes out.
 19. PGLite disables itself with a notice when an offline output or Auto Parallax is present, with a stricter check
     than offline (4.9).
-20. GUI and settings: English only; no conflict highlighting or viewer; `exclude facegens` and `disable dynamic
+20. GUI and settings: no conflict highlighting or viewer; `exclude facegens` and `disable dynamic
     cubemap` are ini options instead of command line flags;
     Apply restores the records from a snapshot before re-planning (4.8); the log lives next to the other SKSE logs.
 
