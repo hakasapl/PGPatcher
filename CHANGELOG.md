@@ -2,21 +2,21 @@
 
 ## UNRELEASED
 
-- Added PGLite, an SKSE plugin that runs the patchers on every mesh as the game loads it (Skyrim 1.6.x and 1.7.x; see `PGLite/README.md` for its differences from the offline program)
-- BodySlide ShapeData meshes will now be patched
-- Added the `PG_STOCK` extra data block for preserving initial mesh state
-- Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
-- Added the `alphaprop_flags`, `alphaprop_thresh`, `alphaprop_create` and `alphaprop_delete` PBR json fields
-- Extended dedup behavior of texture sets in meshes to NiAlphaProperties and shader properties
-- Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
-- Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
-- Fixed the Restore Default Shaders post-patcher being named HairFlowMap in logs
-- Fixed the `pgtools` Convert to HDR patcher running the Parallax to Complex Material shader instead of its own
-- Fixed a plugin error from one run being reported again by every later plugin operation in the same session
-- Fixed plugin names with non-ASCII characters being read incorrectly from plugins
-- Fixed truncated NIF files being patched as if they were complete
-- Fixed folders inside the data directory being listed as files
-- Fixed the thread count on systems with two or fewer logical processors
+- [PGLite] Added PGLite, an SKSE runtime implementation of PGPatcher
+- [PGPatcher] BodySlide ShapeData meshes will now be patched
+- [Common] Added the `PG_STOCK` extra data block for preserving initial mesh state
+- [PGPatcher] Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
+- [Common] Added the `alphaprop_flags`, `alphaprop_thresh`, `alphaprop_create` and `alphaprop_delete` PBR json fields
+- [Common] Extended dedup behavior of texture sets in meshes to NiAlphaProperties and shader properties
+- [Common] Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
+- [PGPatcher] Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
+- [Common] Fixed the Restore Default Shaders post-patcher being named HairFlowMap in logs
+- [PGPatcher] Fixed the `pgtools` Convert to HDR patcher running the Parallax to Complex Material shader instead of its own
+- [PGPatcher] Fixed a plugin error from one run being reported again by every later plugin operation in the same session
+- [PGPatcher] Fixed plugin names with non-ASCII characters being read incorrectly from plugins
+- [Common] Fixed truncated NIF files being patched as if they were complete
+- [Common] Fixed folders inside the data directory being listed as files
+- [Common] Fixed the thread count on systems with two or fewer logical processors
 
 ## [2.1.2] - 2026-10-05
 
