@@ -15,6 +15,7 @@
 
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <nlohmann/json.hpp>
 
@@ -776,8 +777,10 @@ void Menu::draw()
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.2F, io.DisplaySize.y * 0.15F), ImGuiCond_FirstUseEver);
 
     // No close button while Apply runs; the hotkey and Escape are ignored then too (applyInput).
+    // The version in the title, as the offline launcher window; the part after ### keeps the window's identity.
+    const auto title = std::format("PGLite {}###PGLite", PG_FULL_VERSION);
     bool isOpen = true;
-    if (!ImGui::Begin("PGLite", m_isApplying ? nullptr : &isOpen, ImGuiWindowFlags_NoCollapse)) {
+    if (!ImGui::Begin(title.c_str(), m_isApplying ? nullptr : &isOpen, ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         return;
     }
@@ -837,7 +840,6 @@ void Menu::draw()
 
 void Menu::drawStatus()
 {
-    ImGui::Text("PGLite %s", PG_FULL_VERSION);
     if (m_isApplying) {
         // The runtime's plan and environment are being replaced; the counters return with the result.
         ImGui::TextUnformatted("Applying the settings.");
@@ -856,11 +858,25 @@ void Menu::drawStatus()
         ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "Active.");
 
     ImGui::Separator();
-    ImGui::Text("Record model uses: %zu of %zu meshes", status.uses, status.usedMeshes);
-    ImGui::Text("Mesh families: %zu planned, %zu patched so far", status.families, status.patchedFamilies);
+    ImGui::Text("Record model uses: %zu, naming %zu distinct meshes", status.uses, status.usedMeshes);
+    ImGui::SetItemTooltip("Every model a loaded record names, counted once per record and sub-model. Many records "
+                          "name the same mesh, so there are more uses than meshes.");
+    ImGui::Text("Mesh families: %zu planned (%zu facegen heads among them), %zu patched so far",
+                status.families,
+                status.facegenFamilies,
+                status.patchedFamilies);
+    ImGui::SetItemTooltip("One family per used mesh the mesh rules allow (a weighted pair counts once) and one per "
+                          "facegen head. A family is patched the first time the game loads one of its meshes.");
     ImGui::Text("Variant paths: %zu", status.variants);
+    ImGui::SetItemTooltip("Duplicate mesh paths under meshes\\_pgpatcher_dups for records whose alternate textures or "
+                          "material differ from the primary use of the mesh, like the offline duplicates.");
     ImGui::Text("Registered streams: %zu", status.streams);
+    ImGui::SetItemTooltip("Paths PGLite serves to the engine: every used mesh, every variant path and every facegen "
+                          "head. Apply registers new variant paths; the old ones stay registered but are never opened "
+                          "again.");
     ImGui::Text("Texture set records created: %zu", status.textureSets);
+    ImGui::SetItemTooltip("In-memory texture sets for patched alternate textures whose slots differ from the "
+                          "record's set, like the offline plugin records.");
     if (!status.mo2Instance.empty())
         ImGui::Text("Mod Organizer 2 instance: %s", StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
 
@@ -1103,8 +1119,16 @@ void Menu::drawMods()
 
         ImGui::TableNextColumn();
         const auto label = row.isNew ? row.displayName + " (new)" : row.displayName;
-        ImGui::Selectable(
-            label.c_str(), false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
+        // The selectable is as tall as the checkbox next to it, and the drop target covers the whole row including
+        // the cell padding, so the rows leave no gap a mod cannot be dropped on.
+        ImGui::Selectable(label.c_str(),
+                          false,
+                          ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
+                          ImVec2(0, ImGui::GetFrameHeight()));
+        ImRect rowRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+        const auto rowPadding = ImGui::GetStyle().CellPadding.y;
+        rowRect.Min.y -= rowPadding;
+        rowRect.Max.y += rowPadding;
         if (canReorder) {
             if (ImGui::BeginDragDropSource()) {
                 const int index = static_cast<int>(i);
@@ -1112,7 +1136,7 @@ void Menu::drawMods()
                 ImGui::TextUnformatted(row.displayName.c_str());
                 ImGui::EndDragDropSource();
             }
-            if (ImGui::BeginDragDropTarget()) {
+            if (ImGui::BeginDragDropTargetCustom(rowRect, ImGui::GetID("drop"))) {
                 if (const auto* const payload = ImGui::AcceptDragDropPayload("PGLITE_MOD")) {
                     moveFrom = *static_cast<const int*>(payload->Data);
                     moveTo = static_cast<int>(i);

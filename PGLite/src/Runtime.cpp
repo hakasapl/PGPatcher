@@ -132,6 +132,9 @@ Runtime::Status Runtime::status() const
         status.uses += uses.size();
     if (m_plan) {
         status.families = m_plan->families().size();
+        for (const auto& family : m_plan->families())
+            if (family->isFacegen)
+                status.facegenFamilies++;
         status.patchedFamilies = m_plan->patchedFamilyCount();
         status.variants = m_plan->variantCount();
     }

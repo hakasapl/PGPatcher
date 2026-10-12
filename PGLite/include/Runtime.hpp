@@ -41,6 +41,7 @@ public:
         std::size_t uses = 0;
         std::size_t usedMeshes = 0;
         std::size_t families = 0;
+        std::size_t facegenFamilies = 0;
         std::size_t patchedFamilies = 0;
         std::size_t variants = 0;
         std::size_t streams = 0;

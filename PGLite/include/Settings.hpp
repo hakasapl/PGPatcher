@@ -36,8 +36,8 @@ public:
         bool shouldApplyAtStart = false;
     };
 
-    /// @brief F9.
-    static constexpr unsigned defaultMenuKey = 0x43;
+    /// @brief F8.
+    static constexpr unsigned defaultMenuKey = 0x42;
 
     /// @brief The folder of the game executable.
     [[nodiscard]] static std::filesystem::path gameFolder();

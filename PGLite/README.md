@@ -19,7 +19,7 @@ dynamic cubemap texture). Requirements:
 - The Visual C++ 2015-2022 redistributable the game itself needs (`vcomp140.dll`) and `d3dcompiler_47.dll`,
   which is part of Windows; everything else is linked into `PGLite.dll`.
 
-The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F9 by default). Settings live
+The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F8 by default). Settings live
 in `SKSE\Plugins\PGLite\settings.json` with the same keys as the offline `params`, so a settings file can be copied
 between the two programs, and the mod rules in `SKSE\Plugins\PGLite\modrules.json`. The log is
 `My Games\Skyrim Special Edition\SKSE\PGLite.log`.
