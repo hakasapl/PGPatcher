@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.21)
 # vcpkg triplet, static CRT, C++23 for CommonLibSSE-NG), while the root configure builds the offline programs with a
 # dynamic CRT, and a configure has one triplet. The shared PGLib sources are compiled a second time here into a static
 # library without the units only the offline programs use (the runners, the Mutagen plugin implementation, the update
-# cache, the texture generating patchers). Configure it from a Visual Studio developer shell (fxc comes from the SDK):
+# cache). Configure it from a Visual Studio developer shell (fxc comes from the SDK):
 #
 #   cmake -S PGLite -B buildRelease/PGLite -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 #         -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake

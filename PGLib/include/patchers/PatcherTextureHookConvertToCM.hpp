@@ -5,9 +5,11 @@
 #include <DirectXTex.h>
 #include <d3d11.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <shared_mutex>
 #include <unordered_set>
+#include <vector>
 #include <wrl/client.h>
 
 /**
@@ -42,6 +44,17 @@ public:
      * @return true if the texture is in the process list; false otherwise.
      */
     static bool isInProcessList(const std::filesystem::path& texPath);
+
+    /**
+     * @brief The textures registered for conversion, in no particular order.
+     */
+    static std::vector<std::filesystem::path> processList();
+
+    /**
+     * @brief The signature of the conversion (the shader and the formats), see PatcherTextureHook::signatureOf(). A
+     * cached output is only valid for the signature it was generated with.
+     */
+    static std::uint32_t generatorSignature();
 
     /**
      * @brief Computes the output filename for the generated Complex Material texture.
@@ -83,4 +96,13 @@ public:
      * @throws std::runtime_error if the patcher has no image.
      */
     bool applyPatch() override;
+
+    /**
+     * @brief Converts the height map to a BC3 complex material texture in memory.
+     *
+     * @param[out] compressed The complex material texture, the height in its alpha channel.
+     * @return true if the texture was generated; false otherwise.
+     * @throws std::runtime_error if the patcher has no image.
+     */
+    bool generate(DirectX::ScratchImage& compressed) override;
 };

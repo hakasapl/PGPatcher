@@ -2,7 +2,7 @@
 
 #include "PGD3D.hpp"
 #include "PGGlobals.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "patchers/base/PatcherTextureHook.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -11,13 +11,17 @@
 #include <DirectXTex.h>
 #include <dxgiformat.h>
 
+#include <array>
+#include <bit>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <minwindef.h>
 #include <mutex>
 #include <shared_mutex>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 #include <winerror.h>
 #include <winnt.h>
 
@@ -32,10 +36,11 @@ void PatcherTextureHookFixSSS::addToProcessList(const std::filesystem::path& tex
     auto* pgd = PGGlobals::pgd();
 
     // Record registration for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordHookRegistration(PGRunCache::HookKind::FixSSS, texPath);
+    auto& observer = PGRunObserver::current();
+    observer.recordHookRegistration(PGRunObserver::HookKind::FixSSS, texPath);
 
     // Reuse the output of a previous run if the source texture did not change.
-    if (PGRunCache::tryReuseHookOutput(PGRunCache::HookKind::FixSSS, texPath))
+    if (observer.tryReuseHookOutput(PGRunObserver::HookKind::FixSSS, texPath))
         return;
 
     const std::unique_lock lock(s_texToProcessMutex);
@@ -54,6 +59,22 @@ bool PatcherTextureHookFixSSS::isInProcessList(const std::filesystem::path& texP
 {
     const std::shared_lock lock(s_texToProcessMutex);
     return s_texToProcess.contains(texPath);
+}
+
+std::vector<std::filesystem::path> PatcherTextureHookFixSSS::processList()
+{
+    const std::shared_lock lock(s_texToProcessMutex);
+    return { s_texToProcess.begin(), s_texToProcess.end() };
+}
+
+std::uint32_t PatcherTextureHookFixSSS::generatorSignature()
+{
+    static constexpr std::array<std::uint32_t, 6> values {
+        static_cast<std::uint32_t>(DXGI_FORMAT_R8G8B8A8_UNORM),    static_cast<std::uint32_t>(DXGI_FORMAT_BC2_UNORM),
+        static_cast<std::uint32_t>(DirectX::TEX_COMPRESS_DEFAULT), static_cast<std::uint32_t>(scaleFactor),
+        std::bit_cast<std::uint32_t>(shaderAlbedoSatPower),        std::bit_cast<std::uint32_t>(shaderAlbedoNorm),
+    };
+    return signatureOf(PGD3D::ShaderBytecode(g_SSSFix), values);
 }
 
 std::filesystem::path PatcherTextureHookFixSSS::outputFilename(const std::filesystem::path& texPath)
@@ -80,19 +101,14 @@ PatcherTextureHookFixSSS::PatcherTextureHookFixSSS(std::filesystem::path ddsPath
 {
 }
 
-bool PatcherTextureHookFixSSS::applyPatch()
+bool PatcherTextureHookFixSSS::generate(DirectX::ScratchImage& compressed)
 {
-    auto* pgd = PGGlobals::pgd();
     auto* pgd3d = PGGlobals::pgD3D();
 
     if (!dds())
         throw std::runtime_error("DDS not initialized");
 
-    const auto texBase = PGNIFUtil::texBase(ddsPath(), PGEnums::TextureSlots::Diffuse);
-    const auto newPath = texBase + L"_s.dds";
-
     DirectX::ScratchImage newDDS;
-    static constexpr size_t scaleFactor = 2;
     const auto newWidth = static_cast<UINT>(dds()->GetMetadata().width / scaleFactor);
     const auto newHeight = static_cast<UINT>(dds()->GetMetadata().height / scaleFactor);
     // The shader delights and also reduces size by 4 for efficiency.
@@ -105,28 +121,38 @@ bool PatcherTextureHookFixSSS::applyPatch()
     if (newDDS.GetImageCount() < 1)
         return false;
 
+    const HRESULT hr = DirectX::Compress(newDDS.GetImages(),
+                                         newDDS.GetImageCount(),
+                                         newDDS.GetMetadata(),
+                                         DXGI_FORMAT_BC2_UNORM,
+                                         DirectX::TEX_COMPRESS_DEFAULT,
+                                         1,
+                                         compressed);
+
+    return SUCCEEDED(hr);
+}
+
+bool PatcherTextureHookFixSSS::applyPatch()
+{
+    auto* pgd = PGGlobals::pgd();
+
+    const auto newPath = outputFilename(ddsPath());
+
+    // One generated file at a time, as before the generation was split out.
     const std::scoped_lock lock(s_generatedFileTrackerMutex);
+
+    DirectX::ScratchImage compressedImage;
+    if (!generate(compressedImage))
+        return false;
 
     const auto outPath = pgd->generatedPath() / newPath;
     std::filesystem::create_directories(outPath.parent_path());
 
-    DirectX::ScratchImage compressedImage;
-    HRESULT hr = DirectX::Compress(newDDS.GetImages(),
-                                   newDDS.GetImageCount(),
-                                   newDDS.GetMetadata(),
-                                   DXGI_FORMAT_BC2_UNORM,
-                                   DirectX::TEX_COMPRESS_DEFAULT,
-                                   1,
-                                   compressedImage);
-
-    if (FAILED(hr))
-        return false;
-
-    hr = DirectX::SaveToDDSFile(compressedImage.GetImages(),
-                                compressedImage.GetImageCount(),
-                                compressedImage.GetMetadata(),
-                                DirectX::DDS_FLAGS_NONE,
-                                outPath.c_str());
+    const HRESULT hr = DirectX::SaveToDDSFile(compressedImage.GetImages(),
+                                              compressedImage.GetImageCount(),
+                                              compressedImage.GetMetadata(),
+                                              DirectX::DDS_FLAGS_NONE,
+                                              outPath.c_str());
 
     if (FAILED(hr))
         return false;
@@ -137,7 +163,7 @@ bool PatcherTextureHookFixSSS::applyPatch()
     pgd->setTextureType(newPath, PGEnums::TextureType::SubsurfaceColor);
 
     // Record generated output for incremental runs.
-    PGRunCache::recordHookOutput(PGRunCache::HookKind::FixSSS, ddsPath(), newPath);
+    PGRunObserver::current().recordHookOutput(PGRunObserver::HookKind::FixSSS, ddsPath(), newPath);
 
     return true;
 }

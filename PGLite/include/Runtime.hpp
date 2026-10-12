@@ -8,6 +8,7 @@
 #include "Plan.hpp"
 #include "RecordEdits.hpp"
 #include "Settings.hpp"
+#include "TextureGenerator.hpp"
 #include "Uses.hpp"
 
 #include <atomic>
@@ -48,6 +49,10 @@ public:
         std::size_t variants = 0;
         std::size_t streams = 0;
         std::size_t textureSets = 0;
+        /// @brief The generated textures of the session (DESIGN.md section 4.12).
+        std::size_t texturesFromCache = 0;
+        std::size_t texturesGenerated = 0;
+        std::size_t texturesFailed = 0;
         std::filesystem::path mo2Instance;
         /// @brief The step the background initialization or Apply is at as a translation key, nullptr when neither
         /// runs.
@@ -123,7 +128,7 @@ private:
         std::shared_ptr<SourceStream> source;
     };
 
-    Runtime() = default;
+    Runtime();
 
     static void onMessage(SKSE::MessagingInterface::Message* message);
 
@@ -177,6 +182,7 @@ private:
     std::atomic<unsigned> m_planGeneration { 0 };
     unsigned m_variantCounter = 0;
     TextureSetFactory m_textureSets;
+    TextureGenerator m_textures;
 
     PGD3D m_d3d;
     CMCache m_cmCache;

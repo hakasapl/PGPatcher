@@ -1041,6 +1041,25 @@ void PGRunCache::Observer::recordOutputFile(const std::filesystem::path& relPath
     PGRunCache::recordOutputFile(relPath, size);
 }
 
+void PGRunCache::Observer::recordHookRegistration(const HookKind& kind,
+                                                  const std::filesystem::path& texPath)
+{
+    PGRunCache::recordHookRegistration(kind, texPath);
+}
+
+bool PGRunCache::Observer::tryReuseHookOutput(const HookKind& kind,
+                                              const std::filesystem::path& texPath)
+{
+    return PGRunCache::tryReuseHookOutput(kind, texPath);
+}
+
+void PGRunCache::Observer::recordHookOutput(const HookKind& kind,
+                                            const std::filesystem::path& source,
+                                            const std::filesystem::path& output)
+{
+    PGRunCache::recordHookOutput(kind, source, output);
+}
+
 void PGRunCache::Observer::suspendRecording() { s_suspendDepth++; }
 
 void PGRunCache::Observer::resumeRecording()

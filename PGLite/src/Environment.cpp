@@ -9,6 +9,7 @@
 #include "Resources.hpp"
 #include "Settings.hpp"
 #include "Uses.hpp"
+#include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
@@ -16,8 +17,11 @@
 #include "patchers/PatcherMeshPreStockMarker.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
 #include "patchers/PatcherMeshShaderDefault.hpp"
+#include "patchers/PatcherMeshShaderTransformParallaxToCM.hpp"
 #include "patchers/PatcherMeshShaderTruePBR.hpp"
 #include "patchers/PatcherMeshShaderVanillaParallax.hpp"
+#include "patchers/PatcherTextureHookConvertToCM.hpp"
+#include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
@@ -384,9 +388,27 @@ void Environment::registerPatchers(const PGParams& params,
         PatcherMeshShaderTruePBR::loadOptions(true, params.processing.enableModDevMode);
     }
 
-    // The parallax to complex material transform and the SSS fix generate textures, which the runtime does not do.
+    // The transform and Fix SSS register textures with their hooks, and the runtime generates those the first time a
+    // patched mesh needs them (TextureGenerator). A hook whose shader cannot be created leaves its patcher off.
+    if (params.shaderTransforms.isParallaxToCMEnabled) {
+        if (PatcherTextureHookConvertToCM::initShader()) {
+            meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::fromShader()]
+                = { PatcherMeshShaderTransformParallaxToCM::toShader(),
+                    PatcherMeshShaderTransformParallaxToCM::factory() };
+            PatcherMeshShaderTransformParallaxToCM::loadOptions(!ini.shouldForceAlwaysCM);
+        } else {
+            Logger::error("The parallax to complex material shader could not be created, the transform is off");
+        }
+    }
+
     if (params.postPatcher.disablePrePatchedMaterials)
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::factory());
+    if (params.postPatcher.isFixSSSEnabled) {
+        if (PatcherTextureHookFixSSS::initShader())
+            meshPatchers.postPatchers.emplace_back(PatcherMeshPostFixSSS::factory());
+        else
+            Logger::error("The subsurface scattering shader could not be created, Fix SSS is off");
+    }
     if (params.postPatcher.isHairFlowMapEnabled)
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::factory());
 

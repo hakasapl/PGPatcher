@@ -15,6 +15,7 @@
 #include "Plan.hpp"
 #include "Resources.hpp"
 #include "Settings.hpp"
+#include "TextureGenerator.hpp"
 #include "Uses.hpp"
 #include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
@@ -65,6 +66,11 @@ bool runtimeTaskGuard(const std::function<void()>& task)
     return true;
 }
 
+}
+
+Runtime::Runtime()
+    : m_textures(Settings::textureCacheFolder())
+{
 }
 
 Runtime& Runtime::instance()
@@ -150,6 +156,10 @@ Runtime::Status Runtime::status() const
         status.streams = m_streams.size();
     }
     status.textureSets = m_textureSets.size();
+    const auto textures = m_textures.stats();
+    status.texturesFromCache = textures.fromCache;
+    status.texturesGenerated = textures.generated;
+    status.texturesFailed = textures.failed;
     if (m_isReady && m_environment)
         status.mo2Instance = m_environment->mo2InstanceDir();
     status.stage = m_stage;
@@ -439,6 +449,7 @@ void Runtime::initializeInBackground()
         auto environment = std::make_unique<Environment>(params(), m_ini);
         environment->initialize(m_uses, m_cmCache, reportStage);
         m_environment = std::move(environment);
+        m_textures.onEnvironmentReplaced(*m_environment->directory());
     } catch (const std::exception& e) {
         // Every stream serves the original mesh then.
         disable(std::format("its background initialization failed: {}", e.what()), true);
@@ -493,6 +504,8 @@ bool Runtime::apply(const PGParams& params,
         auto environment = std::make_unique<Environment>(params, m_ini);
         environment->initialize(m_uses, m_cmCache, [this](const char* stage) { m_stage = stage; });
         m_environment = std::move(environment);
+        // The textures generated so far stay known to the new directory, as the hooks made them known to the old one.
+        m_textures.onEnvironmentReplaced(*m_environment->directory());
 
         m_stage = "pglite.stages.planningMeshes";
         auto plan = std::make_unique<Plan>(++m_planGeneration);
@@ -524,8 +537,13 @@ std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::strin
 
         const std::shared_lock lock(m_pipelineLock);
         auto* const target = m_plan ? m_plan->target(path) : nullptr;
-        if (target && target->family && !target->family->sources.empty() && !disableReason())
-            return target->family->bytes(target->member, target->pathIndex, m_textureSets, m_plan->generation());
+        if (target && target->family && !target->family->sources.empty() && !disableReason()) {
+            auto bytes = target->family->bytes(target->member, target->pathIndex, m_textureSets, m_plan->generation());
+            // The textures the patch registered with the texture hooks are served before the engine parses the mesh
+            // that names them (DESIGN.md section 4.12).
+            m_textures.generatePending();
+            return bytes;
+        }
 
         // A path of no current family (a variant of an earlier plan, or PGLite is disabled): the original mesh.
         auto bytes = std::make_shared<std::vector<std::byte>>();

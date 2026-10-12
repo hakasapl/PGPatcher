@@ -26,6 +26,10 @@ public:
     /// @brief Plugin uses of a mesh, as PGPlugin::modelUses() returns them.
     using MeshUses = std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>;
 
+    /// @brief The texture hook patchers, whose generated textures an observer tracks across runs (the offline update
+    /// cache) or generates and caches as they are needed (the PGLite runtime).
+    enum class HookKind : uint8_t { ConvertToCM, FixSSS };
+
     PGRunObserver() = default;
     virtual ~PGRunObserver() = default;
     PGRunObserver(const PGRunObserver&) = default;
@@ -74,6 +78,27 @@ public:
 
     /// @brief Resumes recording on the calling thread, see suspendRecording().
     virtual void resumeRecording();
+
+    //
+    // Texture hooks (PatcherTextureHook): the textures the mesh patchers register and the textures made from them.
+    //
+
+    /// @brief A texture a mesh patcher registered with a texture hook. Reported even while recording is suspended: a
+    /// registration is a side effect of the patch, not a query.
+    virtual void recordHookRegistration(const HookKind& kind,
+                                        const std::filesystem::path& texPath);
+
+    /**
+     * @brief Asks whether the texture a hook generated from this source in a previous run still serves, in which case
+     * the hook generates nothing. The default answer is no.
+     */
+    virtual bool tryReuseHookOutput(const HookKind& kind,
+                                    const std::filesystem::path& texPath);
+
+    /// @brief A texture a hook generated and wrote to the output folder.
+    virtual void recordHookOutput(const HookKind& kind,
+                                  const std::filesystem::path& source,
+                                  const std::filesystem::path& output);
 
     //
     // Classifications of a previous run.

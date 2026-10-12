@@ -29,6 +29,9 @@ public:
         bool shouldExcludeFacegens = false;
         /// @brief Whether complex material shapes keep their cubemap (--no-dyn-cubemap offline).
         bool shouldDisableDynamicCubemap = false;
+        /// @brief Whether every parallax match is upgraded to complex material, not only those that cannot keep
+        /// parallax (--force-always-cm offline).
+        bool shouldForceAlwaysCM = false;
         /// @brief Whether "Loading PGLite" and the step show in the top right corner while PGLite initializes.
         bool shouldShowLoadingMessage = true;
         /// @brief Whether the welcome message shows in the top right corner until the menu was opened once.
@@ -63,6 +66,10 @@ public:
 
     /// @brief Data\SKSE\Plugins\PGLite\translations, the translation files of the offline program.
     [[nodiscard]] static std::filesystem::path translationsFolder();
+
+    /// @brief Data\SKSE\Plugins\PGLite\cache, the generated textures and their keys (DESIGN.md section 4.12). It can be
+    /// deleted at any time at the cost of one generation per texture.
+    [[nodiscard]] static std::filesystem::path textureCacheFolder();
 
     /**
      * @brief Reads PGLite.ini. A missing file or key gives the default.

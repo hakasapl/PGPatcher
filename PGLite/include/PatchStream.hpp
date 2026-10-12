@@ -46,11 +46,11 @@ public:
          * opens the stream and must not throw.
          *
          * @param path The registered path.
-         * @param source The engine's stream for the base path of the family.
+         * @param source The engine's stream for the base path of the family; a generated texture (TextureGenerator)
+         * has none and gets an empty one.
          */
         [[nodiscard]] virtual std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
-                                                                                    SourceStream& source)
-            = 0;
+                                                                                     SourceStream& source) = 0;
     };
 
     /**

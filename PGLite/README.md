@@ -39,6 +39,12 @@ set records the patched alternate textures need. The textures-only file map, the
 material detection runs on the GPU and is cached in `SKSE\Plugins\PGLite\cmcache.bin`), the True PBR configs and the
 mod manager data are built on a background thread right after data load.
 
+The Parallax to Complex Material transform and Fix SSS generate their textures the first time a patched mesh needs
+them, from the texture the game itself would load, and keep them in `SKSE\Plugins\PGLite\cache`. A cached texture is
+used again only while its source texture, the shader and the PGLite version are unchanged; the folder can be deleted at
+any time. `bForceAlwaysCM=true` in the ini upgrades every parallax match (the `--force-always-cm` flag of the offline
+program).
+
 Apply in the menu saves the settings, restores every record, plans again and registers the new variant streams.
 The game is paused meanwhile, and the menu shows the elapsed time and the step it is at.
 Meshes loaded from then on use the new settings; models the game already holds keep their state until the game
@@ -54,9 +60,9 @@ edit of the patchers).
 
 Patchers and textures:
 
-1. No texture generation: the Parallax to Complex Material transform and Fix SSS do not exist at runtime. A shape
-   whose parallax match cannot apply falls through to the next match; soft lighting shapes keep their diffuse in
-   the glow slot.
+1. The Parallax to Complex Material transform and Fix SSS generate their textures the first time a patched mesh
+   needs them, from the texture the game would load, into `SKSE\Plugins\PGLite\cache` instead of the output folder;
+   the engine reads them from there. The images are the ones the offline program writes.
 2. Textures are classified by file name suffix, the texture rules and the vanilla archive list only. The offline
    vote of the shapes that use a texture does not run, so a texture whose name contradicts its use is classified
    differently.
@@ -80,8 +86,9 @@ Records and the plugin step:
 
 Files and archives:
 
-11. Nothing is written: no duplicate files, plugins, texture set records, diff JSON, zip, update cache, BodySlide
-    ShapeData handling or dynamic cubemap deployment (the package ships the texture).
+11. Nothing is written to the data folder: no duplicate files, plugins, texture set records, diff JSON, zip, update
+    cache, BodySlide ShapeData handling or dynamic cubemap deployment (the package ships the texture). The generated
+    textures go to the cache under the plugin's folder.
 12. The archive set and the loose file set are the engine's: the INI lists, `Update.bsa`, `<plugin>.bsa` and
     `<plugin> - Textures.bsa`, every loose file including hidden ones.
 13. Every file read goes through the engine's resource layer, so it is what the game loads.
@@ -99,8 +106,8 @@ Program behavior:
 
 18. The offline DynDOLOD refusal has no runtime equivalent; `.bto` files have no uses.
 19. PGLite disables itself when an offline output or Auto Parallax is present, with a stricter check than offline.
-20. The menu has no conflict highlighting or viewer; `exclude facegens` and `disable dynamic
-    cubemap` are ini options; the log lives next to the other SKSE logs.
+20. The menu has no conflict highlighting or viewer; `exclude facegens`, `disable dynamic cubemap` and `force
+    always CM` are ini options; the log lives next to the other SKSE logs.
 
 ## Development
 

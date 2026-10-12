@@ -50,8 +50,8 @@ class PGRunCache {
 public:
     static inline const std::filesystem::path s_cacheFilename = L"PGPatcher_UpdateCache.bin";
 
-    /// @brief Texture hook patchers whose generated outputs are tracked by the cache
-    enum class HookKind : uint8_t { ConvertToCM, FixSSS };
+    /// @brief Texture hook patchers whose generated outputs are tracked by the cache, see PGRunObserver::HookKind
+    using HookKind = PGRunObserver::HookKind;
 
     /// @brief Result of a file existence query as seen by a patcher
     enum class FileExistsState : uint8_t { Missing, Exists, Generated };
@@ -291,6 +291,13 @@ public:
                            uint64_t digest) override;
         void recordOutputFile(const std::filesystem::path& relPath,
                               uint64_t size) override;
+        void recordHookRegistration(const HookKind& kind,
+                                    const std::filesystem::path& texPath) override;
+        bool tryReuseHookOutput(const HookKind& kind,
+                                const std::filesystem::path& texPath) override;
+        void recordHookOutput(const HookKind& kind,
+                              const std::filesystem::path& source,
+                              const std::filesystem::path& output) override;
         void suspendRecording() override;
         void resumeRecording() override;
         bool tryGetCachedMeshVotes(const std::filesystem::path& nifPath,

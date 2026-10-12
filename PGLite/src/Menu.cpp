@@ -1081,6 +1081,10 @@ void Menu::drawStatus()
     ImGui::SetItemTooltip("%s", tr("pglite.status.streamsTooltip").c_str());
     ImGui::Text(tr("pglite.status.textureSets").c_str(), status.textureSets);
     ImGui::SetItemTooltip("%s", tr("pglite.status.textureSetsTooltip").c_str());
+    ImGui::Text(tr("pglite.status.textures").c_str(),
+                status.texturesFromCache,
+                status.texturesGenerated,
+                status.texturesFailed);
     if (!status.mo2Instance.empty())
         ImGui::Text(tr("pglite.status.mo2Instance").c_str(),
                     StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
@@ -1099,17 +1103,19 @@ void Menu::drawPatchers()
                     &m_params.shaderPatcher.isComplexMaterialEnabled);
     ImGui::Checkbox(tr("launcher.shaderPatchers.truePBR.label").c_str(), &m_params.shaderPatcher.isTruePBREnabled);
 
+    ImGui::SeparatorText(tr("launcher.shaderTransforms.title").c_str());
+    ImGui::Checkbox(tr("launcher.shaderTransforms.parallaxToCM.label").c_str(),
+                    &m_params.shaderTransforms.isParallaxToCMEnabled);
+    ImGui::SetItemTooltip("%s", tr("launcher.shaderTransforms.parallaxToCM.tooltip").c_str());
+
     ImGui::SeparatorText(tr("launcher.postPatchers.title").c_str());
     ImGui::Checkbox(tr("launcher.postPatchers.disablePrePatchedMaterials.label").c_str(),
                     &m_params.postPatcher.disablePrePatchedMaterials);
     ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.disablePrePatchedMaterials.tooltip").c_str());
+    ImGui::Checkbox(tr("launcher.postPatchers.fixSSS.label").c_str(), &m_params.postPatcher.isFixSSSEnabled);
+    ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.fixSSS.tooltip").c_str());
     ImGui::Checkbox(tr("launcher.postPatchers.hairFlowMap.label").c_str(), &m_params.postPatcher.isHairFlowMapEnabled);
     ImGui::SetItemTooltip("%s", tr("launcher.postPatchers.hairFlowMap.tooltip").c_str());
-
-    ImGui::SeparatorText(tr("pglite.patchers.notAvailable").c_str());
-    ImGui::TextWrapped(tr("pglite.patchers.notAvailableText").c_str(),
-                       tr("launcher.shaderTransforms.parallaxToCM.label").c_str(),
-                       tr("launcher.postPatchers.fixSSS.label").c_str());
 }
 
 void Menu::drawRecordTypes()

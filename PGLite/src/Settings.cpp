@@ -69,6 +69,8 @@ std::filesystem::path Settings::cmCacheFile() { return configFolder() / L"cmcach
 
 std::filesystem::path Settings::translationsFolder() { return configFolder() / L"translations"; }
 
+std::filesystem::path Settings::textureCacheFolder() { return configFolder() / L"cache"; }
+
 Settings::Ini Settings::readIni()
 {
     Ini ini;
@@ -82,6 +84,7 @@ Settings::Ini Settings::readIni()
     ini.logLevel = Logging::levelFromString(file.GetValue(iniSection, "sLogLevel", "info"));
     ini.shouldExcludeFacegens = file.GetBoolValue(iniSection, "bExcludeFacegens", false);
     ini.shouldDisableDynamicCubemap = file.GetBoolValue(iniSection, "bDisableDynamicCubemap", false);
+    ini.shouldForceAlwaysCM = file.GetBoolValue(iniSection, "bForceAlwaysCM", false);
     ini.shouldShowLoadingMessage = file.GetBoolValue(iniSection, "bShowLoadingMessage", true);
     ini.shouldShowWelcomeMessage = file.GetBoolValue(iniSection, "bShowWelcomeMessage", true);
     ini.loadSaveAtStart = file.GetValue(debugSection, "sLoadSaveAtStart", "");

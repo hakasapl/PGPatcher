@@ -21,7 +21,8 @@ input at all (Community Shaders and Wheeler redirect the same call, and the redi
 imports two system runtimes besides Windows itself: `d3dcompiler_47.dll` (a Windows component; the Dear ImGui
 DirectX 11 backend compiles its two shaders at startup) and `vcomp140.dll` (the OpenMP runtime of the Visual
 C++ redistributable the game needs anyway, pulled in by DirectXTex as in the offline PGLib). The offline
-binaries no longer import the shader compiler.
+binaries no longer import the shader compiler. The two texture generating patchers run at runtime with a texture cache
+(4.12), which replaces the first difference the original section 7 listed.
 
 ## 1. What PGLite is
 
@@ -191,9 +192,9 @@ hitch on synchronous demands of families with many contexts; it is measured in t
 around up front (Hakan's ruling).
 
 Patchers available at runtime: the stock marker (restore half; its create half only fires on BodySlide ShapeData),
-Fix Mesh Lighting, Fix Texture Slot Count, Parallax, Complex Material, True PBR, the Default shader patcher, Restore
-Default Shaders, Hair Flow Map. Excluded because they generate textures: the Parallax to Complex Material transform
-and Fix SSS (section 7). Excluded as offline-only: Particle Lights to Light Placer, Convert to HDR.
+Fix Mesh Lighting, Fix Texture Slot Count, Parallax, Complex Material, True PBR, the Default shader patcher, the
+Parallax to Complex Material transform and Fix SSS (whose textures are generated at first use, 4.12), Restore
+Default Shaders, Hair Flow Map. Excluded as offline-only: Particle Lights to Light Placer, Convert to HDR.
 
 ### 4.4 The permutation system
 
@@ -392,9 +393,10 @@ exist yet), and the GUI stays available and states the reason.
 Hotkey from the ini. Device and context from `BSGraphics::Renderer`, present and input hooks chained like every other
 ImGui plugin. Pages: mod manager (type, MO2 instance location with a folder dialog, MO2 loose file order) and the mod list
 (mods with shaders or meshes as `updateStateFromModlist` numbers them, drag to reorder, enable, meshes ignored; apply
-writes `modrules.json`); patcher checkboxes (Fix Mesh Lighting, Parallax, Complex Material, True PBR, Restore
-Default Shaders, Hair Flow Map); allowed record types; mesh allow list and block list; texture rules; a status panel
-(ready state, patched family and variant counts, disable reason, a toggle that disables PGLite through an apply
+writes `modrules.json`); patcher checkboxes (Fix Mesh Lighting, Parallax, Complex Material, True PBR, Upgrade
+Parallax to Complex Material, Restore Default Shaders, Fix Vanilla Subsurface Scattering, Hair Flow Map); allowed
+record types; mesh allow list and block list; texture rules; a status panel (ready state, patched family and variant
+counts, generated texture counts, disable reason, a toggle that disables PGLite through an apply
 with an empty plan and enables it through a full one, persisted in `settings.json`) and the warnings and errors
 collected through the Logger capture callback, deduplicated (weighted pair mismatches land here). The conflict
 manager page builds its mod list from the mod manager settings as edited: the mod manager is read, the mods get
@@ -410,18 +412,51 @@ specified.
 
 ### 4.11 Files
 
-- `Data\SKSE\Plugins\PGLite.ini`: hotkey, log level, exclude facegens, disable dynamic cubemap, loading and welcome
-  messages.
+- `Data\SKSE\Plugins\PGLite.ini`: hotkey, log level, exclude facegens, disable dynamic cubemap, force always CM,
+  loading and welcome messages.
 - `Data\SKSE\Plugins\PGLite\settings.json`: the offline `params.*` keys and nesting, so settings can be copied
   between the two programs, and as there the file holds every parameter with its full lists, the defaults applying
   only when there is no file, and a `pglite` object of PGLite's own (`enabled`, `language`, `didOpenMenu`). The
   serialized
   keys are never renamed.
 - `Data\SKSE\Plugins\PGLite\modrules.json`: the offline schema.
-- `Data\SKSE\Plugins\PGLite\cmcache.bin`: the complex material classification cache (4.5), the one thing PGLite
-  persists.
+- `Data\SKSE\Plugins\PGLite\cmcache.bin`: the complex material classification cache (4.5).
+- `Data\SKSE\Plugins\PGLite\cache\`: the generated textures with their key files (4.12). Both caches can be deleted
+  at any time.
 - `My Games\Skyrim Special Edition\SKSE\PGLite.log` through spdlog and the Logger facade.
 - The package ships `textures\cubemaps\dynamic1pxcubemap_black.dds`, which the offline run deploys into its output.
+
+### 4.12 Generated textures
+
+The Parallax to Complex Material transform and Fix SSS are the two patchers that produce textures. Offline, the mesh
+patcher registers the source with a texture hook (`PatcherTextureHookConvertToCM`, `PatcherTextureHookFixSSS`),
+points the slot at the hook's output name, and the texture phase after every mesh writes the file into the output
+folder. At runtime the same hooks run, and the registered textures are made the moment they are first needed:
+
+- `Runtime::bytesFor` drains the hooks' process lists right after a family was patched, before the bytes reach the
+  engine, so the output path is registered before the engine parses the mesh that names it. `TextureGenerator` runs
+  one caller at a time; a texture is made once per session, and one that fails is logged once and stays missing, as
+  offline.
+- The source is read through the engine's resource layer (the bytes the game itself loads for the path), decoded
+  with DirectXTex, run through the hook's `generate()` (the compute shader and the block compression of the offline
+  output, unchanged) and serialized with `SaveToDDSMemory`.
+- The result is kept under `Data\SKSE\Plugins\PGLite\cache\<output path>` with a `.key` file next to it. The key
+  holds everything the output depends on: the hook, the signature of its generation (a CRC32 of the shader bytecode,
+  the formats and the parameters), the DirectXTex version, the PGLite version, the source path, and the size and
+  CRC32 of the source bytes; the size of the output is appended once the file is written. A texture is taken from the
+  cache only when the key matches exactly and the file has the recorded size; anything else generates it again. The
+  texture is written before its key, each through a temporary file and a rename, so a crash in between leaves a stale
+  key and never a stale texture. The cache lives outside `Data\textures`, so the file map never sees it, and it can
+  be deleted at any time.
+- The engine reads the output through a `PatchStream` registered for the output path, whose provider is the
+  generator and serves the cache file at every open. The path is registered in the resource registry like a mesh
+  (3.1): a file of the same name in the load order is shadowed, as the offline output folder shadows it.
+- As offline, a generated texture is not a texture map entry: `setTextureType` records its type for the type
+  lookups, and `addGeneratedFile`, done by the hook when a mesh registers the source, answers the existence checks.
+  Apply replaces the directory, so the generator gives the new one the file and the type of every texture of the
+  session and empties the hooks' lists; the first patch after Apply registers its textures with the new directory.
+- The ini flag `bForceAlwaysCM` is the offline `--force-always-cm`: every parallax match is upgraded, not only the
+  ones whose shape cannot keep parallax.
 
 ## 5. Shared code: PGLib changes
 
@@ -460,6 +495,10 @@ must stay byte identical on a reference load order.
    `PGDirectory.hpp`, which every unit includes, and become offline-runner headers. The runtime uses plain threads
    and never sets the latch; `loadStatics` checks it only when the offline runner installed it. `PGDirectory.cpp`'s
    `boost/asio.hpp` include goes with it, so no winsock initialization runs in the DLL.
+10. The texture hooks report through `PGRunObserver` (`recordHookRegistration`, `tryReuseHookOutput`,
+    `recordHookOutput`; `HookKind` lives there and `PGRunCache` forwards), and each hook splits its generation into
+    `generate()` (the shader and the compression, in memory) and the write of `applyPatch()`, and exposes its process
+    list and the signature of its generation, so the runtime makes and caches the same textures (4.12).
 
 ## 6. Build and packaging
 
@@ -488,10 +527,11 @@ This is the complete list. A difference that is not here is a bug (section 1).
 
 **Patchers and textures**
 
-1. No texture generation. The Parallax to Complex Material transform and Fix SSS are GUI patchers offline that
-   produce new DDS files; at runtime they do not exist. A shape whose parallax match fails `canApply` and would have
-   been upgraded to complex material offline falls through to the next match. Soft lighting shapes keep their diffuse
-   in the glow slot.
+1. Texture generation happens at first use and goes to a cache. The Parallax to Complex Material transform and Fix
+   SSS make the same textures as offline (same shaders, formats and compression), but a texture is generated the
+   moment the first patched mesh that names it is produced, from the bytes the engine serves for its source, and is
+   kept under `SKSE\Plugins\PGLite\cache` (4.12) instead of the output folder; the engine reads it through a
+   registered stream. Offline generates every registered texture after all meshes, in the texture phase.
 2. Texture classification is by suffix, texture rules and the vanilla archive list only. Offline, textures used by
    meshes are classified by a vote of the shapes that use them (`PGDirectory.cpp:395-597`); a texture whose name
    contradicts its use (an `_m` used as a glow map, a normal map without `_n`) is classified differently, which can
@@ -532,8 +572,9 @@ This is the complete list. A difference that is not here is a bug (section 1).
 
 **Files and archives**
 
-11. Nothing is written: no duplicate files, no plugin files, no texture set plugin records, no diff JSON, no zip, no
-    update cache, no BodySlide ShapeData handling, no dynamic cubemap deployment (the package ships the texture).
+11. Nothing is written to the data folder: no duplicate files, no plugin files, no texture set plugin records, no
+    diff JSON, no zip, no update cache, no BodySlide ShapeData handling, no dynamic cubemap deployment (the package
+    ships the texture). The generated textures go to the cache under the plugin's folder (4.12).
 12. The archive set and the loose file set are the engine's (4.5): the INI lists, `Update.bsa`, `<plugin>.bsa` and
     `<plugin> - Textures.bsa`, every loose file. Offline also reads `<name>N.bsa`, `<name> - Meshes.bsa` and
     `<name> - *.bsa`, INI lists from every `Data\*.ini`, and skips hidden files; those are offline bugs left to a
@@ -561,8 +602,8 @@ This is the complete list. A difference that is not here is a bug (section 1).
     default block list keeps LOD and DynDOLOD meshes out.
 19. PGLite disables itself with a notice when an offline output or Auto Parallax is present, with a stricter check
     than offline (4.9).
-20. GUI and settings: no conflict highlighting or viewer; `exclude facegens` and `disable dynamic
-    cubemap` are ini options instead of command line flags;
+20. GUI and settings: no conflict highlighting or viewer; `exclude facegens`, `disable dynamic cubemap` and `force
+    always CM` are ini options instead of command line flags;
     Apply restores the records from a snapshot before re-planning (4.8); the log lives next to the other SKSE logs.
 
 Explicitly the same: block order of the patched mesh (sorted as offline), the weighted `_0`/`_1` layout check, the

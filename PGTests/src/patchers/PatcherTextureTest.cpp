@@ -6,6 +6,7 @@
 #include "PGD3D.hpp"
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "PGRunObserver.hpp"
 #include "TestUtil.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGTypes.hpp"
@@ -25,12 +26,37 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace {
 
 using PGEnums::TextureSlots;
 using PGEnums::TextureType;
 using TestUtil::DDSBuilder::RGBA;
+
+/**
+ * @brief An observer that keeps the generated outputs the hooks report.
+ */
+class OutputObserver final : public PGRunObserver {
+public:
+    [[nodiscard]] const std::vector<std::pair<std::filesystem::path,
+                                              std::filesystem::path>>&
+    outputs() const
+    {
+        return m_outputs;
+    }
+
+    void recordHookOutput([[maybe_unused]] const HookKind& kind,
+                          const std::filesystem::path& source,
+                          const std::filesystem::path& output) override
+    {
+        m_outputs.emplace_back(source, output);
+    }
+
+private:
+    std::vector<std::pair<std::filesystem::path, std::filesystem::path>> m_outputs;
+};
 
 /**
  * @brief A data folder with a height map and a skin diffuse, mapped by the global PGDirectory, with a global PGD3D that
@@ -70,6 +96,7 @@ protected:
 
     void TearDown() override
     {
+        PGRunObserver::install(nullptr);
         PatcherTextureHookConvertToCM::reset();
         PatcherTextureHookFixSSS::reset();
         PGGlobals::setPGD3D(nullptr);
@@ -96,15 +123,19 @@ TEST_F(PatcherTextureTest,
     EXPECT_EQ(PatcherTextureHookConvertToCM::outputFilename(L"textures\\a\\stone_p.dds"), L"textures\\a\\stone_m.dds");
     EXPECT_EQ(PatcherTextureHookConvertToCM::outputFilename(L"textures\\a\\stone.dds"), L"textures\\a\\stone_m.dds");
     EXPECT_FALSE(PatcherTextureHookConvertToCM::isInProcessList(L"textures\\a\\stone_p.dds"));
+    EXPECT_TRUE(PatcherTextureHookConvertToCM::processList().empty());
 
     PatcherTextureHookConvertToCM::addToProcessList(L"textures\\a\\stone_p.dds");
     PatcherTextureHookConvertToCM::addToProcessList(L"textures\\a\\stone_p.dds"); // again
     EXPECT_TRUE(PatcherTextureHookConvertToCM::isInProcessList(L"textures\\a\\stone_p.dds"));
     EXPECT_FALSE(PatcherTextureHookConvertToCM::isInProcessList(L"textures\\a\\stone_m.dds"));
     EXPECT_TRUE(m_pgd->isGenerated(L"textures\\a\\stone_m.dds"));
+    const std::vector<std::filesystem::path> registered { L"textures\\a\\stone_p.dds" };
+    EXPECT_EQ(PatcherTextureHookConvertToCM::processList(), registered);
 
     PatcherTextureHookConvertToCM::reset();
     EXPECT_FALSE(PatcherTextureHookConvertToCM::isInProcessList(L"textures\\a\\stone_p.dds"));
+    EXPECT_TRUE(PatcherTextureHookConvertToCM::processList().empty());
 
     // Replaying a generated texture of a previous run records its type without converting anything. The generated map
     // is not added to the texture maps, which only hold mapped textures.
@@ -116,6 +147,8 @@ TEST_F(PatcherTextureTest,
     PatcherTextureHookConvertToCM patcher(L"textures\\a\\stone_p.dds", nullptr);
     EXPECT_EQ(patcher.patcherName(), "ParallaxToCM");
     EXPECT_THROW(patcher.applyPatch(), std::runtime_error);
+    DirectX::ScratchImage none;
+    EXPECT_THROW(patcher.generate(none), std::runtime_error);
 }
 
 TEST_F(PatcherTextureTest,
@@ -127,8 +160,11 @@ TEST_F(PatcherTextureTest,
     PatcherTextureHookFixSSS::addToProcessList(L"textures\\actors\\skin.dds");
     EXPECT_TRUE(PatcherTextureHookFixSSS::isInProcessList(L"textures\\actors\\skin.dds"));
     EXPECT_TRUE(m_pgd->isGenerated(L"textures\\actors\\skin_s.dds"));
+    const std::vector<std::filesystem::path> registered { L"textures\\actors\\skin.dds" };
+    EXPECT_EQ(PatcherTextureHookFixSSS::processList(), registered);
     PatcherTextureHookFixSSS::reset();
     EXPECT_FALSE(PatcherTextureHookFixSSS::isInProcessList(L"textures\\actors\\skin.dds"));
+    EXPECT_TRUE(PatcherTextureHookFixSSS::processList().empty());
 
     PatcherTextureHookFixSSS::replayGenerated(L"textures\\actors\\skin.dds");
     EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::Glow).contains(L"textures\\actors\\skin"));
@@ -137,6 +173,17 @@ TEST_F(PatcherTextureTest,
     PatcherTextureHookFixSSS patcher(L"textures\\actors\\skin.dds", nullptr);
     EXPECT_EQ(patcher.patcherName(), "SSSFix");
     EXPECT_THROW(patcher.applyPatch(), std::runtime_error);
+    DirectX::ScratchImage none;
+    EXPECT_THROW(patcher.generate(none), std::runtime_error);
+}
+
+TEST_F(PatcherTextureTest,
+       HookSignaturesTellTheGenerationsApart)
+{
+    // The signature covers the shader and the parameters of a generation; a cache of generated textures keys on it.
+    EXPECT_EQ(PatcherTextureHookConvertToCM::generatorSignature(), PatcherTextureHookConvertToCM::generatorSignature());
+    EXPECT_EQ(PatcherTextureHookFixSSS::generatorSignature(), PatcherTextureHookFixSSS::generatorSignature());
+    EXPECT_NE(PatcherTextureHookConvertToCM::generatorSignature(), PatcherTextureHookFixSSS::generatorSignature());
 }
 
 TEST_F(PatcherTextureTest,
@@ -149,9 +196,26 @@ TEST_F(PatcherTextureTest,
     DirectX::ScratchImage height;
     ASSERT_TRUE(m_d3d.getDDS(L"textures\\a\\stone_p.dds", height));
     PatcherTextureHookConvertToCM patcher(L"textures\\a\\stone_p.dds", &height);
-    EXPECT_TRUE(patcher.applyPatch());
 
+    // The in-memory generation is what the output file receives; it writes and records nothing itself.
     const auto output = outDir() / L"textures\\a\\stone_m.dds";
+    DirectX::ScratchImage generated;
+    ASSERT_TRUE(patcher.generate(generated));
+    EXPECT_EQ(generated.GetMetadata().width, 32U);
+    EXPECT_EQ(generated.GetMetadata().height, 32U);
+    EXPECT_EQ(generated.GetMetadata().format, DXGI_FORMAT_BC3_UNORM);
+    EXPECT_EQ(generated.GetMetadata().mipLevels, 6U);
+    EXPECT_FALSE(std::filesystem::exists(output));
+    EXPECT_EQ(m_pgd->textureType(L"textures\\a\\stone_m.dds"), TextureType::Unknown);
+
+    OutputObserver observer;
+    PGRunObserver::install(&observer);
+    EXPECT_TRUE(patcher.applyPatch());
+    PGRunObserver::install(nullptr);
+    ASSERT_EQ(observer.outputs().size(), 1U);
+    EXPECT_EQ(observer.outputs()[0].first, L"textures\\a\\stone_p.dds");
+    EXPECT_EQ(observer.outputs()[0].second, L"textures\\a\\stone_m.dds");
+
     ASSERT_TRUE(std::filesystem::exists(output));
     const auto meta = metadataOf(output);
     EXPECT_EQ(meta.width, 32U);
@@ -182,9 +246,23 @@ TEST_F(PatcherTextureTest,
     DirectX::ScratchImage skin;
     ASSERT_TRUE(m_d3d.getDDS(L"textures\\actors\\skin.dds", skin));
     PatcherTextureHookFixSSS patcher(L"textures\\actors\\skin.dds", &skin);
-    EXPECT_TRUE(patcher.applyPatch());
 
+    // The in-memory generation is the half size map the output file receives.
     const auto output = outDir() / L"textures\\actors\\skin_s.dds";
+    DirectX::ScratchImage generated;
+    ASSERT_TRUE(patcher.generate(generated));
+    EXPECT_EQ(generated.GetMetadata().width, 32U);
+    EXPECT_EQ(generated.GetMetadata().height, 16U);
+    EXPECT_EQ(generated.GetMetadata().format, DXGI_FORMAT_BC2_UNORM);
+    EXPECT_FALSE(std::filesystem::exists(output));
+
+    OutputObserver observer;
+    PGRunObserver::install(&observer);
+    EXPECT_TRUE(patcher.applyPatch());
+    PGRunObserver::install(nullptr);
+    ASSERT_EQ(observer.outputs().size(), 1U);
+    EXPECT_EQ(observer.outputs()[0].second, L"textures\\actors\\skin_s.dds");
+
     ASSERT_TRUE(std::filesystem::exists(output));
     const auto meta = metadataOf(output);
     EXPECT_EQ(meta.width, 32U);

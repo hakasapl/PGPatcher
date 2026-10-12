@@ -54,6 +54,23 @@ void PGRunObserver::suspendRecording() { }
 
 void PGRunObserver::resumeRecording() { }
 
+void PGRunObserver::recordHookRegistration([[maybe_unused]] const HookKind& kind,
+                                           [[maybe_unused]] const std::filesystem::path& texPath)
+{
+}
+
+bool PGRunObserver::tryReuseHookOutput([[maybe_unused]] const HookKind& kind,
+                                       [[maybe_unused]] const std::filesystem::path& texPath)
+{
+    return false;
+}
+
+void PGRunObserver::recordHookOutput([[maybe_unused]] const HookKind& kind,
+                                     [[maybe_unused]] const std::filesystem::path& source,
+                                     [[maybe_unused]] const std::filesystem::path& output)
+{
+}
+
 bool PGRunObserver::tryGetCachedMeshVotes([[maybe_unused]] const std::filesystem::path& nifPath,
                                           [[maybe_unused]] const BethesdaDirectory::FileIdentity& identity,
                                           [[maybe_unused]] std::vector<PGTypes::TextureVote>& votes)
