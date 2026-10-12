@@ -25,7 +25,7 @@ class Menu;
 class Hooks {
 public:
     /**
-     * @brief Installs both seams for a menu. Main thread, once the renderer exists (data load).
+     * @brief Installs both seams for a menu, at data load, once the renderer exists.
      *
      * @return false if the swap chain is unavailable or the input call site is not the expected instruction (logged).
      */

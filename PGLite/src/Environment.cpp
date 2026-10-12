@@ -8,7 +8,6 @@
 #include "PGRunObserver.hpp"
 #include "Resources.hpp"
 #include "Settings.hpp"
-#include "Uses.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -60,8 +59,6 @@ const std::unordered_set<std::filesystem::path> foldersToMap = { L"textures", L"
 constexpr const char* archiveListSetting = "sResourceArchiveList:Archive";
 constexpr const char* archiveList2Setting = "sResourceArchiveList2:Archive";
 constexpr const wchar_t* updateArchive = L"Update.bsa";
-
-/// @brief MO2's global instance registry value and folder.
 
 class Stopwatch {
 public:

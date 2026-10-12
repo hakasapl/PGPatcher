@@ -30,10 +30,10 @@ class Menu;
 
 /**
  * @brief The lifecycle of the plugin (DESIGN.md sections 4.1, 4.8 and 4.9): the checks at plugin load, the data-load
- * task that reads the uses, plans and registers the streams, the background initialization of the environment, the
+ * work that reads the uses, plans and registers the streams, the background initialization of the environment, the
  * bytes every stream serves, and Apply.
  */
-class Runtime final : public PatchStream::Provider, public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
+class Runtime final : public PatchStream::Provider {
 public:
     /// @brief What the GUI shows about the state of the plugin.
     struct Status {
@@ -69,7 +69,7 @@ public:
      */
     bool load();
 
-    /// @brief The record model uses of the loaded game, empty before the data-load task ran.
+    /// @brief The record model uses of the loaded game, empty before the data-load work ran.
     [[nodiscard]] const Uses& uses() const { return m_uses; }
 
     /// @brief The values of PGLite.ini.
@@ -81,7 +81,7 @@ public:
     /// @brief Why PGLite is disabled, or nothing while it is active.
     [[nodiscard]] std::optional<std::string> disableReason() const;
 
-    /// @brief Whether the data-load task registered its streams.
+    /// @brief Whether the data-load work registered its streams.
     [[nodiscard]] bool isActive() const { return m_isActive; }
 
     /// @brief Whether the background initialization finished, so patches can run.
@@ -128,10 +128,6 @@ public:
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
                                                                          SourceStream& source) override;
 
-    // BSTEventSink<MenuOpenCloseEvent>: the development aid that loads a save when the main menu opens.
-    RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* event,
-                                          RE::BSTEventSource<RE::MenuOpenCloseEvent>* source) override;
-
 private:
     struct StreamEntry {
         RE::BSTSmartPointer<RE::BSResource::Stream> stream;
@@ -177,7 +173,7 @@ private:
     /// @brief Adds the facegen families to the plan and registers their streams.
     void registerFacegenStreams();
 
-    /// @brief The facegen paths of every NPC form. Main thread.
+    /// @brief The facegen paths of every NPC form. At data load, before the game runs.
     [[nodiscard]] std::vector<std::filesystem::path> facegenPaths() const;
 
     /// @brief The background initialization: the GPU, the cache, the facegen streams, then the environment.
@@ -217,7 +213,6 @@ private:
     std::atomic<const char*> m_stage { nullptr };
     std::atomic<std::size_t> m_progressDone { 0 };
     std::atomic<std::size_t> m_progressTotal { 0 };
-    std::atomic<bool> m_didLoadSaveAtStart { false };
     std::mutex m_readyMutex;
     std::condition_variable m_readyCondition;
 };

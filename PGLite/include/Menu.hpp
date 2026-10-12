@@ -29,8 +29,9 @@ class Runtime;
  * @brief The Dear ImGui menu (DESIGN.md section 4.10): the status of the plugin, the patcher settings, the allowed
  * record types, the mesh and texture rules, the mod manager and the mod list, the warnings, and Apply.
  *
- * Everything runs on the main thread: the input events arrive there and so does Present. The menu keeps a working
- * copy of the parameters and of the mod list; Apply writes them to disk and hands them to the runtime.
+ * Everything runs on the thread that presents: the loading-screen thread while the game loads, the main thread
+ * afterwards, never both at once, and the input events are applied there. The menu keeps a working copy of the
+ * parameters and of the mod list; Apply writes them to disk and hands them to the runtime.
  */
 class Menu {
 public:
@@ -175,8 +176,6 @@ private:
     bool m_isInitialized = false;
     bool m_didFailInitialization = false;
     std::atomic<bool> m_isOpen { false };
-    bool m_didAutoOpen = false;
-    bool m_didAutoApply = false;
     bool m_didOpenMenu = false;
     bool m_isStateLoaded = false;
     std::mutex m_inputMutex;

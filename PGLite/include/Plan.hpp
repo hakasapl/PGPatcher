@@ -108,9 +108,9 @@ public:
      * @return The bytes, or nullptr if not even the original mesh can be read.
      */
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytes(std::size_t member,
-                                                                     std::size_t pathIndex,
-                                                                     TextureSetFactory& textureSets,
-                                                                     unsigned generation);
+                                                                      std::size_t pathIndex,
+                                                                      TextureSetFactory& textureSets,
+                                                                      unsigned generation);
 
     [[nodiscard]] State state() const { return m_state; }
 
@@ -124,7 +124,7 @@ private:
 
     /// @brief Patches one member of one file again and serializes it.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> produce(std::size_t member,
-                                                                       std::size_t pathIndex);
+                                                                        std::size_t pathIndex);
 
     /// @brief Reads the original bytes of a file of the family through the engine's stream.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> original(std::size_t pathIndex);
@@ -165,7 +165,8 @@ public:
     explicit Plan(unsigned generation);
 
     /**
-     * @brief Plans every used mesh from the records alone: families, contexts and variant numbers. Main thread.
+     * @brief Plans every used mesh from the records alone: families, contexts and variant numbers. At data load, or
+     * under the exclusive pipeline lock of Apply.
      *
      * @param uses The record model uses.
      * @param params The allowed record types, the mesh block list and allow list.
@@ -176,7 +177,8 @@ public:
                unsigned& variantCounter);
 
     /**
-     * @brief Points the records of every member with a variant path at it. Main thread, after build().
+     * @brief Points the records of every member with a variant path at it. After build(), at data load or under the
+     * exclusive pipeline lock of Apply.
      */
     void retargetRecords() const;
 

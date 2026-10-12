@@ -43,16 +43,18 @@ struct RecordUse {
 class Uses {
 public:
     using UseList = std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>;
+    using UsesByPath = std::unordered_map<std::filesystem::path, std::vector<RecordUse>>;
 
     /**
-     * @brief Reads every model record of the 36 record types from the data handler. Main thread, after data load.
+     * @brief Reads every model record of the 36 record types from the data handler. At data load, before the game
+     * runs.
      */
     void build();
 
     /**
      * @brief The uses by mesh path, each list in the order the offline program patches it.
      */
-    [[nodiscard]] const std::unordered_map<std::filesystem::path, std::vector<RecordUse>>& byPath() const;
+    [[nodiscard]] const UsesByPath& byPath() const;
 
     /**
      * @brief The uses of one mesh as PGPlugin::modelUses() reports them, empty for a mesh without uses.
@@ -93,7 +95,7 @@ public:
     [[nodiscard]] static std::filesystem::path weightCounterpart(const std::filesystem::path& path);
 
 private:
-    std::unordered_map<std::filesystem::path, std::vector<RecordUse>> m_byPath;
+    UsesByPath m_byPath;
 };
 
 }

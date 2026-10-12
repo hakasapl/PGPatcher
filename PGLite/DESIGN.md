@@ -687,12 +687,12 @@ edit the patchers make.
    weighted suffix derivation works on a variant name; the ignore flag bit survives loading for all 35 types.
 5. **Uses map equality.** The dump-and-compare of 4.6, including engine defaults, Windows-1252 decoding, origin file
    and local form ID ordering, and the ADDN rule.
-6. **Startup gating.** The texture map, the classification pass and the MO2 folder walk take seconds under usvfs; the
-   first loading screen waits for them when a save is loaded quickly. Measure, and confirm the main menu is not
-   delayed (the data-load task is records only).
+6. **Startup gating.** The main menu waits for the initialization (4.1): the file map, the mesh reading pass, the
+   classification and the MO2 folder walk. Measured on the vanilla load order with a few mods: 2.8 s with a cold
+   classification cache, 1.1 s with a warm one.
 7. **Complex material classification in process:** device creation inside the game process next to ENB and ReShade
    proxies, the shader embedding, the disk cache identity, and the cost of the first session's full pass.
-8. **Memory.** Plans not bytes, the merge of identical results, the textures-only file map with paths stored once
+8. **Memory.** Plans not bytes, the merge of identical results, the file map with paths stored once
    and no archive objects, the per-path stream objects (about a hundred bytes each plus a 40-byte registry record),
    and the duplicates of section 7 keep PGLite's footprint small; measure on a large load order.
 9. **Performance** is evaluated after the first in-game tests, not designed for up front; the first-open hitch on
@@ -715,12 +715,13 @@ edit the patchers make.
 
 Defaults the design proceeds with unless overruled:
 
-1. Suffix-only classification without an import of the offline classification.
+1. The offline classification (the mesh reading pass and the suffix rules), with the per-mesh vote cache of 4.5.
 2. Complex material detection through `PGD3D` on PGLite's own device with embedded shaders, during initialization,
    with the disk cache of 4.5.
 3. Apply affects the next load only; no forced scene refresh.
-4. English-only GUI.
-5. Supported runtimes 1.5.97, 1.6.1170 and 1.7.x; no VR.
+4. The GUI reads the offline translation files, with a language setting in the menu.
+5. Supported runtimes 1.6.x and 1.7.x; 1.5.97 stays disabled until the SE IDs of the two engine functions are known;
+   no VR.
 6. No code hooks for file loading: registered streams only. The two engine functions of 8.1 are called, not hooked.
 7. Texture sets are created on the requesting thread at first open and left unregistered; data-load pre-creation is
    the fallback of 8.4.

@@ -5,7 +5,6 @@
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
 #include "Settings.hpp"
-#include "Uses.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -19,9 +18,9 @@ namespace PGLite {
 class ClassificationCache;
 
 /**
- * @brief The runtime environment of the shared patcher code (DESIGN.md sections 4.5 and 4.7): the file map read
- * through the engine's resource layer, the mesh reading pass and the texture classification, the TruePBR configs, the
- * mod manager and the registered patchers.
+ * @brief The runtime environment of the shared patcher code (DESIGN.md sections 4.5 and 4.7): the file map (read
+ * natively for the mesh reading pass, through the engine's resource layer afterwards), the mesh reading pass and the
+ * texture classification, the TruePBR configs, the mod manager and the registered patchers.
  *
  * One environment is built on the background thread after data load and replaced by Apply. The shared code reaches it
  * through PGGlobals, so a new environment installs itself there when it is built; the pipeline lock of the runtime

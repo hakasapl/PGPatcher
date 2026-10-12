@@ -117,10 +117,7 @@ Program behavior:
 
 ## Development
 
-`PGLite/PGLite.ini` has a `[Debug]` section: `sLoadSaveAtStart=<save name without extension>` loads that save as soon
-as the main menu opens, so a session can be tested without clicking through the menu; `bOpenMenuAtStart=true` opens
-the menu once PGLite is ready, and `bApplyAtStart=true` then runs Apply once, so the menu and the apply can be
-exercised without input. `sLogLevel=debug` logs every patched family.
+`sLogLevel=debug` in `PGLite.ini` logs every patched family, every generated texture and the Light Placer config.
 
 PGLite is a standalone CMake configure (static vcpkg triplet, static CRT, C++23 for CommonLibSSE-NG) that compiles
 the shared `PGLib` sources a second time, see `CMakeLists.txt`; `buildRelease.ps1` builds it after the offline

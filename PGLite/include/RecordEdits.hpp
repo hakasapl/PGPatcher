@@ -23,10 +23,10 @@ namespace PGLite {
  */
 class RecordSnapshot {
 public:
-    /// @brief Captures every model element of the uses, each once. Main thread.
+    /// @brief Captures every model element of the uses, each once. At data load.
     void capture(const Uses& uses);
 
-    /// @brief Writes the captured fields back. Main thread, nothing may read the records concurrently.
+    /// @brief Writes the captured fields back. Under the exclusive pipeline lock of Apply, while the main thread waits.
     void restore() const;
 
     [[nodiscard]] std::size_t size() const { return m_elements.size(); }

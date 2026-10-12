@@ -22,7 +22,6 @@ namespace PGLite {
 namespace {
 
 constexpr const char* iniSection = "General";
-constexpr const char* debugSection = "Debug";
 
 }
 
@@ -87,9 +86,6 @@ Settings::Ini Settings::readIni()
     ini.shouldForceAlwaysCM = file.GetBoolValue(iniSection, "bForceAlwaysCM", false);
     ini.shouldShowLoadingMessage = file.GetBoolValue(iniSection, "bShowLoadingMessage", true);
     ini.shouldShowWelcomeMessage = file.GetBoolValue(iniSection, "bShowWelcomeMessage", true);
-    ini.loadSaveAtStart = file.GetValue(debugSection, "sLoadSaveAtStart", "");
-    ini.shouldOpenMenuAtStart = file.GetBoolValue(debugSection, "bOpenMenuAtStart", false);
-    ini.shouldApplyAtStart = file.GetBoolValue(debugSection, "bApplyAtStart", false);
 
     return ini;
 }

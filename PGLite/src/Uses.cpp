@@ -85,7 +85,8 @@ constexpr std::uint32_t ignoredRecordFlag = 1U << 24U;
 /// @brief The single pass bit of a material object (MATO DATA), as Mutagen reads it.
 constexpr std::int32_t singlePassFlag = 1;
 
-/// @brief The night sky model TESClimate::InitializeData sets on every climate; a plugin value equal to it is not a use.
+/// @brief The night sky model TESClimate::InitializeData sets on every climate; a plugin value equal to it is not a
+/// use.
 constexpr std::wstring_view defaultNightSky = L"meshes\\sky\\stars.nif";
 
 constexpr std::wstring_view meshesPrefix = L"meshes\\";
@@ -237,7 +238,8 @@ void Uses::build()
                 if (element.swap && element.swap->alternateTextures) {
                     for (std::uint32_t i = 0; i < element.swap->numAlternateTextures; i++) {
                         const auto& alternateTexture = element.swap->alternateTextures[i];
-                        use.attributes.alternateTextures[alternateTexture.index3D] = textureSet(alternateTexture.textureSet);
+                        use.attributes.alternateTextures[alternateTexture.index3D]
+                            = textureSet(alternateTexture.textureSet);
                     }
                 }
 
@@ -269,7 +271,7 @@ void Uses::build()
     Logger::info("Found {} record model uses of {} meshes", numUses, m_byPath.size());
 }
 
-const std::unordered_map<std::filesystem::path, std::vector<RecordUse>>& Uses::byPath() const { return m_byPath; }
+const Uses::UsesByPath& Uses::byPath() const { return m_byPath; }
 
 Uses::UseList Uses::usesOf(const std::filesystem::path& path) const
 {

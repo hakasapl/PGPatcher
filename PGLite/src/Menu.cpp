@@ -372,21 +372,6 @@ bool Menu::createBackBufferView(IDXGISwapChain* swapChain)
 
 void Menu::render(IDXGISwapChain* swapChain)
 {
-    if (!m_isOpen && !m_didAutoOpen && m_runtime->ini().shouldOpenMenuAtStart && m_runtime->isReady()) {
-        // A development aid (PGLite.ini [Debug] bOpenMenuAtStart): the menu without the hotkey.
-        m_didAutoOpen = true;
-        Logger::debug("Opening the menu at start (bOpenMenuAtStart)");
-        open();
-    }
-
-    if (m_isOpen && m_isStateLoaded && !m_isApplying && !m_didAutoApply && m_runtime->ini().shouldApplyAtStart
-        && m_runtime->isReady()) {
-        // A development aid (PGLite.ini [Debug] bApplyAtStart): Apply and its progress frames without a click.
-        m_didAutoApply = true;
-        Logger::debug("Applying at start (bApplyAtStart)");
-        startApply(m_runtime->isEnabled());
-    }
-
     if (m_didFailInitialization || !swapChain)
         return;
 

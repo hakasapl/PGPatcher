@@ -36,12 +36,6 @@ public:
         bool shouldShowLoadingMessage = true;
         /// @brief Whether the welcome message shows in the top right corner until the menu was opened once.
         bool shouldShowWelcomeMessage = true;
-        /// @brief A development aid: the save (file name without extension) loaded when the main menu opens.
-        std::string loadSaveAtStart;
-        /// @brief A development aid: open the menu once the runtime is ready, without the hotkey.
-        bool shouldOpenMenuAtStart = false;
-        /// @brief A development aid: run Apply once the menu opened at start, without a click.
-        bool shouldApplyAtStart = false;
     };
 
     /// @brief F8.

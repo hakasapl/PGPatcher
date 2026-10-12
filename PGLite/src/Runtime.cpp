@@ -190,12 +190,6 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
         return;
     }
 
-    // The development aid listens for the main menu from here on.
-    if (!runtime.m_ini.loadSaveAtStart.empty()) {
-        if (auto* const ui = RE::UI::GetSingleton())
-            ui->AddEventSink<RE::MenuOpenCloseEvent>(&runtime);
-    }
-
     // The menu's hooks draw the loading line into the frames presented during the wait below.
     runtime.m_menu = std::make_unique<Menu>(runtime);
     if (!Hooks::install(*runtime.m_menu))
@@ -263,38 +257,12 @@ void Runtime::onDataLoaded()
 
         const auto elapsed
             = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
-        Logger::info("Data-load task done in {} ms", elapsed.count());
+        Logger::info("Data-load work done in {} ms", elapsed.count());
 
         std::thread([this] { initializeInBackground(); }).detach();
-
-        if (!m_ini.loadSaveAtStart.empty()) {
-            // The main menu may be open already, in which case no event comes.
-            auto* const ui = RE::UI::GetSingleton();
-            if (ui && ui->IsMenuOpen(RE::MainMenu::MENU_NAME)) {
-                const RE::MenuOpenCloseEvent event { .menuName = RE::MainMenu::MENU_NAME, .opening = true };
-                ProcessEvent(&event, nullptr);
-            }
-        }
     } catch (const std::exception& e) {
         disable(std::format("its initialization failed: {}", e.what()), true);
     }
-}
-
-RE::BSEventNotifyControl Runtime::ProcessEvent(const RE::MenuOpenCloseEvent* event,
-                                               [[maybe_unused]] RE::BSTEventSource<RE::MenuOpenCloseEvent>* source)
-{
-    if (!event || !event->opening || event->menuName != RE::MainMenu::MENU_NAME || m_didLoadSaveAtStart.exchange(true))
-        return RE::BSEventNotifyControl::kContinue;
-
-    // A development aid (PGLite.ini [Debug] sLoadSaveAtStart): straight into a save, so a session can be tested
-    // without clicking through the menu.
-    Logger::info("Loading the save {} (sLoadSaveAtStart)", m_ini.loadSaveAtStart);
-    SKSE::GetTaskInterface()->AddTask([save = m_ini.loadSaveAtStart] {
-        if (auto* const manager = RE::BGSSaveLoadManager::GetSingleton())
-            manager->Load(save.c_str());
-    });
-
-    return RE::BSEventNotifyControl::kContinue;
 }
 
 std::optional<std::string> Runtime::detectDisableCondition() const
@@ -416,7 +384,7 @@ std::vector<std::filesystem::path> Runtime::facegenPaths() const
     if (!dataHandler)
         return paths;
 
-    // Read on the main thread: the form arrays grow when the game creates forms.
+    // Read at data load, before the game runs: the form arrays grow when the game creates forms.
     for (const auto* const form : dataHandler->GetFormArray(RE::FormType::NPC)) {
         if (!form)
             continue;
