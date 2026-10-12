@@ -70,8 +70,6 @@ add_compile_definitions(NOMINMAX)
 add_compile_definitions(WIN32_LEAN_AND_MEAN)
 add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 add_compile_definitions(UNICODE _UNICODE)
-add_compile_definitions(PG_FULL_VERSION="${PG_FULL_VERSION}")
-add_compile_definitions(PG_PRERELEASE=${PG_PRERELEASE})
 
 #
 # CommonLibSSE-NG (submodule). SE and AE are both enabled; AE covers the 1.6.x and 1.7.x runtimes (Address Library
@@ -161,7 +159,11 @@ list(GET PG_VERSION_PARTS 2 PG_VERSION_PATCH)
 
 add_library(PGLite SHARED ${PGLITE_SOURCES} ${PGLITE_HEADERS})
 target_compile_features(PGLite PRIVATE cxx_std_23)
+# The version macros belong to the plugin's own units only: as global definitions they changed with every commit
+# (the prerelease number is the commit count) and recompiled CommonLibSSE-NG and nifly each time.
 target_compile_definitions(PGLite PRIVATE
+  PG_FULL_VERSION="${PG_FULL_VERSION}"
+  PG_PRERELEASE=${PG_PRERELEASE}
   PG_VERSION_MAJOR=${PG_VERSION_MAJOR}
   PG_VERSION_MINOR=${PG_VERSION_MINOR}
   PG_VERSION_PATCH=${PG_VERSION_PATCH}
