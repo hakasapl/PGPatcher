@@ -10,6 +10,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 #include <windows.h>
 #include <wrl/client.h>
@@ -50,6 +51,16 @@ public:
 
     [[nodiscard]] bool isOpen() const { return m_isOpen; }
 
+    /// @brief True while Apply runs on its worker thread; Present keeps presenting progress frames then.
+    [[nodiscard]] bool isApplying() const { return m_isApplying; }
+
+    /**
+     * @brief One progress frame of Apply: the game image kept when Apply started, the menu with the elapsed time and
+     * the step the runtime is at. Called from Present while isApplying(); the frame that sees the worker done shows
+     * the result and ends the sequence.
+     */
+    void renderApplyFrame(IDXGISwapChain* swapChain);
+
 private:
     /// @brief One queued input event.
     struct InputRecord {
@@ -84,13 +95,21 @@ private:
     void open();
     void close();
 
+    /// @brief One Dear ImGui frame into the back buffer. Render thread, initialized.
+    void drawFrame(IDXGISwapChain* swapChain);
+    bool capturePausedFrame(IDXGISwapChain* swapChain);
+    void restorePausedFrame(IDXGISwapChain* swapChain);
+
     /// @brief Applies the queued input events to the menu and to Dear ImGui. Render thread.
     void drainInput();
     void applyInput(const InputRecord& record);
 
     /// @brief Copies the parameters and the mod list from the runtime into the working copy.
     void loadState();
-    void apply();
+
+    /// @brief Writes the settings and the mod rules, then starts the runtime's apply on the worker thread.
+    void startApply();
+    void finishApply();
 
     void draw();
     void drawStatus();
@@ -127,6 +146,7 @@ private:
     bool m_didFailInitialization = false;
     std::atomic<bool> m_isOpen { false };
     bool m_didAutoOpen = false;
+    bool m_didAutoApply = false;
     bool m_isStateLoaded = false;
     std::mutex m_inputMutex;
     std::vector<InputRecord> m_pendingInput;
@@ -141,6 +161,14 @@ private:
     bool m_isPickerOpen = false;
     std::optional<std::string> m_pickedFolder;
     static inline std::string s_clipboard;
+
+    // Apply in progress.
+    std::atomic<bool> m_isApplying { false };
+    std::atomic<bool> m_isApplyDone { false };
+    bool m_didApplySucceed = false;
+    std::thread m_applyThread;
+    std::chrono::steady_clock::time_point m_applyStart;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> m_pausedFrame;
 
     // The working copy.
     PGParams m_params;

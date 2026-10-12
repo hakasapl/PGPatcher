@@ -30,6 +30,7 @@
 #include <cstddef>
 #include <exception>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
@@ -113,24 +114,35 @@ Environment::~Environment()
 }
 
 void Environment::initialize(const Uses& uses,
-                             CMCache& cmCache)
+                             CMCache& cmCache,
+                             const std::function<void(const char*)>& reportStage)
 {
     const Stopwatch stopwatch;
+    const auto stage = [&reportStage](const char* name) {
+        if (reportStage)
+            reportStage(name);
+    };
 
+    stage("Reading the mod manager");
     initializeModManager(uses);
+    stage("Building the file map");
     initializeDirectory(uses);
+    stage("Classifying textures");
     classifyTextures(cmCache);
 
     if (m_params.shaderPatcher.isTruePBREnabled) {
+        stage("Loading the TruePBR configs");
         Logger::info("Loading {} TruePBR configs", m_directory->pbrJSONs().size());
         PatcherMeshShaderTruePBR::loadStatics(m_directory->pbrJSONs(), m_params.processing.multithread);
     }
 
     if (m_modManager) {
         // Shader attribution of every mod is complete now, so the mod list and the priorities are the offline ones.
+        stage("Ordering the mods");
         m_modManager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
     }
 
+    stage("Registering the patchers");
     registerPatchers(m_params, m_ini);
 
     Logger::info("Runtime environment ready in {} ms", stopwatch.milliseconds());

@@ -142,6 +142,7 @@ Runtime::Status Runtime::status() const
     status.textureSets = m_textureSets.size();
     if (m_isReady && m_environment)
         status.mo2Instance = m_environment->mo2InstanceDir();
+    status.stage = m_stage;
 
     return status;
 }
@@ -398,8 +399,10 @@ void Runtime::registerFacegenStreams()
 void Runtime::initializeInBackground()
 {
     const auto started = std::chrono::steady_clock::now();
+    const auto reportStage = [this](const char* stage) { m_stage = stage; };
     try {
         if (!PGGlobals::isPGD3DSet()) {
+            reportStage("Initializing the GPU");
             Logger::info("Initializing the GPU");
             if (!m_d3d.initGPU() || !m_d3d.initShaders())
                 throw std::runtime_error("the GPU could not be initialized");
@@ -407,19 +410,22 @@ void Runtime::initializeInBackground()
             PGGlobals::setPGD3D(&m_d3d);
         }
 
+        reportStage("Loading the classification cache");
         m_cmCache.load(Settings::cmCacheFile());
         PGRunObserver::install(&m_cmCache);
 
+        reportStage("Registering the facegen streams");
         registerFacegenStreams();
 
         auto environment = std::make_unique<Environment>(params(), m_ini);
-        environment->initialize(m_uses, m_cmCache);
+        environment->initialize(m_uses, m_cmCache, reportStage);
         m_environment = std::move(environment);
     } catch (const std::exception& e) {
         // Every stream serves the original mesh then.
         disable(std::format("its background initialization failed: {}", e.what()), true);
     }
 
+    m_stage = nullptr;
     {
         const std::scoped_lock lock(m_readyMutex);
         m_isReady = true;
@@ -448,6 +454,7 @@ bool Runtime::apply(const PGParams& params)
     const auto started = std::chrono::steady_clock::now();
     const std::unique_lock lock(m_pipelineLock);
     try {
+        m_stage = "Restoring the records";
         m_snapshot.restore();
         {
             const std::scoped_lock stateLock(m_stateMutex);
@@ -455,21 +462,25 @@ bool Runtime::apply(const PGParams& params)
         }
 
         auto environment = std::make_unique<Environment>(params, m_ini);
-        environment->initialize(m_uses, m_cmCache);
+        environment->initialize(m_uses, m_cmCache, [this](const char* stage) { m_stage = stage; });
         m_environment = std::move(environment);
 
+        m_stage = "Planning the meshes";
         auto plan = std::make_unique<Plan>(++m_planGeneration);
         plan->build(m_uses, params, m_variantCounter);
         plan->retargetRecords();
         m_plan = std::move(plan);
+        m_stage = "Registering the streams";
         registerPlanStreams();
         registerFacegenStreams();
     } catch (const std::exception& e) {
         Logger::critical("Apply failed, PGLite serves original meshes until the next apply: {}", e.what());
         m_plan = std::make_unique<Plan>(++m_planGeneration);
+        m_stage = nullptr;
         return false;
     }
 
+    m_stage = nullptr;
     const auto elapsed
         = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
     Logger::info("Applied the settings in {} ms", elapsed.count());

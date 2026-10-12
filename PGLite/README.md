@@ -35,6 +35,7 @@ material detection runs on the GPU and is cached in `SKSE\Plugins\PGLite\cmcache
 mod manager data are built on a background thread right after data load.
 
 Apply in the menu saves the settings, restores every record, plans again and registers the new variant streams.
+The game is paused meanwhile, and the menu shows the elapsed time and the step it is at.
 Meshes loaded from then on use the new settings; models the game already holds keep their state until the game
 reloads them.
 
@@ -99,8 +100,9 @@ Program behavior:
 ## Development
 
 `PGLite/PGLite.ini` has a `[Debug]` section: `sLoadSaveAtStart=<save name without extension>` loads that save as soon
-as the main menu opens, so a session can be tested without clicking through the menu. `sLogLevel=debug` logs every
-patched family.
+as the main menu opens, so a session can be tested without clicking through the menu; `bOpenMenuAtStart=true` opens
+the menu once PGLite is ready, and `bApplyAtStart=true` then runs Apply once, so the menu and the apply can be
+exercised without input. `sLogLevel=debug` logs every patched family.
 
 PGLite is a standalone CMake configure (static vcpkg triplet, static CRT, C++23 for CommonLibSSE-NG) that compiles
 the shared `PGLib` sources a second time, see `CMakeLists.txt`; `buildRelease.ps1` builds it after the offline

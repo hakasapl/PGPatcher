@@ -355,14 +355,15 @@ patched state lives only in the engine's objects, so unloading needs no PGLite b
 mesh bytes at all. Performance is evaluated after the first in-game tests; caches are not part of the design.
 
 The pipeline has one reader-writer lock. Every `DoOpen` holds it shared for the duration of its patch. Apply in the
-GUI takes it exclusively on the main thread (in-flight patches finish first, new opens wait), then: saves the
+GUI takes it exclusively on a worker thread while the game's main thread waits inside Present and presents the menu's
+progress frames (in-flight patches finish first, new opens wait, no 3D is built meanwhile), then: saves the
 settings, restores every record from the snapshot of 4.1, re-registers the patchers, reloads texture rules and mod
 rules, rebuilds the TruePBR tables and the mod states, drops the plan table, recomputes the plan from the restored
 records with fresh variant numbers, retargets the records, registers the new variant streams (re-registering an
 existing base path replaces its stream, 3.1), and releases the lock. Restoring from the snapshot is what makes Apply
 idempotent: indices are corrected once per plan, contexts are built from unmodified data, and no edit is applied
-twice. Instances of edited records exist at this point; the restore and the re-plan are plain stores on the main
-thread, the only thread that builds 3D from them.
+twice. Instances of edited records exist at this point; the restore and the re-plan are plain stores made while the
+main thread, the only thread that builds 3D from them, is parked.
 
 From then on every open uses the new settings. What does not change is what is already loaded: PGLite never modifies
 loaded objects, so a model that is resident in the engine's cache (the current cell, buffered cells, equipped items,

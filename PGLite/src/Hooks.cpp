@@ -5,12 +5,21 @@
 #include "Menu.hpp"
 #include "util/Logger.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <thread>
 #include <windows.h>
 
 namespace PGLite {
+
+namespace {
+
+/// @brief The pause between two progress frames of Apply, on top of the swap chain's own pacing.
+constexpr auto applyFrameInterval = std::chrono::milliseconds(10);
+
+}
 
 bool Hooks::install(Menu& menu)
 {
@@ -96,8 +105,18 @@ HRESULT WINAPI Hooks::present(IDXGISwapChain* swapChain,
                               UINT syncInterval,
                               UINT flags)
 {
-    if (s_menu)
+    if (s_menu) {
         s_menu->render(swapChain);
+
+        // Apply runs on a worker thread while the game waits here, and the menu shows the progress: the frame is
+        // presented again and again until the worker is done. No 3D is built meanwhile, which keeps the record edits
+        // safe, and the loader threads wait on the pipeline lock as they would for a synchronous apply.
+        while (s_menu->isApplying()) {
+            s_originalPresent(swapChain, syncInterval, flags);
+            std::this_thread::sleep_for(applyFrameInterval);
+            s_menu->renderApplyFrame(swapChain);
+        }
+    }
 
     return s_originalPresent(swapChain, syncInterval, flags);
 }

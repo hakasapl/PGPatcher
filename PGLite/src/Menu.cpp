@@ -296,6 +296,9 @@ Menu::Menu(Runtime& runtime)
 
 Menu::~Menu()
 {
+    if (m_applyThread.joinable())
+        m_applyThread.join();
+
     if (m_isInitialized) {
         ImGui_ImplDX11_Shutdown();
         ImGui::DestroyContext();
@@ -366,6 +369,14 @@ void Menu::render(IDXGISwapChain* swapChain)
         open();
     }
 
+    if (m_isOpen && m_isStateLoaded && !m_isApplying && !m_didAutoApply && m_runtime->ini().shouldApplyAtStart
+        && m_runtime->isReady()) {
+        // A development aid (PGLite.ini [Debug] bApplyAtStart): Apply and its progress frames without a click.
+        m_didAutoApply = true;
+        Logger::debug("Applying at start (bApplyAtStart)");
+        startApply();
+    }
+
     if (m_didFailInitialization || !swapChain)
         return;
 
@@ -391,41 +402,102 @@ void Menu::render(IDXGISwapChain* swapChain)
         if (!m_backBufferView && !createBackBufferView(swapChain))
             return;
 
-        DXGI_SWAP_CHAIN_DESC desc = { };
-        if (FAILED(swapChain->GetDesc(&desc)))
-            return;
-
-        const auto now = std::chrono::steady_clock::now();
-        const auto delta = std::chrono::duration<float>(now - m_lastFrame).count();
-        m_lastFrame = now;
-
-        auto& io = ImGui::GetIO();
-        io.DisplaySize = ImVec2(static_cast<float>(desc.BufferDesc.Width), static_cast<float>(desc.BufferDesc.Height));
-        io.DeltaTime = std::max(delta, minDeltaTime);
-
-        ImGui_ImplDX11_NewFrame();
-        ImGui::NewFrame();
-        draw();
-        ImGui::Render();
-
-        // Draw over whatever the game left in the back buffer, then give the context its targets back.
-        ID3D11RenderTargetView* previousTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { };
-        ID3D11DepthStencilView* previousDepth = nullptr;
-        m_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, previousTargets, &previousDepth);
-
-        ID3D11RenderTargetView* const target = m_backBufferView.Get();
-        m_context->OMSetRenderTargets(1, &target, nullptr);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-        m_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, previousTargets, previousDepth);
-        for (auto* const previous : previousTargets)
-            if (previous)
-                previous->Release();
-        if (previousDepth)
-            previousDepth->Release();
+        drawFrame(swapChain);
     } catch (const std::exception& e) {
-        Logger::error("The menu failed to draw and is closed: {}", e.what());
-        close();
+        Logger::error("The menu failed to draw: {}", e.what());
+        if (!m_isApplying)
+            close();
+    }
+}
+
+void Menu::drawFrame(IDXGISwapChain* swapChain)
+{
+    DXGI_SWAP_CHAIN_DESC desc = { };
+    if (FAILED(swapChain->GetDesc(&desc)))
+        return;
+
+    const auto now = std::chrono::steady_clock::now();
+    const auto delta = std::chrono::duration<float>(now - m_lastFrame).count();
+    m_lastFrame = now;
+
+    auto& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(static_cast<float>(desc.BufferDesc.Width), static_cast<float>(desc.BufferDesc.Height));
+    io.DeltaTime = std::max(delta, minDeltaTime);
+
+    ImGui_ImplDX11_NewFrame();
+    ImGui::NewFrame();
+    draw();
+    ImGui::Render();
+
+    // Apply started in this frame: keep the game image before the menu is drawn over it, for the progress frames.
+    if (m_isApplying && !m_pausedFrame && !capturePausedFrame(swapChain))
+        Logger::warn("The game image could not be kept for the progress frames of Apply");
+
+    // Draw over whatever the game left in the back buffer, then give the context its targets back.
+    ID3D11RenderTargetView* previousTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { };
+    ID3D11DepthStencilView* previousDepth = nullptr;
+    m_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, previousTargets, &previousDepth);
+
+    ID3D11RenderTargetView* const target = m_backBufferView.Get();
+    m_context->OMSetRenderTargets(1, &target, nullptr);
+    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+    m_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, previousTargets, previousDepth);
+    for (auto* const previous : previousTargets)
+        if (previous)
+            previous->Release();
+    if (previousDepth)
+        previousDepth->Release();
+}
+
+bool Menu::capturePausedFrame(IDXGISwapChain* swapChain)
+{
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
+    if (FAILED(swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer))) || !backBuffer)
+        return false;
+
+    D3D11_TEXTURE2D_DESC desc = { };
+    backBuffer->GetDesc(&desc);
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = 0;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = 0;
+    if (FAILED(m_device->CreateTexture2D(&desc, nullptr, &m_pausedFrame)) || !m_pausedFrame)
+        return false;
+
+    m_context->CopyResource(m_pausedFrame.Get(), backBuffer.Get());
+    return true;
+}
+
+void Menu::restorePausedFrame(IDXGISwapChain* swapChain)
+{
+    if (!m_pausedFrame)
+        return;
+
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
+    if (SUCCEEDED(swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer))) && backBuffer)
+        m_context->CopyResource(backBuffer.Get(), m_pausedFrame.Get());
+}
+
+void Menu::renderApplyFrame(IDXGISwapChain* swapChain)
+{
+    const bool isDone = m_isApplyDone;
+    if (isDone)
+        finishApply();
+
+    try {
+        if (m_isInitialized && swapChain && (m_backBufferView || createBackBufferView(swapChain))) {
+            drainInput();
+            restorePausedFrame(swapChain);
+            drawFrame(swapChain);
+        }
+    } catch (const std::exception& e) {
+        Logger::error("The menu failed to draw a progress frame: {}", e.what());
+    }
+
+    if (isDone) {
+        m_pausedFrame.Reset();
+        m_isApplying = false;
     }
 }
 
@@ -516,6 +588,10 @@ void Menu::drainInput()
 
 void Menu::applyInput(const InputRecord& record)
 {
+    // While Apply runs the menu stays open and only follows the mouse.
+    if (m_isApplying && record.kind != InputRecord::Kind::MouseMove)
+        return;
+
     if (record.kind == InputRecord::Kind::Hotkey) {
         Logger::debug("Menu hotkey pressed, the menu is {}", m_isOpen ? "closing" : "opening");
         if (m_isOpen)
@@ -621,7 +697,7 @@ void Menu::loadState()
     m_isStateLoaded = true;
 }
 
-void Menu::apply()
+void Menu::startApply()
 {
     // The file holds every parameter with its full lists, as the offline program writes it.
     PGParams params = m_params;
@@ -663,8 +739,28 @@ void Menu::apply()
         }
     }
 
-    m_applyMessage = m_runtime->apply(params)
-        ? "Applied. Meshes loaded from now on use the new settings; resident models change when the game reloads them."
+    // The runtime's apply runs on a worker thread; Present shows the progress until it is done (renderApplyFrame).
+    m_applyMessage.clear();
+    m_isApplyDone = false;
+    m_didApplySucceed = false;
+    m_applyStart = std::chrono::steady_clock::now();
+    m_isApplying = true;
+    m_applyThread = std::thread([this, params] {
+        m_didApplySucceed = m_runtime->apply(params);
+        m_isApplyDone = true;
+    });
+}
+
+void Menu::finishApply()
+{
+    if (m_applyThread.joinable())
+        m_applyThread.join();
+
+    const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
+    m_applyMessage = m_didApplySucceed
+        ? std::format("Applied in {:.1f} s. Meshes loaded from now on use the new settings; resident models change "
+                      "when the game reloads them.",
+                      seconds)
         : "Apply failed, see the log.";
     m_isStateLoaded = false;
 }
@@ -679,12 +775,24 @@ void Menu::draw()
     ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.6F, io.DisplaySize.y * 0.7F), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.2F, io.DisplaySize.y * 0.15F), ImGuiCond_FirstUseEver);
 
+    // No close button while Apply runs; the hotkey and Escape are ignored then too (applyInput).
     bool isOpen = true;
-    if (!ImGui::Begin("PGLite", &isOpen, ImGuiWindowFlags_NoCollapse)) {
+    if (!ImGui::Begin("PGLite", m_isApplying ? nullptr : &isOpen, ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         return;
     }
 
+    if (m_isApplying) {
+        const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
+        const auto* const stage = m_runtime->stage();
+        ImGui::TextColored(ImVec4(1.0F, 0.85F, 0.4F, 1.0F),
+                           "Applying, the game is paused: %s (%.1f s)",
+                           stage ? stage : "working",
+                           seconds);
+        ImGui::Separator();
+    }
+
+    ImGui::BeginDisabled(m_isApplying);
     if (ImGui::BeginTabBar("pages")) {
         if (ImGui::BeginTabItem("Status")) {
             drawStatus();
@@ -720,6 +828,7 @@ void Menu::draw()
         }
         ImGui::EndTabBar();
     }
+    ImGui::EndDisabled();
     ImGui::End();
 
     if (!isOpen)
@@ -728,15 +837,21 @@ void Menu::draw()
 
 void Menu::drawStatus()
 {
-    const auto status = m_runtime->status();
-
     ImGui::Text("PGLite %s", PG_FULL_VERSION);
+    if (m_isApplying) {
+        // The runtime's plan and environment are being replaced; the counters return with the result.
+        ImGui::TextUnformatted("Applying the settings.");
+        return;
+    }
+
+    const auto status = m_runtime->status();
     if (status.disableReason)
         ImGui::TextColored(ImVec4(1.0F, 0.5F, 0.3F, 1.0F), "Disabled because %s.", status.disableReason->c_str());
     else if (!status.isActive)
         ImGui::TextUnformatted("Waiting for the game data.");
     else if (!status.isReady)
-        ImGui::TextUnformatted("Initializing: the texture maps and the mod list are being built.");
+        ImGui::Text("Initializing: %s.",
+                    status.stage ? status.stage : "the texture maps and the mod list are being built");
     else
         ImGui::TextColored(ImVec4(0.5F, 1.0F, 0.5F, 1.0F), "Active.");
 
@@ -756,7 +871,7 @@ void Menu::drawStatus()
     const bool canApply = status.isActive && status.isReady && !status.disableReason;
     ImGui::BeginDisabled(!canApply);
     if (ImGui::Button("Apply"))
-        apply();
+        startApply();
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::Button("Discard Changes"))

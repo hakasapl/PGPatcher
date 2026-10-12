@@ -31,9 +31,7 @@ class Menu;
  * task that reads the uses, plans and registers the streams, the background initialization of the environment, the
  * bytes every stream serves, and Apply.
  */
-class Runtime final
-    : public PatchStream::Provider
-    , public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
+class Runtime final : public PatchStream::Provider, public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
 public:
     /// @brief What the GUI shows about the state of the plugin.
     struct Status {
@@ -48,6 +46,8 @@ public:
         std::size_t streams = 0;
         std::size_t textureSets = 0;
         std::filesystem::path mo2Instance;
+        /// @brief The step the background initialization or Apply is at, nullptr when neither runs.
+        const char* stage = nullptr;
     };
 
     /// @brief The one runtime of the process. It lives for the session and is never destroyed.
@@ -85,9 +85,13 @@ public:
 
     [[nodiscard]] Status status() const;
 
+    /// @brief The step the background initialization or Apply is at, nullptr when neither runs. Any thread.
+    [[nodiscard]] const char* stage() const { return m_stage; }
+
     /**
      * @brief Apply (DESIGN.md section 4.8): restores the records, rebuilds the environment and the plan with fresh
-     * variant numbers and registers the new variant streams. The caller saves the settings first. Main thread,
+     * variant numbers and registers the new variant streams. The caller saves the settings first. Runs on the menu's
+     * worker thread while the game's main thread waits inside Present, so no 3D is built while the records change;
      * blocks until in-flight patches finished.
      *
      * @return false if PGLite is not ready.
@@ -96,7 +100,7 @@ public:
 
     // PatchStream::Provider.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
-                                                                        SourceStream& source) override;
+                                                                         SourceStream& source) override;
 
     // BSTEventSink<MenuOpenCloseEvent>: the development aid that loads a save when the main menu opens.
     RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* event,
@@ -176,6 +180,7 @@ private:
 
     std::atomic<bool> m_isActive { false };
     std::atomic<bool> m_isReady { false };
+    std::atomic<const char*> m_stage { nullptr };
     std::atomic<bool> m_didLoadSaveAtStart { false };
     std::mutex m_readyMutex;
     std::condition_variable m_readyCondition;

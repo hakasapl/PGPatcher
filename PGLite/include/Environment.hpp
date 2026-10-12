@@ -8,6 +8,7 @@
 #include "Uses.hpp"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,10 +42,12 @@ public:
      *
      * @param uses The record model uses, which decide which meshes stay in the file map and which mods have meshes.
      * @param cmCache The classification cache, saved after the classification.
+     * @param reportStage Called with the name of every step as it starts, for the GUI.
      * @throws std::runtime_error if the file map cannot be built.
      */
     void initialize(const Uses& uses,
-                    CMCache& cmCache);
+                    CMCache& cmCache,
+                    const std::function<void(const char*)>& reportStage = { });
 
     [[nodiscard]] const PGParams& params() const { return m_params; }
     [[nodiscard]] const Settings::Ini& ini() const { return m_ini; }

@@ -82,6 +82,7 @@ Settings::Ini Settings::readIni()
     ini.shouldDisableDynamicCubemap = file.GetBoolValue(iniSection, "bDisableDynamicCubemap", false);
     ini.loadSaveAtStart = file.GetValue(debugSection, "sLoadSaveAtStart", "");
     ini.shouldOpenMenuAtStart = file.GetBoolValue(debugSection, "bOpenMenuAtStart", false);
+    ini.shouldApplyAtStart = file.GetBoolValue(debugSection, "bApplyAtStart", false);
 
     return ini;
 }

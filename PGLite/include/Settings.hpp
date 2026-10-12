@@ -32,6 +32,8 @@ public:
         std::string loadSaveAtStart;
         /// @brief A development aid: open the menu once the runtime is ready, without the hotkey.
         bool shouldOpenMenuAtStart = false;
+        /// @brief A development aid: run Apply once the menu opened at start, without a click.
+        bool shouldApplyAtStart = false;
     };
 
     /// @brief F9.
