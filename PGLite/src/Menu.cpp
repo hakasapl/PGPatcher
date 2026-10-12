@@ -847,9 +847,12 @@ void Menu::finishApply()
     const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
     if (!m_didApplySucceed) {
         m_applyMessage = tr("pglite.apply.failed");
+    } else if (!m_applyIsEnabled) {
+        // The Apply row says so for as long as PGLite is disabled.
+        m_applyMessage.clear();
     } else {
-        // The strings carry a printf placeholder for the seconds, as every translated string does.
-        const auto text = tr(m_applyIsEnabled ? "pglite.apply.applied" : "pglite.apply.disabledResult");
+        // The string carries a printf placeholder for the seconds, as every translated string does.
+        const auto text = tr("pglite.apply.applied");
         std::vector<char> buffer(text.size() + 32);
         std::snprintf(buffer.data(), buffer.size(), text.c_str(), seconds); // NOLINT(cppcoreguidelines-pro-type-vararg)
         m_applyMessage = buffer.data();
@@ -949,9 +952,10 @@ void Menu::drawApplyRow()
     ImGui::SameLine();
     if (ImGui::Button(tr("conflictManager.buttons.discardChanges").c_str()))
         m_isStateLoaded = false;
-    if (!m_applyMessage.empty()) {
+    const auto message = m_runtime->isEnabled() ? m_applyMessage : tr("pglite.apply.disabled");
+    if (!message.empty()) {
         ImGui::SameLine();
-        ImGui::TextWrapped("%s", m_applyMessage.c_str());
+        ImGui::TextWrapped("%s", message.c_str());
     }
 }
 
@@ -1245,10 +1249,15 @@ void Menu::drawConflictManager()
     for (const auto& label : labels)
         labelPointers.push_back(label.c_str());
 
-    if (ImGui::Combo(tr("launcher.modManager.title").c_str(),
-                     &current,
-                     labelPointers.data(),
-                     static_cast<int>(labelPointers.size())))
+    // The label at the left of the dropdown, as the rows below have it; the dropdown is as wide as its longest choice.
+    float comboWidth = 0;
+    for (const auto& label : labels)
+        comboWidth = std::max(comboWidth, ImGui::CalcTextSize(label.c_str()).x);
+    comboWidth += ImGui::GetStyle().FramePadding.x * 2 + ImGui::GetFrameHeight();
+    ImGui::TextUnformatted(tr("launcher.modManager.title").c_str());
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(comboWidth);
+    if (ImGui::Combo("##modmanager", &current, labelPointers.data(), static_cast<int>(labelPointers.size())))
         m_params.modManager.type = types.at(static_cast<std::size_t>(current));
 
     const bool isMO2 = m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2;

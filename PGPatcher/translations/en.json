@@ -434,7 +434,7 @@
     "apply": {
       "tooltip": "Saves every page to settings.json and modrules.json and plans the meshes again. Meshes loaded from then on use the new settings; models the game already holds keep their state until it reloads them.",
       "applied": "Applied in %.1f s. Meshes loaded from now on use the new settings; resident models change when the game reloads them.",
-      "disabledResult": "PGLite is disabled (%.1f s). Meshes loaded from now on are the originals; resident models change when the game reloads them.",
+      "disabled": "PGLite is currently Disabled",
       "failed": "Apply failed, see the log.",
       "settingsNotWritten": "The settings could not be written, see the log.",
       "modRulesNotWritten": "The mod rules could not be written, see the log."

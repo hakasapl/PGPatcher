@@ -36,6 +36,7 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <unordered_set>
 #include <utility>
@@ -44,6 +45,9 @@
 namespace PGLite {
 
 namespace {
+
+/// @brief The texture of the package, which marks no mod as a texture mod.
+constexpr std::wstring_view dynamicCubemapTexture = L"textures\\cubemaps\\dynamic1pxcubemap_black.dds";
 
 /// @brief The top level folders of the data folder the runtime maps: textures and the TruePBR configs. Meshes are
 /// mapped too and pruned to the used ones right after, so archived meshes can be attributed to their mod.
@@ -280,6 +284,10 @@ void Environment::attributeMods(PGModManager& modManager,
     for (const auto& [path, file] : directory.fileMap()) {
         const auto& native = path.native();
         if (!native.starts_with(L"textures\\") || !native.ends_with(L".dds"))
+            continue;
+
+        // The dynamic cubemap PGLite ships gives its own mod no shader, so that mod stays out of the list.
+        if (native == dynamicCubemapTexture)
             continue;
 
         auto shader = PGEnums::ShapeShader::None;
