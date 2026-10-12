@@ -365,9 +365,9 @@ void PGMeshPermutationTracker::processWeightVariant(const nifly::NifFile& mesh,
 }
 
 //
-// Lighting shaders and texture sets are compared through PGMaterialState, which lists every field of the SSE mesh
-// format. ANY changes in patchers that involve WRITING other properties (effect shaders, geometry) must be included in
-// the equality operators below.
+// Lighting shaders, texture sets and alpha properties are compared through PGMaterialState, which lists every field of
+// the SSE mesh format. ANY changes in patchers that involve WRITING other properties (effect shaders, geometry) must be
+// included in the equality operators below.
 //
 
 bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
@@ -473,6 +473,10 @@ bool PGMeshPermutationTracker::compareMesh(const nifly::NifFile& meshA,
             // NiShape.
             // Compare nishape helper.
             if (!compareNiShape(*shapeA, *shapeB))
+                return false;
+
+            // NiAlphaProperty.
+            if (!PGMaterialState::isAlphaPropertyEqual(meshA.GetAlphaProperty(shapeA), meshB.GetAlphaProperty(shapeB)))
                 return false;
 
             // Get shader properties.

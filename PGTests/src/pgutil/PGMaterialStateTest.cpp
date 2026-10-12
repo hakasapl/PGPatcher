@@ -5,6 +5,7 @@
 
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
+#include "NifFile.hpp"
 #include "Shaders.hpp"
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -334,4 +335,113 @@ TEST(PGMaterialStateTest,
     EXPECT_FALSE(PGMaterialState::isTextureSetEqual(b, a));
 }
 
+TEST(PGMaterialStateTest,
+     AlphaPropertyJsonRoundTripsAndNullStandsForNone)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto* shape = builder.addShape("Shape");
+    EXPECT_TRUE(PGMaterialState::alphaPropertyToJSON(nif, *shape).is_null());
+
+    // An object gives a shape without an alpha property one, with the defaults for the fields it leaves out.
+    EXPECT_TRUE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, { { "threshold", 64 } }));
+    auto* alpha = nif.GetAlphaProperty(shape);
+    ASSERT_NE(alpha, nullptr);
+    EXPECT_EQ(alpha->flags, 4844U);
+    EXPECT_EQ(alpha->threshold, 64U);
+    EXPECT_EQ(PGMaterialState::alphaPropertyToJSON(nif, *shape),
+              nlohmann::json({ { "flags", 4844 }, { "threshold", 64 } }));
+
+    // Present fields are applied, and the same values change nothing.
+    EXPECT_TRUE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, { { "flags", 4845 } }));
+    EXPECT_EQ(alpha->flags, 4845U);
+    EXPECT_EQ(alpha->threshold, 64U);
+    EXPECT_FALSE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, { { "flags", 4845 }, { "threshold", 64 } }));
+    EXPECT_FALSE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, nlohmann::json::object()));
+
+    // Malformed values are ignored, and do not stop the valid ones from being applied.
+    const std::vector<nlohmann::json> malformed {
+        { { "flags", "opaque" } },
+        { { "flags", 65536 } },
+        { { "flags", -1 } },
+        { { "flags", 1.5 } },
+        { { "threshold", 256 } },
+        { { "threshold", true } },
+        "opaque",
+        5,
+    };
+    for (const auto& json : malformed) {
+        EXPECT_FALSE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, json)) << json.dump();
+        EXPECT_EQ(alpha->flags, 4845U) << json.dump();
+        EXPECT_EQ(alpha->threshold, 64U) << json.dump();
+    }
+    EXPECT_TRUE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, { { "flags", "bad" }, { "threshold", 32 } }));
+    EXPECT_EQ(alpha->flags, 4845U);
+    EXPECT_EQ(alpha->threshold, 32U);
+
+    // Null removes the alpha property.
+    EXPECT_TRUE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, nullptr));
+    EXPECT_EQ(nif.GetAlphaProperty(shape), nullptr);
+    EXPECT_FALSE(PGMaterialState::alphaPropertyFromJSON(nif, *shape, nullptr));
+}
+
+TEST(PGMaterialStateTest,
+     IsAlphaPropertyEqualComparesBothFieldsAndExistence)
+{
+    const nifly::NiAlphaProperty a { };
+    nifly::NiAlphaProperty b;
+    EXPECT_TRUE(PGMaterialState::isAlphaPropertyEqual(&a, &b));
+    EXPECT_TRUE(PGMaterialState::isAlphaPropertyEqual(nullptr, nullptr));
+    EXPECT_FALSE(PGMaterialState::isAlphaPropertyEqual(&a, nullptr));
+    EXPECT_FALSE(PGMaterialState::isAlphaPropertyEqual(nullptr, &b));
+
+    b.flags = 4845;
+    EXPECT_FALSE(PGMaterialState::isAlphaPropertyEqual(&a, &b));
+    b.flags = a.flags;
+    b.threshold = 0;
+    EXPECT_FALSE(PGMaterialState::isAlphaPropertyEqual(&a, &b));
+    b.threshold = a.threshold;
+    EXPECT_TRUE(PGMaterialState::isAlphaPropertyEqual(&a, &b));
+}
+
+TEST(PGMaterialStateTest,
+     UnsignedFromJsonChecksTheRangeOfTheType)
+{
+    uint8_t byte = 1;
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(255), byte));
+    EXPECT_EQ(byte, 255U);
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(256), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(-1), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(1.5), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(-0.5), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(256.0), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json("2"), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(true), byte));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(nullptr), byte));
+    EXPECT_EQ(byte, 255U); // untouched by the malformed values
+
+    // A float without a fraction counts as its integer, as it does for an "integer" of a JSON schema.
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(2.0), byte));
+    EXPECT_EQ(byte, 2U);
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json::parse("128.0"), byte));
+    EXPECT_EQ(byte, 128U);
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(255.0), byte));
+    EXPECT_EQ(byte, 255U);
+
+    uint16_t word = 0;
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(65535), word));
+    EXPECT_EQ(word, 65535U);
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(65536), word));
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json(65536.0), word));
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(65535.0), word));
+    EXPECT_EQ(word, 65535U);
+
+    // Parsed numbers are unsigned, numbers built from an int are signed; both are read.
+    uint32_t dword = 0;
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json::parse("4294967295"), dword));
+    EXPECT_EQ(dword, 4294967295U);
+    EXPECT_FALSE(PGMaterialState::unsignedFromJSON(nlohmann::json::parse("4294967296"), dword));
+    EXPECT_TRUE(PGMaterialState::unsignedFromJSON(nlohmann::json(7), dword));
+    EXPECT_EQ(dword, 7U);
+}
 }

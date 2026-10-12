@@ -5,7 +5,6 @@
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "TestUtil.hpp"
-#include "patchers/base/PatcherMesh.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -171,7 +170,6 @@ protected:
     void TearDown() override
     {
         PatcherMeshShaderTruePBR::loadOptions(true, false);
-        PatcherMesh::clearTextureSets(meshPath);
         PGGlobals::setPGD(nullptr);
     }
 
@@ -517,4 +515,88 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     EXPECT_EQ(fromFactory->patcherName(), "TruePBR");
 }
 
+TEST_F(PatcherMeshShaderTruePBRTest,
+       AlphaPropertyEntriesChangeCreateAndDeleteTheAlphaProperty)
+{
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\alpha.json", R"([
+  {"texture": "a\\stone", "alphaprop_flags": 4845, "alphaprop_thresh": 64},
+  {"texture": "c\\metal", "alphaprop_delete": true},
+  {"texture": "c\\metal", "alphaprop_create": true},
+  {"texture": "c\\cloth", "alphaprop_create": true, "alphaprop_flags": 4109, "alphaprop_thresh": 0},
+  {"texture": "a\\cobble01", "alphaprop_delete": true, "alphaprop_create": true, "alphaprop_flags": 1},
+  {"texture": "a\\exact", "alphaprop_flags": 65536, "alphaprop_thresh": 256, "alphaprop_create": "yes"},
+  {"texture": "a\\fuzzy", "alphaprop_flags": -1, "alphaprop_thresh": 1.5, "alphaprop_create": true,
+   "lock_rmaos": true}
+])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\alpha.json" }, false);
+    auto& nif = m_builder.nif();
+    PatcherMeshShaderTruePBR patcher(meshPath, &nif);
+    const auto apply = [&](nifly::NiShape& shape, const std::wstring& diffuse) {
+        auto patched = slots(diffuse);
+        const auto matches = matchesFor(patcher, patched);
+        ASSERT_EQ(matches.size(), 1U) << TestUtil::pathToUTF8(diffuse);
+        patcher.applyPatch(patched, shape, matches[0]);
+    };
+
+    // Flags and threshold only change an alpha property the shape already has.
+    apply(*m_shape, L"textures\\a\\stone.dds");
+    EXPECT_EQ(nif.GetAlphaProperty(m_shape), nullptr);
+    const auto* const alpha = m_builder.addAlphaProperty(m_shape);
+    apply(*m_shape, L"textures\\a\\stone.dds");
+    EXPECT_EQ(alpha->flags, 4845U);
+    EXPECT_EQ(alpha->threshold, 64U);
+
+    // Create adds one with the defaults, or with the values of the entry. A delete entry removes the property first,
+    // and the later entry of the same file adds the new one, so the old values are gone.
+    auto* metal = m_builder.addShape("Metal", slots(L"textures\\c\\metal.dds"));
+    m_builder.addAlphaProperty(metal, 4845, 64);
+    const auto metalBlocks = nif.GetHeader().GetNumBlocks();
+    apply(*metal, L"textures\\c\\metal.dds");
+    ASSERT_NE(nif.GetAlphaProperty(metal), nullptr);
+    EXPECT_EQ(nif.GetAlphaProperty(metal)->flags, 4844U);
+    EXPECT_EQ(nif.GetAlphaProperty(metal)->threshold, 128U);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), metalBlocks);
+    auto* cloth = m_builder.addShape("Cloth", slots(L"textures\\c\\cloth.dds"));
+    apply(*cloth, L"textures\\c\\cloth.dds");
+    ASSERT_NE(nif.GetAlphaProperty(cloth), nullptr);
+    EXPECT_EQ(nif.GetAlphaProperty(cloth)->flags, 4109U);
+    EXPECT_EQ(nif.GetAlphaProperty(cloth)->threshold, 0U);
+
+    // Delete wins over the other three attributes of the same entry.
+    auto* cobble = m_builder.addShape("Cobble", slots(L"textures\\a\\cobble01.dds"));
+    m_builder.addAlphaProperty(cobble);
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+    apply(*cobble, L"textures\\a\\cobble01.dds");
+    EXPECT_EQ(nif.GetAlphaProperty(cobble), nullptr);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks - 1);
+
+    // Values outside the range of the field and booleans of another type are ignored.
+    auto* exact = m_builder.addShape("Exact", slots(L"textures\\a\\exact.dds"));
+    const auto* const exactAlpha = m_builder.addAlphaProperty(exact);
+    apply(*exact, L"textures\\a\\exact.dds");
+    EXPECT_EQ(exactAlpha->flags, 4844U);
+    EXPECT_EQ(exactAlpha->threshold, 128U);
+    auto* exactNoAlpha = m_builder.addShape("ExactNoAlpha", slots(L"textures\\a\\exact.dds"));
+    apply(*exactNoAlpha, L"textures\\a\\exact.dds");
+    EXPECT_EQ(nif.GetAlphaProperty(exactNoAlpha), nullptr);
+    auto* fuzzy = m_builder.addShape("Fuzzy", slots(L"textures\\a\\fuzzy.dds"));
+    apply(*fuzzy, L"textures\\a\\fuzzy.dds");
+    ASSERT_NE(nif.GetAlphaProperty(fuzzy), nullptr);
+    EXPECT_EQ(nif.GetAlphaProperty(fuzzy)->flags, 4844U);
+    EXPECT_EQ(nif.GetAlphaProperty(fuzzy)->threshold, 128U);
+
+    // An alpha property two shapes share is copied for the shape the entry changes.
+    auto* sharedA = m_builder.addShape("SharedA", slots(L"textures\\a\\stone.dds"));
+    auto* sharedB = m_builder.addShape("SharedB", slots(L"textures\\a\\stone.dds"));
+    auto* sharedAlpha = m_builder.addAlphaProperty(sharedA);
+    sharedB->AlphaPropertyRef()->index = sharedA->AlphaPropertyRef()->index;
+    apply(*sharedA, L"textures\\a\\stone.dds");
+    EXPECT_NE(sharedA->AlphaPropertyRef()->index, sharedB->AlphaPropertyRef()->index);
+    EXPECT_EQ(nif.GetAlphaProperty(sharedB), sharedAlpha);
+    EXPECT_EQ(sharedAlpha->flags, 4844U);
+    ASSERT_NE(nif.GetAlphaProperty(sharedA), nullptr);
+    EXPECT_EQ(nif.GetAlphaProperty(sharedA)->flags, 4845U);
+    EXPECT_EQ(nif.GetAlphaProperty(sharedA)->threshold, 64U);
+}
 }

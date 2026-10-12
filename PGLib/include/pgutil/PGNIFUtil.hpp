@@ -9,8 +9,10 @@
 #include "Shaders.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <unordered_set>
@@ -138,7 +140,64 @@ bool configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
                          const nifly::SkyrimShaderPropertyFlags2& flag,
                          const bool& enable);
 
+// Shared blocks. Vanilla meshes share alpha properties and texture sets between shapes, and a mesh can share a shader
+// between shapes as well. setAlphaProperty(), setTextureSlot() and setTextureSlots() change a block for the given
+// shape alone: a block that other blocks also reference is copied for the shape first, and a block only the shape uses
+// is changed in place. The original keeps its other users either way, so no block is left unreferenced. A shader is
+// written by many patchers through its pointer, so unshareShader() copies a shared one once, before the shape is
+// patched; the copy keeps the texture set until a write copies that too. PGNIFUtil.cpp implements this once for every
+// kind of block. A block with a controller is the exception: the controller animates that one block, so the block
+// stays shared and changes for every shape that uses it; shapes on a shader that stays shared also share its texture
+// set and every change to it. The number of texture slots is also changed in place for every sharer.
+// deleteAlphaProperty() follows the same rule: it only deletes blocks the shape alone uses, and the links of an
+// animation sequence to a deleted controller go with it, together with what only those links used.
+
+/// @brief Give a shape its own lighting shader if other shapes share it
+///
+/// The patchers write the shader of a shape through its pointer, so a shared shader is copied once before the shape
+/// is patched instead of at each write. The copy references the same texture set, which is copied on its first write.
+/// The shape patchers write lighting shaders only, so no other shader type is copied, and a shader with a controller
+/// stays shared together with its texture set (see the note on shared blocks above).
+///
+/// @param nif the NIF
+/// @param nifShape the shape
+/// @return true if the shader was copied
+bool unshareShader(nifly::NifFile& nif,
+                   nifly::NiShape& nifShape);
+
+/// @brief Set the flags and the alpha test threshold of the NiAlphaProperty of a shape
+///
+/// A shape without an NiAlphaProperty only gets one when shouldCreate is set, with the default values for whatever
+/// flags and threshold leave out.
+///
+/// @param nif the NIF
+/// @param nifShape the shape
+/// @param[in] flags new flags, or nothing to keep the current ones
+/// @param[in] threshold new alpha test threshold, or nothing to keep the current one
+/// @param[in] shouldCreate whether a shape without an alpha property gets one
+/// @return true if the alpha property of the shape changed or was created
+bool setAlphaProperty(nifly::NifFile& nif,
+                      nifly::NiShape& nifShape,
+                      const std::optional<uint16_t>& flags,
+                      const std::optional<uint8_t>& threshold,
+                      bool shouldCreate);
+
+/// @brief Remove the NiAlphaProperty from a shape
+///
+/// Other blocks that share the alpha property keep it. Otherwise it is deleted, together with every block only it uses,
+/// such as an alpha test controller; the links of an animation sequence to that controller go with it, together with
+/// the interpolators only those links used.
+///
+/// @param nif the NIF
+/// @param nifShape the shape
+/// @return true if the shape had an alpha property
+bool deleteAlphaProperty(nifly::NifFile& nif,
+                         nifly::NiShape& nifShape);
+
 /// @brief Set the texture of one slot of a shape, wide string variant (the path must be ASCII)
+///
+/// A texture set other shapes share is copied for the shape first, see the note on shared blocks above.
+///
 /// @param nif the NIF
 /// @param nifShape the shape
 /// @param[in] slot texture slot
@@ -150,6 +209,9 @@ bool setTextureSlot(nifly::NifFile* nif,
                     const std::wstring& texturePath);
 
 /// @brief Set the texture of one slot of a shape
+///
+/// A texture set other shapes share is copied for the shape first, see the note on shared blocks above.
+///
 /// @param nif the NIF
 /// @param nifShape the shape
 /// @param[in] slot texture slot
@@ -161,10 +223,13 @@ bool setTextureSlot(nifly::NifFile* nif,
                     const std::string& texturePath);
 
 /// @brief Set every texture slot of a shape
+///
+/// A texture set other shapes share is copied for the shape first, see the note on shared blocks above.
+///
 /// @param nif the NIF
 /// @param nifShape the shape
 /// @param[in] newSlots textures to set
-/// @return true if any slot changed
+/// @return true if any slot changed (compared without regard to case)
 bool setTextureSlots(nifly::NifFile* nif,
                      nifly::NiShape* nifShape,
                      const PGTypes::TextureSet& newSlots);

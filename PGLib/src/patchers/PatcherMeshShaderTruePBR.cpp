@@ -4,6 +4,7 @@
 #include "PGPlugin.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
+#include "pgutil/PGMaterialState.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/ExceptionHandler.hpp"
@@ -36,6 +37,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -43,6 +45,18 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+namespace {
+
+/// @brief Checks whether a PBR entry turns a boolean attribute on. A value of another type counts as off.
+bool isEnabled(const nlohmann::json& truePBRData,
+               const char* key)
+{
+    const auto it = truePBRData.find(key);
+    return it != truePBRData.end() && it->is_boolean() && it->get<bool>();
+}
+
+} // namespace
 
 PatcherMeshShaderTruePBR::PatcherMeshShaderTruePBR(std::filesystem::path nifPath,
                                                    nifly::NifFile* nif)
@@ -304,7 +318,7 @@ bool PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
     matches.clear();
 
     // Find Old Slots.
-    auto oldSlots = textureSet(nifPath(), *nif(), nifShape);
+    auto oldSlots = PGNIFUtil::textureSlots(nif(), &nifShape);
 
     shouldApply(oldSlots, matches);
 
@@ -823,6 +837,31 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
     if (truePBRData.contains("zbuffer_write") && truePBRData["zbuffer_write"].is_boolean()) {
         const auto newZBufferWrite = truePBRData["zbuffer_write"].get<bool>();
         isChanged |= PGNIFUtil::configureShaderFlag(nifShaderBSLSP, nifly::SLSF2_ZBUFFER_WRITE, newZBufferWrite);
+    }
+
+    // "alphaprop_delete", "alphaprop_flags", "alphaprop_thresh" and "alphaprop_create" attributes. "alphaprop_delete"
+    // removes the alpha property, and the other three are ignored then. A shape without an alpha property only gets
+    // one with "alphaprop_create"; both booleans are off unless the entry turns them on. A value that does not fit its
+    // NiAlphaProperty field is ignored like one of the wrong type.
+    if (isEnabled(truePBRData, "alphaprop_delete")) {
+        isChanged |= PGNIFUtil::deleteAlphaProperty(*nif(), *nifShape);
+    } else {
+        std::optional<uint16_t> newAlphaFlags;
+        uint16_t alphaFlags = 0;
+        if (truePBRData.contains("alphaprop_flags")
+            && PGMaterialState::unsignedFromJSON(truePBRData["alphaprop_flags"], alphaFlags)) {
+            newAlphaFlags = alphaFlags;
+        }
+
+        std::optional<uint8_t> newAlphaThreshold;
+        uint8_t alphaThreshold = 0;
+        if (truePBRData.contains("alphaprop_thresh")
+            && PGMaterialState::unsignedFromJSON(truePBRData["alphaprop_thresh"], alphaThreshold)) {
+            newAlphaThreshold = alphaThreshold;
+        }
+
+        isChanged |= PGNIFUtil::setAlphaProperty(
+            *nif(), *nifShape, newAlphaFlags, newAlphaThreshold, isEnabled(truePBRData, "alphaprop_create"));
     }
 
     // "specular_level" attribute.

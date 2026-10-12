@@ -95,11 +95,14 @@ protected:
     TestUtil::TempDir m_dir;
     std::unique_ptr<PGDirectory> m_pgd;
     PGD3D m_d3d { TestUtil::shaderDir() };
+    uint32_t m_behindBlockID = 0; /** Block ID of the second shape of the marker mesh as it was built */
     // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
     static constexpr const wchar_t* stonePath = L"meshes\\pgtest\\stone.nif";
     static constexpr const wchar_t* woodPath = L"meshes\\pgtest\\wood.nif";
     static constexpr const wchar_t* plainPath = L"meshes\\pgtest\\plain.nif";
+    static constexpr const wchar_t* sharedPath = L"meshes\\pgtest\\shared.nif";
+    static constexpr const wchar_t* markerPath = L"meshes\\pgtest\\marker.nif";
     static constexpr const wchar_t* facegenPath
         = L"meshes\\actors\\character\\facegendata\\facegeom\\pgtest.esp\\00000800.nif";
 
@@ -132,6 +135,27 @@ protected:
         writeMesh(woodPath, L"wood");
         writeMesh(plainPath, L"plain");
         writeMesh(facegenPath, L"stone");
+
+        // Two shapes on one shader and one texture set, the second one excluded from shader patching.
+        NIFBuilder shared;
+        auto* patched
+            = shared.addShape("Patched", slots(L"textures\\pgtest\\stone.dds", L"textures\\pgtest\\stone_n.dds"));
+        auto* ignored = shared.addShaderlessShape("Ignored");
+        ignored->ShaderPropertyRef()->index = patched->ShaderPropertyRef()->index;
+        shared.addBooleanExtraData(ignored, "PG_IGNORE", true);
+        shared.save(dataDir() / sharedPath);
+
+        // A shape whose PG_STOCK block removes its alpha property, with a second shape behind it in the block list.
+        NIFBuilder marked;
+        auto* alphaShape
+            = marked.addShape("Alpha", slots(L"textures\\pgtest\\plain.dds", L"textures\\pgtest\\plain_n.dds"));
+        marked.addAlphaProperty(alphaShape);
+        marked.addStringExtraData(alphaShape, PatcherMeshPreStockMarker::extraDataName, R"({"alpha_property": null})");
+        auto* behind
+            = marked.addShape("Behind", slots(L"textures\\pgtest\\plain.dds", L"textures\\pgtest\\plain_n.dds"));
+        m_behindBlockID = marked.nif().GetBlockID(behind);
+        marked.save(dataDir() / markerPath);
+
         std::filesystem::create_directories(outDir());
         TestUtil::writeFile(outDir() / L"meta.ini", "[General]");
 
@@ -191,7 +215,7 @@ TEST_F(PGPatcherTest,
     PGGlobals::fileSaver().waitForCompletion();
 
     ASSERT_FALSE(progress.empty());
-    EXPECT_EQ(progress.back(), std::make_pair(size_t { 4 }, size_t { 4 }));
+    EXPECT_EQ(progress.back(), std::make_pair(size_t { 6 }, size_t { 6 }));
     EXPECT_EQ(stages, (std::vector<PGPatcher::MeshPatchStage> { PGPatcher::MeshPatchStage::Patching }));
     EXPECT_FALSE(PGPatcher::isOutputEmpty());
     EXPECT_TRUE(PGPatcher::hasConflictData());
@@ -223,7 +247,7 @@ TEST_F(PGPatcherTest,
 
     // The diff lists the meshes that were written.
     const auto diff = PGPatcher::diffJSON();
-    EXPECT_EQ(diff.size(), 3U) << diff.dump();
+    EXPECT_EQ(diff.size(), 5U) << diff.dump();
     ASSERT_TRUE(diff.contains("meshes\\pgtest\\stone.nif"));
     EXPECT_NE(diff["meshes\\pgtest\\stone.nif"]["crc32original"], diff["meshes\\pgtest\\stone.nif"]["crc32patched"]);
     EXPECT_FALSE(diff.contains("meshes\\pgtest\\plain.nif"));
@@ -267,6 +291,66 @@ TEST_F(PGPatcherTest,
     ASSERT_FALSE(progress.empty());
     EXPECT_EQ(progress.back().first, progress.back().second);
     EXPECT_EQ(progress.back().second, 9U);
+}
+
+TEST_F(PGPatcherTest,
+       ShapeBlockIDsAreTakenBeforeAnyBlockIsDeleted)
+{
+    PGPatcher::patchMeshes(false, true);
+    PGGlobals::fileSaver().waitForCompletion();
+
+    // The stock marker deleted the alpha property of the first shape, which renumbered the second shape.
+    ASSERT_TRUE(std::filesystem::exists(outDir() / markerPath));
+    const auto marked = loadOutput(markerPath);
+    nifly::NiShape* alphaShape = nullptr;
+    for (auto* const shape : marked.GetShapes())
+        if (shape->name.get() == "Alpha")
+            alphaShape = shape;
+    ASSERT_NE(alphaShape, nullptr);
+    EXPECT_EQ(marked.GetAlphaProperty(alphaShape), nullptr);
+
+    // The metadata still names the second shape by the block ID it has in the mesh as shipped.
+    const auto meta = PGPatcher::patchMeta();
+    ASSERT_TRUE(meta.contains(markerPath));
+    ASSERT_TRUE(meta.at(markerPath).shapeMeta.contains(1));
+    EXPECT_EQ(meta.at(markerPath).shapeMeta.at(1).shapeName, "Behind");
+    EXPECT_EQ(meta.at(markerPath).shapeMeta.at(1).blockID, m_behindBlockID);
+}
+
+TEST_F(PGPatcherTest,
+       ShapesSharingAShaderArePatchedIndependently)
+{
+    PGPatcher::patchMeshes(false, true);
+    PGGlobals::fileSaver().waitForCompletion();
+
+    ASSERT_TRUE(std::filesystem::exists(outDir() / sharedPath));
+    const auto shared = loadOutput(sharedPath);
+    nifly::NiShape* patched = nullptr;
+    nifly::NiShape* ignored = nullptr;
+    for (auto* const shape : shared.GetShapes())
+        if (shape->name.get() == "Patched")
+            patched = shape;
+        else if (shape->name.get() == "Ignored")
+            ignored = shape;
+    ASSERT_NE(patched, nullptr);
+    ASSERT_NE(ignored, nullptr);
+
+    // The patched shape got its own shader and texture set with the complex material result.
+    auto* const patchedShader = dynamic_cast<nifly::BSLightingShaderProperty*>(shared.GetShader(patched));
+    auto* const ignoredShader = dynamic_cast<nifly::BSLightingShaderProperty*>(shared.GetShader(ignored));
+    ASSERT_NE(patchedShader, nullptr);
+    ASSERT_NE(ignoredShader, nullptr);
+    EXPECT_NE(patchedShader, ignoredShader);
+    EXPECT_NE(patchedShader->textureSetRef.index, ignoredShader->textureSetRef.index);
+    EXPECT_EQ(patchedShader->GetShaderType(), nifly::BSLSP_ENVMAP);
+    EXPECT_TRUE(PGNIFUtil::hasShaderFlag(patchedShader, nifly::SLSF1_ENVIRONMENT_MAPPING));
+    EXPECT_EQ(PGNIFUtil::textureSlots(&shared, patched)[5], L"textures\\pgtest\\stone_m.dds");
+
+    // The ignored shape keeps the shader and the textures the mesh shipped with.
+    EXPECT_EQ(ignoredShader->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_FALSE(PGNIFUtil::hasShaderFlag(ignoredShader, nifly::SLSF1_ENVIRONMENT_MAPPING));
+    EXPECT_EQ(PGNIFUtil::textureSlots(&shared, ignored),
+              slots(L"textures\\pgtest\\stone.dds", L"textures\\pgtest\\stone_n.dds"));
 }
 
 TEST_F(PGPatcherTest,

@@ -112,7 +112,7 @@ bool PatcherMeshShaderComplexMaterial::shouldApply(nifly::NiShape& nifShape,
                                                    std::vector<PatcherMatch>& matches)
 {
     // Check for CM matches.
-    return shouldApply(textureSet(nifPath(), *nif(), nifShape), matches);
+    return shouldApply(PGNIFUtil::textureSlots(nif(), &nifShape), matches);
 }
 
 bool PatcherMeshShaderComplexMaterial::shouldApply(const PGTypes::TextureSet& oldSlots,

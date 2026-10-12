@@ -17,15 +17,16 @@
  * @class PatcherMeshPreStockMarker
  * @brief Keeps the stock (unpatched) material of a shape in a PG_STOCK extra data block and reverts to it.
  *
- * A shape that carries a NiStringExtraData block named PG_STOCK is reverted to the texture set and shader state the
- * block describes before any other patcher runs. A mesh that was patched before, by PGPatcher or by a mod author, is
- * patched again from its stock state this way instead of on top of the previous result. The result is the same no
- * matter how often a mesh passes through PGPatcher, and a plugin use can resolve to a different shader than the one
- * the mesh ships with.
+ * A shape that carries a NiStringExtraData block named PG_STOCK is reverted to the texture set, shader and alpha
+ * property state the block describes before any other patcher runs. A mesh that was patched before, by PGPatcher or by
+ * a mod author, is patched again from its stock state this way instead of on top of the previous result. The result is
+ * the same no matter how often a mesh passes through PGPatcher, and a plugin use can resolve to a different shader than
+ * the one the mesh ships with.
  *
- * The block holds only what differs from stock: the texture slots and shader fields a patch changed, each with its
- * stock value. Fields that are not listed are at their stock value already. Geometry (vertex colors, normals) is not
- * recorded on purpose: BodySlide carries it over from the ShapeData as it is, so there is nothing to revert.
+ * The block holds only what differs from stock: the texture slots, shader fields and alpha property fields a patch
+ * changed, each with its stock value, or null for an alpha property a patch added. Fields that are not listed are at
+ * their stock value already. Geometry (vertex colors, normals) is not recorded on purpose: BodySlide carries it over
+ * from the ShapeData as it is, so there is nothing to revert.
  *
  * The block is only created on BodySlide ShapeData meshes (plugin uses flagged isBodySlideShapeData). BodySlide clones
  * the extra data of a ShapeData shape into every mesh it builds from it, so PGPatcher can patch the ShapeData first and
@@ -65,8 +66,7 @@ public:
      * differences once every patcher is done with the shape.
      *
      * @param[in,out] slots Texture slots of the shape as seen by the patchers. The texture set of the NIF and these
-     * slots are only restored while they mirror each other: an alternate texture from a plugin record, and a texture
-     * set another shape already patched, are left alone.
+     * slots are only restored while they mirror each other: an alternate texture from a plugin record is left alone.
      * @param nifShape Shape to patch
      * @return true Shape was reverted to its stock state
      * @return false Shape was not changed
