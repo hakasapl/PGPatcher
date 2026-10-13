@@ -11,14 +11,11 @@ namespace PGLite {
  * @brief The engine's resource layer (DESIGN.md section 3.1): the registry that maps a path to the stream the engine
  * reads it from, and the resolver that gives the stream of any path the engine can load.
  *
- * Both engine functions are called through the Address Library; neither is hooked. Their IDs are only known for the
- * AE runtimes (1.6.x and 1.7.x), so on Skyrim SE 1.5.97 the runtime is unsupported and PGLite stays disabled.
+ * Both engine functions are called through the Address Library; neither is hooked. Their IDs are known for the SE
+ * runtime (1.5.97) and the AE runtimes (1.6.x and 1.7.x); VR is not built.
  */
 class Resources {
 public:
-    /// @brief Whether the running game has the two functions PGLite needs.
-    [[nodiscard]] static bool isRuntimeSupported();
-
     /// @brief The Address Library file CommonLibSSE-NG loads for the running game version.
     [[nodiscard]] static std::filesystem::path addressLibraryFile();
 
@@ -29,12 +26,9 @@ public:
      *
      * @param path Path relative to the data folder, as plugins write it.
      * @param stream The stream to register. The registry keeps a reference for the session.
-     * @return What the engine returns: whether the file type of the path has an entry database (meshes and textures
-     * have one); the registration happens either way (1.7.99 sub_140ECEE30 always inserts). false also when the
-     * runtime is unsupported.
      */
-    [[nodiscard]] static bool registerStream(const std::string& path,
-                                             RE::BSTSmartPointer<RE::BSResource::Stream>& stream);
+    static void registerStream(const std::string& path,
+                               RE::BSTSmartPointer<RE::BSResource::Stream>& stream);
 
     /**
      * @brief Resolves a path to the stream the engine would read it from: the registry first (a loose record's stream

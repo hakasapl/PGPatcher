@@ -461,9 +461,8 @@
     "disabled": {
       "notice": "PGLite is disabled because %s.",
       "addressLibraryMissing": "the Address Library for this game version is missing (%s)",
-      "runtimeUnsupported": "game version %s is not supported",
       "noMessaging": "the SKSE messaging interface is unavailable",
-      "offlineOutput": "an offline PGPatcher output is in the load order (ParallaxGen_Diff.json)",
+      "offlineOutput": "an offline PGPatcher output is in the load order",
       "offlinePlugin": "the offline PGPatcher plugin is active (PGPatcher.esp)",
       "autoParallax": "Auto Parallax is installed, which edits the same materials",
       "initializationFailed": "its initialization failed: %s",

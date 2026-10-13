@@ -192,8 +192,7 @@ bool TextureGenerator::make(HookKind kind,
         // Registered like a mesh (DESIGN.md section 3.1): a file of the same name in the load order is shadowed, as the
         // offline output folder shadows it. The registry keeps the stream for the session.
         RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(outputStr, m_noSource, *this));
-        if (!Resources::registerStream(outputStr, stream))
-            Logger::debug("The engine has no entry database for the type of {}", outputStr);
+        Resources::registerStream(outputStr, stream);
 
         return true;
     } catch (const std::exception& e) {

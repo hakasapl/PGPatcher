@@ -11,10 +11,9 @@ Install the `PGLite` archive like any SKSE plugin (`SKSE\Plugins\PGLite.dll` wit
 `SKSE\Plugins\PGLite.ini`, the translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubemap
 texture). Requirements:
 
-- Skyrim Special Edition 1.6.x or 1.7.x (the Anniversary Edition runtimes), SKSE and the
-  [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version.
-  Skyrim SE 1.5.97 is not supported yet: the two engine functions PGLite calls are not known there, and PGLite stays
-  disabled with a notice.
+- Skyrim Special Edition 1.5.97, 1.6.x or 1.7.x, SKSE and the
+  [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version. The
+  1.5.97 support has not been run in game yet.
 - No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) and no Auto Parallax.
   PGLite disables itself with an in-game notice when it finds one of them, and installs nothing else then (no menu,
   no hooks).

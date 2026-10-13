@@ -12,8 +12,7 @@ database of `SkyrimSE_1.7.99.exe`. Facts marked *to verify* are confirmed in the
 depends on them is written.
 
 Implementation status (2026-10-11, branch `pglite`): sections 4 to 6 and the milestones of section 9 are
-implemented. Deviations from the text: the two engine functions are only bound for the AE runtimes (1.6.x, 1.7.x);
-on 1.5.97 PGLite stays disabled with a notice until their SE IDs are known. `PGPlugin` keeps its static interface
+implemented. Deviations from the text: `PGPlugin` keeps its static interface
 and the runtime provides its own implementation unit (`PGLite/src/PGPluginRuntime.cpp`) instead of a virtual
 interface. Texture set objects are deduplicated per session rather than per family. The menu draws from the swap
 chain's Present and takes its input from the call in `BSInputDeviceManager::PollInputDevices` that hands the polled
@@ -59,7 +58,7 @@ the engine's resource layer, settings, logging and the GUI.
 
 ## 3. Engine and CS facts the design relies on
 
-### 3.1 How the engine finds and reads a mesh (verified in the 1.7.99 database)
+### 3.1 How the engine finds and reads a mesh (verified in the 1.7.99 database; the two functions PGLite calls also in 1.5.97)
 
 The engine never opens a model by path. The chain is: path, 12-byte resource ID, registry record, stream object.
 
@@ -69,8 +68,8 @@ The engine never opens a model by path. The chain is: path, 12-byte resource ID,
 | Registry | One global registry (`qword_14331B4C0`: a `std::shared_mutex` at +0, the tables at +16). A record is 40 bytes: the ID at 0, flags at 12 (bit 31 marks an archive record), size at 16, a `BSFixedString` name at 24 and at 32 either a `BSResource::Stream*` (loose record) or the archive object (archive record). The record constructor `sub_140EC9A60` asks the stream for its name through `DoGetName`. |
 | Filling the registry | At startup (`sub_14065DBE0`): the INI archive lists, the hard coded `Update.bsa`, then for every plugin in load order `<name>.bsa` and `<name> - Textures.bsa` (`sub_1401C4CB0`), then the loose files through `BSResource::RegisterPrefix(prefix, root, Location*)` (`sub_140ECF570`; list form `sub_140ECF670`), whose traverser `sub_140ED2AF0` hashes each name, asks the location for a stream (`DoCreateStream`) and inserts the record. Loose records hold one lazily opened `LooseFileStream` each. |
 | Insert semantics | `sub_140EC8170(ctx, id, stream)`: a new ID gets a new record; an existing loose record gets its stream replaced; an existing archive record is converted to a loose record with the given stream. This is the rule that makes loose files override archives, and it is what PGLite relies on. |
-| Register a path with a stream | `sub_140ECEE30(const char* path, BSTSmartPointer<Stream>&)`: ID from the path, then the insert above. The engine uses it for sound aliases (`sub_140559E30`) and for its file cache validation (`sub_140ED9240`, "OnValid"). It takes the registry mutex itself. |
-| Resolve a path to a stream | `sub_140ECE860(const char* path, BSTSmartPointer<Stream>&, bool writeable, Location* optional)`: registry first (a loose record's stream is cloned, an archive record gets a fresh `ArchiveStream` or `CompressedArchiveStream`), then the location tree (`GlobalPaths`, `GlobalLocations`, `LooseFileLocation`) for files on disk that are not registered. It is the first call of the CommonLib-bound `BSResourceNiBinaryStream::ctor` (`RELOCATION_ID(69636, 71014)`, 1.7.99 0x140F00F80) and takes the registry mutex itself. |
+| Register a path with a stream | `sub_140ECEE30(const char* path, BSTSmartPointer<Stream>&)`: ID from the path, then the insert above. The engine uses it for sound aliases (`sub_140559E30`) and for its file cache validation (`sub_140ED9240`, "OnValid"). It takes the registry mutex itself. In 1.5.97 it is `sub_140C45280` (ID 68491), the same body with no caller left in that build; its insert `sub_140C3E2E0` replaces an existing loose record's stream and converts an archive record (`sub_140C3E3F0`), and its return value is meaningless there, so PGLite ignores it on both runtimes. |
+| Resolve a path to a stream | `sub_140ECE860(const char* path, BSTSmartPointer<Stream>&, bool writeable, Location* optional)`: registry first (a loose record's stream is cloned, an archive record gets a fresh `ArchiveStream` or `CompressedArchiveStream`), then the location tree (`GlobalPaths`, `GlobalLocations`, `LooseFileLocation`) for files on disk that are not registered. It is the first call of the CommonLib-bound `BSResourceNiBinaryStream::ctor` (`RELOCATION_ID(69636, 71014)`, 1.7.99 0x140F00F80) and takes the registry mutex itself. In 1.5.97 it is `sub_140C44CB0` (ID 68484), the resolver call of the same constructor (`sub_140C76060`). |
 | Model entry | `BSModelDB::Demand` 0x140FC9060 and `sub_140FC8D80` prefix `meshes\` (`sub_140ECDC50`, which accepts an embedded `meshes\` and forward slashes), hash the path and look the ID up in the model entry database (`sub_14020BD20`). On a miss an entry is created only when the ID has a registry record, and the entry's stream is the record's stream (`sub_140EC8570`: loose records share their stream object, archive records spawn a stream). Facegen heads (`sub_1403C2EC0`) and queued and asynchronous loads go through the same entry database. |
 | Loader | `sub_140FC8480(BSTSmartPointer<Stream>*, ...)` receives the resolved stream. `sub_140F01090` wraps it in a `BSResourceNiBinaryStream`: sets the open flags, calls `DoOpen` (vfunc 1), allocates a buffer of `totalSize + 56` (`StreamBase::totalSize` at +8, 0x10000 when the stream is writable), and reads through `DoRead` (vfunc 6) and `DoSeek` (vfunc 8). Its destructor (0x140F01260) clears the flags, calls `DoClose` (vfunc 2) and releases the reference. Then `BSStream::Load` parses, falls back to `Meshes\Marker_Error.NIF` when no top object came out, builds a root `NiNode` for several top objects and runs `BSModelProcessor::PostCreate`. The path argument of `BSStream::Load` is the stream's own name and is null for files from archives that do not retain names (no vanilla archive does: BSA flag 0x10 is absent and `sResourceArchiveRetainFileNameList` is empty). |
 | Stream contract | CommonLib declares `BSResource::StreamBase` and `BSResource::Stream` with the full virtual layout: dtor, `DoOpen`, `DoClose`, `DoGetKey`, `DoGetInfo`, `DoClone`, `DoRead`, `DoWrite`, `DoSeek`, `DoSetEndOfStream`, `DoGetName`, `DoCreateAsync`. The reference count lives in the flags word (`kRefCountBeg` 0x1000), which sits at +0xC on SE and +0x10 on AE; CommonLib's `GetFlags()` resolves that at runtime. One entry is loaded by one thread at a time (other demanders spin in `sub_14020B970`), so a stream object is opened by one loader at a time; direct opens by path clone it. |
@@ -428,7 +427,7 @@ immediate and is a later addition if wanted; it is not part of apply.
   active. Offline checks only the loose `ParallaxGen_Diff.json`, and refuses to run while VRAMr's output mod is
   enabled (`main.cpp:600-612`), which has no runtime counterpart (section 7, item 19).
 - Auto Parallax is installed (`AutoParallax.dll` in `SKSE\Plugins`): the two would edit the same materials.
-- Address Library missing or unsupported for the running game version.
+- Address Library missing for the running game version.
 
 In every case PGLite logs the reason, shows a notice ("PGLite is disabled because X.", translated like the menu; an
 in-game message box after data load, a Windows message box at plugin load for the Address Library case, when the
@@ -462,7 +461,8 @@ shows in the top right corner; after the first start a welcome line with the men
 opened once (recorded in `settings.json`); the ini can hide either line. The title bar carries
 the icon of the offline launcher. The strings come from the
 offline translation files through PGLib's PGTranslation (the offline PGLocale wraps it for wxWidgets); the plugin
-ships the files under `SKSE\Plugins\PGLite\translations`, its Settings page picks the language, and the font atlas
+ships the files under `SKSE\Plugins\PGLite\translations`, its Settings page picks the language (a working copy
+applied with Apply, like every other setting; the tabs keep their identity across the label change), and the font atlas
 is rebuilt with the glyphs of the loaded translation, a CJK font merged in when it needs one. No conflict highlighting or viewer, as
 specified.
 
@@ -722,9 +722,11 @@ edit the patchers make.
 ## 8. Implementation items to verify in the binary or in game
 
 1. **Address Library IDs** for the two engine functions PGLite calls that CommonLib does not bind: the register-path
-   function (`sub_140ECEE30`, ID 69845) and the resolver (`sub_140ECE860`, ID 69839, the first call inside the bound
+   function (AE `sub_140ECEE30`, ID 69845; SE 1.5.97 `sub_140C45280`, ID 68491) and the resolver (AE
+   `sub_140ECE860`, ID 69839; SE `sub_140C44CB0`, ID 68484; the resolver call inside the bound
    `BSResourceNiBinaryStream::ctor`, so it can also be found by following that call), verified for 1.6.1170 and
-   1.7.x (Address Library format 5). The SE IDs of 1.5.97 are not known; PGLite stays disabled there (section 10).
+   1.7.x (Address Library format 5) and in the 1.5.97 database (format 1, `version-1-5-97-0.bin`). The input
+   dispatch call sits at offset 0x7B in 1.5.97 as well. Not yet run in game on 1.5.97.
 2. **Stream contract in game.** A PGLite stream satisfies the loader (open, `totalSize`, read, seek, close), the
    per-entry single-open rule holds for queued and asynchronous loads as it does for synchronous ones, no model path
    requests an asynchronous stream (`DoCreateAsync` is unsupported), `DoClone` is what direct opens receive, and the
@@ -773,8 +775,8 @@ Defaults the design proceeds with unless overruled:
    with the disk cache of 4.5.
 3. Apply affects the next load only; no forced scene refresh.
 4. The GUI reads the offline translation files, with a language setting in the menu.
-5. Supported runtimes 1.6.x and 1.7.x; 1.5.97 stays disabled until the SE IDs of the two engine functions are known;
-   no VR.
+5. Supported runtimes 1.5.97, 1.6.x and 1.7.x, one build through the Address Library of the installed version; no
+   VR.
 6. No code hooks for file loading: registered streams only. The two engine functions of 8.1 are called, not hooked.
 7. Texture sets are created on the requesting thread at first open and left unregistered; data-load pre-creation is
    the fallback of 8.4.

@@ -117,13 +117,6 @@ bool Runtime::load()
         return true;
     }
 
-    if (!Resources::isRuntimeSupported()) {
-        // The notice waits for the game UI.
-        const std::scoped_lock lock(m_stateMutex);
-        m_disableReason = PGTranslation::trFormat("pglite.disabled.runtimeUnsupported", version.string("."));
-        Logger::critical("PGLite is disabled because {}", *m_disableReason);
-    }
-
     if (!SKSE::GetMessagingInterface()->RegisterListener(&Runtime::onMessage)) {
         disable(PGTranslation::tr("pglite.disabled.noMessaging"), false);
         return true;
@@ -354,8 +347,7 @@ void Runtime::registerStream(const std::filesystem::path& path,
     }
 
     RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(pathStr, source, *this));
-    if (!Resources::registerStream(pathStr, stream))
-        Logger::debug("The engine has no entry database for the type of {}", pathStr);
+    Resources::registerStream(pathStr, stream);
 
     const std::scoped_lock lock(m_streamsMutex);
     m_streams[pathStr] = { .stream = std::move(stream), .source = std::move(source) };

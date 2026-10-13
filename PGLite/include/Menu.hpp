@@ -203,6 +203,8 @@ private:
     ImVector<ImWchar> m_glyphRanges;
     bool m_shouldRebuildFonts = false;
     std::vector<PGTranslation::Language> m_languages;
+    /// @brief The language code as edited; applied with Apply, like every other setting.
+    std::string m_language;
     std::mutex m_pickerMutex;
     bool m_isPickerOpen = false;
     std::optional<std::string> m_pickedFolder;

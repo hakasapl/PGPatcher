@@ -38,9 +38,9 @@ bool Hooks::install(Menu& menu)
     }
 
     // Address Library IDs of BSInputDeviceManager::PollInputDevices. The dispatch call sits at the same offset in SE
-    // and AE (checked in the 1.7.99 database and in the 1.7.104 executable: `mov rcx, rsi` and `lea rdx, [rsp+40h]`
-    // load the source and the address of the event list head right before it). Only the opcode is checked, because
-    // another plugin that redirected the call first has already replaced its target.
+    // and AE (checked in the 1.5.97 and 1.7.99 databases and in the 1.7.104 executable: `mov rcx, rsi` and
+    // `lea rdx, [rsp+40h]` load the source and the address of the event list head right before it). Only the opcode
+    // is checked, because another plugin that redirected the call first has already replaced its target.
     const REL::Relocation<std::uintptr_t> pollSite { REL::RelocationID(67315, 68617), pollDispatchCallOffset };
     const auto site = pollSite.address();
     const auto opcode

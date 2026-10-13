@@ -741,6 +741,7 @@ void Menu::loadState()
     m_mo2InstanceDir = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
 
     m_languages = PGTranslation::availableLanguages();
+    m_language = PGTranslation::currentLanguage();
 
     // The mod list follows the settings as edited (rebuildModList).
     m_mods.clear();
@@ -916,9 +917,17 @@ void Menu::startApply(bool isEnabled)
         params = normalizedParams;
     }
 
-    if (!Settings::writeParams(params) || !Settings::writeIsEnabled(isEnabled)) {
+    const bool didLanguageChange = m_language != PGTranslation::currentLanguage();
+    if (!Settings::writeParams(params) || !Settings::writeIsEnabled(isEnabled)
+        || (didLanguageChange && !Settings::writeLanguage(m_language))) {
         m_applyMessage = tr("pglite.apply.settingsNotWritten");
         return;
+    }
+
+    if (didLanguageChange) {
+        // The strings switch now, the font atlas between frames (drawFrame).
+        PGTranslation::init(Settings::translationsFolder(), m_language);
+        m_shouldRebuildFonts = true;
     }
 
     // The mod rules: the displayed mods as ordered and set here, every other mod as it was.
@@ -1030,8 +1039,10 @@ void Menu::draw()
     // The pages fill the window above the Apply row, which every page shares.
     const auto applyRowHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
     if (ImGui::BeginChild("pages", ImVec2(0, -applyRowHeight)) && ImGui::BeginTabBar("pages")) {
+        // The part after ### is a tab's identity, so the selected tab stays selected when its label changes with
+        // the language.
         const auto page = [](const char* key, auto&& draw) {
-            if (ImGui::BeginTabItem(tr(key).c_str())) {
+            if (ImGui::BeginTabItem(std::format("{}###{}", tr(key), key).c_str())) {
                 draw();
                 ImGui::EndTabItem();
             }
@@ -1512,25 +1523,21 @@ void Menu::drawSettings()
     }
 
     // The languages of the translations folder by their own names, or by their codes where the font cannot draw the
-    // name (rebuildFonts); a change takes effect at once and is kept.
+    // name (rebuildFonts). The choice is a working copy like every other setting: Apply switches the language and
+    // keeps it, Discard drops it.
     std::vector<const char*> names;
     names.reserve(m_languages.size());
     int current = 0;
-    const auto currentCode = PGTranslation::currentLanguage();
     for (std::size_t i = 0; i < m_languages.size(); i++) {
         const auto& language = m_languages.at(i);
         const bool hasName = !language.displayName.empty() && canDrawText(language.displayName);
         names.push_back(hasName ? language.displayName.c_str() : language.code.c_str());
-        if (language.code == currentCode)
+        if (language.code == m_language)
             current = static_cast<int>(i);
     }
 
-    if (ImGui::Combo(tr("settings.language.label").c_str(), &current, names.data(), static_cast<int>(names.size()))) {
-        const auto& code = m_languages.at(static_cast<std::size_t>(current)).code;
-        std::ignore = Settings::writeLanguage(code);
-        PGTranslation::init(Settings::translationsFolder(), code);
-        m_shouldRebuildFonts = true;
-    }
+    if (ImGui::Combo(tr("settings.language.label").c_str(), &current, names.data(), static_cast<int>(names.size())))
+        m_language = m_languages.at(static_cast<std::size_t>(current)).code;
 }
 
 void Menu::rebuildFonts()
