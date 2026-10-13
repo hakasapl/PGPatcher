@@ -156,9 +156,18 @@ private:
     /// @brief The name of a key by its DirectInput scan code, as the keyboard layout calls it.
     [[nodiscard]] static std::string keyName(unsigned scanCode);
 
-    /// @brief An image at the left of an overlay line, the text that follows centered on it.
-    static void drawOverlayImage(const AnimatedImage& image,
-                                 float height);
+    /**
+     * @brief A panel in the top right corner: an image at the left, a line of text centered on it. It is drawn from
+     * the sizes of this frame's text and image, so it never lags a frame behind a text that just changed, as an
+     * auto-resized window does.
+     *
+     * @param image The image, skipped when it is not loaded.
+     * @param imageHeight The height the image is drawn at.
+     * @param text The formatted line.
+     */
+    void drawCornerPanel(const AnimatedImage& image,
+                         float imageHeight,
+                         const std::string& text) const;
 
     /// @brief Draws an editable list of strings with remove buttons and an add row.
     static void drawStringList(const char* id,

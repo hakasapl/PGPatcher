@@ -24,7 +24,8 @@ texture). Requirements:
 - The Visual C++ 2015-2022 redistributable the game itself needs (`vcomp140.dll`) and `d3dcompiler_47.dll`,
   which is part of Windows; everything else is linked into `PGLite.dll`.
 
-The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F8 by default). Its status page
+The menu opens with the key set in `PGLite.ini` (`iMenuKey`, a DirectInput scan code, F8 by default), never during a
+loading screen. Its status page
 has a toggle that disables PGLite (meshes loaded from then on are the originals) and enables it again, kept across
 game starts. After the game data loaded, the game waits until PGLite is ready before the main menu opens; "Loading
 PGLite", the current step and the meshes read so far show in the top right corner meanwhile

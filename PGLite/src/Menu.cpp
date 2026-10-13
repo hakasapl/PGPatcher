@@ -94,12 +94,26 @@ bool canDrawText(const std::string& text)
 }
 
 /// @brief A translated text with one printf count placeholder, as every translated string carries its placeholders.
+/// @brief A translated string with its printf placeholders filled in, measured first so any length fits.
+template<typename... Args>
+std::string formatText(const std::string& text,
+                       Args... args)
+{
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
+    const int needed = std::snprintf(nullptr, 0, text.c_str(), args...);
+    if (needed < 0)
+        return text;
+
+    std::vector<char> buffer(static_cast<std::size_t>(needed) + 1);
+    std::snprintf(buffer.data(), buffer.size(), text.c_str(), args...);
+    // NOLINTEND(cppcoreguidelines-pro-type-vararg)
+    return buffer.data();
+}
+
 std::string formatCount(const std::string& text,
                         std::size_t count)
 {
-    std::vector<char> buffer(text.size() + 32);
-    std::snprintf(buffer.data(), buffer.size(), text.c_str(), count); // NOLINT(cppcoreguidelines-pro-type-vararg)
-    return buffer.data();
+    return formatText(text, count);
 }
 
 /// @brief A string of the translation files (PGPatcher/translations), which both programs share.
@@ -702,6 +716,13 @@ void Menu::open()
     if (m_runtime->disableReason() || !m_runtime->isReady())
         return;
 
+    // Before the main menu the game is still loading, with the loading screen presenting the frames, and a load in
+    // the game reads the records the menu would edit: the menu is for a running game and for its main menu.
+    if (auto* const ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) {
+        Logger::debug("The menu does not open during a loading screen");
+        return;
+    }
+
     m_isOpen = true;
     m_isStateLoaded = false;
     m_applyMessage.clear();
@@ -1094,35 +1115,51 @@ void Menu::drawLoadingMessage()
         || m_runtime->disableReason())
         return;
 
-    const auto& io = ImGui::GetIO();
-    const auto margin = 16 * m_uiScale;
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - margin, margin), ImGuiCond_Always, ImVec2(1, 0));
-    ImGui::SetNextWindowBgAlpha(0.6F);
-    constexpr auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav
-        | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
-    if (ImGui::Begin("##loading", nullptr, flags)) {
-        const auto* const stage = m_runtime->stage();
-        const auto [done, total] = m_runtime->progress();
-        const auto stageText = tr(stage ? stage : "pglite.status.starting");
-        if (m_runningImage.isLoaded())
-            drawOverlayImage(m_runningImage, m_runningImage.size().y * m_uiScale * 0.5F);
-        if (total)
-            ImGui::Text(tr("pglite.status.loadingProgress").c_str(), stageText.c_str(), done, total);
-        else
-            ImGui::Text(tr("pglite.status.loading").c_str(), stageText.c_str());
-    }
-    ImGui::End();
+    const auto* const stage = m_runtime->stage();
+    const auto [done, total] = m_runtime->progress();
+    const auto stageText = tr(stage ? stage : "pglite.status.starting");
+    const auto text = total ? formatText(tr("pglite.status.loadingProgress"), stageText.c_str(), done, total)
+                            : formatText(tr("pglite.status.loading"), stageText.c_str());
+    drawCornerPanel(m_runningImage, m_runningImage.size().y * m_uiScale * 0.5F, text);
 }
 
-void Menu::drawOverlayImage(const AnimatedImage& image,
-                            float height)
+void Menu::drawCornerPanel(const AnimatedImage& image,
+                           float imageHeight,
+                           const std::string& text) const
 {
-    // The image at the left of the line, the text that follows centered on it.
-    const auto size = ImVec2(height * image.size().x / image.size().y, height);
-    const auto lineStart = ImGui::GetCursorPosY();
-    ImGui::Image(image.frame(), size);
-    ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x * 2);
-    ImGui::SetCursorPosY(lineStart + (size.y - ImGui::GetTextLineHeight()) / 2);
+    const auto& io = ImGui::GetIO();
+    const auto& style = ImGui::GetStyle();
+    const auto margin = 16 * m_uiScale;
+    const bool hasImage = image.isLoaded();
+    const auto imageSize = hasImage ? ImVec2(imageHeight * image.size().x / image.size().y, imageHeight) : ImVec2(0, 0);
+    const auto spacing = hasImage ? style.ItemSpacing.x * 2 : 0;
+    const auto textSize = ImGui::CalcTextSize(text.c_str());
+    const auto contentHeight = std::max(imageSize.y, textSize.y);
+    const auto panelSize = ImVec2(style.WindowPadding.x * 2 + imageSize.x + spacing + textSize.x,
+                                  style.WindowPadding.y * 2 + contentHeight);
+    const auto panelMin = ImVec2(io.DisplaySize.x - margin - panelSize.x, margin);
+    const auto panelMax = ImVec2(panelMin.x + panelSize.x, panelMin.y + panelSize.y);
+
+    // The look of a window with a 0.6 background alpha, which the two messages had before.
+    auto* const drawList = ImGui::GetForegroundDrawList();
+    auto background = style.Colors[ImGuiCol_WindowBg];
+    background.w = 0.6F;
+    drawList->AddRectFilled(panelMin, panelMax, ImGui::GetColorU32(background), style.WindowRounding);
+    if (style.WindowBorderSize > 0) {
+        drawList->AddRect(
+            panelMin, panelMax, ImGui::GetColorU32(ImGuiCol_Border), style.WindowRounding, 0, style.WindowBorderSize);
+    }
+
+    // The image at the left, the text centered on it.
+    auto cursor = ImVec2(panelMin.x + style.WindowPadding.x, panelMin.y + style.WindowPadding.y);
+    if (hasImage) {
+        drawList->AddImage(image.frame(),
+                           ImVec2(cursor.x, cursor.y + (contentHeight - imageSize.y) / 2),
+                           ImVec2(cursor.x + imageSize.x, cursor.y + (contentHeight + imageSize.y) / 2));
+        cursor.x += imageSize.x + spacing;
+    }
+    drawList->AddText(
+        ImVec2(cursor.x, cursor.y + (contentHeight - textSize.y) / 2), ImGui::GetColorU32(ImGuiCol_Text), text.c_str());
 }
 
 void Menu::drawWelcomeMessage()
@@ -1131,18 +1168,9 @@ void Menu::drawWelcomeMessage()
         || m_runtime->disableReason())
         return;
 
-    const auto& io = ImGui::GetIO();
-    const auto margin = 16 * m_uiScale;
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - margin, margin), ImGuiCond_Always, ImVec2(1, 0));
-    ImGui::SetNextWindowBgAlpha(0.6F);
-    constexpr auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav
-        | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
-    if (ImGui::Begin("##welcome", nullptr, flags)) {
-        if (m_icon.isLoaded())
-            drawOverlayImage(m_icon, ImGui::GetFontSize() * 2);
-        ImGui::Text(tr("pglite.status.welcome").c_str(), keyName(m_runtime->ini().menuKey).c_str());
-    }
-    ImGui::End();
+    drawCornerPanel(m_icon,
+                    ImGui::GetFontSize() * 2,
+                    formatText(tr("pglite.status.welcome"), keyName(m_runtime->ini().menuKey).c_str()));
 }
 
 std::string Menu::keyName(unsigned scanCode)

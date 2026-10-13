@@ -441,7 +441,8 @@ stay, and the menu refuses to open.
 
 ### 4.10 GUI (Dear ImGui)
 
-Hotkey from the ini. Device and context from the game's swap chain, present and input hooks chained like every other
+Hotkey from the ini, refused during a loading screen (before the main menu the game is still loading, and a load in
+the game reads the records the menu edits). Device and context from the game's swap chain, present and input hooks chained like every other
 ImGui plugin. Pages: mod manager (type, MO2 instance location with a folder dialog, MO2 loose file order) and the mod list
 (mods with shaders or meshes as `updateStateFromModlist` numbers them, drag to reorder, enable, meshes ignored; apply
 writes `modrules.json`); patcher checkboxes (Fix Mesh Lighting, Parallax, Complex Material, True PBR, Upgrade
