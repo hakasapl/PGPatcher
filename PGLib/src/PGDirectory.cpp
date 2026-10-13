@@ -188,9 +188,16 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
 {
     findFiles();
 
-    // Helpers.
-    const std::unordered_map<std::wstring, PGEnums::TextureType> manualTextureMapsMap(manualTextureMaps.begin(),
-                                                                                      manualTextureMaps.end());
+    // The rules are matched against the mapped paths, which are lower case with backslashes, whatever form they were
+    // typed in (the settings file, the launcher's dialog or the PGLite menu). The first of two equal rules wins, as
+    // it did before.
+    std::unordered_map<std::wstring, PGEnums::TextureType> manualTextureMapsMap;
+    for (const auto& [rulePath, ruleType] : manualTextureMaps) {
+        auto key = rulePath;
+        std::ranges::replace(key, L'/', L'\\');
+        StringUtil::toLowerASCIIFastInPlace(key);
+        manualTextureMapsMap.try_emplace(key, ruleType);
+    }
 
     Logger::info("Starting to build texture mappings");
 

@@ -877,9 +877,13 @@ void Menu::startApply(bool isEnabled)
     }
     params.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
 
-    // What the offline launcher refuses, the menu refuses (empty entries cannot be entered here): the first problem
-    // is shown, every one is logged, and nothing is written. Disabling PGLite is never refused, and the vanilla
-    // archive list, which the menu cannot edit, only warns.
+    // The rules as a read of the file spells them, so two spellings of one rule are refused as the duplicate the next
+    // start would report, and a rule typed with forward slashes matches from this Apply on.
+    params.normalizeRules();
+
+    // What the offline launcher refuses, the menu refuses (empty entries are dropped here): the first problem is
+    // shown, every one is logged, and nothing is written. Disabling PGLite is never refused, and the vanilla archive
+    // list, which the menu cannot edit, only warns.
     if (isEnabled) {
         std::vector<std::string> messages;
         for (const auto& problem : params.validate()) {
@@ -901,8 +905,8 @@ void Menu::startApply(bool isEnabled)
         }
     }
 
-    // The lists as the next session reads them from the file (forward slashes become backslashes), so a rule typed
-    // with forward slashes matches from this Apply on and not from the next start.
+    // The remaining paths (the instance folder) as the next session reads them from the file, where forward slashes
+    // become backslashes.
     {
         nlohmann::json normalized;
         params.writeJSON(normalized);
@@ -1534,8 +1538,8 @@ void Menu::rebuildFonts()
     auto& io = ImGui::GetIO();
     io.Fonts->Clear();
 
-    // The Latin and Cyrillic ranges plus every glyph of the loaded translation and of the names of the languages the
-    // settings page lists; a CJK font is merged for those.
+    // The Latin and Cyrillic ranges plus every glyph of the loaded translation and of the language names below the
+    // CJK range; the CJK font is merged only when the translation itself needs it.
     ImFontGlyphRangesBuilder builder;
     builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
     builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());

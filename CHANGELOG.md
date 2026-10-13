@@ -10,6 +10,7 @@
 - [Common] Extended dedup behavior of texture sets in meshes to NiAlphaProperties and shader properties
 - [Common] Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
 - [PGPatcher] Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
+- [Common] Texture rules now match regardless of case and slash direction; a rule typed with forward slashes or capitals never applied before, and two rules that differ only in those are now reported as duplicates
 - [Common] Fixed the Restore Default Shaders post-patcher being named HairFlowMap in logs
 - [PGPatcher] Fixed the `pgtools` Convert to HDR patcher running the Parallax to Complex Material shader instead of its own
 - [PGPatcher] Fixed a plugin error from one run being reported again by every later plugin operation in the same session

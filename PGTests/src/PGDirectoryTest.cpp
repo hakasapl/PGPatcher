@@ -462,4 +462,19 @@ TEST_F(PGDirectoryTest,
         *m_pgd, TextureSlots::Parallax, L"textures\\new\\thing", L"textures\\new\\thing_p.dds", TextureType::Height));
     EXPECT_EQ(&m_pgd->textureMapConst(TextureSlots::Parallax), &map);
 }
+
+TEST_F(PGDirectoryTest,
+       TextureRulesMatchWhateverTheirCaseAndSlashes)
+{
+    // The rule as a user types it in a dialog, against the mapped path (lower case, backslashes).
+    m_pgd->mapFiles({ L"meshes\\blocked\\*" },
+                    { },
+                    { { L"Textures/A/Manual.DDS", TextureType::ComplexMaterial } },
+                    { vanillaArchive },
+                    false);
+    m_pgd->waitForMeshMapping();
+    m_pgd->waitForCMClassification();
+    EXPECT_EQ(m_pgd->textureType(L"textures\\a\\manual.dds"), TextureType::ComplexMaterial);
+}
+
 }

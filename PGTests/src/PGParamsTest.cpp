@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -170,6 +171,35 @@ TEST(PGParamsTest,
     ASSERT_EQ(params.processing.textureMaps.size(), 1U);
     EXPECT_EQ(params.processing.textureMaps[0].first, L"textures\\armor\\helmet.dds");
     EXPECT_EQ(params.processing.textureMaps[0].second, PGEnums::TextureType::Diffuse);
+}
+
+TEST(PGParamsTest,
+     NormalizedRulesAreSpelledAsTheFileReadSpellsThem)
+{
+    PGParams params;
+    params.processing.allowList = { L"meshes/a/*" };
+    params.processing.blockList = { L"Meshes/B/*.nif" };
+    params.processing.textureMaps = { { L"Textures/A/Manual.DDS", PGEnums::TextureType::ComplexMaterial } };
+    params.normalizeRules();
+    EXPECT_EQ(params.processing.allowList, std::vector<std::wstring> { L"meshes\\a\\*" });
+    EXPECT_EQ(params.processing.blockList, std::vector<std::wstring> { L"Meshes\\B\\*.nif" });
+    ASSERT_EQ(params.processing.textureMaps.size(), 1U);
+    EXPECT_EQ(params.processing.textureMaps[0].first, L"textures\\a\\manual.dds");
+    EXPECT_EQ(params.processing.textureMaps[0].second, PGEnums::TextureType::ComplexMaterial);
+}
+
+TEST(PGParamsTest,
+     TwoSpellingsOfOneRuleAreADuplicateOnceNormalized)
+{
+    PGParams params;
+    params.processing.blockList = { L"meshes/a/*", L"meshes\\a\\*" };
+    EXPECT_TRUE(params.validate().empty());
+
+    params.normalizeRules();
+    const auto problems = params.validate();
+    ASSERT_EQ(problems.size(), 1U);
+    EXPECT_EQ(problems[0].key, "launcher.validation.meshBlockListDuplicate");
+    EXPECT_EQ(problems[0].item, L"meshes\\a\\*");
 }
 
 }

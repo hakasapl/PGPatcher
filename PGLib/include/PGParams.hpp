@@ -186,4 +186,12 @@ struct PGParams {
      * @param json JSON document to change in place.
      */
     static void replaceForwardSlashes(nlohmann::json& json);
+
+    /**
+     * @brief Spells the mesh rules and the texture rules as a read of the settings file leaves them: backslashes, and
+     * lower case for the texture rules, which is the form the matching compares. Two spellings of one rule become
+     * equal, so validate() reports them as the duplicate they are. readJSON() calls this; the PGLite menu calls it
+     * before it validates the rules as typed.
+     */
+    void normalizeRules();
 };

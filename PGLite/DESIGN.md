@@ -448,11 +448,12 @@ allowed record types; mesh allow list and block list; texture rules; a status pa
 variant counts, generated texture counts, a toggle that disables PGLite through an apply with an empty plan and
 enables it through a full one, persisted in `settings.json`) and the warnings and errors collected by a log sink,
 deduplicated (weighted pair mismatches land here). Apply refuses what the offline launcher refuses
-(`PGParams::validate`: the transform without its patchers, duplicate rule entries; empty entries cannot be entered
-in the menu, and the vanilla archive list, which the menu does not edit, only warns) and shows the first problem in
-its row, every one in the log; disabling PGLite is never refused. The conflict manager page builds its mod list from
-the mod manager settings as edited: while they are the
-applied ones the list is the environment's own mod manager, attributed by the mesh reading pass; otherwise the mod
+(`PGParams::validate`, run on the rules spelled as a read of the file spells them, `PGParams::normalizeRules`: the
+transform without its patchers, duplicate rule entries, two spellings of one rule among them; empty entries are
+dropped by the menu, and the vanilla archive list, which the menu does not edit, only warns) and shows the first
+problem in its row, every one in the log; disabling PGLite is never refused. The conflict manager page builds its mod
+list from the mod manager settings as edited: while they are the applied ones the list is the environment's own mod
+manager, attributed by the mesh reading pass; otherwise the mod
 manager is read, the mods get their shaders from the classified textures of the current environment and their meshes
 from the mesh reading pass (`PGDirectory::attributeMods`), and the shared ordering numbers them, so the list is the
 one the next apply installs. The menu opens only once the runtime is ready. While the runtime initializes (and the

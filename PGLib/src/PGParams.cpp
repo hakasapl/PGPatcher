@@ -93,16 +93,14 @@ void PGParams::readJSON(const nlohmann::json& paramsJSON)
             processing.blockList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
     if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("texturemaps")) {
         for (const auto& item : paramsJSON["processing"]["texturemaps"].items()) {
-            // The rule is matched against the mapped path, which is lower case with backslashes; a rule typed with
-            // forward slashes or capitals is read in that form (the keys of a JSON object are not touched by
-            // replaceForwardSlashes()).
-            auto path = StringUtil::utf8toUTF16(item.key());
-            std::ranges::replace(path, L'/', L'\\');
-            StringUtil::toLowerASCIIFastInPlace(path);
-            processing.textureMaps.emplace_back(std::move(path),
+            processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(item.key()),
                                                 PGEnums::texTypeFromStr(item.value().get<std::string>()));
         }
     }
+
+    // The rules in the file's spelling, whatever form the file has them in (the keys of a JSON object are not touched
+    // by replaceForwardSlashes()).
+    normalizeRules();
     if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("vanillabsalist"))
         for (const auto& item : paramsJSON["processing"]["vanillabsalist"])
             processing.vanillaBSAList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
@@ -203,6 +201,20 @@ void PGParams::replaceForwardSlashes(nlohmann::json& json)
     } else if (json.is_array()) {
         for (auto& element : json)
             replaceForwardSlashes(element);
+    }
+}
+
+void PGParams::normalizeRules()
+{
+    for (auto* const list : { &processing.allowList, &processing.blockList })
+        for (auto& rule : *list)
+            std::ranges::replace(rule, L'/', L'\\');
+
+    // The texture rules are compared with the mapped paths, which are lower case; the mesh rules are globs, which
+    // PathMatchSpecW matches without case.
+    for (auto& [path, type] : processing.textureMaps) {
+        std::ranges::replace(path, L'/', L'\\');
+        StringUtil::toLowerASCIIFastInPlace(path);
     }
 }
 
