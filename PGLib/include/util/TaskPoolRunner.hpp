@@ -16,8 +16,8 @@
  */
 class TaskPoolRunner {
 private:
-    const bool m_multithread; /** If true, run multithreaded */
-    const unsigned m_threadCount; /** Number of pool threads */
+    bool m_multithread; /** If true, run multithreaded */
+    unsigned m_threadCount; /** Number of pool threads */
 
     std::vector<std::function<void()>> m_tasks; /** Task list to run */
 

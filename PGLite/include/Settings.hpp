@@ -13,9 +13,10 @@ namespace PGLite {
 /**
  * @brief The files of the plugin and their contents (DESIGN.md section 4.11).
  *
- * The ini (Data\SKSE\Plugins\PGLite.ini) holds what the offline program takes from the command line. settings.json
- * holds the offline "params" object with the same keys, so settings can be copied between the programs, and
- * modrules.json the offline mod rules. All of them live under Data\SKSE\Plugins\PGLite.
+ * The ini (Data\SKSE\Plugins\PGLite.ini, next to the DLL) holds what the offline program takes from the command line.
+ * settings.json holds the offline "params" object with the same keys, so settings can be copied between the programs,
+ * and modrules.json the offline mod rules; they live under Data\SKSE\Plugins\PGLite with the caches and the
+ * translations.
  */
 class Settings {
 public:
@@ -27,7 +28,7 @@ public:
         spdlog::level::level_enum logLevel = spdlog::level::info;
         /// @brief Whether facegen heads are left unpatched (--exclude-facegens offline).
         bool shouldExcludeFacegens = false;
-        /// @brief Whether complex material shapes keep their cubemap (--no-dyn-cubemap offline).
+        /// @brief Whether complex material shapes keep their cubemap (--disable-dyncubemap offline).
         bool shouldDisableDynamicCubemap = false;
         /// @brief Whether every parallax match is upgraded to complex material, not only those that cannot keep
         /// parallax (--force-always-cm offline).
@@ -71,7 +72,8 @@ public:
     [[nodiscard]] static Ini readIni();
 
     /**
-     * @brief Reads settings.json over the defaults of a fresh offline installation. Only the "params" object is read.
+     * @brief Reads the "params" object of settings.json, which holds every parameter as the offline program writes
+     * it; the defaults of a fresh offline installation apply only when there is no file or no "params" object.
      */
     [[nodiscard]] static PGParams readParams();
 
@@ -125,6 +127,16 @@ public:
      * @return false if the file could not be written (logged).
      */
     static bool writeModRules(const nlohmann::json& rules);
+
+    /**
+     * @brief Writes a file through a temporary file next to it and a rename, so the file is complete or absent for
+     * whoever reads it.
+     *
+     * @return false if the write failed; the temporary file is removed then.
+     */
+    [[nodiscard]] static bool writeFileAtomically(const std::filesystem::path& file,
+                                                  const void* data,
+                                                  std::size_t size);
 };
 
 }

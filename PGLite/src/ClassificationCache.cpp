@@ -222,6 +222,26 @@ void ClassificationCache::load(const std::filesystem::path& file)
                   file.wstring());
 }
 
+void ClassificationCache::unload()
+{
+    const std::scoped_lock lock(m_mutex);
+    m_cmEntries.clear();
+    m_meshEntries.clear();
+    m_isDirty = false;
+}
+
+void ClassificationCache::setHookRegistrationListener(HookRegistrationListener listener)
+{
+    m_hookRegistrationListener = std::move(listener);
+}
+
+void ClassificationCache::recordHookRegistration(const HookKind& kind,
+                                                 const std::filesystem::path& texPath)
+{
+    if (m_hookRegistrationListener)
+        m_hookRegistrationListener(kind, texPath);
+}
+
 void ClassificationCache::save() const
 {
     const std::scoped_lock lock(m_mutex);
@@ -276,6 +296,15 @@ void ClassificationCache::save() const
                 writer.write(static_cast<std::uint8_t>(vote.type));
             }
         }
+
+        if (!stream) {
+            // A truncated file must not replace the good one (a full disk).
+            Logger::error(L"Unable to write the classification cache {}", m_file.wstring());
+            stream.close();
+            std::error_code removeError;
+            std::filesystem::remove(temporary, removeError);
+            return;
+        }
     }
 
     std::error_code ec;
@@ -284,6 +313,7 @@ void ClassificationCache::save() const
         Logger::error(L"Unable to replace the classification cache {}: {}",
                       m_file.wstring(),
                       std::filesystem::path(ec.message()).wstring());
+        std::filesystem::remove(temporary, ec);
         return;
     }
 

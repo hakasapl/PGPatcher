@@ -9,6 +9,7 @@
 #include <spdlog/sinks/base_sink.h>
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -30,7 +31,8 @@ namespace {
 class FileSink final : public spdlog::sinks::base_sink<std::mutex> {
 public:
     explicit FileSink(const std::filesystem::path& path)
-        : m_file(path, std::ios::binary | std::ios::trunc)
+        : m_file(path,
+                 std::ios::binary | std::ios::trunc)
     {
     }
 
@@ -51,10 +53,12 @@ private:
 };
 
 /**
- * @brief Keeps every message of warning level and above for the GUI, each once.
+ * @brief Keeps every message of warning level and above for the GUI, each once, the newest maxMessages of them.
  */
 class MessageSink final : public spdlog::sinks::base_sink<std::mutex> {
 public:
+    static constexpr std::size_t maxMessages = 2000;
+
     [[nodiscard]] std::vector<Logging::Message> messages()
     {
         const std::scoped_lock lock(mutex_);
@@ -76,8 +80,12 @@ protected:
             return;
 
         std::string text(message.payload.data(), message.payload.size());
-        if (m_seen.insert(text).second)
-            m_messages.push_back({ .level = message.level, .text = std::move(text) });
+        if (!m_seen.insert(text).second)
+            return;
+
+        if (m_messages.size() >= maxMessages)
+            m_messages.erase(m_messages.begin());
+        m_messages.push_back({ .level = message.level, .text = std::move(text) });
     }
 
     void flush_() override { } // NOLINT(readability-identifier-naming)

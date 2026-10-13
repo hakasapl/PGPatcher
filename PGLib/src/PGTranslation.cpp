@@ -119,6 +119,17 @@ std::string PGTranslation::tr(const std::string& key)
     return key;
 }
 
+std::string PGTranslation::trFormat(const std::string& key,
+                                    const std::string& argument)
+{
+    auto text = tr(key);
+    const auto placeholder = text.find("%s");
+    if (placeholder != std::string::npos)
+        text.replace(placeholder, 2, argument);
+
+    return text;
+}
+
 std::string PGTranslation::currentLanguage() { return translationState().currentLanguage; }
 
 auto PGTranslation::availableLanguages() -> std::vector<Language>

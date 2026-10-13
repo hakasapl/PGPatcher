@@ -75,7 +75,7 @@ This section will dive deeper into the individual components of PG. PGPatcher is
 
 ### PGLite
 
-`PGLite` is the SKSE plugin version of PGPatcher (`PGLite/DESIGN.md` has the design, `PGLite/README.md` the user facing differences). It is not part of the root configure: a configure has one vcpkg triplet, and the plugin is one statically linked DLL (x64-windows-static, static CRT, C++23 for CommonLibSSE-NG), so `PGLite/CMakeLists.txt` is configured on its own (`buildRelease.ps1` does it after the root build) and compiles the shared `PGLib` sources a second time as a static library without the offline-only units (the runners, the Mutagen plugin implementation, the update cache, the texture generating patchers). `external/CommonLibSSE-NG` is its submodule. Every change to `PGLib` has to build there as well. The module has no unit tests of its own; the shared code it uses is tested through `PGTests`.
+`PGLite` is the SKSE plugin version of PGPatcher (`PGLite/DESIGN.md` has the design, `PGLite/README.md` the user facing differences). It is not part of the root configure: a configure has one vcpkg triplet, and the plugin is one statically linked DLL (x64-windows-static, static CRT, C++23 for CommonLibSSE-NG), so `PGLite/CMakeLists.txt` is configured on its own (`buildRelease.ps1` does it after the root build) and compiles the shared `PGLib` sources a second time as a static library without the offline-only units (the runners, the Mutagen plugin implementation, the update cache, the stack trace task guard, the pgtools-only particle lights and HDR patchers). `external/CommonLibSSE-NG` is its submodule. Every change to `PGLib` has to build there as well. The module has no unit tests of its own; the shared code it uses is tested through `PGTests`.
 
 ### PGLib
 

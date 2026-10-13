@@ -60,11 +60,13 @@ auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
     // The order the uses are patched in, see isUseOrderedBefore().
     const auto orderOf = [](const PGMutagenWrapper::ModelUse& use) {
-        return UseOrder { .hasAlternateTextures = !use.alternateTextures.empty(),
-                          .isWeighted = use.isWeighted,
-                          .modName = use.modName,
-                          .formID = use.formID,
-                          .subModel = use.subModel };
+        return UseOrder {
+            .hasAlternateTextures = !use.alternateTextures.empty(),
+            .isWeighted = use.isWeighted,
+            .modName = use.modName,
+            .formID = use.formID,
+            .subModel = use.subModel,
+        };
     };
     std::ranges::sort(modelUses, [&orderOf](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) {
         return isUseOrderedBefore(orderOf(a), orderOf(b));

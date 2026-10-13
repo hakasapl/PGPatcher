@@ -50,7 +50,8 @@ public:
 
     /**
      * @brief Queues one input event: the hotkey always, everything else while the menu is open. The engine dispatches
-     * input events from its task threads, so they are applied to Dear ImGui in render(), on the thread that draws.
+     * its input events on the main thread, which is not always the thread that presents, so they are applied to Dear
+     * ImGui in render(), on the thread that draws.
      */
     void handleInput(const RE::InputEvent& event);
 
@@ -102,6 +103,9 @@ private:
 
     /// @brief One Dear ImGui frame into the back buffer. Render thread, initialized.
     void drawFrame(IDXGISwapChain* swapChain);
+
+    /// @brief Ends the frame a failed draw left begun, so the next frame can begin.
+    void endOpenFrame();
     bool capturePausedFrame(IDXGISwapChain* swapChain);
     void restorePausedFrame(IDXGISwapChain* swapChain);
 
@@ -117,11 +121,15 @@ private:
     void finishApply();
 
     /**
-     * @brief Builds the mod list from the mod manager settings as edited, when they changed: the mod manager is
-     * read, the mods get their shaders and meshes from the runtime's environment, and the shared ordering numbers
-     * them, so the list is the one the next apply installs.
+     * @brief Builds the mod list from the mod manager settings as edited, when they changed. While they are the
+     * applied ones the list is the environment's own mod manager, attributed by the mesh reading pass; otherwise the
+     * mod manager is read, the mods get their shaders and meshes from the runtime's directory, and the shared
+     * ordering numbers them, so the list is the one the next apply installs.
      */
     void rebuildModList();
+
+    /// @brief The rows of the mod list from a mod manager: the mods with shaders or meshes, in priority order.
+    void fillModRows(PGModManager& manager);
 
     void draw();
     void drawStatus();
@@ -178,6 +186,8 @@ private:
     std::atomic<bool> m_isOpen { false };
     bool m_didOpenMenu = false;
     bool m_isStateLoaded = false;
+    /// @brief Whether a Dear ImGui frame is begun and not rendered yet, so a failed draw can end it.
+    bool m_isFrameOpen = false;
     std::mutex m_inputMutex;
     std::vector<InputRecord> m_pendingInput;
     Microsoft::WRL::ComPtr<ID3D11Device> m_device;
@@ -202,7 +212,8 @@ private:
     std::atomic<bool> m_isApplying { false };
     std::atomic<bool> m_isApplyDone { false };
     bool m_didApplySucceed = false;
-    bool m_applyIsEnabled = true;
+    /// @brief Whether the running Apply enables PGLite.
+    bool m_isApplyEnabling = true;
     std::thread m_applyThread;
     std::chrono::steady_clock::time_point m_applyStart;
     Microsoft::WRL::ComPtr<ID3D11Texture2D> m_pausedFrame;
@@ -214,6 +225,8 @@ private:
     std::vector<TextureRule> m_textureRules;
     std::vector<ModRow> m_mods;
     std::unique_ptr<PGModManager> m_previewModManager;
+    /// @brief Whether the rows come from the environment's mod manager, the applied settings being the edited ones.
+    bool m_isPreviewFromEnvironment = false;
     std::string m_modListSignature;
     std::string m_modListMessage;
     std::string m_mo2InstanceDir;

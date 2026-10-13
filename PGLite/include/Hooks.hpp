@@ -54,14 +54,10 @@ private:
     static constexpr std::ptrdiff_t pollDispatchCallOffset = 0x7B;
     static constexpr std::uint8_t callOpcode = 0xE8;
 
-    /// @brief The first input events are logged, which shows whether the redirect receives any.
-    static constexpr unsigned maxTracedEvents = 20;
-
     static inline decltype(&present) s_originalPresent = nullptr;
     static inline decltype(&resizeBuffers) s_originalResizeBuffers = nullptr;
     static inline REL::Relocation<decltype(&dispatchInput)> s_originalDispatch;
     static inline Menu* s_menu = nullptr;
-    static inline unsigned s_tracedEvents = 0;
 };
 
 }

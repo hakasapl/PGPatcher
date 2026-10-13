@@ -141,9 +141,11 @@ TEST(PGParamsTest,
     PGParams params;
     params.processing.allowList = { L"a", L"", L"a" };
     params.processing.blockList = { L"b", L"b" };
-    params.processing.textureMaps = { { L"t", PGEnums::TextureType::Diffuse },
-                                      { L"", PGEnums::TextureType::Diffuse },
-                                      { L"t", PGEnums::TextureType::Normal } };
+    params.processing.textureMaps = {
+        { L"t", PGEnums::TextureType::Diffuse },
+        { L"", PGEnums::TextureType::Diffuse },
+        { L"t", PGEnums::TextureType::Normal },
+    };
     params.processing.vanillaBSAList = { L"v.bsa", L"v.bsa", L"" };
     const std::vector<PGParams::ValidationError> expected {
         { .key = "launcher.validation.meshAllowListEmptyEntry" },

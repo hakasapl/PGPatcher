@@ -29,9 +29,10 @@ public:
      *
      * @param path Path relative to the data folder, as plugins write it.
      * @param stream The stream to register. The registry keeps a reference for the session.
+     * @return false if the runtime is unsupported or the engine refused the registration.
      */
-    static void registerStream(const std::string& path,
-                               RE::BSTSmartPointer<RE::BSResource::Stream>& stream);
+    [[nodiscard]] static bool registerStream(const std::string& path,
+                                             RE::BSTSmartPointer<RE::BSResource::Stream>& stream);
 
     /**
      * @brief Resolves a path to the stream the engine would read it from: the registry first (a loose record's stream

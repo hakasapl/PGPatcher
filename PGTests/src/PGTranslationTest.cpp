@@ -106,3 +106,13 @@ TEST_F(PGTranslationTest,
     EXPECT_NE(std::ranges::find(strings, "Sea"), strings.end());
     EXPECT_EQ(std::ranges::find(strings, "Bee"), strings.end());
 }
+
+TEST_F(PGTranslationTest,
+       TrFormatReplacesTheFirstPlaceholder)
+{
+    writeTranslation(m_dir / "en.json", R"({"_language": "English", "f": {"one": "Reason: %s.", "none": "Plain"}})");
+    PGTranslation::init(m_dir.path(), "en");
+    EXPECT_EQ(PGTranslation::trFormat("f.one", "x"), "Reason: x.");
+    EXPECT_EQ(PGTranslation::trFormat("f.none", "x"), "Plain");
+    EXPECT_EQ(PGTranslation::trFormat("missing.key", "x"), "missing.key");
+}

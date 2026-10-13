@@ -33,10 +33,13 @@
 #include <cstddef>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <objbase.h>
 #include <shared_mutex>
+#include <shlobj.h>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -92,13 +95,62 @@ void addArchivesOfList(const char* settingName,
     }
 }
 
-void addArchivesOfPlugin(const RE::TESFile& file,
+/// @brief The archives the engine registers for a plugin file name: <name>.bsa and <name> - Textures.bsa.
+void addArchivesOfPlugin(const std::wstring& fileName,
                          std::vector<std::wstring>& archives)
 {
-    const auto fileName = StringUtil::windows1252toUTF16(std::string(file.GetFilename()));
     const auto stem = std::filesystem::path(fileName).stem().wstring();
     archives.push_back(stem + L".bsa");
     archives.push_back(stem + L" - Textures.bsa");
+}
+
+/// @brief The folder of the game's Plugins.txt under the local application data, named as the engine names it for the
+/// store the game came from.
+std::filesystem::path localAppDataGameFolder()
+{
+    wchar_t* buffer = nullptr;
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &buffer)) || !buffer)
+        return { };
+
+    std::filesystem::path folder(buffer);
+    CoTaskMemFree(buffer);
+
+    std::error_code ec;
+    const auto gameFolder = Settings::gameFolder();
+    if (std::filesystem::exists(gameFolder / L"steam_api64.dll", ec))
+        return folder / L"Skyrim Special Edition";
+    if (std::filesystem::exists(gameFolder / L"EOSSDK-Win64-Shipping.dll", ec))
+        return folder / L"Skyrim Special Edition EPIC";
+
+    return folder / L"Skyrim Special Edition GOG";
+}
+
+/**
+ * @brief The plugin file names of the active lines of Plugins.txt in file order, as the engine reads them for its
+ * archive registration (a line that starts with an asterisk; comments and empty lines skipped). Empty when the file
+ * cannot be read.
+ */
+std::vector<std::wstring> activePluginsTxtLines()
+{
+    std::vector<std::wstring> names;
+    const auto file = localAppDataGameFolder() / L"Plugins.txt";
+    std::ifstream stream(file);
+    if (!stream) {
+        Logger::warn(L"Unable to read {}, the archives of the plugins are ordered by their load order", file.wstring());
+        return names;
+    }
+
+    std::string line;
+    while (std::getline(stream, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+            line.pop_back();
+        if (line.size() < 2 || line.front() != '*')
+            continue;
+
+        names.push_back(StringUtil::windows1252toUTF16(line.substr(1)));
+    }
+
+    return names;
 }
 
 }
@@ -254,46 +306,6 @@ void Environment::classifyTextures(ClassificationCache& cache,
                  stopwatch.milliseconds());
 }
 
-void Environment::attributeMods(PGModManager& modManager,
-                                PGDirectory& directory)
-{
-    // The shader a classified texture gives its mod, as PGDirectory::updateTextureType does during classification.
-    for (const auto& [path, file] : directory.fileMap()) {
-        const auto& native = path.native();
-        if (!native.starts_with(L"textures\\") || !native.ends_with(L".dds"))
-            continue;
-
-        // The dynamic cubemap PGLite ships gives its own mod no shader, so that mod stays out of the list.
-        if (native == dynamicCubemapTexture)
-            continue;
-
-        auto shader = PGEnums::ShapeShader::None;
-        switch (directory.textureType(path)) {
-        case PGEnums::TextureType::Height:
-            shader = PGEnums::ShapeShader::VanillaParallax;
-            break;
-        case PGEnums::TextureType::ComplexMaterial:
-            shader = PGEnums::ShapeShader::ComplexMaterial;
-            break;
-        default:
-            break;
-        }
-        modManager.addShaderToModByFile(path, shader);
-    }
-    for (const auto& json : directory.pbrJSONs())
-        modManager.addShaderToModByFile(json, PGEnums::ShapeShader::TruePBR);
-
-    // A mod has meshes when it owns a mesh the mesh reading pass read, as PGDirectory::mapTexturesFromNIF marks it.
-    for (const auto& [path, cache] : directory.meshes()) {
-        const auto mod = modManager.modByFileSmart(path);
-        if (!mod)
-            continue;
-
-        const std::unique_lock lock(mod->mutex);
-        mod->hasMeshes = true;
-    }
-}
-
 std::vector<std::wstring> Environment::engineArchiveOrder()
 {
     std::vector<std::wstring> candidates;
@@ -301,17 +313,31 @@ std::vector<std::wstring> Environment::engineArchiveOrder()
     addArchivesOfList(archiveList2Setting, candidates);
     candidates.emplace_back(updateArchive);
 
+    // The engine registers the archives of its built-in plugin list (the masters and the Creation Club content), then
+    // those of the active lines of Plugins.txt in file order. The loaded plugins without a line are the built-in ones;
+    // their archives share no file, so their order among themselves does not matter.
+    const auto activeLines = activePluginsTxtLines();
+    std::unordered_set<std::wstring> activeLower;
+    for (const auto& name : activeLines)
+        activeLower.insert(StringUtil::toLowerASCIIFast(name));
     if (auto* const dataHandler = RE::TESDataHandler::GetSingleton()) {
+        const auto addBuiltIn = [&candidates, &activeLower](const RE::TESFile& file) {
+            const auto fileName = StringUtil::windows1252toUTF16(std::string(file.GetFilename()));
+            if (!activeLower.contains(StringUtil::toLowerASCIIFast(fileName)))
+                addArchivesOfPlugin(fileName, candidates);
+        };
         const auto* const* const mods = dataHandler->GetLoadedMods();
         for (std::uint8_t i = 0; mods && i < dataHandler->GetLoadedModCount(); i++)
             if (mods[i])
-                addArchivesOfPlugin(*mods[i], candidates);
+                addBuiltIn(*mods[i]);
 
         const auto* const* const lightMods = dataHandler->GetLoadedLightMods();
         for (std::uint16_t i = 0; lightMods && i < dataHandler->GetLoadedLightModCount(); i++)
             if (lightMods[i])
-                addArchivesOfPlugin(*lightMods[i], candidates);
+                addBuiltIn(*lightMods[i]);
     }
+    for (const auto& name : activeLines)
+        addArchivesOfPlugin(name, candidates);
 
     // The engine registers an archive once, when it exists.
     std::vector<std::wstring> archives;
@@ -362,9 +388,15 @@ void Environment::registerPatchers(const PGParams& params,
     }
 
     // The transform and Fix SSS register textures with their hooks, and the runtime generates those the first time a
-    // patched mesh needs them (TextureGenerator). A hook whose shader cannot be created leaves its patcher off.
+    // patched mesh needs them (TextureGenerator). A hook whose shader cannot be created leaves its patcher off, where
+    // the offline program refuses to run (DESIGN.md section 7).
     if (params.shaderTransforms.isParallaxToCMEnabled) {
-        if (PatcherTextureHookConvertToCM::initShader()) {
+        if (!params.shaderPatcher.isParallaxEnabled || !params.shaderPatcher.isComplexMaterialEnabled) {
+            // The menu and the offline launcher refuse this combination (PGParams::validate); an edited settings.json
+            // gets the patchers it names and no transform, which would fail on every parallax match.
+            Logger::error("The parallax to complex material transform needs the parallax and the complex material "
+                          "patchers, the transform is off");
+        } else if (PatcherTextureHookConvertToCM::initShader()) {
             meshPatchers.shaderTransformPatchers[PatcherMeshShaderTransformParallaxToCM::fromShader()]
                 = { PatcherMeshShaderTransformParallaxToCM::toShader(),
                     PatcherMeshShaderTransformParallaxToCM::factory() };

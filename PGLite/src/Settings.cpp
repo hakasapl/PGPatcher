@@ -10,8 +10,11 @@
 #include <SimpleIni.h>
 #include <nlohmann/json.hpp>
 
+#include <cstddef>
 #include <exception>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -22,6 +25,14 @@ namespace PGLite {
 namespace {
 
 constexpr const char* iniSection = "General";
+
+/// @brief Gives a settings document without a "params" object the defaults, so a file PGLite writes before its first
+/// Apply reads the same in the offline program, which takes any file for a complete one.
+void ensureParams(nlohmann::json& settings)
+{
+    if (!settings.contains("params"))
+        PGParams::defaults().writeJSON(settings["params"]);
+}
 
 }
 
@@ -143,6 +154,7 @@ bool Settings::writeIsEnabled(bool isEnabled)
         settings = nlohmann::json::object();
 
     try {
+        ensureParams(settings);
         settings["pglite"]["enabled"] = isEnabled;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
@@ -173,6 +185,7 @@ bool Settings::writeLanguage(const std::string& language)
         settings = nlohmann::json::object();
 
     try {
+        ensureParams(settings);
         settings["pglite"]["language"] = language;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
@@ -200,6 +213,7 @@ bool Settings::writeDidOpenMenu()
         settings = nlohmann::json::object();
 
     try {
+        ensureParams(settings);
         settings["pglite"]["didOpenMenu"] = true;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
@@ -218,6 +232,32 @@ bool Settings::writeModRules(const nlohmann::json& rules)
         FileUtil::saveJSON(modRulesFile(), rules, true);
     } catch (const std::exception& e) {
         Logger::error("Unable to write modrules.json: {}", e.what());
+        return false;
+    }
+
+    return true;
+}
+
+bool Settings::writeFileAtomically(const std::filesystem::path& file,
+                                   const void* data,
+                                   std::size_t size)
+{
+    auto temporary = file;
+    temporary += L".tmp";
+    {
+        std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
+        if (!stream)
+            return false;
+
+        stream.write(static_cast<const char*>(data), static_cast<std::streamsize>(size));
+        if (!stream)
+            return false;
+    }
+
+    std::error_code ec;
+    std::filesystem::rename(temporary, file, ec);
+    if (ec) {
+        std::filesystem::remove(temporary, ec);
         return false;
     }
 

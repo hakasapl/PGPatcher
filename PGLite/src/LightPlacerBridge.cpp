@@ -14,8 +14,6 @@
 #include <cstddef>
 #include <exception>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -37,23 +35,18 @@ constexpr std::wstring_view meshesPrefix = L"meshes\\";
 constexpr std::string_view reloadCommand = "ReloadLP";
 
 /// @brief The model string a record holds for a mesh path: without the meshes\ prefix, as setModelPath() writes it
-/// and as Light Placer compares it (case insensitively, otherwise literally).
+/// and as Light Placer compares it (case insensitively, otherwise literally). Empty for a path with a character outside
+/// ASCII: the configs are UTF-8 JSON and the engine's strings are not, so no config entry can match such a model.
 std::string recordModelString(const std::filesystem::path& meshPath)
 {
     auto rest = meshPath.wstring();
     if (rest.starts_with(meshesPrefix))
         rest.erase(0, meshesPrefix.size());
 
-    return StringUtil::utf16toWindows1252(rest);
-}
+    if (!StringUtil::containsOnlyAscii(rest))
+        return { };
 
-/// @brief A config's model entry as the offline handler compares it with a mesh path: lower case with backslashes.
-std::string comparableModel(const std::string& model)
-{
-    auto wide = StringUtil::utf8toUTF16(model);
-    std::ranges::replace(wide, L'/', L'\\');
-    StringUtil::toLowerASCIIFastInPlace(wide);
-    return StringUtil::utf16toWindows1252(wide);
+    return StringUtil::utf16toASCII(rest);
 }
 
 }
@@ -71,19 +64,30 @@ void LightPlacerBridge::update(const Plan& plan)
         return;
 
     try {
-        // The variant model strings of every original model string of the plan.
-        std::unordered_map<std::string, std::vector<std::string>> variantsOf;
+        // The variant model strings of every original model string of the plan, keyed as the offline handler keys
+        // the entries of the configs (HandlerLightPlacerTracker::modelKey).
+        std::unordered_map<std::filesystem::path, std::vector<std::string>> variantsOf;
+        std::size_t unlisted = 0;
         for (const auto& family : plan.families()) {
             for (const auto& member : family->members) {
                 if (!member.variantNumber)
                     continue;
 
                 for (std::size_t i = 0; i < family->basePaths.size() && i < member.paths.size(); i++) {
-                    variantsOf[recordModelString(family->basePaths.at(i))].push_back(
-                        recordModelString(member.paths.at(i)));
+                    const auto original = recordModelString(family->basePaths.at(i));
+                    const auto variant = recordModelString(member.paths.at(i));
+                    if (original.empty() || variant.empty()) {
+                        unlisted++;
+                        continue;
+                    }
+
+                    variantsOf[HandlerLightPlacerTracker::modelKey(original)].push_back(variant);
                 }
             }
         }
+        if (unlisted)
+            Logger::debug("{} variants of models with characters outside ASCII are not listed for Light Placer",
+                          unlisted);
 
         const auto file = configFile();
         const auto folder = file.parent_path();
@@ -112,7 +116,7 @@ void LightPlacerBridge::update(const Plan& plan)
                         if (!model.is_string())
                             continue;
 
-                        const auto it = variantsOf.find(comparableModel(model.get<std::string>()));
+                        const auto it = variantsOf.find(HandlerLightPlacerTracker::modelKey(model.get<std::string>()));
                         if (it == variantsOf.end())
                             continue;
 
@@ -142,14 +146,11 @@ void LightPlacerBridge::update(const Plan& plan)
             return;
         }
 
-        {
-            std::ofstream stream(file, std::ios::binary | std::ios::trunc);
-            if (!stream) {
-                Logger::error(L"Unable to write the Light Placer config of the variants {}", file.wstring());
-                return;
-            }
-
-            stream << entries.dump(2);
+        // Serialized first, then written whole or not at all: Light Placer reads the file at its plugin load.
+        const auto text = entries.dump(2);
+        if (!Settings::writeFileAtomically(file, text.data(), text.size())) {
+            Logger::error(L"Unable to write the Light Placer config of the variants {}", file.wstring());
+            return;
         }
 
         Logger::info(L"Wrote {} Light Placer entries for the variant paths to {} ({} configs read)",

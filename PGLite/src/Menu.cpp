@@ -59,11 +59,18 @@ constexpr unsigned mouseButtonCount = 5;
 constexpr float minDeltaTime = 1.0F / 1000;
 constexpr float referenceHeight = 1080;
 constexpr float fontSize = 18;
-constexpr const char* fontFile = "C:\\Windows\\Fonts\\segoeui.ttf";
-/// @brief Microsoft YaHei, merged for the Chinese translation.
-constexpr const char* cjkFontFile = "C:\\Windows\\Fonts\\msyh.ttc";
 /// @brief The first code point the Latin and Cyrillic font does not cover.
 constexpr ImWchar firstCJKCodePoint = 0x2E80;
+
+/// @brief A font of the Windows installation (Segoe UI, and Microsoft YaHei merged for the Chinese translation).
+std::string fontPath(const wchar_t* fileName)
+{
+    std::array<wchar_t, MAX_PATH> windows = { };
+    const auto length = GetWindowsDirectoryW(windows.data(), static_cast<UINT>(windows.size()));
+    const std::filesystem::path folder = length && length < windows.size() ? std::filesystem::path(windows.data())
+                                                                           : std::filesystem::path(L"C:\\Windows");
+    return StringUtil::utf16toUTF8((folder / L"Fonts" / fileName).wstring());
+}
 
 /// @brief A string of the translation files (PGPatcher/translations), which both programs share.
 std::string tr(const char* key) { return PGTranslation::tr(key); }
@@ -299,8 +306,8 @@ std::string shaderNames(const std::set<PGEnums::ShapeShader>& shaders)
 
 Menu::Menu(Runtime& runtime)
     : m_runtime(&runtime)
-    , m_lastFrame(std::chrono::steady_clock::now())
     , m_didOpenMenu(Settings::readDidOpenMenu())
+    , m_lastFrame(std::chrono::steady_clock::now())
 {
 }
 
@@ -406,9 +413,19 @@ void Menu::render(IDXGISwapChain* swapChain)
         drawFrame(swapChain);
     } catch (const std::exception& e) {
         Logger::error("The menu failed to draw: {}", e.what());
+        endOpenFrame();
         if (!m_isApplying)
             close();
     }
+}
+
+void Menu::endOpenFrame()
+{
+    if (!m_isFrameOpen)
+        return;
+
+    ImGui::EndFrame();
+    m_isFrameOpen = false;
 }
 
 void Menu::drawFrame(IDXGISwapChain* swapChain)
@@ -433,8 +450,10 @@ void Menu::drawFrame(IDXGISwapChain* swapChain)
 
     ImGui_ImplDX11_NewFrame();
     ImGui::NewFrame();
+    m_isFrameOpen = true;
     draw();
     ImGui::Render();
+    m_isFrameOpen = false;
 
     // Apply started in this frame: keep the game image before the menu is drawn over it, for the progress frames.
     if (m_isApplying && !m_pausedFrame && !capturePausedFrame(swapChain))
@@ -500,6 +519,7 @@ void Menu::renderApplyFrame(IDXGISwapChain* swapChain)
         }
     } catch (const std::exception& e) {
         Logger::error("The menu failed to draw a progress frame: {}", e.what());
+        endOpenFrame();
     }
 
     if (isDone) {
@@ -519,8 +539,6 @@ void Menu::handleInput(const RE::InputEvent& event)
 {
     const auto* const button = event.AsButtonEvent();
     const bool isKeyboard = event.GetDevice() == RE::INPUT_DEVICE::kKeyboard;
-    if (button && isKeyboard && button->IsDown())
-        Logger::trace("Key down: scan code {:#x}", button->GetIDCode());
 
     // The hotkey, open or closed.
     if (button && isKeyboard && button->GetIDCode() == m_runtime->ini().menuKey && button->IsDown()) {
@@ -622,7 +640,7 @@ void Menu::applyInput(const InputRecord& record)
         io.AddInputCharacter(record.code);
         break;
     case InputRecord::Kind::MouseWheel:
-        io.AddMouseWheelEvent(0, record.code == mouseWheelUp ? 1.0F : -1.0F);
+        io.AddMouseWheelEvent(0, record.code == mouseWheelUp ? 1 : -1);
         break;
     case InputRecord::Kind::MouseButton:
         io.AddMouseButtonEvent(static_cast<int>(record.code), record.isDown);
@@ -649,8 +667,9 @@ void Menu::applyInput(const InputRecord& record)
 
 void Menu::open()
 {
-    // A disabled PGLite has no menu; the notice at data load said why.
-    if (m_runtime->disableReason())
+    // A disabled PGLite has no menu; the notice at data load said why. Before the initialization is done the plan and
+    // the environment are still being built, and the status page reads both.
+    if (m_runtime->disableReason() || !m_runtime->isReady())
         return;
 
     m_isOpen = true;
@@ -714,9 +733,23 @@ void Menu::rebuildModList()
     m_modListSignature = signature;
     m_mods.clear();
     m_previewModManager.reset();
+    m_isPreviewFromEnvironment = false;
     m_modListMessage.clear();
     if (type == PGModManager::ModManagerType::None) {
         m_modListMessage = tr("pglite.conflictManager.noModManager");
+        return;
+    }
+
+    // The settings as applied: the environment's own mod manager is the list the session runs with, attributed by
+    // the mesh reading pass itself, and costs no walk of the mod folders.
+    auto* const environment = m_runtime->environment();
+    const auto applied = m_runtime->params().modManager;
+    const bool isApplied = environment && environment->modManager() && type == applied.type
+        && std::filesystem::path(StringUtil::utf8toUTF16(m_mo2InstanceDir)) == applied.mo2InstanceDir
+        && m_params.modManager.shouldUseMO2LooseFileOrder == applied.shouldUseMO2LooseFileOrder;
+    if (isApplied) {
+        fillModRows(*environment->modManager());
+        m_isPreviewFromEnvironment = true;
         return;
     }
 
@@ -749,7 +782,7 @@ void Menu::rebuildModList()
 
         auto* const environment = m_runtime->environment();
         if (environment && environment->directory())
-            Environment::attributeMods(*manager, *environment->directory());
+            environment->directory()->attributeMods(*manager);
         manager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
     } catch (const std::exception& e) {
         Logger::error("The mod list could not be built: {}", e.what());
@@ -760,7 +793,13 @@ void Menu::rebuildModList()
         return;
     }
 
-    for (const auto& mod : manager->modsByPriority()) {
+    fillModRows(*manager);
+    m_previewModManager = std::move(manager);
+}
+
+void Menu::fillModRows(PGModManager& manager)
+{
+    for (const auto& mod : manager.modsByPriority()) {
         const std::shared_lock lock(mod->mutex);
         if (mod->shaders.empty() && !mod->hasMeshes)
             continue;
@@ -773,11 +812,17 @@ void Menu::rebuildModList()
                            .hasMeshes = mod->hasMeshes,
                            .isNew = mod->isNew });
     }
-    m_previewModManager = std::move(manager);
 }
 
 void Menu::startApply(bool isEnabled)
 {
+    // The loading-screen thread presents during a load, and an Apply started from its frame would park that thread
+    // while the main thread goes on loading records PGLite is about to edit.
+    if (auto* const ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) {
+        m_applyMessage = tr("pglite.apply.loading");
+        return;
+    }
+
     // The file holds every parameter with its full lists, as the offline program writes it.
     PGParams params = m_params;
     params.processing.allowList = toUTF16(m_allowList);
@@ -793,14 +838,40 @@ void Menu::startApply(bool isEnabled)
     }
     params.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
 
+    // The lists as the next session reads them from the file (forward slashes become backslashes), so a rule typed
+    // with forward slashes matches from this Apply on and not from the next start.
+    {
+        nlohmann::json normalized;
+        params.writeJSON(normalized);
+        PGParams::replaceForwardSlashes(normalized);
+        PGParams normalizedParams;
+        normalizedParams.readJSON(normalized);
+        params = normalizedParams;
+    }
+
+    // What the offline launcher refuses, the menu refuses: the problems are shown and nothing is written.
+    const auto problems = params.validate();
+    if (!problems.empty()) {
+        m_applyMessage.clear();
+        for (const auto& problem : problems) {
+            if (!m_applyMessage.empty())
+                m_applyMessage += '\n';
+            m_applyMessage += PGTranslation::trFormat(problem.key, StringUtil::utf16toUTF8(problem.item));
+        }
+        return;
+    }
+
     if (!Settings::writeParams(params) || !Settings::writeIsEnabled(isEnabled)) {
         m_applyMessage = tr("pglite.apply.settingsNotWritten");
         return;
     }
 
     // The mod rules: the displayed mods as ordered and set here, every other mod as it was.
-    if (m_previewModManager) {
-        auto rules = m_previewModManager->json();
+    PGModManager* rulesSource = m_previewModManager.get();
+    if (m_isPreviewFromEnvironment && m_runtime->environment())
+        rulesSource = m_runtime->environment()->modManager();
+    if (rulesSource) {
+        auto rules = rulesSource->json();
         int priority = static_cast<int>(std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isEnabled; }));
         for (const auto& row : m_mods) {
             auto& rule = rules[row.displayName];
@@ -817,7 +888,7 @@ void Menu::startApply(bool isEnabled)
 
     // The runtime's apply runs on a worker thread; Present shows the progress until it is done (renderApplyFrame).
     m_applyMessage.clear();
-    m_applyIsEnabled = isEnabled;
+    m_isApplyEnabling = isEnabled;
     m_isApplyDone = false;
     m_didApplySucceed = false;
     m_applyStart = std::chrono::steady_clock::now();
@@ -836,7 +907,7 @@ void Menu::finishApply()
     const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
     if (!m_didApplySucceed) {
         m_applyMessage = tr("pglite.apply.failed");
-    } else if (!m_applyIsEnabled) {
+    } else if (!m_isApplyEnabling) {
         // The Apply row says so for as long as PGLite is disabled.
         m_applyMessage.clear();
     } else {
@@ -893,7 +964,7 @@ void Menu::draw()
     if (m_isApplying) {
         const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
         const auto* const stage = m_runtime->stage();
-        ImGui::TextColored(ImVec4(1.0F, 0.85F, 0.4F, 1.0F),
+        ImGui::TextColored(ImVec4(1, 0.85F, 0.4F, 1),
                            tr("pglite.status.applying").c_str(),
                            tr(stage ? stage : "pglite.status.working").c_str(),
                            seconds);
@@ -940,7 +1011,9 @@ void Menu::drawApplyRow()
     ImGui::SameLine();
     if (ImGui::Button(tr("conflictManager.buttons.discardChanges").c_str()))
         m_isStateLoaded = false;
-    const auto message = m_runtime->isEnabled() ? m_applyMessage : tr("pglite.apply.disabled");
+    // A failure shows whatever the state; the disabled note fills the row otherwise.
+    const auto message
+        = !m_applyMessage.empty() || m_runtime->isEnabled() ? m_applyMessage : tr("pglite.apply.disabled");
     if (!message.empty()) {
         ImGui::SameLine();
         ImGui::TextWrapped("%s", message.c_str());
@@ -1030,7 +1103,7 @@ void Menu::drawStatus()
         ImGui::Text(tr("pglite.status.initializing").c_str(),
                     tr(status.stage ? status.stage : "pglite.status.initializingDefault").c_str());
     } else {
-        const auto color = status.isEnabled ? ImVec4(0.5F, 1.0F, 0.5F, 1.0F) : ImVec4(1.0F, 0.5F, 0.3F, 1.0F);
+        const auto color = status.isEnabled ? ImVec4(0.5F, 1, 0.5F, 1) : ImVec4(1, 0.5F, 0.3F, 1);
         const auto text = tr(status.isEnabled ? "pglite.status.active" : "pglite.status.disabled");
         if (m_runningImage.isLoaded()) {
             // The running animation of the offline launcher at half size at the left of the status, frozen while
@@ -1360,15 +1433,15 @@ void Menu::drawMessages()
     if (ImGui::Button(tr("pglite.messages.clear").c_str()))
         Logging::clearMessages();
 
-    if (!ImGui::BeginChild("messages", ImVec2(0, 0), ImGuiChildFlags_Borders))
-        return;
-
-    for (const auto& message : messages) {
-        const auto color
-            = message.level >= spdlog::level::err ? ImVec4(1.0F, 0.45F, 0.45F, 1.0F) : ImVec4(1.0F, 0.85F, 0.4F, 1.0F);
-        ImGui::PushStyleColor(ImGuiCol_Text, color);
-        ImGui::TextWrapped("%s", message.text.c_str());
-        ImGui::PopStyleColor();
+    // EndChild is called whatever BeginChild returned, as Dear ImGui requires.
+    if (ImGui::BeginChild("messages", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
+        for (const auto& message : messages) {
+            const auto color
+                = message.level >= spdlog::level::err ? ImVec4(1, 0.45F, 0.45F, 1) : ImVec4(1, 0.85F, 0.4F, 1);
+            ImGui::PushStyleColor(ImGuiCol_Text, color);
+            ImGui::TextWrapped("%s", message.text.c_str());
+            ImGui::PopStyleColor();
+        }
     }
     ImGui::EndChild();
 }
@@ -1405,28 +1478,32 @@ void Menu::rebuildFonts()
     auto& io = ImGui::GetIO();
     io.Fonts->Clear();
 
-    // The Latin and Cyrillic ranges plus every glyph of the loaded translation; a CJK font is merged for those.
+    // The Latin and Cyrillic ranges plus every glyph of the loaded translation and of the names of the languages the
+    // settings page lists; a CJK font is merged for those.
     ImFontGlyphRangesBuilder builder;
     builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
     builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
     for (const auto& text : PGTranslation::allStrings())
         builder.AddText(text.c_str());
+    for (const auto& language : PGTranslation::availableLanguages())
+        builder.AddText(language.displayName.c_str());
     m_glyphRanges.clear();
     builder.BuildRanges(&m_glyphRanges);
-    bool needsCJK = false;
+    bool isCJKNeeded = false;
     for (int i = 0; i + 1 < m_glyphRanges.Size; i += 2)
-        needsCJK = needsCJK || m_glyphRanges[i + 1] >= firstCJKCodePoint;
+        isCJKNeeded = isCJKNeeded || m_glyphRanges[i + 1] >= firstCJKCodePoint;
 
     const auto size = fontSize * m_uiScale;
-    if (!io.Fonts->AddFontFromFileTTF(fontFile, size, nullptr, m_glyphRanges.Data)) {
+    const auto font = fontPath(L"segoeui.ttf");
+    if (!io.Fonts->AddFontFromFileTTF(font.c_str(), size, nullptr, m_glyphRanges.Data)) {
         io.Fonts->AddFontDefault();
         io.FontGlobalScale = m_uiScale;
-    } else if (needsCJK) {
+    } else if (isCJKNeeded) {
+        const auto cjkFont = fontPath(L"msyh.ttc");
         ImFontConfig merge;
         merge.MergeMode = true;
-        if (!io.Fonts->AddFontFromFileTTF(cjkFontFile, size, &merge, m_glyphRanges.Data))
-            Logger::warn("The CJK font {} is unavailable, the translation shows placeholders for its glyphs",
-                         cjkFontFile);
+        if (!io.Fonts->AddFontFromFileTTF(cjkFont.c_str(), size, &merge, m_glyphRanges.Data))
+            Logger::warn("The CJK font {} is unavailable, the translation shows placeholders for its glyphs", cjkFont);
     }
     io.Fonts->Build();
 

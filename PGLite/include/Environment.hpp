@@ -53,14 +53,6 @@ public:
                     const std::function<void(const char*)>& reportStage = { },
                     const ProgressCallback& reportProgress = { });
 
-    /**
-     * @brief Gives a mod manager built outside the environment what the classification gives the installed one: the
-     * shaders of every mod from the classified textures and the TruePBR configs of the directory, and which mods own a
-     * mesh the mesh reading pass read. The menu's live mod list uses it.
-     */
-    static void attributeMods(PGModManager& modManager,
-                              PGDirectory& directory);
-
     [[nodiscard]] const PGParams& params() const { return m_params; }
     [[nodiscard]] const Settings::Ini& ini() const { return m_ini; }
     [[nodiscard]] PGDirectory* directory() const { return m_directory.get(); }
@@ -70,8 +62,11 @@ public:
     [[nodiscard]] const std::filesystem::path& mo2InstanceDir() const { return m_mo2InstanceDir; }
 
     /**
-     * @brief The archives the engine loads, in load order: the two INI lists, Update.bsa, then the archives of every
-     * loaded plugin. Only archives that exist in the data folder.
+     * @brief The archives the engine loads, in its order: the two INI lists, Update.bsa, the archives of the plugins
+     * the engine loads without a Plugins.txt line (the masters and the Creation Club content) in their load order, then
+     * those of the active lines of Plugins.txt in file order, light and regular plugins interleaved. Only archives that
+     * exist in the data folder. Without a readable Plugins.txt the loaded plugins follow in their load order, light
+     * plugins last.
      */
     [[nodiscard]] static std::vector<std::wstring> engineArchiveOrder();
 

@@ -42,7 +42,6 @@ struct RecordUse {
  */
 class Uses {
 public:
-    using UseList = std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>;
     using UsesByPath = std::unordered_map<std::filesystem::path, std::vector<RecordUse>>;
 
     /**
@@ -55,11 +54,6 @@ public:
      * @brief The uses by mesh path, each list in the order the offline program patches it.
      */
     [[nodiscard]] const UsesByPath& byPath() const;
-
-    /**
-     * @brief The uses of one mesh as PGPlugin::modelUses() reports them, empty for a mesh without uses.
-     */
-    [[nodiscard]] UseList usesOf(const std::filesystem::path& path) const;
 
     /**
      * @brief Normalizes a model string the way the engine resolves it: forward slashes become backslashes, the string
@@ -76,17 +70,12 @@ public:
      * @brief The eight paths of a texture set in NIF slot order, lower case and with the textures\ prefix, as the
      * offline program reads them. Eight empty strings for a null set.
      */
-    [[nodiscard]] static PGTypes::TextureSet textureSet(const RE::BGSTextureSet* set);
+    [[nodiscard]] static PGTypes::TextureSet textureSet(RE::BGSTextureSet* set);
 
     /**
      * @brief The models of a form, in the order the offline program enumerates them.
      */
     [[nodiscard]] static std::vector<ModelElement> modelElements(RE::TESForm& form);
-
-    /**
-     * @brief The model record type of a form type, Unknown for a type the offline program does not name (ADDN).
-     */
-    [[nodiscard]] static PGPlugin::ModelRecordType recordType(RE::FormType type);
 
     /**
      * @brief The other file of a weighted pair (_0.nif for _1.nif and the reverse), empty for a path that ends in

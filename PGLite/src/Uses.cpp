@@ -72,9 +72,8 @@ constexpr std::array<RecordType, 36> recordTypes {
     },
 };
 
-/// @brief The record index (TX00 to TX07) of every NIF texture slot: the engine stores a texture set in record order,
-/// the NIF and the offline program in slot order.
-constexpr std::array<std::size_t, 8> recordIndexOfSlot { 0, 1, 3, 4, 5, 2, 6, 7 };
+/// @brief The slots of a texture set record (TX00 to TX07); the ninth NIF slot never reaches a record.
+constexpr std::size_t recordSlotCount = 8;
 
 /// @brief The "Enabled" bit of the weight slider bytes of an ARMA record (DNAM).
 constexpr std::uint8_t weightSliderEnabledFlag = 0x02;
@@ -173,21 +172,20 @@ bool isSinglePassStatic(const RE::TESObjectSTAT& stat)
     return material && (material->directionalData.singlePass & singlePassFlag);
 }
 
-/// @brief The order the offline program patches the uses of a mesh in, see PGPlugin::modelUses().
+/// @brief The order the offline program patches the uses of a mesh in, see PGPlugin::isUseOrderedBefore().
 bool compareUses(const RecordUse& a,
                  const RecordUse& b)
 {
-    const bool aHasAltTex = !a.attributes.alternateTextures.empty();
-    const bool bHasAltTex = !b.attributes.alternateTextures.empty();
-    if (aHasAltTex != bHasAltTex)
-        return !aHasAltTex; // no alternate textures first
-    if (a.attributes.isWeighted != b.attributes.isWeighted)
-        return a.attributes.isWeighted; // weighted first
-    if (a.formKey.modKey != b.formKey.modKey)
-        return a.formKey.modKey < b.formKey.modKey;
-    if (a.formKey.formID != b.formKey.formID)
-        return a.formKey.formID < b.formKey.formID;
-    return a.formKey.subMODL < b.formKey.subMODL;
+    const auto orderOf = [](const RecordUse& use) {
+        return PGPlugin::UseOrder {
+            .hasAlternateTextures = !use.attributes.alternateTextures.empty(),
+            .isWeighted = use.attributes.isWeighted,
+            .modName = use.formKey.modKey,
+            .formID = use.formKey.formID,
+            .subModel = use.formKey.subMODL,
+        };
+    };
+    return PGPlugin::isUseOrderedBefore(orderOf(a), orderOf(b));
 }
 
 }
@@ -273,21 +271,6 @@ void Uses::build()
 
 const Uses::UsesByPath& Uses::byPath() const { return m_byPath; }
 
-Uses::UseList Uses::usesOf(const std::filesystem::path& path) const
-{
-    UseList uses;
-
-    const auto it = m_byPath.find(path);
-    if (it == m_byPath.end())
-        return uses;
-
-    uses.reserve(it->second.size());
-    for (const auto& use : it->second)
-        uses.emplace_back(use.formKey, use.attributes);
-
-    return uses;
-}
-
 std::filesystem::path Uses::normalizedModelPath(const char* model)
 {
     if (!model || !*model)
@@ -319,15 +302,17 @@ std::wstring Uses::originFileName(const RE::TESForm& form)
     return StringUtil::windows1252toUTF16(std::string(file->GetFilename()));
 }
 
-PGTypes::TextureSet Uses::textureSet(const RE::BGSTextureSet* set)
+PGTypes::TextureSet Uses::textureSet(RE::BGSTextureSet* set)
 {
     // The ninth slot of a NIF never reaches a plugin and stays empty.
     PGTypes::TextureSet textures;
     if (!set)
         return textures;
 
-    for (std::size_t slot = 0; slot < recordIndexOfSlot.size(); slot++) {
-        const char* const name = set->textures[recordIndexOfSlot.at(slot)].textureName.c_str();
+    // The slots are read in NIF slot order: the engine's GetTexturePath maps a slot to its record field itself, as
+    // TextureSetFactory writes them.
+    for (std::size_t slot = 0; slot < recordSlotCount; slot++) {
+        const char* const name = set->GetTexturePath(static_cast<RE::BSTextureSet::Texture>(slot));
         if (!name || !*name)
             continue;
 
@@ -472,15 +457,6 @@ std::vector<ModelElement> Uses::modelElements(RE::TESForm& form)
     }
 
     return elements;
-}
-
-PGPlugin::ModelRecordType Uses::recordType(RE::FormType type)
-{
-    for (const auto& [formType, recType] : recordTypes)
-        if (formType == type)
-            return recType;
-
-    return PGPlugin::ModelRecordType::Unknown;
 }
 
 std::filesystem::path Uses::weightCounterpart(const std::filesystem::path& path)

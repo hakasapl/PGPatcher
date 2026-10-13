@@ -10,6 +10,7 @@
 #include <d3d11.h>
 #include <dxgi.h>
 #include <thread>
+#include <tuple>
 #include <windows.h>
 
 namespace PGLite {
@@ -50,19 +51,28 @@ bool Hooks::install(Menu& menu)
         return false;
     }
 
-    s_menu = &menu;
-
     // The vtable of the swap chain class; the previous entries are called after the menu, so other overlays chain.
+    // They are read and stored before the entries are replaced: the loading-screen thread presents while this runs
+    // (the data-load handler), and a present between the write and the store would call a null pointer. The stores
+    // are ordered before the vtable writes by the memory model of x64, and the menu is set last, once both seams are
+    // in place.
     REL::Relocation<std::uintptr_t> vtable {
         *reinterpret_cast<std::uintptr_t*>(swapChain) // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     };
-    s_originalPresent = reinterpret_cast<decltype(&present)>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        vtable.write_vfunc(presentIndex, &present));
+    const auto entry = [&vtable](std::size_t index) {
+        return *reinterpret_cast<const std::uintptr_t*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            vtable.address() + index * sizeof(std::uintptr_t));
+    };
+    s_originalPresent = reinterpret_cast<decltype(&present)>(
+        entry(presentIndex)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     s_originalResizeBuffers
         = reinterpret_cast<decltype(&resizeBuffers)>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-            vtable.write_vfunc(resizeBuffersIndex, &resizeBuffers));
+            entry(resizeBuffersIndex));
+    std::ignore = vtable.write_vfunc(presentIndex, &present);
+    std::ignore = vtable.write_vfunc(resizeBuffersIndex, &resizeBuffers);
 
     s_originalDispatch = SKSE::GetTrampoline().write_call<5>(site, &dispatchInput);
+    s_menu = &menu;
 
     Logger::debug("Menu hooks installed (input dispatch call at {:#x} went to {:#x}, swap chain at {:#x})",
                   site,
@@ -74,21 +84,9 @@ bool Hooks::install(Menu& menu)
 void Hooks::dispatchInput(RE::BSTEventSource<RE::InputEvent*>* source,
                           RE::InputEvent* const* events)
 {
-    if (events && s_menu) {
-        for (const auto* event = *events; event; event = event->next) {
-            if (s_tracedEvents < maxTracedEvents) {
-                s_tracedEvents++;
-                const auto* const button = event->AsButtonEvent();
-                Logger::debug("Input event {}: type {} device {} code {}",
-                              s_tracedEvents,
-                              static_cast<int>(event->GetEventType()),
-                              static_cast<int>(event->GetDevice()),
-                              button ? button->GetIDCode() : 0);
-            }
-
+    if (events && s_menu)
+        for (const auto* event = *events; event; event = event->next)
             s_menu->handleInput(*event);
-        }
-    }
 
     if (s_menu && s_menu->isOpen()) {
         // The game sees no input while the menu is open. Keys still held resume when the devices poll them after the
@@ -105,8 +103,20 @@ HRESULT WINAPI Hooks::present(IDXGISwapChain* swapChain,
                               UINT syncInterval,
                               UINT flags)
 {
-    if (s_menu) {
-        s_menu->render(swapChain);
+    // A test present (occlusion check) presents nothing.
+    if (!s_menu || (flags & DXGI_PRESENT_TEST))
+        return s_originalPresent(swapChain, syncInterval, flags);
+
+    s_menu->render(swapChain);
+
+    if (s_menu->isApplying()) {
+        // The thread parked below owns the game window and pumps no messages meanwhile; without this Windows would
+        // replace the window with a ghost of its last image after a few seconds and hide the progress frames.
+        static const bool isGhostingDisabled = [] {
+            DisableProcessWindowsGhosting();
+            return true;
+        }();
+        std::ignore = isGhostingDisabled;
 
         // Apply runs on a worker thread while the game waits here, and the menu shows the progress: the frame is
         // presented again and again until the worker is done. No 3D is built meanwhile, which keeps the record edits

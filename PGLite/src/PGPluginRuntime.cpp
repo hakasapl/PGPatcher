@@ -5,17 +5,17 @@
 
 #include "PGPlugin.hpp"
 
-#include "Runtime.hpp"
-#include "Uses.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
-#include "util/StringUtil.hpp"
 
 #include <string>
 #include <utility>
 #include <vector>
 
-auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
-                                                                                 MeshUseAttributes>>
+auto PGPlugin::modelUses([[maybe_unused]] const std::wstring& modelPath)
+    -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
+                             MeshUseAttributes>>
 {
-    return PGLite::Runtime::instance().uses().usesOf(StringUtil::toLowerASCIIFast(modelPath));
+    // The mesh reading pass stores what this returns with every mesh of the directory, and nothing at runtime reads
+    // that copy: the plan takes the uses from Uses, which holds them once. Nothing is kept per mesh.
+    return { };
 }

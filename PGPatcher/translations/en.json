@@ -407,7 +407,7 @@
       "applyingShort": "Applying the settings.",
       "working": "working",
       "waitingForData": "Waiting for the game data.",
-      "initializing": "Initializing: %s.",
+      "initializing": "Loading, current step: %s.",
       "initializingDefault": "the texture maps and the mod list are being built",
       "disabled": "Disabled.",
       "active": "Active.",
@@ -423,12 +423,13 @@
       "loading": "Loading PGLite: %s",
       "loadingProgress": "Loading PGLite: %s (%zu of %zu)",
       "starting": "starting",
-      "welcome": "Welcome to PGLite, please configure your Mod Manager in the Settings (%s)"
+      "welcome": "Welcome to PGLite. Press %s to open the menu and set up your mod manager on its Conflict Manager tab"
     },
     "apply": {
       "applied": "Applied in %.1f s. Meshes loaded from now on use the new settings",
-      "disabled": "PGLite is currently Disabled",
+      "disabled": "PGLite is currently disabled",
       "failed": "Apply failed, see the log.",
+      "loading": "Apply waits for the loading screen to finish.",
       "settingsNotWritten": "The settings could not be written, see the log.",
       "modRulesNotWritten": "The mod rules could not be written, see the log."
     },
@@ -437,10 +438,10 @@
       "blocklist": "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire folders/files."
     },
     "textureRules": {
-      "description": "Use this to tell PGPatcher what type of texture something is if the auto detection is wrong (very rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\"."
+      "description": "Use this to tell PGLite what type of texture something is if the auto detection is wrong (very rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\"."
     },
     "conflictManager": {
-      "help": "Please sort your mods to determine what mod PGPatcher uses to patch meshes where.",
+      "help": "Please sort your mods to determine what mod PGLite uses to patch meshes where.",
       "noModManager": "Without a mod manager there is no mod list to sort.",
       "vortex": "The Vortex deployment manifest of the data folder is read.",
       "notReady": "The mod list is available once the initialization finished.",
@@ -455,6 +456,17 @@
     },
     "settings": {
       "noTranslations": "No translation files were found in SKSE\\Plugins\\PGLite\\translations."
+    },
+    "disabled": {
+      "notice": "PGLite is disabled because %s.",
+      "addressLibraryMissing": "the Address Library for this game version is missing (%s)",
+      "runtimeUnsupported": "game version %s is not supported",
+      "noMessaging": "the SKSE messaging interface is unavailable",
+      "offlineOutput": "an offline PGPatcher output is in the load order (ParallaxGen_Diff.json)",
+      "offlinePlugin": "the offline PGPatcher plugin is active (PGPatcher.esp)",
+      "autoParallax": "Auto Parallax is installed, which edits the same materials",
+      "initializationFailed": "its initialization failed: %s",
+      "backgroundInitializationFailed": "its background initialization failed: %s"
     },
     "stages": {
       "restoringRecords": "Restoring the records",

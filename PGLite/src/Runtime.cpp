@@ -18,6 +18,7 @@
 #include "Settings.hpp"
 #include "TextureGenerator.hpp"
 #include "Uses.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
@@ -33,6 +34,7 @@
 #include <optional>
 #include <shared_mutex>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -46,14 +48,17 @@ constexpr const char* offlineDiffFile = "parallaxgen_diff.json";
 constexpr const char* offlinePlugin = "PGPatcher.esp";
 constexpr const wchar_t* autoParallaxDLL = L"AutoParallax.dll";
 
-/// @brief The meshes folder of the facegen heads, see TESNPC and the offline PGNIFUtil::isFacegenMesh().
-constexpr const char* facegenFolder = "meshes\\actors\\character\\facegendata\\facegeom";
-
 /// @brief The longest the data-load handler waits for the initialization before the main menu opens without it.
 constexpr auto maxInitializationWait = std::chrono::minutes(10);
 constexpr auto initializationPollInterval = std::chrono::milliseconds(50);
 
 std::string pathString(const std::filesystem::path& path) { return StringUtil::utf16toWindows1252(path.wstring()); }
+
+/// @brief Shows the in-game notice on the main thread, once the game runs its tasks.
+void showNotice(const std::string& text)
+{
+    SKSE::GetTaskInterface()->AddTask([text] { RE::DebugMessageBox(text.c_str()); });
+}
 
 /**
  * @brief The task guard of the shared code at runtime: a failed task is logged and the others carry on. The offline
@@ -103,23 +108,24 @@ bool Runtime::load()
     Logger::info("PGLite {} loading (runtime {})", PG_FULL_VERSION, version.string("."));
 
     const auto addressLibrary = Resources::addressLibraryFile();
-    if (!std::filesystem::exists(addressLibrary)) {
+    std::error_code ec;
+    if (!std::filesystem::exists(addressLibrary, ec)) {
         // Nothing of the engine can be used without it, not even the in-game notice.
-        const auto reason = std::format("the Address Library for this game version is missing ({})",
-                                        StringUtil::utf16toUTF8(addressLibrary.filename().wstring()));
-        disable(reason, false);
+        disable(PGTranslation::trFormat("pglite.disabled.addressLibraryMissing",
+                                        StringUtil::utf16toUTF8(addressLibrary.filename().wstring())),
+                false);
         return true;
     }
 
     if (!Resources::isRuntimeSupported()) {
         // The notice waits for the game UI.
         const std::scoped_lock lock(m_stateMutex);
-        m_disableReason = std::format("game version {} is not supported", version.string("."));
+        m_disableReason = PGTranslation::trFormat("pglite.disabled.runtimeUnsupported", version.string("."));
         Logger::critical("PGLite is disabled because {}", *m_disableReason);
     }
 
     if (!SKSE::GetMessagingInterface()->RegisterListener(&Runtime::onMessage)) {
-        disable("the SKSE messaging interface is unavailable", false);
+        disable(PGTranslation::tr("pglite.disabled.noMessaging"), false);
         return true;
     }
 
@@ -181,7 +187,7 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
 
     // A disabled PGLite installs nothing, no hooks, no menu, no streams: the notice is all the game sees of it.
     if (const auto reason = runtime.disableReason()) {
-        RE::DebugMessageBox(std::format("PGLite is disabled because {}.", *reason).c_str());
+        showNotice(PGTranslation::trFormat("pglite.disabled.notice", *reason));
         return;
     }
 
@@ -234,6 +240,12 @@ void Runtime::onDataLoaded()
         }
 
         m_isEnabled = Settings::readIsEnabled();
+        for (const auto& problem : params().validate()) {
+            // The menu refuses an Apply with these; an edited settings.json runs as it is, and the patchers it names
+            // guard themselves (Environment::registerPatchers).
+            Logger::error("settings.json: {}",
+                          PGTranslation::trFormat(problem.key, StringUtil::utf16toUTF8(problem.item)));
+        }
         Logger::info("Reading the record model uses");
         m_uses.build();
         m_snapshot.capture(m_uses);
@@ -242,14 +254,16 @@ void Runtime::onDataLoaded()
         auto plan = std::make_unique<Plan>(++m_planGeneration);
         if (m_isEnabled) {
             plan->build(m_uses, params(), m_variantCounter);
-            plan->retargetRecords();
         } else {
             // The plan stays empty and nothing is registered: the game loads its meshes as if PGLite were absent.
             Logger::info("PGLite is disabled in settings.json; meshes stay unpatched until it is enabled in the menu");
         }
         m_plan = std::move(plan);
-        if (m_isEnabled)
+        if (m_isEnabled) {
+            // The streams first, so a record is only pointed at a variant path that is served.
             registerPlanStreams();
+            m_plan->retargetRecords(m_snapshot);
+        }
         LightPlacerBridge::update(*m_plan);
 
         m_facegenPaths = facegenPaths();
@@ -261,23 +275,26 @@ void Runtime::onDataLoaded()
 
         std::thread([this] { initializeInBackground(); }).detach();
     } catch (const std::exception& e) {
-        disable(std::format("its initialization failed: {}", e.what()), true);
+        // The records go back to what they were, whatever step failed.
+        m_snapshot.restore();
+        disable(PGTranslation::trFormat("pglite.disabled.initializationFailed", e.what()), true);
     }
 }
 
 std::optional<std::string> Runtime::detectDisableCondition() const
 {
     if (Resources::exists(offlineDiffFile))
-        return "an offline PGPatcher output is in the load order (ParallaxGen_Diff.json)";
+        return PGTranslation::tr("pglite.disabled.offlineOutput");
 
     auto* const dataHandler = RE::TESDataHandler::GetSingleton();
     if (dataHandler
         && (dataHandler->LookupLoadedModByName(offlinePlugin)
             || dataHandler->LookupLoadedLightModByName(offlinePlugin)))
-        return "the offline PGPatcher plugin is active (PGPatcher.esp)";
+        return PGTranslation::tr("pglite.disabled.offlinePlugin");
 
-    if (GetModuleHandleW(autoParallaxDLL) || std::filesystem::exists(Settings::pluginsFolder() / autoParallaxDLL))
-        return "Auto Parallax is installed, which edits the same materials";
+    std::error_code ec;
+    if (GetModuleHandleW(autoParallaxDLL) || std::filesystem::exists(Settings::pluginsFolder() / autoParallaxDLL, ec))
+        return PGTranslation::tr("pglite.disabled.autoParallax");
 
     return std::nullopt;
 }
@@ -292,9 +309,16 @@ void Runtime::disable(const std::string& reason,
 
     Logger::critical("PGLite is disabled because {}", reason);
 
-    const auto text = std::format("PGLite is disabled because {}.", reason);
+    // Whoever waits for the initialization is released: every stream serves the original mesh from now on.
+    {
+        const std::scoped_lock lock(m_readyMutex);
+        m_isReady = true;
+    }
+    m_readyCondition.notify_all();
+
+    const auto text = PGTranslation::trFormat("pglite.disabled.notice", reason);
     if (shouldShowInGame)
-        RE::DebugMessageBox(text.c_str());
+        showNotice(text);
     else
         MessageBoxW(nullptr, StringUtil::utf8toUTF16(text).c_str(), L"PGLite", MB_OK | MB_ICONWARNING);
 }
@@ -330,7 +354,10 @@ void Runtime::registerStream(const std::filesystem::path& path,
     }
 
     RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(pathStr, source, *this));
-    Resources::registerStream(pathStr, stream);
+    if (!Resources::registerStream(pathStr, stream)) {
+        Logger::error("The engine refused the stream of {}, the path keeps its own", pathStr);
+        return;
+    }
 
     const std::scoped_lock lock(m_streamsMutex);
     m_streams[pathStr] = { .stream = std::move(stream), .source = std::move(source) };
@@ -340,38 +367,50 @@ void Runtime::registerPlanStreams()
 {
     std::size_t registered = 0;
     std::size_t unresolved = 0;
+    std::size_t partial = 0;
     for (const auto& family : m_plan->families()) {
         if (family->isFacegen || !family->sources.empty())
             continue;
 
-        std::vector<std::shared_ptr<SourceStream>> sources;
-        for (const auto& basePath : family->basePaths) {
-            auto source = resolveSource(basePath);
-            if (!source) {
+        std::vector<std::shared_ptr<SourceStream>> sources(family->basePaths.size());
+        std::size_t resolved = 0;
+        for (std::size_t pathIndex = 0; pathIndex < family->basePaths.size(); pathIndex++) {
+            sources.at(pathIndex) = resolveSource(family->basePaths.at(pathIndex));
+            if (sources.at(pathIndex)) {
+                resolved++;
+            } else {
                 // Like a missing mesh offline: nothing to patch, the engine keeps looking for it itself.
-                Logger::debug(L"Not registered, the engine cannot resolve {}", basePath.wstring());
-                break;
+                Logger::debug(L"Not registered, the engine cannot resolve {}",
+                              family->basePaths.at(pathIndex).wstring());
             }
-
-            sources.push_back(std::move(source));
         }
 
-        if (sources.size() != family->basePaths.size()) {
+        if (!resolved) {
             unresolved++;
             continue;
         }
 
+        // A weighted pair with one file the engine cannot resolve is patched on the other file alone.
+        if (resolved < family->basePaths.size())
+            partial++;
+
         family->sources = std::move(sources);
         for (const auto& member : family->members) {
             for (std::size_t pathIndex = 0; pathIndex < member.paths.size(); pathIndex++) {
+                if (!family->sources.at(pathIndex))
+                    continue;
+
                 registerStream(member.paths.at(pathIndex), family->sources.at(pathIndex));
                 registered++;
             }
         }
     }
 
-    Logger::info(
-        "Registered {} mesh streams ({} families have a mesh the engine cannot resolve)", registered, unresolved);
+    Logger::info("Registered {} mesh streams ({} families have no mesh the engine can resolve, {} weighted pairs "
+                 "have one)",
+                 registered,
+                 unresolved,
+                 partial);
 }
 
 std::vector<std::filesystem::path> Runtime::facegenPaths() const
@@ -385,6 +424,7 @@ std::vector<std::filesystem::path> Runtime::facegenPaths() const
         return paths;
 
     // Read at data load, before the game runs: the form arrays grow when the game creates forms.
+    const auto folder = StringUtil::utf16toUTF8(PGNIFUtil::facegenFolder);
     for (const auto* const form : dataHandler->GetFormArray(RE::FormType::NPC)) {
         if (!form)
             continue;
@@ -393,12 +433,11 @@ std::vector<std::filesystem::path> Runtime::facegenPaths() const
         if (!file)
             continue;
 
-        auto path = std::format("{}\\{}\\{:08X}.nif", facegenFolder, file->GetFilename(), form->GetLocalFormID());
+        auto path = std::format("{}\\{}\\{:08X}.nif", folder, file->GetFilename(), form->GetLocalFormID());
         StringUtil::toLowerASCIIFastInPlace(path);
         const std::filesystem::path widePath = StringUtil::windows1252toUTF16(path);
         if (m_uses.byPath().contains(widePath)) {
-            // The offline program warns about this and leaves the mesh unpatched.
-            Logger::warn("NIF has mesh uses but is detected as a facegen mesh: {}", path);
+            // A facegen path with record uses is left unpatched, with the plan's warning (Plan::build).
             continue;
         }
 
@@ -447,22 +486,24 @@ void Runtime::initializeInBackground()
             PGGlobals::setPGD3D(&m_d3d);
         }
 
-        reportStage("pglite.stages.loadingClassificationCache");
-        m_cache.load(Settings::classificationCacheFile());
+        // The cache is the process's observer: the classifications of the mesh reading pass, and the registrations
+        // the texture hooks make, which reach the texture generator through it.
+        m_cache.setHookRegistrationListener([this](PGRunObserver::HookKind kind, const std::filesystem::path& texPath) {
+            m_textures.noteRegistration(kind, texPath);
+        });
         PGRunObserver::install(&m_cache);
 
         if (m_isEnabled) {
             reportStage("pglite.stages.registeringFacegenStreams");
             registerFacegenStreams();
+            buildEnvironment(reportStage, reportProgress);
+        } else {
+            // The Apply that enables PGLite builds the environment; until then nothing is read.
+            Logger::info("PGLite is disabled in settings.json, the environment is built when it is enabled");
         }
-
-        auto environment = std::make_unique<Environment>(params(), m_ini);
-        environment->initialize(m_cache, reportStage, reportProgress);
-        m_environment = std::move(environment);
-        m_textures.onEnvironmentReplaced(*m_environment->directory());
     } catch (const std::exception& e) {
         // Every stream serves the original mesh then.
-        disable(std::format("its background initialization failed: {}", e.what()), true);
+        disable(PGTranslation::trFormat("pglite.disabled.backgroundInitializationFailed", e.what()), true);
     }
 
     m_stage = nullptr;
@@ -478,20 +519,44 @@ void Runtime::initializeInBackground()
     Logger::info("PGLite is ready ({} ms)", elapsed.count());
 }
 
+void Runtime::buildEnvironment(const std::function<void(const char*)>& reportStage,
+                               const Environment::ProgressCallback& reportProgress)
+{
+    reportStage("pglite.stages.loadingClassificationCache");
+    m_cache.load(Settings::classificationCacheFile());
+
+    auto environment = std::make_unique<Environment>(params(), m_ini);
+    environment->initialize(m_cache, reportStage, reportProgress);
+    // The pass saved what it added; the entries are read again by the next Apply, not kept for the session.
+    m_cache.unload();
+
+    m_environment = std::move(environment);
+    // The textures generated so far stay known to the new directory, as the hooks made them known to the old one.
+    m_textures.onEnvironmentReplaced(*m_environment->directory());
+}
+
 void Runtime::waitUntilReady()
 {
     if (m_isReady)
         return;
 
     std::unique_lock lock(m_readyMutex);
-    m_readyCondition.wait(lock, [this] { return m_isReady.load(); });
+    if (!m_readyCondition.wait_for(lock, maxInitializationWait, [this] { return m_isReady.load(); })) {
+        static std::atomic<bool> didReport { false };
+        if (!didReport.exchange(true)) {
+            Logger::error("The initialization did not finish in {} minutes, the original meshes are served",
+                          maxInitializationWait.count());
+        }
+    }
 }
 
 bool Runtime::apply(const PGParams& params,
                     bool isEnabled)
 {
-    if (!m_isActive || !m_isReady || !m_plan || disableReason())
+    if (!m_isActive || !m_isReady || !m_plan || disableReason()) {
+        Logger::warn("Apply refused, PGLite is not ready");
         return false;
+    }
 
     const auto started = std::chrono::steady_clock::now();
     const std::unique_lock lock(m_pipelineLock);
@@ -513,24 +578,26 @@ bool Runtime::apply(const PGParams& params,
             return true;
         }
 
-        auto environment = std::make_unique<Environment>(params, m_ini);
-        environment->initialize(m_cache, [this](const char* stage) { m_stage = stage; });
-        m_environment = std::move(environment);
-        // The textures generated so far stay known to the new directory, as the hooks made them known to the old one.
-        m_textures.onEnvironmentReplaced(*m_environment->directory());
+        buildEnvironment([this](const char* stage) { m_stage = stage; }, { });
 
         m_stage = "pglite.stages.planningMeshes";
         auto plan = std::make_unique<Plan>(++m_planGeneration);
         plan->build(m_uses, params, m_variantCounter);
-        plan->retargetRecords();
         m_plan = std::move(plan);
         m_stage = "pglite.stages.registeringStreams";
         registerPlanStreams();
         registerFacegenStreams();
+        // The streams first, so a record is only pointed at a variant path that is served.
+        m_plan->retargetRecords(m_snapshot);
         LightPlacerBridge::update(*m_plan);
     } catch (const std::exception& e) {
+        // The records go back to their originals and every stream serves the original mesh; the status page shows
+        // PGLite disabled, and its Enable button is the next attempt.
         Logger::critical("Apply failed, PGLite serves original meshes until the next apply: {}", e.what());
+        m_snapshot.restore();
+        m_isEnabled = false;
         m_plan = std::make_unique<Plan>(++m_planGeneration);
+        LightPlacerBridge::update(*m_plan);
         m_stage = nullptr;
         return false;
     }
@@ -545,6 +612,17 @@ bool Runtime::apply(const PGParams& params,
 std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::string& path,
                                                                 SourceStream& source)
 {
+    const auto readOriginal = [&path, &source]() -> std::shared_ptr<const std::vector<std::byte>> {
+        auto bytes = std::make_shared<std::vector<std::byte>>();
+        const std::scoped_lock sourceLock(source.mutex);
+        if (!source.stream || !Resources::readStream(*source.stream, *bytes)) {
+            Logger::error("Unable to read the original mesh of {}", path);
+            return nullptr;
+        }
+
+        return bytes;
+    };
+
     try {
         waitUntilReady();
 
@@ -559,19 +637,16 @@ std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::strin
         }
 
         // A path of no current family (a variant of an earlier plan, or PGLite is disabled): the original mesh.
-        auto bytes = std::make_shared<std::vector<std::byte>>();
-        const std::scoped_lock sourceLock(source.mutex);
-        if (!source.stream || !Resources::readStream(*source.stream, *bytes)) {
-            Logger::error("Unable to read the original mesh of {}", path);
-            return nullptr;
-        }
-
-        return bytes;
+        return readOriginal();
     } catch (const std::exception& e) {
-        Logger::error("Unable to produce {}: {}", path, e.what());
-        return nullptr;
+        Logger::error("Unable to produce {}, the original mesh is served: {}", path, e.what());
     } catch (...) {
-        Logger::error("Unable to produce {}", path);
+        Logger::error("Unable to produce {}, the original mesh is served", path);
+    }
+
+    try {
+        return readOriginal();
+    } catch (...) {
         return nullptr;
     }
 }

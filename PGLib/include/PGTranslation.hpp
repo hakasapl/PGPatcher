@@ -54,6 +54,16 @@ public:
      */
     [[nodiscard]] static std::string tr(const std::string& key);
 
+    /**
+     * @brief The string of a key with its first "%s" placeholder replaced, for the strings that carry one argument.
+     *
+     * @param key Dot-separated translation key
+     * @param argument UTF-8 text that replaces the placeholder
+     * @return The string as tr() returns it, with the placeholder replaced when the string has one
+     */
+    [[nodiscard]] static std::string trFormat(const std::string& key,
+                                              const std::string& argument);
+
     /// @brief The language code that is currently active.
     [[nodiscard]] static std::string currentLanguage();
 

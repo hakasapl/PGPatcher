@@ -367,7 +367,6 @@ private:
                                                                      nifly::NifFile* nif,
                                                                      const PGPlugin::MeshUseAttributes& meshUse);
 
-private:
     // DDS Runners.
     /**
      * @brief Patches one texture: runs the texture hooks registered for it, then the global texture patchers, and

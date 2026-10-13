@@ -7,8 +7,10 @@
 #include "PGRunObserver.hpp"
 #include "PatchStream.hpp"
 #include "Resources.hpp"
+#include "Settings.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+#include "patchers/base/PatcherTextureHook.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
@@ -41,28 +43,12 @@ namespace {
 /// @brief The first line of every key file; a change here invalidates every cached texture.
 constexpr std::string_view keyHeader = "PGLite texture cache 1";
 
-const wchar_t* hookName(PGRunObserver::HookKind kind)
-{
-    return kind == PGRunObserver::HookKind::ConvertToCM ? L"ParallaxToCM" : L"SSSFix";
-}
+/// @brief The textures the patch running on this thread registered, until generatePending() takes them.
+thread_local std::vector<std::pair<PGRunObserver::HookKind, std::filesystem::path>> s_pending;
 
-std::filesystem::path outputOf(PGRunObserver::HookKind kind,
-                               const std::filesystem::path& texPath)
+std::wstring hookName(PGRunObserver::HookKind kind)
 {
-    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::outputFilename(texPath)
-                                                        : PatcherTextureHookFixSSS::outputFilename(texPath);
-}
-
-PGEnums::TextureType typeOf(PGRunObserver::HookKind kind)
-{
-    return kind == PGRunObserver::HookKind::ConvertToCM ? PGEnums::TextureType::ComplexMaterial
-                                                        : PGEnums::TextureType::SubsurfaceColor;
-}
-
-std::uint32_t signatureOf(PGRunObserver::HookKind kind)
-{
-    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::generatorSignature()
-                                                        : PatcherTextureHookFixSSS::generatorSignature();
+    return StringUtil::utf8toUTF16(PatcherTextureHook::hookNameOf(kind));
 }
 
 std::filesystem::path keyFileOf(const std::filesystem::path& cacheFile)
@@ -85,33 +71,6 @@ bool readText(const std::filesystem::path& file,
     return !stream.bad();
 }
 
-/// @brief Writes a file through a temporary file next to it and a rename, so the file is complete or absent.
-bool writeFile(const std::filesystem::path& file,
-               const void* data,
-               std::size_t size)
-{
-    auto temporary = file;
-    temporary += L".tmp";
-    {
-        std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
-        if (!stream)
-            return false;
-
-        stream.write(static_cast<const char*>(data), static_cast<std::streamsize>(size));
-        if (!stream)
-            return false;
-    }
-
-    std::error_code ec;
-    std::filesystem::rename(temporary, file, ec);
-    if (ec) {
-        std::filesystem::remove(temporary, ec);
-        return false;
-    }
-
-    return true;
-}
-
 }
 
 TextureGenerator::TextureGenerator(std::filesystem::path cacheFolder)
@@ -120,13 +79,18 @@ TextureGenerator::TextureGenerator(std::filesystem::path cacheFolder)
 {
 }
 
+void TextureGenerator::noteRegistration(HookKind kind,
+                                        const std::filesystem::path& texPath)
+{
+    s_pending.emplace_back(kind, texPath);
+}
+
 void TextureGenerator::generatePending()
 {
-    const std::scoped_lock lock(m_mutex);
-    for (const auto& texPath : PatcherTextureHookConvertToCM::processList())
-        process(HookKind::ConvertToCM, texPath);
-    for (const auto& texPath : PatcherTextureHookFixSSS::processList())
-        process(HookKind::FixSSS, texPath);
+    std::vector<std::pair<HookKind, std::filesystem::path>> pending;
+    pending.swap(s_pending);
+    for (const auto& [kind, texPath] : pending)
+        process(kind, texPath);
 }
 
 void TextureGenerator::onEnvironmentReplaced(PGDirectory& directory)
@@ -153,14 +117,37 @@ TextureGenerator::Stats TextureGenerator::stats() const
 void TextureGenerator::process(HookKind kind,
                                const std::filesystem::path& texPath)
 {
-    const auto output = outputOf(kind, texPath);
-    if (m_entries.contains(output))
-        return;
+    const auto output = PatcherTextureHook::outputPathOf(kind, texPath);
+    Entry* entry = nullptr;
+    {
+        std::unique_lock lock(m_mutex);
+        const auto [it, isNew] = m_entries.try_emplace(output);
+        entry = &it->second; // the map is node based, so the entry stays where it is
+        if (!isNew) {
+            // Made already, or being made by another thread: the mesh that names it is about to be parsed, so wait.
+            m_done.wait(lock, [entry] { return entry->isDone; });
+            return;
+        }
 
-    // Recorded first: a texture that fails is not tried again for every mesh that names it. Offline logs it once too.
-    auto& entry = m_entries[output];
-    entry.type = typeOf(kind);
+        // Recorded first: a texture that fails is not tried again for every mesh that names it. Offline logs it once
+        // too.
+        entry->type = PatcherTextureHook::outputTypeOf(kind);
+    }
 
+    const bool isServed = make(kind, texPath, output);
+    {
+        const std::scoped_lock lock(m_mutex);
+        entry->isServed = isServed;
+        entry->isDone = true;
+    }
+    m_done.notify_all();
+}
+
+bool TextureGenerator::make(HookKind kind,
+                            const std::filesystem::path& texPath,
+                            const std::filesystem::path& output)
+{
+    const auto type = PatcherTextureHook::outputTypeOf(kind);
     try {
         const auto started = std::chrono::steady_clock::now();
 
@@ -169,7 +156,7 @@ void TextureGenerator::process(HookKind kind,
         if (!Resources::readFile(pathString(texPath), source)) {
             Logger::error(L"Unable to read {} to generate {}", texPath.wstring(), output.wstring());
             m_failed++;
-            return;
+            return false;
         }
 
         const auto key = cacheKey(kind, texPath, source);
@@ -180,7 +167,7 @@ void TextureGenerator::process(HookKind kind,
         } else {
             if (!generate(kind, texPath, source, cacheFile, key)) {
                 m_failed++;
-                return;
+                return false;
             }
 
             m_generated++;
@@ -194,7 +181,7 @@ void TextureGenerator::process(HookKind kind,
         }
 
         // As offline: the type for the texture type lookups, no texture map entry.
-        PGGlobals::pgd()->setTextureType(output, entry.type);
+        PGGlobals::pgd()->setTextureType(output, type);
 
         const auto outputStr = pathString(output);
         {
@@ -205,14 +192,20 @@ void TextureGenerator::process(HookKind kind,
         // Registered like a mesh (DESIGN.md section 3.1): a file of the same name in the load order is shadowed, as the
         // offline output folder shadows it. The registry keeps the stream for the session.
         RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(outputStr, m_noSource, *this));
-        Resources::registerStream(outputStr, stream);
-        entry.isServed = true;
+        if (!Resources::registerStream(outputStr, stream)) {
+            Logger::error("The engine refused the stream of the generated texture {}", outputStr);
+            m_failed++;
+            return false;
+        }
+
+        return true;
     } catch (const std::exception& e) {
         Logger::error(L"Unable to generate {} from {}: {}",
                       output.wstring(),
                       texPath.wstring(),
                       StringUtil::utf8toUTF16(e.what()));
         m_failed++;
+        return false;
     }
 }
 
@@ -228,8 +221,8 @@ std::string TextureGenerator::cacheKey(HookKind kind,
     return std::format(
         "{}\nhook={}\ngenerator={:08x}\ndirectxtex={}\npglite={}\nsource={}\nsourceSize={}\nsourceCrc32={:08x}\n",
         keyHeader,
-        StringUtil::utf16toUTF8(hookName(kind)),
-        signatureOf(kind),
+        PatcherTextureHook::hookNameOf(kind),
+        PatcherTextureHook::generatorSignatureOf(kind),
         DIRECTX_TEX_VERSION,
         PG_FULL_VERSION,
         StringUtil::utf16toUTF8(texPath.wstring()),
@@ -286,16 +279,18 @@ bool TextureGenerator::generate(HookKind kind,
         return false;
     }
 
+    // The old key goes first: a key never describes a texture it was not written for, whatever happens in between.
     std::error_code ec;
     std::filesystem::create_directories(cacheFile.parent_path(), ec);
-    if (!writeFile(cacheFile, blob.GetBufferPointer(), blob.GetBufferSize())) {
+    std::filesystem::remove(keyFileOf(cacheFile), ec);
+    if (!Settings::writeFileAtomically(cacheFile, blob.GetBufferPointer(), blob.GetBufferSize())) {
         Logger::error(L"Unable to write the generated texture {}", cacheFile.wstring());
         return false;
     }
 
     // The texture is served from this session either way; without its key the next session generates it again.
     const auto fullKey = key + std::format("outputSize={}\n", blob.GetBufferSize());
-    if (!writeFile(keyFileOf(cacheFile), fullKey.data(), fullKey.size()))
+    if (!Settings::writeFileAtomically(keyFileOf(cacheFile), fullKey.data(), fullKey.size()))
         Logger::warn(L"Unable to write the cache key of {}", cacheFile.wstring());
 
     return true;

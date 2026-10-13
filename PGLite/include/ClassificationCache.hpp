@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -21,13 +22,23 @@ namespace PGLite {
  * result is kept by file identity (the same identity the offline update cache uses: the modification time and size of
  * a loose file, the name, modification time and size of the archive of an archived file), so a session reads only new
  * or changed files. The file is written for the PGLite version that made it: another version starts empty, since the
- * votes depend on the code that casts them. The cache is the process's PGRunObserver; the lookups a patch makes are
- * not recorded, since nothing replays them.
+ * votes depend on the code that casts them. The cache is the process's PGRunObserver: the lookups a patch makes are
+ * not recorded, since nothing replays them, and the textures the mesh patchers register with the texture hooks are
+ * passed on to a listener (the texture generator).
  */
 class ClassificationCache final : public PGRunObserver {
 public:
+    /// @brief Receives a hook registration on the thread that patches, see PGRunObserver::recordHookRegistration().
+    using HookRegistrationListener = std::function<void(HookKind, const std::filesystem::path&)>;
+
     /// @brief Reads the cache file, if there is one. A file that cannot be read, or of another version, starts empty.
     void load(const std::filesystem::path& file);
+
+    /// @brief Drops the entries from memory; load() reads them again. The file stays.
+    void unload();
+
+    /// @brief Sets the listener of the hook registrations. Before the cache is installed as the observer.
+    void setHookRegistrationListener(HookRegistrationListener listener);
 
     /**
      * @brief Writes the cache file when an entry was added since it was read. Only the entries this session looked up
@@ -57,6 +68,9 @@ public:
                                const BethesdaDirectory::FileIdentity& identity,
                                const PGTypes::CMClassification& result) override;
 
+    void recordHookRegistration(const HookKind& kind,
+                                const std::filesystem::path& texPath) override;
+
 private:
     struct CMEntry {
         BethesdaDirectory::FileIdentity identity;
@@ -72,6 +86,7 @@ private:
     };
 
     std::filesystem::path m_file;
+    HookRegistrationListener m_hookRegistrationListener;
     std::unordered_map<std::filesystem::path, CMEntry> m_cmEntries;
     std::unordered_map<std::filesystem::path, MeshEntry> m_meshEntries;
     mutable std::mutex m_mutex;

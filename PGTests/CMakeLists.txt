@@ -41,7 +41,7 @@ target_link_libraries(${TEST_EXE_NAME} PRIVATE
     GTest::gmock
 )
 
-# The tests run from the bin folder, next to the DLLs and the cshaders / dotnetlib folders they need
+# The tests run from the bin folder, next to the DLLs and the dotnetlib folder they need
 gtest_discover_tests(${TEST_EXE_NAME}
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     DISCOVERY_MODE PRE_TEST

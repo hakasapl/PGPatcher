@@ -7,7 +7,6 @@
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -20,13 +19,8 @@ namespace PGLite {
 
 namespace {
 
-/// @brief The record index (TX00 to TX07) of every NIF texture slot, see Uses::textureSet().
-constexpr std::array<RE::BSTextureSet::Texture, 8> recordTextureOfSlot {
-    RE::BSTextureSet::Texture::kDiffuse,     RE::BSTextureSet::Texture::kNormal,
-    RE::BSTextureSet::Texture::kGlowMap,     RE::BSTextureSet::Texture::kHeight,
-    RE::BSTextureSet::Texture::kEnvironment, RE::BSTextureSet::Texture::kEnvironmentMask,
-    RE::BSTextureSet::Texture::kMultilayer,  RE::BSTextureSet::Texture::kBacklightMask,
-};
+/// @brief The slots of a texture set record (TX00 to TX07); the ninth NIF slot never reaches a record.
+constexpr std::size_t recordSlotCount = 8;
 
 constexpr std::wstring_view meshesPrefix = L"meshes\\";
 constexpr std::wstring_view texturesPrefix = L"textures\\";
@@ -38,13 +32,14 @@ void RecordSnapshot::capture(const Uses& uses)
     for (const auto& [path, recordUses] : uses.byPath()) {
         for (const auto& use : recordUses) {
             auto* const model = use.element.model;
-            if (!model || !m_captured.insert(model).second)
+            if (!model || !m_captured.emplace(model, m_elements.size()).second)
                 continue;
 
             ElementState state;
             state.model = model;
             state.swap = use.element.swap;
             state.modelPath = model->model;
+            state.writtenPath = model->model;
             if (state.swap && state.swap->alternateTextures) {
                 state.alternateTextures.reserve(state.swap->numAlternateTextures);
                 for (std::uint32_t i = 0; i < state.swap->numAlternateTextures; i++) {
@@ -58,10 +53,38 @@ void RecordSnapshot::capture(const Uses& uses)
     }
 }
 
-void RecordSnapshot::restore() const
+bool RecordSnapshot::setModel(RE::TESModel& model,
+                              const std::filesystem::path& meshPath)
 {
-    for (const auto& state : m_elements) {
-        state.model->model = state.modelPath;
+    const auto it = m_captured.find(&model);
+    if (it == m_captured.end()) {
+        setModelPath(model, meshPath);
+        return true;
+    }
+
+    auto& state = m_elements.at(it->second);
+    if (model.model != state.writtenPath) {
+        // Another plugin set the string after PGLite did: its value stays, whatever PGLite planned for the record.
+        Logger::debug("A record model keeps the value another plugin set: {}", model.model.c_str());
+        return false;
+    }
+
+    setModelPath(model, meshPath);
+    state.writtenPath = model.model;
+    return true;
+}
+
+void RecordSnapshot::restore()
+{
+    std::size_t kept = 0;
+    for (auto& state : m_elements) {
+        if (state.model->model == state.writtenPath) {
+            state.model->model = state.modelPath;
+            state.writtenPath = state.modelPath;
+        } else {
+            kept++;
+        }
+
         if (!state.swap || !state.swap->alternateTextures)
             continue;
 
@@ -73,13 +96,16 @@ void RecordSnapshot::restore() const
             entry.index3D = state.alternateTextures[i].index3D;
         }
     }
+
+    if (kept)
+        Logger::info("{} record models keep the model string another plugin set after PGLite planned", kept);
 }
 
 RE::BGSTextureSet* TextureSetFactory::textureSet(const PGTypes::TextureSet& textures)
 {
     // The key is the eight lower case paths; a set that differs in case only is the same set to the engine.
     std::wstring key;
-    for (std::size_t slot = 0; slot < recordTextureOfSlot.size(); slot++) {
+    for (std::size_t slot = 0; slot < recordSlotCount; slot++) {
         key += textures.at(slot);
         key += L'|';
     }
@@ -100,14 +126,16 @@ RE::BGSTextureSet* TextureSetFactory::textureSet(const PGTypes::TextureSet& text
         return nullptr;
     }
 
-    for (std::size_t slot = 0; slot < recordTextureOfSlot.size(); slot++) {
+    // The slots are written in NIF slot order: the engine's SetTexturePath maps a slot to its record field itself
+    // (TX02 to TX05 are stored in another order than the NIF slots), as Uses::textureSet() reads them.
+    for (std::size_t slot = 0; slot < recordSlotCount; slot++) {
         const auto& texture = textures.at(slot);
         std::wstring recordPath = texture;
         if (recordPath.starts_with(texturesPrefix))
             recordPath.erase(0, texturesPrefix.size());
 
         const auto path = StringUtil::utf16toWindows1252(recordPath);
-        set->SetTexturePath(recordTextureOfSlot.at(slot), path.c_str());
+        set->SetTexturePath(static_cast<RE::BSTextureSet::Texture>(slot), path.c_str());
     }
 
     // The constructor the factory runs gives the form the next dynamic form ID and puts it into the global form map

@@ -82,8 +82,8 @@ bool AnimatedImage::loadIcon(const unsigned char* data,
         const unsigned width = entry[0] ? entry[0] : 256;
         const auto entrySize = readU32(entry + 8);
         const auto offset = readU32(entry + 12);
-        if (offset + entrySize > size || entrySize < sizeof(pngSignature)
-            || std::memcmp(data + offset, pngSignature, sizeof(pngSignature)) != 0)
+        if (static_cast<std::size_t>(offset) + entrySize > size || entrySize < sizeof(pngSignature)
+            || std::memcmp(data + offset, pngSignature, sizeof(pngSignature)))
             continue;
 
         if (width > bestWidth) {

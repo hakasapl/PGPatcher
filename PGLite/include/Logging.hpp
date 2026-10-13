@@ -30,7 +30,8 @@ public:
     static bool initialize(spdlog::level::level_enum level);
 
     /**
-     * @brief Returns the messages of warning level and above logged so far, each once, in order of first occurrence.
+     * @brief Returns the messages of warning level and above logged so far, each once, in order of first occurrence;
+     * the oldest are dropped beyond a few thousand.
      */
     [[nodiscard]] static std::vector<Message> messages();
 

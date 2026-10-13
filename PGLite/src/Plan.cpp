@@ -12,6 +12,7 @@
 #include "Runtime.hpp"
 #include "Uses.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
@@ -114,7 +115,7 @@ std::shared_ptr<const std::vector<std::byte>> Family::bytes(std::size_t member,
             return original(pathIndex);
 
         const auto& output = m_outputs.at(pathIndex).at(member);
-        if (output.keepsOriginal)
+        if (output.isOriginalKept)
             return original(pathIndex);
 
         return produce(m_leaders.at(member), pathIndex);
@@ -126,7 +127,10 @@ std::shared_ptr<const std::vector<std::byte>> Family::bytes(std::size_t member,
         Logger::error(L"Unable to patch {}, the original mesh is used", basePaths.at(pathIndex).wstring());
     }
 
-    m_state = State::Failed;
+    // A failed first patch edited no record, so the family stays unpatched for the session. A failed later open keeps
+    // the state: the records carry the edits of the first patch, and the next open produces the member again.
+    if (m_state == State::Unpatched)
+        m_state = State::Failed;
     try {
         return original(pathIndex);
     } catch (...) {
@@ -154,27 +158,35 @@ void Family::patch(std::size_t wantedMember,
     }
 
     std::vector<std::vector<MemberOutput>> outputs(basePaths.size());
+    bool hasUnresolvedFile = false;
     for (std::size_t pathIndex = 0; pathIndex < basePaths.size(); pathIndex++) {
         const Logger::Prefix pathPrefix(basePaths.at(pathIndex).wstring());
+        auto& pathOutputs = outputs.at(pathIndex);
+        pathOutputs.resize(members.size());
+
+        if (pathIndex >= sources.size() || !sources.at(pathIndex)) {
+            // A file of a weighted pair the engine cannot resolve: nothing is registered for it, the other file of
+            // the pair is patched on its own.
+            hasUnresolvedFile = true;
+            continue;
+        }
 
         const auto originalBytes = original(pathIndex);
         if (!originalBytes)
             throw std::runtime_error("the original mesh cannot be read");
 
         PGMeshPermutationTracker tracker(basePaths.at(pathIndex), *originalBytes);
-        auto& pathOutputs = outputs.at(pathIndex);
-        pathOutputs.resize(members.size());
         for (std::size_t member = 0; member < members.size(); member++) {
             if (!patchMember(tracker, member, pathIndex, pathOutputs.at(member)))
                 throw std::runtime_error("a shape could not be processed");
 
-            if (pathOutputs.at(member).keepsOriginal && pathIndex == wantedPath && member == wantedMember)
+            if (pathOutputs.at(member).isOriginalKept && pathIndex == wantedPath && member == wantedMember)
                 wantedBytes = originalBytes;
         }
 
         const auto serialized = tracker.serializeMeshes();
         const bool hasOutputs
-            = std::ranges::any_of(pathOutputs, [](const MemberOutput& output) { return !output.keepsOriginal; });
+            = std::ranges::any_of(pathOutputs, [](const MemberOutput& output) { return !output.isOriginalKept; });
         if (hasOutputs && serialized.empty())
             throw std::runtime_error("the patched mesh cannot be serialized");
 
@@ -195,11 +207,11 @@ void Family::patch(std::size_t wantedMember,
     }
 
     // The weighted layout check of the offline program, on the two outputs of each context.
-    if (basePaths.size() == 2) {
+    if (basePaths.size() == 2 && !hasUnresolvedFile) {
         for (std::size_t member = 0; member < members.size(); member++) {
             const auto& a = outputs.at(0).at(member);
             const auto& b = outputs.at(1).at(member);
-            if (a.keepsOriginal || b.keepsOriginal)
+            if (a.isOriginalKept || b.isOriginalKept)
                 continue;
 
             if (a.blockKinds != b.blockKinds) {
@@ -220,7 +232,7 @@ void Family::patch(std::size_t wantedMember,
             for (std::size_t pathIndex = 0; pathIndex < basePaths.size() && isSameGroup; pathIndex++) {
                 const auto& a = outputs.at(pathIndex).at(leader);
                 const auto& b = outputs.at(pathIndex).at(member);
-                isSameGroup = a.keepsOriginal == b.keepsOriginal && (a.keepsOriginal || a.output == b.output);
+                isSameGroup = a.isOriginalKept == b.isOriginalKept && (a.isOriginalKept || a.output == b.output);
             }
 
             if (isSameGroup) {
@@ -231,23 +243,24 @@ void Family::patch(std::size_t wantedMember,
     }
 
     m_outputs = std::move(outputs);
-    m_state = State::Patched;
-
     editRecords(textureSets);
     retargetMergedMembers(generation);
+    m_state = State::Patched;
 
     std::size_t groups = 0;
     for (std::size_t member = 0; member < members.size(); member++)
-        if (m_leaders.at(member) == member && !m_outputs.front().at(member).keepsOriginal)
+        if (m_leaders.at(member) == member && !m_outputs.front().at(member).isOriginalKept)
             groups++;
 
-    Logger::debug(L"Patched {} ({} contexts, {} distinct outputs)", basePaths.front().wstring(), members.size(), groups);
+    Logger::debug(
+        L"Patched {} ({} contexts, {} distinct outputs)", basePaths.front().wstring(), members.size(), groups);
 }
 
 bool Family::patchMember(PGMeshPermutationTracker& tracker,
                          std::size_t member,
                          std::size_t pathIndex,
-                         MemberOutput& output)
+                         MemberOutput& output,
+                         bool shouldCompareWithOriginal)
 {
     const auto& memberInfo = members.at(member);
     const Logger::Prefix dupPrefix(useLabel(memberInfo.formKey));
@@ -268,8 +281,9 @@ bool Family::patchMember(PGMeshPermutationTracker& tracker,
         return false;
     }
 
-    const auto result = tracker.commitMesh(memberKey(member), false, alternateTextures, nonAltTexShapes);
-    output.keepsOriginal = result == PGMeshPermutationTracker::CommitResult::UnchangedFromOriginal;
+    const auto result
+        = tracker.commitMesh(memberKey(member), false, alternateTextures, nonAltTexShapes, shouldCompareWithOriginal);
+    output.isOriginalKept = result == PGMeshPermutationTracker::CommitResult::UnchangedFromOriginal;
     output.altTexResults = std::move(alternateTextures);
     return true;
 }
@@ -281,13 +295,12 @@ std::shared_ptr<const std::vector<std::byte>> Family::produce(std::size_t member
     if (!originalBytes)
         throw std::runtime_error("the original mesh cannot be read");
 
+    // The member leads a group, so its first patch became an output even where the result equals the original (it
+    // followed other members in that tracker); the same bytes are served again, not the original.
     PGMeshPermutationTracker tracker(basePaths.at(pathIndex), *originalBytes);
     MemberOutput output;
-    if (!patchMember(tracker, member, pathIndex, output))
+    if (!patchMember(tracker, member, pathIndex, output, false))
         throw std::runtime_error("a shape could not be processed");
-
-    if (output.keepsOriginal)
-        return originalBytes;
 
     const auto serialized = tracker.serializeMeshes();
     if (serialized.empty())
@@ -359,11 +372,12 @@ void Family::retargetMergedMembers(unsigned generation)
 
     // Later instances share the leader's model; the ones already created keep an identical copy until evicted.
     SKSE::GetTaskInterface()->AddTask([edits = std::move(edits), generation] {
-        if (generation != Runtime::instance().planGeneration())
+        auto& runtime = Runtime::instance();
+        if (generation != runtime.planGeneration())
             return;
 
         for (const auto& [model, path] : edits)
-            setModelPath(*model, path);
+            runtime.snapshot().setModel(*model, path);
     });
 }
 
@@ -411,6 +425,13 @@ void Plan::build(const Uses& uses,
             continue;
         }
 
+        if (PGNIFUtil::isFacegenMesh(path)) {
+            // The offline program warns about this and leaves the mesh unpatched (PGPatcher::patchNIF).
+            Logger::warn(L"NIF has mesh uses but is detected as a facegen mesh: {}", path.wstring());
+            unpatched++;
+            continue;
+        }
+
         auto family = std::make_unique<Family>();
         family->basePaths.push_back(path);
 
@@ -441,9 +462,7 @@ void Plan::build(const Uses& uses,
                     if (family->basePaths.at(i) == named)
                         recordPath = i;
 
-                const bool isFiltered
-                    = use.attributes.isIgnored || (!use.attributes.isDummyUse && !allowed.contains(use.attributes.recType));
-                if (isFiltered) {
+                if (PGPatcher::isUseUnpatched(use.attributes, allowed, true)) {
                     // Exactly ignoreBaseMesh offline: the original path keeps the unpatched mesh.
                     family->isBaseUnpatched = true;
                     family->unpatchedUses.push_back({ .use = &use, .pathIndex = recordPath });
@@ -451,8 +470,9 @@ void Plan::build(const Uses& uses,
                 }
 
                 const auto context = contextOf(use);
-                auto member = std::ranges::find_if(
-                    family->members, [&context](const Family::Member& candidate) { return candidate.context == context; });
+                auto member = std::ranges::find_if(family->members, [&context](const Family::Member& candidate) {
+                    return candidate.context == context;
+                });
                 if (member == family->members.end()) {
                     Family::Member newMember;
                     newMember.context = context;
@@ -497,22 +517,39 @@ void Plan::build(const Uses& uses,
                  unpatched);
 }
 
-void Plan::retargetRecords() const
+void Plan::retargetRecords(RecordSnapshot& snapshot) const
 {
     std::size_t retargeted = 0;
+    std::size_t kept = 0;
+    std::size_t unregistered = 0;
     for (const auto& family : m_families) {
+        if (family->sources.empty()) {
+            // Nothing is registered for the family, so its records keep the original paths the engine can load.
+            unregistered++;
+            continue;
+        }
+
         for (const auto& member : family->members) {
             if (!member.variantNumber)
                 continue;
 
             for (const auto& ref : member.uses) {
-                setModelPath(*ref.use->element.model, member.paths.at(ref.pathIndex));
-                retargeted++;
+                const auto& path = member.paths.at(ref.pathIndex);
+                if (snapshot.setModel(*ref.use->element.model, path)) {
+                    Logger::trace(L"Pointed {} at {}", useLabel(ref.use->formKey), path.wstring());
+                    retargeted++;
+                } else {
+                    kept++;
+                }
             }
         }
     }
 
-    Logger::info("Pointed {} record models at variant paths", retargeted);
+    Logger::info("Pointed {} record models at variant paths ({} keep another plugin's value, {} families have no "
+                 "streams)",
+                 retargeted,
+                 kept,
+                 unregistered);
 }
 
 Family& Plan::addFacegenFamily(const std::filesystem::path& path)
@@ -546,7 +583,7 @@ std::size_t Plan::patchedFamilyCount() const
 {
     std::size_t count = 0;
     for (const auto& family : m_families)
-        if (family->state() != Family::State::Unpatched)
+        if (family->state() == Family::State::Patched)
             count++;
 
     return count;

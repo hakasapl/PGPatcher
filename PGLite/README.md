@@ -1,13 +1,15 @@
 # PGLite
 
 PGLite is the SKSE plugin version of PGPatcher: it runs the same patchers on every mesh at the moment the game loads
-it, and reproduces the plugin step (mesh duplicates and texture set records) in memory. Nothing is written to the data
-folder, there is no output mod and no patching step before the game starts. The design is in [DESIGN.md](DESIGN.md).
+it, and reproduces the plugin step (mesh duplicates and texture set records) in memory. Nothing of the offline output
+is written to the data folder, there is no output mod and no patching step before the game starts; PGLite keeps its
+own files under `SKSE\Plugins\PGLite`. The design is in [DESIGN.md](DESIGN.md).
 
 ## Installation
 
-Install the `PGLite` archive like any SKSE plugin (`SKSE\Plugins\PGLite.dll`, `SKSE\Plugins\PGLite.ini`, the
-translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubemap texture). Requirements:
+Install the `PGLite` archive like any SKSE plugin (`SKSE\Plugins\PGLite.dll` with its `PGLite.pdb` for crash logs,
+`SKSE\Plugins\PGLite.ini`, the translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubemap
+texture). Requirements:
 
 - Skyrim Special Edition 1.6.x or 1.7.x (the Anniversary Edition runtimes), SKSE and the
   [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version.
@@ -50,9 +52,11 @@ any time. `bForceAlwaysCM=true` in the ini upgrades every parallax match (the `-
 program).
 
 Apply in the menu saves the settings, restores every record, plans again and registers the new variant streams.
-The game is paused meanwhile, and the menu shows the elapsed time and the step it is at.
+The game is paused meanwhile, and the menu shows the elapsed time and the step it is at. Apply refuses the settings
+the offline launcher refuses (the transform without its patchers, empty or duplicate rule entries) and says why.
 Meshes loaded from then on use the new settings; models the game already holds keep their state until the game
-reloads them.
+reloads them. A model string another plugin sets after PGLite planned is never overwritten, at data load or by
+Apply.
 
 ## Differences from the offline PGPatcher
 
@@ -74,8 +78,10 @@ Patchers and textures:
 
 Records and the plugin step:
 
-4. Records are the live game state: edits other tools make at data load are seen, and base object swappers make
-   the engine load another record's model, with its own uses.
+4. Records are the live game state: edits made by plugins whose data-load handler runs before PGLite's (SKSE runs
+   them in plugin load order) are seen, a model string changed after PGLite planned keeps its value (that record
+   loads what the string names, patched as that path is), and base object swappers make the engine load another
+   record's model, with its own uses.
 5. Light Placer lights follow the records PGLite points at a variant path: PGLite writes
    `LightPlacer\PGLite_Variants.json` with the lights of every entry that lists a retargeted model and asks Light
    Placer to reload its configs (its `ReloadLP` console command) after data load and after Apply. Other mods that key
@@ -84,7 +90,8 @@ Records and the plugin step:
    created at the first load of a mesh and deduplicated per session.
 7. Weighted pairs are planned as one family: a context merges only when both files agree, and each record
    component is edited once. A layout mismatch is logged like offline, but the record never points at meshes of two
-   contexts.
+   contexts. A use that names one file of a pair is patched on the other file too, and a pair with one file the game
+   cannot find is patched on the other.
 8. Model strings are normalized as the engine resolves them (forward slashes, an embedded `meshes\` prefix),
    where offline keys on the string as written.
 9. Facegen heads are enumerated from the NPC forms, not from the file map.
@@ -92,17 +99,21 @@ Records and the plugin step:
 
 Files and archives:
 
-11. Nothing is written to the data folder: no duplicate files, plugins, texture set records, diff JSON, zip, update
-    cache, BodySlide ShapeData handling or dynamic cubemap deployment (the package ships the texture). The generated
-    textures go to the cache under the plugin's folder.
-12. The archive set and the loose file set are the engine's: the INI lists, `Update.bsa`, `<plugin>.bsa` and
-    `<plugin> - Textures.bsa`, every loose file including hidden ones.
-13. Every file read goes through the engine's resource layer, so it is what the game loads.
+11. Nothing of the offline output is written to the data folder: no duplicate files, plugins, texture set records,
+    diff JSON, zip, update cache, BodySlide ShapeData handling or dynamic cubemap deployment (the package ships the
+    texture). PGLite's own files (the settings, the mod rules, the classification cache and the generated textures)
+    live under `SKSE\Plugins\PGLite`, and the Light Placer config of item 5 under `LightPlacer`.
+12. The archive set and the loose file set are the engine's, in the engine's own order: the INI lists, `Update.bsa`,
+    `<plugin>.bsa` and `<plugin> - Textures.bsa`, every loose file including hidden ones.
+13. The bytes of every mesh and texture a patch reads come from the engine's resource layer, so they are what the
+    game loads; the mesh reading pass reads the data folder and the archives natively before the first patch, with
+    the same archive set and order.
 
 Lifecycle:
 
 14. Settings changes apply to meshes loaded afterwards; resident models keep their state until the game reloads
-    them.
+    them, and a new instance of such a model can show an alternate texture on the wrong shape until then. A generated
+    texture stays registered for the session, whatever a later Apply enables.
 15. Identical copies can exist in memory until the game evicts them: merged contexts until the main-thread
     retarget runs, models created from a merged-away name, and paths ignored by a mod rule (applied at first load).
 16. A failure while patching a mesh leaves it unpatched with one log line; offline, an exception stops the run.
@@ -111,9 +122,15 @@ Lifecycle:
 Program behavior:
 
 18. The offline DynDOLOD refusal has no runtime equivalent; `.bto` files have no uses.
-19. PGLite disables itself when an offline output or Auto Parallax is present, with a stricter check than offline.
+19. PGLite disables itself when an offline output or Auto Parallax is present; offline checks only the loose diff
+    JSON, and its refusal to run next to VRAMr's output has no runtime counterpart.
 20. The menu has no conflict highlighting or viewer; `exclude facegens`, `disable dynamic cubemap` and `force
-    always CM` are ini options; the log lives next to the other SKSE logs.
+    always CM` are ini options; Apply restores the records from a snapshot before it plans again; the log lives next
+    to the other SKSE logs, so the `enabledebuglogging` and `enabletracelogging` keys of `settings.json` are ignored
+    in favor of the ini's log level; `multithread` and `devmode` are kept from the file but not editable in the menu;
+    a relative mod manager path is resolved against the game folder; a `settings.json` edited by hand runs as it is
+    (the transform without its patchers is turned off with an error), and a shader that cannot be created turns its
+    patcher off with an error, where the offline program refuses to run.
 
 ## Development
 

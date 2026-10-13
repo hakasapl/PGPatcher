@@ -42,7 +42,8 @@ python scripts/run_clang_tidy.py          # needs a configured *and built* tree;
 
 `PGLite` alone configures with `cmake -S PGLite -B buildRelease/PGLite -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 -DCMAKE_TOOLCHAIN_FILE=...` from a VS dev shell (fxc compiles the shaders) and builds `bin/PGLite.dll`; every PGLib
-change has to build there as well, since the runtime compiles PGLib with C++23 and a static CRT.
+change has to build there as well, since the runtime compiles PGLib as a static library with a static CRT (C++20 like
+the root tree, while the plugin's own units use C++23).
 
 The build has to be warning free. CI runs `check_build_warnings.py` on the log of its own build
 and fails the job on any warning, so run it before calling a change done. A warning only shows

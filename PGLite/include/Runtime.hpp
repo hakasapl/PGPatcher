@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -93,8 +94,12 @@ public:
     /// @brief The generation of the current plan; deferred record edits of an older plan do nothing.
     [[nodiscard]] unsigned planGeneration() const { return m_planGeneration; }
 
-    /// @brief The current environment, nullptr before the background initialization finished. Main thread.
+    /// @brief The current environment, nullptr before the background initialization finished and while PGLite is
+    /// disabled in the settings. Main thread.
     [[nodiscard]] Environment* environment() const { return m_environment.get(); }
+
+    /// @brief The snapshot of the record fields, which every model string write goes through (RecordSnapshot).
+    [[nodiscard]] RecordSnapshot& snapshot() { return m_snapshot; }
 
     [[nodiscard]] Status status() const;
 
@@ -119,7 +124,8 @@ public:
      *
      * @param isEnabled false restores the records and installs an empty plan instead, so every stream serves the
      * original mesh until the next apply with true.
-     * @return false if PGLite is not ready.
+     * @return false if PGLite is not ready or the apply failed; a failed apply restores the records, installs an empty
+     * plan and leaves PGLite disabled until the next apply.
      */
     bool apply(const PGParams& params,
                bool isEnabled);
@@ -138,7 +144,8 @@ private:
 
     static void onMessage(SKSE::MessagingInterface::Message* message);
 
-    /// @brief The data-load work: the disable conditions, the uses, the plan, the streams, the background thread.
+    /// @brief The data-load work, after onMessage() checked the disable conditions: the uses, the plan, the streams,
+    /// the background thread.
     void onDataLoaded();
 
     /**
@@ -150,7 +157,8 @@ private:
     /// @brief The conditions of DESIGN.md section 4.9 that need the loaded game, or nothing.
     [[nodiscard]] std::optional<std::string> detectDisableCondition() const;
 
-    /// @brief Logs the reason, shows the notice and keeps PGLite inert.
+    /// @brief Logs the reason, shows the notice (on the main thread, once the game runs its tasks) and keeps PGLite
+    /// inert: whoever waits for the initialization is released and every stream serves the original mesh.
     void disable(const std::string& reason,
                  bool shouldShowInGame);
 
@@ -176,10 +184,18 @@ private:
     /// @brief The facegen paths of every NPC form. At data load, before the game runs.
     [[nodiscard]] std::vector<std::filesystem::path> facegenPaths() const;
 
-    /// @brief The background initialization: the GPU, the cache, the facegen streams, then the environment.
+    /// @brief The background initialization: the GPU, the observer, the facegen streams, then the environment.
     void initializeInBackground();
 
-    /// @brief Blocks until the background initialization finished.
+    /**
+     * @brief Builds and installs the environment of the current parameters: the classification cache is read for its
+     * mesh reading pass and dropped from memory once the pass saved it, and the generated textures of the session are
+     * made known to the new directory. While no patch runs.
+     */
+    void buildEnvironment(const std::function<void(const char*)>& reportStage,
+                          const Environment::ProgressCallback& reportProgress);
+
+    /// @brief Blocks until the background initialization finished, for as long as the main menu is held at most.
     void waitUntilReady();
 
     Settings::Ini m_ini;

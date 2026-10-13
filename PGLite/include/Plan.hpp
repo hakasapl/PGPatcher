@@ -69,7 +69,7 @@ public:
     /// @brief The outcome of a member's patch for one file of the family.
     struct MemberOutput {
         /// @brief The result equals the original mesh, which the member keeps.
-        bool keepsOriginal = false;
+        bool isOriginalKept = false;
         /// @brief Index of the tracker output the result went to.
         std::size_t output = 0;
         std::unordered_map<int, int> idxCorrections;
@@ -87,7 +87,8 @@ public:
 
     /// @brief The files of the family: one path, or the _0 and _1 paths of a weighted pair.
     std::vector<std::filesystem::path> basePaths;
-    /// @brief The engine's own streams for the files, set when the streams are registered.
+    /// @brief The engine's own streams for the files, set when the streams are registered; a file the engine cannot
+    /// resolve has none, and nothing is registered or patched for it. Empty until the family is registered.
     std::vector<std::shared_ptr<SourceStream>> sources;
     std::vector<Member> members;
     /// @brief Uses that keep the original, unpatched mesh: filtered by the record type setting or ignored.
@@ -99,7 +100,9 @@ public:
 
     /**
      * @brief The bytes the stream of a member serves: patches the family on its first open, then produces the member's
-     * group. Never throws; a failure leaves the family unpatched and serves the original bytes.
+     * group. Never throws; a failure of the first patch leaves the family unpatched for the session, a failure of a
+     * later open serves the original bytes for that open only, since the records already carry the edits of the
+     * first patch.
      *
      * @param member Index of the member.
      * @param pathIndex Index of the file of the family.
@@ -135,11 +138,17 @@ private:
     /// @brief Posts the main-thread task that points the records of merged members at their group's path.
     void retargetMergedMembers(unsigned generation);
 
-    /// @brief Runs the patchers over a staged copy of the mesh for one member, see PGPatcher::processNIF().
+    /**
+     * @brief Runs the patchers over a staged copy of the mesh for one member, see PGPatcher::processNIF().
+     *
+     * @param shouldCompareWithOriginal Whether a result equal to the original is dropped instead of becoming an
+     * output, see PGMeshPermutationTracker::commitMesh().
+     */
     [[nodiscard]] bool patchMember(PGMeshPermutationTracker& tracker,
                                    std::size_t member,
                                    std::size_t pathIndex,
-                                   MemberOutput& output);
+                                   MemberOutput& output,
+                                   bool shouldCompareWithOriginal = true);
 
     std::mutex m_patchMutex;
     std::atomic<State> m_state { State::Unpatched };
@@ -177,10 +186,11 @@ public:
                unsigned& variantCounter);
 
     /**
-     * @brief Points the records of every member with a variant path at it. After build(), at data load or under the
-     * exclusive pipeline lock of Apply.
+     * @brief Points the records of every member with a variant path at it, through the snapshot, which keeps a value
+     * another plugin wrote. Only the families whose streams are registered: after build() and the registration, at
+     * data load or under the exclusive pipeline lock of Apply.
      */
-    void retargetRecords() const;
+    void retargetRecords(RecordSnapshot& snapshot) const;
 
     /**
      * @brief Adds the family of a facegen head: one member for the dummy use the offline program patches it for.
@@ -201,7 +211,7 @@ public:
     /// @brief The number of variant paths of the plan.
     [[nodiscard]] std::size_t variantCount() const { return m_variantCount; }
 
-    /// @brief The number of families whose patch ran.
+    /// @brief The number of families whose patch ran and succeeded.
     [[nodiscard]] std::size_t patchedFamilyCount() const;
 
 private:
