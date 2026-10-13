@@ -73,6 +73,12 @@ std::filesystem::path Settings::iniFile() { return pluginsFolder() / L"PGLite.in
 
 std::filesystem::path Settings::settingsFile() { return configFolder() / L"settings.json"; }
 
+bool Settings::hasSettingsFile()
+{
+    std::error_code ec;
+    return std::filesystem::exists(settingsFile(), ec);
+}
+
 std::filesystem::path Settings::modRulesFile() { return configFolder() / L"modrules.json"; }
 
 std::filesystem::path Settings::classificationCacheFile() { return configFolder() / L"classification.bin"; }

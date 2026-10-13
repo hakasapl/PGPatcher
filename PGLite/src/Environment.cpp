@@ -222,8 +222,9 @@ void Environment::initializeModManager()
             // A relative path is the game folder's, where the offline program's is its own folder's (section 7); an
             // empty path stays empty (it counts as relative).
             const auto& instanceDir = m_params.modManager.mo2InstanceDir;
-            m_mo2InstanceDir = !instanceDir.empty() && instanceDir.is_relative() ? Settings::gameFolder() / instanceDir
-                                                                                 : instanceDir;
+            m_mo2InstanceDir = !instanceDir.empty() && instanceDir.is_relative()
+                ? (Settings::gameFolder() / instanceDir).lexically_normal()
+                : instanceDir;
             if (m_mo2InstanceDir.empty()) {
                 Logger::warn("No Mod Organizer 2 instance is configured, mods are not attributed");
             } else {

@@ -17,7 +17,10 @@ texture). Requirements:
 - No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) and no Auto Parallax.
   PGLite disables itself with an in-game notice when it finds one of them, and installs nothing else then (no menu,
   no hooks).
-- Community Shaders for complex material and True PBR, as with the offline program.
+- Community Shaders or ENB. PGLite disables itself with a notice when neither is loaded. TruePBR and the hair flow
+  map need Community Shaders and Fix Mesh Lighting needs ENB: the menu greys the options the loaded framework cannot
+  render, and a first start enables the ones it can (parallax, complex material and the pre-patched material reset,
+  plus TruePBR with Community Shaders or Fix Mesh Lighting with ENB).
 - The Visual C++ 2015-2022 redistributable the game itself needs (`vcomp140.dll`) and `d3dcompiler_47.dll`,
   which is part of Windows; everything else is linked into `PGLite.dll`.
 
@@ -123,7 +126,9 @@ Program behavior:
 
 18. The offline DynDOLOD refusal has no runtime equivalent; `.bto` files have no uses.
 19. PGLite disables itself when an offline output or Auto Parallax is present; offline checks only the loose diff
-    JSON, and its refusal to run next to VRAMr's output has no runtime counterpart.
+    JSON, and its refusal to run next to VRAMr's output has no runtime counterpart. PGLite also disables itself
+    without Community Shaders or ENB, keeps the patchers the loaded framework cannot render off and enables the
+    framework's patchers on a first start.
 20. The menu has no conflict highlighting or viewer; `exclude facegens`, `disable dynamic cubemap` and `force
     always CM` are ini options; Apply restores the records from a snapshot before it plans again; the log lives next
     to the other SKSE logs, so the `enabledebuglogging` and `enabletracelogging` keys of `settings.json` are ignored

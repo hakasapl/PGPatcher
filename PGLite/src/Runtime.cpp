@@ -16,6 +16,7 @@
 #include "Plan.hpp"
 #include "Resources.hpp"
 #include "Settings.hpp"
+#include "ShaderFrameworks.hpp"
 #include "TextureGenerator.hpp"
 #include "Uses.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -184,6 +185,12 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
         return;
     }
 
+    // The SKSE plugins and ENB's proxy are loaded by now.
+    runtime.m_shaderFrameworks = ShaderFrameworks::detect();
+    Logger::info("Shader frameworks: Community Shaders {}, ENB {}",
+                 runtime.m_shaderFrameworks.hasCommunityShaders ? "yes" : "no",
+                 runtime.m_shaderFrameworks.hasENB ? "yes" : "no");
+
     if (const auto reason = runtime.detectDisableCondition()) {
         runtime.disable(*reason, true);
         return;
@@ -228,8 +235,19 @@ void Runtime::onDataLoaded()
     try {
         const auto started = std::chrono::steady_clock::now();
         {
+            // A first start, without a settings.json, enables the patchers the loaded framework renders; a file keeps
+            // what it has, less what the framework cannot render.
+            PGParams params;
+            if (Settings::hasSettingsFile()) {
+                params = Settings::readParams();
+            } else {
+                Logger::info("No settings.json yet: the patchers of the loaded shader framework are enabled");
+                params = ShaderFrameworks::firstStartParams(m_shaderFrameworks);
+            }
+            ShaderFrameworks::limitPatchers(params, m_shaderFrameworks);
+
             const std::scoped_lock lock(m_stateMutex);
-            m_params = Settings::readParams();
+            m_params = std::move(params);
         }
 
         m_isEnabled = Settings::readIsEnabled();
@@ -288,6 +306,9 @@ std::optional<std::string> Runtime::detectDisableCondition() const
     std::error_code ec;
     if (GetModuleHandleW(autoParallaxDLL) || std::filesystem::exists(Settings::pluginsFolder() / autoParallaxDLL, ec))
         return PGTranslation::tr("pglite.disabled.autoParallax");
+
+    if (!m_shaderFrameworks.hasAny())
+        return PGTranslation::tr("pglite.disabled.noShaderFramework");
 
     return std::nullopt;
 }
@@ -545,13 +566,17 @@ bool Runtime::waitUntilReady()
     return false;
 }
 
-bool Runtime::apply(const PGParams& params,
+bool Runtime::apply(const PGParams& requestedParams,
                     bool isEnabled)
 {
     if (!m_isActive || !m_isReady || !m_plan || disableReason()) {
         Logger::warn("Apply refused, PGLite is not ready");
         return false;
     }
+
+    // The menu keeps the patchers the framework cannot render off already; an edited settings.json does not.
+    auto params = requestedParams;
+    ShaderFrameworks::limitPatchers(params, m_shaderFrameworks);
 
     const auto started = std::chrono::steady_clock::now();
     const std::unique_lock lock(m_pipelineLock);

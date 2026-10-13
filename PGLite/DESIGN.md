@@ -427,6 +427,9 @@ immediate and is a later addition if wanted; it is not part of apply.
   active. Offline checks only the loose `ParallaxGen_Diff.json`, and refuses to run while VRAMr's output mod is
   enabled (`main.cpp:600-612`), which has no runtime counterpart (section 7, item 19).
 - Auto Parallax is installed (`AutoParallax.dll` in `SKSE\Plugins`): the two would edit the same materials.
+- Neither Community Shaders nor ENB is loaded: Community Shaders is found through its plugin module, ENB through
+  the `ENBGetSDKVersion` export of the loaded modules, as TerrainHelper finds it (`ShaderFrameworks`); the patched
+  materials need one of them.
 - Address Library missing for the running game version.
 
 In every case PGLite logs the reason, shows a notice ("PGLite is disabled because X.", translated like the menu; an
@@ -442,11 +445,16 @@ Hotkey from the ini. Device and context from the game's swap chain, present and 
 ImGui plugin. Pages: mod manager (type, MO2 instance location with a folder dialog, MO2 loose file order) and the mod list
 (mods with shaders or meshes as `updateStateFromModlist` numbers them, drag to reorder, enable, meshes ignored; apply
 writes `modrules.json`); patcher checkboxes (Fix Mesh Lighting, Parallax, Complex Material, True PBR, Upgrade
-Parallax to Complex Material, Disable Pre-Patched Materials, Fix Vanilla Subsurface Scattering, Hair Flow Map);
+Parallax to Complex Material, Disable Pre-Patched Materials, Fix Vanilla Subsurface Scattering, Hair Flow Map;
+TruePBR and the hair flow map are greyed without Community Shaders, Fix Mesh Lighting without ENB, and the runtime
+keeps those off whatever `settings.json` says);
 allowed record types; mesh allow list and block list; texture rules; a status panel (ready state, patched family and
 variant counts, generated texture counts, a toggle that disables PGLite through an apply with an empty plan and
 enables it through a full one, persisted in `settings.json`) and the warnings and errors collected by a log sink,
-deduplicated (weighted pair mismatches land here). Apply refuses what the offline launcher refuses
+deduplicated (weighted pair mismatches land here). A first start, without `settings.json`, enables parallax,
+complex material and the pre-patched material reset, plus TruePBR with Community Shaders and Fix Mesh Lighting with
+ENB; a file keeps its values, less what the loaded framework cannot render. Apply refuses what the offline launcher
+refuses
 (`PGParams::validate`, run on the rules spelled as a read of the file spells them, `PGParams::normalizeRules`: the
 transform without its patchers, duplicate rule entries, two spellings of one rule among them; empty entries are
 dropped by the menu, and the vanilla archive list, which the menu does not edit, only warns) and shows the first
@@ -697,6 +705,8 @@ This is the complete list. A difference that is not here is a bug (section 1).
     default block list keeps LOD and DynDOLOD meshes out.
 19. PGLite disables itself with a notice when an offline output or Auto Parallax is present (4.9); offline checks
     only the loose diff JSON, and its refusal to run while VRAMr's output mod is enabled has no runtime counterpart.
+    PGLite also disables itself without Community Shaders or ENB, keeps the patchers the loaded framework cannot
+    render off and enables the framework's patchers on a first start; offline cannot know what the game runs.
 20. GUI and settings: no conflict highlighting or viewer; `exclude facegens`, `disable dynamic cubemap` and `force
     always CM` are ini options instead of command line flags; Apply restores the records from a snapshot before
     re-planning (4.8); the log lives next to the other SKSE logs, so the `enabledebuglogging` and

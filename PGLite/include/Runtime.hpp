@@ -8,6 +8,7 @@
 #include "Plan.hpp"
 #include "RecordEdits.hpp"
 #include "Settings.hpp"
+#include "ShaderFrameworks.hpp"
 #include "TextureGenerator.hpp"
 #include "Uses.hpp"
 
@@ -79,6 +80,9 @@ public:
     /// @brief The parameters the current plan and environment were built from.
     [[nodiscard]] PGParams params() const;
 
+    /// @brief The shader frameworks found at data load: what the patcher options of the menu can offer.
+    [[nodiscard]] const ShaderFrameworks::Detected& shaderFrameworks() const { return m_shaderFrameworks; }
+
     /// @brief Why PGLite is disabled, or nothing while it is active.
     [[nodiscard]] std::optional<std::string> disableReason() const;
 
@@ -127,7 +131,7 @@ public:
      * @return false if PGLite is not ready or the apply failed; a failed apply restores the records, installs an empty
      * plan and leaves PGLite disabled until the next apply.
      */
-    bool apply(const PGParams& params,
+    bool apply(const PGParams& requestedParams,
                bool isEnabled);
 
     // PatchStream::Provider.
@@ -205,6 +209,7 @@ private:
 
     Settings::Ini m_ini;
     PGParams m_params;
+    ShaderFrameworks::Detected m_shaderFrameworks;
     mutable std::mutex m_stateMutex;
     std::optional<std::string> m_disableReason;
 

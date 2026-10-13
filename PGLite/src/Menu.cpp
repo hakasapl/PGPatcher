@@ -780,7 +780,7 @@ void Menu::rebuildModList()
             return;
         }
         if (dir.is_relative())
-            dir = Settings::gameFolder() / dir;
+            dir = (Settings::gameFolder() / dir).lexically_normal();
         std::error_code ec;
         if (!std::filesystem::exists(dir, ec)) {
             m_modListMessage = tr("launcher.validation.mo2InstanceMissing");
@@ -1209,6 +1209,17 @@ void Menu::drawStatus()
                 status.texturesFromCache,
                 status.texturesGenerated,
                 status.texturesFailed);
+    const auto& frameworks = m_runtime->shaderFrameworks();
+    const auto frameworkName = [&frameworks] {
+        if (frameworks.hasCommunityShaders && frameworks.hasENB)
+            return tr("pglite.status.frameworkBoth");
+        if (frameworks.hasCommunityShaders)
+            return tr("pglite.status.frameworkCommunityShaders");
+        if (frameworks.hasENB)
+            return tr("pglite.status.frameworkENB");
+        return tr("pglite.status.frameworkNone");
+    }();
+    ImGui::Text(tr("pglite.status.shaderFramework").c_str(), frameworkName.c_str());
     if (!status.mo2Instance.empty())
         ImGui::Text(tr("pglite.status.mo2Instance").c_str(),
                     StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
@@ -1216,15 +1227,21 @@ void Menu::drawStatus()
 
 void Menu::drawPatchers()
 {
+    // The options only the other framework renders stay visible but cannot be set (ShaderFrameworks).
+    const auto& frameworks = m_runtime->shaderFrameworks();
     ImGui::SeparatorText(tr("launcher.prePatchers.title").c_str());
+    ImGui::BeginDisabled(!frameworks.hasENB);
     ImGui::Checkbox(tr("launcher.prePatchers.fixMeshLighting.label").c_str(),
                     &m_params.prePatcher.isFixMeshLightingEnabled);
+    ImGui::EndDisabled();
 
     ImGui::SeparatorText(tr("launcher.shaderPatchers.title").c_str());
     ImGui::Checkbox(tr("launcher.shaderPatchers.parallax.label").c_str(), &m_params.shaderPatcher.isParallaxEnabled);
     ImGui::Checkbox(tr("launcher.shaderPatchers.complexMaterial.label").c_str(),
                     &m_params.shaderPatcher.isComplexMaterialEnabled);
+    ImGui::BeginDisabled(!frameworks.hasCommunityShaders);
     ImGui::Checkbox(tr("launcher.shaderPatchers.truePBR.label").c_str(), &m_params.shaderPatcher.isTruePBREnabled);
+    ImGui::EndDisabled();
 
     ImGui::SeparatorText(tr("launcher.shaderTransforms.title").c_str());
     ImGui::Checkbox(tr("launcher.shaderTransforms.parallaxToCM.label").c_str(),
@@ -1234,7 +1251,9 @@ void Menu::drawPatchers()
     ImGui::Checkbox(tr("launcher.postPatchers.disablePrePatchedMaterials.label").c_str(),
                     &m_params.postPatcher.disablePrePatchedMaterials);
     ImGui::Checkbox(tr("launcher.postPatchers.fixSSS.label").c_str(), &m_params.postPatcher.isFixSSSEnabled);
+    ImGui::BeginDisabled(!frameworks.hasCommunityShaders);
     ImGui::Checkbox(tr("launcher.postPatchers.hairFlowMap.label").c_str(), &m_params.postPatcher.isHairFlowMapEnabled);
+    ImGui::EndDisabled();
 }
 
 void Menu::drawRecordTypes()

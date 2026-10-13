@@ -56,6 +56,8 @@ public:
 
     [[nodiscard]] static std::filesystem::path iniFile();
     [[nodiscard]] static std::filesystem::path settingsFile();
+    /// @brief Whether settings.json exists; a first start has none.
+    [[nodiscard]] static bool hasSettingsFile();
     [[nodiscard]] static std::filesystem::path modRulesFile();
     [[nodiscard]] static std::filesystem::path classificationCacheFile();
 
