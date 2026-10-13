@@ -27,7 +27,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
           fetch-depth: 0
 
       - uses: paulhatch/semantic-version@v5.4.0
