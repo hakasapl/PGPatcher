@@ -83,7 +83,7 @@ bool Hooks::install(Menu& menu)
 }
 
 void Hooks::dispatchInput(RE::BSTEventSource<RE::InputEvent*>* source,
-                          RE::InputEvent* const* events)
+                          RE::InputEvent** events)
 {
     if (events && s_menu)
         for (const auto* event = *events; event; event = event->next)
@@ -91,9 +91,11 @@ void Hooks::dispatchInput(RE::BSTEventSource<RE::InputEvent*>* source,
 
     if (s_menu && s_menu->isOpen()) {
         // The game sees no input while the menu is open. Keys still held resume when the devices poll them after the
-        // close; the source is still called, as the engine does every frame.
-        static constexpr RE::InputEvent* const noEvents[] = { nullptr };
-        s_originalDispatch(source, noEvents);
+        // close; the source is still called, as the engine does every frame. The empty list head has to be writable:
+        // the input hooks of other plugins down the chain rewrite the head to filter events (SKSE Menu Framework
+        // does), and a head in read-only memory crashed the game there.
+        RE::InputEvent* noEvents = nullptr;
+        s_originalDispatch(source, &noEvents);
         return;
     }
 

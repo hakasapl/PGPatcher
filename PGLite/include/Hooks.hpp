@@ -35,8 +35,11 @@ public:
     static constexpr std::size_t trampolineSize = 64;
 
 private:
+    /// @brief The redirected input dispatch: the menu reads the events, swallows them while it is open, and the
+    /// engine's dispatch (or the hook of the plugin that redirected the call before PGLite) gets them otherwise. The
+    /// list head is writable, as the engine passes it: hooks down the chain rewrite it to filter events.
     static void dispatchInput(RE::BSTEventSource<RE::InputEvent*>* source,
-                              RE::InputEvent* const* events);
+                              RE::InputEvent** events);
     static HRESULT WINAPI present(IDXGISwapChain* swapChain,
                                   UINT syncInterval,
                                   UINT flags);
