@@ -36,24 +36,48 @@ std::uint32_t PatcherTextureHook::signatureOf(std::span<const unsigned char> byt
 std::filesystem::path PatcherTextureHook::outputPathOf(PGRunObserver::HookKind kind,
                                                        const std::filesystem::path& texPath)
 {
-    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::outputFilename(texPath)
-                                                        : PatcherTextureHookFixSSS::outputFilename(texPath);
+    switch (kind) {
+    case PGRunObserver::HookKind::ConvertToCM:
+        return PatcherTextureHookConvertToCM::outputFilename(texPath);
+    case PGRunObserver::HookKind::FixSSS:
+        return PatcherTextureHookFixSSS::outputFilename(texPath);
+    }
+
+    return { };
 }
 
 PGEnums::TextureType PatcherTextureHook::outputTypeOf(PGRunObserver::HookKind kind)
 {
-    return kind == PGRunObserver::HookKind::ConvertToCM ? PGEnums::TextureType::ComplexMaterial
-                                                        : PGEnums::TextureType::SubsurfaceColor;
+    switch (kind) {
+    case PGRunObserver::HookKind::ConvertToCM:
+        return PGEnums::TextureType::ComplexMaterial;
+    case PGRunObserver::HookKind::FixSSS:
+        return PGEnums::TextureType::SubsurfaceColor;
+    }
+
+    return PGEnums::TextureType::Unknown;
 }
 
 std::uint32_t PatcherTextureHook::generatorSignatureOf(PGRunObserver::HookKind kind)
 {
-    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::generatorSignature()
-                                                        : PatcherTextureHookFixSSS::generatorSignature();
+    switch (kind) {
+    case PGRunObserver::HookKind::ConvertToCM:
+        return PatcherTextureHookConvertToCM::generatorSignature();
+    case PGRunObserver::HookKind::FixSSS:
+        return PatcherTextureHookFixSSS::generatorSignature();
+    }
+
+    return 0;
 }
 
 const char* PatcherTextureHook::hookNameOf(PGRunObserver::HookKind kind)
 {
-    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::hookName
-                                                        : PatcherTextureHookFixSSS::hookName;
+    switch (kind) {
+    case PGRunObserver::HookKind::ConvertToCM:
+        return PatcherTextureHookConvertToCM::hookName;
+    case PGRunObserver::HookKind::FixSSS:
+        return PatcherTextureHookFixSSS::hookName;
+    }
+
+    return "";
 }

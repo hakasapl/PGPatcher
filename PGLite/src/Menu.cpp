@@ -39,7 +39,9 @@
 #include <mutex>
 #include <objbase.h>
 #include <optional>
+#include <set>
 #include <shared_mutex>
+#include <shlobj.h>
 #include <shobjidl.h>
 #include <string>
 #include <thread>
@@ -65,11 +67,39 @@ constexpr ImWchar firstCJKCodePoint = 0x2E80;
 /// @brief A font of the Windows installation (Segoe UI, and Microsoft YaHei merged for the Chinese translation).
 std::string fontPath(const wchar_t* fileName)
 {
-    std::array<wchar_t, MAX_PATH> windows = { };
-    const auto length = GetWindowsDirectoryW(windows.data(), static_cast<UINT>(windows.size()));
-    const std::filesystem::path folder = length && length < windows.size() ? std::filesystem::path(windows.data())
-                                                                           : std::filesystem::path(L"C:\\Windows");
-    return StringUtil::utf16toUTF8((folder / L"Fonts" / fileName).wstring());
+    std::filesystem::path folder = L"C:\\Windows\\Fonts";
+    wchar_t* buffer = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Fonts, 0, nullptr, &buffer)) && buffer) {
+        folder = buffer;
+        CoTaskMemFree(buffer);
+    }
+
+    return StringUtil::utf16toUTF8((folder / fileName).wstring());
+}
+
+/// @brief Whether the current font has a glyph for every character of a UTF-8 text.
+bool canDrawText(const std::string& text)
+{
+    auto* const font = ImGui::GetFont();
+    const char* it = text.data();
+    const char* const end = text.data() + text.size();
+    while (it < end) {
+        unsigned codePoint = 0;
+        it += ImTextCharFromUtf8(&codePoint, it, end);
+        if (codePoint && !font->FindGlyphNoFallback(static_cast<ImWchar>(codePoint)))
+            return false;
+    }
+
+    return true;
+}
+
+/// @brief A translated text with one printf count placeholder, as every translated string carries its placeholders.
+std::string formatCount(const std::string& text,
+                        std::size_t count)
+{
+    std::vector<char> buffer(text.size() + 32);
+    std::snprintf(buffer.data(), buffer.size(), text.c_str(), count); // NOLINT(cppcoreguidelines-pro-type-vararg)
+    return buffer.data();
 }
 
 /// @brief A string of the translation files (PGPatcher/translations), which both programs share.
@@ -740,11 +770,34 @@ void Menu::rebuildModList()
         return;
     }
 
+    // The checks of the offline launcher, with its messages, before any list is built. A relative path is the game
+    // folder's, as the runtime resolves it.
+    std::filesystem::path dir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
+    if (isMO2) {
+        if (dir.empty()) {
+            m_modListMessage = tr("launcher.validation.mo2InstanceRequired");
+            return;
+        }
+        if (dir.is_relative())
+            dir = Settings::gameFolder() / dir;
+        std::error_code ec;
+        if (!std::filesystem::exists(dir, ec)) {
+            m_modListMessage = tr("launcher.validation.mo2InstanceMissing");
+            return;
+        }
+        if (!PGModManager::isValidMO2InstanceDir(dir)) {
+            m_modListMessage = tr("launcher.validation.mo2InstanceInvalid");
+            return;
+        }
+    }
+
     // The settings as applied: the environment's own mod manager is the list the session runs with, attributed by
-    // the mesh reading pass itself, and costs no walk of the mod folders.
+    // the mesh reading pass itself, and costs no walk of the mod folders. A manager the environment could not read
+    // (it is of another type then) does not stand in: the walk below shows why.
     auto* const environment = m_runtime->environment();
     const auto applied = m_runtime->params().modManager;
-    const bool isApplied = environment && environment->modManager() && type == applied.type
+    const bool isApplied = environment && environment->modManager() && environment->modManager()->type() == type
+        && type == applied.type
         && std::filesystem::path(StringUtil::utf8toUTF16(m_mo2InstanceDir)) == applied.mo2InstanceDir
         && m_params.modManager.shouldUseMO2LooseFileOrder == applied.shouldUseMO2LooseFileOrder;
     if (isApplied) {
@@ -759,37 +812,17 @@ void Menu::rebuildModList()
         if (Settings::readModRules(rules))
             manager->loadJSON(rules);
 
-        if (isMO2) {
-            // The checks of the offline launcher, with its messages.
-            const std::filesystem::path dir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
-            std::error_code ec;
-            if (dir.empty()) {
-                m_modListMessage = tr("launcher.validation.mo2InstanceRequired");
-                return;
-            }
-            if (!std::filesystem::exists(dir, ec)) {
-                m_modListMessage = tr("launcher.validation.mo2InstanceMissing");
-                return;
-            }
-            if (!PGModManager::isValidMO2InstanceDir(dir)) {
-                m_modListMessage = tr("launcher.validation.mo2InstanceInvalid");
-                return;
-            }
+        if (isMO2)
             manager->populateModFileMapMO2(dir, { });
-        } else {
+        else
             manager->populateModFileMapVortex(Settings::dataFolder());
-        }
 
-        auto* const environment = m_runtime->environment();
         if (environment && environment->directory())
             environment->directory()->attributeMods(*manager);
         manager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
     } catch (const std::exception& e) {
         Logger::error("The mod list could not be built: {}", e.what());
-        m_modListMessage = tr("pglite.conflictManager.couldNotBuild");
-        const auto placeholder = m_modListMessage.find("%s");
-        if (placeholder != std::string::npos)
-            m_modListMessage.replace(placeholder, 2, e.what());
+        m_modListMessage = PGTranslation::trFormat("pglite.conflictManager.couldNotBuild", e.what());
         return;
     }
 
@@ -799,9 +832,15 @@ void Menu::rebuildModList()
 
 void Menu::fillModRows(PGModManager& manager)
 {
+    // The mod that ships the package's cubemap gets the default shader from the meshes that use the cubemap; with
+    // nothing else it is not a mod to order, as the offline program's output is not.
+    const auto cubemapMod = manager.modByFile(std::filesystem::path(Environment::dynamicCubemapTexture));
+    const std::set<PGEnums::ShapeShader> defaultShaderOnly { PGEnums::ShapeShader::None };
     for (const auto& mod : manager.modsByPriority()) {
         const std::shared_lock lock(mod->mutex);
         if (mod->shaders.empty() && !mod->hasMeshes)
+            continue;
+        if (mod == cubemapMod && !mod->hasMeshes && mod->shaders == defaultShaderOnly)
             continue;
 
         m_mods.push_back({ .name = mod->name,
@@ -838,6 +877,30 @@ void Menu::startApply(bool isEnabled)
     }
     params.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
 
+    // What the offline launcher refuses, the menu refuses (empty entries cannot be entered here): the first problem
+    // is shown, every one is logged, and nothing is written. Disabling PGLite is never refused, and the vanilla
+    // archive list, which the menu cannot edit, only warns.
+    if (isEnabled) {
+        std::vector<std::string> messages;
+        for (const auto& problem : params.validate()) {
+            const auto message = PGTranslation::trFormat(problem.key, StringUtil::utf16toUTF8(problem.item));
+            if (problem.key.starts_with("launcher.validation.vanillaBSAList")) {
+                Logger::warn("settings.json: {}", message);
+                continue;
+            }
+
+            Logger::error("The settings cannot be applied: {}", message);
+            messages.push_back(message);
+        }
+
+        if (!messages.empty()) {
+            m_applyMessage = messages.front();
+            if (messages.size() > 1)
+                m_applyMessage += formatCount(tr("pglite.apply.moreProblems"), messages.size() - 1);
+            return;
+        }
+    }
+
     // The lists as the next session reads them from the file (forward slashes become backslashes), so a rule typed
     // with forward slashes matches from this Apply on and not from the next start.
     {
@@ -847,18 +910,6 @@ void Menu::startApply(bool isEnabled)
         PGParams normalizedParams;
         normalizedParams.readJSON(normalized);
         params = normalizedParams;
-    }
-
-    // What the offline launcher refuses, the menu refuses: the problems are shown and nothing is written.
-    const auto problems = params.validate();
-    if (!problems.empty()) {
-        m_applyMessage.clear();
-        for (const auto& problem : problems) {
-            if (!m_applyMessage.empty())
-                m_applyMessage += '\n';
-            m_applyMessage += PGTranslation::trFormat(problem.key, StringUtil::utf16toUTF8(problem.item));
-        }
-        return;
     }
 
     if (!Settings::writeParams(params) || !Settings::writeIsEnabled(isEnabled)) {
@@ -1009,8 +1060,10 @@ void Menu::drawApplyRow()
         startApply(m_runtime->isEnabled());
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button(tr("conflictManager.buttons.discardChanges").c_str()))
+    if (ImGui::Button(tr("conflictManager.buttons.discardChanges").c_str())) {
         m_isStateLoaded = false;
+        m_applyMessage.clear();
+    }
     // A failure shows whatever the state; the disabled note fills the row otherwise.
     const auto message
         = !m_applyMessage.empty() || m_runtime->isEnabled() ? m_applyMessage : tr("pglite.apply.disabled");
@@ -1334,7 +1387,8 @@ void Menu::drawConflictManager()
     }
     ImGui::Separator();
 
-    if (!m_runtime->isReady()) {
+    // Without an environment (PGLite disabled since the start) nothing attributes the mods until the first Apply.
+    if (!m_runtime->isReady() || !m_runtime->environment()) {
         ImGui::TextUnformatted(tr("pglite.conflictManager.notReady").c_str());
         return;
     }
@@ -1453,14 +1507,16 @@ void Menu::drawSettings()
         return;
     }
 
-    // The languages of the translations folder by their own names; a change takes effect at once and is kept.
+    // The languages of the translations folder by their own names, or by their codes where the font cannot draw the
+    // name (rebuildFonts); a change takes effect at once and is kept.
     std::vector<const char*> names;
     names.reserve(m_languages.size());
     int current = 0;
     const auto currentCode = PGTranslation::currentLanguage();
     for (std::size_t i = 0; i < m_languages.size(); i++) {
         const auto& language = m_languages.at(i);
-        names.push_back(language.displayName.empty() ? language.code.c_str() : language.displayName.c_str());
+        const bool hasName = !language.displayName.empty() && canDrawText(language.displayName);
+        names.push_back(hasName ? language.displayName.c_str() : language.code.c_str());
         if (language.code == currentCode)
             current = static_cast<int>(i);
     }
@@ -1485,8 +1541,13 @@ void Menu::rebuildFonts()
     builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
     for (const auto& text : PGTranslation::allStrings())
         builder.AddText(text.c_str());
-    for (const auto& language : PGTranslation::availableLanguages())
-        builder.AddText(language.displayName.c_str());
+    for (const auto& language : PGTranslation::availableLanguages()) {
+        // A name in a script the Latin and Cyrillic font does not cover would merge the large CJK font for a few
+        // glyphs; the settings page shows the code of such a language instead (drawSettings).
+        const auto wide = StringUtil::utf8toUTF16(language.displayName);
+        if (std::ranges::all_of(wide, [](wchar_t ch) { return ch < firstCJKCodePoint; }))
+            builder.AddText(language.displayName.c_str());
+    }
     m_glyphRanges.clear();
     builder.BuildRanges(&m_glyphRanges);
     bool isCJKNeeded = false;

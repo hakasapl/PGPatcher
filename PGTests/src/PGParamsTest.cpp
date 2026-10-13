@@ -159,4 +159,17 @@ TEST(PGParamsTest,
     EXPECT_EQ(params.validate(), expected);
 }
 
+TEST(PGParamsTest,
+     TextureRulePathsAreReadInTheMappedForm)
+{
+    const auto type = PGEnums::strFromTexType(PGEnums::TextureType::Diffuse);
+    const auto json
+        = nlohmann::json::parse(R"({"processing": {"texturemaps": {"Textures/Armor/Helmet.DDS": ")" + type + R"("}}})");
+    PGParams params;
+    params.readJSON(json);
+    ASSERT_EQ(params.processing.textureMaps.size(), 1U);
+    EXPECT_EQ(params.processing.textureMaps[0].first, L"textures\\armor\\helmet.dds");
+    EXPECT_EQ(params.processing.textureMaps[0].second, PGEnums::TextureType::Diffuse);
+}
+
 }

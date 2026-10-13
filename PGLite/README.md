@@ -53,7 +53,8 @@ program).
 
 Apply in the menu saves the settings, restores every record, plans again and registers the new variant streams.
 The game is paused meanwhile, and the menu shows the elapsed time and the step it is at. Apply refuses the settings
-the offline launcher refuses (the transform without its patchers, empty or duplicate rule entries) and says why.
+the offline launcher refuses (the transform without its patchers, duplicate rule entries) and says why; disabling
+PGLite is never refused.
 Meshes loaded from then on use the new settings; models the game already holds keep their state until the game
 reloads them. A model string another plugin sets after PGLite planned is never overwritten, at data load or by
 Apply.

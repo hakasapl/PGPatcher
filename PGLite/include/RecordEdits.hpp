@@ -19,12 +19,15 @@ namespace PGLite {
  * and the model strings PGLite wrote since.
  *
  * Apply restores them before it plans again, which is what keeps the plan idempotent: indices are corrected once per
- * plan and contexts are built from unmodified data. Every model string PGLite writes goes through setModel(), which
- * remembers the value, so that a value another plugin wrote after PGLite planned (a data-load handler dispatched after
- * PGLite's, a script) is never overwritten and never restored over: PGLite only ever replaces what it wrote itself.
+ * plan and contexts are built from unmodified data. Every model string and alternate texture entry PGLite writes goes
+ * through setModel() or setAlternateTexture(), which remember the value, so that a value another plugin wrote after
+ * PGLite planned (a data-load handler dispatched after PGLite's, a script) is never overwritten and never restored
+ * over: PGLite only ever replaces what it wrote itself.
  *
- * Not thread safe: the writers are the data-load work, Apply (while the main thread waits) and the main-thread tasks
- * that retarget merged members, which never overlap.
+ * The writers of one element never overlap: the data-load work, Apply (while the main thread waits), the first patch
+ * of the element's family (on the thread that opens it) and the main-thread task that retargets merged members
+ * (posted after that patch). Different elements may be written concurrently; the lookups read a table that does not
+ * change after capture().
  */
 class RecordSnapshot {
 public:
@@ -41,8 +44,29 @@ public:
                   const std::filesystem::path& meshPath);
 
     /**
-     * @brief Writes the captured fields back: every model string that still holds what PGLite wrote, and every
-     * alternate texture entry. Under the exclusive pipeline lock of Apply, while the main thread waits.
+     * @brief Whether a record model still holds the string PGLite wrote (or its original), so the plan's edits of
+     * the record apply; true for a model that was not captured.
+     */
+    [[nodiscard]] bool isModelOwned(const RE::TESModel& model) const;
+
+    /**
+     * @brief Sets an alternate texture entry of a record (the shape index and the texture set), unless another plugin
+     * changed the entry since PGLite last wrote it. A record that was not captured is written as is.
+     *
+     * @param model The record model the entry belongs to.
+     * @param swap The record's swap component, which holds the entries.
+     * @param entryIndex Index of the entry in the swap's array.
+     * @return false if the entry keeps another plugin's value.
+     */
+    bool setAlternateTexture(RE::TESModel& model,
+                             RE::TESModelTextureSwap& swap,
+                             std::uint32_t entryIndex,
+                             std::uint32_t index3D,
+                             RE::BGSTextureSet* textureSet);
+
+    /**
+     * @brief Writes the captured fields back: every model string and alternate texture entry that still holds what
+     * PGLite wrote. Under the exclusive pipeline lock of Apply, while the main thread waits.
      */
     void restore();
 
@@ -52,6 +76,8 @@ private:
     struct AlternateTexture {
         RE::BGSTextureSet* textureSet = nullptr;
         std::uint32_t index3D = 0;
+
+        bool operator==(const AlternateTexture& other) const = default;
     };
 
     struct ElementState {
@@ -61,7 +87,9 @@ private:
         RE::BSFixedString modelPath;
         /// @brief The model string PGLite wrote last (the original until a retarget), as the engine stored it.
         RE::BSFixedString writtenPath;
+        /// @brief The alternate texture entries before the first plan, and as PGLite wrote them last.
         std::vector<AlternateTexture> alternateTextures;
+        std::vector<AlternateTexture> writtenAlternateTextures;
     };
 
     std::vector<ElementState> m_elements;

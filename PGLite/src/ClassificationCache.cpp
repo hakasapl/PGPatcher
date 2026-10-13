@@ -297,10 +297,10 @@ void ClassificationCache::save() const
             }
         }
 
+        stream.close(); // the last buffered block is written by the close, so the check comes after it
         if (!stream) {
             // A truncated file must not replace the good one (a full disk).
             Logger::error(L"Unable to write the classification cache {}", m_file.wstring());
-            stream.close();
             std::error_code removeError;
             std::filesystem::remove(temporary, removeError);
             return;

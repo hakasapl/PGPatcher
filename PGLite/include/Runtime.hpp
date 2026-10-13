@@ -195,8 +195,13 @@ private:
     void buildEnvironment(const std::function<void(const char*)>& reportStage,
                           const Environment::ProgressCallback& reportProgress);
 
-    /// @brief Blocks until the background initialization finished, for as long as the main menu is held at most.
-    void waitUntilReady();
+    /**
+     * @brief Blocks until the background initialization finished, for as long as the main menu is held at most.
+     *
+     * @return false if it did not finish in time: the original mesh is served then, and later calls do not wait
+     * again until it finishes.
+     */
+    [[nodiscard]] bool waitUntilReady();
 
     Settings::Ini m_ini;
     PGParams m_params;
@@ -225,6 +230,8 @@ private:
 
     std::atomic<bool> m_isActive { false };
     std::atomic<bool> m_isReady { false };
+    /// @brief Whether an open waited the whole hold for the initialization in vain.
+    std::atomic<bool> m_didInitializationExpire { false };
     std::atomic<bool> m_isEnabled { true };
     std::atomic<const char*> m_stage { nullptr };
     std::atomic<std::size_t> m_progressDone { 0 };

@@ -250,8 +250,12 @@ bool Settings::writeFileAtomically(const std::filesystem::path& file,
             return false;
 
         stream.write(static_cast<const char*>(data), static_cast<std::streamsize>(size));
-        if (!stream)
+        stream.close(); // the last buffered block is written by the close, so the check comes after it
+        if (!stream) {
+            std::error_code removeError;
+            std::filesystem::remove(temporary, removeError);
             return false;
+        }
     }
 
     std::error_code ec;

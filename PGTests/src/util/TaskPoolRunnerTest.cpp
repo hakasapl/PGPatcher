@@ -35,6 +35,7 @@ protected:
     void TearDown() override
     {
         TaskPoolRunner::setExceptionCallback(nullptr);
+        ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard); // the guard main() installs
         ExceptionHandler::reset();
     }
 };
@@ -195,7 +196,6 @@ TEST_F(TaskPoolRunnerTest,
     int callbacks = 0;
     TaskPoolRunner::setExceptionCallback([&callbacks] { callbacks++; });
     runner.runTasks();
-    ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard);
 
     EXPECT_EQ(ran, (std::vector<int> { 0, 2 }));
     EXPECT_EQ(callbacks, 1);
@@ -216,7 +216,6 @@ TEST_F(TaskPoolRunnerTest,
     std::atomic<int> callbacks { 0 };
     TaskPoolRunner::setExceptionCallback([&callbacks] { callbacks++; });
     runner.runTasks();
-    ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard);
 
     EXPECT_EQ(ran, 19);
     EXPECT_EQ(callbacks, 1);

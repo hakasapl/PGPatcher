@@ -132,8 +132,13 @@ private:
     /// @brief Reads the original bytes of a file of the family through the engine's stream.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> original(std::size_t pathIndex);
 
-    /// @brief Applies the index corrections and texture sets of the patch to every record of the family.
+    /// @brief Applies the index corrections and texture sets of the patch to every record of the family, through
+    /// the runtime's snapshot, which keeps an entry another plugin set.
     void editRecords(TextureSetFactory& textureSets);
+
+    /// @brief The index of a file with a source: the given one, or the resolved file of a pair the given one is
+    /// missing from.
+    [[nodiscard]] std::size_t resolvedPathIndex(std::size_t pathIndex) const;
 
     /// @brief Posts the main-thread task that points the records of merged members at their group's path.
     void retargetMergedMembers(unsigned generation);

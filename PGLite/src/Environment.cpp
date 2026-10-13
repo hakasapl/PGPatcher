@@ -52,9 +52,6 @@ namespace PGLite {
 
 namespace {
 
-/// @brief The texture of the package, which marks no mod as a texture mod.
-constexpr std::wstring_view dynamicCubemapTexture = L"textures\\cubemaps\\dynamic1pxcubemap_black.dds";
-
 /// @brief The top level folders of the data folder the runtime maps: the textures, the TruePBR configs and the meshes
 /// the mesh reading pass classifies the textures from.
 const std::unordered_set<std::filesystem::path> foldersToMap = { L"textures", L"pbrnifpatcher", L"meshes" };
@@ -222,7 +219,10 @@ void Environment::initializeModManager()
 
     try {
         if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
-            m_mo2InstanceDir = m_params.modManager.mo2InstanceDir;
+            // A relative path is the game folder's, where the offline program's is its own folder's (section 7).
+            m_mo2InstanceDir = m_params.modManager.mo2InstanceDir.is_relative()
+                ? Settings::gameFolder() / m_params.modManager.mo2InstanceDir
+                : m_params.modManager.mo2InstanceDir;
             if (m_mo2InstanceDir.empty()) {
                 Logger::warn("No Mod Organizer 2 instance is configured, mods are not attributed");
             } else {

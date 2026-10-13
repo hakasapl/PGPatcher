@@ -29,7 +29,9 @@ public:
      *
      * @param path Path relative to the data folder, as plugins write it.
      * @param stream The stream to register. The registry keeps a reference for the session.
-     * @return false if the runtime is unsupported or the engine refused the registration.
+     * @return What the engine returns: whether the file type of the path has an entry database (meshes and textures
+     * have one); the registration happens either way (1.7.99 sub_140ECEE30 always inserts). false also when the
+     * runtime is unsupported.
      */
     [[nodiscard]] static bool registerStream(const std::string& path,
                                              RE::BSTSmartPointer<RE::BSResource::Stream>& stream);

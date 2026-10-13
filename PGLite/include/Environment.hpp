@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace PGLite {
@@ -28,6 +29,10 @@ class ClassificationCache;
  */
 class Environment {
 public:
+    /// @brief The texture of the package, the dynamic cubemap the complex material patcher sets (the offline program
+    /// deploys it into its own output, so the mod that ships it is not a mod of the offline mod list).
+    static constexpr std::wstring_view dynamicCubemapTexture = L"textures\\cubemaps\\dynamic1pxcubemap_black.dds";
+
     Environment(PGParams params,
                 Settings::Ini ini);
     ~Environment();

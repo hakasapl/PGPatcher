@@ -265,11 +265,11 @@ public:
      *
      * @param use the use's attributes
      * @param allowedModelRecTypes the record types that are patched
-     * @param checkAllowedRecTypes whether the record type filter applies
+     * @param shouldCheckAllowedRecTypes whether the record type filter applies
      */
     [[nodiscard]] static bool isUseUnpatched(const PGPlugin::MeshUseAttributes& use,
                                              const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
-                                             bool checkAllowedRecTypes);
+                                             bool shouldCheckAllowedRecTypes);
 
     /**
      * @brief Patches a staged mesh for one plugin use: every patchable shape through processNIFShape(), then the

@@ -8,6 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
 #include <unordered_set>
@@ -92,7 +93,13 @@ void PGParams::readJSON(const nlohmann::json& paramsJSON)
             processing.blockList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
     if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("texturemaps")) {
         for (const auto& item : paramsJSON["processing"]["texturemaps"].items()) {
-            processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(item.key()),
+            // The rule is matched against the mapped path, which is lower case with backslashes; a rule typed with
+            // forward slashes or capitals is read in that form (the keys of a JSON object are not touched by
+            // replaceForwardSlashes()).
+            auto path = StringUtil::utf8toUTF16(item.key());
+            std::ranges::replace(path, L'/', L'\\');
+            StringUtil::toLowerASCIIFastInPlace(path);
+            processing.textureMaps.emplace_back(std::move(path),
                                                 PGEnums::texTypeFromStr(item.value().get<std::string>()));
         }
     }

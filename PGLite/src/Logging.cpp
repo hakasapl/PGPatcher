@@ -83,8 +83,11 @@ protected:
         if (!m_seen.insert(text).second)
             return;
 
-        if (m_messages.size() >= maxMessages)
+        if (m_messages.size() >= maxMessages) {
+            // The oldest message goes, and is kept again if it is logged again.
+            m_seen.erase(m_messages.front().text);
             m_messages.erase(m_messages.begin());
+        }
         m_messages.push_back({ .level = message.level, .text = std::move(text) });
     }
 

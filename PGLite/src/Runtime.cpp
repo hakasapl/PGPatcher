@@ -354,10 +354,8 @@ void Runtime::registerStream(const std::filesystem::path& path,
     }
 
     RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(pathStr, source, *this));
-    if (!Resources::registerStream(pathStr, stream)) {
-        Logger::error("The engine refused the stream of {}, the path keeps its own", pathStr);
-        return;
-    }
+    if (!Resources::registerStream(pathStr, stream))
+        Logger::debug("The engine has no entry database for the type of {}", pathStr);
 
     const std::scoped_lock lock(m_streamsMutex);
     m_streams[pathStr] = { .stream = std::move(stream), .source = std::move(source) };
@@ -535,19 +533,24 @@ void Runtime::buildEnvironment(const std::function<void(const char*)>& reportSta
     m_textures.onEnvironmentReplaced(*m_environment->directory());
 }
 
-void Runtime::waitUntilReady()
+bool Runtime::waitUntilReady()
 {
     if (m_isReady)
-        return;
+        return true;
+    if (m_didInitializationExpire)
+        return false;
 
     std::unique_lock lock(m_readyMutex);
-    if (!m_readyCondition.wait_for(lock, maxInitializationWait, [this] { return m_isReady.load(); })) {
-        static std::atomic<bool> didReport { false };
-        if (!didReport.exchange(true)) {
-            Logger::error("The initialization did not finish in {} minutes, the original meshes are served",
-                          maxInitializationWait.count());
-        }
+    if (m_readyCondition.wait_for(lock, maxInitializationWait, [this] { return m_isReady.load(); }))
+        return true;
+
+    // The environment is still being built: nothing patches against it, and no later open waits for it again.
+    if (!m_didInitializationExpire.exchange(true)) {
+        Logger::error("The initialization did not finish in {} minutes, the original meshes are served",
+                      maxInitializationWait.count());
     }
+
+    return false;
 }
 
 bool Runtime::apply(const PGParams& params,
@@ -624,7 +627,8 @@ std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::strin
     };
 
     try {
-        waitUntilReady();
+        if (!waitUntilReady())
+            return readOriginal();
 
         const std::shared_lock lock(m_pipelineLock);
         auto* const target = m_plan ? m_plan->target(path) : nullptr;

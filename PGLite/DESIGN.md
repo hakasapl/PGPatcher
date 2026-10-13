@@ -401,8 +401,10 @@ pass from its cache, the TruePBR tables and the mod states), drops the plan tabl
 restored records with fresh variant numbers, registers the new variant streams (re-registering an existing base path
 replaces its stream, 3.1), retargets the records, and releases the lock. Restoring from the snapshot is what makes
 Apply idempotent: indices are corrected once per plan, contexts are built from unmodified data, and no edit is
-applied twice. The restore and the retargets go through the snapshot, which remembers every model string PGLite
-wrote: a string another plugin wrote since is kept, so PGLite never undoes another plugin's edit (4.1). Instances of
+applied twice. The restore, the retargets and the record edits of a patch go through the snapshot, which remembers
+every model string and alternate texture entry PGLite wrote: a value another plugin wrote since is kept, and a record
+whose model string another plugin replaced gets no entry edits, so PGLite never undoes another plugin's edit (4.1).
+Instances of
 edited records exist at this point; the restore and the re-plan are plain pointer and integer sized stores made
 while the main thread is parked, and a loader thread that applies a swap meanwhile (Appendix A) reads either the old
 or the new value of an entry, both of which name a live texture set. A model that stays resident keeps the layout of
@@ -432,7 +434,8 @@ In every case PGLite logs the reason, shows a notice ("PGLite is disabled becaus
 in-game message box after data load, a Windows message box at plugin load for the Address Library case, when the
 game UI does not exist yet) and installs nothing else: no hooks, no menu, no streams, and the hotkey does nothing. A
 failure after the hooks are installed (the data-load work or the background initialization) disables PGLite the same
-way: the records go back to what they were, the hooks stay, and the menu refuses to open.
+way: every stream serves the original mesh (a failure of the data-load work also puts the records back), the hooks
+stay, and the menu refuses to open.
 
 ### 4.10 GUI (Dear ImGui)
 
@@ -445,8 +448,10 @@ allowed record types; mesh allow list and block list; texture rules; a status pa
 variant counts, generated texture counts, a toggle that disables PGLite through an apply with an empty plan and
 enables it through a full one, persisted in `settings.json`) and the warnings and errors collected by a log sink,
 deduplicated (weighted pair mismatches land here). Apply refuses what the offline launcher refuses
-(`PGParams::validate`: the transform without its patchers, empty or duplicate rule entries) and shows the problems
-in its row. The conflict manager page builds its mod list from the mod manager settings as edited: while they are the
+(`PGParams::validate`: the transform without its patchers, duplicate rule entries; empty entries cannot be entered
+in the menu, and the vanilla archive list, which the menu does not edit, only warns) and shows the first problem in
+its row, every one in the log; disabling PGLite is never refused. The conflict manager page builds its mod list from
+the mod manager settings as edited: while they are the
 applied ones the list is the environment's own mod manager, attributed by the mesh reading pass; otherwise the mod
 manager is read, the mods get their shaders from the classified textures of the current environment and their meshes
 from the mesh reading pass (`PGDirectory::attributeMods`), and the shared ordering numbers them, so the list is the
@@ -672,7 +677,9 @@ This is the complete list. A difference that is not here is a bug (section 1).
     were built from until the engine evicts them (4.8), and a new instance of such a model can show an alternate
     texture on the wrong shape until then, since its records carry the entries of the new plan. A generated
     texture's stream stays registered for the session, whatever a later Apply enables, and a texture the engine
-    loaded before the generation stays in its cache. Offline, a run rewrites every output.
+    loaded before the generation stays in its cache. Every Apply registers the variant streams of its plan, and the
+    registry keeps them all for the session (3.1); a path of an earlier plan serves the original mesh. Offline, a
+    run rewrites every output.
 15. Duplicates in memory that offline does not have: contexts of a family that merge offline load as separate
     models until the main-thread retarget runs (4.4), a model instanced from a merged-away name stays until evicted,
     and a path ignored by a mod rule holds one copy per context because the rule is applied at first open rather

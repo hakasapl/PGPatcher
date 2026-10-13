@@ -49,9 +49,10 @@ void PGPatcher::loadPatchers(const PatcherUtil::PatcherMeshSet& meshPatchers,
 
 bool PGPatcher::isUseUnpatched(const PGPlugin::MeshUseAttributes& use,
                                const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
-                               bool checkAllowedRecTypes)
+                               bool shouldCheckAllowedRecTypes)
 {
-    return use.isIgnored || (checkAllowedRecTypes && !use.isDummyUse && !allowedModelRecTypes.contains(use.recType));
+    return use.isIgnored
+        || (shouldCheckAllowedRecTypes && !use.isDummyUse && !allowedModelRecTypes.contains(use.recType));
 }
 
 void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches)

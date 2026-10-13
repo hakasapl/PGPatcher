@@ -47,6 +47,7 @@ void RecordSnapshot::capture(const Uses& uses)
                     state.alternateTextures.push_back({ .textureSet = entry.textureSet, .index3D = entry.index3D });
                 }
             }
+            state.writtenAlternateTextures = state.alternateTextures;
 
             m_elements.push_back(std::move(state));
         }
@@ -74,9 +75,41 @@ bool RecordSnapshot::setModel(RE::TESModel& model,
     return true;
 }
 
+bool RecordSnapshot::isModelOwned(const RE::TESModel& model) const
+{
+    const auto it = m_captured.find(&model);
+    return it == m_captured.end() || model.model == m_elements.at(it->second).writtenPath;
+}
+
+bool RecordSnapshot::setAlternateTexture(RE::TESModel& model,
+                                         RE::TESModelTextureSwap& swap,
+                                         std::uint32_t entryIndex,
+                                         std::uint32_t index3D,
+                                         RE::BGSTextureSet* textureSet)
+{
+    auto& entry = swap.alternateTextures[entryIndex];
+    const auto it = m_captured.find(&model);
+    auto* const state = it == m_captured.end() ? nullptr : &m_elements.at(it->second);
+    auto* const written = state && entryIndex < state->writtenAlternateTextures.size()
+        ? &state->writtenAlternateTextures[entryIndex]
+        : nullptr;
+    if (written && (entry.textureSet != written->textureSet || entry.index3D != written->index3D)) {
+        // Another plugin set the entry after PGLite did: its value stays.
+        return false;
+    }
+
+    entry.index3D = index3D;
+    entry.textureSet = textureSet;
+    if (written)
+        *written = { .textureSet = textureSet, .index3D = index3D };
+
+    return true;
+}
+
 void RecordSnapshot::restore()
 {
     std::size_t kept = 0;
+    std::size_t keptEntries = 0;
     for (auto& state : m_elements) {
         if (state.model->model == state.writtenPath) {
             state.model->model = state.modelPath;
@@ -92,13 +125,24 @@ void RecordSnapshot::restore()
         const auto count = std::min<std::size_t>(state.alternateTextures.size(), state.swap->numAlternateTextures);
         for (std::size_t i = 0; i < count; i++) {
             auto& entry = state.swap->alternateTextures[i];
+            auto& written = state.writtenAlternateTextures[i];
+            if (entry.textureSet != written.textureSet || entry.index3D != written.index3D) {
+                keptEntries++;
+                continue;
+            }
+
             entry.textureSet = state.alternateTextures[i].textureSet;
             entry.index3D = state.alternateTextures[i].index3D;
+            written = state.alternateTextures[i];
         }
     }
 
-    if (kept)
-        Logger::info("{} record models keep the model string another plugin set after PGLite planned", kept);
+    if (kept || keptEntries) {
+        Logger::info("{} record models and {} alternate texture entries keep the value another plugin set after "
+                     "PGLite planned",
+                     kept,
+                     keptEntries);
+    }
 }
 
 RE::BGSTextureSet* TextureSetFactory::textureSet(const PGTypes::TextureSet& textures)
@@ -149,9 +193,6 @@ RE::BGSTextureSet* TextureSetFactory::textureSet(const PGTypes::TextureSet& text
             forms->erase(formID);
     }
     set->formID = 0;
-
-    if (m_sets.empty())
-        Logger::debug("Created the first texture set record (form ID {:08X} before unregistering it)", formID);
 
     m_sets.emplace(std::move(key), set);
     return set;

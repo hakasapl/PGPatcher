@@ -139,6 +139,9 @@ public:
      */
     [[nodiscard]] std::shared_ptr<Mod> modByFile(const std::filesystem::path& relPath) const;
 
+    /// @brief The mod manager type this manager was created for.
+    [[nodiscard]] ModManagerType type() const { return m_mmType; }
+
     /**
      * @brief Finds the mod for a file, accounting for BSA-packed files by resolving the mod-lookup path via PGD. The
      * lookup is recorded for the update cache.

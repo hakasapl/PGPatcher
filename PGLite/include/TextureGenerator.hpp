@@ -26,9 +26,9 @@ namespace PGLite {
  * generated the moment the first patched mesh that names it is produced, on the thread that patches, from the bytes
  * the engine itself serves for the source: the registrations a patch makes reach noteRegistration() through the
  * observer, and generatePending() makes them before the mesh bytes reach the engine. The result is kept in a disk
- * cache under the plugin's folder and served to the engine through a registered stream, never through the data folder
- * (the stream stays registered for the session, whatever a later Apply enables). The cache key holds everything the
- * output depends on: the source bytes, the shader and the parameters of the hook, the DirectXTex version and the
+ * cache under the plugin's folder and served to the engine through a registered stream, never as a file of the texture
+ * tree (the stream stays registered for the session, whatever a later Apply enables). The cache key holds everything
+ * the output depends on: the source bytes, the shader and the parameters of the hook, the DirectXTex version and the
  * PGLite version. A generated texture is not a texture map entry, as offline: the maps hold the textures the patchers
  * match, and a generated texture is only reached through its hook.
  */

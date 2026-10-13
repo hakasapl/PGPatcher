@@ -429,7 +429,8 @@
       "applied": "Applied in %.1f s. Meshes loaded from now on use the new settings",
       "disabled": "PGLite is currently disabled",
       "failed": "Apply failed, see the log.",
-      "loading": "Apply waits for the loading screen to finish.",
+      "loading": "Apply is not available during a loading screen.",
+      "moreProblems": " (and %zu more, see the log)",
       "settingsNotWritten": "The settings could not be written, see the log.",
       "modRulesNotWritten": "The mod rules could not be written, see the log."
     },
@@ -444,7 +445,7 @@
       "help": "Please sort your mods to determine what mod PGLite uses to patch meshes where.",
       "noModManager": "Without a mod manager there is no mod list to sort.",
       "vortex": "The Vortex deployment manifest of the data folder is read.",
-      "notReady": "The mod list is available once the initialization finished.",
+      "notReady": "The mod list is available once PGLite is initialized and enabled.",
       "dragHint": "Drag a mod onto another one to move it there.",
       "meshesOnly": "meshes only",
       "newSuffix": " (new)",

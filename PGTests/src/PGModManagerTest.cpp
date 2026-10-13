@@ -545,9 +545,24 @@ TEST(PGModManagerTest,
      AttributeModsGivesAnotherManagerTheInstalledOnesShadersAndMeshes)
 {
     ExceptionHandler::reset();
+    // The globals are reset however the test ends.
+    const struct GlobalsReset {
+        GlobalsReset() = default;
+        ~GlobalsReset()
+        {
+            PGGlobals::setPGMM(nullptr);
+            PGGlobals::setPGD(nullptr);
+        }
+        GlobalsReset(const GlobalsReset&) = delete;
+        GlobalsReset& operator=(const GlobalsReset&) = delete;
+        GlobalsReset(GlobalsReset&&) = delete;
+        GlobalsReset& operator=(GlobalsReset&&) = delete;
+    } globalsReset;
+
     const TestUtil::FakeGame fake;
     fake.writeDataFile(L"textures\\a\\stone.dds", "DDS");
     fake.writeDataFile(L"textures\\a\\stone_p.dds", "DDS");
+    fake.writeDataFile(L"textures\\a\\caf\u00e9.dds", "DDS"); // a name outside ASCII is never mapped
     fake.writeDataFile(L"pbrnifpatcher\\x.json", "[]");
     TestUtil::NIFBuilder builder;
     PGTypes::TextureSet textures;
@@ -561,11 +576,12 @@ TEST(PGModManagerTest,
     pgd.populateFileMap(true, false);
 
     const FakeMO2 mo2;
-    mo2.writeModlist("+Parallax\n+Diffuse\n+PBR\n+Meshes\n");
+    mo2.writeModlist("+Parallax\n+Diffuse\n+PBR\n+Meshes\n+Unmapped\n");
     mo2.addModFile(L"Parallax", L"textures\\a\\stone_p.dds");
     mo2.addModFile(L"Diffuse", L"textures\\a\\stone.dds");
     mo2.addModFile(L"PBR", L"pbrnifpatcher\\x.json");
     mo2.addModFile(L"Meshes", L"meshes\\a\\stone.nif");
+    mo2.addModFile(L"Unmapped", L"textures\\a\\caf\u00e9.dds");
     PGModManager installed(ModManagerType::ModOrganizer2);
     installed.populateModFileMapMO2(mo2.instanceDir(), mo2.outputDir());
     PGGlobals::setPGD(&pgd);
@@ -578,7 +594,7 @@ TEST(PGModManagerTest,
     PGModManager other(ModManagerType::ModOrganizer2);
     other.populateModFileMapMO2(mo2.instanceDir(), mo2.outputDir());
     pgd.attributeMods(other);
-    for (const auto* name : { L"Parallax", L"Diffuse", L"PBR", L"Meshes" }) {
+    for (const auto* name : { L"Parallax", L"Diffuse", L"PBR", L"Meshes", L"Unmapped" }) {
         EXPECT_EQ(other.mod(name)->shaders, installed.mod(name)->shaders) << StringUtil::utf16toUTF8(name);
         EXPECT_EQ(other.mod(name)->hasMeshes, installed.mod(name)->hasMeshes) << StringUtil::utf16toUTF8(name);
     }
@@ -588,8 +604,9 @@ TEST(PGModManagerTest,
     EXPECT_EQ(other.mod(L"PBR")->shaders, (std::set<PGEnums::ShapeShader> { PGEnums::ShapeShader::TruePBR }));
     EXPECT_TRUE(other.mod(L"Meshes")->hasMeshes);
     EXPECT_TRUE(other.mod(L"Meshes")->shaders.empty());
-    PGGlobals::setPGMM(nullptr);
-    PGGlobals::setPGD(nullptr);
+    // A texture that never reached the maps gave its mod no shader, in the installed manager and in the replay.
+    EXPECT_TRUE(installed.mod(L"Unmapped")->shaders.empty());
+    EXPECT_TRUE(other.mod(L"Unmapped")->shaders.empty());
 }
 
 }

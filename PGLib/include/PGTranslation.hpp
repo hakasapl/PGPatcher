@@ -21,7 +21,8 @@
  * install), the lookup key itself is shown so the problem is visible instead of silently masked.
  *
  * The strings are UTF-8. The GUI layers convert (wxString::FromUTF8 offline, Dear ImGui takes UTF-8 as is). The
- * table is one per process and not guarded: init() and tr() belong to the GUI thread.
+ * table is one per process and not guarded: init() belongs to the GUI thread, and tr() may run on any thread while
+ * no init() runs (the PGLite runtime translates its notices on its own threads).
  */
 class PGTranslation {
 public:

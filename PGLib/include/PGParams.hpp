@@ -163,7 +163,9 @@ struct PGParams {
 
     /**
      * @brief Reads the "params" object of a settings JSON. A key the object does not have keeps its value; the list
-     * settings (allow list, block list, texture maps, vanilla archive list) are appended to.
+     * settings (allow list, block list, texture maps, vanilla archive list) are appended to. Texture rule paths are
+     * read in the form the file map uses (lower case, backslashes), so a rule typed with forward slashes or capitals
+     * matches.
      *
      * @param paramsJSON The "params" object.
      */

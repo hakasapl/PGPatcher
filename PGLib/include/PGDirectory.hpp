@@ -276,7 +276,9 @@ public:
      * @brief Gives a mod manager what the mapping gave the installed one (PGGlobals::pgmm()): the shader of every
      * mapped texture's mod as addToTextureMaps() assigned it, TruePBR for the mods of the TruePBR configs, and
      * hasMeshes for the mods of the meshes the mesh reading pass read. For a mod list built from other mod manager
-     * settings than the installed ones (the PGLite menu). Thread safe.
+     * settings than the installed ones (the PGLite menu). Call it on the installed directory (PGGlobals::pgd()), which
+     * the mod manager resolves archived files through, and while nothing replaces it; the patches that run meanwhile
+     * are fine, the maps it reads are locked.
      *
      * @param modManager The mod manager to attribute, with its mod file map populated.
      */

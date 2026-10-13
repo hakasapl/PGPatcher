@@ -17,7 +17,11 @@ using TestUtil::uniqueMessage;
 class ExceptionHandlerTest : public ::testing::Test {
 protected:
     void SetUp() override { ExceptionHandler::reset(); }
-    void TearDown() override { ExceptionHandler::reset(); }
+    void TearDown() override
+    {
+        ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard); // the guard main() installs
+        ExceptionHandler::reset();
+    }
 };
 
 TEST_F(ExceptionHandlerTest,
@@ -101,7 +105,6 @@ TEST_F(ExceptionHandlerTest,
 
     const auto message = uniqueMessage("guarded failure");
     EXPECT_FALSE(ExceptionHandler::runGuarded([&message] { throw std::runtime_error(message); }));
-    ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard);
 
     EXPECT_TRUE(ExceptionHandler::hasException());
     ExceptionHandler::setMainThread();

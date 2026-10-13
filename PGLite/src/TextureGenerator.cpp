@@ -192,11 +192,8 @@ bool TextureGenerator::make(HookKind kind,
         // Registered like a mesh (DESIGN.md section 3.1): a file of the same name in the load order is shadowed, as the
         // offline output folder shadows it. The registry keeps the stream for the session.
         RE::BSTSmartPointer<RE::BSResource::Stream> stream(new PatchStream(outputStr, m_noSource, *this));
-        if (!Resources::registerStream(outputStr, stream)) {
-            Logger::error("The engine refused the stream of the generated texture {}", outputStr);
-            m_failed++;
-            return false;
-        }
+        if (!Resources::registerStream(outputStr, stream))
+            Logger::debug("The engine has no entry database for the type of {}", outputStr);
 
         return true;
     } catch (const std::exception& e) {
@@ -204,6 +201,11 @@ bool TextureGenerator::make(HookKind kind,
                       output.wstring(),
                       texPath.wstring(),
                       StringUtil::utf8toUTF16(e.what()));
+        m_failed++;
+        return false;
+    } catch (...) {
+        // Whatever is thrown, the caller marks the entry done, so no thread waits for it forever.
+        Logger::error(L"Unable to generate {} from {}", output.wstring(), texPath.wstring());
         m_failed++;
         return false;
     }

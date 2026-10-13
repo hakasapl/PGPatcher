@@ -34,6 +34,7 @@ protected:
     void TearDown() override
     {
         TaskQueue::setExceptionCallback(nullptr);
+        ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard); // the guard main() installs
         ExceptionHandler::reset();
     }
 };
@@ -210,7 +211,6 @@ TEST_F(TaskQueueTest,
         queue.queueTask([&ran] { ran++; });
         queue.waitForCompletion();
     }
-    ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard);
 
     EXPECT_EQ(ran, 2);
     EXPECT_EQ(callbacks, 1);

@@ -30,6 +30,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -323,33 +324,58 @@ std::shared_ptr<const std::vector<std::byte>> Family::original(std::size_t pathI
     return bytes;
 }
 
+std::size_t Family::resolvedPathIndex(std::size_t pathIndex) const
+{
+    if (pathIndex < sources.size() && sources.at(pathIndex))
+        return pathIndex;
+
+    for (std::size_t i = 0; i < sources.size(); i++)
+        if (sources.at(i))
+            return i;
+
+    return pathIndex;
+}
+
 void Family::editRecords(TextureSetFactory& textureSets)
 {
+    auto& snapshot = Runtime::instance().snapshot();
     for (std::size_t member = 0; member < members.size(); member++) {
         for (const auto& ref : members.at(member).uses) {
+            auto* const model = ref.use->element.model;
             auto* const swap = ref.use->element.swap;
-            if (!swap || !swap->alternateTextures)
+            if (!model || !swap || !swap->alternateTextures)
                 continue;
 
-            const auto& output = m_outputs.at(ref.pathIndex).at(member);
+            // A record whose model string another plugin replaced loads another mesh: its entries are left alone.
+            if (!snapshot.isModelOwned(*model))
+                continue;
+
+            // The output of the file the record names, or of the resolved file when the named one is missing from
+            // the pair (the engine derives the resolved file's variant for such a record).
+            const auto& output = m_outputs.at(resolvedPathIndex(ref.pathIndex)).at(member);
             for (std::uint32_t i = 0; i < swap->numAlternateTextures; i++) {
-                auto& entry = swap->alternateTextures[i];
+                const auto& entry = swap->alternateTextures[i];
                 const auto oldIndex = entry.index3D;
+                auto index3D = oldIndex;
+                auto* textureSet = entry.textureSet;
 
                 // The shape's index in the sorted output, -1 when the shape was deleted (the engine skips the entry).
                 const auto corrected = output.idxCorrections.find(static_cast<int>(oldIndex));
                 if (corrected != output.idxCorrections.end() && corrected->second != static_cast<int>(oldIndex))
-                    entry.index3D = static_cast<std::uint32_t>(corrected->second);
+                    index3D = static_cast<std::uint32_t>(corrected->second);
 
                 const auto patched = output.altTexResults.find(oldIndex);
-                if (patched == output.altTexResults.end())
+                if (patched != output.altTexResults.end()
+                    && !isSameTextureSet(patched->second, Uses::textureSet(entry.textureSet))) {
+                    if (auto* const set = textureSets.textureSet(patched->second))
+                        textureSet = set;
+                }
+
+                if (index3D == oldIndex && textureSet == entry.textureSet)
                     continue;
 
-                if (isSameTextureSet(patched->second, Uses::textureSet(entry.textureSet)))
-                    continue;
-
-                if (auto* const set = textureSets.textureSet(patched->second))
-                    entry.textureSet = set;
+                // false: the entry keeps the value another plugin set after PGLite planned.
+                std::ignore = snapshot.setAlternateTexture(*model, *swap, i, index3D, textureSet);
             }
         }
     }
