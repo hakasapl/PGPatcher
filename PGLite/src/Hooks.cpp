@@ -37,12 +37,13 @@ bool Hooks::install(Menu& menu)
         return false;
     }
 
-    // Address Library IDs of BSInputDeviceManager::PollInputDevices. The dispatch call sits at the same offset in SE
-    // and AE (checked in the 1.5.97 and 1.7.99 databases and in the 1.7.104 executable: `mov rcx, rsi` and
+    // BSInputDeviceManager::PollInputDevices: Address Library IDs for SE and AE, the offset for VR. The dispatch call
+    // sits at the same offset in SE and AE and six bytes further in VR, whose device loop tests one more field
+    // (checked in the 1.5.97, 1.7.99 and VR databases and in the 1.7.104 executable: `mov rcx, rsi` and
     // `lea rdx, [rsp+40h]` load the source and the address of the event list head right before it). Only the opcode
     // is checked, because another plugin that redirected the call first has already replaced its target.
-    const REL::Relocation<std::uintptr_t> pollSite { REL::RelocationID(67315, 68617), pollDispatchCallOffset };
-    const auto site = pollSite.address();
+    const auto pollInputDevices = REL::VariantID(67315, 68617, pollInputDevicesVROffset).address();
+    const auto site = pollInputDevices + (REL::Module::IsVR() ? pollDispatchCallOffsetVR : pollDispatchCallOffset);
     const auto opcode
         = *reinterpret_cast<const std::uint8_t*>(site); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     if (opcode != callOpcode) {

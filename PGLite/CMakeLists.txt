@@ -72,13 +72,14 @@ add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 add_compile_definitions(UNICODE _UNICODE)
 
 #
-# CommonLibSSE-NG (submodule). SE and AE are both enabled; AE covers the 1.6.x and 1.7.x runtimes (Address Library
-# format 5). VR is off.
+# CommonLibSSE-NG (submodule). SE, AE and VR are enabled in one build; AE covers the 1.6.x and 1.7.x runtimes
+# (Address Library format 5), VR 1.4.15 takes its two engine offsets from REL::VariantID (Resources.cpp). The VR
+# target needs the openvr submodule of CommonLibSSE-NG (headers and openvr_api.lib, which nothing of PGLite imports).
 #
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_SKYRIM_SE ON CACHE BOOL "" FORCE)
 set(ENABLE_SKYRIM_AE ON CACHE BOOL "" FORCE)
-set(ENABLE_SKYRIM_VR OFF CACHE BOOL "" FORCE)
+set(ENABLE_SKYRIM_VR ON CACHE BOOL "" FORCE)
 add_subdirectory("${PG_REPO_ROOT}/external/CommonLibSSE-NG" commonlibsse)
 
 #

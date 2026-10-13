@@ -134,7 +134,12 @@ void addSwapWithStages(RE::TESForm& form,
 {
     auto& record = static_cast<T&>(form);
     addSwap(record, "MODL", elements);
-    addDestructibleStages(record, elements);
+    // A record whose destructible data sits at another offset under VR (ammunition) has an accessor instead of the
+    // base class in CommonLibSSE-NG's multi-runtime layout.
+    if constexpr (requires { record.AsDestructibleObjectForm(); })
+        addDestructibleStages(*record.AsDestructibleObjectForm(), elements);
+    else
+        addDestructibleStages(record, elements);
 }
 
 template<typename T>

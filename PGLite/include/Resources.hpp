@@ -12,7 +12,8 @@ namespace PGLite {
  * reads it from, and the resolver that gives the stream of any path the engine can load.
  *
  * Both engine functions are called through the Address Library; neither is hooked. Their IDs are known for the SE
- * runtime (1.5.97) and the AE runtimes (1.6.x and 1.7.x); VR is not built.
+ * runtime (1.5.97) and the AE runtimes (1.6.x and 1.7.x); the VR runtime (1.4.15), whose Address Library has no entry
+ * for them, uses built-in offsets.
  */
 class Resources {
 public:

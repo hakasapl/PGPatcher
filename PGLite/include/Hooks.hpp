@@ -50,8 +50,13 @@ private:
     static constexpr std::size_t presentIndex = 8;
     static constexpr std::size_t resizeBuffersIndex = 13;
 
-    /// @brief Offset of the dispatch call inside BSInputDeviceManager::PollInputDevices, the same in SE and AE.
+    /// @brief Offset of the dispatch call inside BSInputDeviceManager::PollInputDevices: the same in SE and AE, six
+    /// bytes further in VR, whose device loop tests one more field.
     static constexpr std::ptrdiff_t pollDispatchCallOffset = 0x7B;
+    static constexpr std::ptrdiff_t pollDispatchCallOffsetVR = 0x81;
+    /// @brief PollInputDevices in VR 1.4.15, by offset: its Address Library maps the SE ID to it, but the offset keeps
+    /// the hook independent of that entry.
+    static constexpr std::uint64_t pollInputDevicesVROffset = 0xC519E0;
     static constexpr std::uint8_t callOpcode = 0xE8;
 
     static inline decltype(&present) s_originalPresent = nullptr;

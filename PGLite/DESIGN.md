@@ -58,7 +58,7 @@ the engine's resource layer, settings, logging and the GUI.
 
 ## 3. Engine and CS facts the design relies on
 
-### 3.1 How the engine finds and reads a mesh (verified in the 1.7.99 database; the two functions PGLite calls also in 1.5.97)
+### 3.1 How the engine finds and reads a mesh (verified in the 1.7.99 database; the two functions PGLite calls also in 1.5.97 and VR 1.4.15)
 
 The engine never opens a model by path. The chain is: path, 12-byte resource ID, registry record, stream object.
 
@@ -68,8 +68,8 @@ The engine never opens a model by path. The chain is: path, 12-byte resource ID,
 | Registry | One global registry (`qword_14331B4C0`: a `std::shared_mutex` at +0, the tables at +16). A record is 40 bytes: the ID at 0, flags at 12 (bit 31 marks an archive record), size at 16, a `BSFixedString` name at 24 and at 32 either a `BSResource::Stream*` (loose record) or the archive object (archive record). The record constructor `sub_140EC9A60` asks the stream for its name through `DoGetName`. |
 | Filling the registry | At startup (`sub_14065DBE0`): the INI archive lists, the hard coded `Update.bsa`, then for every plugin in load order `<name>.bsa` and `<name> - Textures.bsa` (`sub_1401C4CB0`), then the loose files through `BSResource::RegisterPrefix(prefix, root, Location*)` (`sub_140ECF570`; list form `sub_140ECF670`), whose traverser `sub_140ED2AF0` hashes each name, asks the location for a stream (`DoCreateStream`) and inserts the record. Loose records hold one lazily opened `LooseFileStream` each. |
 | Insert semantics | `sub_140EC8170(ctx, id, stream)`: a new ID gets a new record; an existing loose record gets its stream replaced; an existing archive record is converted to a loose record with the given stream. This is the rule that makes loose files override archives, and it is what PGLite relies on. |
-| Register a path with a stream | `sub_140ECEE30(const char* path, BSTSmartPointer<Stream>&)`: ID from the path, then the insert above. The engine uses it for sound aliases (`sub_140559E30`) and for its file cache validation (`sub_140ED9240`, "OnValid"). It takes the registry mutex itself. In 1.5.97 it is `sub_140C45280` (ID 68491), the same body with no caller left in that build; its insert `sub_140C3E2E0` replaces an existing loose record's stream and converts an archive record (`sub_140C3E3F0`), and its return value is meaningless there, so PGLite ignores it on both runtimes. |
-| Resolve a path to a stream | `sub_140ECE860(const char* path, BSTSmartPointer<Stream>&, bool writeable, Location* optional)`: registry first (a loose record's stream is cloned, an archive record gets a fresh `ArchiveStream` or `CompressedArchiveStream`), then the location tree (`GlobalPaths`, `GlobalLocations`, `LooseFileLocation`) for files on disk that are not registered. It is the first call of the CommonLib-bound `BSResourceNiBinaryStream::ctor` (`RELOCATION_ID(69636, 71014)`, 1.7.99 0x140F00F80) and takes the registry mutex itself. In 1.5.97 it is `sub_140C44CB0` (ID 68484), the resolver call of the same constructor (`sub_140C76060`). |
+| Register a path with a stream | `sub_140ECEE30(const char* path, BSTSmartPointer<Stream>&)`: ID from the path, then the insert above. The engine uses it for sound aliases (`sub_140559E30`) and for its file cache validation (`sub_140ED9240`, "OnValid"). It takes the registry mutex itself. In 1.5.97 it is `sub_140C45280` (ID 68491), the same body with no caller left in that build; its insert `sub_140C3E2E0` replaces an existing loose record's stream and converts an archive record (`sub_140C3E3F0`), and its return value is meaningless there, so PGLite ignores it on both runtimes. VR 1.4.15 has the same function at `sub_140C8A330`, with the same insert (`sub_140C83390`, existing record path `sub_140C834A0`). |
+| Resolve a path to a stream | `sub_140ECE860(const char* path, BSTSmartPointer<Stream>&, bool writeable, Location* optional)`: registry first (a loose record's stream is cloned, an archive record gets a fresh `ArchiveStream` or `CompressedArchiveStream`), then the location tree (`GlobalPaths`, `GlobalLocations`, `LooseFileLocation`) for files on disk that are not registered. It is the first call of the CommonLib-bound `BSResourceNiBinaryStream::ctor` (`RELOCATION_ID(69636, 71014)`, 1.7.99 0x140F00F80) and takes the registry mutex itself. In 1.5.97 it is `sub_140C44CB0` (ID 68484), the resolver call of the same constructor (`sub_140C76060`); in VR 1.4.15 `sub_140C89D60`, from the constructor `sub_140CBC490`. |
 | Model entry | `BSModelDB::Demand` 0x140FC9060 and `sub_140FC8D80` prefix `meshes\` (`sub_140ECDC50`, which accepts an embedded `meshes\` and forward slashes), hash the path and look the ID up in the model entry database (`sub_14020BD20`). On a miss an entry is created only when the ID has a registry record, and the entry's stream is the record's stream (`sub_140EC8570`: loose records share their stream object, archive records spawn a stream). Facegen heads (`sub_1403C2EC0`) and queued and asynchronous loads go through the same entry database. |
 | Loader | `sub_140FC8480(BSTSmartPointer<Stream>*, ...)` receives the resolved stream. `sub_140F01090` wraps it in a `BSResourceNiBinaryStream`: sets the open flags, calls `DoOpen` (vfunc 1), allocates a buffer of `totalSize + 56` (`StreamBase::totalSize` at +8, 0x10000 when the stream is writable), and reads through `DoRead` (vfunc 6) and `DoSeek` (vfunc 8). Its destructor (0x140F01260) clears the flags, calls `DoClose` (vfunc 2) and releases the reference. Then `BSStream::Load` parses, falls back to `Meshes\Marker_Error.NIF` when no top object came out, builds a root `NiNode` for several top objects and runs `BSModelProcessor::PostCreate`. The path argument of `BSStream::Load` is the stream's own name and is null for files from archives that do not retain names (no vanilla archive does: BSA flag 0x10 is absent and `sResourceArchiveRetainFileNameList` is empty). |
 | Stream contract | CommonLib declares `BSResource::StreamBase` and `BSResource::Stream` with the full virtual layout: dtor, `DoOpen`, `DoClose`, `DoGetKey`, `DoGetInfo`, `DoClone`, `DoRead`, `DoWrite`, `DoSeek`, `DoSetEndOfStream`, `DoGetName`, `DoCreateAsync`. The reference count lives in the flags word (`kRefCountBeg` 0x1000), which sits at +0xC on SE and +0x10 on AE; CommonLib's `GetFlags()` resolves that at runtime. One entry is loaded by one thread at a time (other demanders spin in `sub_14020B970`), so a stream object is opened by one loader at a time; direct opens by path clone it. |
@@ -598,7 +598,9 @@ PGLite/
   vcpkg.json            own manifest and baseline
   package/              SKSE/Plugins/PGLite.ini, textures/cubemaps/dynamic1pxcubemap_black.dds
   include/ src/         entry point, resource streams and registration, runtime environment, permutation plan, GUI
-external/CommonLibSSE-NG   submodule (alandtse, ng branch): tests off, SE and AE on, VR off
+external/CommonLibSSE-NG   submodule (alandtse, ng branch): tests off, SE, AE and VR on; its openvr submodule
+                           provides the headers and import library the VR target compiles against, nothing of
+                           PGLite imports it
 ```
 
 The root configure uses a dynamic CRT, C++20 and builds PGLib as a DLL; a configure has one triplet, so PGLite is a
@@ -737,7 +739,10 @@ edit the patchers make.
    `sub_140ECE860`, ID 69839; SE `sub_140C44CB0`, ID 68484; the resolver call inside the bound
    `BSResourceNiBinaryStream::ctor`, so it can also be found by following that call), verified for 1.6.1170 and
    1.7.x (Address Library format 5) and in the 1.5.97 database (format 1, `version-1-5-97-0.bin`). The input
-   dispatch call sits at offset 0x7B in 1.5.97 as well. Not yet run in game on 1.5.97.
+   dispatch call sits at offset 0x7B in 1.5.97 as well. VR 1.4.15: its Address Library (alandtse, SE IDs to VR
+   offsets) has neither function, so `Resources.cpp` carries their offsets, 0xC8A330 and 0xC89D60 (found the same
+   way in the VR database, insert semantics checked); the library does map PollInputDevices (0xC519E0), whose
+   dispatch call sits at 0x81 there, six bytes further than in SE and AE. Not yet run in game on 1.5.97 or VR.
 2. **Stream contract in game.** A PGLite stream satisfies the loader (open, `totalSize`, read, seek, close), the
    per-entry single-open rule holds for queued and asynchronous loads as it does for synchronous ones, no model path
    requests an asynchronous stream (`DoCreateAsync` is unsupported), `DoClone` is what direct opens receive, and the
@@ -786,8 +791,8 @@ Defaults the design proceeds with unless overruled:
    with the disk cache of 4.5.
 3. Apply affects the next load only; no forced scene refresh.
 4. The GUI reads the offline translation files, with a language setting in the menu.
-5. Supported runtimes 1.5.97, 1.6.x and 1.7.x, one build through the Address Library of the installed version; no
-   VR.
+5. Supported runtimes 1.5.97, 1.6.x, 1.7.x and VR 1.4.15, one build through the Address Library of the installed
+   version, with built-in VR offsets for the two engine functions its library lacks; VR not yet run in game.
 6. No code hooks for file loading: registered streams only. The two engine functions of 8.1 are called, not hooked.
 7. Texture sets are created on the requesting thread at first open and left unregistered; data-load pre-creation is
    the fallback of 8.4.

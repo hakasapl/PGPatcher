@@ -11,9 +11,10 @@ Install the `PGLite` archive like any SKSE plugin (`SKSE\Plugins\PGLite.dll` wit
 `SKSE\Plugins\PGLite.ini`, the translation files under `SKSE\Plugins\PGLite\translations` and the dynamic cubemap
 texture). Requirements:
 
-- Skyrim Special Edition 1.5.97, 1.6.x or 1.7.x, SKSE and the
-  [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version. The
-  1.5.97 support has not been run in game yet.
+- Skyrim Special Edition 1.5.97, 1.6.x or 1.7.x, or Skyrim VR 1.4.15, with SKSE and the
+  [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version (the
+  [VR Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/58101) on VR). The 1.5.97 and VR support
+  has not been run in game yet; on VR the menu is a desktop window and the keyboard opens it.
 - No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) and no Auto Parallax.
   PGLite disables itself with an in-game notice when it finds one of them, and installs nothing else then (no menu,
   no hooks).

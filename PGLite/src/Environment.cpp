@@ -112,6 +112,9 @@ std::filesystem::path localAppDataGameFolder()
     std::filesystem::path folder(buffer);
     CoTaskMemFree(buffer);
 
+    if (REL::Module::IsVR())
+        return folder / L"Skyrim VR";
+
     std::error_code ec;
     const auto gameFolder = Settings::gameFolder();
     if (std::filesystem::exists(gameFolder / L"steam_api64.dll", ec))
