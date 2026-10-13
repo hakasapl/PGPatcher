@@ -426,6 +426,18 @@ void Menu::render(IDXGISwapChain* swapChain)
     if (m_didFailInitialization || !swapChain)
         return;
 
+    // The loading screen state the hotkey is refused in, per change, so a log explains a refused key.
+    if (auto* const ui = RE::UI::GetSingleton()) {
+        static bool s_wasLoadingMenuOpen = false;
+        const bool isLoadingMenuOpen = ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME);
+        if (isLoadingMenuOpen != s_wasLoadingMenuOpen) {
+            s_wasLoadingMenuOpen = isLoadingMenuOpen;
+            Logger::debug("Loading menu {} (main menu {})",
+                          isLoadingMenuOpen ? "open" : "closed",
+                          ui->IsMenuOpen(RE::MainMenu::MENU_NAME) ? "open" : "closed");
+        }
+    }
+
     // The loading and welcome messages need a frame while the menu is closed.
     const auto& ini = m_runtime->ini();
     const bool shouldShowOverlay = !m_isOpen && m_runtime->isActive() && !m_runtime->disableReason()
@@ -662,7 +674,8 @@ void Menu::applyInput(const InputRecord& record)
         return;
 
     if (record.kind == InputRecord::Kind::Hotkey) {
-        Logger::debug("Menu hotkey pressed, the menu is {}", m_isOpen ? "closing" : "opening");
+        // Info, like the refusals of open(): a user's log then shows what became of the key.
+        Logger::info("Menu key pressed, the menu is {}", m_isOpen ? "closing" : "opening");
         if (m_isOpen)
             close();
         else
@@ -713,19 +726,22 @@ void Menu::open()
 {
     // A disabled PGLite has no menu; the notice at data load said why. Before the initialization is done the plan and
     // the environment are still being built, and the status page reads both.
-    if (m_runtime->disableReason() || !m_runtime->isReady())
+    if (m_runtime->disableReason() || !m_runtime->isReady()) {
+        Logger::info("The menu does not open: PGLite is {}", m_runtime->disableReason() ? "disabled" : "still loading");
         return;
+    }
 
     // Before the main menu the game is still loading, with the loading screen presenting the frames, and a load in
     // the game reads the records the menu would edit: the menu is for a running game and for its main menu.
     if (auto* const ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) {
-        Logger::debug("The menu does not open during a loading screen");
+        Logger::info("The menu does not open during a loading screen");
         return;
     }
 
     m_isOpen = true;
     m_isStateLoaded = false;
     m_applyMessage.clear();
+    Logger::info("Menu opened");
     if (!m_didOpenMenu) {
         // The welcome message has done its job.
         m_didOpenMenu = true;
