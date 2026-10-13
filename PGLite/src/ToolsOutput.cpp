@@ -14,14 +14,17 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -173,46 +176,67 @@ ToolsOutput::Result ToolsOutput::generate(const std::filesystem::path& folder,
         items.push_back({ &family, 0, 0, path });
     }
 
-    // Every item is patched here if no open did, then written when the patch changed it.
+    // Every item is patched here if no open did, then written when the patch changed it. The families patch in
+    // parallel as they do for the engine's loader threads; the counts and the diff are updated under one lock.
     inputs.reportStage("pglite.stages.writingMeshes");
     nlohmann::json diff = nlohmann::json::object();
-    for (std::size_t i = 0; i < items.size(); i++) {
-        inputs.reportProgress(i, items.size());
-        const auto& item = items.at(i);
-        const Logger::Prefix prefix(item.path.wstring());
-        try {
-            const auto original = originalOf(item);
-            const auto patched
-                = item.family->bytes(item.member, item.pathIndex, inputs.textureSets, inputs.plan.generation());
-            inputs.textures.generatePending();
-            if (!original || !patched) {
-                Logger::error("The mesh could not be read or patched, it is not written");
-                result.failed++;
-                continue;
+    std::mutex resultMutex;
+    std::atomic<std::size_t> next { 0 };
+    std::size_t done = 0;
+    const auto work = [&] {
+        for (;;) {
+            const auto i = next.fetch_add(1);
+            if (i >= items.size())
+                return;
+
+            const auto& item = items.at(i);
+            const Logger::Prefix prefix(item.path.wstring());
+            bool isWritten = false;
+            bool isUnchanged = false;
+            std::uint32_t crcOriginal = 0;
+            std::uint32_t crcPatched = 0;
+            try {
+                const auto original = originalOf(item);
+                const auto patched
+                    = item.family->bytes(item.member, item.pathIndex, inputs.textureSets, inputs.plan.generation());
+                inputs.textures.generatePending();
+                if (!original || !patched) {
+                    Logger::error("The mesh could not be read or patched, it is not written");
+                } else {
+                    crcOriginal = crc32Of(*original);
+                    crcPatched = crc32Of(*patched);
+                    if (crcOriginal == crcPatched)
+                        isUnchanged = true;
+                    else if (writeFile(folder / item.path, *patched))
+                        isWritten = true;
+                    else
+                        Logger::error("The patched mesh could not be written");
+                }
+            } catch (const std::exception& e) {
+                Logger::error("The mesh is not written: {}", e.what());
             }
 
-            const auto crcOriginal = crc32Of(*original);
-            const auto crcPatched = crc32Of(*patched);
-            if (crcOriginal == crcPatched) {
+            const std::scoped_lock lock(resultMutex);
+            if (isWritten) {
+                auto& entry = diff[StringUtil::utf16toUTF8(item.path.wstring())];
+                entry["crc32original"] = crcOriginal;
+                entry["crc32patched"] = crcPatched;
+                result.written++;
+            } else if (isUnchanged) {
                 result.unchanged++;
-                continue;
-            }
-
-            if (!writeFile(folder / item.path, *patched)) {
-                Logger::error("The patched mesh could not be written");
+            } else {
                 result.failed++;
-                continue;
             }
-
-            auto& entry = diff[StringUtil::utf16toUTF8(item.path.wstring())];
-            entry["crc32original"] = crcOriginal;
-            entry["crc32patched"] = crcPatched;
-            result.written++;
-        } catch (const std::exception& e) {
-            Logger::error("The mesh is not written: {}", e.what());
-            result.failed++;
+            inputs.reportProgress(++done, items.size());
         }
-    }
+    };
+    std::vector<std::thread> workers;
+    const auto workerCount = std::max(1U, std::thread::hardware_concurrency());
+    workers.reserve(workerCount);
+    for (unsigned i = 0; i < workerCount; i++)
+        workers.emplace_back(work);
+    for (auto& worker : workers)
+        worker.join();
 
     // The textures the patches generated, from PGLite's cache, at the paths the meshes name.
     inputs.reportStage("pglite.stages.copyingTextures");
