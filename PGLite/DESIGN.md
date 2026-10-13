@@ -435,6 +435,8 @@ immediate and is a later addition if wanted; it is not part of apply.
   the `ENBGetSDKVersion` export of the loaded modules, as TerrainHelper finds it (`ShaderFrameworks`); the patched
   materials need one of them.
 - Address Library missing for the running game version.
+- PGLite's own 3rd party tools output is enabled (its marker `pglite_toolsoutput.json` resolves, 4.14): it is for
+  TexGen, DynDOLOD and BodySlide, and played with, it would be patched twice.
 
 In every case PGLite logs the reason, shows a notice ("PGLite is disabled because X.", translated like the menu; an
 in-game message box after data load, a Windows message box at plugin load for the Address Library case, when the
@@ -455,7 +457,8 @@ TruePBR and the hair flow map are greyed without Community Shaders, Fix Mesh Lig
 keeps those off whatever `settings.json` says);
 allowed record types; mesh allow list and block list; texture rules; a status panel (ready state, patched family and
 variant counts, generated texture counts, a toggle that disables PGLite through an apply with an empty plan and
-enables it through a full one, persisted in `settings.json`) and the warnings and errors collected by a log sink,
+enables it through a full one, persisted in `settings.json`, and the 3rd party tools output of 4.14 with its folder,
+a folder picker and its Generate button) and the warnings and errors collected by a log sink,
 deduplicated (weighted pair mismatches land here). A first start, without `settings.json`, enables parallax,
 complex material and the pre-patched material reset, plus TruePBR with Community Shaders and Fix Mesh Lighting with
 ENB; a file keeps its values, less what the loaded framework cannot render. Apply refuses what the offline launcher
@@ -549,6 +552,22 @@ but its `ReloadLP` console command reads every config again and rebuilds its tab
 `Script` form on the main thread once the data load (or Apply) is done. The file also stays on disk, so the next
 session's Light Placer reads it at its plugin load; a stale entry names a variant path that embeds the original mesh
 path and can only ever carry that mesh's lights. Nothing happens when `po3_LightPlacer.dll` is not loaded.
+
+### 4.14 Third party tools output
+
+TexGen, DynDOLOD and BodySlide read patched meshes from disk, which PGLite never writes: DynDOLOD and TexGen decide
+per full model whether it uses PBR textures and read `ParallaxGen_Diff.json` for the original checksums of patched
+models, BodySlide builds its outfits from the ShapeData meshes. The status page's "Generate 3rd Party Tools Output"
+button (`ToolsOutput`) writes a mod folder from the current plan, whole load order and not what the game loaded: the
+original path of every family with a use of a record type DynDOLOD scans (its reference: ACTI, CONT, DOOR, FURN, MSTT,
+STAT, TREE, GRAS), patched here when no open did, written when the patch changed it; every BodySlide ShapeData mesh
+of the file map, patched for the dummy use the offline program patches it for (a plan of its own, sources resolved
+through the engine); the textures the patches generated, from PGLite's cache; `ParallaxGen_Diff.json` with the
+original and patched CRC32 per written mesh, as the offline program writes it; and the marker `pglite_toolsoutput.json`.
+The game is paused while it runs, as for Apply. The folder has to be new, empty or an earlier output (the marker),
+whose meshes, textures and files are replaced. The user enables the folder as a mod only while the tools run: while
+the marker resolves in the load order PGLite disables itself (4.9), since the output and the runtime patches would
+patch the same meshes twice. The folder as typed is kept in `settings.json`; a relative one is the game folder's.
 
 ## 5. Shared code: PGLib changes
 

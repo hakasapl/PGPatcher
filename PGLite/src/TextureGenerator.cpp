@@ -210,6 +210,14 @@ bool TextureGenerator::make(HookKind kind,
     }
 }
 
+std::vector<std::pair<std::string,
+                      std::filesystem::path>>
+TextureGenerator::cachedOutputs() const
+{
+    const std::scoped_lock lock(m_cacheFilesMutex);
+    return { m_cacheFiles.begin(), m_cacheFiles.end() };
+}
+
 std::string TextureGenerator::cacheKey(HookKind kind,
                                        const std::filesystem::path& texPath,
                                        const std::vector<std::byte>& source)

@@ -813,6 +813,16 @@ void Menu::loadState()
     m_modListSignature.clear();
     m_modListMessage.clear();
 
+    // The tools output folder as kept, or a suggestion inside the Mod Organizer 2 instance.
+    m_toolsOutputFolder = Settings::readToolsOutputFolder();
+    if (m_toolsOutputFolder.empty() && m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
+        && !m_mo2InstanceDir.empty()) {
+        std::filesystem::path instance = StringUtil::utf8toUTF16(m_mo2InstanceDir);
+        if (instance.is_relative())
+            instance = (Settings::gameFolder() / instance).lexically_normal();
+        m_toolsOutputFolder = StringUtil::utf16toUTF8((instance / L"mods" / L"PGLite Tools Output").wstring());
+    }
+
     m_isStateLoaded = true;
 }
 
@@ -1017,6 +1027,7 @@ void Menu::startApply(bool isEnabled)
     // The runtime's apply runs on a worker thread; Present shows the progress until it is done (renderApplyFrame).
     m_applyMessage.clear();
     m_isApplyEnabling = isEnabled;
+    m_job = Job::Apply;
     m_isApplyDone = false;
     m_didApplySucceed = false;
     m_applyStart = std::chrono::steady_clock::now();
@@ -1027,12 +1038,64 @@ void Menu::startApply(bool isEnabled)
     });
 }
 
+void Menu::startToolsOutput()
+{
+    if (auto* const ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) {
+        m_toolsOutputMessage = tr("pglite.toolsOutput.loading");
+        return;
+    }
+    if (!m_runtime->isEnabled()) {
+        m_toolsOutputMessage = tr("pglite.apply.disabled");
+        return;
+    }
+
+    std::filesystem::path folder = StringUtil::utf8toUTF16(m_toolsOutputFolder);
+    if (folder.empty()) {
+        m_toolsOutputMessage = tr("pglite.toolsOutput.folderRequired");
+        return;
+    }
+    if (folder.is_relative())
+        folder = (Settings::gameFolder() / folder).lexically_normal();
+    std::ignore = Settings::writeToolsOutputFolder(m_toolsOutputFolder);
+
+    // The generation runs on the worker thread while the game waits inside Present, as apply does.
+    m_toolsOutputMessage.clear();
+    m_job = Job::ToolsOutput;
+    m_isApplyDone = false;
+    m_didApplySucceed = false;
+    m_applyStart = std::chrono::steady_clock::now();
+    m_isApplying = true;
+    m_applyThread = std::thread([this, folder] {
+        m_toolsOutputResult = m_runtime->generateToolsOutput(folder);
+        m_didApplySucceed = m_toolsOutputResult.didSucceed;
+        m_isApplyDone = true;
+    });
+}
+
 void Menu::finishApply()
 {
     if (m_applyThread.joinable())
         m_applyThread.join();
 
     const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
+    if (m_job == Job::ToolsOutput) {
+        const auto& result = m_toolsOutputResult;
+        if (!result.refusalKey.empty())
+            m_toolsOutputMessage = tr(result.refusalKey.c_str());
+        else if (!result.didSucceed)
+            m_toolsOutputMessage = tr("pglite.toolsOutput.failed");
+        else
+            m_toolsOutputMessage = formatText(tr("pglite.toolsOutput.done"),
+                                              result.written,
+                                              result.unchanged,
+                                              result.failed,
+                                              result.textures,
+                                              seconds);
+        m_job = Job::Apply;
+        m_isStateLoaded = false;
+        return;
+    }
+
     if (!m_didApplySucceed) {
         m_applyMessage = tr("pglite.apply.failed");
     } else if (!m_isApplyEnabling) {
@@ -1092,10 +1155,11 @@ void Menu::draw()
     if (m_isApplying) {
         const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
         const auto* const stage = m_runtime->stage();
-        ImGui::TextColored(ImVec4(1, 0.85F, 0.4F, 1),
-                           tr("pglite.status.applying").c_str(),
-                           tr(stage ? stage : "pglite.status.working").c_str(),
-                           seconds);
+        ImGui::TextColored(
+            ImVec4(1, 0.85F, 0.4F, 1),
+            tr(m_job == Job::ToolsOutput ? "pglite.status.generating" : "pglite.status.applying").c_str(),
+            tr(stage ? stage : "pglite.status.working").c_str(),
+            seconds);
         ImGui::Separator();
     }
 
@@ -1294,6 +1358,27 @@ void Menu::drawStatus()
     if (!status.mo2Instance.empty())
         ImGui::Text(tr("pglite.status.mo2Instance").c_str(),
                     StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
+
+    // The 3rd party tools output (DESIGN.md section 4.14).
+    ImGui::SeparatorText(tr("pglite.toolsOutput.title").c_str());
+    ImGui::TextWrapped("%s", tr("pglite.toolsOutput.description").c_str());
+    const auto browseLabel = tr("common.browse") + "##toolsOutput";
+    ImGui::TextUnformatted(tr("pglite.toolsOutput.folder").c_str());
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-(buttonWidth(browseLabel.c_str()) + ImGui::GetStyle().ItemSpacing.x));
+    ImGui::InputText("##toolsOutputFolder", &m_toolsOutputFolder);
+    ImGui::SameLine();
+    if (ImGui::Button(browseLabel.c_str())) {
+        m_pickTarget = PickTarget::ToolsOutput;
+        browseForFolder(tr("pglite.toolsOutput.browse").c_str());
+    }
+    const bool canGenerate = status.isActive && status.isReady && !status.disableReason && status.isEnabled;
+    ImGui::BeginDisabled(!canGenerate);
+    if (ImGui::Button(tr("pglite.toolsOutput.generate").c_str()))
+        startToolsOutput();
+    ImGui::EndDisabled();
+    if (!m_toolsOutputMessage.empty())
+        ImGui::TextWrapped("%s", m_toolsOutputMessage.c_str());
 }
 
 void Menu::drawPatchers()
@@ -1483,8 +1568,10 @@ void Menu::drawConflictManager()
         ImGui::SetNextItemWidth(-(buttonWidth(browseLabel.c_str()) + ImGui::GetStyle().ItemSpacing.x));
         ImGui::InputText("##instance", &m_mo2InstanceDir);
         ImGui::SameLine();
-        if (ImGui::Button(browseLabel.c_str()))
+        if (ImGui::Button(browseLabel.c_str())) {
+            m_pickTarget = PickTarget::MO2Instance;
             browseForFolder(tr("launcher.browse.mo2InstanceLocation").c_str());
+        }
         ImGui::Checkbox(tr("conflictManager.lockMO2Order.label").c_str(),
                         &m_params.modManager.shouldUseMO2LooseFileOrder);
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
@@ -1722,7 +1809,7 @@ void Menu::pollPickedFolder()
     if (!m_pickedFolder)
         return;
 
-    m_mo2InstanceDir = *m_pickedFolder;
+    (m_pickTarget == PickTarget::ToolsOutput ? m_toolsOutputFolder : m_mo2InstanceDir) = *m_pickedFolder;
     m_pickedFolder.reset();
 }
 

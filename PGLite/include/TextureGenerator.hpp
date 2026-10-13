@@ -75,6 +75,12 @@ public:
     /// @brief The counts of this session. Any thread.
     [[nodiscard]] Stats stats() const;
 
+    /// @brief The generated textures of the session: the output path the meshes name and the cache file that holds
+    /// it. Any thread.
+    [[nodiscard]] std::vector<std::pair<std::string,
+                                        std::filesystem::path>>
+    cachedOutputs() const;
+
     // PatchStream::Provider: the cache file of a generated texture.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
                                                                          SourceStream& source) override;

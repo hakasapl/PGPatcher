@@ -18,6 +18,7 @@
 #include "Settings.hpp"
 #include "ShaderFrameworks.hpp"
 #include "TextureGenerator.hpp"
+#include "ToolsOutput.hpp"
 #include "Uses.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "util/ExceptionHandler.hpp"
@@ -296,6 +297,10 @@ void Runtime::onDataLoaded()
 
 std::optional<std::string> Runtime::detectDisableCondition() const
 {
+    // PGLite's own tools output carries the offline diff file too; its marker names it first.
+    if (Resources::exists(ToolsOutput::markerFile))
+        return PGTranslation::tr("pglite.disabled.toolsOutput");
+
     if (Resources::exists(offlineDiffFile))
         return PGTranslation::tr("pglite.disabled.offlineOutput");
 
@@ -629,6 +634,40 @@ bool Runtime::apply(const PGParams& requestedParams,
         = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
     Logger::info("Applied the settings in {} ms", elapsed.count());
     return true;
+}
+
+ToolsOutput::Result Runtime::generateToolsOutput(const std::filesystem::path& folder)
+{
+    ToolsOutput::Result result;
+    if (!m_isActive || !m_isReady || !m_plan || !m_environment || !m_isEnabled || disableReason()) {
+        Logger::warn("The 3rd party tools output was refused, PGLite is not ready or disabled");
+        return result;
+    }
+
+    // The patches of the output run like those of opens, under the shared pipeline lock; the menu runs one job at a
+    // time, so no apply replaces the plan meanwhile.
+    const std::shared_lock lock(m_pipelineLock);
+    try {
+        result = ToolsOutput::generate(
+            folder,
+            { .plan = *m_plan,
+              .textureSets = m_textureSets,
+              .textures = m_textures,
+              .directory = *m_environment->directory(),
+              .resolveSource = [this](const std::filesystem::path& path) { return resolveSource(path); },
+              .reportStage = [this](const char* stage) { m_stage = stage; },
+              .reportProgress =
+                  [this](std::size_t done, std::size_t total) {
+                      m_progressDone = done;
+                      m_progressTotal = total;
+                  } });
+    } catch (const std::exception& e) {
+        Logger::error("The 3rd party tools output failed: {}", e.what());
+    }
+
+    m_stage = nullptr;
+    m_progressTotal = 0;
+    return result;
 }
 
 std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::string& path,

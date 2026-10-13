@@ -4,6 +4,7 @@
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
 #include "PGTranslation.hpp"
+#include "ToolsOutput.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -126,6 +127,12 @@ private:
 
     /// @brief Writes the settings and the mod rules, then starts the runtime's apply on the worker thread.
     void startApply(bool isEnabled);
+
+    /// @brief Keeps the folder, then starts the 3rd party tools output on the worker thread, which pauses the game
+    /// like apply.
+    void startToolsOutput();
+
+    /// @brief Joins the worker of the job that ran (apply or the tools output) and shows its result.
     void finishApply();
 
     /**
@@ -223,12 +230,20 @@ private:
     std::vector<PGTranslation::Language> m_languages;
     /// @brief The language code as edited; applied with Apply, like every other setting.
     std::string m_language;
+    /// @brief The text field the folder dialog fills.
+    enum class PickTarget : std::uint8_t { MO2Instance, ToolsOutput };
     std::mutex m_pickerMutex;
     bool m_isPickerOpen = false;
+    PickTarget m_pickTarget = PickTarget::MO2Instance;
     std::optional<std::string> m_pickedFolder;
     static inline std::string s_clipboard;
 
-    // Apply in progress.
+    // The job in progress: apply, or the 3rd party tools output, which pauses the game the same way.
+    enum class Job : std::uint8_t { Apply, ToolsOutput };
+    Job m_job = Job::Apply;
+    ToolsOutput::Result m_toolsOutputResult;
+    std::string m_toolsOutputFolder;
+    std::string m_toolsOutputMessage;
     std::atomic<bool> m_isApplying { false };
     std::atomic<bool> m_isApplyDone { false };
     bool m_didApplySucceed = false;

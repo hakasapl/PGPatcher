@@ -405,6 +405,7 @@
     "status": {
       "applying": "Applying, the game is paused: %s (%.1f s)",
       "applyingShort": "Applying the settings.",
+      "generating": "Generating the 3rd party tools output, the game is paused: %s (%.1f s)",
       "working": "working",
       "waitingForData": "Waiting for the game data.",
       "initializing": "Loading, current step: %s.",
@@ -439,6 +440,19 @@
       "settingsNotWritten": "The settings could not be written, see the log.",
       "modRulesNotWritten": "The mod rules could not be written, see the log."
     },
+    "toolsOutput": {
+      "title": "3rd party tools output",
+      "description": "Writes a mod folder for the tools that read patched meshes from disk: the models of the record types DynDOLOD scans (statics, trees, activators, containers, doors, furniture, movable statics and grass), the BodySlide ShapeData meshes, the generated textures and ParallaxGen_Diff.json. Enable that mod only while TexGen, DynDOLOD or BodySlide run, and disable it to play: PGLite disables itself while it is enabled.",
+      "folder": "Output folder",
+      "browse": "Choose the output folder of the 3rd party tools",
+      "generate": "Generate 3rd Party Tools Output",
+      "folderRequired": "Enter an output folder.",
+      "folderNotEmpty": "The folder is not empty and holds no earlier output of PGLite.",
+      "folderNotWritable": "The folder could not be created.",
+      "loading": "Not available during a loading screen.",
+      "failed": "The generation failed, see the log.",
+      "done": "Written: %zu meshes (%zu unchanged, %zu failed) and %zu textures in %.1f s. Enable the folder as a mod while TexGen, DynDOLOD or BodySlide run, and disable it to play."
+    },
     "meshRules": {
       "allowlist": "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire folders/files.",
       "blocklist": "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire folders/files."
@@ -471,6 +485,7 @@
       "offlinePlugin": "the offline PGPatcher plugin is active (PGPatcher.esp)",
       "autoParallax": "Auto Parallax is installed, which edits the same materials",
       "noShaderFramework": "neither Community Shaders nor ENB is loaded, and the patched materials need one of them",
+      "toolsOutput": "its 3rd party tools output is enabled in the load order; it is for TexGen, DynDOLOD and BodySlide only, disable that mod to play",
       "initializationFailed": "its initialization failed: %s",
       "backgroundInitializationFailed": "its background initialization failed: %s"
     },
@@ -478,6 +493,8 @@
       "restoringRecords": "Restoring the records",
       "planningMeshes": "Planning the meshes",
       "registeringStreams": "Registering the streams",
+      "writingMeshes": "Writing the meshes",
+      "copyingTextures": "Copying the generated textures",
       "loadingClassificationCache": "Loading the classification cache",
       "readingMeshes": "Reading the meshes",
       "registeringFacegenStreams": "Registering the facegen streams",

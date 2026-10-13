@@ -10,6 +10,7 @@
 #include "Settings.hpp"
 #include "ShaderFrameworks.hpp"
 #include "TextureGenerator.hpp"
+#include "ToolsOutput.hpp"
 #include "Uses.hpp"
 
 #include <atomic>
@@ -133,6 +134,16 @@ public:
      */
     bool apply(const PGParams& requestedParams,
                bool isEnabled);
+
+    /**
+     * @brief Writes the 3rd party tools output (ToolsOutput, DESIGN.md section 4.14) from the current plan. Runs on
+     * the menu's worker thread while the game's main thread waits inside Present, like apply(); the stage and the
+     * progress show meanwhile.
+     *
+     * @param folder The mod folder to write.
+     * @return What was written; didSucceed is false when PGLite is not ready, disabled, or the generation failed.
+     */
+    [[nodiscard]] ToolsOutput::Result generateToolsOutput(const std::filesystem::path& folder);
 
     // PatchStream::Provider.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
