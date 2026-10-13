@@ -39,7 +39,9 @@ std::wstring multiByteToWide(unsigned codePage,
 
 /**
  * @brief Converts a UTF-16 string to a narrow string of the given code page with the Win32 conversion functions.
- * Characters the code page cannot represent take Windows' best fit character.
+ * A character the code page cannot represent takes Windows' best fit character when there is one and is dropped
+ * otherwise, as the boost.locale conversion this replaced did (its skip method asks for a substitute of 0 and erases
+ * it).
  */
 std::string wideToMultiByte(unsigned codePage,
                             const std::wstring& wStr)
@@ -47,14 +49,28 @@ std::string wideToMultiByte(unsigned codePage,
     if (wStr.empty())
         return { };
 
-    const int sizeNeeded
-        = WideCharToMultiByte(codePage, 0, wStr.data(), static_cast<int>(wStr.size()), nullptr, 0, nullptr, nullptr);
+    // UTF-8 represents every character, and the API refuses a default character for it.
+    const bool isUTF8 = codePage == CP_UTF8;
+    constexpr char substitute = '\0';
+    const char* const defaultChar = isUTF8 ? nullptr : &substitute;
+    const int sizeNeeded = WideCharToMultiByte(
+        codePage, 0, wStr.data(), static_cast<int>(wStr.size()), nullptr, 0, defaultChar, nullptr);
     if (sizeNeeded <= 0)
         return { };
 
     std::string str(static_cast<size_t>(sizeNeeded), 0);
-    WideCharToMultiByte(
-        codePage, 0, wStr.data(), static_cast<int>(wStr.size()), str.data(), sizeNeeded, nullptr, nullptr);
+    BOOL usedDefault = FALSE;
+    WideCharToMultiByte(codePage,
+                        0,
+                        wStr.data(),
+                        static_cast<int>(wStr.size()),
+                        str.data(),
+                        sizeNeeded,
+                        defaultChar,
+                        isUTF8 ? nullptr : &usedDefault);
+    if (usedDefault)
+        std::erase(str, substitute);
+
     return str;
 }
 

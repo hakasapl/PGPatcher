@@ -9,6 +9,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <exception>
+#include <functional>
 #include <mutex>
 #include <numeric>
 #include <set>
@@ -167,6 +169,58 @@ TEST_F(TaskPoolRunnerTest,
 
     for (int i = 0; i < 10; i++)
         EXPECT_TRUE(TestLog::contains(spdlog::level::info, tag + " task " + std::to_string(i)));
+}
+
+/// @brief A guard like the PGLite runtime's: the exception is reported, not recorded.
+bool reportingGuard(const std::function<void()>& task)
+{
+    try {
+        task();
+    } catch (const std::exception&) {
+        return false;
+    }
+
+    return true;
+}
+
+TEST_F(TaskPoolRunnerTest,
+       SingleThreadedCarriesOnWhenTheGuardDoesNotRecordTheException)
+{
+    ExceptionHandler::setTaskGuard(&reportingGuard);
+    TaskPoolRunner runner(false);
+    std::vector<int> ran;
+    runner.addTask([&ran] { ran.push_back(0); });
+    runner.addTask([] { throw std::runtime_error("task failed"); });
+    runner.addTask([&ran] { ran.push_back(2); });
+    int callbacks = 0;
+    TaskPoolRunner::setExceptionCallback([&callbacks] { callbacks++; });
+    runner.runTasks();
+    ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard);
+
+    EXPECT_EQ(ran, (std::vector<int> { 0, 2 }));
+    EXPECT_EQ(callbacks, 1);
+    EXPECT_FALSE(ExceptionHandler::hasException());
+}
+
+TEST_F(TaskPoolRunnerTest,
+       PoolCarriesOnWhenTheGuardDoesNotRecordTheException)
+{
+    ExceptionHandler::setTaskGuard(&reportingGuard);
+    TaskPoolRunner runner(true);
+    std::atomic<int> ran { 0 };
+    for (int i = 0; i < 20; i++)
+        if (i == 5)
+            runner.addTask([] { throw std::runtime_error("task failed"); });
+        else
+            runner.addTask([&ran] { ran++; });
+    std::atomic<int> callbacks { 0 };
+    TaskPoolRunner::setExceptionCallback([&callbacks] { callbacks++; });
+    runner.runTasks();
+    ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard);
+
+    EXPECT_EQ(ran, 19);
+    EXPECT_EQ(callbacks, 1);
+    EXPECT_FALSE(ExceptionHandler::hasException());
 }
 
 }

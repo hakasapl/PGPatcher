@@ -46,6 +46,14 @@ void PGPatcher::loadPatchers(const PatcherUtil::PatcherMeshSet& meshPatchers,
     s_meshPatchers = meshPatchers;
     s_texPatchers = texPatchers;
 }
+
+bool PGPatcher::isUseUnpatched(const PGPlugin::MeshUseAttributes& use,
+                               const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
+                               bool checkAllowedRecTypes)
+{
+    return use.isIgnored || (checkAllowedRecTypes && !use.isDummyUse && !allowedModelRecTypes.contains(use.recType));
+}
+
 void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matches)
 {
     std::ranges::sort(matches, [&](const PatcherUtil::ShaderPatcherMatch& a, const PatcherUtil::ShaderPatcherMatch& b) {
@@ -66,6 +74,7 @@ void PGPatcher::sortMatches(std::vector<PatcherUtil::ShaderPatcherMatch>& matche
         return a.match.matchedPath < b.match.matchedPath;
     });
 }
+
 bool PGPatcher::processNIF(const std::filesystem::path& nifPath,
                            nifly::NifFile* nif,
                            MeshMeta& meshMeta,
@@ -154,6 +163,7 @@ bool PGPatcher::processNIF(const std::filesystem::path& nifPath,
 
     return true;
 }
+
 bool PGPatcher::processNIFShape(nifly::NifFile* nif,
                                 nifly::NiShape* nifShape,
                                 MeshShapeMeta& meshShapeMeta,
@@ -301,6 +311,7 @@ bool PGPatcher::processNIFShape(nifly::NifFile* nif,
 
     return true;
 }
+
 uint64_t PGPatcher::digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
                                   const PatcherUtil::PatcherMeshObjectSet& patchers)
 {
@@ -329,6 +340,7 @@ uint64_t PGPatcher::digestMatches(const std::vector<PatcherUtil::ShaderPatcherMa
 
     return hasher.value();
 }
+
 uint64_t PGPatcher::computeMatchesDigest(const std::filesystem::path& nifPath,
                                          const PGTypes::TextureSet& slots,
                                          bool isSinglepassMATO,
@@ -351,6 +363,7 @@ uint64_t PGPatcher::computeMatchesDigest(const std::filesystem::path& nifPath,
     const auto matches = PGPatcher::matches(slots, patchers, isSinglepassMATO, modelRecordType);
     return digestMatches(matches, patchers);
 }
+
 std::vector<PatcherUtil::ShaderPatcherMatch> PGPatcher::matches(const PGTypes::TextureSet& slots,
                                                                 const PatcherUtil::PatcherMeshObjectSet& patchers,
                                                                 bool isSinglepassMATO,
@@ -487,6 +500,7 @@ std::vector<PatcherUtil::ShaderPatcherMatch> PGPatcher::matches(const PGTypes::T
 
     return matches;
 }
+
 bool PGPatcher::applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
                                        const PatcherUtil::PatcherMeshObjectSet& patchers)
 {
@@ -506,6 +520,7 @@ bool PGPatcher::applyTransformIfNeeded(PatcherUtil::ShaderPatcherMatch& match,
 
     return false;
 }
+
 PatcherUtil::PatcherMeshObjectSet PGPatcher::createNIFPatcherObjects(const std::filesystem::path& nifPath,
                                                                      nifly::NifFile* nif,
                                                                      const PGPlugin::MeshUseAttributes& meshUse)

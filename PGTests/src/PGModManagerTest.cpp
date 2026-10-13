@@ -2,18 +2,24 @@
 
 #include "BSABuilder.hpp"
 #include "FakeGame.hpp"
+#include "NIFBuilder.hpp"
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "TestUtil.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
+#include "pgutil/PGTypes.hpp"
+#include "util/ExceptionHandler.hpp"
+#include "util/StringUtil.hpp"
 
+#include "Shaders.hpp"
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/common.h>
 
 #include <filesystem>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -533,6 +539,57 @@ TEST(PGModManagerTest,
     EXPECT_EQ(pgmm.mod(L"Old1")->priority, 2);
     EXPECT_EQ(pgmm.mod(L"NewPlain")->priority, -1);
     EXPECT_EQ(pgmm.mod(L"Hidden")->priority, 7);
+}
+
+TEST(PGModManagerTest,
+     AttributeModsGivesAnotherManagerTheInstalledOnesShadersAndMeshes)
+{
+    ExceptionHandler::reset();
+    const TestUtil::FakeGame fake;
+    fake.writeDataFile(L"textures\\a\\stone.dds", "DDS");
+    fake.writeDataFile(L"textures\\a\\stone_p.dds", "DDS");
+    fake.writeDataFile(L"pbrnifpatcher\\x.json", "[]");
+    TestUtil::NIFBuilder builder;
+    PGTypes::TextureSet textures;
+    textures.at(0) = L"textures\\a\\stone.dds";
+    textures.at(3) = L"textures\\a\\stone_p.dds";
+    builder.lightingShader(builder.addShape("Shape", textures, nifly::BSLSP_PARALLAX))->shaderFlags1
+        |= nifly::SLSF1_PARALLAX;
+    builder.save(fake.dataDir() / L"meshes\\a\\stone.nif");
+    BethesdaGame game = fake.game();
+    PGDirectory pgd(&game, fake.gameDir() / L"out");
+    pgd.populateFileMap(true, false);
+
+    const FakeMO2 mo2;
+    mo2.writeModlist("+Parallax\n+Diffuse\n+PBR\n+Meshes\n");
+    mo2.addModFile(L"Parallax", L"textures\\a\\stone_p.dds");
+    mo2.addModFile(L"Diffuse", L"textures\\a\\stone.dds");
+    mo2.addModFile(L"PBR", L"pbrnifpatcher\\x.json");
+    mo2.addModFile(L"Meshes", L"meshes\\a\\stone.nif");
+    PGModManager installed(ModManagerType::ModOrganizer2);
+    installed.populateModFileMapMO2(mo2.instanceDir(), mo2.outputDir());
+    PGGlobals::setPGD(&pgd);
+    PGGlobals::setPGMM(&installed);
+    pgd.mapFiles({ }, { }, { }, { }, false);
+    pgd.waitForMeshMapping();
+    pgd.waitForCMClassification();
+
+    // The replay gives a second manager of the same instance exactly what the mapping gave the installed one.
+    PGModManager other(ModManagerType::ModOrganizer2);
+    other.populateModFileMapMO2(mo2.instanceDir(), mo2.outputDir());
+    pgd.attributeMods(other);
+    for (const auto* name : { L"Parallax", L"Diffuse", L"PBR", L"Meshes" }) {
+        EXPECT_EQ(other.mod(name)->shaders, installed.mod(name)->shaders) << StringUtil::utf16toUTF8(name);
+        EXPECT_EQ(other.mod(name)->hasMeshes, installed.mod(name)->hasMeshes) << StringUtil::utf16toUTF8(name);
+    }
+    EXPECT_EQ(other.mod(L"Parallax")->shaders,
+              (std::set<PGEnums::ShapeShader> { PGEnums::ShapeShader::VanillaParallax }));
+    EXPECT_EQ(other.mod(L"Diffuse")->shaders, (std::set<PGEnums::ShapeShader> { PGEnums::ShapeShader::None }));
+    EXPECT_EQ(other.mod(L"PBR")->shaders, (std::set<PGEnums::ShapeShader> { PGEnums::ShapeShader::TruePBR }));
+    EXPECT_TRUE(other.mod(L"Meshes")->hasMeshes);
+    EXPECT_TRUE(other.mod(L"Meshes")->shaders.empty());
+    PGGlobals::setPGMM(nullptr);
+    PGGlobals::setPGD(nullptr);
 }
 
 }

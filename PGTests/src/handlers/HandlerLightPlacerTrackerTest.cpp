@@ -190,4 +190,15 @@ TEST_F(HandlerLightPlacerTrackerTest,
     EXPECT_FALSE(HandlerLightPlacerTracker::parseLightPlacerJSON(dataDir() / L"lightplacer\\bom.json", parsed));
     EXPECT_FALSE(HandlerLightPlacerTracker::parseLightPlacerJSON(dataDir() / L"lightplacer\\broken.json", parsed));
 }
+
+TEST(HandlerLightPlacerModelKeyTest,
+     ModelKeyIgnoresCaseAndSeparatorForm)
+{
+    const std::filesystem::path key = L"armor\\foo.nif";
+    EXPECT_EQ(HandlerLightPlacerTracker::modelKey("Armor/Foo.NIF"), key);
+    EXPECT_EQ(HandlerLightPlacerTracker::modelKey("armor//foo.nif"), key);
+    EXPECT_EQ(HandlerLightPlacerTracker::modelKey("armor\\foo.nif"), key);
+    EXPECT_NE(HandlerLightPlacerTracker::modelKey("armor\\bar.nif"), key);
+}
+
 }

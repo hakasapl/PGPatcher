@@ -18,12 +18,21 @@
  */
 class PatcherTextureHookConvertToCM : public PatcherTextureHook {
 private:
+    /// @brief The format the shader writes and the format and compression of the output file, which the generator
+    /// signature covers.
+    static constexpr DXGI_FORMAT shaderOutputFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    static constexpr DXGI_FORMAT outputFormat = DXGI_FORMAT_BC3_UNORM;
+    static constexpr DirectX::TEX_COMPRESS_FLAGS compressFlags = DirectX::TEX_COMPRESS_DEFAULT;
+
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
     static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:
+    /// @brief The patcher name of the hook, as its log lines carry it.
+    static constexpr const char* hookName = "ParallaxToCM";
+
     /**
      * @brief Forgets every registered texture. Called at the start of a patch run.
      */

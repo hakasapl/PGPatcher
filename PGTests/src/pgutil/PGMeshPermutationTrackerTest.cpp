@@ -538,7 +538,6 @@ TEST_F(PGMeshPermutationTrackerTest,
     EXPECT_TRUE(PGMeshPermutationTracker::validateWeightedVariants().empty()); // the state was cleared
 }
 
-
 TEST_F(PGMeshPermutationTrackerTest,
        BytesConstructorNeedsNoFileMap)
 {
@@ -620,5 +619,24 @@ TEST_F(PGMeshPermutationTrackerTest,
     EXPECT_NE(PGMeshPermutationTracker::blockTypeSignature(withParticles.nif()),
               PGMeshPermutationTracker::blockTypeSignature(shapesOnly.nif()));
     EXPECT_TRUE(PGMeshPermutationTracker::blockTypeSignature(NIFBuilder().nif()).empty());
+
+    // The signature decides exactly what the weighted layout check of compareMesh decides.
+    EXPECT_TRUE(PGMeshPermutationTracker::compareMesh(withParticles.nif(), sameLayout.nif(), { }, true, true));
+    EXPECT_FALSE(PGMeshPermutationTracker::compareMesh(withParticles.nif(), shapesOnly.nif(), { }, true, true));
 }
+
+TEST_F(PGMeshPermutationTrackerTest,
+       ACommitWithoutTheOriginalCheckKeepsAnUnchangedMeshAsAnOutput)
+{
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load();
+    tracker.stageMesh();
+    EXPECT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }, false), CommitResult::Added);
+
+    const auto serialized = tracker.serializeMeshes();
+    ASSERT_EQ(serialized.size(), 1U);
+    EXPECT_FALSE(serialized[0].bytes.empty());
+    EXPECT_EQ(serialized[0].result.meshPath, meshPath); // the base output, since the base mesh is not ignored
+}
+
 }

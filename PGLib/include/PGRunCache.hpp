@@ -218,7 +218,7 @@ public:
                                const PGEnums::TextureType& type);
         void recordTextureAttribute(const std::filesystem::path& path,
                                     const PGEnums::TextureAttribute& attribute,
-                                    bool value);
+                                    bool hasAttribute);
         void recordTextureAttributes(const std::filesystem::path& path,
                                      const std::unordered_set<PGEnums::TextureAttribute>& attributes);
         void recordTexMatch(const std::wstring& base,
@@ -253,22 +253,6 @@ public:
     };
 
     /**
-     * @brief RAII guard that suspends dependency recording on the current thread while alive.
-     *
-     * Used around computations whose result is recorded as a whole (the match digest) and around reads whose content
-     * does not influence mesh output (DDS pixel data).
-     */
-    class SuspendRecording {
-    public:
-        SuspendRecording();
-        ~SuspendRecording();
-        SuspendRecording(const SuspendRecording&) = delete;
-        SuspendRecording& operator=(const SuspendRecording&) = delete;
-        SuspendRecording(SuspendRecording&&) = delete;
-        SuspendRecording& operator=(SuspendRecording&&) = delete;
-    };
-
-    /**
      * @brief The PGRunObserver that forwards to this cache, see installObserver().
      */
     class Observer final : public PGRunObserver {
@@ -277,7 +261,7 @@ public:
                                const PGEnums::TextureType& type) override;
         void recordTextureAttribute(const std::filesystem::path& path,
                                     const PGEnums::TextureAttribute& attribute,
-                                    bool value) override;
+                                    bool hasAttribute) override;
         void recordTextureAttributes(const std::filesystem::path& path,
                                      const std::unordered_set<PGEnums::TextureAttribute>& attributes) override;
         void recordTexMatch(const std::wstring& base,
@@ -388,9 +372,6 @@ private:
     static std::unordered_map<std::wstring,
                               OutputIdentity>
     collectOutputIdentities();
-
-    static std::filesystem::path hookOutputPath(const HookKind& kind,
-                                                const std::filesystem::path& texPath);
 
     static bool evaluateMesh(const std::filesystem::path& nifPath,
                              const PGDirectory::NifCache& nifCache,
@@ -548,7 +529,7 @@ public:
                                   const PGEnums::TextureType& type);
     static void recordTextureAttribute(const std::filesystem::path& path,
                                        const PGEnums::TextureAttribute& attribute,
-                                       bool value);
+                                       bool hasAttribute);
     static void recordTextureAttributes(const std::filesystem::path& path,
                                         const std::unordered_set<PGEnums::TextureAttribute>& attributes);
     static void recordTexMatch(const std::wstring& base,

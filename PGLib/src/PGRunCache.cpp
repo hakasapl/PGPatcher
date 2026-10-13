@@ -9,6 +9,7 @@
 #include "common/BethesdaDirectory.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+#include "patchers/base/PatcherTextureHook.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -720,19 +721,6 @@ std::wstring PGRunCache::pathKey(const std::wstring& path)
 
 std::wstring PGRunCache::pathKey(const std::filesystem::path& path) { return pathKey(path.wstring()); }
 
-std::filesystem::path PGRunCache::hookOutputPath(const HookKind& kind,
-                                                 const std::filesystem::path& texPath)
-{
-    switch (kind) {
-    case HookKind::ConvertToCM:
-        return PatcherTextureHookConvertToCM::outputFilename(texPath);
-    case HookKind::FixSSS:
-        return PatcherTextureHookFixSSS::outputFilename(texPath);
-    }
-
-    return { };
-}
-
 uint64_t PGRunCache::hashTexMatchResults(const std::vector<PGTypes::PGTexture>& results)
 {
     std::vector<std::pair<std::wstring, PGEnums::TextureType>> sorted;
@@ -828,10 +816,10 @@ void PGRunCache::MeshRecorder::recordTextureType(const std::filesystem::path& pa
 
 void PGRunCache::MeshRecorder::recordTextureAttribute(const std::filesystem::path& path,
                                                       const PGEnums::TextureAttribute& attribute,
-                                                      bool value)
+                                                      bool hasAttribute)
 {
     if (m_textureAttributeDeps.insert(pathKey(path) + L'|' + std::to_wstring(static_cast<int>(attribute))).second)
-        m_record.textureAttributeDeps.emplace_back(path.wstring(), attribute, value);
+        m_record.textureAttributeDeps.emplace_back(path.wstring(), attribute, hasAttribute);
 }
 
 void PGRunCache::MeshRecorder::recordTextureAttributes(const std::filesystem::path& path,
@@ -980,18 +968,6 @@ void PGRunCache::MeshRecorder::commit()
 }
 
 //
-// SuspendRecording.
-//
-
-PGRunCache::SuspendRecording::SuspendRecording() { s_suspendDepth++; }
-
-PGRunCache::SuspendRecording::~SuspendRecording()
-{
-    if (s_suspendDepth > 0)
-        s_suspendDepth--;
-}
-
-//
 // Lifecycle.
 //
 
@@ -1003,9 +979,9 @@ void PGRunCache::Observer::recordTextureType(const std::filesystem::path& path,
 
 void PGRunCache::Observer::recordTextureAttribute(const std::filesystem::path& path,
                                                   const PGEnums::TextureAttribute& attribute,
-                                                  bool value)
+                                                  bool hasAttribute)
 {
-    PGRunCache::recordTextureAttribute(path, attribute, value);
+    PGRunCache::recordTextureAttribute(path, attribute, hasAttribute);
 }
 
 void PGRunCache::Observer::recordTextureAttributes(const std::filesystem::path& path,
@@ -1581,10 +1557,10 @@ void PGRunCache::recordTextureType(const std::filesystem::path& path,
 
 void PGRunCache::recordTextureAttribute(const std::filesystem::path& path,
                                         const PGEnums::TextureAttribute& attribute,
-                                        bool value)
+                                        bool hasAttribute)
 {
     if (isRecording())
-        s_activeRecorder->recordTextureAttribute(path, attribute, value);
+        s_activeRecorder->recordTextureAttribute(path, attribute, hasAttribute);
 }
 
 void PGRunCache::recordTextureAttributes(const std::filesystem::path& path,
@@ -1721,7 +1697,7 @@ bool PGRunCache::evaluateMesh(const std::filesystem::path& nifPath,
     // is satisfied by replaying the registrations.
     std::unordered_set<std::wstring> ownHookOutputs;
     for (const auto& [kind, tex] : record.hookRegistrations)
-        ownHookOutputs.insert(pathKey(hookOutputPath(kind, tex)));
+        ownHookOutputs.insert(pathKey(PatcherTextureHook::outputPathOf(kind, tex)));
 
     // File existence.
     for (const auto& [path, state] : record.fileExistsDeps) {
@@ -2016,7 +1992,7 @@ bool PGRunCache::tryReuseHookOutput(const HookKind& kind,
     if (!hasPreviousRun())
         return false;
 
-    const auto output = hookOutputPath(kind, texPath);
+    const auto output = PatcherTextureHook::outputPathOf(kind, texPath);
     const auto outputKey = pathKey(output);
     const auto sourceKey = pathKey(texPath);
 
@@ -2076,7 +2052,7 @@ void PGRunCache::finalizeHooks()
 
         for (const auto& [mesh, record] : s_currentRecords)
             for (const auto& [kind, tex] : record.hookRegistrations)
-                needed.insert(pathKey(hookOutputPath(kind, tex)));
+                needed.insert(pathKey(PatcherTextureHook::outputPathOf(kind, tex)));
     }
 
     // Replay the texture map side effects of reused outputs.

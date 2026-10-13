@@ -10,6 +10,7 @@
 
 #include <filesystem>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 PGParams PGParams::defaults()
@@ -196,4 +197,51 @@ void PGParams::replaceForwardSlashes(nlohmann::json& json)
         for (auto& element : json)
             replaceForwardSlashes(element);
     }
+}
+
+std::vector<PGParams::ValidationError> PGParams::validate() const
+{
+    std::vector<ValidationError> errors;
+    const auto addError = [&errors](const char* key) { errors.push_back({ .key = key }); };
+    const auto addErrorWithItem = [&errors](const char* key, const std::wstring& item) {
+        errors.push_back({ .key = key, .hasItem = true, .item = item });
+    };
+    const auto checkList = [&addError, &addErrorWithItem](
+                               const std::vector<std::wstring>& items, const char* emptyKey, const char* duplicateKey) {
+        std::unordered_set<std::wstring> seen;
+        for (const auto& item : items) {
+            if (item.empty())
+                addError(emptyKey);
+
+            if (!seen.insert(item).second)
+                addErrorWithItem(duplicateKey, item);
+        }
+    };
+
+    // Shader transforms: the transform needs both of its patchers.
+    if (shaderTransforms.isParallaxToCMEnabled
+        && (!shaderPatcher.isParallaxEnabled || !shaderPatcher.isComplexMaterialEnabled)) {
+        addError("launcher.validation.parallaxToCMRequiresPatchers");
+    }
+
+    // Mesh rules.
+    checkList(processing.allowList,
+              "launcher.validation.meshAllowListEmptyEntry",
+              "launcher.validation.meshAllowListDuplicate");
+    checkList(processing.blockList,
+              "launcher.validation.meshBlockListEmptyEntry",
+              "launcher.validation.meshBlockListDuplicate");
+
+    // Texture rules.
+    std::vector<std::wstring> textureRuleKeys;
+    textureRuleKeys.reserve(processing.textureMaps.size());
+    for (const auto& [key, type] : processing.textureMaps)
+        textureRuleKeys.push_back(key);
+    checkList(textureRuleKeys, "launcher.validation.textureRulesEmptyKey", "launcher.validation.textureRulesDuplicate");
+
+    checkList(processing.vanillaBSAList,
+              "launcher.validation.vanillaBSAListEmptyEntry",
+              "launcher.validation.vanillaBSAListDuplicate");
+
+    return errors;
 }

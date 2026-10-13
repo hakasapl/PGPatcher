@@ -13,26 +13,32 @@ auto PGPlugin::pluginLangFromString(const std::string& lang) -> PluginLang
 {
     return EnumStringHelper::enumFromString(lang, pluginLangTable, PluginLang::English);
 }
+
 std::string PGPlugin::stringFromPluginLang(const PluginLang& lang)
 {
     return std::string(EnumStringHelper::stringFromEnum(lang, pluginLangTable, "English"));
 }
+
 std::vector<std::string> PGPlugin::availablePluginLangStrs()
 {
     return EnumStringHelper::allEnumStrings(pluginLangTable);
 }
+
 auto PGPlugin::recTypeFromString(const std::string& recTypeStr) -> ModelRecordType
 {
     return EnumStringHelper::enumFromString(recTypeStr, modelRecordTypeTable, ModelRecordType::Unknown);
 }
+
 std::string PGPlugin::stringFromRecType(const ModelRecordType& recType)
 {
     return std::string(EnumStringHelper::stringFromEnum(recType, modelRecordTypeTable, ""));
 }
+
 std::vector<std::string> PGPlugin::availableRecTypeStrs()
 {
     return EnumStringHelper::allEnumStrings(modelRecordTypeTable);
 }
+
 auto PGPlugin::defaultRecTypeSet() -> std::unordered_set<ModelRecordType>
 {
     // These are enabled by default in the initial config.
@@ -76,6 +82,7 @@ auto PGPlugin::defaultRecTypeSet() -> std::unordered_set<ModelRecordType>
 
     return defaultSet;
 }
+
 std::filesystem::path PGPlugin::pluginPathFromDataPath(const std::filesystem::path& dataPath)
 {
     static const std::filesystem::path meshesPrefix = "meshes";
@@ -101,4 +108,18 @@ std::filesystem::path PGPlugin::pluginPathFromDataPath(const std::filesystem::pa
     }
 
     return relativePath;
+}
+
+bool PGPlugin::isUseOrderedBefore(const UseOrder& a,
+                                  const UseOrder& b)
+{
+    if (a.hasAlternateTextures != b.hasAlternateTextures)
+        return !a.hasAlternateTextures; // no alternate textures first
+    if (a.isWeighted != b.isWeighted)
+        return a.isWeighted; // weighted first
+    if (a.modName != b.modName)
+        return a.modName < b.modName; // alphabetical mod name
+    if (a.formID != b.formID)
+        return a.formID < b.formID; // ascending form ID
+    return a.subModel < b.subModel; // alphabetical sub model
 }

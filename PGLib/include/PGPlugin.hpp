@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -169,6 +170,25 @@ public:
             { .value = ModelRecordType::Weapon, .name = "WEAP" },
         },
     };
+
+    /**
+     * @brief What orders the uses of a mesh, see isUseOrderedBefore(). The strings are views into the use.
+     */
+    struct UseOrder {
+        bool hasAlternateTextures = false;
+        bool isWeighted = false;
+        std::wstring_view modName;
+        unsigned formID = 0;
+        std::string_view subModel;
+    };
+
+    /**
+     * @brief The order the uses of a mesh are patched in: uses without alternate textures first, weighted uses first,
+     * then by plugin name, form ID and sub model. The first use of a mesh is the one that keeps the original path when
+     * the uses patch differently, so the offline program and the PGLite runtime order them the same way.
+     */
+    [[nodiscard]] static bool isUseOrderedBefore(const UseOrder& a,
+                                                 const UseOrder& b);
 
     /**
      * @brief Stores attributes describing how a mesh record uses a 3D model.

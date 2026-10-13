@@ -33,6 +33,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -505,6 +506,28 @@ TEST_F(PGPatcherTest,
     PGPatcher::loadPatchers(onlyDefault, { });
     EXPECT_NE(PGPatcher::computeMatchesDigest(stonePath, stone, false, PGPlugin::ModelRecordType::StaticObject),
               digest);
+}
+
+TEST(PGPatcherUseFilterTest,
+     IsUseUnpatchedFollowsTheIgnoreFlagAndTheRecordTypeFilter)
+{
+    const std::unordered_set<PGPlugin::ModelRecordType> allowed { PGPlugin::ModelRecordType::StaticObject };
+    PGPlugin::MeshUseAttributes use;
+    use.recType = PGPlugin::ModelRecordType::StaticObject;
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, true));
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, false));
+
+    use.recType = PGPlugin::ModelRecordType::Weapon;
+    EXPECT_TRUE(PGPatcher::isUseUnpatched(use, allowed, true));
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, false)); // the filter is off
+    use.isDummyUse = true;
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, true)); // a dummy use has no record type to filter
+    use.isDummyUse = false;
+
+    use.recType = PGPlugin::ModelRecordType::StaticObject;
+    use.isIgnored = true;
+    EXPECT_TRUE(PGPatcher::isUseUnpatched(use, allowed, true));
+    EXPECT_TRUE(PGPatcher::isUseUnpatched(use, allowed, false));
 }
 
 }

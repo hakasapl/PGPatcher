@@ -1,5 +1,7 @@
 #include "PGParams.hpp"
 
+#include "pgutil/PGEnums.hpp"
+
 #include <gtest/gtest.h>
 
 #include <nlohmann/json.hpp>
@@ -54,6 +56,18 @@ TEST(PGParamsTest,
     EXPECT_TRUE(json["shaderpatcher"].contains("complexmaterial"));
     EXPECT_TRUE(json["shadertransforms"].contains("parallaxtocm"));
     EXPECT_TRUE(json["postpatcher"].contains("disableprepatchedmaterials"));
+    // The rest of the keys, so a rename of any of them fails here and not in a user's settings file.
+    EXPECT_TRUE(json["output"].contains("dir"));
+    EXPECT_TRUE(json["output"].contains("zip"));
+    EXPECT_TRUE(json["modmanager"].contains("type"));
+    EXPECT_TRUE(json["processing"].contains("multithread"));
+    EXPECT_TRUE(json["processing"].contains("devmode"));
+    EXPECT_TRUE(json["processing"].contains("enabledebuglogging"));
+    EXPECT_TRUE(json["processing"].contains("enabletracelogging"));
+    EXPECT_TRUE(json["shaderpatcher"].contains("parallax"));
+    EXPECT_TRUE(json["shaderpatcher"].contains("truepbr"));
+    EXPECT_TRUE(json["postpatcher"].contains("fixsss"));
+    EXPECT_TRUE(json["postpatcher"].contains("hairflowmap"));
 }
 
 TEST(PGParamsTest,
@@ -92,6 +106,55 @@ TEST(PGParamsTest,
     EXPECT_EQ(json["b"]["c"].get<std::string>(), "p\\q");
     EXPECT_EQ(json["d"][0].get<std::string>(), "m\\n");
     EXPECT_EQ(json["d"][1], 1);
+}
+
+TEST(PGParamsTest,
+     ValidateAcceptsTheDefaults)
+{
+    EXPECT_TRUE(PGParams::defaults().validate().empty());
+    EXPECT_TRUE(PGParams { }.validate().empty());
+}
+
+TEST(PGParamsTest,
+     ValidateRequiresBothPatchersOfTheTransform)
+{
+    PGParams params = PGParams::defaults();
+    params.shaderTransforms.isParallaxToCMEnabled = true;
+    EXPECT_TRUE(params.validate().empty());
+
+    params.shaderPatcher.isComplexMaterialEnabled = false;
+    EXPECT_EQ(
+        params.validate(),
+        (std::vector<PGParams::ValidationError> { { .key = "launcher.validation.parallaxToCMRequiresPatchers" } }));
+
+    params.shaderPatcher.isComplexMaterialEnabled = true;
+    params.shaderPatcher.isParallaxEnabled = false;
+    EXPECT_EQ(params.validate().size(), 1U);
+
+    params.shaderTransforms.isParallaxToCMEnabled = false;
+    EXPECT_TRUE(params.validate().empty());
+}
+
+TEST(PGParamsTest,
+     ValidateReportsEmptyAndDuplicateEntriesInTheLauncherOrder)
+{
+    PGParams params;
+    params.processing.allowList = { L"a", L"", L"a" };
+    params.processing.blockList = { L"b", L"b" };
+    params.processing.textureMaps = { { L"t", PGEnums::TextureType::Diffuse },
+                                      { L"", PGEnums::TextureType::Diffuse },
+                                      { L"t", PGEnums::TextureType::Normal } };
+    params.processing.vanillaBSAList = { L"v.bsa", L"v.bsa", L"" };
+    const std::vector<PGParams::ValidationError> expected {
+        { .key = "launcher.validation.meshAllowListEmptyEntry" },
+        { .key = "launcher.validation.meshAllowListDuplicate", .hasItem = true, .item = L"a" },
+        { .key = "launcher.validation.meshBlockListDuplicate", .hasItem = true, .item = L"b" },
+        { .key = "launcher.validation.textureRulesEmptyKey" },
+        { .key = "launcher.validation.textureRulesDuplicate", .hasItem = true, .item = L"t" },
+        { .key = "launcher.validation.vanillaBSAListDuplicate", .hasItem = true, .item = L"v.bsa" },
+        { .key = "launcher.validation.vanillaBSAListEmptyEntry" },
+    };
+    EXPECT_EQ(params.validate(), expected);
 }
 
 }

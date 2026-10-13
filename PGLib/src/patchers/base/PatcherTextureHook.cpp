@@ -1,6 +1,10 @@
 #include "patchers/base/PatcherTextureHook.hpp"
 
+#include "PGRunObserver.hpp"
+#include "patchers/PatcherTextureHookConvertToCM.hpp"
+#include "patchers/PatcherTextureHookFixSSS.hpp"
 #include "patchers/base/PatcherTexture.hpp"
+#include "pgutil/PGEnums.hpp"
 
 #include <DirectXTex.h>
 #include <boost/crc.hpp>
@@ -27,4 +31,29 @@ std::uint32_t PatcherTextureHook::signatureOf(std::span<const unsigned char> byt
     crc.process_bytes(bytecode.data(), bytecode.size_bytes());
     crc.process_bytes(values.data(), values.size_bytes());
     return crc.checksum();
+}
+
+std::filesystem::path PatcherTextureHook::outputPathOf(PGRunObserver::HookKind kind,
+                                                       const std::filesystem::path& texPath)
+{
+    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::outputFilename(texPath)
+                                                        : PatcherTextureHookFixSSS::outputFilename(texPath);
+}
+
+PGEnums::TextureType PatcherTextureHook::outputTypeOf(PGRunObserver::HookKind kind)
+{
+    return kind == PGRunObserver::HookKind::ConvertToCM ? PGEnums::TextureType::ComplexMaterial
+                                                        : PGEnums::TextureType::SubsurfaceColor;
+}
+
+std::uint32_t PatcherTextureHook::generatorSignatureOf(PGRunObserver::HookKind kind)
+{
+    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::generatorSignature()
+                                                        : PatcherTextureHookFixSSS::generatorSignature();
+}
+
+const char* PatcherTextureHook::hookNameOf(PGRunObserver::HookKind kind)
+{
+    return kind == PGRunObserver::HookKind::ConvertToCM ? PatcherTextureHookConvertToCM::hookName
+                                                        : PatcherTextureHookFixSSS::hookName;
 }

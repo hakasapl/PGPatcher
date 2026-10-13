@@ -27,7 +27,7 @@ public:
     using MeshUses = std::vector<std::pair<PGMeshPermutationTracker::FormKey, PGPlugin::MeshUseAttributes>>;
 
     /// @brief The texture hook patchers, whose generated textures an observer tracks across runs (the offline update
-    /// cache) or generates and caches as they are needed (the PGLite runtime).
+    /// cache). The PGLite runtime generates them through the hooks' generate() and keys its texture cache by the kind.
     enum class HookKind : uint8_t { ConvertToCM, FixSSS };
 
     PGRunObserver() = default;
@@ -48,7 +48,7 @@ public:
     /// @brief The result of a texture attribute lookup.
     virtual void recordTextureAttribute(const std::filesystem::path& path,
                                         const PGEnums::TextureAttribute& attribute,
-                                        bool value);
+                                        bool hasAttribute);
 
     /// @brief The attributes a texture attributes lookup returned.
     virtual void recordTextureAttributes(const std::filesystem::path& path,
@@ -157,6 +157,10 @@ public:
         SuspendRecording& operator=(const SuspendRecording&) = delete;
         SuspendRecording(SuspendRecording&&) = delete;
         SuspendRecording& operator=(SuspendRecording&&) = delete;
+
+    private:
+        /// @brief The observer that was suspended, so an install in between does not unbalance another one.
+        PGRunObserver* m_observer;
     };
 
 private:

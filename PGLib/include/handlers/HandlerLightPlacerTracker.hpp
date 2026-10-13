@@ -49,6 +49,14 @@ public:
                                      nlohmann::json& out);
 
     /**
+     * @brief The key a config's model entry is matched by: the lower case path, so a mesh path compares equal to it
+     * whatever the case and the separators of the entry (Light Placer compares model strings case insensitively).
+     *
+     * @param model A model entry of a config, UTF-8.
+     */
+    static std::filesystem::path modelKey(const std::string& model);
+
+    /**
      * @brief Reads the given Light Placer JSONs from the data folder (loose files, through PGGlobals::pgd()) and
      * indexes their model entries. A JSON Light Placer itself would reject is skipped with a warning. NOT THREAD SAFE
      *

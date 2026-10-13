@@ -31,7 +31,9 @@ function(pg_add_compiled_shaders TARGET_NAME SHADER_DIR OUTPUT_DIR)
         set(SHADER_HEADER "${OUTPUT_DIR}/${SHADER_NAME}.h")
         add_custom_command(
             OUTPUT "${SHADER_HEADER}"
-            COMMAND "${PG_FXC_EXECUTABLE}" /nologo /T cs_5_0 /E main /O3 /Ges /Fh "${SHADER_HEADER}"
+            # fxc's default optimization level: the level D3DCompile used when the programs compiled the shaders at
+            # runtime, so the generated textures keep their bytes.
+            COMMAND "${PG_FXC_EXECUTABLE}" /nologo /T cs_5_0 /E main /Ges /Fh "${SHADER_HEADER}"
                     /Vn "g_${SHADER_NAME}" "${SHADER_SOURCE}"
             DEPENDS "${SHADER_SOURCE}"
             COMMENT "Compiling shader ${SHADER_NAME}.hlsl"

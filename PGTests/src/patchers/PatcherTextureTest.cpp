@@ -1,6 +1,7 @@
 #include "patchers/PatcherTextureGlobalConvertToHDR.hpp"
 #include "patchers/PatcherTextureHookConvertToCM.hpp"
 #include "patchers/PatcherTextureHookFixSSS.hpp"
+#include "patchers/base/PatcherTextureHook.hpp"
 
 #include "DDSBuilder.hpp"
 #include "PGD3D.hpp"
@@ -317,6 +318,46 @@ TEST_F(PatcherTextureTest,
         { "output_format", "rgba16f" },
     };
     PatcherTextureGlobalConvertToHDR::loadOptions(defaults);
+}
+
+TEST_F(PatcherTextureTest,
+       TheHookDispatchByKindMatchesTheHooks)
+{
+    using HookKind = PGRunObserver::HookKind;
+    const std::filesystem::path height = L"textures\\a\\stone_p.dds";
+    const std::filesystem::path diffuse = L"textures\\a\\skin.dds";
+    EXPECT_EQ(PatcherTextureHook::outputPathOf(HookKind::ConvertToCM, height),
+              PatcherTextureHookConvertToCM::outputFilename(height));
+    EXPECT_EQ(PatcherTextureHook::outputPathOf(HookKind::FixSSS, diffuse),
+              PatcherTextureHookFixSSS::outputFilename(diffuse));
+    EXPECT_EQ(PatcherTextureHook::outputTypeOf(HookKind::ConvertToCM), PGEnums::TextureType::ComplexMaterial);
+    EXPECT_EQ(PatcherTextureHook::outputTypeOf(HookKind::FixSSS), PGEnums::TextureType::SubsurfaceColor);
+    EXPECT_EQ(PatcherTextureHook::generatorSignatureOf(HookKind::ConvertToCM),
+              PatcherTextureHookConvertToCM::generatorSignature());
+    EXPECT_EQ(PatcherTextureHook::generatorSignatureOf(HookKind::FixSSS),
+              PatcherTextureHookFixSSS::generatorSignature());
+    EXPECT_STREQ(PatcherTextureHook::hookNameOf(HookKind::ConvertToCM), "ParallaxToCM");
+    EXPECT_STREQ(PatcherTextureHook::hookNameOf(HookKind::FixSSS), "SSSFix");
+}
+
+/// @brief Reaches the protected signature function of the hook base.
+struct SignatureProbe : PatcherTextureHook {
+    using PatcherTextureHook::signatureOf;
+};
+
+TEST_F(PatcherTextureTest,
+       TheSignatureChangesWithTheBytecodeAndWithEveryValue)
+{
+    const std::array<unsigned char, 4> bytecode { 1, 2, 3, 4 };
+    const std::array<unsigned char, 4> otherBytecode { 1, 2, 3, 5 };
+    const std::array<std::uint32_t, 2> values { 10, 20 };
+    const std::array<std::uint32_t, 2> otherValues { 10, 21 };
+    const std::array<std::uint32_t, 3> moreValues { 10, 20, 0 };
+    const auto signature = SignatureProbe::signatureOf(bytecode, values);
+    EXPECT_EQ(signature, SignatureProbe::signatureOf(bytecode, values));
+    EXPECT_NE(signature, SignatureProbe::signatureOf(otherBytecode, values));
+    EXPECT_NE(signature, SignatureProbe::signatureOf(bytecode, otherValues));
+    EXPECT_NE(signature, SignatureProbe::signatureOf(bytecode, moreValues));
 }
 
 }

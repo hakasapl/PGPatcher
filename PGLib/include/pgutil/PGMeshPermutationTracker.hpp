@@ -207,6 +207,9 @@ public:
      * output (see validateWeightedVariants()).
      * @param altTexResults Patched alternate textures of the use by original 3D shape index.
      * @param nonAltTexShapes Original 3D indices of the shapes that had no alternate texture.
+     * @param shouldCompareWithOriginal Whether a first result that equals the original mesh is dropped
+     * (CommitResult::UnchangedFromOriginal) instead of becoming an output. The PGLite runtime passes false when it
+     * produces again a member whose first patch became an output, so that the same bytes are served.
      * @return What became of the staged mesh. Only CommitResult::Added means a new output mesh was created.
      * @throws std::runtime_error if no mesh is staged.
      */
@@ -214,7 +217,8 @@ public:
                             bool isWeighted,
                             const std::unordered_map<unsigned,
                                                      PGTypes::TextureSet>& altTexResults,
-                            const std::unordered_set<unsigned>& nonAltTexShapes);
+                            const std::unordered_set<unsigned>& nonAltTexShapes,
+                            bool shouldCompareWithOriginal = true);
 
     /**
      * @brief Sorts the blocks of every output mesh, queues the files for writing through PGGlobals::fileSaver() and
@@ -276,6 +280,7 @@ private:
     void processWeightVariant(const nifly::NifFile& mesh,
                               std::size_t dupIdx);
 
+public:
     // Helpers.
     /**
      * @brief Compares the shapes and particle systems of two NIFs in 3D index order: block types, vertex colors,
@@ -299,6 +304,7 @@ private:
                             const std::unordered_map<int,
                                                      int>* meshAInverseIdxCorrectionsPatching = nullptr);
 
+private:
     /**
      * @brief Compares the vertex colors of two BSTriShape blocks (the only geometry patchers change).
      *

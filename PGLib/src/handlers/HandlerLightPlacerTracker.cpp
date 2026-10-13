@@ -85,6 +85,13 @@ std::vector<std::unique_ptr<HandlerLightPlacerTracker::LPJSON>> HandlerLightPlac
 std::unordered_map<std::filesystem::path, std::vector<std::pair<HandlerLightPlacerTracker::LPJSON*, nlohmann::json*>>>
     HandlerLightPlacerTracker::s_lightPlacerJSONMap;
 
+std::filesystem::path HandlerLightPlacerTracker::modelKey(const std::string& model)
+{
+    // Light Placer matches model paths regardless of case and PGPatcher's mesh paths are lower case, so the key is
+    // lower case too; a path compares its elements, so the separators of the entry do not matter.
+    return StringUtil::toLowerASCIIFast(StringUtil::utf8toUTF16(model));
+}
+
 void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& lpJSONs)
 {
     auto* const pgd = PGGlobals::pgd();
@@ -125,11 +132,7 @@ void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& l
                 if (!model.is_string())
                     continue; // skip if model is not a string
 
-                // Light Placer matches model paths regardless of case and PGPatcher's mesh paths are lower case, so the
-                // lookup key is lower case too.
-                const std::filesystem::path modelPath
-                    = StringUtil::toLowerASCIIFast(StringUtil::utf8toUTF16(model.get<std::string>()));
-                s_lightPlacerJSONMap[modelPath].emplace_back(lpJsonPtr, &models);
+                s_lightPlacerJSONMap[modelKey(model.get<std::string>())].emplace_back(lpJsonPtr, &models);
             }
         }
     }

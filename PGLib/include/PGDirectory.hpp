@@ -273,6 +273,16 @@ public:
     [[nodiscard]] const std::vector<std::filesystem::path>& pbrJSONs() const;
 
     /**
+     * @brief Gives a mod manager what the mapping gave the installed one (PGGlobals::pgmm()): the shader of every
+     * mapped texture's mod as addToTextureMaps() assigned it, TruePBR for the mods of the TruePBR configs, and
+     * hasMeshes for the mods of the meshes the mesh reading pass read. For a mod list built from other mod manager
+     * settings than the installed ones (the PGLite menu). Thread safe.
+     *
+     * @param modManager The mod manager to attribute, with its mod file map populated.
+     */
+    void attributeMods(PGModManager& modManager);
+
+    /**
      * @brief Returns the ordered list of Light Placer JSON configuration file paths.
      *
      * @return Const reference to the vector of Light Placer JSON paths.

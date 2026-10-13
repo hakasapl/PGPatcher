@@ -329,7 +329,7 @@ public:
     /**
      * @brief Makes file() read every mapped file through the given function instead of the data folder and the
      * archives. The PGLite runtime reads through the game's resource layer this way. An empty function restores the
-     * directory's own reading.
+     * directory's own reading. Not thread safe: no file() may run concurrently.
      *
      * @param reader Reader of a mapped file.
      */
@@ -345,7 +345,8 @@ public:
 
     /**
      * @brief Frees the directory tables of the mapped archives. The file map keeps which archive a file comes from,
-     * but archived files can only be read through a file reader afterwards.
+     * but archived files can only be read through a file reader afterwards. Not thread safe: no file() may run
+     * concurrently.
      */
     void dropArchiveContents();
 

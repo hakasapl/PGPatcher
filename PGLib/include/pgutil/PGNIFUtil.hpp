@@ -306,7 +306,10 @@ bool isPatchableShape(const nifly::NifFile& nif,
 bool isShaderPatchableShape(nifly::NifFile& nif,
                             nifly::NiShape& nifShape);
 
-/// @brief Checks whether a NIF is a facegen mesh (under meshes\actors\character\facegendata\facegeom)
+/// @brief The folder of the facegen head meshes, relative to the data folder, lower case.
+constexpr const wchar_t* facegenFolder = L"meshes\\actors\\character\\facegendata\\facegeom";
+
+/// @brief Checks whether a NIF is a facegen mesh (under facegenFolder)
 /// @param[in] path relative path of the NIF (any case)
 bool isFacegenMesh(std::filesystem::path const& path);
 

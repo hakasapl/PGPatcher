@@ -164,9 +164,6 @@ bool PGConfig::validateParams(const PGParams& rawParams,
     PGParams params = rawParams;
     resolveRelativePaths(params);
 
-    // Helpers.
-    std::unordered_set<std::wstring> checkSet;
-
     // Validation messages are shown in the launcher's error dialog, so they are localized like every other GUI string.
     const auto addError = [&errors](const std::string& key) { errors.emplace_back(pgTr(key).utf8_string()); };
     const auto addErrorWithItem = [&errors](const std::string& key, const std::wstring& item) {
@@ -204,58 +201,13 @@ bool PGConfig::validateParams(const PGParams& rawParams,
     if (params.output.dir.empty())
         addError("launcher.validation.outputLocationRequired");
 
-    // Processing.
-
-    // Pre-Patchers.
-
-    // Shader Patchers.
-
-    // Shader Transforms.
-    if (params.shaderTransforms.isParallaxToCMEnabled
-        && (!params.shaderPatcher.isParallaxEnabled || !params.shaderPatcher.isComplexMaterialEnabled)) {
-        addError("launcher.validation.parallaxToCMRequiresPatchers");
-    }
-
-    // Post-Patchers.
-
-    // Mesh Rules.
-    checkSet.clear();
-    for (const auto& item : params.processing.allowList) {
-        if (item.empty())
-            addError("launcher.validation.meshAllowListEmptyEntry");
-
-        if (!checkSet.insert(item).second)
-            addErrorWithItem("launcher.validation.meshAllowListDuplicate", item);
-    }
-
-    checkSet.clear();
-    for (const auto& item : params.processing.blockList) {
-        if (item.empty())
-            addError("launcher.validation.meshBlockListEmptyEntry");
-
-        if (!checkSet.insert(item).second)
-            addErrorWithItem("launcher.validation.meshBlockListDuplicate", item);
-    }
-
-    // Texture Rules.
-
-    checkSet.clear();
-    for (const auto& [key, value] : params.processing.textureMaps) {
-        if (key.empty())
-            addError("launcher.validation.textureRulesEmptyKey");
-
-        if (!checkSet.insert(key).second)
-            addErrorWithItem("launcher.validation.textureRulesDuplicate", key);
-    }
-
-    checkSet.clear();
-    for (const auto& item : params.processing.vanillaBSAList) {
-        if (item.empty())
-            addError("launcher.validation.vanillaBSAListEmptyEntry");
-
-        if (!checkSet.insert(item).second)
-            addErrorWithItem("launcher.validation.vanillaBSAListDuplicate", item);
-    }
+    // The parameters that are not paths of this machine: the shared check, so the PGLite menu refuses the same
+    // settings the launcher does.
+    for (const auto& error : params.validate())
+        if (error.hasItem)
+            addErrorWithItem(error.key, error.item);
+        else
+            addError(error.key);
 
     return errors.empty();
 }

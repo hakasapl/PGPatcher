@@ -136,6 +136,25 @@ struct PGParams {
 
     bool operator!=(const PGParams& other) const { return !(*this == other); }
 
+    /// @brief A problem validate() found: the translation key of its message and, for a duplicate entry, the entry.
+    struct ValidationError {
+        std::string key;
+        bool hasItem = false;
+        std::wstring item;
+
+        bool operator==(const ValidationError& other) const = default;
+    };
+
+    /**
+     * @brief Checks the parameters that are not paths of the machine: the parallax to complex material transform
+     * needs both of its patchers, and the mesh allow list, the mesh block list, the texture rules and the vanilla
+     * archive list have no empty and no duplicate entries. The offline launcher adds the checks of the game, mod
+     * manager and output folders; the PGLite menu refuses an Apply with these problems.
+     *
+     * @return The problems in the order the offline launcher reports them, empty when the parameters are valid.
+     */
+    [[nodiscard]] std::vector<ValidationError> validate() const;
+
     /**
      * @brief The parameters of a fresh installation: the Steam game folder, the default mesh block list and the
      * vanilla archive list.

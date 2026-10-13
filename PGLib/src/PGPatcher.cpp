@@ -160,6 +160,7 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
         setModelUsesQueue.waitForCompletion();
     }
 }
+
 void PGPatcher::patchTextures(const bool& shouldMultithread,
                               const std::function<void(size_t,
                                                        size_t)>& progressCallback)
@@ -193,12 +194,14 @@ void PGPatcher::patchTextures(const bool& shouldMultithread,
     // Blocks until all tasks are done.
     textureRunner.runTasks();
 }
+
 auto PGPatcher::patchMeta() -> std::map<std::filesystem::path,
                                         MeshMeta>
 {
     const std::shared_lock lock(s_meshPatchInfoMutex);
     return s_meshPatchInfo;
 }
+
 void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
                             const std::vector<std::shared_ptr<PGModManager::Mod>>& modPriorityList)
 {
@@ -241,11 +244,13 @@ void PGPatcher::sortMatches(std::vector<MatchMeta>& matches,
         return a.matchedPath.native() < b.matchedPath.native();
     });
 }
+
 bool PGPatcher::hasConflictData()
 {
     const std::shared_lock lock(s_meshPatchInfoMutex);
     return !s_meshPatchInfo.empty();
 }
+
 void PGPatcher::resetRunState()
 {
     {
@@ -258,6 +263,7 @@ void PGPatcher::resetRunState()
         s_diffJSON.clear();
     }
 }
+
 void PGPatcher::deleteOutputDir(const bool& preOutput,
                                 const bool& shouldKeepIncrementalOutput)
 {
@@ -351,6 +357,7 @@ void PGPatcher::deleteOutputDir(const bool& preOutput,
         return;
     }
 }
+
 bool PGPatcher::isOutputEmpty()
 {
     static const std::unordered_set<std::filesystem::path> filesToIgnore
@@ -371,6 +378,7 @@ bool PGPatcher::isOutputEmpty()
 
     return true;
 }
+
 TaskTracker::Result PGPatcher::replayNIF(const std::filesystem::path& nifPath,
                                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
                                          std::mutex& replayedMeshResultsMutex)
@@ -425,11 +433,13 @@ TaskTracker::Result PGPatcher::replayNIF(const std::filesystem::path& nifPath,
 
     return TaskTracker::Result::Success;
 }
+
 nlohmann::json PGPatcher::diffJSON()
 {
     const std::shared_lock lock(s_diffJSONMutex);
     return s_diffJSON;
 }
+
 TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                                         TaskQueue& setModelUsesQueue,
                                         const bool& forceBasePatch,
@@ -516,15 +526,9 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     // Loop through each use.
     for (auto use : nifCache.meshUses) {
         // Process mesh patch for each and every occurance of the mesh in plugins.
-        if (use.second.isIgnored) {
-            // This record is ignored, trigger tracker to ignore the base mesh and skip this patch.
-            meshTracker.ignoreBaseMesh();
-            continue;
-        }
-
-        if (checkAllowedRecTypes && !use.second.isDummyUse && !allowedModelRecTypes.contains(use.second.recType)) {
-            // This record is not in the allowed record types, trigger tracker to ignore the base mesh and skip this
-            // patch.
+        if (isUseUnpatched(use.second, allowedModelRecTypes, checkAllowedRecTypes)) {
+            // An ignored record, or one outside the allowed record types: the tracker ignores the base mesh and the
+            // patch is skipped.
             meshTracker.ignoreBaseMesh();
             continue;
         }
@@ -622,6 +626,7 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
 
     return TaskTracker::Result::Success;
 }
+
 TaskTracker::Result PGPatcher::patchDDS(const std::filesystem::path& ddsPath)
 {
     const auto result = TaskTracker::Result::Success;
@@ -696,6 +701,7 @@ TaskTracker::Result PGPatcher::patchDDS(const std::filesystem::path& ddsPath)
 
     return result;
 }
+
 PatcherUtil::PatcherTextureObjectSet PGPatcher::createDDSPatcherObjects(const std::filesystem::path& ddsPath,
                                                                         DirectX::ScratchImage* dds)
 {

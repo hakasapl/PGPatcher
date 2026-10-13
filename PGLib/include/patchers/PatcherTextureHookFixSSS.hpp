@@ -24,6 +24,11 @@ private:
     static constexpr const float shaderAlbedoNorm = 1.8;
     /// @brief The output has half the width and height of the diffuse.
     static constexpr size_t scaleFactor = 2;
+    /// @brief The format the shader writes and the format and compression of the output file, which the generator
+    /// signature covers.
+    static constexpr DXGI_FORMAT shaderOutputFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    static constexpr DXGI_FORMAT outputFormat = DXGI_FORMAT_BC2_UNORM;
+    static constexpr DirectX::TEX_COMPRESS_FLAGS compressFlags = DirectX::TEX_COMPRESS_DEFAULT;
 
     struct ShaderParams {
         float fAlbedoSatPower;
@@ -35,6 +40,9 @@ private:
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:
+    /// @brief The patcher name of the hook, as its log lines carry it.
+    static constexpr const char* hookName = "SSSFix";
+
     /**
      * @brief Forgets every registered texture. Called at the start of a patch run.
      */

@@ -67,9 +67,9 @@ std::vector<std::filesystem::path> PatcherTextureHookConvertToCM::processList()
 std::uint32_t PatcherTextureHookConvertToCM::generatorSignature()
 {
     static constexpr std::array<std::uint32_t, 3> values {
-        static_cast<std::uint32_t>(DXGI_FORMAT_R8G8B8A8_UNORM),
-        static_cast<std::uint32_t>(DXGI_FORMAT_BC3_UNORM),
-        static_cast<std::uint32_t>(DirectX::TEX_COMPRESS_DEFAULT),
+        static_cast<std::uint32_t>(shaderOutputFormat),
+        static_cast<std::uint32_t>(outputFormat),
+        static_cast<std::uint32_t>(compressFlags),
     };
     return signatureOf(PGD3D::ShaderBytecode(g_ParallaxToCM), values);
 }
@@ -94,7 +94,7 @@ PatcherTextureHookConvertToCM::PatcherTextureHookConvertToCM(std::filesystem::pa
                                                              DirectX::ScratchImage* dds)
     : PatcherTextureHook(std::move(ddsPath),
                          dds,
-                         "ParallaxToCM")
+                         hookName)
 {
 }
 
@@ -106,19 +106,14 @@ bool PatcherTextureHookConvertToCM::generate(DirectX::ScratchImage& compressed)
         throw std::runtime_error("DDS not initialized");
 
     DirectX::ScratchImage newDDS;
-    if (!pgd3d->applyShaderToTexture(*dds(), newDDS, s_shader, DXGI_FORMAT_R8G8B8A8_UNORM))
+    if (!pgd3d->applyShaderToTexture(*dds(), newDDS, s_shader, shaderOutputFormat))
         return false;
 
     if (newDDS.GetImageCount() < 1)
         return false;
 
-    const HRESULT hr = DirectX::Compress(newDDS.GetImages(),
-                                         newDDS.GetImageCount(),
-                                         newDDS.GetMetadata(),
-                                         DXGI_FORMAT_BC3_UNORM,
-                                         DirectX::TEX_COMPRESS_DEFAULT,
-                                         1,
-                                         compressed);
+    const HRESULT hr = DirectX::Compress(
+        newDDS.GetImages(), newDDS.GetImageCount(), newDDS.GetMetadata(), outputFormat, compressFlags, 1, compressed);
 
     return SUCCEEDED(hr);
 }
@@ -129,12 +124,13 @@ bool PatcherTextureHookConvertToCM::applyPatch()
 
     const auto newPath = outputFilename(ddsPath());
 
-    // One generated file at a time, as before the generation was split out.
-    const std::scoped_lock lock(s_generatedFileTrackerMutex);
-
+    // The shader and the compression run unlocked, so textures are generated in parallel; one file is written and
+    // registered at a time.
     DirectX::ScratchImage compressedImage;
     if (!generate(compressedImage))
         return false;
+
+    const std::scoped_lock lock(s_generatedFileTrackerMutex);
 
     const auto outPath = pgd->generatedPath() / newPath;
     std::filesystem::create_directories(outPath.parent_path());

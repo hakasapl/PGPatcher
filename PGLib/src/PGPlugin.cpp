@@ -35,10 +35,12 @@ void PGPlugin::initialize(const BethesdaGame& game,
 
     s_initialized = true;
 }
+
 void PGPlugin::populateObjs(const std::filesystem::path& existingModPath)
 {
     PGMutagenWrapper::libPopulateObjs(existingModPath);
 }
+
 void PGPlugin::resetPatchingState()
 {
     if (!s_initialized)
@@ -46,6 +48,7 @@ void PGPlugin::resetPatchingState()
 
     PGMutagenWrapper::libResetPatchingState();
 }
+
 auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair<PGMeshPermutationTracker::FormKey,
                                                                                  MeshUseAttributes>>
 {
@@ -55,20 +58,16 @@ auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair
         return { };
 
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
-    // Sort modelUses by putting weighted ones first, then by mod name, then by
-    // formid, then by submodel.
-    std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) {
-        const bool aHasAltTex = !a.alternateTextures.empty();
-        const bool bHasAltTex = !b.alternateTextures.empty();
-        if (aHasAltTex != bHasAltTex)
-            return !aHasAltTex; // no alternate textures first
-        if (a.isWeighted != b.isWeighted)
-            return a.isWeighted > b.isWeighted; // weighted first
-        if (a.modName != b.modName)
-            return a.modName < b.modName; // alphabetical mod name
-        if (a.formID != b.formID)
-            return a.formID < b.formID; // ascending formid
-        return a.subModel < b.subModel; // alphabetical submodel
+    // The order the uses are patched in, see isUseOrderedBefore().
+    const auto orderOf = [](const PGMutagenWrapper::ModelUse& use) {
+        return UseOrder { .hasAlternateTextures = !use.alternateTextures.empty(),
+                          .isWeighted = use.isWeighted,
+                          .modName = use.modName,
+                          .formID = use.formID,
+                          .subModel = use.subModel };
+    };
+    std::ranges::sort(modelUses, [&orderOf](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) {
+        return isUseOrderedBefore(orderOf(a), orderOf(b));
     });
 
     for (const auto& modelUse : modelUses) {
@@ -96,6 +95,7 @@ auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair
 
     return result;
 }
+
 void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults)
 {
     if (!s_initialized)
@@ -144,6 +144,7 @@ void PGPlugin::setModelUses(const std::vector<PGMeshPermutationTracker::MeshResu
 
     PGMutagenWrapper::libSetModelUses(modelUses);
 }
+
 void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
                           ESMMode esmMode)
 {

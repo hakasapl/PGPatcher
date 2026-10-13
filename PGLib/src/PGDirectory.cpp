@@ -2,6 +2,7 @@
 
 #include "PGD3D.hpp"
 #include "PGGlobals.hpp"
+#include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "PGRunObserver.hpp"
 #include "common/BethesdaDirectory.hpp"
@@ -42,6 +43,24 @@
 #include <utility>
 #include <vector>
 #include <winnt.h>
+
+namespace {
+
+/// @brief The shader a mapped texture gives its mod: parallax for a height map, complex material for a complex material
+/// map, the default shader for every other type.
+PGEnums::ShapeShader shaderOfTextureType(PGEnums::TextureType type)
+{
+    switch (type) {
+    case PGEnums::TextureType::Height:
+        return PGEnums::ShapeShader::VanillaParallax;
+    case PGEnums::TextureType::ComplexMaterial:
+        return PGEnums::ShapeShader::ComplexMaterial;
+    default:
+        return PGEnums::ShapeShader::None;
+    }
+}
+
+}
 
 PGDirectory::PGDirectory(BethesdaGame* bg,
                          std::filesystem::path outputPath)
@@ -653,20 +672,9 @@ void PGDirectory::addToTextureMaps(const std::filesystem::path& path,
         m_textureTypes[path] = details;
     }
 
-    // Add shader types to mod given certain types.
-    if (type == PGEnums::TextureType::Height) {
-        // Parallax.
-        if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::VanillaParallax);
-    } else if (type == PGEnums::TextureType::ComplexMaterial) {
-        // PBR parallax.
-        if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::ComplexMaterial);
-    } else {
-        // Default shader for all other types.
-        if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::None);
-    }
+    // The texture's mod provides the shader of its type (attributeMods() replays this for another mod manager).
+    if (PGGlobals::isPGMMSet())
+        PGGlobals::pgmm()->addShaderToModByFile(path, shaderOfTextureType(type));
 }
 
 void PGDirectory::updateNifCache(const std::filesystem::path& path,
@@ -706,6 +714,33 @@ auto PGDirectory::meshes() const -> const std::unordered_map<std::filesystem::pa
 const std::unordered_set<std::filesystem::path>& PGDirectory::textures() const { return m_textures; }
 
 const std::vector<std::filesystem::path>& PGDirectory::pbrJSONs() const { return m_pbrJSONs; }
+
+void PGDirectory::attributeMods(PGModManager& modManager)
+{
+    {
+        const std::shared_lock lock(m_textureTypesMutex);
+        for (const auto& [path, details] : m_textureTypes) {
+            // A generated texture has a type (setTextureType()) but was never mapped, so it gave its mod no shader.
+            if (isGenerated(path))
+                continue;
+
+            modManager.addShaderToModByFile(path, shaderOfTextureType(details.type));
+        }
+    }
+
+    for (const auto& json : m_pbrJSONs)
+        modManager.addShaderToModByFile(json, PGEnums::ShapeShader::TruePBR);
+
+    const std::shared_lock lock(m_meshesMutex);
+    for (const auto& [path, cache] : m_meshes) {
+        const auto mod = modManager.modByFileSmart(path);
+        if (!mod)
+            continue;
+
+        const std::unique_lock modLock(mod->mutex);
+        mod->hasMeshes = true;
+    }
+}
 
 const std::vector<std::filesystem::path>& PGDirectory::lightPlacerJSONs() const { return m_lightPlacerJSONs; }
 

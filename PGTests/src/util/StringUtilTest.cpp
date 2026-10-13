@@ -51,6 +51,8 @@ TEST(StringUtilTest,
     EXPECT_EQ(StringUtil::windows1252toUTF16("\x80"), L"€"); // euro sign only exists in the 0x80 slot of cp1252
     EXPECT_EQ(StringUtil::utf16toWindows1252(L"café"), "caf\xE9");
     EXPECT_EQ(StringUtil::utf16toWindows1252(L"€"), "\x80");
+    // A character with no best fit is dropped, as boost.locale's skip did; the ASCII test has the same case.
+    EXPECT_EQ(StringUtil::utf16toWindows1252(L"a\u65E5b"), "ab");
     EXPECT_EQ(StringUtil::windows1252toUTF16(""), L"");
     EXPECT_EQ(StringUtil::utf16toWindows1252(L""), "");
 }
@@ -62,6 +64,9 @@ TEST(StringUtilTest,
     EXPECT_EQ(StringUtil::utf16toASCII(L"abc 123"), "abc 123");
     // Characters outside ASCII become their closest ASCII character (Windows best fit mapping).
     EXPECT_EQ(StringUtil::utf16toASCII(L"aéb"), "aeb");
+    // A character with no best fit is dropped, not replaced.
+    EXPECT_EQ(StringUtil::utf16toASCII(L"a\u65E5b"), "ab");
+    EXPECT_EQ(StringUtil::utf16toASCII(L"\u65E5"), "");
     EXPECT_EQ(StringUtil::asciitoUTF16(""), L"");
 }
 

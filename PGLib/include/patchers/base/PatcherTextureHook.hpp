@@ -1,6 +1,8 @@
 #pragma once
 
+#include "PGRunObserver.hpp"
 #include "patchers/base/PatcherTexture.hpp"
+#include "pgutil/PGEnums.hpp"
 
 #include <DirectXTex.h>
 
@@ -67,4 +69,21 @@ public:
      * @throws std::runtime_error if the patcher has no image
      */
     virtual bool generate(DirectX::ScratchImage& compressed) = 0;
+
+    //
+    // The hooks by kind (PGRunObserver::HookKind), for the code that tracks or caches their outputs.
+    //
+
+    /// @brief The path of the texture a hook generates from a source texture, see the hooks' outputFilename().
+    static std::filesystem::path outputPathOf(PGRunObserver::HookKind kind,
+                                              const std::filesystem::path& texPath);
+
+    /// @brief The texture type of what a hook generates.
+    static PGEnums::TextureType outputTypeOf(PGRunObserver::HookKind kind);
+
+    /// @brief The generator signature of a hook, see the hooks' generatorSignature().
+    static std::uint32_t generatorSignatureOf(PGRunObserver::HookKind kind);
+
+    /// @brief The patcher name of a hook, as its log lines carry it.
+    static const char* hookNameOf(PGRunObserver::HookKind kind);
 };

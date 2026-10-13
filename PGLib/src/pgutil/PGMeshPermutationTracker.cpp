@@ -32,6 +32,18 @@
 #include <utility>
 #include <vector>
 
+namespace {
+
+/// @brief The CRC32 of a file's bytes, as the trackers record it for the original mesh.
+unsigned long long crc32Of(const std::vector<std::byte>& bytes)
+{
+    boost::crc_32_type crc;
+    crc.process_bytes(bytes.data(), bytes.size());
+    return crc.checksum();
+}
+
+}
+
 PGMeshPermutationTracker::PGMeshPermutationTracker(const std::filesystem::path& origMeshPath)
     : m_origMeshPath(origMeshPath)
 {
@@ -44,17 +56,11 @@ PGMeshPermutationTracker::PGMeshPermutationTracker(const std::filesystem::path& 
 PGMeshPermutationTracker::PGMeshPermutationTracker(std::filesystem::path origMeshPath,
                                                    const std::vector<std::byte>& nifBytes)
     : m_origMeshPath(std::move(origMeshPath))
+    , m_origNifFile(PGNIFUtil::loadNIFFromBytes(nifBytes,
+                                                false))
+    , m_origShapeIndices(get3dIndicesSet(&m_origNifFile))
+    , m_origCrc32(crc32Of(nifBytes))
 {
-    // Calculate original CRC32.
-    boost::crc_32_type crcBeforeResult { };
-    crcBeforeResult.process_bytes(nifBytes.data(), nifBytes.size());
-    m_origCrc32 = crcBeforeResult.checksum();
-
-    // Load original NIF.
-    m_origNifFile = PGNIFUtil::loadNIFFromBytes(nifBytes, false);
-
-    // Store original shape indices.
-    m_origShapeIndices = get3dIndicesSet(&m_origNifFile);
 }
 
 void PGMeshPermutationTracker::load()
@@ -108,7 +114,8 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
                                           bool isWeighted,
                                           const std::unordered_map<unsigned,
                                                                    PGTypes::TextureSet>& altTexResults,
-                                          const std::unordered_set<unsigned>& nonAltTexShapes) -> CommitResult
+                                          const std::unordered_set<unsigned>& nonAltTexShapes,
+                                          bool shouldCompareWithOriginal) -> CommitResult
 {
     if (!m_stagedMeshPtr) {
         // No staged mesh to commit.
@@ -154,7 +161,8 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
         }
     }
 
-    if (m_outputMeshes.empty() && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
+    if (shouldCompareWithOriginal && m_outputMeshes.empty()
+        && compareMesh(m_stagedMesh, m_origNifFile, nonAltTexShapes)) {
         // Compare with base mesh to make sure we actually made changes.
         // If we are here there is a case where a record requires an unpatched base mesh. To avoid breaking this in the
         // future, we ignore base mesh which enforces that the base mesh is not patched.
@@ -250,7 +258,7 @@ auto PGMeshPermutationTracker::serializeMeshes() -> std::vector<SerializedOutput
 
         // Write to memory buffer.
         std::ostringstream buffer(std::ios::binary);
-        if (mesh.Save(buffer, { .optimize = false, .sortBlocks = false }) != 0) {
+        if (mesh.Save(buffer, { .optimize = false, .sortBlocks = false })) {
             // A mesh that we were able to open but cannot save will cause issues in-game because it might have
             // partially saved.
             Logger::critical(L"Unable to save NIF file {}", meshResult.meshPath.wstring());
@@ -332,14 +340,13 @@ auto PGMeshPermutationTracker::saveMeshes() -> std::pair<std::vector<MeshResult>
 auto PGMeshPermutationTracker::blockTypeSignature(const nifly::NifFile& mesh) -> std::vector<BlockKind>
 {
     std::vector<BlockKind> kinds;
-    for (auto* const block : comparableBlocks(&mesh)) {
+    for (auto* const block : comparableBlocks(&mesh))
         if (dynamic_cast<nifly::NiParticleSystem*>(block))
             kinds.push_back(BlockKind::ParticleSystem);
         else if (dynamic_cast<nifly::BSTriShape*>(block))
             kinds.push_back(BlockKind::TriShape);
         else
             kinds.push_back(BlockKind::Shape);
-    }
 
     return kinds;
 }

@@ -187,7 +187,6 @@ def main() -> int:
             units_by_build_dir[os.path.dirname(commands)] = found
     if not units_by_build_dir:
         sys.exit(f'error: {compile_commands} lists no project sources; is the build tree stale?')
-    build_dir = os.path.dirname(compile_commands)
     units = [unit for found in units_by_build_dir.values() for unit in found]
 
     version = subprocess.run([clang_tidy, '--version'], capture_output=True, text=True,
@@ -206,14 +205,15 @@ def main() -> int:
     # A redrawn counter is only useful on a terminal; in a CI log it would be one long line.
     progress = sys.stdout.isatty()
 
-    failed: dict[str, list[str]] = {}
+    # Keyed by build tree and unit: a PGLib unit is checked once per tree and may fail in one tree only.
+    failed: dict[tuple[str, str], list[str]] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = [pool.submit(run_one, clang_tidy, tree, unit)
-                   for tree, found in units_by_build_dir.items() for unit in found]
+        futures = {pool.submit(run_one, clang_tidy, tree, unit): tree
+                   for tree, found in units_by_build_dir.items() for unit in found}
         for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
             unit, diagnostics = future.result()
             if diagnostics:
-                failed[unit] = diagnostics
+                failed[(futures[future], unit)] = diagnostics
             if progress:
                 print(f'\r  {done}/{len(units)}', end='', flush=True)
     if progress:

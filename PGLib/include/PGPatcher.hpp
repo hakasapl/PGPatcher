@@ -259,6 +259,19 @@ public:
     // NIF Helpers (the per-mesh pipeline).
 
     /**
+     * @brief Whether a plugin use keeps the original, unpatched mesh instead of being patched: an ignored use, or a
+     * use of a record type outside the allowed set when that set is enforced. The offline runner and the PGLite plan
+     * apply the same rule.
+     *
+     * @param use the use's attributes
+     * @param allowedModelRecTypes the record types that are patched
+     * @param checkAllowedRecTypes whether the record type filter applies
+     */
+    [[nodiscard]] static bool isUseUnpatched(const PGPlugin::MeshUseAttributes& use,
+                                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
+                                             bool checkAllowedRecTypes);
+
+    /**
      * @brief Patches a staged mesh for one plugin use: every patchable shape through processNIFShape(), then the
      * global patchers
      *
@@ -285,6 +298,7 @@ public:
                                               PGTypes::TextureSet>& alternateTextures,
                            std::unordered_set<unsigned>& nonAltTexShapes);
 
+private:
     /**
      * @brief Patches one shape: a shader shared with other shapes is copied for it, then pre patchers, the winning
      * shader match (first enabled match of matches()) with its transform, post patchers, then the texture set is

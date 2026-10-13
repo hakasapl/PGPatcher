@@ -16,8 +16,9 @@
 class ExceptionHandler {
 public:
     /**
-     * @brief Runs a task and records a std::exception it throws with setException(), returning whether the task
-     * completed. See runGuarded().
+     * @brief Runs a task and returns whether it completed. The default guard and the offline cppTraceGuard() record a
+     * std::exception the task throws with setException(), which stops every runner; the PGLite runtime installs a
+     * guard that only logs it, so its runners carry on with the other tasks. See runGuarded().
      */
     using TaskGuard = bool (*)(const std::function<void()>& task);
 

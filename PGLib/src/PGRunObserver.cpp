@@ -17,7 +17,7 @@ void PGRunObserver::recordTextureType([[maybe_unused]] const std::filesystem::pa
 
 void PGRunObserver::recordTextureAttribute([[maybe_unused]] const std::filesystem::path& path,
                                            [[maybe_unused]] const PGEnums::TextureAttribute& attribute,
-                                           [[maybe_unused]] bool value)
+                                           [[maybe_unused]] bool hasAttribute)
 {
 }
 
@@ -113,6 +113,10 @@ PGRunObserver& PGRunObserver::current()
 
 void PGRunObserver::install(PGRunObserver* observer) { s_installed.store(observer); }
 
-PGRunObserver::SuspendRecording::SuspendRecording() { current().suspendRecording(); }
+PGRunObserver::SuspendRecording::SuspendRecording()
+    : m_observer(&current())
+{
+    m_observer->suspendRecording();
+}
 
-PGRunObserver::SuspendRecording::~SuspendRecording() { current().resumeRecording(); }
+PGRunObserver::SuspendRecording::~SuspendRecording() { m_observer->resumeRecording(); }

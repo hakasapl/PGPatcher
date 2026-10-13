@@ -15,7 +15,6 @@ std::function<void()> TaskPoolRunner::s_exceptionCallback = nullptr;
 TaskPoolRunner::TaskPoolRunner(const bool& multithread)
     : m_multithread(multithread)
     , m_threadCount(poolThreadCount(std::thread::hardware_concurrency()))
-    , m_completedTasks(0)
 {
 }
 
@@ -32,13 +31,14 @@ void TaskPoolRunner::runTasks()
     if (!m_multithread) {
         for (const auto& task : m_tasks) {
             if (!ExceptionHandler::runGuarded(task)) {
-                // The exception is recorded; the rest of the batch is skipped.
                 if (s_exceptionCallback)
                     s_exceptionCallback();
-                return;
-            }
 
-            m_completedTasks.fetch_add(1);
+                // A guard that recorded the exception stops the batch, as the pool does; one that only reported it
+                // lets the rest of the batch run.
+                if (ExceptionHandler::hasException())
+                    return;
+            }
         }
 
         return;
@@ -61,9 +61,7 @@ void TaskPoolRunner::runTasks()
             // Create log buffer.
             Logger::startThreadedBuffer();
 
-            if (ExceptionHandler::runGuarded(m_tasks.at(taskIndex)))
-                m_completedTasks.fetch_add(1);
-            else if (s_exceptionCallback)
+            if (!ExceptionHandler::runGuarded(m_tasks.at(taskIndex)) && s_exceptionCallback)
                 s_exceptionCallback();
 
             // Flush log buffer.
