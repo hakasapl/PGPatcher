@@ -101,7 +101,11 @@ CommonLibSSE-NG's `EShaderPropertyFlag8`: `kMenuScreen` is 55, the loaded form o
   `1 - 4/255` is a complex material, the material class selects the `ENVMAP` and `PARALLAX` techniques. No vertex
   color requirement in CS.
 - CS hooks the input dispatch call site (`BSInputDeviceManager::PollInputDevices`, IDs 67315/68617 + 0x7B) with a
-  call-site hook and detours `IDXGISwapChain::Present` on the live swap chain. Both chain when PGLite stores and
+  call-site hook and detours `IDXGISwapChain::Present` on the swap chain the moment the game creates it (an import
+redirect of `D3D11CreateDeviceAndSwapChain` at plugin load; at data load when the import is not found), so that
+detours installed later, Community Shaders' among them, sit above PGLite's and run first: the menu is drawn after
+they composed the frame, into the back buffer and, when the engine's framebuffer is another texture, into that too
+(frame generation composes the presented frame from it). Both chain when PGLite stores and
   calls the previous target, as every other ImGui-based plugin does.
 
 ## 4. Runtime architecture

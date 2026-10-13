@@ -25,7 +25,17 @@ class Menu;
 class Hooks {
 public:
     /**
-     * @brief Installs both seams for a menu, at data load, once the renderer exists.
+     * @brief At plugin load: redirects the game's import of D3D11CreateDeviceAndSwapChain, so the swap chain's Present
+     * and ResizeBuffers are detoured the moment the swap chain exists. Every detour installed later sits above
+     * PGLite's and runs first: Community Shaders installs its own in its renderer init hook and composes its HDR
+     * output and its frame generation there, and a menu drawn above it is composed over and never shows. When the
+     * import is not found, install() detours the swap chain at data load instead.
+     */
+    static void installEarly();
+
+    /**
+     * @brief Installs the input seam for a menu, at data load, once the renderer exists, and the swap chain seams
+     * when installEarly() could not.
      *
      * @return false if the swap chain is unavailable or the input call site is not the expected instruction (logged).
      */
@@ -40,6 +50,22 @@ private:
     /// list head is writable, as the engine passes it: hooks down the chain rewrite it to filter events.
     static void dispatchInput(RE::BSTEventSource<RE::InputEvent*>* source,
                               RE::InputEvent** events);
+    static HRESULT WINAPI createDeviceAndSwapChain(IDXGIAdapter* adapter,
+                                                   D3D_DRIVER_TYPE driverType,
+                                                   HMODULE software,
+                                                   UINT flags,
+                                                   const D3D_FEATURE_LEVEL* featureLevels,
+                                                   UINT featureLevelCount,
+                                                   UINT sdkVersion,
+                                                   const DXGI_SWAP_CHAIN_DESC* swapChainDesc,
+                                                   IDXGISwapChain** swapChain,
+                                                   ID3D11Device** device,
+                                                   D3D_FEATURE_LEVEL* featureLevel,
+                                                   ID3D11DeviceContext** context);
+
+    /// @brief Detours Present and ResizeBuffers of a swap chain's class, once.
+    static void hookSwapChain(IDXGISwapChain* swapChain);
+
     static HRESULT WINAPI present(IDXGISwapChain* swapChain,
                                   UINT syncInterval,
                                   UINT flags);
@@ -62,6 +88,8 @@ private:
     static constexpr std::uint64_t pollInputDevicesVROffset = 0xC519E0;
     static constexpr std::uint8_t callOpcode = 0xE8;
 
+    static inline decltype(&createDeviceAndSwapChain) s_originalCreateDeviceAndSwapChain = nullptr;
+    static inline IDXGISwapChain* s_hookedSwapChain = nullptr;
     static inline decltype(&present) s_originalPresent = nullptr;
     static inline decltype(&resizeBuffers) s_originalResizeBuffers = nullptr;
     static inline REL::Relocation<decltype(&dispatchInput)> s_originalDispatch;

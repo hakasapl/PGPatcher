@@ -22,6 +22,87 @@ constexpr auto applyFrameInterval = std::chrono::milliseconds(10);
 
 }
 
+void Hooks::installEarly()
+{
+    const auto slot = SKSE::GetIATAddr("d3d11.dll", "D3D11CreateDeviceAndSwapChain");
+    if (!slot) {
+        Logger::warn("The game's import of D3D11CreateDeviceAndSwapChain was not found, the swap chain is detoured at "
+                     "data load instead");
+        return;
+    }
+
+    // Whatever the slot holds is called first: another plugin that redirected the import before PGLite, or d3d11.
+    s_originalCreateDeviceAndSwapChain = *reinterpret_cast<decltype(&createDeviceAndSwapChain)*>(
+        slot); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    REL::safe_write(slot,
+                    reinterpret_cast<std::uintptr_t>(
+                        &createDeviceAndSwapChain)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    Logger::debug("The import of D3D11CreateDeviceAndSwapChain is redirected (it held {:#x})",
+                  reinterpret_cast<std::uintptr_t>(
+                      s_originalCreateDeviceAndSwapChain)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+}
+
+HRESULT WINAPI Hooks::createDeviceAndSwapChain(IDXGIAdapter* adapter,
+                                               D3D_DRIVER_TYPE driverType,
+                                               HMODULE software,
+                                               UINT flags,
+                                               const D3D_FEATURE_LEVEL* featureLevels,
+                                               UINT featureLevelCount,
+                                               UINT sdkVersion,
+                                               const DXGI_SWAP_CHAIN_DESC* swapChainDesc,
+                                               IDXGISwapChain** swapChain,
+                                               ID3D11Device** device,
+                                               D3D_FEATURE_LEVEL* featureLevel,
+                                               ID3D11DeviceContext** context)
+{
+    const auto result = s_originalCreateDeviceAndSwapChain(adapter,
+                                                           driverType,
+                                                           software,
+                                                           flags,
+                                                           featureLevels,
+                                                           featureLevelCount,
+                                                           sdkVersion,
+                                                           swapChainDesc,
+                                                           swapChain,
+                                                           device,
+                                                           featureLevel,
+                                                           context);
+    if (SUCCEEDED(result) && swapChain && *swapChain)
+        hookSwapChain(*swapChain);
+
+    return result;
+}
+
+void Hooks::hookSwapChain(IDXGISwapChain* swapChain)
+{
+    if (s_hookedSwapChain)
+        return;
+
+    // The vtable of the swap chain class; the previous entries are called after the menu, so other overlays chain.
+    // They are read and stored before the entries are replaced: another thread may present while this runs at data
+    // load, and a present between the write and the store would call a null pointer. The stores are ordered before
+    // the vtable writes by the memory model of x64.
+    REL::Relocation<std::uintptr_t> vtable {
+        *reinterpret_cast<std::uintptr_t*>(swapChain) // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    };
+    const auto entry = [&vtable](std::size_t index) {
+        return *reinterpret_cast<const std::uintptr_t*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            vtable.address() + index * sizeof(std::uintptr_t));
+    };
+    s_originalPresent = reinterpret_cast<decltype(&present)>(
+        entry(presentIndex)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    s_originalResizeBuffers
+        = reinterpret_cast<decltype(&resizeBuffers)>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            entry(resizeBuffersIndex));
+    std::ignore = vtable.write_vfunc(presentIndex, &present);
+    std::ignore = vtable.write_vfunc(resizeBuffersIndex, &resizeBuffers);
+    s_hookedSwapChain = swapChain;
+    Logger::debug(
+        "Swap chain {:#x} detoured (Present went to {:#x})",
+        reinterpret_cast<std::uintptr_t>(swapChain), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<std::uintptr_t>(s_originalPresent)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+}
+
 bool Hooks::install(Menu& menu)
 {
     auto* const renderer = RE::BSGraphics::Renderer::GetSingleton();
@@ -35,6 +116,13 @@ bool Hooks::install(Menu& menu)
     if (!swapChain) {
         Logger::error("The swap chain is unavailable, the menu is disabled");
         return false;
+    }
+    if (s_hookedSwapChain && s_hookedSwapChain != swapChain) {
+        Logger::warn(
+            "The game presents through another swap chain ({:#x}) than the one created ({:#x}); the menu "
+            "draws into the created one",
+            reinterpret_cast<std::uintptr_t>(swapChain), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            reinterpret_cast<std::uintptr_t>(s_hookedSwapChain)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     }
 
     // BSInputDeviceManager::PollInputDevices: Address Library IDs for SE and AE, the offset for VR. The dispatch call
@@ -52,26 +140,9 @@ bool Hooks::install(Menu& menu)
         return false;
     }
 
-    // The vtable of the swap chain class; the previous entries are called after the menu, so other overlays chain.
-    // They are read and stored before the entries are replaced: the loading-screen thread presents while this runs
-    // (the data-load handler), and a present between the write and the store would call a null pointer. The stores
-    // are ordered before the vtable writes by the memory model of x64, and the menu is set last, once both seams are
-    // in place.
-    REL::Relocation<std::uintptr_t> vtable {
-        *reinterpret_cast<std::uintptr_t*>(swapChain) // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    };
-    const auto entry = [&vtable](std::size_t index) {
-        return *reinterpret_cast<const std::uintptr_t*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-            vtable.address() + index * sizeof(std::uintptr_t));
-    };
-    s_originalPresent = reinterpret_cast<decltype(&present)>(
-        entry(presentIndex)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    s_originalResizeBuffers
-        = reinterpret_cast<decltype(&resizeBuffers)>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-            entry(resizeBuffersIndex));
-    std::ignore = vtable.write_vfunc(presentIndex, &present);
-    std::ignore = vtable.write_vfunc(resizeBuffersIndex, &resizeBuffers);
-
+    // The swap chain seams, when the import redirect did not install them at creation; the menu is set last, once
+    // every seam is in place.
+    hookSwapChain(swapChain);
     s_originalDispatch = SKSE::GetTrampoline().write_call<5>(site, &dispatchInput);
     s_menu = &menu;
 

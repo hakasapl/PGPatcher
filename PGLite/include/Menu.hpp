@@ -98,6 +98,14 @@ private:
 
     bool initialize(IDXGISwapChain* swapChain);
     bool createBackBufferView(IDXGISwapChain* swapChain);
+
+    /**
+     * @brief The engine's framebuffer render target when it is another texture than the swap chain's back buffer, or
+     * nullptr. Community Shaders' frame generation composes the presented frame from the framebuffer, so the menu is
+     * drawn into it as well; when the two are one texture, or the framebuffer was already composed into the back
+     * buffer, the second draw is not needed or changes nothing.
+     */
+    [[nodiscard]] RE::BSGraphics::RenderTargetData* separateFrameTarget() const;
     void open();
     void close();
 
@@ -202,6 +210,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Device> m_device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_context;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> m_backBufferView;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> m_backBuffer;
     std::chrono::steady_clock::time_point m_lastFrame;
     float m_mouseX = 0;
     float m_mouseY = 0;

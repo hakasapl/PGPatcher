@@ -414,11 +414,30 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
 
 bool Menu::createBackBufferView(IDXGISwapChain* swapChain)
 {
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
-    if (FAILED(swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer))) || !backBuffer)
+    if (FAILED(swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffer))) || !m_backBuffer)
         return false;
 
-    return SUCCEEDED(m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_backBufferView));
+    if (FAILED(m_device->CreateRenderTargetView(m_backBuffer.Get(), nullptr, &m_backBufferView)))
+        return false;
+
+    Logger::debug("The engine's framebuffer is {} the back buffer",
+                  separateFrameTarget() ? "another texture than" : "the same texture as");
+    return true;
+}
+
+RE::BSGraphics::RenderTargetData* Menu::separateFrameTarget() const
+{
+    auto* const renderer = RE::BSGraphics::Renderer::GetSingleton();
+    if (!renderer)
+        return nullptr;
+
+    auto& target = renderer->GetRuntimeData().renderTargets[RE::RENDER_TARGET::kFRAMEBUFFER];
+    if (!target.texture || !target.RTV)
+        return nullptr;
+
+    auto* const texture
+        = reinterpret_cast<ID3D11Texture2D*>(target.texture); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    return texture == m_backBuffer.Get() ? nullptr : &target;
 }
 
 void Menu::render(IDXGISwapChain* swapChain)
@@ -523,6 +542,13 @@ void Menu::drawFrame(IDXGISwapChain* swapChain)
     ID3D11RenderTargetView* const target = m_backBufferView.Get();
     m_context->OMSetRenderTargets(1, &target, nullptr);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    if (auto* const frameTarget = separateFrameTarget()) {
+        auto* const frameView
+            = reinterpret_cast<ID3D11RenderTargetView*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                frameTarget->RTV);
+        m_context->OMSetRenderTargets(1, &frameView, nullptr);
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    }
 
     m_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, previousTargets, previousDepth);
     for (auto* const previous : previousTargets)
@@ -587,6 +613,7 @@ void Menu::renderApplyFrame(IDXGISwapChain* swapChain)
 void Menu::onResize()
 {
     m_backBufferView.Reset();
+    m_backBuffer.Reset();
     if (m_isInitialized)
         ImGui_ImplDX11_InvalidateDeviceObjects();
 }
