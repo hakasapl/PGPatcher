@@ -137,6 +137,10 @@ private:
     /// is making waits on m_done.
     std::mutex m_mutex;
     std::condition_variable m_done;
+    /// @brief One generation at a time: the reads and the cache writes go through the mod manager's virtual file
+    /// system, which has failed and crashed under many threads writing at once (the tools output), and the GPU work
+    /// is serialized anyway.
+    std::mutex m_makeMutex;
     std::unordered_map<std::filesystem::path, Entry> m_entries;
 
     /// @brief The registered paths, as the engine names them, and their cache files, for bytesFor().

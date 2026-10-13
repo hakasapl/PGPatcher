@@ -134,7 +134,11 @@ void TextureGenerator::process(HookKind kind,
         entry->type = PatcherTextureHook::outputTypeOf(kind);
     }
 
-    const bool isServed = make(kind, texPath, output);
+    bool isServed = false;
+    {
+        const std::scoped_lock makeLock(m_makeMutex);
+        isServed = make(kind, texPath, output);
+    }
     {
         const std::scoped_lock lock(m_mutex);
         entry->isServed = isServed;

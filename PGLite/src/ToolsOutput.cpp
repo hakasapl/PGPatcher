@@ -15,8 +15,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -177,12 +179,24 @@ ToolsOutput::Result ToolsOutput::generate(const std::filesystem::path& folder,
     }
 
     // Every item is patched here if no open did, then written when the patch changed it. The families patch in
-    // parallel as they do for the engine's loader threads; the counts and the diff are updated under one lock.
+    // parallel as they do for the engine's loader threads; this thread alone writes the files, since the mod
+    // manager's virtual file system, which every file call goes through, has crashed under many threads creating
+    // folders and files at once.
     inputs.reportStage("pglite.stages.writingMeshes");
     nlohmann::json diff = nlohmann::json::object();
-    std::mutex resultMutex;
+    struct Patched {
+        std::filesystem::path path;
+        std::shared_ptr<const std::vector<std::byte>> bytes;
+        std::uint32_t crcOriginal = 0;
+        std::uint32_t crcPatched = 0;
+    };
+    std::mutex queueMutex;
+    std::condition_variable queueChanged;
+    std::deque<Patched> queue;
     std::atomic<std::size_t> next { 0 };
-    std::size_t done = 0;
+    std::atomic<std::size_t> finished { 0 };
+    std::atomic<std::size_t> unchanged { 0 };
+    std::atomic<std::size_t> failed { 0 };
     const auto work = [&] {
         for (;;) {
             const auto i = next.fetch_add(1);
@@ -191,10 +205,6 @@ ToolsOutput::Result ToolsOutput::generate(const std::filesystem::path& folder,
 
             const auto& item = items.at(i);
             const Logger::Prefix prefix(item.path.wstring());
-            bool isWritten = false;
-            bool isUnchanged = false;
-            std::uint32_t crcOriginal = 0;
-            std::uint32_t crcPatched = 0;
             try {
                 const auto original = originalOf(item);
                 const auto patched
@@ -202,32 +212,23 @@ ToolsOutput::Result ToolsOutput::generate(const std::filesystem::path& folder,
                 inputs.textures.generatePending();
                 if (!original || !patched) {
                     Logger::error("The mesh could not be read or patched, it is not written");
+                    failed++;
                 } else {
-                    crcOriginal = crc32Of(*original);
-                    crcPatched = crc32Of(*patched);
-                    if (crcOriginal == crcPatched)
-                        isUnchanged = true;
-                    else if (writeFile(folder / item.path, *patched))
-                        isWritten = true;
-                    else
-                        Logger::error("The patched mesh could not be written");
+                    const auto crcOriginal = crc32Of(*original);
+                    const auto crcPatched = crc32Of(*patched);
+                    if (crcOriginal == crcPatched) {
+                        unchanged++;
+                    } else {
+                        const std::scoped_lock lock(queueMutex);
+                        queue.push_back({ item.path, patched, crcOriginal, crcPatched });
+                    }
                 }
             } catch (const std::exception& e) {
                 Logger::error("The mesh is not written: {}", e.what());
+                failed++;
             }
-
-            const std::scoped_lock lock(resultMutex);
-            if (isWritten) {
-                auto& entry = diff[StringUtil::utf16toUTF8(item.path.wstring())];
-                entry["crc32original"] = crcOriginal;
-                entry["crc32patched"] = crcPatched;
-                result.written++;
-            } else if (isUnchanged) {
-                result.unchanged++;
-            } else {
-                result.failed++;
-            }
-            inputs.reportProgress(++done, items.size());
+            finished++;
+            queueChanged.notify_one();
         }
     };
     std::vector<std::thread> workers;
@@ -235,8 +236,40 @@ ToolsOutput::Result ToolsOutput::generate(const std::filesystem::path& folder,
     workers.reserve(workerCount);
     for (unsigned i = 0; i < workerCount; i++)
         workers.emplace_back(work);
+
+    // The writer: this thread, until every item is finished and written.
+    std::size_t written = 0;
+    for (;;) {
+        Patched patched;
+        {
+            std::unique_lock lock(queueMutex);
+            queueChanged.wait(lock, [&] { return !queue.empty() || finished >= items.size(); });
+            if (queue.empty()) {
+                if (finished >= items.size())
+                    break;
+
+                continue;
+            }
+            patched = std::move(queue.front());
+            queue.pop_front();
+        }
+
+        if (writeFile(folder / patched.path, *patched.bytes)) {
+            auto& entry = diff[StringUtil::utf16toUTF8(patched.path.wstring())];
+            entry["crc32original"] = patched.crcOriginal;
+            entry["crc32patched"] = patched.crcPatched;
+            written++;
+        } else {
+            Logger::error(L"The patched mesh {} could not be written", patched.path.wstring());
+            failed++;
+        }
+        inputs.reportProgress(written + unchanged + failed, items.size());
+    }
     for (auto& worker : workers)
         worker.join();
+    result.written = written;
+    result.unchanged = unchanged;
+    result.failed += failed;
 
     // The textures the patches generated, from PGLite's cache, at the paths the meshes name.
     inputs.reportStage("pglite.stages.copyingTextures");
