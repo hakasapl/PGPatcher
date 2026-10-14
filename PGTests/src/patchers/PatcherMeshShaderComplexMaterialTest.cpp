@@ -333,4 +333,41 @@ TEST_F(PatcherMeshShaderComplexMaterialTest,
     EXPECT_EQ(fromFactory->patcherName(), "ComplexMaterial");
 }
 
+TEST_F(PatcherMeshShaderComplexMaterialTest,
+       ApplyPatchIgnoresMalformedSpecularColor)
+{
+    auto& nif = m_builder.nif();
+    PatcherMeshShaderComplexMaterial patcher(meshPath, &nif);
+    auto* shader = m_builder.lightingShader(m_shape);
+
+    // A specular color that is not three numbers is ignored like any other key of the wrong type, and the rest of the
+    // material JSON still applies.
+    for (const auto* specularColor : {
+             R"([1, "1", 1])",
+             "[1, null, 1]",
+             "[1, [1], 1]",
+             R"([1, {"g": 1}, 1])",
+             "[1, true, 1]",
+             "[1, 1]",
+             "[1, 1, 1, 1]",
+             R"("white")",
+         }) {
+        shader->specularColor = nifly::Vector3(0.2F, 0.4F, 0.6F);
+        shader->glossiness = 10;
+
+        auto meta = nlohmann::json::parse(R"({"glossiness": 30})");
+        meta["specular_color"] = nlohmann::json::parse(specularColor);
+        auto match = matchFor(L"textures\\a\\stone_m.dds");
+        match.extraData = std::make_shared<nlohmann::json>(meta);
+
+        auto patched = slots(L"textures\\a\\stone.dds");
+        EXPECT_NO_THROW(patcher.applyPatch(patched, *m_shape, match)) << specularColor;
+        EXPECT_FLOAT_EQ(shader->specularColor.x, 0.2F) << specularColor;
+        EXPECT_FLOAT_EQ(shader->specularColor.y, 0.4F) << specularColor;
+        EXPECT_FLOAT_EQ(shader->specularColor.z, 0.6F) << specularColor;
+        EXPECT_FLOAT_EQ(shader->glossiness, 30) << specularColor;
+        EXPECT_EQ(patched[5], L"textures\\a\\stone_m.dds") << specularColor;
+    }
+}
+
 }

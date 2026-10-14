@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/complex_material.schema.json",
+  "title": "PGPatcher complex material JSON",
+  "description": "Material settings of a complex material texture (an environment mask, usually named _m.dds), which PGPatcher reads from the JSON file next to it: the texture's path with the extension replaced by .json, for example textures\\armor\\steel\\cuirass_m.json for textures\\armor\\steel\\cuirass_m.dds. The file can be loose or in a BSA, and its name is matched without regard to case. The settings apply to every shape that PGPatcher patches for complex material with that texture. For each such shape PGPatcher sets the environment map scale and the specular strength to 1, the specular color to white when the texture uses its blue (metalness) channel and the Specular flag when it uses its green (glossiness) channel, and it puts the dynamic cubemap in the cubemap slot. The keys of this file override these values and set the glossiness, which PGPatcher otherwise keeps. Every key is optional. Keys are case sensitive and unknown keys are ignored. The file must be plain JSON without comments: a file that cannot be parsed is reported in the log and ignored. PGPatcher reads no file for the textures that Upgrade Parallax to Complex Material generates from height maps.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional link to this schema for editor support. PGPatcher ignores it."
+    },
+    "specular_enabled": {
+      "type": "boolean",
+      "description": "true sets and false clears the Specular shader flag. Left out, the flag is set when the texture uses its green (glossiness) channel and otherwise stays as the mesh has it."
+    },
+    "specular_color": {
+      "description": "RGB specular color. Left out, the color is set to white, [1, 1, 1], when the texture uses its blue (metalness) channel and otherwise stays as the mesh has it.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/rgb"
+        }
+      ]
+    },
+    "specular_strength": {
+      "type": "number",
+      "default": 1,
+      "description": "Specular strength of the shader. 1 when left out."
+    },
+    "glossiness": {
+      "type": "number",
+      "description": "Glossiness of the shader. Left out, the mesh's glossiness is kept."
+    },
+    "environment_map_scale": {
+      "type": "number",
+      "default": 1,
+      "description": "Environment map scale of the shader. 1 when left out."
+    },
+    "dynamic_cubemap": {
+      "type": "boolean",
+      "default": true,
+      "description": "true, the default, puts PGPatcher's dynamic cubemap, textures\\cubemaps\\dynamic1pxcubemap_black.dds, in the cubemap slot. false keeps the cubemap the shape already has. Has no effect when the dynamic cubemap is turned off for the whole run (the --disable-dyncubemap flag, or bDisableDynamicCubemap in PGLite.ini), which always keeps the shape's cubemap."
+    }
+  },
+  "definitions": {
+    "rgb": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  },
+  "examples": [
+    {
+      "$schema": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/complex_material.schema.json",
+      "environment_map_scale": 0.5,
+      "dynamic_cubemap": false
+    },
+    {
+      "specular_enabled": true,
+      "specular_color": [
+        1,
+        0.85,
+        0.6
+      ],
+      "specular_strength": 1.5,
+      "glossiness": 80
+    }
+  ]
+}

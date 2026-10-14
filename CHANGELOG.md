@@ -19,6 +19,7 @@
 - [Common] Fixed truncated NIF files being patched as if they were complete
 - [Common] Fixed folders inside the data directory being listed as files
 - [Common] Fixed the thread count on systems with two or fewer logical processors
+- [Common] Fixed a complex material JSON whose `specular_color` has an entry that is not a number killing the run, ignoring instead
 
 ## [2.1.2] - 2026-10-05
 
