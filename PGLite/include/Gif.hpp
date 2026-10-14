@@ -60,6 +60,21 @@ private:
                 const int* delays,
                 ID3D11Device& device);
 
+    /// @brief One level of a mip chain, RGBA8.
+    struct MipLevel {
+        int width = 0;
+        int height = 0;
+        std::vector<unsigned char> pixels;
+    };
+
+    /**
+     * @brief The mip chain of an RGBA8 image down to one pixel, the base level first, each level averaging the four
+     * source pixels under each of its pixels with the colors weighted by the alpha.
+     */
+    [[nodiscard]] static std::vector<MipLevel> mipChain(const unsigned char* pixels,
+                                                        int width,
+                                                        int height);
+
     std::vector<Frame> m_frames;
     int m_width = 0;
     int m_height = 0;

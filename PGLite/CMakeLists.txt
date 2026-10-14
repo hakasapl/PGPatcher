@@ -158,8 +158,8 @@ file(READ "${PG_RUNNING_GIF}" PG_RUNNING_GIF_HEX HEX)
 string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," PG_RUNNING_GIF_BYTES "${PG_RUNNING_GIF_HEX}")
 configure_file(include/RunningGif.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/RunningGif.h" @ONLY)
 
-# The application icon of the offline launcher, for the title bar of the menu.
-set(PG_ICON "${CMAKE_CURRENT_SOURCE_DIR}/../PGPatcher/resources/icon.ico")
+# The icon of the menu's title bar and corner panels: the launcher's icon as a red wireframe (resources/icon.ico).
+set(PG_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.ico")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PG_ICON}")
 file(READ "${PG_ICON}" PG_ICON_HEX HEX)
 string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," PG_ICON_BYTES "${PG_ICON_HEX}")
