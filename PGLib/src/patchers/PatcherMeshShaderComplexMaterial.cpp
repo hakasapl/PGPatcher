@@ -206,8 +206,9 @@ void PatcherMeshShaderComplexMaterial::applyPatch(PGTypes::TextureSet& slots,
         }
 
         // "specular_color" attribute.
-        if (meta.contains("specular_color") && meta["specular_color"].is_array()
-            && meta["specular_color"].size() == 3) {
+        if (meta.contains("specular_color") && meta["specular_color"].is_array() && meta["specular_color"].size() == 3
+            && meta["specular_color"][0].is_number() && meta["specular_color"][1].is_number()
+            && meta["specular_color"][2].is_number()) {
             const auto specColor = meta["specular_color"];
             PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.x, specColor[0].get<float>());
             PGNIFUtil::setShaderFloat(nifShaderBSLSP->specularColor.y, specColor[1].get<float>());
