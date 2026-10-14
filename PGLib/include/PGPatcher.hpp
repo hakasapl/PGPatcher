@@ -111,6 +111,9 @@ public:
      * @param checkAllowedRecTypes when true, a use of a record type not in allowedModelRecTypes is skipped and the
      * original mesh is kept for it
      * @param excludeFacegens whether to skip patching facegen meshes
+     * @param isPGLiteMode when true, only what the 3rd party tools read is patched: the uses of the record types
+     * DynDOLOD scans (PGPlugin::dynDOLODRecTypeSet, within allowedModelRecTypes when those are checked) and the
+     * BodySlide ShapeData meshes. Facegen meshes, meshes without such a use and forceBasePatch are left out.
      * @param progressCallback receives (completed, total) counts of the current stage
      * @param stageCallback invoked when a new stage starts. When a previous output is updated, every mesh is
      * evaluated before patching and the progress callback counts that evaluation first, so the stages are reported
@@ -121,6 +124,7 @@ public:
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                             const bool& checkAllowedRecTypes = false,
                             const bool& excludeFacegens = false,
+                            const bool& isPGLiteMode = false,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback = { },
                             const std::function<void(MeshPatchStage)>& stageCallback = { });
@@ -223,7 +227,8 @@ private:
      *
      * A mesh is skipped (Success) when its mod has meshes ignored, when it is a facegen mesh and those are excluded, or
      * when nothing uses it and forceBasePatch is off. Facegen and BodySlide ShapeData meshes have no plugin uses and
-     * are patched for a dummy use.
+     * are patched for a dummy use. In PGLite mode (see patchMeshes()) facegen meshes and meshes without a use that
+     * passes the record type filter are skipped as well.
      *
      * @param nifPath lower case relative path to the NIF file
      * @param setModelUsesQueue queue the plugin updates are posted to
@@ -234,7 +239,8 @@ private:
                                         const bool& forceBasePatch = false,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                                         const bool& checkAllowedRecTypes = false,
-                                        const bool& excludeFacegens = false);
+                                        const bool& excludeFacegens = false,
+                                        const bool& isPGLiteMode = false);
 
     /**
      * @brief Replays the side effects of patching a NIF whose output from the previous run is still valid

@@ -5,11 +5,15 @@
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/EnumStringHelper.hpp"
+#include "util/FileUtil.hpp"
+#include "util/StringUtil.hpp"
 
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -152,4 +156,25 @@ void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
 {
     PGMutagenWrapper::libFinalize(outputDir, static_cast<int>(esmMode));
     // FIXME: Add to the generated files.
+}
+
+void PGPlugin::saveStockRecords(const std::filesystem::path& outputDir,
+                                const std::vector<std::filesystem::path>& generatedTextures)
+{
+    const auto file = outputDir / stockRecordsFile;
+    PGMutagenWrapper::libSaveStockRecords(file);
+
+    // The generated textures are the runner's to know; they go into the file the plugin library wrote, sorted so two
+    // runs write the same file.
+    nlohmann::json stockRecords;
+    if (!FileUtil::getJSON(file, stockRecords) || !stockRecords.is_object())
+        throw std::runtime_error("The stock records file could not be read back: " + file.string());
+
+    std::vector<std::string> textures;
+    textures.reserve(generatedTextures.size());
+    for (const auto& texture : generatedTextures)
+        textures.push_back(StringUtil::utf16toUTF8(texture.wstring()));
+    std::ranges::sort(textures);
+    stockRecords["generatedtextures"] = textures;
+    FileUtil::saveJSON(file, stockRecords, true);
 }

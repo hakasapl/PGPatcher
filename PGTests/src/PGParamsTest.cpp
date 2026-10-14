@@ -65,10 +65,30 @@ TEST(PGParamsTest,
     EXPECT_TRUE(json["processing"].contains("devmode"));
     EXPECT_TRUE(json["processing"].contains("enabledebuglogging"));
     EXPECT_TRUE(json["processing"].contains("enabletracelogging"));
+    EXPECT_TRUE(json["processing"].contains("pglitemode"));
     EXPECT_TRUE(json["shaderpatcher"].contains("parallax"));
     EXPECT_TRUE(json["shaderpatcher"].contains("truepbr"));
     EXPECT_TRUE(json["postpatcher"].contains("fixsss"));
     EXPECT_TRUE(json["postpatcher"].contains("hairflowmap"));
+}
+
+TEST(PGParamsTest,
+     PGLiteModeIsOffByDefaultAndRoundTrips)
+{
+    EXPECT_FALSE(PGParams::defaults().processing.isPGLiteMode);
+
+    PGParams params;
+    params.processing.isPGLiteMode = true;
+    nlohmann::json json = nlohmann::json::object();
+    params.writeJSON(json);
+    EXPECT_EQ(json["processing"]["pglitemode"], true);
+
+    PGParams read;
+    read.readJSON(json);
+    EXPECT_TRUE(read.processing.isPGLiteMode);
+    EXPECT_TRUE(read == params);
+    read.processing.isPGLiteMode = false;
+    EXPECT_FALSE(read == params);
 }
 
 TEST(PGParamsTest,

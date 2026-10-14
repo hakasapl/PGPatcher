@@ -67,6 +67,7 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                             const bool& checkAllowedRecTypes,
                             const bool& excludeFacegens,
+                            const bool& isPGLiteMode,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback,
                             const std::function<void(MeshPatchStage)>& stageCallback)
@@ -74,6 +75,22 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
     auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
     pgd->waitForCMClassification();
+
+    // PGLite mode patches the uses of the record types DynDOLOD scans, within the allowed ones, and nothing that has
+    // no plugin use (the BodySlide ShapeData meshes aside, which patchNIF() keeps).
+    std::unordered_set<PGPlugin::ModelRecordType> recTypes = allowedModelRecTypes;
+    bool shouldCheckRecTypes = checkAllowedRecTypes;
+    bool shouldForceBasePatch = forceBasePatch;
+    if (isPGLiteMode) {
+        recTypes = PGPlugin::dynDOLODRecTypeSet();
+        if (checkAllowedRecTypes) {
+            std::erase_if(recTypes, [&allowedModelRecTypes](const PGPlugin::ModelRecordType& recType) {
+                return !allowedModelRecTypes.contains(recType);
+            });
+        }
+        shouldCheckRecTypes = true;
+        shouldForceBasePatch = false;
+    }
 
     // Init Handlers.
     HandlerLightPlacerTracker::init(pgd->lightPlacerJSONs());
@@ -127,12 +144,18 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
         meshRunner.addTask([&taskTracker,
                             &mesh,
                             &setModelUsesQueue,
-                            &forceBasePatch,
-                            &allowedModelRecTypes,
-                            &checkAllowedRecTypes,
-                            &excludeFacegens] {
-            taskTracker.completeJob(patchNIF(
-                mesh, setModelUsesQueue, forceBasePatch, allowedModelRecTypes, checkAllowedRecTypes, excludeFacegens));
+                            &shouldForceBasePatch,
+                            &recTypes,
+                            &shouldCheckRecTypes,
+                            &excludeFacegens,
+                            &isPGLiteMode] {
+            taskTracker.completeJob(patchNIF(mesh,
+                                             setModelUsesQueue,
+                                             shouldForceBasePatch,
+                                             recTypes,
+                                             shouldCheckRecTypes,
+                                             excludeFacegens,
+                                             isPGLiteMode));
         });
     }
 
@@ -271,8 +294,10 @@ void PGPatcher::deleteOutputDir(const bool& preOutput,
         = { "meshes", "textures", "calientetools", "pbrnifpatcher", "lightplacer", "pbrtexturesets" };
     static const std::filesystem::path updateCacheFile = boost::to_lower_copy(PGRunCache::s_cacheFilename.wstring());
     static const std::filesystem::path updateCacheTempFile = updateCacheFile.wstring() + L".tmp";
+    static const std::filesystem::path stockRecordsFile
+        = boost::to_lower_copy(std::wstring(PGPlugin::stockRecordsFile));
     static const std::unordered_set<std::filesystem::path> filesToDelete
-        = { "pgpatcher.esp", "parallaxgen_diff.json", updateCacheFile, updateCacheTempFile };
+        = { "pgpatcher.esp", "parallaxgen_diff.json", stockRecordsFile, updateCacheFile, updateCacheTempFile };
     static const std::vector<std::pair<std::wstring, std::wstring>> filesToDeleteParseRules = { { L"pg_", L".esp" } };
     static const std::unordered_set<std::filesystem::path> filesToIgnore = { "meta.ini" };
     static const std::unordered_set<std::filesystem::path> filesToDeletePreOutput = { "pgpatcher_output.zip" };
@@ -445,7 +470,8 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                                         const bool& forceBasePatch,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                                         const bool& checkAllowedRecTypes,
-                                        const bool& excludeFacegens)
+                                        const bool& excludeFacegens,
+                                        const bool& isPGLiteMode)
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -490,6 +516,17 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
     if (nifCache.meshUses.empty() && !forceBasePatch && !isFacegen && !isBodySlideShapeData) {
         Logger::trace(L"Skipping NIF patching for mesh with no plugin uses: {}", nifPath.wstring());
         return TaskTracker::Result::Success;
+    }
+
+    if (isPGLiteMode && !isBodySlideShapeData) {
+        // Only what the 3rd party tools read: the record types the caller narrowed down, and never a facegen mesh.
+        const bool hasPatchableUse = std::ranges::any_of(nifCache.meshUses, [&](const auto& use) {
+            return !isUseUnpatched(use.second, allowedModelRecTypes, checkAllowedRecTypes);
+        });
+        if (isFacegen || !hasPatchableUse) {
+            Logger::trace(L"Skipping NIF patching for mesh the 3rd party tools do not read: {}", nifPath.wstring());
+            return TaskTracker::Result::Success;
+        }
     }
 
     meshTracker.load();

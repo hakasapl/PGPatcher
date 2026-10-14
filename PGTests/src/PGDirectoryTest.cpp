@@ -252,6 +252,23 @@ TEST(PGDirectoryPlainTest,
 }
 
 TEST_F(PGDirectoryTest,
+       ExcludedFilesStayOutOfTheMapLooseOrArchived)
+{
+    PGDirectory pgd(&*m_game, m_fake.gameDir() / L"out2");
+    pgd.setExcludedFiles({ L"textures\\a\\stone_m.dds", L"textures\\vanilla\\rock_m.dds" });
+    pgd.populateFileMap(true, false);
+
+    EXPECT_FALSE(pgd.isFile(L"textures\\a\\stone_m.dds")); // loose
+    EXPECT_FALSE(pgd.isFile(L"textures\\vanilla\\rock_m.dds")); // archived
+    EXPECT_TRUE(pgd.isFile(L"textures\\a\\stone.dds"));
+    EXPECT_TRUE(pgd.isFile(L"textures\\vanilla\\rock.dds"));
+
+    // The fixture's own directory, without exclusions, has them.
+    EXPECT_TRUE(m_pgd->isFile(L"textures\\a\\stone_m.dds"));
+    EXPECT_TRUE(m_pgd->isFile(L"textures\\vanilla\\rock_m.dds"));
+}
+
+TEST_F(PGDirectoryTest,
        FindsMeshesTexturesAndJsons)
 {
     mapAll(false);

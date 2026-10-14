@@ -85,6 +85,8 @@ void PGParams::readJSON(const nlohmann::json& paramsJSON)
         paramsJSON["processing"]["enabledebuglogging"].get_to<bool>(processing.enableDebugLogging);
     if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("enabletracelogging"))
         paramsJSON["processing"]["enabletracelogging"].get_to<bool>(processing.enableTraceLogging);
+    if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("pglitemode"))
+        paramsJSON["processing"]["pglitemode"].get_to<bool>(processing.isPGLiteMode);
     if (paramsJSON.contains("processing") && paramsJSON["processing"].contains("allowlist"))
         for (const auto& item : paramsJSON["processing"]["allowlist"])
             processing.allowList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
@@ -159,6 +161,7 @@ void PGParams::writeJSON(nlohmann::json& paramsJSON) const
     paramsJSON["processing"]["devmode"] = processing.enableModDevMode;
     paramsJSON["processing"]["enabledebuglogging"] = processing.enableDebugLogging;
     paramsJSON["processing"]["enabletracelogging"] = processing.enableTraceLogging;
+    paramsJSON["processing"]["pglitemode"] = processing.isPGLiteMode;
     paramsJSON["processing"]["allowlist"] = StringUtil::utf16VectorToUTF8(processing.allowList);
     paramsJSON["processing"]["blocklist"] = StringUtil::utf16VectorToUTF8(processing.blockList);
     paramsJSON["processing"]["texturemaps"] = nlohmann::json::object();

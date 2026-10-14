@@ -274,6 +274,7 @@ uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
     hasher.add(StringUtil::toLowerASCII(params.modManager.mo2InstanceDir.wstring()));
 
     hasher.add(params.processing.enableModDevMode);
+    hasher.add(params.processing.isPGLiteMode);
 
     std::vector<uint8_t> recTypes;
     for (const auto& recType : params.processing.allowedModelRecordTypes)
@@ -623,8 +624,10 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     // Create patcher factory.
     PatcherUtil::PatcherMeshSet meshPatchers;
-    // The stock marker reverts pre-patched shapes to stock, so it has to run before every other patcher.
+    // The stock marker reverts pre-patched shapes to stock, so it has to run before every other patcher. In PGLite
+    // mode it also records the stock state of every patched shape, which PGLite reverts the output's meshes from.
     meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
+    PatcherMeshPreStockMarker::loadOptions(params.processing.isPGLiteMode);
     if (params.prePatcher.isFixMeshLightingEnabled) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
@@ -831,6 +834,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                            params.processing.allowedModelRecordTypes,
                            true,
                            args.excludeFacegens,
+                           params.processing.isPGLiteMode,
                            progressCallback,
                            meshPatchStageCallback);
 
@@ -893,6 +897,27 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
     else if (args.noEsm)
         esmMode = PGPlugin::ESMMode::None;
     PGPlugin::savePlugin(params.output.dir, esmMode);
+
+    if (params.processing.isPGLiteMode) {
+        // The stock records PGLite puts the records back from when it runs next to this output, with the textures
+        // the run generated, which PGLite keeps out of its inputs (the dynamic cubemap is deployed below, not
+        // generated).
+        std::vector<std::filesystem::path> generatedTextures;
+        const auto texturesDir = params.output.dir / "textures";
+        if (std::filesystem::is_directory(texturesDir)) {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(texturesDir)) {
+                if (!entry.is_regular_file())
+                    continue;
+
+                const std::filesystem::path relPath
+                    = StringUtil::toLowerASCII(entry.path().lexically_relative(params.output.dir).wstring());
+                if (relPath != PatcherMeshShaderComplexMaterial::s_dynCubemapPath)
+                    generatedTextures.push_back(relPath);
+            }
+        }
+        PGPlugin::saveStockRecords(params.output.dir, generatedTextures);
+        PGGlobals::pgd()->addGeneratedFile(PGPlugin::stockRecordsFile);
+    }
 
     progressWindow->CallAfter([progressWindow] { progressWindow->setStepProgress(2, numFinalizingSteps); });
 

@@ -3,6 +3,7 @@
 ## UNRELEASED
 
 - [PGLite] Added PGLite, an SKSE runtime implementation of PGPatcher
+- [PGPatcher] Added the PGLite Mode processing option: only what TexGen, DynDOLOD and BodySlide read is patched, every patched shape gets a `PG_STOCK` block and the stock records and the generated textures are listed in `PGPatcher_Stock.json`, so PGLite can run with the output enabled
 - [PGPatcher] BodySlide ShapeData meshes will now be patched
 - [Common] Added the `PG_STOCK` extra data block for preserving initial mesh state
 - [PGPatcher] Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder

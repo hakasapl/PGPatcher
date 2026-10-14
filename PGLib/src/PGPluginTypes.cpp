@@ -83,6 +83,18 @@ auto PGPlugin::defaultRecTypeSet() -> std::unordered_set<ModelRecordType>
     return defaultSet;
 }
 
+auto PGPlugin::dynDOLODRecTypeSet() -> std::unordered_set<ModelRecordType>
+{
+    // The record types DynDOLOD reads full models from, as its reference lists them.
+    static const std::unordered_set<ModelRecordType> dynDOLODSet = {
+        ModelRecordType::Activator,    ModelRecordType::Container, ModelRecordType::Door,
+        ModelRecordType::Furniture,    ModelRecordType::Grass,     ModelRecordType::MoveableStatic,
+        ModelRecordType::StaticObject, ModelRecordType::Tree,
+    };
+
+    return dynDOLODSet;
+}
+
 std::filesystem::path PGPlugin::pluginPathFromDataPath(const std::filesystem::path& dataPath)
 {
     static const std::filesystem::path meshesPrefix = "meshes";

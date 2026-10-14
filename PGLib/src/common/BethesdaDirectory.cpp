@@ -502,6 +502,9 @@ void BethesdaDirectory::addBSAToFileMap(const std::wstring& bsaName)
                 if (hasIgnoredSuffix && !isFileAllowed(curPath))
                     continue;
 
+                if (!m_excludedFiles.empty() && m_excludedFiles.contains(curPath))
+                    continue;
+
                 folderFiles.push_back(std::move(curPath));
             }
 
@@ -713,6 +716,11 @@ void BethesdaDirectory::setFoldersToMap(std::unordered_set<std::filesystem::path
     m_foldersToMap = std::move(foldersToMap);
 }
 
+void BethesdaDirectory::setExcludedFiles(std::unordered_set<std::filesystem::path> files)
+{
+    m_excludedFiles = std::move(files);
+}
+
 // Helpers.
 
 bool BethesdaDirectory::isPathAscii(const std::filesystem::path& path)
@@ -746,6 +754,9 @@ void BethesdaDirectory::updateFileMap(const std::filesystem::path& filePath,
                                       const uint64_t& size)
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
+
+    if (!m_excludedFiles.empty() && m_excludedFiles.contains(filePath))
+        return;
 
     const std::unique_lock lock(m_fileMapMutex);
 

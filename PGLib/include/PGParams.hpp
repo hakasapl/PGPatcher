@@ -59,6 +59,9 @@ struct PGParams {
         bool enableModDevMode = false;
         bool enableDebugLogging = false;
         bool enableTraceLogging = false;
+        /// @brief Whether only what the 3rd party tools (TexGen, DynDOLOD and BodySlide) read is patched, with the
+        /// stock state of every patched shape and record recorded for PGLite, which then runs next to the output.
+        bool isPGLiteMode = false;
         std::unordered_set<PGPlugin::ModelRecordType> allowedModelRecordTypes = PGPlugin::defaultRecTypeSet();
         std::vector<std::wstring> vanillaBSAList;
         std::vector<std::pair<std::wstring, PGEnums::TextureType>> textureMaps;
@@ -69,8 +72,9 @@ struct PGParams {
         {
             return multithread == other.multithread && enableModDevMode == other.enableModDevMode
                 && enableDebugLogging == other.enableDebugLogging && enableTraceLogging == other.enableTraceLogging
-                && allowedModelRecordTypes == other.allowedModelRecordTypes && vanillaBSAList == other.vanillaBSAList
-                && textureMaps == other.textureMaps && allowList == other.allowList && blockList == other.blockList;
+                && isPGLiteMode == other.isPGLiteMode && allowedModelRecordTypes == other.allowedModelRecordTypes
+                && vanillaBSAList == other.vanillaBSAList && textureMaps == other.textureMaps
+                && allowList == other.allowList && blockList == other.blockList;
         }
     } processing;
 

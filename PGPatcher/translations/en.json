@@ -141,6 +141,10 @@
       "traceLogging": {
         "label": "Enable Trace Logging",
         "tooltip": "Enables trace logging in the output log (very verbose)"
+      },
+      "pgliteMode": {
+        "label": "PGLite Mode",
+        "tooltip": "Enabling this tells PGPatcher to only patch what is necessary for 3rd party tools"
       }
     },
     "browse": {

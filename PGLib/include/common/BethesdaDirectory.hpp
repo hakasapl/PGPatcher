@@ -157,6 +157,7 @@ private:
     std::shared_mutex m_fileMapMutex; /** < Shared Mutex for the file map */
     std::unordered_set<std::filesystem::path>
         m_foldersToMap; /**< Set of folders to include when populating the file map, all lowercase */
+    std::unordered_set<std::filesystem::path> m_excludedFiles; /**< Files populateFileMap() leaves out, lower case */
 
     BethesdaGame* m_bg; /** < BethesdaGame which stores a BethesdaGame object
                         corresponding to this load order */
@@ -361,6 +362,13 @@ public:
      * populateFileMap().
      */
     void setFoldersToMap(std::unordered_set<std::filesystem::path> foldersToMap);
+
+    /**
+     * @brief Files populateFileMap() leaves out of the map, loose or archived, as if the load order did not have
+     * them: lower case paths relative to the data folder. The PGLite runtime keeps the textures an enabled offline
+     * output generated out of its inputs this way. Call before populateFileMap().
+     */
+    void setExcludedFiles(std::unordered_set<std::filesystem::path> files);
 
     /**
      * @brief Returns the archives of the load order in load order: first the archives listed in the INI files, then the

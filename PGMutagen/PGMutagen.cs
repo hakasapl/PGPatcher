@@ -20,6 +20,7 @@ using Mutagen.Bethesda.Strings.DI;
 using Mutagen.Bethesda.Plugins.Aspects;
 
 using Google.FlatBuffers;
+using System.Text.Json;
 using System.Collections;
 
 public static class ExceptionHandler
@@ -148,6 +149,14 @@ public class PGMutagen
     private static List<HashSet<ModKey>> OutputMasterTracker = [];
     private static List<SkyrimMod> OutputSplitMods = [];
 
+    // The stock model path and alternate textures of every record model SetModelUses changed, by form key and sub
+    // model, and the stock texture set every created texture set replaced: what SaveStockRecords writes for PGLite.
+    private sealed record StockAlternateTexture(string Name, int Index, FormKey TextureSet);
+    private sealed record StockModel(string File, List<StockAlternateTexture> AlternateTextures);
+    private static Dictionary<FormKey, Dictionary<string, StockModel>> StockModels = [];
+    private static Dictionary<uint, FormKey> TextureSetOrigins = [];
+    private const int StockRecordsVersion = 1;
+
     private class Utf8EncodingWrapper : IMutagenEncodingProvider
     {
         public IMutagenEncoding GetEncoding(GameRelease release, Language language)
@@ -187,6 +196,8 @@ public class PGMutagen
             NewTextureSets = new Dictionary<string[], Tuple<ITextureSet, bool>>(new StructuralArrayComparer());
             OutputMasterTracker.Clear();
             OutputSplitMods.Clear();
+            StockModels.Clear();
+            TextureSetOrigins.Clear();
             allocatedFormIDs.Clear();
             lastUsedFormID = 1;
             InitialOutModTextureSets = [];
@@ -479,6 +490,8 @@ public class PGMutagen
             ModifiedRecords.Clear();
             OutputMasterTracker.Clear();
             OutputSplitMods.Clear();
+            StockModels.Clear();
+            TextureSetOrigins.Clear();
 
             // Restore allocation state from the post-PopulateObjs baseline.
             allocatedFormIDs = [.. InitialAllocatedFormIDs];
@@ -1203,6 +1216,7 @@ public class PGMutagen
                         {
                             // already exists, just use that
                             matchModElem.AlternateTextures[j].NewTexture.FormKey = existingTXSTTuple.Item1.FormKey;
+                            RememberTextureSetOrigin(existingTXSTTuple.Item1.FormKey, matchExistingElem, bufAltTex.SlotId);
 
                             // Update usage flag
                             if (!existingTXSTTuple.Item2)
@@ -1250,6 +1264,7 @@ public class PGMutagen
 
                             // Update formkey
                             matchModElem.AlternateTextures[j].NewTexture.FormKey = newFormKey;
+                            RememberTextureSetOrigin(newFormKey, matchExistingElem, bufAltTex.SlotId);
                         }
                     }
                 }
@@ -1258,8 +1273,104 @@ public class PGMutagen
                 if (changed)
                 {
                     ModifiedRecords[searchFormKey] = modRecord;
+                    RememberStockModel(searchFormKey, modelUse.SubModel, matchExistingElem);
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
+    // Writes the stock records file for PGLite: every record model whose written model differs from the stock one, with
+    // both states, and the stock texture set every created texture set replaced. The file is always written, so an
+    // output with no record changes still carries it.
+    [UnmanagedCallersOnly(EntryPoint = "SaveStockRecords", CallConvs = [typeof(CallConvCdecl)])]
+    public static void SaveStockRecords([DNNE.C99Type("const wchar_t*")] IntPtr filePathPtr)
+    {
+        try
+        {
+            if (Env is null || OutMod is null)
+            {
+                throw new Exception("Initialize must be called before SaveStockRecords");
+            }
+
+            string filePath = Marshal.PtrToStringUni(filePathPtr) ?? string.Empty;
+
+            // In a fixed order, so two runs over the same load order write the same file.
+            var entries = new List<(FormKey FormKey, string SubModel, StockModel Stock, IModelGetter Patched)>();
+            foreach (var (formKey, models) in StockModels)
+            {
+                if (!ModifiedRecords.TryGetValue(formKey, out var modifiedRecord) || modifiedRecord is null)
+                {
+                    continue;
+                }
+
+                foreach (var (subModel, stock) in models)
+                {
+                    IModelGetter? patched = GetModelElemBySubModel(modifiedRecord, subModel);
+                    if (patched is null || IsSameModel(stock, patched))
+                    {
+                        continue;
+                    }
+
+                    entries.Add((formKey, subModel, stock, patched));
+                }
+            }
+
+            entries.Sort((a, b) =>
+            {
+                int byPlugin = string.Compare(a.FormKey.ModKey.FileName, b.FormKey.ModKey.FileName, StringComparison.OrdinalIgnoreCase);
+                if (byPlugin != 0)
+                {
+                    return byPlugin;
+                }
+
+                int byID = a.FormKey.ID.CompareTo(b.FormKey.ID);
+                if (byID != 0)
+                {
+                    return byID;
+                }
+
+                return string.Compare(a.SubModel, b.SubModel, StringComparison.Ordinal);
+            });
+
+            using var stream = File.Create(filePath);
+            using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
+            writer.WriteStartObject();
+            writer.WriteNumber("version", StockRecordsVersion);
+
+            writer.WriteStartArray("records");
+            foreach (var (formKey, subModel, stock, patched) in entries)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("plugin", formKey.ModKey.FileName);
+                writer.WriteNumber("formid", formKey.ID);
+                writer.WriteString("submodel", subModel);
+                writer.WritePropertyName("stock");
+                WriteStockModel(writer, stock);
+                writer.WritePropertyName("patched");
+                WriteStockModel(writer, StockModelOf(patched));
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+
+            writer.WriteStartArray("texturesets");
+            foreach (var (id, stock) in TextureSetOrigins.OrderBy(x => x.Key))
+            {
+                writer.WriteStartObject();
+                writer.WriteNumber("formid", id);
+                writer.WriteString("stockplugin", stock.ModKey.FileName);
+                writer.WriteNumber("stockformid", stock.ID);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+
+            writer.WriteEndObject();
+            writer.Flush();
+
+            MessageHandler.Log($"Wrote the stock records of {entries.Count} record models and {TextureSetOrigins.Count} texture sets", 2);
         }
         catch (Exception ex)
         {
@@ -1270,6 +1381,94 @@ public class PGMutagen
     //
     // Helpers
     //
+
+    private static void WriteStockModel(Utf8JsonWriter writer, StockModel model)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("model", model.File);
+        writer.WriteStartArray("alternatetextures");
+        foreach (var altTex in model.AlternateTextures)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("name", altTex.Name);
+            writer.WriteNumber("index", altTex.Index);
+            writer.WriteString("plugin", altTex.TextureSet.ModKey.FileName);
+            writer.WriteNumber("formid", altTex.TextureSet.ID);
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+    }
+
+    private static StockModel StockModelOf(IModelGetter model)
+    {
+        var alternateTextures = new List<StockAlternateTexture>();
+        if (model.AlternateTextures is not null)
+        {
+            foreach (var altTex in model.AlternateTextures)
+            {
+                alternateTextures.Add(new StockAlternateTexture(altTex.Name, altTex.Index, altTex.NewTexture.FormKey));
+            }
+        }
+
+        // As the plugins store the path, without the Meshes folder Mutagen's data relative path puts in front of it.
+        return new StockModel(RemovePrefixIfExists("meshes\\", model.File?.ToString() ?? string.Empty), alternateTextures);
+    }
+
+    private static bool IsSameModel(StockModel stock, IModelGetter patched)
+    {
+        var patchedModel = StockModelOf(patched);
+        if (!string.Equals(stock.File, patchedModel.File, StringComparison.OrdinalIgnoreCase)
+            || stock.AlternateTextures.Count != patchedModel.AlternateTextures.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < stock.AlternateTextures.Count; i++)
+        {
+            if (stock.AlternateTextures[i].Index != patchedModel.AlternateTextures[i].Index
+                || stock.AlternateTextures[i].TextureSet != patchedModel.AlternateTextures[i].TextureSet)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // The stock state of a record model is the winning record's, before any change: captured once per record model.
+    private static void RememberStockModel(FormKey formKey, string subModel, IModelGetter stockElem)
+    {
+        if (!StockModels.TryGetValue(formKey, out var models))
+        {
+            models = [];
+            StockModels[formKey] = models;
+        }
+
+        if (!models.ContainsKey(subModel))
+        {
+            models[subModel] = StockModelOf(stockElem);
+        }
+    }
+
+    // The stock texture set of the entry a created texture set replaces, by the entry's original 3D index; the first
+    // record that uses a created set names its origin.
+    private static void RememberTextureSetOrigin(FormKey newTextureSet, IModelGetter stockElem, int slotId)
+    {
+        if (TextureSetOrigins.ContainsKey(newTextureSet.ID) || stockElem.AlternateTextures is null)
+        {
+            return;
+        }
+
+        foreach (var altTex in stockElem.AlternateTextures)
+        {
+            if (altTex.Index == slotId)
+            {
+                TextureSetOrigins[newTextureSet.ID] = altTex.NewTexture.FormKey;
+                return;
+            }
+        }
+    }
 
     private static SkyrimMod GetModToAdd(IMajorRecord majorRecord)
     {
