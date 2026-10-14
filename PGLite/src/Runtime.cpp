@@ -8,6 +8,7 @@
 #include "LightPlacerBridge.hpp"
 #include "Logging.hpp"
 #include "Menu.hpp"
+#include "OfflineOutput.hpp"
 #include "PGGlobals.hpp"
 #include "PGParams.hpp"
 #include "PGRunObserver.hpp"
@@ -37,6 +38,7 @@
 #include <string>
 #include <system_error>
 #include <thread>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <windows.h>
@@ -45,8 +47,6 @@ namespace PGLite {
 
 namespace {
 
-constexpr const char* offlineDiffFile = "parallaxgen_diff.json";
-constexpr const char* offlinePlugin = "PGPatcher.esp";
 constexpr const wchar_t* autoParallaxDLL = L"AutoParallax.dll";
 
 /// @brief The longest the data-load handler waits for the initialization before the main menu opens without it.
@@ -169,6 +169,7 @@ Runtime::Status Runtime::status() const
     status.texturesFailed = textures.failed;
     if (m_isReady && m_environment)
         status.mo2Instance = m_environment->mo2InstanceDir();
+    status.offlineOutput = m_offlineOutput;
     status.stage = m_stage;
 
     return status;
@@ -259,6 +260,22 @@ void Runtime::onDataLoaded()
             Logger::error("settings.json: {}",
                           PGTranslation::trFormat(problem.key, StringUtil::utf16toUTF8(problem.item)));
         }
+        if (OfflineOutput::hasStockRecords()) {
+            // The output's records go back to stock before the uses are read, so the plan is the plan of the stock
+            // records; its meshes are reverted by their PG_STOCK blocks when they are patched (DESIGN.md 4.14).
+            Logger::info("An offline output generated in PGLite mode is enabled, putting its records back to stock");
+            const auto restored = OfflineOutput::restore();
+            Logger::info("Offline output: {} record models put back to stock, {} keep another plugin's value, {} "
+                         "copies of its records mapped to stock, {} not in the loaded game, {} generated textures "
+                         "left out of the file map",
+                         restored.restored,
+                         restored.kept,
+                         restored.mapped,
+                         restored.unresolved,
+                         restored.generatedTextures.size());
+            m_offlineOutput = restored;
+        }
+
         Logger::info("Reading the record model uses");
         m_uses.build();
         m_snapshot.capture(m_uses);
@@ -296,14 +313,10 @@ void Runtime::onDataLoaded()
 
 std::optional<std::string> Runtime::detectDisableCondition() const
 {
-    if (Resources::exists(offlineDiffFile))
+    // An offline output is accepted when it was generated in PGLite mode: its stock records let PGLite put the
+    // records back (OfflineOutput). Any other is for playing without PGLite.
+    if (!OfflineOutput::hasStockRecords() && OfflineOutput::isPresent())
         return PGTranslation::tr("pglite.disabled.offlineOutput");
-
-    auto* const dataHandler = RE::TESDataHandler::GetSingleton();
-    if (dataHandler
-        && (dataHandler->LookupLoadedModByName(offlinePlugin)
-            || dataHandler->LookupLoadedLightModByName(offlinePlugin)))
-        return PGTranslation::tr("pglite.disabled.offlinePlugin");
 
     std::error_code ec;
     if (GetModuleHandleW(autoParallaxDLL) || std::filesystem::exists(Settings::pluginsFolder() / autoParallaxDLL, ec))
@@ -538,7 +551,10 @@ void Runtime::buildEnvironment(const std::function<void(const char*)>& reportSta
     reportStage("pglite.stages.loadingClassificationCache");
     m_cache.load(Settings::classificationCacheFile());
 
-    auto environment = std::make_unique<Environment>(params(), m_ini);
+    auto environment = std::make_unique<Environment>(params(),
+                                                     m_ini,
+                                                     m_offlineOutput ? m_offlineOutput->generatedTextures
+                                                                     : std::unordered_set<std::filesystem::path>());
     environment->initialize(m_cache, reportStage, reportProgress);
     // The pass saved what it added; the entries are read again by the next Apply, not kept for the session.
     m_cache.unload();

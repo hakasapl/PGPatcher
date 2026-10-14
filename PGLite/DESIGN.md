@@ -123,8 +123,9 @@ mesh that string names loads as the plan of its own path says. The handler does,
 
 1. Detect the disable conditions (4.9) before anything is installed. If any holds, log it, show the in-game notice
    and install nothing: no hooks, no menu, no streams.
-2. Snapshot every record field the permutation system edits (model strings of every sub-model, alternate texture
-   index and texture set per entry) so Apply (4.8) can restore them.
+2. Put the records an enabled offline output changed back to stock (4.14), then snapshot every record field the
+   permutation system edits (model strings of every sub-model, alternate texture index and texture set per entry)
+   so Apply (4.8) can restore them.
 3. Build the uses map from `TESDataHandler` (4.6) and the record-only permutation plan (4.4): contexts, variant
    numbers, which path keeps the original. A facegen path with record uses is left out with the offline warning.
 4. Register one PGLite stream (4.2) for every path with uses and every variant path, through the engine's own
@@ -427,9 +428,11 @@ immediate and is a later addition if wanted; it is not part of apply.
 
 ### 4.9 Disable conditions
 
-- An offline output is present: `ParallaxGen_Diff.json` in the load order (loose or archived) or `PGPatcher.esp`
-  active. Offline checks only the loose `ParallaxGen_Diff.json`, and refuses to run while VRAMr's output mod is
-  enabled (`main.cpp:600-612`), which has no runtime counterpart (section 7, item 19).
+- An offline output that was not generated in PGLite mode is present: `ParallaxGen_Diff.json` in the load order
+  (loose or archived) or `PGPatcher.esp` active, without `PGPatcher_Stock.json` (4.14). With the stock records the
+  output is accepted and its records are put back. Offline checks only the loose `ParallaxGen_Diff.json`, and
+  refuses to run while VRAMr's output mod is enabled (`main.cpp:600-612`), which has no runtime counterpart
+  (section 7, item 19).
 - Auto Parallax is installed (`AutoParallax.dll` in `SKSE\Plugins`): the two would edit the same materials.
 - Neither Community Shaders nor ENB is loaded: Community Shaders is found through its plugin module, ENB through
   the `ENBGetSDKVersion` export of the loaded modules, as TerrainHelper finds it (`ShaderFrameworks`); the patched
@@ -549,6 +552,43 @@ but its `ReloadLP` console command reads every config again and rebuilds its tab
 `Script` form on the main thread once the data load (or Apply) is done. The file also stays on disk, so the next
 session's Light Placer reads it at its plugin load; a stale entry names a variant path that embeds the original mesh
 path and can only ever carry that mesh's lights. Nothing happens when `po3_LightPlacer.dll` is not loaded.
+
+### 4.14 The offline output and the 3rd party tools
+
+TexGen, DynDOLOD and BodySlide read patched meshes from disk, which PGLite never writes: DynDOLOD and TexGen decide
+per full model whether it uses PBR textures, through the plugin overrides and the duplicate meshes of the output,
+and read `ParallaxGen_Diff.json` for the original checksums of patched models; BodySlide builds its outfits from the
+ShapeData meshes. The offline program's output is what they read, and PGLite runs next to it when it was generated
+with the launcher's PGLite Mode option (`processing.pglitemode`): the launcher then patches only the uses of the
+record types DynDOLOD scans (ACTI, CONT, DOOR, FURN, MSTT, STAT, TREE and GRAS, within the allowed record types) and
+the BodySlide ShapeData meshes, the stock marker writes its `PG_STOCK` block on every patched shape, and the plugin
+layer writes `PGPatcher_Stock.json` next to the plugins: for every record model its plugins changed, the stock model
+path and alternate textures (3D name, index, texture set as plugin and form ID) and the written ones, for every
+texture set record `PGPatcher.esp` holds, the stock texture set it replaced, and the textures the run generated (the
+files under its `textures` folder, the deployed dynamic cubemap aside). The update cache carries the option in
+its configuration fingerprint, so a run that toggles it patches everything again, and Update Output writes the same
+file, since the plugin layer derives it from the records it rebuilds from the replayed uses.
+
+At data load, before the uses are read (4.1), `OfflineOutput` reads the file through the resource layer and puts the
+records back: a record model that holds what the output wrote gets its stock values (the entries in place, or an
+array from the engine's heap when their number changed); one that holds something else keeps it, as every record
+edit of PGLite leaves another plugin's value alone; one that is stock already (a later override carries the
+original) is left as it is. Every other record model that carries a duplicate path (`meshes\_pgpatcher_dups\<n>\`)
+or a texture set of `PGPatcher.esp` is a copy made from one of the output's records, as DynDOLOD makes them: a copy
+whose model path and entries equal a record's written state gets that record's stock values, any other the original
+path and the stock texture set of each entry. The snapshot of 4.1 then captures stock, so Apply restores to stock,
+and the uses, the plan and the variant numbers are those of a load order without the output. The output's patched
+meshes are the engine's files for the original paths: the stock marker reverts a shape from its block before the
+patchers run (section 5), so the patch is the patch of the stock mesh, and a result equal to the file is served as
+the file. The duplicate meshes of the output are never loaded, since no record names them after the restoration,
+and the texture sets of `PGPatcher.esp` stay loaded and unused. The generated textures of the output are left out of
+the runtime's file map (`BethesdaDirectory::setExcludedFiles`): they are results, not inputs, and with them in the map
+a parallax shape whose height map produced a complex material texture for another shape would take that texture
+instead; the runtime generates its own copies as it does without the output, and a registered generated stream
+shadows the output's file of the same path. The status page counts the restored, kept and mapped records.
+
+An offline output without the file (generated with the option off, or by an older version) still disables PGLite
+(4.9): without the stock records its plugins cannot be undone, and the meshes would be patched twice.
 
 ## 5. Shared code: PGLib changes
 
@@ -675,7 +715,8 @@ This is the complete list. A difference that is not here is a bug (section 1).
     plugin records, no diff JSON, no zip, no update cache, no BodySlide ShapeData handling, no dynamic cubemap
     deployment (the package ships the texture). PGLite's own files live under `SKSE\Plugins\PGLite` (the settings,
     the mod rules, the classification cache and the generated textures of 4.12), and the Light Placer config of item 5
-    under `LightPlacer`.
+    under `LightPlacer`. An offline output generated in PGLite mode may stay enabled (4.14): its records are put back
+    to stock at data load and its meshes are reverted from their `PG_STOCK` blocks before they are patched.
 12. The archive set and the loose file set are the engine's (4.5), in the engine's own order: the INI lists,
     `Update.bsa`, `<plugin>.bsa` and `<plugin> - Textures.bsa` of the built-in plugins and then of the active lines of
     `Plugins.txt`, every loose file. Offline also reads `<name>N.bsa`, `<name> - Meshes.bsa` and `<name> - *.bsa`, INI
@@ -710,15 +751,17 @@ This is the complete list. A difference that is not here is a bug (section 1).
 
 18. The offline DynDOLOD refusal has no runtime equivalent and is not needed: `.bto` files have no uses and the
     default block list keeps LOD and DynDOLOD meshes out.
-19. PGLite disables itself with a notice when an offline output or Auto Parallax is present (4.9); offline checks
-    only the loose diff JSON, and its refusal to run while VRAMr's output mod is enabled has no runtime counterpart.
+19. PGLite disables itself with a notice when an offline output without its stock records or Auto Parallax is
+    present (4.9), and puts the records of an output with them back to stock (4.14); offline checks only the loose
+    diff JSON, and its refusal to run while VRAMr's output mod is enabled has no runtime counterpart.
     PGLite also disables itself without Community Shaders or ENB, keeps the patchers the loaded framework cannot
     render off and enables the framework's patchers on a first start; offline cannot know what the game runs.
 20. GUI and settings: no conflict highlighting or viewer; `exclude facegens`, `disable dynamic cubemap` and `force
     always CM` are ini options instead of command line flags; Apply restores the records from a snapshot before
     re-planning (4.8); the log lives next to the other SKSE logs, so the `enabledebuglogging` and
-    `enabletracelogging` keys of `settings.json` are ignored in favor of the ini's log level; `multithread` and
-    `devmode` are kept from the file but not editable in the menu; a relative mod manager path in `settings.json` is
+    `enabletracelogging` keys of `settings.json` are ignored in favor of the ini's log level, and `pglitemode` is
+    an option of the offline run alone (4.14); `multithread` and `devmode` are kept from the file but not editable in
+    the menu; a relative mod manager path in `settings.json` is
     resolved against the game folder, where offline resolves it against its own folder; a `settings.json` edited by
     hand runs as it is, with the patchers it names (the transform without its patchers is turned off with an error,
     where the offline launcher refuses to run); a shader that cannot be created turns its patcher off with an error,

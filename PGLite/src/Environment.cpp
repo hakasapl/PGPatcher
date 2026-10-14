@@ -156,9 +156,11 @@ std::vector<std::wstring> activePluginsTxtLines()
 }
 
 Environment::Environment(PGParams params,
-                         Settings::Ini ini)
+                         Settings::Ini ini,
+                         std::unordered_set<std::filesystem::path> excludedFiles)
     : m_params(std::move(params))
     , m_ini(ini)
+    , m_excludedFiles(std::move(excludedFiles))
 {
 }
 
@@ -259,6 +261,7 @@ void Environment::initializeDirectory()
     m_directory->setFoldersToMap(foldersToMap);
     m_directory->setShouldSkipHiddenFiles(false);
     m_directory->setArchiveLoadOrder(engineArchiveOrder());
+    m_directory->setExcludedFiles(m_excludedFiles);
 
     Logger::info("Building the file map");
     m_directory->populateFileMap(true, m_params.processing.multithread);

@@ -1294,6 +1294,12 @@ void Menu::drawStatus()
     if (!status.mo2Instance.empty())
         ImGui::Text(tr("pglite.status.mo2Instance").c_str(),
                     StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
+    if (status.offlineOutput) {
+        ImGui::Text(tr("pglite.status.offlineOutput").c_str(),
+                    status.offlineOutput->restored,
+                    status.offlineOutput->kept,
+                    status.offlineOutput->mapped);
+    }
 }
 
 void Menu::drawPatchers()

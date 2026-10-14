@@ -2,6 +2,7 @@
 
 #include "ClassificationCache.hpp"
 #include "Environment.hpp"
+#include "OfflineOutput.hpp"
 #include "PGD3D.hpp"
 #include "PGParams.hpp"
 #include "PatchStream.hpp"
@@ -57,6 +58,9 @@ public:
         std::size_t texturesGenerated = 0;
         std::size_t texturesFailed = 0;
         std::filesystem::path mo2Instance;
+        /// @brief What the restoration of an enabled offline output did (DESIGN.md section 4.14), nothing without
+        /// one.
+        std::optional<OfflineOutput::Result> offlineOutput;
         /// @brief The step the background initialization or Apply is at as a translation key, nullptr when neither
         /// runs.
         const char* stage = nullptr;
@@ -210,6 +214,7 @@ private:
     Settings::Ini m_ini;
     PGParams m_params;
     ShaderFrameworks::Detected m_shaderFrameworks;
+    std::optional<OfflineOutput::Result> m_offlineOutput;
     mutable std::mutex m_stateMutex;
     std::optional<std::string> m_disableReason;
 

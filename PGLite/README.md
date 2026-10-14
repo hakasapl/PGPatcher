@@ -15,9 +15,10 @@ texture). Requirements:
   [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version (the
   [VR Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/58101) on VR). The 1.5.97 and VR support
   has not been run in game yet; on VR the menu is a desktop window and the keyboard opens it.
-- No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) and no Auto Parallax.
-  PGLite disables itself with an in-game notice when it finds one of them, and installs nothing else then (no menu,
-  no hooks).
+- No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) other than one
+  generated with the launcher's PGLite Mode option, which carries `PGPatcher_Stock.json` (see below), and no Auto
+  Parallax. PGLite disables itself with an in-game notice when it finds one of them, and installs nothing else then
+  (no menu, no hooks).
 - Community Shaders or ENB. PGLite disables itself with a notice when neither is loaded. TruePBR and the hair flow
   map need Community Shaders and Fix Mesh Lighting needs ENB: the menu greys the options the loaded framework cannot
   render, and a first start enables the ones it can (parallax, complex material and the pre-patched material reset,
@@ -107,7 +108,9 @@ Files and archives:
 11. Nothing of the offline output is written to the data folder: no duplicate files, plugins, texture set records,
     diff JSON, zip, update cache, BodySlide ShapeData handling or dynamic cubemap deployment (the package ships the
     texture). PGLite's own files (the settings, the mod rules, the classification cache and the generated textures)
-    live under `SKSE\Plugins\PGLite`, and the Light Placer config of item 5 under `LightPlacer`.
+    live under `SKSE\Plugins\PGLite`, and the Light Placer config of item 5 under `LightPlacer`. An offline output
+    generated in PGLite Mode may stay enabled: its records are put back to stock at data load and its meshes are
+    reverted before they are patched (see below).
 12. The archive set and the loose file set are the engine's, in the engine's own order: the INI lists, `Update.bsa`,
     `<plugin>.bsa` and `<plugin> - Textures.bsa`, every loose file including hidden ones.
 13. The bytes of every mesh and texture a patch reads come from the engine's resource layer, so they are what the
@@ -127,17 +130,36 @@ Lifecycle:
 Program behavior:
 
 18. The offline DynDOLOD refusal has no runtime equivalent; `.bto` files have no uses.
-19. PGLite disables itself when an offline output or Auto Parallax is present; offline checks only the loose diff
-    JSON, and its refusal to run next to VRAMr's output has no runtime counterpart. PGLite also disables itself
+19. PGLite disables itself when an offline output without `PGPatcher_Stock.json` or Auto Parallax is present;
+    offline checks only the loose diff JSON, and its refusal to run next to VRAMr's output has no runtime
+    counterpart. PGLite also disables itself
     without Community Shaders or ENB, keeps the patchers the loaded framework cannot render off and enables the
     framework's patchers on a first start.
 20. The menu has no conflict highlighting or viewer; `exclude facegens`, `disable dynamic cubemap` and `force
     always CM` are ini options; Apply restores the records from a snapshot before it plans again; the log lives next
     to the other SKSE logs, so the `enabledebuglogging` and `enabletracelogging` keys of `settings.json` are ignored
-    in favor of the ini's log level; `multithread` and `devmode` are kept from the file but not editable in the menu;
+    in favor of the ini's log level, and `pglitemode` is an option of the offline run alone; `multithread` and
+    `devmode` are kept from the file but not editable in the menu;
     a relative mod manager path is resolved against the game folder; a `settings.json` edited by hand runs as it is
     (the transform without its patchers is turned off with an error), and a shader that cannot be created turns its
     patcher off with an error, where the offline program refuses to run.
+
+## TexGen, DynDOLOD and BodySlide
+
+These tools read patched meshes from disk, and PGLite patches in memory, so they take their input from the offline
+PGPatcher. Enable "PGLite Mode" under Processing in the PGPatcher launcher and generate (or update) the output: the
+launcher then patches only what the tools read, the models of the record types DynDOLOD scans (statics, trees,
+activators, containers, doors, furniture, movable statics and grass) and the BodySlide ShapeData meshes, writes the
+stock state of every patched shape into the meshes and the stock values of every changed record into
+`PGPatcher_Stock.json` next to the plugins. Enable the output as a mod, run TexGen and DynDOLOD, or BodySlide, as
+usual, and keep it enabled while playing: PGLite puts the records back to their stock values when the game loads its
+data, reverts the meshes before it patches them and ignores the textures the output generated, so the game shows what
+PGLite makes without the output, with the same settings or others. Records DynDOLOD copied from the output's records
+are mapped back as well.
+
+An output generated without the option has no `PGPatcher_Stock.json` and disables PGLite, as every offline output
+did before. Generate the output again after a change of the mods DynDOLOD reads, as the offline program would have
+to run again.
 
 ## Development
 

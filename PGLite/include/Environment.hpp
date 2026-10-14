@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 namespace PGLite {
@@ -33,8 +34,13 @@ public:
     /// deploys it into its own output, so the mod that ships it is not a mod of the offline mod list).
     static constexpr std::wstring_view dynamicCubemapTexture = L"textures\\cubemaps\\dynamic1pxcubemap_black.dds";
 
+    /**
+     * @param excludedFiles Files the file map leaves out, lower case paths relative to the data folder: the textures
+     * an enabled offline output generated (OfflineOutput).
+     */
     Environment(PGParams params,
-                Settings::Ini ini);
+                Settings::Ini ini,
+                std::unordered_set<std::filesystem::path> excludedFiles = { });
     ~Environment();
     Environment(const Environment&) = delete;
     Environment& operator=(const Environment&) = delete;
@@ -95,6 +101,7 @@ private:
 
     PGParams m_params;
     Settings::Ini m_ini;
+    std::unordered_set<std::filesystem::path> m_excludedFiles;
     std::filesystem::path m_mo2InstanceDir;
     std::unique_ptr<PGModManager> m_modManager;
     std::unique_ptr<PGDirectory> m_directory;

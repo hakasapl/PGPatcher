@@ -83,6 +83,11 @@ public:
      */
     [[nodiscard]] static std::filesystem::path weightCounterpart(const std::filesystem::path& path);
 
+    /**
+     * @brief The form types of the 36 record types with models, in the order build() reads them.
+     */
+    [[nodiscard]] static std::vector<RE::FormType> modelFormTypes();
+
 private:
     UsesByPath m_byPath;
 };

@@ -477,4 +477,14 @@ std::filesystem::path Uses::weightCounterpart(const std::filesystem::path& path)
     return { };
 }
 
+std::vector<RE::FormType> Uses::modelFormTypes()
+{
+    std::vector<RE::FormType> formTypes;
+    formTypes.reserve(recordTypes.size());
+    for (const auto& [formType, recType] : recordTypes)
+        formTypes.push_back(formType);
+
+    return formTypes;
+}
+
 }
