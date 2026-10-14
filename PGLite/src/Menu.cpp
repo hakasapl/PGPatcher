@@ -339,6 +339,10 @@ std::string shaderNames(const std::set<PGEnums::ShapeShader>& shaders)
 {
     std::string names;
     for (const auto shader : shaders) {
+        // The default shader says nothing about the mod; the offline dialog leaves it out of the column as well.
+        if (shader == PGEnums::ShapeShader::None)
+            continue;
+
         if (!names.empty())
             names += ", ";
         names += PGEnums::strFromShader(shader);
@@ -913,7 +917,6 @@ void Menu::fillModRows(PGModManager& manager)
                            .shaders = shaderNames(mod->shaders),
                            .isEnabled = mod->isEnabled,
                            .areMeshesIgnored = mod->areMeshesIgnored,
-                           .hasMeshes = mod->hasMeshes,
                            .isNew = mod->isNew });
     }
 }
@@ -1519,7 +1522,6 @@ void Menu::drawConflictManager()
     if (!ImGui::BeginTable("mods", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY))
         return;
 
-    const auto meshesOnly = tr("pglite.conflictManager.meshesOnly");
     const auto newSuffix = tr("pglite.conflictManager.newSuffix");
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("##enabled", ImGuiTableColumnFlags_WidthFixed);
@@ -1539,8 +1541,8 @@ void Menu::drawConflictManager()
 
         ImGui::TableNextColumn();
         const auto label = row.isNew ? row.displayName + newSuffix : row.displayName;
-        const auto* const shaders
-            = row.shaders.empty() ? (row.hasMeshes ? meshesOnly.c_str() : "") : row.shaders.c_str();
+        // The column shows the shaders alone, empty for a mod without one, as the offline dialog's column does.
+        const auto* const shaders = row.shaders.c_str();
         // The selectable is as tall as the checkbox next to it, and the drop target covers the whole row including
         // the cell padding, so the rows leave no gap a mod cannot be dropped on.
         ImGui::Selectable(label.c_str(),

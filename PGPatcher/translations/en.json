@@ -457,7 +457,6 @@
       "vortex": "The Vortex deployment manifest of the data folder is read.",
       "notReady": "The mod list is available once PGLite is initialized and enabled.",
       "dragHint": "Drag a mod onto another one to move it there.",
-      "meshesOnly": "meshes only",
       "newSuffix": " (new)",
       "couldNotBuild": "The mod list could not be built: %s"
     },

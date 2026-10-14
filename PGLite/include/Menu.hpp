@@ -86,7 +86,6 @@ private:
         std::string shaders;
         bool isEnabled = false;
         bool areMeshesIgnored = false;
-        bool hasMeshes = false;
         bool isNew = false;
     };
 
