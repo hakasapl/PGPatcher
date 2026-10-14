@@ -12,7 +12,6 @@
 #include <dxgi.h>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -120,6 +119,9 @@ private:
     void drainInput();
     void applyInput(const InputRecord& record);
 
+    /// @brief Gives Dear ImGui the keyboard's modifier state. Render thread, open and initialized.
+    static void syncModifiers();
+
     /// @brief Copies the parameters and the mod list from the runtime into the working copy.
     void loadState();
 
@@ -184,13 +186,6 @@ private:
     /// @brief The width of a button with this label, so text fields can leave room for it.
     static float buttonWidth(const char* label);
 
-    /**
-     * @brief Opens the folder dialog of the shell on its own thread; the game keeps running and draw() picks the
-     * chosen folder up. One dialog at a time.
-     */
-    void browseForFolder(const char* title);
-    void pollPickedFolder();
-
     // The clipboard of Dear ImGui, the Windows one.
     static const char* clipboardText(ImGuiContext* context);
     static void setClipboardText(ImGuiContext* context,
@@ -213,7 +208,6 @@ private:
     std::chrono::steady_clock::time_point m_lastFrame;
     float m_mouseX = 0;
     float m_mouseY = 0;
-    HWND m_gameWindow = nullptr;
     float m_uiScale = 1;
     AnimatedImage m_runningImage;
     AnimatedImage m_icon;
@@ -222,9 +216,6 @@ private:
     std::vector<PGTranslation::Language> m_languages;
     /// @brief The language code as edited; applied with Apply, like every other setting.
     std::string m_language;
-    std::mutex m_pickerMutex;
-    bool m_isPickerOpen = false;
-    std::optional<std::string> m_pickedFolder;
     static inline std::string s_clipboard;
 
     // Apply in progress.
