@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <cstring>
 #include <d3d11.h>
+#include <utility>
+#include <vector>
 
 // stb_image decodes the GIF (frames composed, delays in milliseconds) and the PNG of the icon; only those parts are
 // built.
@@ -121,23 +123,29 @@ bool AnimatedImage::upload(const unsigned char* pixels,
     const auto frameBytes = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4;
     int totalMs = 0;
     for (int i = 0; i < frameCount; i++) {
+        // The images are drawn far smaller than they are (a 256 pixel icon in a title bar), which needs the mip
+        // chain, or the sampler picks single texels of the full image and thin lines fall apart. The levels are made
+        // here, with the alpha weighting the colors, since the game's immediate context is not this thread's to use.
+        const auto levels = mipChain(pixels + static_cast<std::size_t>(i) * frameBytes, width, height);
+        std::vector<D3D11_SUBRESOURCE_DATA> initial(levels.size());
+        for (std::size_t level = 0; level < levels.size(); level++) {
+            initial.at(level).pSysMem = levels.at(level).pixels.data();
+            initial.at(level).SysMemPitch = static_cast<UINT>(levels.at(level).width) * 4;
+        }
+
         D3D11_TEXTURE2D_DESC desc = { };
         desc.Width = static_cast<UINT>(width);
         desc.Height = static_cast<UINT>(height);
-        desc.MipLevels = 1;
+        desc.MipLevels = static_cast<UINT>(levels.size());
         desc.ArraySize = 1;
         desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
         desc.SampleDesc.Count = 1;
         desc.Usage = D3D11_USAGE_IMMUTABLE;
         desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-        D3D11_SUBRESOURCE_DATA initial = { };
-        initial.pSysMem = pixels + static_cast<std::size_t>(i) * frameBytes;
-        initial.SysMemPitch = static_cast<UINT>(width) * 4;
-
         Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
-        if (FAILED(device.CreateTexture2D(&desc, &initial, &texture))
+        if (FAILED(device.CreateTexture2D(&desc, initial.data(), &texture))
             || FAILED(device.CreateShaderResourceView(texture.Get(), nullptr, &view))) {
             Logger::warn("The image could not be uploaded to the device");
             m_frames.clear();
@@ -154,6 +162,62 @@ bool AnimatedImage::upload(const unsigned char* pixels,
     m_totalMs = totalMs;
     m_start = std::chrono::steady_clock::now();
     return !m_frames.empty();
+}
+
+std::vector<AnimatedImage::MipLevel> AnimatedImage::mipChain(const unsigned char* pixels,
+                                                             int width,
+                                                             int height)
+{
+    std::vector<MipLevel> levels;
+    MipLevel base;
+    base.width = width;
+    base.height = height;
+    base.pixels.assign(pixels, pixels + static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4);
+    levels.push_back(std::move(base));
+
+    while (levels.back().width > 1 || levels.back().height > 1) {
+        const auto& source = levels.back();
+        MipLevel level;
+        level.width = std::max(source.width / 2, 1);
+        level.height = std::max(source.height / 2, 1);
+        level.pixels.resize(static_cast<std::size_t>(level.width) * static_cast<std::size_t>(level.height) * 4);
+
+        // Each pixel averages the (up to) four source pixels under it; the colors are weighted by the alpha so a
+        // transparent neighbour does not darken a line, which is what a renderer sampling premultiplied data gets.
+        for (int y = 0; y < level.height; y++) {
+            for (int x = 0; x < level.width; x++) {
+                unsigned sum[4] = { 0, 0, 0, 0 };
+                unsigned count = 0;
+                for (int dy = 0; dy < 2; dy++) {
+                    for (int dx = 0; dx < 2; dx++) {
+                        const int sx = std::min(x * 2 + dx, source.width - 1);
+                        const int sy = std::min(y * 2 + dy, source.height - 1);
+                        const auto* const texel = source.pixels.data()
+                            + (static_cast<std::size_t>(sy) * static_cast<std::size_t>(source.width)
+                               + static_cast<std::size_t>(sx))
+                                * 4;
+                        const unsigned alpha = texel[3];
+                        for (int channel = 0; channel < 3; channel++)
+                            sum[channel] += texel[channel] * alpha;
+                        sum[3] += alpha;
+                        count++;
+                    }
+                }
+
+                auto* const texel = level.pixels.data()
+                    + (static_cast<std::size_t>(y) * static_cast<std::size_t>(level.width)
+                       + static_cast<std::size_t>(x))
+                        * 4;
+                for (int channel = 0; channel < 3; channel++)
+                    texel[channel] = sum[3] ? static_cast<unsigned char>(sum[channel] / sum[3]) : 0;
+                texel[3] = static_cast<unsigned char>(sum[3] / count);
+            }
+        }
+
+        levels.push_back(std::move(level));
+    }
+
+    return levels;
 }
 
 ImTextureID AnimatedImage::frame(bool isAnimated) const
