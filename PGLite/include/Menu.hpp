@@ -85,7 +85,6 @@ private:
         std::string shaders;
         bool isEnabled = false;
         bool areMeshesIgnored = false;
-        bool isNew = false;
     };
 
     /// @brief One texture rule row, as edited.
@@ -130,10 +129,11 @@ private:
     void finishApply();
 
     /**
-     * @brief Builds the mod list from the mod manager settings as edited, when they changed. While they are the
-     * applied ones the list is the environment's own mod manager, attributed by the mesh reading pass; otherwise the
-     * mod manager is read, the mods get their shaders and meshes from the runtime's directory, and the shared
-     * ordering numbers them, so the list is the one the next apply installs.
+     * @brief The mod list follows the applied mod manager settings: while the settings as edited are the applied
+     * ones and the environment read its mod manager, the rows are that manager's mods, attributed by the mesh
+     * reading pass. As soon as the type, the instance location or the order lock is edited the list goes, and it
+     * comes back with the next Apply that reads a mod manager. The instance location's validity is told as it is
+     * typed. Runs every frame; the work happens when the settings changed.
      */
     void rebuildModList();
 
@@ -234,12 +234,12 @@ private:
     std::vector<std::string> m_blockList;
     std::vector<TextureRule> m_textureRules;
     std::vector<ModRow> m_mods;
-    std::unique_ptr<PGModManager> m_previewModManager;
-    /// @brief Whether the rows come from the environment's mod manager, the applied settings being the edited ones.
-    bool m_isPreviewFromEnvironment = false;
     std::string m_modListSignature;
     std::string m_modListMessage;
     std::string m_mo2InstanceDir;
+    /// @brief The validity of the instance location as typed, told under it.
+    std::string m_instanceMessage;
+    bool m_isInstanceValid = false;
     std::string m_newAllowEntry;
     std::string m_newBlockEntry;
     std::string m_newTexturePath;

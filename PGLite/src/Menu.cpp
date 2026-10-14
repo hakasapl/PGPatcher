@@ -806,11 +806,12 @@ void Menu::loadState()
     m_languages = PGTranslation::availableLanguages();
     m_language = PGTranslation::currentLanguage();
 
-    // The mod list follows the settings as edited (rebuildModList).
+    // The mod list follows the applied settings (rebuildModList).
     m_mods.clear();
-    m_previewModManager.reset();
     m_modListSignature.clear();
     m_modListMessage.clear();
+    m_instanceMessage.clear();
+    m_isInstanceValid = false;
 
     m_isStateLoaded = true;
 }
@@ -826,72 +827,54 @@ void Menu::rebuildModList()
 
     m_modListSignature = signature;
     m_mods.clear();
-    m_previewModManager.reset();
-    m_isPreviewFromEnvironment = false;
     m_modListMessage.clear();
+    m_instanceMessage.clear();
+    m_isInstanceValid = false;
+
+    // The location's validity as it is typed, with the checks and the messages of the offline launcher. A relative
+    // path is the game folder's, as the runtime resolves it.
+    if (isMO2) {
+        std::filesystem::path dir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
+        if (!dir.empty() && dir.is_relative())
+            dir = (Settings::gameFolder() / dir).lexically_normal();
+        std::error_code ec;
+        if (dir.empty()) {
+            m_instanceMessage = tr("launcher.validation.mo2InstanceRequired");
+        } else if (!std::filesystem::exists(dir, ec)) {
+            m_instanceMessage = tr("launcher.validation.mo2InstanceMissing");
+        } else if (!PGModManager::isValidMO2InstanceDir(dir)) {
+            m_instanceMessage = tr("launcher.validation.mo2InstanceInvalid");
+        } else {
+            m_instanceMessage = tr("pglite.conflictManager.instanceValid");
+            m_isInstanceValid = true;
+        }
+    }
+
     if (type == PGModManager::ModManagerType::None) {
         m_modListMessage = tr("pglite.conflictManager.noModManager");
         return;
     }
 
-    // The checks of the offline launcher, with its messages, before any list is built. A relative path is the game
-    // folder's, as the runtime resolves it.
-    std::filesystem::path dir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
-    if (isMO2) {
-        if (dir.empty()) {
-            m_modListMessage = tr("launcher.validation.mo2InstanceRequired");
-            return;
-        }
-        if (dir.is_relative())
-            dir = (Settings::gameFolder() / dir).lexically_normal();
-        std::error_code ec;
-        if (!std::filesystem::exists(dir, ec)) {
-            m_modListMessage = tr("launcher.validation.mo2InstanceMissing");
-            return;
-        }
-        if (!PGModManager::isValidMO2InstanceDir(dir)) {
-            m_modListMessage = tr("launcher.validation.mo2InstanceInvalid");
-            return;
-        }
-    }
-
-    // The settings as applied: the environment's own mod manager is the list the session runs with, attributed by
-    // the mesh reading pass itself, and costs no walk of the mod folders. A manager the environment could not read
-    // (it is of another type then) does not stand in: the walk below shows why.
-    auto* const environment = m_runtime->environment();
+    // The list is the applied settings' alone: the environment's own mod manager, attributed by the mesh reading
+    // pass and costing no walk of the mod folders. Edited settings have no list until they are applied, and applied
+    // settings whose mod manager the environment could not read (a wrong location goes through Apply) have none
+    // either, their mods being unattributed.
     const auto applied = m_runtime->params().modManager;
-    const bool isApplied = environment && environment->modManager() && environment->modManager()->type() == type
-        && type == applied.type
+    const bool isApplied = type == applied.type
         && std::filesystem::path(StringUtil::utf8toUTF16(m_mo2InstanceDir)) == applied.mo2InstanceDir
         && m_params.modManager.shouldUseMO2LooseFileOrder == applied.shouldUseMO2LooseFileOrder;
-    if (isApplied) {
-        fillModRows(*environment->modManager());
-        m_isPreviewFromEnvironment = true;
+    if (!isApplied) {
+        m_modListMessage = tr("pglite.conflictManager.applyForList");
         return;
     }
 
-    auto manager = std::make_unique<PGModManager>(type);
-    try {
-        nlohmann::json rules;
-        if (Settings::readModRules(rules))
-            manager->loadJSON(rules);
-
-        if (isMO2)
-            manager->populateModFileMapMO2(dir, { });
-        else
-            manager->populateModFileMapVortex(Settings::dataFolder());
-
-        if (environment && environment->directory())
-            environment->directory()->attributeMods(*manager);
-        manager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
-    } catch (const std::exception& e) {
-        Logger::error("The mod list could not be built: {}", e.what());
-        m_modListMessage = PGTranslation::trFormat("pglite.conflictManager.couldNotBuild", e.what());
+    auto* const environment = m_runtime->environment();
+    if (!environment || !environment->modManager() || environment->modManager()->type() != type) {
+        m_modListMessage = tr("pglite.conflictManager.notAttributed");
         return;
     }
 
-    fillModRows(*manager);
-    m_previewModManager = std::move(manager);
+    fillModRows(*environment->modManager());
 }
 
 void Menu::fillModRows(PGModManager& manager)
@@ -911,8 +894,7 @@ void Menu::fillModRows(PGModManager& manager)
                            .displayName = StringUtil::utf16toUTF8(mod->name),
                            .shaders = shaderNames(mod->shaders),
                            .isEnabled = mod->isEnabled,
-                           .areMeshesIgnored = mod->areMeshesIgnored,
-                           .isNew = mod->isNew });
+                           .areMeshesIgnored = mod->areMeshesIgnored });
     }
 }
 
@@ -992,12 +974,11 @@ void Menu::startApply(bool isEnabled)
         m_shouldRebuildFonts = true;
     }
 
-    // The mod rules: the displayed mods as ordered and set here, every other mod as it was.
-    PGModManager* rulesSource = m_previewModManager.get();
-    if (m_isPreviewFromEnvironment && m_runtime->environment())
-        rulesSource = m_runtime->environment()->modManager();
-    if (rulesSource) {
-        auto rules = rulesSource->json();
+    // The mod rules: the displayed mods as ordered and set here, every other mod as it was. Without a list (the mod
+    // manager settings as edited are not the applied ones) the rules stay as they are.
+    auto* const environment = m_runtime->environment();
+    if (!m_mods.empty() && environment && environment->modManager()) {
+        auto rules = environment->modManager()->json();
         int priority = static_cast<int>(std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isEnabled; }));
         for (const auto& row : m_mods) {
             auto& rule = rules[row.displayName];
@@ -1484,6 +1465,15 @@ void Menu::drawConflictManager()
         ImGui::SameLine();
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         ImGui::InputText("##instance", &m_mo2InstanceDir);
+    }
+
+    // The messages follow the settings above as they are edited: the location's validity is told as it is typed,
+    // the list itself waits for Apply.
+    rebuildModList();
+    if (isMO2) {
+        ImGui::PushStyleColor(ImGuiCol_Text, m_isInstanceValid ? ImVec4(0.6F, 1, 0.6F, 1) : ImVec4(1, 0.85F, 0.4F, 1));
+        ImGui::TextWrapped("%s", m_instanceMessage.c_str());
+        ImGui::PopStyleColor();
         ImGui::Checkbox(tr("conflictManager.lockMO2Order.label").c_str(),
                         &m_params.modManager.shouldUseMO2LooseFileOrder);
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
@@ -1497,8 +1487,6 @@ void Menu::drawConflictManager()
         return;
     }
 
-    // The list follows the settings above as they are edited.
-    rebuildModList();
     if (!m_modListMessage.empty()) {
         ImGui::TextWrapped("%s", m_modListMessage.c_str());
         return;
@@ -1512,7 +1500,6 @@ void Menu::drawConflictManager()
     if (!ImGui::BeginTable("mods", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY))
         return;
 
-    const auto newSuffix = tr("pglite.conflictManager.newSuffix");
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("##enabled", ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableSetupColumn(tr("conflictManager.columns.mod").c_str(), ImGuiTableColumnFlags_WidthStretch);
@@ -1530,12 +1517,11 @@ void Menu::drawConflictManager()
         ImGui::Checkbox("##enabled", &row.isEnabled);
 
         ImGui::TableNextColumn();
-        const auto label = row.isNew ? row.displayName + newSuffix : row.displayName;
         // The column shows the shaders alone, empty for a mod without one, as the offline dialog's column does.
         const auto* const shaders = row.shaders.c_str();
         // The selectable is as tall as the checkbox next to it, and the drop target covers the whole row including
         // the cell padding, so the rows leave no gap a mod cannot be dropped on.
-        ImGui::Selectable(label.c_str(),
+        ImGui::Selectable(row.displayName.c_str(),
                           false,
                           ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
                           ImVec2(0, ImGui::GetFrameHeight()));
@@ -1549,7 +1535,7 @@ void Menu::drawConflictManager()
             if (ImGui::BeginDragDropSource()) {
                 const int index = static_cast<int>(i);
                 ImGui::SetDragDropPayload("PGLITE_MOD", &index, sizeof(index));
-                ImGui::TextUnformatted(label.c_str());
+                ImGui::TextUnformatted(row.displayName.c_str());
                 if (*shaders) {
                     ImGui::SameLine();
                     ImGui::TextDisabled("%s", shaders);
