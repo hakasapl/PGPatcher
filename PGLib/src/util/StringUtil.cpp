@@ -1,41 +1,88 @@
 #include "util/StringUtil.hpp"
 
-#include <DirectXTex.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/locale.hpp>
-#include <boost/locale/encoding.hpp>
-#include <nlohmann/detail/output/serializer.hpp>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
-#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <locale>
 #include <string>
-#include <stringapiset.h>
 #include <vector>
-#include <wingdi.h>
-#include <winnls.h>
-#include <winnt.h>
+#include <windows.h>
 
 namespace StringUtil {
 
+namespace {
+
 constexpr unsigned asciiUpperBound = 127;
+constexpr unsigned codePageUSASCII = 20127;
+constexpr unsigned codePageWindows1252 = 1252;
 
-std::wstring windows1252toUTF16(const std::string& str)
+/**
+ * @brief Converts a narrow string of the given code page to UTF-16 with the Win32 conversion functions.
+ */
+std::wstring multiByteToWide(unsigned codePage,
+                             const std::string& str)
 {
-    return boost::locale::conv::to_utf<wchar_t>(str, "windows-1252");
+    if (str.empty())
+        return { };
+
+    const int sizeNeeded = MultiByteToWideChar(codePage, 0, str.data(), static_cast<int>(str.size()), nullptr, 0);
+    if (sizeNeeded <= 0)
+        return { };
+
+    std::wstring wStr(static_cast<size_t>(sizeNeeded), 0);
+    MultiByteToWideChar(codePage, 0, str.data(), static_cast<int>(str.size()), wStr.data(), sizeNeeded);
+    return wStr;
 }
 
-std::string utf16toWindows1252(const std::wstring& str)
+/**
+ * @brief Converts a UTF-16 string to a narrow string of the given code page with the Win32 conversion functions.
+ * A character the code page cannot represent takes Windows' best fit character when there is one and is dropped
+ * otherwise, as the boost.locale conversion this replaced did (its skip method asks for a substitute of 0 and erases
+ * it).
+ */
+std::string wideToMultiByte(unsigned codePage,
+                            const std::wstring& wStr)
 {
-    return boost::locale::conv::from_utf<wchar_t>(str, "windows-1252");
+    if (wStr.empty())
+        return { };
+
+    // UTF-8 represents every character, and the API refuses a default character for it.
+    const bool isUTF8 = codePage == CP_UTF8;
+    constexpr char substitute = '\0';
+    const char* const defaultChar = isUTF8 ? nullptr : &substitute;
+    const int sizeNeeded = WideCharToMultiByte(
+        codePage, 0, wStr.data(), static_cast<int>(wStr.size()), nullptr, 0, defaultChar, nullptr);
+    if (sizeNeeded <= 0)
+        return { };
+
+    std::string str(static_cast<size_t>(sizeNeeded), 0);
+    BOOL usedDefault = FALSE;
+    WideCharToMultiByte(codePage,
+                        0,
+                        wStr.data(),
+                        static_cast<int>(wStr.size()),
+                        str.data(),
+                        sizeNeeded,
+                        defaultChar,
+                        isUTF8 ? nullptr : &usedDefault);
+    if (usedDefault)
+        std::erase(str, substitute);
+
+    return str;
 }
 
-std::wstring asciitoUTF16(const std::string& str) { return boost::locale::conv::to_utf<wchar_t>(str, "US-ASCII"); }
+} // namespace
 
-std::string utf16toASCII(const std::wstring& str) { return boost::locale::conv::from_utf<wchar_t>(str, "US-ASCII"); }
+std::wstring windows1252toUTF16(const std::string& str) { return multiByteToWide(codePageWindows1252, str); }
+
+std::string utf16toWindows1252(const std::wstring& str) { return wideToMultiByte(codePageWindows1252, str); }
+
+std::wstring asciitoUTF16(const std::string& str) { return multiByteToWide(codePageUSASCII, str); }
+
+std::string utf16toASCII(const std::wstring& str) { return wideToMultiByte(codePageUSASCII, str); }
 
 std::vector<std::wstring> utf8VectorToUTF16(const std::vector<std::string>& vec)
 {
@@ -99,35 +146,9 @@ std::vector<std::string> utf16VectorToASCII(const std::vector<std::wstring>& vec
 
 std::wstring toLowerASCII(const std::wstring& str) { return boost::to_lower_copy(str, std::locale::classic()); }
 
-std::wstring utf8toUTF16(const std::string& str)
-{
-    // Just return empty string if empty.
-    if (str.empty())
-        return { };
+std::wstring utf8toUTF16(const std::string& str) { return multiByteToWide(CP_UTF8, str); }
 
-    // Convert string > wstring.
-    const int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), nullptr, 0);
-    std::wstring wStr(sizeNeeded, 0);
-    MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.length()), wStr.data(), sizeNeeded);
-
-    return wStr;
-}
-
-std::string utf16toUTF8(const std::wstring& wStr)
-{
-    // Just return empty string if empty.
-    if (wStr.empty())
-        return { };
-
-    // Convert wstring > string.
-    const int sizeNeeded
-        = WideCharToMultiByte(CP_UTF8, 0, wStr.data(), static_cast<int>(wStr.size()), nullptr, 0, nullptr, nullptr);
-    std::string str(sizeNeeded, 0);
-    WideCharToMultiByte(
-        CP_UTF8, 0, wStr.data(), static_cast<int>(wStr.size()), str.data(), sizeNeeded, nullptr, nullptr);
-
-    return str;
-}
+std::string utf16toUTF8(const std::wstring& wStr) { return wideToMultiByte(CP_UTF8, wStr); }
 
 bool containsOnlyAscii(const std::string& str)
 {

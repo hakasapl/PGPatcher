@@ -62,16 +62,10 @@ size_t rootValueEnd(const std::string& text)
     return text.size();
 }
 
-/**
- * @brief Parses a Light Placer config the way Light Placer itself does (glaze with its default options): a byte order
- * mark is rejected, whatever follows the root value is ignored, and the root has to be an array.
- *
- * @param fullPath Path of the JSON file.
- * @param[out] out Parsed JSON.
- * @return true if Light Placer would load the file.
- */
-bool parseLightPlacerJSON(const std::filesystem::path& fullPath,
-                          nlohmann::json& out)
+} // namespace
+
+bool HandlerLightPlacerTracker::parseLightPlacerJSON(const std::filesystem::path& fullPath,
+                                                     nlohmann::json& out)
 {
     const auto bytes = FileUtil::fileBytes(fullPath);
     std::string text;
@@ -86,12 +80,17 @@ bool parseLightPlacerJSON(const std::filesystem::path& fullPath,
     return out.is_array();
 }
 
-} // namespace
-
 // Statics.
 std::vector<std::unique_ptr<HandlerLightPlacerTracker::LPJSON>> HandlerLightPlacerTracker::s_lightPlacerJSONs;
 std::unordered_map<std::filesystem::path, std::vector<std::pair<HandlerLightPlacerTracker::LPJSON*, nlohmann::json*>>>
     HandlerLightPlacerTracker::s_lightPlacerJSONMap;
+
+std::filesystem::path HandlerLightPlacerTracker::modelKey(const std::string& model)
+{
+    // Light Placer matches model paths regardless of case and PGPatcher's mesh paths are lower case, so the key is
+    // lower case too; a path compares its elements, so the separators of the entry do not matter.
+    return StringUtil::toLowerASCIIFast(StringUtil::utf8toUTF16(model));
+}
 
 void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& lpJSONs)
 {
@@ -133,11 +132,7 @@ void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& l
                 if (!model.is_string())
                     continue; // skip if model is not a string
 
-                // Light Placer matches model paths regardless of case and PGPatcher's mesh paths are lower case, so the
-                // lookup key is lower case too.
-                const std::filesystem::path modelPath
-                    = StringUtil::toLowerASCIIFast(StringUtil::utf8toUTF16(model.get<std::string>()));
-                s_lightPlacerJSONMap[modelPath].emplace_back(lpJsonPtr, &models);
+                s_lightPlacerJSONMap[modelKey(model.get<std::string>())].emplace_back(lpJsonPtr, &models);
             }
         }
     }

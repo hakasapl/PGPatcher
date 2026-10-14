@@ -17,7 +17,11 @@ using TestUtil::uniqueMessage;
 class ExceptionHandlerTest : public ::testing::Test {
 protected:
     void SetUp() override { ExceptionHandler::reset(); }
-    void TearDown() override { ExceptionHandler::reset(); }
+    void TearDown() override
+    {
+        ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard); // the guard main() installs
+        ExceptionHandler::reset();
+    }
 };
 
 TEST_F(ExceptionHandlerTest,
@@ -89,6 +93,23 @@ TEST_F(ExceptionHandlerTest,
     ExceptionHandler::throwExceptionOnMainThread();
     EXPECT_TRUE(TestLog::contains(spdlog::level::critical, next));
     EXPECT_FALSE(TestLog::contains(spdlog::level::critical, message));
+}
+
+TEST_F(ExceptionHandlerTest,
+       WithoutATaskGuardRunGuardedRecordsTheExceptionWithoutATrace)
+{
+    // The tests run with cppTraceGuard() installed; the fallback is what a program without cpptrace gets.
+    ExceptionHandler::setTaskGuard(nullptr);
+    EXPECT_TRUE(ExceptionHandler::runGuarded([] { }));
+    EXPECT_FALSE(ExceptionHandler::hasException());
+
+    const auto message = uniqueMessage("guarded failure");
+    EXPECT_FALSE(ExceptionHandler::runGuarded([&message] { throw std::runtime_error(message); }));
+
+    EXPECT_TRUE(ExceptionHandler::hasException());
+    ExceptionHandler::setMainThread();
+    ExceptionHandler::throwExceptionOnMainThread();
+    EXPECT_TRUE(TestLog::contains(spdlog::level::critical, message));
 }
 
 }

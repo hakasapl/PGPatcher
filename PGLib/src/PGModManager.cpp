@@ -1,7 +1,7 @@
 #include "PGModManager.hpp"
 
 #include "PGGlobals.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -124,7 +124,7 @@ auto PGModManager::modByFileSmart(const std::filesystem::path& relPath) const ->
     auto mod = modByFile(modSearchableFile);
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordModOfFile(relPath, !mod ? std::wstring() : mod->name);
+    PGRunObserver::current().recordModOfFile(relPath, !mod ? std::wstring() : mod->name);
 
     return mod;
 }

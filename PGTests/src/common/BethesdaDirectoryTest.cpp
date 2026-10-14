@@ -480,4 +480,99 @@ TEST(BethesdaDirectoryTest,
     EXPECT_NE(bsa, loose);
 }
 
+TEST(BethesdaDirectoryTest,
+     FileReaderServesEveryMappedFile)
+{
+    FakeGame fake;
+    fake.writeDataFile(L"meshes\\loose.nif", "loose");
+    BethesdaDirectory bd(fake.dataDir(), { L"meshes" }, fake.dataDir() / L"out");
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\loose.nif")), "loose");
+
+    std::vector<std::filesystem::path> requested;
+    bd.setFileReader([&requested](const std::filesystem::path& relPath) {
+        requested.push_back(relPath);
+        return std::vector<std::byte> { std::byte { 'r' } };
+    });
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\loose.nif")), "r");
+    EXPECT_EQ(requested, (std::vector<std::filesystem::path> { L"meshes\\loose.nif" }));
+
+    // Only mapped files are read through the reader.
+    EXPECT_THROW(std::ignore = bd.file(L"meshes\\missing.nif"), std::runtime_error);
+    EXPECT_EQ(requested.size(), 1U);
+
+    bd.setFileReader({ });
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\loose.nif")), "loose");
+}
+
+TEST(BethesdaDirectoryTest,
+     InjectedArchiveOrderMapsArchivesWithoutAGame)
+{
+    const TempDir dir;
+    BSABuilder modA;
+    modA.addFile("meshes\\shared.nif", "a");
+    modA.addFile("meshes\\a_only.nif", "a only");
+    modA.write(dir / L"ModA.bsa");
+    BSABuilder modB;
+    modB.addFile("meshes\\shared.nif", "b");
+    modB.write(dir / L"ModB.bsa");
+
+    BethesdaDirectory bd(dir.path(), { L"meshes" }, dir / L"out");
+    EXPECT_THROW(std::ignore = bd.bsaLoadOrder(), std::runtime_error);
+
+    bd.setArchiveLoadOrder({ L"ModA.bsa", L"ModB.bsa" });
+    EXPECT_EQ(bd.bsaLoadOrder(), (std::vector<std::wstring> { L"ModA.bsa", L"ModB.bsa" }));
+    bd.populateFileMap(true, false);
+
+    EXPECT_TRUE(bd.isBSAFile(L"meshes\\shared.nif"));
+    EXPECT_TRUE(bd.isBSAFile(L"meshes\\a_only.nif"));
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\shared.nif")), "b"); // the later archive wins
+    EXPECT_EQ(bd.modLookupFile(L"meshes\\shared.nif"), L"modb.bsa");
+
+    // Without the archive contents a file is only readable through a reader; the map still knows its archive.
+    bd.dropArchiveContents();
+    EXPECT_THROW(std::ignore = bd.file(L"meshes\\shared.nif"), std::runtime_error);
+    EXPECT_TRUE(bd.isFileInBSA(L"meshes\\shared.nif", { L"ModB.bsa" }));
+    bd.setFileReader([](const std::filesystem::path& relPath) {
+        const auto name = relPath.filename().string();
+        std::vector<std::byte> bytes;
+        for (const char ch : name)
+            bytes.push_back(static_cast<std::byte>(ch));
+        return bytes;
+    });
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\shared.nif")), "shared.nif");
+}
+
+TEST(BethesdaDirectoryTest,
+     HiddenFilesAreMappedWhenNotSkipped)
+{
+    FakeGame fake;
+    fake.writeDataFile(L"meshes\\hidden.nif", "hidden");
+    fake.writeDataFile(L"meshes\\visible.nif", "visible");
+    ASSERT_TRUE(SetFileAttributesW((fake.dataDir() / L"meshes\\hidden.nif").c_str(), FILE_ATTRIBUTE_HIDDEN));
+
+    BethesdaDirectory bd(fake.dataDir(), { L"meshes" }, fake.dataDir() / L"out");
+    bd.populateFileMap(false, false);
+    EXPECT_FALSE(bd.isFile(L"meshes\\hidden.nif"));
+    EXPECT_TRUE(bd.isFile(L"meshes\\visible.nif"));
+
+    bd.setShouldSkipHiddenFiles(false);
+    bd.populateFileMap(false, false);
+    EXPECT_TRUE(bd.isFile(L"meshes\\hidden.nif"));
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\hidden.nif")), "hidden");
+}
+
+TEST(BethesdaDirectoryTest,
+     FoldersToMapCanBeReplaced)
+{
+    FakeGame fake;
+    fake.writeDataFile(L"meshes\\a.nif", "mesh");
+    fake.writeDataFile(L"textures\\a.dds", "texture");
+
+    BethesdaDirectory bd(fake.dataDir(), { L"meshes", L"textures" }, fake.dataDir() / L"out");
+    bd.setFoldersToMap({ L"textures" });
+    bd.populateFileMap(false, false);
+    EXPECT_FALSE(bd.isFile(L"meshes\\a.nif"));
+    EXPECT_TRUE(bd.isFile(L"textures\\a.dds"));
+}
 }

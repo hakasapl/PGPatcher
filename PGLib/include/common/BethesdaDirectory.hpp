@@ -11,8 +11,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 #include <string>
 #include <unordered_set>
@@ -78,6 +80,12 @@ public:
         virtual void onGetFile(const std::filesystem::path& relPath,
                                const FileIdentity& identity) = 0;
     };
+
+    /**
+     * @brief Reads a mapped file (lower case path relative to the data folder) in place of the directory's own loose
+     * file and archive reading, see setFileReader().
+     */
+    using FileReader = std::function<std::vector<std::byte>(const std::filesystem::path&)>;
 
 private:
     /**
@@ -149,9 +157,14 @@ private:
     std::shared_mutex m_fileMapMutex; /** < Shared Mutex for the file map */
     std::unordered_set<std::filesystem::path>
         m_foldersToMap; /**< Set of folders to include when populating the file map, all lowercase */
+    std::unordered_set<std::filesystem::path> m_excludedFiles; /**< Files populateFileMap() leaves out, lower case */
 
     BethesdaGame* m_bg; /** < BethesdaGame which stores a BethesdaGame object
                         corresponding to this load order */
+
+    FileReader m_fileReader; /**< When set, file() reads every mapped file through it */
+    std::optional<std::vector<std::wstring>> m_archiveLoadOrder; /**< Replaces the derived archive load order */
+    bool m_shouldSkipHiddenFiles = true; /**< Whether hidden loose files stay out of the file map */
 
     inline thread_local static FileQueryObserver* s_threadQueryObserver = nullptr;
 
@@ -315,12 +328,55 @@ public:
     static void setThreadFileQueryObserver(FileQueryObserver* observer);
 
     /**
+     * @brief Makes file() read every mapped file through the given function instead of the data folder and the
+     * archives. The PGLite runtime reads through the game's resource layer this way. An empty function restores the
+     * directory's own reading. Not thread safe: no file() may run concurrently.
+     *
+     * @param reader Reader of a mapped file.
+     */
+    void setFileReader(FileReader reader);
+
+    /**
+     * @brief Replaces the archive load order bsaLoadOrder() derives from the INI files and the plugins, so archives
+     * can be mapped without a BethesdaGame. Call before populateFileMap().
+     *
+     * @param archives Archive file names in the data folder, the first element loads first.
+     */
+    void setArchiveLoadOrder(std::vector<std::wstring> archives);
+
+    /**
+     * @brief Frees the directory tables of the mapped archives. The file map keeps which archive a file comes from,
+     * but archived files can only be read through a file reader afterwards. Not thread safe: no file() may run
+     * concurrently.
+     */
+    void dropArchiveContents();
+
+    /**
+     * @brief Sets whether hidden loose files (hidden attribute, dot files, .mohidden files) stay out of the file map.
+     * They do by default; the game itself loads them. Call before populateFileMap().
+     */
+    void setShouldSkipHiddenFiles(bool shouldSkip);
+
+    /**
+     * @brief Replaces the lower case top level folders of the data folder that populateFileMap() maps. Call before
+     * populateFileMap().
+     */
+    void setFoldersToMap(std::unordered_set<std::filesystem::path> foldersToMap);
+
+    /**
+     * @brief Files populateFileMap() leaves out of the map, loose or archived, as if the load order did not have
+     * them: lower case paths relative to the data folder. The PGLite runtime keeps the textures an enabled offline
+     * output generated out of its inputs this way. Call before populateFileMap().
+     */
+    void setExcludedFiles(std::unordered_set<std::filesystem::path> files);
+
+    /**
      * @brief Returns the archives of the load order in load order: first the archives listed in the INI files, then the
-     * archives that belong to each active plugin. Archives in the data folder that nothing loads are logged as
-     * warnings.
+     * archives that belong to each active plugin, or the order given to setArchiveLoadOrder(). Archives in the data
+     * folder that nothing loads are logged as warnings.
      *
      * @return Archive file names in load order, the first element loads first.
-     * @throws std::runtime_error if there is no BethesdaGame.
+     * @throws std::runtime_error if there is no BethesdaGame and no injected order.
      */
     [[nodiscard]] std::vector<std::wstring> bsaLoadOrder() const;
 

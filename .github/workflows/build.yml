@@ -25,7 +25,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
           fetch-depth: 0
 
       - name: Set up Python
@@ -89,3 +89,9 @@ jobs:
         with:
           name: pgpatcher-${{ github.sha }}
           path: dist/PGPatcher
+
+      - name: Upload PGLite Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pglite-${{ github.sha }}
+          path: dist/PGLite

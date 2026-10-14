@@ -41,7 +41,11 @@ VERSION_FILE = os.path.join(REPO_ROOT, 'scripts', 'clang-tidy-version.txt')
 
 # Directories holding first-party code. Everything else (external/, the build tree,
 # vcpkg_installed/) is somebody else's problem.
-PROJECT_DIRS = ('PGLib', 'PGPatcher', 'PGMutagen', 'PGTools', 'PGTests')
+PROJECT_DIRS = ('PGLib', 'PGPatcher', 'PGMutagen', 'PGTools', 'PGTests', 'PGLite')
+
+# PGLite is a second configure (buildRelease.ps1 puts it under the root build tree); its
+# compile commands are checked alongside the root ones when that tree exists.
+SECONDARY_BUILD_DIRS = ('PGLite',)
 
 # Where a configured build tree usually lives, best first.
 BUILD_DIR_CANDIDATES = (
@@ -77,6 +81,17 @@ def find_clang_tidy(explicit: str | None, expected: str) -> str:
     if not path:
         sys.exit(f'error: {explicit or "clang-tidy"} not found; install LLVM {expected} and put its bin directory on PATH')
     return path
+
+
+def secondary_compile_commands(compile_commands: str) -> list[str]:
+    """The compile commands of the secondary configures under the same build tree, when they exist."""
+    build_dir = os.path.dirname(compile_commands)
+    found = []
+    for name in SECONDARY_BUILD_DIRS:
+        path = os.path.join(build_dir, name, 'compile_commands.json')
+        if os.path.isfile(path):
+            found.append(path)
+    return found
 
 
 def find_compile_commands(explicit: str | None) -> str:
@@ -164,10 +179,15 @@ def main() -> int:
     clang_tidy = find_clang_tidy(args.clang_tidy, expected)
 
     compile_commands = find_compile_commands(args.build_dir)
-    build_dir = os.path.dirname(compile_commands)
-    units = translation_units(compile_commands)
-    if not units:
+    # Every translation unit is checked against the build tree whose compile commands list it.
+    units_by_build_dir: dict[str, list[str]] = {}
+    for commands in [compile_commands] + secondary_compile_commands(compile_commands):
+        found = translation_units(commands)
+        if found:
+            units_by_build_dir[os.path.dirname(commands)] = found
+    if not units_by_build_dir:
         sys.exit(f'error: {compile_commands} lists no project sources; is the build tree stale?')
+    units = [unit for found in units_by_build_dir.values() for unit in found]
 
     version = subprocess.run([clang_tidy, '--version'], capture_output=True, text=True,
                              check=False).stdout.strip().splitlines()
@@ -178,19 +198,22 @@ def main() -> int:
     if not found or found.group(1) != expected:
         sys.exit(f'error: clang-tidy {found.group(1) if found else "(unknown version)"} does not match the pinned '
                  f'{expected}; install that LLVM release and put its bin directory first on PATH')
-    print(f'build tree: {build_dir}')
+    for tree, found in units_by_build_dir.items():
+        print(f'build tree: {tree} ({len(found)} translation units)')
     print(f'checking {len(units)} translation units on {args.jobs} jobs\n', flush=True)
 
     # A redrawn counter is only useful on a terminal; in a CI log it would be one long line.
     progress = sys.stdout.isatty()
 
-    failed: dict[str, list[str]] = {}
+    # Keyed by build tree and unit: a PGLib unit is checked once per tree and may fail in one tree only.
+    failed: dict[tuple[str, str], list[str]] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = [pool.submit(run_one, clang_tidy, build_dir, unit) for unit in units]
+        futures = {pool.submit(run_one, clang_tidy, tree, unit): tree
+                   for tree, found in units_by_build_dir.items() for unit in found}
         for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
             unit, diagnostics = future.result()
             if diagnostics:
-                failed[unit] = diagnostics
+                failed[(futures[future], unit)] = diagnostics
             if progress:
                 print(f'\r  {done}/{len(units)}', end='', flush=True)
     if progress:

@@ -1,4 +1,5 @@
 #include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 
 #include "DDSBuilder.hpp"
 #include "NIFBuilder.hpp"
@@ -51,7 +52,7 @@ protected:
     // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
     TestUtil::TempDir m_dir;
     std::unique_ptr<PGDirectory> m_pgd;
-    PGD3D m_d3d { TestUtil::shaderDir() };
+    PGD3D m_d3d;
     // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
     static constexpr const wchar_t* meshPath = L"meshes\\a\\stone.nif";
@@ -457,6 +458,60 @@ TEST_F(PGRunCacheTest,
     EXPECT_EQ(matches[0].shaderTransformTo, PGEnums::ShapeShader::ComplexMaterial);
     EXPECT_EQ(matches[0].matchedPath, L"textures\\a\\stone_p.dds");
     EXPECT_TRUE(matches[0].resultTextureMods.empty()); // unresolvable mods are dropped
+}
+
+TEST_F(PGRunCacheTest,
+       TheInstalledObserverForwardsToTheCache)
+{
+    PGRunCache::initialize(cacheFile(), true, true);
+    PGRunCache::setConfigFingerprint(42);
+    PGRunCache::setPluginFingerprint(7);
+
+    // The classifications stored through the observer are the cache's: the next run reads them.
+    const auto meshIdentity = m_pgd->fileIdentity(meshPath);
+    const auto maskIdentity = m_pgd->fileIdentity(L"textures\\a\\stone_m.dds");
+    {
+        auto& observer = PGRunObserver::current();
+        observer.storeMeshVotes(meshPath, meshIdentity, { { .texture = L"textures\\a\\stone.dds" } });
+        observer.storeCMClassification(L"textures\\a\\stone_m.dds", maskIdentity, { .isCM = true });
+        EXPECT_FALSE(observer.tryReuseHookOutput(HookKind::ConvertToCM, L"textures\\a\\stone_p.dds"));
+
+        // The dependencies recorded through the observer land in the mesh record like the direct ones.
+        writeOutputs();
+        PGRunCache::MeshRecorder recorder(meshPath);
+        observer.recordTextureType(L"textures\\a\\stone_p.dds", TextureType::Height);
+        observer.recordTextureAttribute(L"textures\\a\\stone_m.dds", TextureAttribute::CMMetalness, true);
+        observer.recordHookRegistration(HookKind::ConvertToCM, L"textures\\a\\stone_p.dds");
+        observer.recordOutputFile(meshPath, 12);
+        {
+            const PGRunObserver::SuspendRecording suspended;
+            observer.recordTextureType(L"textures\\a\\stone.dds", TextureType::Diffuse); // not recorded
+        }
+        recorder.setUses({ { s_use, PGPlugin::MeshUseAttributes { } } });
+        recorder.commit();
+    }
+    ASSERT_TRUE(PGRunCache::finishRun(true));
+
+    PGRunCache::initialize(cacheFile(), true, false);
+    PGRunCache::setConfigFingerprint(42);
+    PGRunCache::setPluginFingerprint(7);
+    auto& observer = PGRunObserver::current();
+    std::vector<PGTypes::TextureVote> votes;
+    EXPECT_TRUE(PGRunCache::tryGetCachedMeshVotes(meshPath, meshIdentity, votes));
+    ASSERT_EQ(votes.size(), 1U);
+    votes.clear();
+    EXPECT_TRUE(observer.tryGetCachedMeshVotes(meshPath, meshIdentity, votes));
+    EXPECT_EQ(votes.size(), 1U);
+    PGTypes::CMClassification cm;
+    EXPECT_TRUE(observer.tryGetCachedCMClassification(L"textures\\a\\stone_m.dds", maskIdentity, cm));
+    EXPECT_TRUE(cm.isCM);
+
+    const auto* record = PGRunCache::previousRecord(meshPath);
+    ASSERT_NE(record, nullptr);
+    EXPECT_EQ(record->textureTypeDeps.size(), 1U);
+    EXPECT_EQ(record->textureAttributeDeps.size(), 1U);
+    EXPECT_EQ(record->hookRegistrations.size(), 1U);
+    EXPECT_EQ(record->outputFiles.size(), 1U);
 }
 
 }

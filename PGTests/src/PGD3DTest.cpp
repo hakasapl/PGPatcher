@@ -1,4 +1,5 @@
 #include "PGD3D.hpp"
+#include "Half.h"
 
 #include "BSABuilder.hpp"
 #include "DDSBuilder.hpp"
@@ -43,7 +44,7 @@ protected:
     TestUtil::FakeGame m_fake;
     std::optional<BethesdaGame> m_game;
     std::unique_ptr<PGDirectory> m_pgd;
-    PGD3D m_d3d { TestUtil::shaderDir() };
+    PGD3D m_d3d;
     bool m_hasGPU = false;
     // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
@@ -102,14 +103,14 @@ TEST(PGD3DStaticTest,
 TEST(PGD3DStaticTest,
      GpuFunctionsThrowBeforeInitGpu)
 {
-    PGD3D d3d(TestUtil::shaderDir());
+    PGD3D d3d;
     const auto image = TestUtil::DDSBuilder::rgbaImage(16, 16);
 
     std::array<int, 4> counts { };
     EXPECT_THROW(d3d.countPixelValues(image, counts), std::runtime_error);
 
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> shader;
-    EXPECT_THROW(d3d.initShader("CountAlphaValues.hlsl", shader), std::runtime_error);
+    EXPECT_THROW(d3d.initShader(PGD3D::ShaderBytecode(), shader), std::runtime_error);
     EXPECT_THROW(d3d.initShaders(), std::runtime_error);
 
     Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
@@ -339,26 +340,17 @@ TEST_F(PGD3DTest,
 {
     requireGPU();
 
-    const TestUtil::TempDir shaders;
-    TestUtil::writeFile(shaders / L"Half.hlsl",
-                        "Texture2D<float4> Input : register(t0);\n"
-                        "RWTexture2D<float4> Output : register(u0);\n"
-                        "[numthreads(16, 16, 1)]\n"
-                        "void main(uint3 id : SV_DispatchThreadID)\n"
-                        "{\n"
-                        "    Output[id.xy] = Input.Load(uint3(id.xy, 0)) * 0.5;\n"
-                        "}\n");
-    TestUtil::writeFile(shaders / L"Broken.hlsl", "this does not compile");
-
-    PGD3D d3d(shaders.path());
+    PGD3D d3d;
     ASSERT_TRUE(d3d.initGPU());
 
+    // Half.hlsl (PGTests/cshaders) is compiled at build time like the shaders of PGLib.
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> half;
-    ASSERT_TRUE(d3d.initShader("Half.hlsl", half));
+    ASSERT_TRUE(d3d.initShader(PGD3D::ShaderBytecode(g_Half), half));
+    const std::array<unsigned char, 16> garbage { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> broken;
-    EXPECT_FALSE(d3d.initShader("Broken.hlsl", broken));
+    EXPECT_FALSE(d3d.initShader(PGD3D::ShaderBytecode(garbage), broken));
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> missing;
-    EXPECT_FALSE(d3d.initShader("Missing.hlsl", missing));
+    EXPECT_FALSE(d3d.initShader(PGD3D::ShaderBytecode(), missing));
 
     const auto input = TestUtil::DDSBuilder::rgbaImage(32, 32, RGBA { .r = 200, .g = 100, .b = 50, .a = 255 });
     DirectX::ScratchImage output;

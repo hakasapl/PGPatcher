@@ -177,4 +177,28 @@ TEST_F(HandlerLightPlacerTrackerTest,
     PGGlobals::setPGD(m_pgd.get());
 }
 
+TEST_F(HandlerLightPlacerTrackerTest,
+       ParseLightPlacerJSONAcceptsWhatLightPlacerAccepts)
+{
+    // The parser is also what the PGLite runtime reads the configs with.
+    nlohmann::json parsed;
+    EXPECT_TRUE(HandlerLightPlacerTracker::parseLightPlacerJSON(dataDir() / L"lightplacer\\a.json", parsed));
+    EXPECT_EQ(parsed.size(), 5U);
+    EXPECT_TRUE(HandlerLightPlacerTracker::parseLightPlacerJSON(dataDir() / L"lightplacer\\trailing.json", parsed));
+    EXPECT_EQ(parsed.size(), 1U);
+    EXPECT_FALSE(HandlerLightPlacerTracker::parseLightPlacerJSON(dataDir() / L"lightplacer\\object.json", parsed));
+    EXPECT_FALSE(HandlerLightPlacerTracker::parseLightPlacerJSON(dataDir() / L"lightplacer\\bom.json", parsed));
+    EXPECT_FALSE(HandlerLightPlacerTracker::parseLightPlacerJSON(dataDir() / L"lightplacer\\broken.json", parsed));
+}
+
+TEST(HandlerLightPlacerModelKeyTest,
+     ModelKeyIgnoresCaseAndSeparatorForm)
+{
+    const std::filesystem::path key = L"armor\\foo.nif";
+    EXPECT_EQ(HandlerLightPlacerTracker::modelKey("Armor/Foo.NIF"), key);
+    EXPECT_EQ(HandlerLightPlacerTracker::modelKey("armor//foo.nif"), key);
+    EXPECT_EQ(HandlerLightPlacerTracker::modelKey("armor\\foo.nif"), key);
+    EXPECT_NE(HandlerLightPlacerTracker::modelKey("armor\\bar.nif"), key);
+}
+
 }

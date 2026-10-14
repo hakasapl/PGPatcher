@@ -2,8 +2,6 @@
 
 #include "util/ExceptionHandler.hpp"
 
-#include <cpptrace/from_current.hpp>
-
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>

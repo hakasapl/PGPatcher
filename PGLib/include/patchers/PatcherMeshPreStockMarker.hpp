@@ -30,9 +30,10 @@
  *
  * The block is only created on BodySlide ShapeData meshes (plugin uses flagged isBodySlideShapeData). BodySlide clones
  * the extra data of a ShapeData shape into every mesh it builds from it, so PGPatcher can patch the ShapeData first and
- * still patch the built meshes correctly in a later run. Any other mesh that has the block is reverted all the same,
- * which lets mods ship pre-patched meshes. pgtools can create the blocks for such a mod from the original and the
- * patched meshes.
+ * still patch the built meshes correctly in a later run. In the PGLite mode of the offline program (loadOptions())
+ * every patched shape gets the block, which lets PGLite revert the output's meshes when the game loads them. Any other
+ * mesh that has the block is reverted all the same, which lets mods ship pre-patched meshes. pgtools can create the
+ * blocks for such a mod from the original and the patched meshes.
  */
 class PatcherMeshPreStockMarker : public PatcherMeshPre {
 public:
@@ -41,6 +42,14 @@ public:
 
     /// @brief Version written into the block, so the format can change later without breaking old blocks.
     static constexpr unsigned formatVersion = 1;
+
+    /**
+     * @brief Sets whether every patched shape gets a PG_STOCK block (the PGLite mode of the offline program) instead
+     * of the shapes of BodySlide ShapeData meshes only
+     *
+     * @param shouldMarkEveryShape true to create the block on every patched shape
+     */
+    static void loadOptions(bool shouldMarkEveryShape);
 
     /**
      * @brief Get the Factory object
@@ -165,6 +174,8 @@ public:
                                     const std::wstring& meshLabel);
 
 private:
+    inline static bool s_shouldMarkEveryShape = false;
+
     /**
      * @brief Parses and validates the content of a PG_STOCK block
      *

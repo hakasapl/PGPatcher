@@ -23,7 +23,6 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 // Statics.
@@ -92,43 +91,7 @@ void PGConfig::resolveRelativePaths(PGParams& params)
         params.game.dir = resolveExeRelativePath(params.game.dir);
 }
 
-auto PGConfig::defaultParams() -> PGParams
-{
-    PGParams outParams;
-
-    // Game.
-    outParams.game.dir = BethesdaGame::findGamePathFromSteam(BethesdaGame::GameType::SkyrimSE);
-
-    // Mesh Rules.
-    static const std::vector<std::wstring> defaultMeshBlocklist
-        = { L"*\\cameras\\*", L"*\\dyndolod\\*", L"*\\lod\\*", L"*_lod_*", L"*_lod.*", L"*\\markers\\*" };
-    outParams.processing.blockList = defaultMeshBlocklist;
-
-    // Texture Rules.
-    static const std::vector<std::wstring> defaultVanillaBSAList = {
-        L"Skyrim - Textures0.bsa",
-        L"Skyrim - Textures1.bsa",
-        L"Skyrim - Textures2.bsa",
-        L"Skyrim - Textures3.bsa",
-        L"Skyrim - Textures4.bsa",
-        L"Skyrim - Textures5.bsa",
-        L"Skyrim - Textures6.bsa",
-        L"Skyrim - Textures7.bsa",
-        L"Skyrim - Textures8.bsa",
-        L"Project Clarity AIO Half Res Packed.bsa",
-        L"Project Clarity AIO Half Res Packed - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed0 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed1 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed2 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed3 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed4 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed5 - Textures.bsa",
-        L"Project Clarity AIO Half Res Packed6 - Textures.bsa",
-    };
-    outParams.processing.vanillaBSAList = defaultVanillaBSAList;
-
-    return outParams;
-}
+auto PGConfig::defaultParams() -> PGParams { return PGParams::defaults(); }
 
 void PGConfig::loadConfig()
 {
@@ -140,7 +103,7 @@ void PGConfig::loadConfig()
         nlohmann::json j;
         if (parseJSON(FileUtil::fileBytes(userConfigFile()), j)) {
             if (!j.empty()) {
-                replaceForwardSlashes(j);
+                PGParams::replaceForwardSlashes(j);
                 addConfigJSON(j);
             }
 
@@ -163,93 +126,8 @@ void PGConfig::addConfigJSON(const nlohmann::json& j)
         m_uiTheme = j["ui"]["theme"].get<std::string>();
 
     // "params" field.
-    if (j.contains("params")) {
-        const auto& paramJ = j["params"];
-
-        // "game".
-        if (paramJ.contains("game") && paramJ["game"].contains("dir"))
-            m_params.game.dir = StringUtil::utf8toUTF16(paramJ["game"]["dir"].get<std::string>());
-        if (paramJ.contains("game") && paramJ["game"].contains("type"))
-            paramJ["game"]["type"].get_to<BethesdaGame::GameType>(m_params.game.type);
-
-        // "modmanager".
-        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("type"))
-            paramJ["modmanager"]["type"].get_to<PGModManager::ModManagerType>(m_params.modManager.type);
-        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2instancedir"))
-            paramJ["modmanager"]["mo2instancedir"].get_to<std::filesystem::path>(m_params.modManager.mo2InstanceDir);
-        if (paramJ.contains("modmanager") && paramJ["modmanager"].contains("mo2useloosefileorder"))
-            paramJ["modmanager"]["mo2useloosefileorder"].get_to<bool>(m_params.modManager.shouldUseMO2LooseFileOrder);
-
-        // "output".
-        if (paramJ.contains("output") && paramJ["output"].contains("dir"))
-            m_params.output.dir = StringUtil::utf8toUTF16(paramJ["output"]["dir"].get<std::string>());
-        if (paramJ.contains("output") && paramJ["output"].contains("zip"))
-            paramJ["output"]["zip"].get_to<bool>(m_params.output.zip);
-        if (paramJ.contains("output") && paramJ["output"].contains("pluginlang")) {
-            m_params.output.pluginLang
-                = PGPlugin::pluginLangFromString(paramJ["output"]["pluginlang"].get<std::string>());
-        }
-
-        // "processing".
-        if (paramJ.contains("processing") && paramJ["processing"].contains("multithread"))
-            paramJ["processing"]["multithread"].get_to<bool>(m_params.processing.multithread);
-        if (paramJ.contains("processing") && paramJ["processing"].contains("devmode"))
-            paramJ["processing"]["devmode"].get_to<bool>(m_params.processing.enableModDevMode);
-        if (paramJ.contains("processing") && paramJ["processing"].contains("enabledebuglogging"))
-            paramJ["processing"]["enabledebuglogging"].get_to<bool>(m_params.processing.enableDebugLogging);
-        if (paramJ.contains("processing") && paramJ["processing"].contains("enabletracelogging"))
-            paramJ["processing"]["enabletracelogging"].get_to<bool>(m_params.processing.enableTraceLogging);
-        if (paramJ.contains("processing") && paramJ["processing"].contains("allowlist"))
-            for (const auto& item : paramJ["processing"]["allowlist"])
-                m_params.processing.allowList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
-        if (paramJ.contains("processing") && paramJ["processing"].contains("blocklist"))
-            for (const auto& item : paramJ["processing"]["blocklist"])
-                m_params.processing.blockList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
-        if (paramJ.contains("processing") && paramJ["processing"].contains("texturemaps")) {
-            for (const auto& item : paramJ["processing"]["texturemaps"].items()) {
-                m_params.processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(item.key()),
-                                                             PGEnums::texTypeFromStr(item.value().get<std::string>()));
-            }
-        }
-        if (paramJ.contains("processing") && paramJ["processing"].contains("vanillabsalist"))
-            for (const auto& item : paramJ["processing"]["vanillabsalist"])
-                m_params.processing.vanillaBSAList.push_back(StringUtil::utf8toUTF16(item.get<std::string>()));
-        if (paramJ.contains("processing") && paramJ["processing"].contains("allowedmodelrecordtypes")) {
-            m_params.processing.allowedModelRecordTypes.clear();
-
-            for (const auto& item : paramJ["processing"]["allowedmodelrecordtypes"])
-                m_params.processing.allowedModelRecordTypes.insert(
-                    PGPlugin::recTypeFromString(item.get<std::string>()));
-        }
-
-        // "prepatcher".
-        if (paramJ.contains("prepatcher") && paramJ["prepatcher"].contains("fixmeshlighting"))
-            paramJ["prepatcher"]["fixmeshlighting"].get_to<bool>(m_params.prePatcher.isFixMeshLightingEnabled);
-
-        // "shaderpatcher".
-        if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("parallax"))
-            paramJ["shaderpatcher"]["parallax"].get_to<bool>(m_params.shaderPatcher.isParallaxEnabled);
-        if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("complexmaterial"))
-            paramJ["shaderpatcher"]["complexmaterial"].get_to<bool>(m_params.shaderPatcher.isComplexMaterialEnabled);
-        if (paramJ.contains("shaderpatcher") && paramJ["shaderpatcher"].contains("truepbr"))
-            paramJ["shaderpatcher"]["truepbr"].get_to<bool>(m_params.shaderPatcher.isTruePBREnabled);
-
-        // "shadertransforms".
-        if (paramJ.contains("shadertransforms") && paramJ["shadertransforms"].contains("parallaxtocm"))
-            paramJ["shadertransforms"]["parallaxtocm"].get_to<bool>(m_params.shaderTransforms.isParallaxToCMEnabled);
-
-        // "postpatcher".
-        if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("disableprepatchedmaterials")) {
-            paramJ["postpatcher"]["disableprepatchedmaterials"].get_to<bool>(
-                m_params.postPatcher.disablePrePatchedMaterials);
-        }
-        if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("fixsss"))
-            paramJ["postpatcher"]["fixsss"].get_to<bool>(m_params.postPatcher.isFixSSSEnabled);
-        if (paramJ.contains("postpatcher") && paramJ["postpatcher"].contains("hairflowmap"))
-            paramJ["postpatcher"]["hairflowmap"].get_to<bool>(m_params.postPatcher.isHairFlowMapEnabled);
-
-        // "globalpatcher".
-    }
+    if (j.contains("params"))
+        m_params.readJSON(j["params"]);
 }
 
 bool PGConfig::parseJSON(const std::vector<std::byte>& bytes,
@@ -264,22 +142,6 @@ bool PGConfig::parseJSON(const std::vector<std::byte>& bytes,
     }
 
     return true;
-}
-
-void PGConfig::replaceForwardSlashes(nlohmann::json& json)
-{
-    if (json.is_string()) {
-        auto& str = json.get_ref<std::string&>();
-        for (auto& ch : str)
-            if (ch == '/')
-                ch = '\\';
-    } else if (json.is_object()) {
-        for (const auto& item : json.items())
-            replaceForwardSlashes(item.value());
-    } else if (json.is_array()) {
-        for (auto& element : json)
-            replaceForwardSlashes(element);
-    }
 }
 
 auto PGConfig::params() const -> PGParams { return m_params; }
@@ -300,9 +162,6 @@ bool PGConfig::validateParams(const PGParams& rawParams,
     // Paths may be relative to the PGPatcher.exe folder; validate the resolved ones
     PGParams params = rawParams;
     resolveRelativePaths(params);
-
-    // Helpers.
-    std::unordered_set<std::wstring> checkSet;
 
     // Validation messages are shown in the launcher's error dialog, so they are localized like every other GUI string.
     const auto addError = [&errors](const std::string& key) { errors.emplace_back(pgTr(key).utf8_string()); };
@@ -341,58 +200,13 @@ bool PGConfig::validateParams(const PGParams& rawParams,
     if (params.output.dir.empty())
         addError("launcher.validation.outputLocationRequired");
 
-    // Processing.
-
-    // Pre-Patchers.
-
-    // Shader Patchers.
-
-    // Shader Transforms.
-    if (params.shaderTransforms.isParallaxToCMEnabled
-        && (!params.shaderPatcher.isParallaxEnabled || !params.shaderPatcher.isComplexMaterialEnabled)) {
-        addError("launcher.validation.parallaxToCMRequiresPatchers");
-    }
-
-    // Post-Patchers.
-
-    // Mesh Rules.
-    checkSet.clear();
-    for (const auto& item : params.processing.allowList) {
-        if (item.empty())
-            addError("launcher.validation.meshAllowListEmptyEntry");
-
-        if (!checkSet.insert(item).second)
-            addErrorWithItem("launcher.validation.meshAllowListDuplicate", item);
-    }
-
-    checkSet.clear();
-    for (const auto& item : params.processing.blockList) {
-        if (item.empty())
-            addError("launcher.validation.meshBlockListEmptyEntry");
-
-        if (!checkSet.insert(item).second)
-            addErrorWithItem("launcher.validation.meshBlockListDuplicate", item);
-    }
-
-    // Texture Rules.
-
-    checkSet.clear();
-    for (const auto& [key, value] : params.processing.textureMaps) {
-        if (key.empty())
-            addError("launcher.validation.textureRulesEmptyKey");
-
-        if (!checkSet.insert(key).second)
-            addErrorWithItem("launcher.validation.textureRulesDuplicate", key);
-    }
-
-    checkSet.clear();
-    for (const auto& item : params.processing.vanillaBSAList) {
-        if (item.empty())
-            addError("launcher.validation.vanillaBSAListEmptyEntry");
-
-        if (!checkSet.insert(item).second)
-            addErrorWithItem("launcher.validation.vanillaBSAListDuplicate", item);
-    }
+    // The parameters that are not paths of this machine: the shared check, so the PGLite menu refuses the same
+    // settings the launcher does.
+    for (const auto& error : params.validate())
+        if (error.hasItem)
+            addErrorWithItem(error.key, error.item);
+        else
+            addError(error.key);
 
     return errors.empty();
 }
@@ -407,53 +221,7 @@ nlohmann::json PGConfig::userConfigJSON() const
     j["ui"]["theme"] = m_uiTheme;
 
     // Params.
-
-    // "game".
-    j["params"]["game"]["dir"] = StringUtil::utf16toUTF8(m_params.game.dir.wstring());
-    j["params"]["game"]["type"] = m_params.game.type;
-
-    // "modmanager".
-    j["params"]["modmanager"]["type"] = m_params.modManager.type;
-    j["params"]["modmanager"]["mo2instancedir"] = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
-    j["params"]["modmanager"]["mo2useloosefileorder"] = m_params.modManager.shouldUseMO2LooseFileOrder;
-
-    // "output".
-    j["params"]["output"]["dir"] = StringUtil::utf16toUTF8(m_params.output.dir.wstring());
-    j["params"]["output"]["zip"] = m_params.output.zip;
-    j["params"]["output"]["pluginlang"] = PGPlugin::stringFromPluginLang(m_params.output.pluginLang);
-
-    // "processing".
-    j["params"]["processing"]["multithread"] = m_params.processing.multithread;
-    j["params"]["processing"]["devmode"] = m_params.processing.enableModDevMode;
-    j["params"]["processing"]["enabledebuglogging"] = m_params.processing.enableDebugLogging;
-    j["params"]["processing"]["enabletracelogging"] = m_params.processing.enableTraceLogging;
-    j["params"]["processing"]["allowlist"] = StringUtil::utf16VectorToUTF8(m_params.processing.allowList);
-    j["params"]["processing"]["blocklist"] = StringUtil::utf16VectorToUTF8(m_params.processing.blockList);
-    j["params"]["processing"]["texturemaps"] = nlohmann::json::object();
-    for (const auto& [key, value] : m_params.processing.textureMaps)
-        j["params"]["processing"]["texturemaps"][StringUtil::utf16toUTF8(key)] = PGEnums::strFromTexType(value);
-    j["params"]["processing"]["vanillabsalist"] = StringUtil::utf16VectorToUTF8(m_params.processing.vanillaBSAList);
-    j["params"]["processing"]["allowedmodelrecordtypes"] = nlohmann::json::array();
-    for (const auto& item : m_params.processing.allowedModelRecordTypes)
-        j["params"]["processing"]["allowedmodelrecordtypes"].push_back(PGPlugin::stringFromRecType(item));
-
-    // "prepatcher".
-    j["params"]["prepatcher"]["fixmeshlighting"] = m_params.prePatcher.isFixMeshLightingEnabled;
-
-    // "shaderpatcher".
-    j["params"]["shaderpatcher"]["parallax"] = m_params.shaderPatcher.isParallaxEnabled;
-    j["params"]["shaderpatcher"]["complexmaterial"] = m_params.shaderPatcher.isComplexMaterialEnabled;
-    j["params"]["shaderpatcher"]["truepbr"] = m_params.shaderPatcher.isTruePBREnabled;
-
-    // "shadertransforms".
-    j["params"]["shadertransforms"]["parallaxtocm"] = m_params.shaderTransforms.isParallaxToCMEnabled;
-
-    // "postpatcher".
-    j["params"]["postpatcher"]["disableprepatchedmaterials"] = m_params.postPatcher.disablePrePatchedMaterials;
-    j["params"]["postpatcher"]["fixsss"] = m_params.postPatcher.isFixSSSEnabled;
-    j["params"]["postpatcher"]["hairflowmap"] = m_params.postPatcher.isHairFlowMapEnabled;
-
-    // "globalpatcher".
+    m_params.writeJSON(j["params"]);
 
     return j;
 }

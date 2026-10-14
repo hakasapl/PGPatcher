@@ -1,5 +1,6 @@
 <#
-PowerShell script to build the release version of PGPatcher as well as a symbols file.
+PowerShell script to build the release version of PGPatcher as well as a symbols file, and the PGLite SKSE plugin
+(a second, standalone configure, see PGLite/CMakeLists.txt).
 This script is intended to be run from the command line, not from within an IDE.
 #>
 
@@ -70,9 +71,48 @@ if ($PSBoundParameters.ContainsKey('Prerelease')) {
 Write-Host "Running cmake with arguments: $($cmakeArgs -join ' ')"
 
 cmake @cmakeArgs
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 # Build and install
 cmake --build $buildDir
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+# Configure and build PGLite. A configure has one triplet, so the plugin (static CRT, static libraries) is a second
+# configure that compiles the shared PGLib sources again.
+$pgliteBuildDir = Join-Path -Path $buildDir -ChildPath "PGLite"
+$pgliteArgs = @(
+    "-B", $pgliteBuildDir,
+    "-S", "PGLite",
+    "-G", "Ninja",
+    "-DCMAKE_TOOLCHAIN_FILE=$toolchain",
+    "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+)
+if ($PSBoundParameters.ContainsKey('Version') -and $Version) {
+    $pgliteArgs += "-DPG_VERSION=$Version"
+}
+if ($PSBoundParameters.ContainsKey('Prerelease')) {
+    $pgliteArgs += "-DPG_PRERELEASE=$Prerelease"
+}
+
+Write-Host "Running cmake for PGLite with arguments: $($pgliteArgs -join ' ')"
+cmake @pgliteArgs
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+cmake --build $pgliteBuildDir
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+# Custom zip entry name encoder that fixes linux paths (used for both zip files)
+Add-Type -AssemblyName System.Text.Encoding
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+class FixedEncoder : System.Text.UTF8Encoding {
+    FixedEncoder() : base($true) { }
+
+    [byte[]] GetBytes([string] $s) {
+        $s = $s.Replace("\\", "/");
+        return ([System.Text.UTF8Encoding]$this).GetBytes($s);
+    }
+}
 
 # Create distribution zip file
 # Ensure dist directory exists
@@ -123,11 +163,6 @@ try {
         }
 
         if ($_.PSIsContainer -and $_.Name -eq 'translations') {
-            $copyFile = $true
-        }
-
-        # Check if is folder and name is "cshaders"
-        if ($_.PSIsContainer -and $_.Name -eq 'cshaders') {
             $copyFile = $true
         }
 
@@ -202,19 +237,6 @@ try {
             Remove-Item -Path $zipFile -Force
         }
 
-        # Custom encoder to fix linux paths
-        Add-Type -AssemblyName System.Text.Encoding
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-        class FixedEncoder : System.Text.UTF8Encoding {
-            FixedEncoder() : base($true) { }
-
-            [byte[]] GetBytes([string] $s) {
-                $s = $s.Replace("\\", "/");
-                return ([System.Text.UTF8Encoding]$this).GetBytes($s);
-            }
-        }
-
         # Create zip file
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $zipFile, [System.IO.Compression.CompressionLevel]::Optimal, $false, [FixedEncoder]::new())
@@ -231,6 +253,57 @@ finally {
         # Clean up the temporary directory
         if (Test-Path -Path $tempDir) {
             Remove-Item -Path $tempDir -Recurse -Force
+        }
+    }
+}
+
+# PGLite: the plugin, its symbols and the package folder (ini, dynamic cubemap) in the SKSE layout, zipped as the second
+# release artifact.
+$pgliteZipFile = Join-Path -Path $distDir -ChildPath "PGLite.zip"
+$pgliteTempDir = Join-Path -Path $distDir -ChildPath "PGLite"
+$pglitePluginsDir = Join-Path -Path $pgliteTempDir -ChildPath "SKSE\Plugins"
+New-Item -Path $pglitePluginsDir -ItemType Directory -Force | Out-Null
+
+try {
+    $pgliteBinDir = Join-Path -Path $pgliteBuildDir -ChildPath "bin"
+    foreach ($file in @("PGLite.dll", "PGLite.pdb")) {
+        $source = Join-Path -Path $pgliteBinDir -ChildPath $file
+        if (-not (Test-Path -Path $source -PathType Leaf)) {
+            Write-Error "PGLite build output does not exist: $source"
+            exit 1
+        }
+
+        Write-Host "Copying file: $source to $pglitePluginsDir"
+        Copy-Item -Path $source -Destination $pglitePluginsDir -Force
+    }
+
+    $pglitePkgDir = Join-Path -Path $scriptDir -ChildPath "PGLite\package"
+    Write-Host "Copying contents of $pglitePkgDir to $pgliteTempDir..."
+    Copy-Item -Path (Join-Path $pglitePkgDir '*') -Destination $pgliteTempDir -Recurse -Force
+
+    # The translation files are the offline launcher's; PGLite reads them from SKSE\Plugins\PGLite\translations.
+    $pgliteTranslationsDir = Join-Path -Path $pglitePluginsDir -ChildPath "PGLite\translations"
+    New-Item -Path $pgliteTranslationsDir -ItemType Directory -Force | Out-Null
+    Copy-Item -Path (Join-Path $scriptDir 'PGPatcher\translations\*.json') -Destination $pgliteTranslationsDir -Force
+
+    if (-not $NoZip) {
+        Write-Host "Creating zip file: $pgliteZipFile"
+        if (Test-Path -Path $pgliteZipFile) {
+            Remove-Item -Path $pgliteZipFile -Force
+        }
+
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($pgliteTempDir, $pgliteZipFile, [System.IO.Compression.CompressionLevel]::Optimal, $false, [FixedEncoder]::new())
+        Write-Host "Zip file created successfully: $pgliteZipFile"
+    }
+}
+catch {
+    Write-Error "An error occurred: $_"
+    exit 1
+}
+finally {
+    if (-not $NoZip) {
+        if (Test-Path -Path $pgliteTempDir) {
+            Remove-Item -Path $pgliteTempDir -Recurse -Force
         }
     }
 }

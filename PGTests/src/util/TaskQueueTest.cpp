@@ -8,6 +8,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <exception>
+#include <functional>
 #include <mutex>
 #include <numeric>
 #include <set>
@@ -32,6 +34,7 @@ protected:
     void TearDown() override
     {
         TaskQueue::setExceptionCallback(nullptr);
+        ExceptionHandler::setTaskGuard(&ExceptionHandler::cppTraceGuard); // the guard main() installs
         ExceptionHandler::reset();
     }
 };
@@ -182,6 +185,36 @@ TEST_F(TaskQueueTest,
     queue.queueTask([&ran] { ran++; });
     queue.waitForCompletion();
     EXPECT_EQ(ran, 1);
+}
+
+TEST_F(TaskQueueTest,
+       CarriesOnWhenTheGuardDoesNotRecordTheException)
+{
+    // A guard like the PGLite runtime's: the exception is reported, not recorded.
+    ExceptionHandler::setTaskGuard([](const std::function<void()>& task) {
+        try {
+            task();
+        } catch (const std::exception&) {
+            return false;
+        }
+
+        return true;
+    });
+
+    std::atomic<int> ran { 0 };
+    std::atomic<int> callbacks { 0 };
+    TaskQueue::setExceptionCallback([&callbacks] { callbacks++; });
+    {
+        TaskQueue queue;
+        queue.queueTask([&ran] { ran++; });
+        queue.queueTask([] { throw std::runtime_error("task failed"); });
+        queue.queueTask([&ran] { ran++; });
+        queue.waitForCompletion();
+    }
+
+    EXPECT_EQ(ran, 2);
+    EXPECT_EQ(callbacks, 1);
+    EXPECT_FALSE(ExceptionHandler::hasException());
 }
 
 }

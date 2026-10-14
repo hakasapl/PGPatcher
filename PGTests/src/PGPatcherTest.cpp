@@ -1,6 +1,7 @@
 #include "PGPatcher.hpp"
 
 #include "DDSBuilder.hpp"
+#include "FakeGame.hpp"
 #include "NIFBuilder.hpp"
 #include "PGD3D.hpp"
 #include "PGDirectory.hpp"
@@ -8,7 +9,9 @@
 #include "PGModManager.hpp"
 #include "PGPlugin.hpp"
 #include "PGRunCache.hpp"
+#include "PluginBuilder.hpp"
 #include "TestUtil.hpp"
+#include "common/BethesdaGame.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshPreStockMarker.hpp"
@@ -32,7 +35,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -44,6 +49,7 @@ using PGEnums::TextureSlots;
 using PGEnums::TextureType;
 using FormKey = PGMeshPermutationTracker::FormKey;
 using TestUtil::NIFBuilder;
+using TestUtil::PluginBuilder;
 
 PGTypes::TextureSet slots(const std::wstring& diffuse,
                           const std::wstring& normal = L"")
@@ -88,7 +94,7 @@ protected:
     // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
     TestUtil::TempDir m_dir;
     std::unique_ptr<PGDirectory> m_pgd;
-    PGD3D m_d3d { TestUtil::shaderDir() };
+    PGD3D m_d3d;
     uint32_t m_behindBlockID = 0; /** Block ID of the second shape of the marker mesh as it was built */
     // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
@@ -202,6 +208,7 @@ TEST_F(PGPatcherTest,
         false,
         true,
         { },
+        false,
         false,
         false,
         [&progress](size_t done, size_t total) { progress.emplace_back(done, total); },
@@ -505,6 +512,167 @@ TEST_F(PGPatcherTest,
     PGPatcher::loadPatchers(onlyDefault, { });
     EXPECT_NE(PGPatcher::computeMatchesDigest(stonePath, stone, false, PGPlugin::ModelRecordType::StaticObject),
               digest);
+}
+
+/**
+ * @brief A game whose master uses a static and an armor addon mesh, with a BodySlide ShapeData mesh, a facegen head and
+ * an unused mesh beside them: what the PGLite mode of the runner picks from.
+ */
+class PGPatcherPGLiteModeTest : public ::testing::Test {
+protected:
+    // gtest fixtures share their state with the tests through protected members.
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+    TestUtil::FakeGame m_fake;
+    std::optional<BethesdaGame> m_game;
+    std::unique_ptr<PGDirectory> m_pgd;
+    PGD3D m_d3d;
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+
+    static constexpr const wchar_t* staticPath = L"meshes\\pglitemode\\rock.nif";
+    static constexpr const wchar_t* addonPath = L"meshes\\pglitemode\\boots.nif";
+    static constexpr const wchar_t* unusedPath = L"meshes\\pglitemode\\unused.nif";
+    static constexpr const wchar_t* shapeDataPath = L"calientetools\\bodyslide\\shapedata\\pglitemode\\body.nif";
+    static constexpr const wchar_t* facegenPath
+        = L"meshes\\actors\\character\\facegendata\\facegeom\\pglitemode.esp\\00000800.nif";
+
+    [[nodiscard]] std::filesystem::path outDir() const { return m_fake.gameDir() / L"Output"; }
+
+    void SetUp() override
+    {
+        // Only a height map exists for the wood, so every shape takes the parallax shader.
+        for (const auto* texture : {
+                 L"textures\\pglitemode\\wood.dds",
+                 L"textures\\pglitemode\\wood_n.dds",
+                 L"textures\\pglitemode\\wood_p.dds",
+             }) {
+            TestUtil::DDSBuilder::writeDDS(m_fake.dataDir() / texture, 16, 16);
+        }
+        for (const auto* path : { staticPath, addonPath, unusedPath, shapeDataPath, facegenPath }) {
+            NIFBuilder builder;
+            builder.addShape("Shape", slots(L"textures\\pglitemode\\wood.dds", L"textures\\pglitemode\\wood_n.dds"));
+            builder.save(m_fake.dataDir() / path);
+        }
+
+        PluginBuilder master("Skyrim.esm", true);
+        master.addStatic(0x000800, "RockSTAT", "pglitemode\\rock.nif");
+        master.addArmorAddon(0x000801, "BootsAA", { .maleWorld = "pglitemode\\boots.nif" });
+        m_fake.writeDataFile(L"Skyrim.esm", master.bytes());
+        m_game.emplace(m_fake.game());
+        PGPlugin::initialize(*m_game, TestUtil::executableDir());
+        PGPlugin::populateObjs();
+
+        std::filesystem::create_directories(outDir());
+        TestUtil::writeFile(outDir() / L"meta.ini", "[General]");
+        m_pgd = std::make_unique<PGDirectory>(m_fake.dataDir(), outDir());
+        m_pgd->populateFileMap(false, false);
+        m_pgd->mapFiles({ }, { }, { }, { }, false);
+        m_pgd->waitForMeshMapping();
+        PGGlobals::setPGD(m_pgd.get());
+        PGGlobals::setPGD3D(&m_d3d);
+        PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
+        PGPatcher::resetRunState();
+
+        PatcherUtil::PatcherMeshSet meshPatchers;
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::factory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::shaderType(),
+                                            PatcherMeshShaderDefault::factory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::shaderType(),
+                                            PatcherMeshShaderVanillaParallax::factory());
+        PGPatcher::loadPatchers(meshPatchers, { });
+    }
+
+    void TearDown() override
+    {
+        PGGlobals::fileSaver().waitForCompletion();
+        PGPatcher::resetRunState();
+        PGPatcher::loadPatchers(PatcherUtil::PatcherMeshSet(), PatcherUtil::PatcherTextureSet());
+        PatcherMeshPreStockMarker::loadOptions(false);
+        PGPlugin::resetPatchingState();
+        PGGlobals::setPGD3D(nullptr);
+        PGGlobals::setPGD(nullptr);
+    }
+
+    /// @brief Whether the shape of an output mesh carries a stock marker block.
+    [[nodiscard]] bool hasMarker(const std::filesystem::path& relPath) const
+    {
+        auto nif = PGNIFUtil::loadNIFFromBytes(FileUtil::fileBytes(outDir() / relPath), false);
+        return PatcherMeshPreStockMarker::findMarker(nif, *nif.GetShapes().at(0)) != nullptr;
+    }
+};
+
+TEST_F(PGPatcherPGLiteModeTest,
+       PGLiteModePatchesWhatTheToolsReadWithStockBlocks)
+{
+    ASSERT_EQ(PGPlugin::modelUses(staticPath).size(), 1U); // the plugin layer sees the master
+    PatcherMeshPreStockMarker::loadOptions(true);
+    PGPatcher::patchMeshes(false, true, PGPlugin::defaultRecTypeSet(), true, false, true);
+    PGGlobals::fileSaver().waitForCompletion();
+
+    // The static's mesh and the ShapeData mesh are written, their shapes with the block of their stock state.
+    ASSERT_TRUE(std::filesystem::exists(outDir() / staticPath));
+    EXPECT_TRUE(hasMarker(staticPath));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / shapeDataPath));
+    EXPECT_TRUE(hasMarker(shapeDataPath));
+
+    // The armor addon's mesh, the facegen head and the unused mesh (forceBasePatch or not) are not what the tools
+    // read.
+    EXPECT_FALSE(std::filesystem::exists(outDir() / addonPath));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / facegenPath));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / unusedPath));
+
+    // The diff lists the written meshes only.
+    const auto diff = PGPatcher::diffJSON();
+    EXPECT_EQ(diff.size(), 2U) << diff.dump();
+    EXPECT_TRUE(diff.contains(TestUtil::pathToUTF8(staticPath)));
+}
+
+TEST_F(PGPatcherPGLiteModeTest,
+       PGLiteModeKeepsTheAllowedRecordTypes)
+{
+    // Statics are not allowed, so only the ShapeData mesh is written.
+    PGPatcher::patchMeshes(false, false, { PGPlugin::ModelRecordType::ArmorAddon }, true, false, true);
+    PGGlobals::fileSaver().waitForCompletion();
+    EXPECT_FALSE(std::filesystem::exists(outDir() / staticPath));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / addonPath));
+    EXPECT_TRUE(std::filesystem::exists(outDir() / shapeDataPath));
+}
+
+TEST_F(PGPatcherPGLiteModeTest,
+       TheRegularRunWritesNoStockBlocksOnPluginMeshes)
+{
+    PGPatcher::patchMeshes(false, false, PGPlugin::defaultRecTypeSet(), true, false, false);
+    PGGlobals::fileSaver().waitForCompletion();
+    ASSERT_TRUE(std::filesystem::exists(outDir() / staticPath));
+    EXPECT_FALSE(hasMarker(staticPath));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / addonPath));
+    EXPECT_FALSE(hasMarker(addonPath));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / facegenPath));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / shapeDataPath));
+    EXPECT_TRUE(hasMarker(shapeDataPath)); // BodySlide ShapeData always carries one
+    EXPECT_FALSE(std::filesystem::exists(outDir() / unusedPath));
+}
+
+TEST(PGPatcherUseFilterTest,
+     IsUseUnpatchedFollowsTheIgnoreFlagAndTheRecordTypeFilter)
+{
+    const std::unordered_set<PGPlugin::ModelRecordType> allowed { PGPlugin::ModelRecordType::StaticObject };
+    PGPlugin::MeshUseAttributes use;
+    use.recType = PGPlugin::ModelRecordType::StaticObject;
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, true));
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, false));
+
+    use.recType = PGPlugin::ModelRecordType::Weapon;
+    EXPECT_TRUE(PGPatcher::isUseUnpatched(use, allowed, true));
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, false)); // the filter is off
+    use.isDummyUse = true;
+    EXPECT_FALSE(PGPatcher::isUseUnpatched(use, allowed, true)); // a dummy use has no record type to filter
+    use.isDummyUse = false;
+
+    use.recType = PGPlugin::ModelRecordType::StaticObject;
+    use.isIgnored = true;
+    EXPECT_TRUE(PGPatcher::isUseUnpatched(use, allowed, true));
+    EXPECT_TRUE(PGPatcher::isUseUnpatched(use, allowed, false));
 }
 
 }

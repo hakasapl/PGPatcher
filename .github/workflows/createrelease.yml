@@ -27,7 +27,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
           fetch-depth: 0
 
       - uses: paulhatch/semantic-version@v5.4.0
@@ -60,12 +60,14 @@ jobs:
         shell: pwsh
         run: |
           Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip"
+          Move-Item -Force "./dist/PGLite.zip" "./dist/PGLite-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip"
 
       - name: Rename dist zip (stable release)
         if: ${{ !inputs.prerelease }}
         shell: pwsh
         run: |
           Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.semver.outputs.version }}.zip"
+          Move-Item -Force "./dist/PGLite.zip" "./dist/PGLite-${{ steps.semver.outputs.version }}.zip"
 
       - name: Release Pre-Release
         uses: softprops/action-gh-release@v2
@@ -74,7 +76,9 @@ jobs:
           name: ${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}
           tag_name: ${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}
           draft: true
-          files: ./dist/PGPatcher-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
+          files: |
+            ./dist/PGPatcher-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
+            ./dist/PGLite-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
           generate_release_notes: true
           prerelease: true
 
@@ -85,6 +89,8 @@ jobs:
           name: ${{ steps.semver.outputs.version }}
           tag_name: ${{ steps.semver.outputs.version }}
           draft: true
-          files: ./dist/PGPatcher-${{ steps.semver.outputs.version }}.zip
+          files: |
+            ./dist/PGPatcher-${{ steps.semver.outputs.version }}.zip
+            ./dist/PGLite-${{ steps.semver.outputs.version }}.zip
           generate_release_notes: true
           prerelease: false

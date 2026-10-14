@@ -3,6 +3,8 @@
 #include "PGD3D.hpp"
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherTextureGlobal.hpp"
+
+#include "ConvertToHDR.h"
 #include <DirectXTex.h>
 
 #include <filesystem>
@@ -18,7 +20,7 @@ bool PatcherTextureGlobalConvertToHDR::initShader()
     if (s_shader)
         return true;
 
-    return pgd3d->initShader(shaderName, s_shader);
+    return pgd3d->initShader(PGD3D::ShaderBytecode(g_ConvertToHDR), s_shader);
 }
 
 auto PatcherTextureGlobalConvertToHDR::factory() -> PatcherTextureGlobal::PatcherGlobalFactory

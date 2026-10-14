@@ -48,7 +48,7 @@ TEST_F(PGGlobalsTest,
     const TestUtil::FakeGame fake;
     BethesdaGame game = fake.game();
     PGDirectory pgd(fake.dataDir(), fake.gameDir() / L"out");
-    PGD3D pgd3d(TestUtil::shaderDir());
+    PGD3D pgd3d;
     PGModManager pgmm(PGModManager::ModManagerType::None);
 
     PGGlobals::setBG(&game);

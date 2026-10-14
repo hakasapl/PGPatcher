@@ -2,8 +2,9 @@
 
 #include "PGD3D.hpp"
 #include "PGGlobals.hpp"
+#include "PGModManager.hpp"
 #include "PGPlugin.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -21,9 +22,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/asio.hpp>
 #include <boost/crc.hpp>
-#include <boost/thread.hpp>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
@@ -44,6 +43,24 @@
 #include <utility>
 #include <vector>
 #include <winnt.h>
+
+namespace {
+
+/// @brief The shader a mapped texture gives its mod: parallax for a height map, complex material for a complex material
+/// map, the default shader for every other type.
+PGEnums::ShapeShader shaderOfTextureType(PGEnums::TextureType type)
+{
+    switch (type) {
+    case PGEnums::TextureType::Height:
+        return PGEnums::ShapeShader::VanillaParallax;
+    case PGEnums::TextureType::ComplexMaterial:
+        return PGEnums::ShapeShader::ComplexMaterial;
+    default:
+        return PGEnums::ShapeShader::None;
+    }
+}
+
+}
 
 PGDirectory::PGDirectory(BethesdaGame* bg,
                          std::filesystem::path outputPath)
@@ -171,9 +188,16 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
 {
     findFiles();
 
-    // Helpers.
-    const std::unordered_map<std::wstring, PGEnums::TextureType> manualTextureMapsMap(manualTextureMaps.begin(),
-                                                                                      manualTextureMaps.end());
+    // The rules are matched against the mapped paths, which are lower case with backslashes, whatever form they were
+    // typed in (the settings file, the launcher's dialog or the PGLite menu). The first of two equal rules wins, as
+    // it did before.
+    std::unordered_map<std::wstring, PGEnums::TextureType> manualTextureMapsMap;
+    for (const auto& [rulePath, ruleType] : manualTextureMaps) {
+        auto key = rulePath;
+        std::ranges::replace(key, L'/', L'\\');
+        StringUtil::toLowerASCIIFastInPlace(key);
+        manualTextureMapsMap.try_emplace(key, ruleType);
+    }
 
     Logger::info("Starting to build texture mappings");
 
@@ -210,6 +234,18 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
     // Blocks until all tasks are done.
     runner.runTasks();
 
+    classifyUnconfirmedTextures(manualTextureMapsMap, parallaxBSAExcludes, multithreading);
+
+    // Cleanup.
+    m_unconfirmedTextures.clear();
+    m_unconfirmedMeshes.clear();
+}
+
+void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstring,
+                                                                       PGEnums::TextureType>& manualTextureMapsMap,
+                                              const std::vector<std::wstring>& parallaxBSAExcludes,
+                                              const bool& multithreading)
+{
     // Loop through unconfirmed textures to confirm them.
     for (const auto& [texture, property] : m_unconfirmedTextures) {
         bool foundInstance = false;
@@ -257,7 +293,8 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
         if (winningType == PGEnums::TextureType::EnvironmentMask && !isFileInBSA(texture, parallaxBSAExcludes)) {
             // Reuse the classification of a previous run if the texture did not change.
             PGTypes::CMClassification cachedClassification;
-            if (PGRunCache::tryGetCachedCMClassification(texture, fileIdentity(texture), cachedClassification)) {
+            if (PGRunObserver::current().tryGetCachedCMClassification(
+                    texture, fileIdentity(texture), cachedClassification)) {
                 applyCMClassification(texture, winningSlot, cachedClassification);
                 continue;
             }
@@ -279,10 +316,6 @@ void PGDirectory::mapFiles(const std::vector<std::wstring>& nifBlocklist,
             addToTextureMaps(texture, winningSlot, winningType, { });
         }
     }
-
-    // Cleanup.
-    m_unconfirmedTextures.clear();
-    m_unconfirmedMeshes.clear();
 }
 
 void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
@@ -308,7 +341,7 @@ void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,
     }
 
     // Remember the result for incremental runs.
-    PGRunCache::storeCMClassification(texture, fileIdentity(texture), classification);
+    PGRunObserver::current().storeCMClassification(texture, fileIdentity(texture), classification);
 
     applyCMClassification(texture, winningSlot, classification);
 }
@@ -352,21 +385,21 @@ TaskTracker::Result PGDirectory::mapTexturesFromNIF(const std::filesystem::path&
     // Texture votes: reuse the votes of a previous run when the NIF did not change, otherwise read the NIF.
     const auto nifIdentity = fileIdentity(nifPath);
     std::vector<PGTypes::TextureVote> votes;
-    if (!PGRunCache::tryGetCachedMeshVotes(nifPath, nifIdentity, votes)) {
+    if (!PGRunObserver::current().tryGetCachedMeshVotes(nifPath, nifIdentity, votes)) {
         if (!readTextureVotesFromNIF(nifPath, votes)) {
             Logger::error(L"Unable to process mesh: {}", nifPath.wstring());
             return TaskTracker::Result::Failure;
         }
 
-        PGRunCache::storeMeshVotes(nifPath, nifIdentity, votes);
+        PGRunObserver::current().storeMeshVotes(nifPath, nifIdentity, votes);
     }
 
     for (const auto& vote : votes)
         updateUnconfirmedTexturesMap(vote.texture, vote.slot, vote.type);
 
     // Mesh uses: reuse the previous run's uses when no plugin changed, otherwise ask the plugin library.
-    PGRunCache::MeshUses cachedUses;
-    if (PGRunCache::tryGetCachedMeshUses(nifPath, cachedUses)) {
+    PGRunObserver::MeshUses cachedUses;
+    if (PGRunObserver::current().tryGetCachedMeshUses(nifPath, cachedUses)) {
         updateNifCache(nifPath, cachedUses);
     } else if (multithreading) {
         m_meshUseMappingQueue.queueTask([this, nifPath] {
@@ -646,20 +679,9 @@ void PGDirectory::addToTextureMaps(const std::filesystem::path& path,
         m_textureTypes[path] = details;
     }
 
-    // Add shader types to mod given certain types.
-    if (type == PGEnums::TextureType::Height) {
-        // Parallax.
-        if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::VanillaParallax);
-    } else if (type == PGEnums::TextureType::ComplexMaterial) {
-        // PBR parallax.
-        if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::ComplexMaterial);
-    } else {
-        // Default shader for all other types.
-        if (PGGlobals::isPGMMSet())
-            PGGlobals::pgmm()->addShaderToModByFile(path, PGEnums::ShapeShader::None);
-    }
+    // The texture's mod provides the shader of its type (attributeMods() replays this for another mod manager).
+    if (PGGlobals::isPGMMSet())
+        PGGlobals::pgmm()->addShaderToModByFile(path, shaderOfTextureType(type));
 }
 
 void PGDirectory::updateNifCache(const std::filesystem::path& path,
@@ -700,6 +722,33 @@ const std::unordered_set<std::filesystem::path>& PGDirectory::textures() const {
 
 const std::vector<std::filesystem::path>& PGDirectory::pbrJSONs() const { return m_pbrJSONs; }
 
+void PGDirectory::attributeMods(PGModManager& modManager)
+{
+    {
+        const std::shared_lock lock(m_textureTypesMutex);
+        for (const auto& [path, details] : m_textureTypes) {
+            // A generated texture has a type (setTextureType()) but was never mapped, so it gave its mod no shader.
+            if (isGenerated(path))
+                continue;
+
+            modManager.addShaderToModByFile(path, shaderOfTextureType(details.type));
+        }
+    }
+
+    for (const auto& json : m_pbrJSONs)
+        modManager.addShaderToModByFile(json, PGEnums::ShapeShader::TruePBR);
+
+    const std::shared_lock lock(m_meshesMutex);
+    for (const auto& [path, cache] : m_meshes) {
+        const auto mod = modManager.modByFileSmart(path);
+        if (!mod)
+            continue;
+
+        const std::unique_lock modLock(mod->mutex);
+        mod->hasMeshes = true;
+    }
+}
+
 const std::vector<std::filesystem::path>& PGDirectory::lightPlacerJSONs() const { return m_lightPlacerJSONs; }
 
 bool PGDirectory::addTextureAttribute(const std::filesystem::path& path,
@@ -735,7 +784,7 @@ bool PGDirectory::hasTextureAttribute(const std::filesystem::path& path,
     }
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordTextureAttribute(path, attribute, result);
+    PGRunObserver::current().recordTextureAttribute(path, attribute, result);
 
     return result;
 }
@@ -750,7 +799,7 @@ std::unordered_set<PGEnums::TextureAttribute> PGDirectory::textureAttributes(con
     }
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordTextureAttributes(path, result);
+    PGRunObserver::current().recordTextureAttributes(path, result);
 
     return result;
 }
@@ -772,7 +821,7 @@ PGEnums::TextureType PGDirectory::textureType(const std::filesystem::path& path)
     }
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordTextureType(path, result);
+    PGRunObserver::current().recordTextureType(path, result);
 
     return result;
 }
