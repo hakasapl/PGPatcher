@@ -437,6 +437,15 @@ void Runtime::registerPlanStreams()
                  registered,
                  unresolved,
                  partial);
+
+    // The grass loader took its copies of the grass streams before this registration (Resources), so it takes them
+    // again, once: the copies it makes now are clones of the streams registered here, and a clone reads the plan of
+    // the moment at every open, so a later registration changes nothing for it.
+    if (registered && !m_didRefreshGrassStreams) {
+        Resources::refreshGrassStreams();
+        m_didRefreshGrassStreams = true;
+        Logger::debug("The grass loader took the registered grass streams");
+    }
 }
 
 std::vector<std::filesystem::path> Runtime::facegenPaths() const

@@ -29,12 +29,23 @@ constexpr std::uint64_t resolvePathSEID = 68484;
 constexpr std::uint64_t resolvePathAEID = 69839;
 constexpr std::uint64_t resolvePathVROffset = 0xC89D60;
 
+// BGSGrassManager's preload of the grass meshes, which copies the registry's stream of every
+// meshes\landscape\grass\*.nif into the grass model database (refreshGrassStreams): the Address Library IDs of the
+// SE and the AE runtimes, the offset of the VR runtime. SE 1.5.97 0x1B6A50, AE 1.6.1170 0x203570 and 1.7.99
+// 0x208CC0, VR 0x1C6A60: the one function of each executable that names both the folder and the .nif extension; the
+// SE and the VR bodies are identical, and the engine calls it from the manager's constructor and from the main menu's
+// plugin load.
+constexpr std::uint64_t preloadGrassSEID = 15211;
+constexpr std::uint64_t preloadGrassAEID = 15380;
+constexpr std::uint64_t preloadGrassVROffset = 0x1C6A60;
+
 using RegisterPathFn = bool (*)(const char* path,
                                 RE::BSTSmartPointer<RE::BSResource::Stream>& stream);
 using ResolvePathFn = std::uint32_t (*)(const char* path,
                                         RE::BSTSmartPointer<RE::BSResource::Stream>& stream,
                                         bool isWritable,
                                         RE::BSResource::Location* location);
+using PreloadGrassFn = void (*)(RE::BGSGrassManager* manager);
 
 }
 
@@ -71,6 +82,14 @@ bool Resources::exists(const std::string& path)
 {
     RE::BSTSmartPointer<RE::BSResource::Stream> stream;
     return resolveStream(path, stream);
+}
+
+void Resources::refreshGrassStreams()
+{
+    static const REL::Relocation<PreloadGrassFn> preloadGrass {
+        REL::VariantID(preloadGrassSEID, preloadGrassAEID, preloadGrassVROffset).address()
+    };
+    preloadGrass(RE::BGSGrassManager::GetSingleton());
 }
 
 bool Resources::readStream(RE::BSResource::Stream& stream,

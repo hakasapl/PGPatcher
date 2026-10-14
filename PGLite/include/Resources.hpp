@@ -9,9 +9,10 @@ namespace PGLite {
 
 /**
  * @brief The engine's resource layer (DESIGN.md section 3.1): the registry that maps a path to the stream the engine
- * reads it from, and the resolver that gives the stream of any path the engine can load.
+ * reads it from, the resolver that gives the stream of any path the engine can load, and the grass loader's preload
+ * of the grass meshes.
  *
- * Both engine functions are called through the Address Library; neither is hooked. Their IDs are known for the SE
+ * The engine functions are called through the Address Library; none is hooked. Their IDs are known for the SE
  * runtime (1.5.97) and the AE runtimes (1.6.x and 1.7.x); the VR runtime (1.4.15), whose Address Library has no entry
  * for them, uses built-in offsets.
  */
@@ -46,6 +47,14 @@ public:
      * @brief Whether a path resolves, see resolveStream().
      */
     [[nodiscard]] static bool exists(const std::string& path);
+
+    /**
+     * @brief Has the grass loader take its streams from the registry again. The engine copies the registry's stream
+     * of every meshes\landscape\grass\*.nif into the grass model database when the grass manager is constructed
+     * and once the plugins are loaded, and reads grass meshes from those copies without consulting the registry
+     * again, so a grass stream registered after that is read only once this ran. Takes the registry locks itself.
+     */
+    static void refreshGrassStreams();
 
     /**
      * @brief Opens a stream, reads it to the end and closes it.
