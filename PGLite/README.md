@@ -15,9 +15,9 @@ texture). Requirements:
   [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) for the installed game version (the
   [VR Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/58101) on VR). The 1.5.97 and VR support
   has not been run in game yet; on VR the menu is a desktop window and the keyboard opens it.
-- No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`), no Auto Parallax, and
-  PGLite's own 3rd party tools output disabled (see below). PGLite disables itself with an in-game notice when it
-  finds one of them, and installs nothing else then (no menu, no hooks).
+- No offline PGPatcher output in the load order (`ParallaxGen_Diff.json` or `PGPatcher.esp`) and no Auto Parallax.
+  PGLite disables itself with an in-game notice when it finds one of them, and installs nothing else then (no menu,
+  no hooks).
 - Community Shaders or ENB. PGLite disables itself with a notice when neither is loaded. TruePBR and the hair flow
   map need Community Shaders and Fix Mesh Lighting needs ENB: the menu greys the options the loaded framework cannot
   render, and a first start enables the ones it can (parallax, complex material and the pre-patched material reset,
@@ -138,22 +138,6 @@ Program behavior:
     a relative mod manager path is resolved against the game folder; a `settings.json` edited by hand runs as it is
     (the transform without its patchers is turned off with an error), and a shader that cannot be created turns its
     patcher off with an error, where the offline program refuses to run.
-
-## TexGen, DynDOLOD and BodySlide
-
-These tools read patched meshes from disk, and PGLite patches in memory. The status page of the menu has a "Generate
-3rd Party Tools Output" button for them. It writes a mod folder, with the game paused as for Apply, that holds the
-patched models of the record types DynDOLOD scans (statics, trees, activators, containers, doors, furniture, movable
-statics and grass), the BodySlide ShapeData meshes, the textures the patches generated and `ParallaxGen_Diff.json`,
-for the whole load order. The folder defaults to `mods\PGLite Tools Output` of the Mod Organizer 2 instance.
-
-1. Generate the output, then enable the folder as a mod (Mod Organizer 2 lists a new folder after a refresh).
-2. Run TexGen and DynDOLOD, or BodySlide, as usual.
-3. Disable the mod before playing. PGLite disables itself with a notice while it is enabled, since the output and the
-   runtime patches would patch the same meshes twice.
-
-Generate again after a change of the patcher settings, the mod order or the PBR mods, as the offline program would
-have to run again.
 
 ## Development
 

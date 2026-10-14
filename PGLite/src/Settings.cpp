@@ -202,37 +202,6 @@ bool Settings::writeLanguage(const std::string& language)
     return true;
 }
 
-std::string Settings::readToolsOutputFolder()
-{
-    nlohmann::json settings;
-    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.contains("pglite") || !settings["pglite"].is_object())
-        return { };
-
-    const auto& pglite = settings["pglite"];
-    if (!pglite.contains("toolsOutputFolder") || !pglite["toolsOutputFolder"].is_string())
-        return { };
-
-    return pglite["toolsOutputFolder"].get<std::string>();
-}
-
-bool Settings::writeToolsOutputFolder(const std::string& folder)
-{
-    nlohmann::json settings;
-    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.is_object())
-        settings = nlohmann::json::object();
-
-    try {
-        ensureParams(settings);
-        settings["pglite"]["toolsOutputFolder"] = folder;
-        FileUtil::saveJSON(settingsFile(), settings, true);
-    } catch (const std::exception& e) {
-        Logger::error("Unable to write settings.json: {}", e.what());
-        return false;
-    }
-
-    return true;
-}
-
 bool Settings::readDidOpenMenu()
 {
     nlohmann::json settings;

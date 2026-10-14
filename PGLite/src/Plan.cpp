@@ -578,23 +578,6 @@ void Plan::retargetRecords(RecordSnapshot& snapshot) const
                  unregistered);
 }
 
-Family& Plan::addBodySlideFamily(const std::filesystem::path& path)
-{
-    auto family = std::make_unique<Family>();
-    family->basePaths.push_back(path);
-
-    Family::Member member;
-    member.attributes.isBodySlideShapeData = true;
-    member.attributes.isDummyUse = true;
-    member.attributes.recType = PGPlugin::ModelRecordType::Unknown;
-    member.paths.push_back(path);
-    family->members.push_back(std::move(member));
-
-    addTargets(*family);
-    m_families.push_back(std::move(family));
-    return *m_families.back();
-}
-
 Family& Plan::addFacegenFamily(const std::filesystem::path& path)
 {
     auto family = std::make_unique<Family>();

@@ -204,14 +204,6 @@ public:
      */
     Family& addFacegenFamily(const std::filesystem::path& path);
 
-    /**
-     * @brief Adds the family of a BodySlide ShapeData mesh for the 3rd party tools output: one member for the dummy
-     * use the offline program patches it for, whose flag makes the stock marker keep its blocks.
-     *
-     * @return The family, whose single path is the given one; its source is the caller's to set.
-     */
-    Family& addBodySlideFamily(const std::filesystem::path& path);
-
     /// @brief The families, in planning order.
     [[nodiscard]] const std::vector<std::unique_ptr<Family>>& families() const { return m_families; }
 

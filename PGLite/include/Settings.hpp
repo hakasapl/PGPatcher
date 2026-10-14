@@ -106,18 +106,6 @@ public:
      */
     static bool writeLanguage(const std::string& language);
 
-    /// @brief The folder of the 3rd party tools output as typed, the "pglite" object of settings.json; empty when
-    /// there is none.
-    [[nodiscard]] static std::string readToolsOutputFolder();
-
-    /**
-     * @brief Writes the folder of the 3rd party tools output into the "pglite" object of settings.json, keeping
-     * everything else in the file.
-     *
-     * @return false if the file could not be written (logged).
-     */
-    static bool writeToolsOutputFolder(const std::string& folder);
-
     /// @brief Whether the menu was opened once, the "pglite" object of settings.json; the welcome message ends then.
     [[nodiscard]] static bool readDidOpenMenu();
 

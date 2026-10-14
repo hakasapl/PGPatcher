@@ -75,12 +75,6 @@ public:
     /// @brief The counts of this session. Any thread.
     [[nodiscard]] Stats stats() const;
 
-    /// @brief The generated textures of the session: the output path the meshes name and the cache file that holds
-    /// it. Any thread.
-    [[nodiscard]] std::vector<std::pair<std::string,
-                                        std::filesystem::path>>
-    cachedOutputs() const;
-
     // PatchStream::Provider: the cache file of a generated texture.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
                                                                          SourceStream& source) override;
@@ -138,8 +132,8 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_done;
     /// @brief One generation at a time: the reads and the cache writes go through the mod manager's virtual file
-    /// system, which has failed and crashed under many threads writing at once (the tools output), and the GPU work
-    /// is serialized anyway.
+    /// system, which has failed and crashed under many threads writing at once, and the GPU work is serialized
+    /// anyway.
     std::mutex m_makeMutex;
     std::unordered_map<std::filesystem::path, Entry> m_entries;
 
