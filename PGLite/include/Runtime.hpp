@@ -234,6 +234,8 @@ private:
 
     std::unordered_map<std::string, StreamEntry> m_streams;
     mutable std::mutex m_streamsMutex;
+    /// @brief Whether the grass loader was told to take the registered grass streams (registerPlanStreams).
+    bool m_didRefreshGrassStreams = false;
 
     /// @brief Shared by every patch, exclusive for Apply.
     std::shared_mutex m_pipelineLock;
