@@ -31,6 +31,7 @@
 #include <filesystem>
 #include <format>
 #include <functional>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -177,10 +178,16 @@ Runtime::Status Runtime::status() const
 
 void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
 {
-    if (!message || message->type != SKSE::MessagingInterface::kDataLoaded)
+    if (!message)
         return;
 
     auto& runtime = instance();
+    if (message->type == SKSE::MessagingInterface::kInputLoaded) {
+        runtime.onInputLoaded();
+        return;
+    }
+    if (message->type != SKSE::MessagingInterface::kDataLoaded)
+        return;
 
     // A disabled PGLite installs nothing, no hooks, no menu, no streams: the notice is all the game sees of it.
     if (const auto reason = runtime.disableReason()) {
@@ -188,12 +195,7 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
         return;
     }
 
-    // The SKSE plugins and ENB's proxy are loaded by now.
-    runtime.m_shaderFrameworks = ShaderFrameworks::detect();
-    Logger::info("Shader frameworks: Community Shaders {}, ENB {}",
-                 runtime.m_shaderFrameworks.hasCommunityShaders ? "yes" : "no",
-                 runtime.m_shaderFrameworks.hasENB ? "yes" : "no");
-
+    runtime.detectShaderFrameworks();
     if (const auto reason = runtime.detectDisableCondition()) {
         runtime.disable(*reason, true);
         return;
@@ -210,6 +212,67 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
     // until the initialization is done, so the main menu opens with PGLite ready (DESIGN.md section 4.1).
     runtime.onDataLoaded();
     runtime.waitForInitialization();
+}
+
+void Runtime::onInputLoaded()
+{
+    // The conditions that disable PGLite are checked again at data load, which shows the notice; here they only say
+    // whether the environment is worth building.
+    if (disableReason())
+        return;
+
+    detectShaderFrameworks();
+    if (detectDisableCondition())
+        return;
+
+    readSettings();
+    if (!m_isEnabled)
+        return;
+
+    Logger::info("Building the environment while the engine loads the plugins");
+    m_earlyInitialization = std::async(std::launch::async, [this] { prepareEnvironment(); });
+}
+
+void Runtime::detectShaderFrameworks()
+{
+    if (m_didDetectShaderFrameworks)
+        return;
+
+    m_didDetectShaderFrameworks = true;
+    m_shaderFrameworks = ShaderFrameworks::detect();
+    Logger::info("Shader frameworks: Community Shaders {}, ENB {}",
+                 m_shaderFrameworks.hasCommunityShaders ? "yes" : "no",
+                 m_shaderFrameworks.hasENB ? "yes" : "no");
+}
+
+void Runtime::readSettings()
+{
+    if (m_areSettingsRead)
+        return;
+
+    m_areSettingsRead = true;
+    {
+        // A first start, without a settings.json, enables the patchers the loaded framework renders; a file keeps
+        // what it has, less what the framework cannot render.
+        PGParams params;
+        if (Settings::hasSettingsFile()) {
+            params = Settings::readParams();
+        } else {
+            Logger::info("No settings.json yet: the patchers of the loaded shader framework are enabled");
+            params = ShaderFrameworks::firstStartParams(m_shaderFrameworks);
+        }
+        ShaderFrameworks::limitPatchers(params, m_shaderFrameworks);
+
+        const std::scoped_lock lock(m_stateMutex);
+        m_params = std::move(params);
+    }
+
+    m_isEnabled = Settings::readIsEnabled();
+    for (const auto& problem : params().validate()) {
+        // The menu refuses an Apply with these; an edited settings.json runs as it is, and the patchers it names
+        // guard themselves (Environment::registerPatchers).
+        Logger::error("settings.json: {}", PGTranslation::trFormat(problem.key, StringUtil::utf16toUTF8(problem.item)));
+    }
 }
 
 void Runtime::waitForInitialization() const
@@ -237,29 +300,17 @@ void Runtime::onDataLoaded()
 {
     try {
         const auto started = std::chrono::steady_clock::now();
-        {
-            // A first start, without a settings.json, enables the patchers the loaded framework renders; a file keeps
-            // what it has, less what the framework cannot render.
-            PGParams params;
-            if (Settings::hasSettingsFile()) {
-                params = Settings::readParams();
-            } else {
-                Logger::info("No settings.json yet: the patchers of the loaded shader framework are enabled");
-                params = ShaderFrameworks::firstStartParams(m_shaderFrameworks);
-            }
-            ShaderFrameworks::limitPatchers(params, m_shaderFrameworks);
+        readSettings();
+        // The time since the previous lap, for the breakdown of the summary line.
+        auto lastLap = std::chrono::steady_clock::now();
+        const auto lap = [&lastLap] {
+            const auto now = std::chrono::steady_clock::now();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastLap).count();
+            lastLap = now;
+            return elapsed;
+        };
 
-            const std::scoped_lock lock(m_stateMutex);
-            m_params = std::move(params);
-        }
-
-        m_isEnabled = Settings::readIsEnabled();
-        for (const auto& problem : params().validate()) {
-            // The menu refuses an Apply with these; an edited settings.json runs as it is, and the patchers it names
-            // guard themselves (Environment::registerPatchers).
-            Logger::error("settings.json: {}",
-                          PGTranslation::trFormat(problem.key, StringUtil::utf16toUTF8(problem.item)));
-        }
+        long long offlineOutputMs = 0;
         if (OfflineOutput::hasStockRecords()) {
             // The output's records go back to stock before the uses are read, so the plan is the plan of the stock
             // records; its meshes are reverted by their PG_STOCK blocks when they are patched (DESIGN.md 4.14).
@@ -274,12 +325,14 @@ void Runtime::onDataLoaded()
                          restored.unresolved,
                          restored.generatedTextures.size());
             m_offlineOutput = restored;
+            offlineOutputMs = lap();
         }
 
         Logger::info("Reading the record model uses");
         m_uses.build();
         m_snapshot.capture(m_uses);
         Logger::debug("Captured {} record models", m_snapshot.size());
+        const auto usesMs = lap();
 
         auto plan = std::make_unique<Plan>(++m_planGeneration);
         if (m_isEnabled) {
@@ -289,19 +342,35 @@ void Runtime::onDataLoaded()
             Logger::info("PGLite is disabled in settings.json; meshes stay unpatched until it is enabled in the menu");
         }
         m_plan = std::move(plan);
+        const auto planMs = lap();
+        long long streamsMs = 0;
+        long long recordsMs = 0;
         if (m_isEnabled) {
             // The streams first, so a record is only pointed at a variant path that is served.
             registerPlanStreams();
+            streamsMs = lap();
             m_plan->retargetRecords(m_snapshot);
+            recordsMs = lap();
         }
         LightPlacerBridge::update(*m_plan);
+        const auto lightPlacerMs = lap();
 
         m_facegenPaths = facegenPaths();
+        const auto facegenMs = lap();
         m_isActive = true;
 
         const auto elapsed
             = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
-        Logger::info("Data-load work done in {} ms", elapsed.count());
+        Logger::info("Data-load work done in {} ms: offline output {} ms, uses {} ms, plan {} ms, streams {} ms, "
+                     "records {} ms, light placer {} ms, facegen paths {} ms",
+                     elapsed.count(),
+                     offlineOutputMs,
+                     usesMs,
+                     planMs,
+                     streamsMs,
+                     recordsMs,
+                     lightPlacerMs,
+                     facegenMs);
 
         std::thread([this] { initializeInBackground(); }).detach();
     } catch (const std::exception& e) {
@@ -499,39 +568,70 @@ void Runtime::registerFacegenStreams()
     Logger::info("Registered {} facegen streams of {} NPC forms", registered, m_facegenPaths.size());
 }
 
+void Runtime::reportStage(const char* stage)
+{
+    m_progressTotal = 0;
+    m_progressDone = 0;
+    m_stage = stage;
+}
+
+void Runtime::reportProgress(std::size_t done,
+                             std::size_t total)
+{
+    m_progressTotal = total;
+    m_progressDone = done;
+}
+
+void Runtime::prepareEnvironment()
+{
+    if (!PGGlobals::isPGD3DSet()) {
+        reportStage("progress.steps.initGpu");
+        Logger::info("Initializing the GPU");
+        if (!m_d3d.initGPU() || !m_d3d.initShaders())
+            throw std::runtime_error("the GPU could not be initialized");
+
+        PGGlobals::setPGD3D(&m_d3d);
+    }
+
+    // The cache is the process's observer: the classifications of the mesh reading pass, and the registrations the
+    // texture hooks make, which reach the texture generator through it.
+    m_cache.setHookRegistrationListener([this](PGRunObserver::HookKind kind, const std::filesystem::path& texPath) {
+        m_textures.noteRegistration(kind, texPath);
+    });
+    PGRunObserver::install(&m_cache);
+
+    buildEnvironment([this](const char* stage) { reportStage(stage); },
+                     [this](std::size_t done, std::size_t total) { reportProgress(done, total); });
+}
+
 void Runtime::initializeInBackground()
 {
     const auto started = std::chrono::steady_clock::now();
-    const auto reportStage = [this](const char* stage) {
-        m_progressTotal = 0;
-        m_progressDone = 0;
-        m_stage = stage;
+    // The time since the previous lap, for the breakdown of the summary line.
+    auto lastLap = started;
+    const auto lap = [&lastLap] {
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastLap).count();
+        lastLap = now;
+        return elapsed;
     };
-    const auto reportProgress = [this](std::size_t done, std::size_t total) {
-        m_progressTotal = total;
-        m_progressDone = done;
-    };
+    long long facegenMs = 0;
+    long long environmentMs = 0;
     try {
-        if (!PGGlobals::isPGD3DSet()) {
-            reportStage("progress.steps.initGpu");
-            Logger::info("Initializing the GPU");
-            if (!m_d3d.initGPU() || !m_d3d.initShaders())
-                throw std::runtime_error("the GPU could not be initialized");
-
-            PGGlobals::setPGD3D(&m_d3d);
-        }
-
-        // The cache is the process's observer: the classifications of the mesh reading pass, and the registrations
-        // the texture hooks make, which reach the texture generator through it.
-        m_cache.setHookRegistrationListener([this](PGRunObserver::HookKind kind, const std::filesystem::path& texPath) {
-            m_textures.noteRegistration(kind, texPath);
-        });
-        PGRunObserver::install(&m_cache);
-
         if (m_isEnabled) {
             reportStage("pglite.stages.registeringFacegenStreams");
             registerFacegenStreams();
-            buildEnvironment(reportStage, reportProgress);
+            facegenMs = lap();
+            if (m_earlyInitialization.valid()) {
+                // Built since the input load; its own lines say what it took. A failure of that thread is thrown here.
+                m_earlyInitialization.get();
+                environmentMs = lap();
+                Logger::info("The environment was built while the engine loaded the plugins, waited {} ms for it",
+                             environmentMs);
+            } else {
+                prepareEnvironment();
+                environmentMs = lap();
+            }
         } else {
             // The Apply that enables PGLite builds the environment; until then nothing is read.
             Logger::info("PGLite is disabled in settings.json, the environment is built when it is enabled");
@@ -551,19 +651,27 @@ void Runtime::initializeInBackground()
 
     const auto elapsed
         = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
-    Logger::info("PGLite is ready ({} ms)", elapsed.count());
+    Logger::info("PGLite is ready ({} ms after the data load: facegen streams {} ms, environment {} ms)",
+                 elapsed.count(),
+                 facegenMs,
+                 environmentMs);
 }
 
 void Runtime::buildEnvironment(const std::function<void(const char*)>& reportStage,
                                const Environment::ProgressCallback& reportProgress)
 {
     reportStage("pglite.stages.loadingClassificationCache");
+    const auto cacheStarted = std::chrono::steady_clock::now();
     m_cache.load(Settings::classificationCacheFile());
+    Logger::info(
+        "Classification cache loaded in {} ms ({} meshes, {} complex material classifications)",
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - cacheStarted).count(),
+        m_cache.meshCount(),
+        m_cache.cmCount());
 
-    auto environment = std::make_unique<Environment>(params(),
-                                                     m_ini,
-                                                     m_offlineOutput ? m_offlineOutput->generatedTextures
-                                                                     : std::unordered_set<std::filesystem::path>());
+    // The textures an enabled offline output generated are inputs of no patch (OfflineOutput), whether its records
+    // were put back to stock already or not.
+    auto environment = std::make_unique<Environment>(params(), m_ini, OfflineOutput::generatedTextures());
     environment->initialize(m_cache, reportStage, reportProgress);
     // The pass saved what it added; the entries are read again by the next Apply, not kept for the session.
     m_cache.unload();

@@ -126,6 +126,29 @@ std::filesystem::path localAppDataGameFolder()
 }
 
 /**
+ * @brief The plugin file names the engine loads without a line of Plugins.txt: the masters of the game and the
+ * Creation Club content of Skyrim.ccc, read from the files so that the archives are known before the data is loaded.
+ */
+std::vector<std::wstring> builtInPlugins()
+{
+    std::vector<std::wstring> names
+        = { L"Skyrim.esm", L"Update.esm", L"Dawnguard.esm", L"HearthFires.esm", L"Dragonborn.esm" };
+    if (REL::Module::IsVR())
+        names.emplace_back(L"SkyrimVR.esm");
+
+    std::ifstream stream(Settings::gameFolder() / L"Skyrim.ccc");
+    std::string line;
+    while (stream && std::getline(stream, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+            line.pop_back();
+        if (!line.empty() && line.front() != '#')
+            names.push_back(StringUtil::windows1252toUTF16(line));
+    }
+
+    return names;
+}
+
+/**
  * @brief The plugin file names of the active lines of Plugins.txt in file order, as the engine reads them for its
  * archive registration (a line that starts with an asterisk; comments and empty lines skipped). Empty when the file
  * cannot be read.
@@ -181,32 +204,56 @@ void Environment::initialize(ClassificationCache& cache,
         if (reportStage)
             reportStage(name);
     };
+    // The time since the previous lap, for the breakdown of the summary line.
+    long long lastLap = 0;
+    const auto lap = [&stopwatch, &lastLap] {
+        const auto now = stopwatch.milliseconds();
+        const auto elapsed = now - lastLap;
+        lastLap = now;
+        return elapsed;
+    };
 
     stage("progress.steps.initModManager");
     initializeModManager();
+    const auto modManagerMs = lap();
     stage("progress.steps.populatingFileMap");
     initializeDirectory();
+    const auto fileMapMs = lap();
     stage("pglite.stages.readingMeshes");
     classifyTextures(cache, reportProgress);
+    const auto meshesMs = lap();
 
+    long long pbrConfigsMs = 0;
     if (m_params.shaderPatcher.isTruePBREnabled) {
         stage("pglite.stages.loadingTruePBRConfigs");
         Logger::info("Loading {} TruePBR configs", m_directory->pbrJSONs().size());
         PatcherMeshShaderTruePBR::loadStatics(m_directory->pbrJSONs(), m_params.processing.multithread);
+        pbrConfigsMs = lap();
     }
 
     switchToEngineReads();
 
+    long long modOrderMs = 0;
     if (m_modManager) {
         // Shader attribution of every mod is complete now, so the mod list and the priorities are the offline ones.
         stage("pglite.stages.orderingMods");
         m_modManager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
+        modOrderMs = lap();
     }
 
     stage("progress.steps.initPatchers");
     registerPatchers(m_params, m_ini);
+    const auto patchersMs = lap();
 
-    Logger::info("Runtime environment ready in {} ms", stopwatch.milliseconds());
+    Logger::info("Runtime environment ready in {} ms: mod manager {} ms, file map {} ms, meshes {} ms, PBR configs {} "
+                 "ms, mod order {} ms, patchers {} ms",
+                 stopwatch.milliseconds(),
+                 modManagerMs,
+                 fileMapMs,
+                 meshesMs,
+                 pbrConfigsMs,
+                 modOrderMs,
+                 patchersMs);
 }
 
 void Environment::initializeModManager()
@@ -322,29 +369,12 @@ std::vector<std::wstring> Environment::engineArchiveOrder()
     candidates.emplace_back(updateArchive);
 
     // The engine registers the archives of its built-in plugin list (the masters and the Creation Club content), then
-    // those of the active lines of Plugins.txt in file order. The loaded plugins without a line are the built-in ones;
-    // their archives share no file, so their order among themselves does not matter.
-    const auto activeLines = activePluginsTxtLines();
-    std::unordered_set<std::wstring> activeLower;
-    for (const auto& name : activeLines)
-        activeLower.insert(StringUtil::toLowerASCIIFast(name));
-    if (auto* const dataHandler = RE::TESDataHandler::GetSingleton()) {
-        const auto addBuiltIn = [&candidates, &activeLower](const RE::TESFile& file) {
-            const auto fileName = StringUtil::windows1252toUTF16(std::string(file.GetFilename()));
-            if (!activeLower.contains(StringUtil::toLowerASCIIFast(fileName)))
-                addArchivesOfPlugin(fileName, candidates);
-        };
-        const auto* const* const mods = dataHandler->GetLoadedMods();
-        for (std::uint8_t i = 0; mods && i < dataHandler->GetLoadedModCount(); i++)
-            if (mods[i])
-                addBuiltIn(*mods[i]);
-
-        const auto* const* const lightMods = dataHandler->GetLoadedLightMods();
-        for (std::uint16_t i = 0; lightMods && i < dataHandler->GetLoadedLightModCount(); i++)
-            if (lightMods[i])
-                addBuiltIn(*lightMods[i]);
-    }
-    for (const auto& name : activeLines)
+    // those of the active lines of Plugins.txt in file order. Both lists come from the files, so the order is known
+    // before the data is loaded; the built-in archives share no file, so their order among themselves does not
+    // matter, and a built-in plugin with a line of its own is registered once, in its built-in place.
+    for (const auto& name : builtInPlugins())
+        addArchivesOfPlugin(name, candidates);
+    for (const auto& name : activePluginsTxtLines())
         addArchivesOfPlugin(name, candidates);
 
     // The engine registers an archive once, when it exists.

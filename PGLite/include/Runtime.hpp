@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <functional>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -157,6 +158,19 @@ private:
     void onDataLoaded();
 
     /**
+     * @brief The input-loaded work, before the engine loads the plugins: the settings and, with PGLite enabled, the
+     * environment on a background thread. It needs no record and its file map takes the longest of the startup, so
+     * it is built while the plugins load; the data-load work joins it (initializeInBackground).
+     */
+    void onInputLoaded();
+
+    /// @brief Detects the shader frameworks once; the SKSE plugins and ENB's proxy are loaded before the input is.
+    void detectShaderFrameworks();
+
+    /// @brief Reads settings.json, or the first-start defaults, and the enabled flag, once.
+    void readSettings();
+
+    /**
      * @brief Blocks the data-load handler until the background initialization is done, so the main menu opens with
      * PGLite ready (DESIGN.md section 4.1). Gives up with a warning after a long wait.
      */
@@ -192,8 +206,17 @@ private:
     /// @brief The facegen paths of every NPC form. At data load, before the game runs.
     [[nodiscard]] std::vector<std::filesystem::path> facegenPaths() const;
 
-    /// @brief The background initialization: the GPU, the observer, the facegen streams, then the environment.
+    /**
+     * @brief The background initialization of the data-load work: the facegen streams, then the environment, joined
+     * from the input-loaded thread when it was started there and built here otherwise.
+     */
     void initializeInBackground();
+
+    /// @brief The GPU, the observer and the environment (buildEnvironment), on whichever thread builds them.
+    void prepareEnvironment();
+    void reportStage(const char* stage);
+    void reportProgress(std::size_t done,
+                        std::size_t total);
 
     /**
      * @brief Builds and installs the environment of the current parameters: the classification cache is read for its
@@ -231,6 +254,10 @@ private:
     ClassificationCache m_cache;
     std::unique_ptr<Environment> m_environment;
     std::unique_ptr<Menu> m_menu;
+    /// @brief The environment build started at input load, joined by the data-load work; invalid when none was.
+    std::future<void> m_earlyInitialization;
+    bool m_didDetectShaderFrameworks = false;
+    bool m_areSettingsRead = false;
 
     std::unordered_map<std::string, StreamEntry> m_streams;
     mutable std::mutex m_streamsMutex;

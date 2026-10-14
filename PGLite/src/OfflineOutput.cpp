@@ -231,21 +231,8 @@ std::optional<ModelElement> elementOf(RE::TESForm& form,
     return std::nullopt;
 }
 
-}
-
-bool OfflineOutput::isPresent()
-{
-    if (Resources::exists(diffFile))
-        return true;
-
-    auto* const dataHandler = RE::TESDataHandler::GetSingleton();
-    return dataHandler
-        && (dataHandler->LookupLoadedModByName(outputPlugin) || dataHandler->LookupLoadedLightModByName(outputPlugin));
-}
-
-bool OfflineOutput::hasStockRecords() { return Resources::exists(stockRecordsPath()); }
-
-OfflineOutput::Result OfflineOutput::restore()
+/// @brief Reads and checks the stock records file, with the errors restore() documents.
+nlohmann::json readStockRecords()
 {
     std::vector<std::byte> bytes;
     if (!Resources::readFile(stockRecordsPath(), bytes))
@@ -266,6 +253,40 @@ OfflineOutput::Result OfflineOutput::restore()
         throw std::runtime_error(std::format(
             "the stock records file of the offline output has version {}, newer than this PGLite supports", version));
     }
+
+    return json;
+}
+
+}
+
+bool OfflineOutput::isPresent()
+{
+    if (Resources::exists(diffFile))
+        return true;
+
+    auto* const dataHandler = RE::TESDataHandler::GetSingleton();
+    return dataHandler
+        && (dataHandler->LookupLoadedModByName(outputPlugin) || dataHandler->LookupLoadedLightModByName(outputPlugin));
+}
+
+bool OfflineOutput::hasStockRecords() { return Resources::exists(stockRecordsPath()); }
+
+std::unordered_set<std::filesystem::path> OfflineOutput::generatedTextures()
+{
+    std::unordered_set<std::filesystem::path> textures;
+    if (!hasStockRecords())
+        return textures;
+
+    for (const auto& texture : readStockRecords().value("generatedtextures", nlohmann::json::array()))
+        if (texture.is_string())
+            textures.insert(StringUtil::utf8toUTF16(texture.get<std::string>()));
+
+    return textures;
+}
+
+OfflineOutput::Result OfflineOutput::restore()
+{
+    const auto json = readStockRecords();
 
     auto* const dataHandler = RE::TESDataHandler::GetSingleton();
     if (!dataHandler)
