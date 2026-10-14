@@ -14,6 +14,7 @@
 #include "PGRunCache.hpp"
 #include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
+#include "common/MO2DataFolder.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -536,13 +537,19 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
             return false;
         }
 
-        // MO2.
-        if (params.processing.multithread) {
-            modManagerInit.queueTask(
-                [&pgmm, &params] { pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir); });
-        } else {
-            pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir);
-        }
+        // MO2. The mods are attributed from the view of the instance's data folder, the mod folders listed on the
+        // pool instead of one after the other.
+        const auto populateMO2 = [&pgmm, &params, &bg] {
+            const auto view = MO2DataFolder::read(
+                params.modManager.mo2InstanceDir,
+                bg->gameDataPath(),
+                { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = params.processing.multithread });
+            pgmm->populateModFileMapMO2(view, params.output.dir);
+        };
+        if (params.processing.multithread)
+            modManagerInit.queueTask(populateMO2);
+        else
+            populateMO2();
     } else if (params.modManager.type == PGModManager::ModManagerType::Vortex) {
         // Vortex.
         if (params.processing.multithread)

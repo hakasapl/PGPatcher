@@ -18,6 +18,8 @@
 #include <utility>
 #include <vector>
 
+class MO2DataFolder;
+
 /**
  * @brief Manages the mapping between mod files and their owning mods, supporting Mod Organizer 2 and Vortex.
  *
@@ -104,7 +106,16 @@ private:
     static constexpr const char* mo2IniProfileKey = "selected_profile=";
     static constexpr const char* mo2IniGameNameKey = "gameName=";
     static constexpr const char* mo2IniGameEditionKey = "game_edition=";
+    static constexpr const char* mo2IniOverwriteDirKey = "overwrite_directory=";
+    static constexpr const char* mo2IniSkipFileSuffixesKey = "skip_file_suffixes=";
+    static constexpr const char* mo2IniSkipDirectoriesKey = "skip_directories=";
     static constexpr const char* mo2IniBaseDirWildcard = "%BASE_DIR%";
+    /// @brief The value QSettings writes for an empty list.
+    static constexpr const wchar_t* mo2IniInvalidValue = L"@Invalid()";
+    /// @brief MO2's file name suffix of hidden files, the one file suffix it skips by default.
+    static constexpr const wchar_t* mo2DefaultSkipFileSuffix = L".mohidden";
+    /// @brief The one folder name MO2 skips by default.
+    static constexpr const wchar_t* mo2DefaultSkipDirectory = L".git";
 
     static constexpr const char* mo2IniByteArrayPrefix = "@ByteArray(";
     static constexpr const char* mo2IniByteArraySuffix = ")";
@@ -112,6 +123,14 @@ private:
     /// @brief MO2's virtual filesystem DLL, injected from the MO2 install folder into every process MO2 launches.
     static constexpr const wchar_t* mo2UsvfsDLLName = L"usvfs_x64.dll";
     static constexpr const wchar_t* mo2ExeFilename = L"ModOrganizer.exe";
+    static constexpr const wchar_t* mo2IniFileName = L"ModOrganizer.ini";
+    /// @brief The file in the MO2 folder that locks MO2 to its portable instance.
+    static constexpr const wchar_t* mo2PortableLockFileName = L"portable.txt";
+    /// @brief The registry key and value MO2 keeps its current global instance in.
+    static constexpr const wchar_t* mo2RegistryKey = L"Software\\Mod Organizer Team\\Mod Organizer";
+    static constexpr const wchar_t* mo2RegistryCurrentInstanceValue = L"CurrentInstance";
+    /// @brief The folder of the global instances below the local application data.
+    static constexpr const wchar_t* mo2GlobalInstancesFolder = L"ModOrganizer";
 
 public:
     /**
@@ -296,6 +315,18 @@ public:
                                const std::filesystem::path& outputDir);
 
     /**
+     * @brief Populates the mod file map from a view of the instance's data folder (MO2DataFolder) instead of walking
+     * the mod folders: the same mods in the same order, and every file of the view that comes from a mod, with the
+     * rules of the walk (the folders to map and the archives at the top level, no hidden file, no meta.ini). A
+     * missing or output folder mod stops the population as the walk does.
+     *
+     * @param view The data folder view of the instance.
+     * @param outputDir Path to the PGPatcher output directory, which must not be an enabled mod.
+     */
+    void populateModFileMapMO2(const MO2DataFolder& view,
+                               const std::filesystem::path& outputDir);
+
+    /**
      * @brief Populates the mod file map from vortex.deployment.json in the given directory. Only files under the
      * folders to map are mapped; mods that are not deployed anymore are forgotten.
      *
@@ -334,6 +365,54 @@ public:
     [[nodiscard]] const std::filesystem::path& stagingLocation() const;
 
     /**
+     * @brief Returns the profiles and mods folders of an MO2 instance from modorganizer.ini, with %BASE_DIR% expanded
+     * and the instance folder's "profiles" and "mods" as defaults.
+     */
+    [[nodiscard]] static std::pair<std::filesystem::path,
+                                   std::filesystem::path>
+    mo2FilePaths(const std::filesystem::path& instanceDir);
+
+    /**
+     * @brief Returns the overwrite folder of an MO2 instance from modorganizer.ini, with %BASE_DIR% expanded and the
+     * instance folder's "overwrite" as the default.
+     */
+    [[nodiscard]] static std::filesystem::path mo2OverwriteDir(const std::filesystem::path& instanceDir);
+
+    /**
+     * @brief Returns the file name suffixes MO2 leaves out of its virtual file system (the skip_file_suffixes
+     * setting of modorganizer.ini), .mohidden when the setting is absent.
+     */
+    [[nodiscard]] static std::vector<std::wstring> mo2SkipFileSuffixes(const std::filesystem::path& instanceDir);
+
+    /**
+     * @brief Returns the folder names MO2 leaves out of its virtual file system (the skip_directories setting of
+     * modorganizer.ini), .git when the setting is absent.
+     */
+    [[nodiscard]] static std::vector<std::wstring> mo2SkipDirectories(const std::filesystem::path& instanceDir);
+
+    /**
+     * @brief Returns the names of the enabled mods of an MO2 profile in the order of its modlist.txt, the first one
+     * winning: the lines that start with '+', without the separators. Disabled ('-') and unmanaged ('*') mods,
+     * comments and empty lines are skipped.
+     *
+     * @param modListFile Path of the profile's modlist.txt.
+     * @throws std::runtime_error if the file does not exist.
+     */
+    [[nodiscard]] static std::vector<std::wstring> mo2EnabledMods(const std::filesystem::path& modListFile);
+
+    /**
+     * @brief Finds the instance of the MO2 that launched this process, the way MO2 picks it at startup: the portable
+     * instance of the MO2 folder when its lock file exists, else the global instance MO2 keeps as current in the
+     * registry, else the portable instance when the MO2 folder has one.
+     *
+     * The choice is MO2's default; a run started with another instance on its command line is not seen. Whether the
+     * instance is the one the process sees is checked by MO2DataFolder::matchesVirtualFolder().
+     *
+     * @return The instance folder, or empty if the process was not launched from MO2 or no instance is found.
+     */
+    [[nodiscard]] static std::filesystem::path runningMO2InstanceDir();
+
+    /**
      * @brief Enables new mods and renumbers priorities the way the mod sort dialog saves them.
      *
      * New mods (not in modrules.json) that provide a shader better than the default one are enabled and given
@@ -363,6 +442,14 @@ private:
                                           bool checkPriority = true);
 
     /**
+     * @brief Reads the value of a "key=" line of modorganizer.ini as the file has it.
+     *
+     * @return The value, or an empty string if the file or the key does not exist.
+     */
+    static std::string mo2INIRawField(const std::filesystem::path& instanceDir,
+                                      const std::string& fieldName);
+
+    /**
      * @brief Reads the value of a "key=" line of modorganizer.ini, without surrounding quotes and with doubled
      * backslashes collapsed. @ByteArray(...) values are decoded when isByteArray is set.
      *
@@ -373,10 +460,27 @@ private:
                                     const bool& isByteArray = false);
 
     /**
-     * @brief Returns the profiles and mods folders of an MO2 instance from modorganizer.ini, with %BASE_DIR% expanded
-     * and the instance folder's "profiles" and "mods" as defaults.
+     * @brief Returns a folder setting of modorganizer.ini as a path, with %BASE_DIR% expanded, or the default folder
+     * below the base directory when the setting is absent.
+     *
+     * @param instanceDir Path to the MO2 instance directory.
+     * @param fieldName The "key=" of the setting.
+     * @param defaultName Name of the default folder below the base directory.
      */
-    static std::pair<std::filesystem::path,
-                     std::filesystem::path>
-    mo2FilePaths(const std::filesystem::path& instanceDir);
+    static std::filesystem::path mo2FolderSetting(const std::filesystem::path& instanceDir,
+                                                  const std::string& fieldName,
+                                                  const wchar_t* defaultName);
+
+    /**
+     * @brief Returns a list setting of modorganizer.ini the way QSettings writes a string list: comma separated,
+     * quoted when needed, @Invalid() for an empty list. The default is returned when the setting is absent.
+     */
+    static std::vector<std::wstring> mo2ListSetting(const std::filesystem::path& instanceDir,
+                                                    const std::string& fieldName,
+                                                    const std::vector<std::wstring>& defaultValue);
+
+    /**
+     * @brief Reads the name of the global instance MO2 keeps as current in the registry, empty when there is none.
+     */
+    static std::wstring mo2CurrentInstanceName();
 };

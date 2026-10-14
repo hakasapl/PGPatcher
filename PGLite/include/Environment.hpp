@@ -5,6 +5,7 @@
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
 #include "Settings.hpp"
+#include "common/MO2DataFolder.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -88,6 +89,12 @@ public:
                                  const Settings::Ini& ini);
 
 private:
+    /**
+     * @brief Builds the view of the data folder from the Mod Organizer 2 instance the game runs under (the one that
+     * launched it, else the configured one), when the view is what the game sees. Without it the data folder is
+     * listed, which usvfs merges file by file.
+     */
+    void readMO2DataFolder();
     void initializeModManager();
     void initializeDirectory();
     void classifyTextures(ClassificationCache& cache,
@@ -103,6 +110,7 @@ private:
     Settings::Ini m_ini;
     std::unordered_set<std::filesystem::path> m_excludedFiles;
     std::filesystem::path m_mo2InstanceDir;
+    std::unique_ptr<MO2DataFolder> m_mo2DataFolder; /**< The view the file maps are built from, until they are */
     std::unique_ptr<PGModManager> m_modManager;
     std::unique_ptr<PGDirectory> m_directory;
 };

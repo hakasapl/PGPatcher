@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -503,6 +504,89 @@ TEST(BethesdaDirectoryTest,
 
     bd.setFileReader({ });
     EXPECT_EQ(bytesToString(bd.file(L"meshes\\loose.nif")), "loose");
+}
+
+/// @brief A source that hands out a fixed list of loose files.
+class VectorLooseFileSource : public BethesdaDirectory::LooseFileSource {
+public:
+    std::vector<BethesdaDirectory::LooseFile> files;
+
+    void forEachLooseFile(const std::function<void(const BethesdaDirectory::LooseFile&)>& visitor) const override
+    {
+        for (const auto& file : files)
+            visitor(file);
+    }
+};
+
+TEST(BethesdaDirectoryTest,
+     LooseFileSourceReplacesTheListing)
+{
+    const TempDir dir;
+    const auto data = dir / L"Data";
+    std::filesystem::create_directories(data);
+    TestUtil::writeFile(data / L"meshes\\listed.nif", "listed");
+
+    VectorLooseFileSource source;
+    source.files = {
+        { .relPath = L"Meshes\\A.nif", .mtime = 10, .size = 5, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"textures\\t.dds", .mtime = 20, .size = 6, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"scripts\\s.pex", .mtime = 30, .size = 7, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"top.txt", .mtime = 40, .size = 8, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"plugin.esp", .mtime = 50, .size = 9, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"meshes\\h.nif", .mtime = 60, .size = 10, .isHidden = true, .isInHiddenFolder = false },
+        { .relPath = L"meshes\\.d\\x.nif", .mtime = 70, .size = 11, .isHidden = false, .isInHiddenFolder = true },
+        { .relPath = L"meshes\\ex.nif", .mtime = 80, .size = 12, .isHidden = false, .isInHiddenFolder = false },
+    };
+
+    BethesdaDirectory bd(data, { L"meshes", L"textures" }, dir / L"out");
+    bd.setExcludedFiles({ L"meshes\\ex.nif" });
+    bd.setLooseFileSource(&source);
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(mappedPaths(bd), (std::set<std::wstring> { L"meshes\\a.nif", L"textures\\t.dds", L"top.txt" }));
+
+    const auto identity = bd.fileIdentity(L"meshes\\a.nif");
+    EXPECT_EQ(identity.kind, BethesdaDirectory::FileIdentity::Kind::Loose);
+    EXPECT_EQ(identity.mtime, 10);
+    EXPECT_EQ(identity.size, 5U);
+    EXPECT_TRUE(bd.isLooseFile(L"textures\\t.dds"));
+
+    // Hidden files are the source's to flag and the directory's to keep or skip.
+    bd.setShouldSkipHiddenFiles(false);
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(mappedPaths(bd),
+              (std::set<std::wstring> {
+                  L"meshes\\a.nif", L"textures\\t.dds", L"top.txt", L"meshes\\h.nif", L"meshes\\.d\\x.nif" }));
+
+    // Without the source the data folder is listed again.
+    bd.setLooseFileSource(nullptr);
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(mappedPaths(bd), (std::set<std::wstring> { L"meshes\\listed.nif" }));
+}
+
+TEST(BethesdaDirectoryTest,
+     LooseFileSourceFilesWinOverArchives)
+{
+    const TempDir dir;
+    BSABuilder archive;
+    archive.addFile("meshes\\shared.nif", "archived");
+    archive.addFile("meshes\\archived.nif", "archived only");
+    archive.write(dir / L"Mod.bsa");
+
+    VectorLooseFileSource source;
+    source.files = {
+        { .relPath = L"meshes\\shared.nif", .mtime = 1, .size = 2, .isHidden = false, .isInHiddenFolder = false },
+    };
+
+    for (const bool multithread : { false, true }) {
+        BethesdaDirectory bd(dir.path(), { L"meshes" }, dir / L"out");
+        bd.setArchiveLoadOrder({ L"Mod.bsa" });
+        bd.setLooseFileSource(&source);
+        bd.populateFileMap(true, multithread);
+        EXPECT_EQ(mappedPaths(bd), (std::set<std::wstring> { L"meshes\\shared.nif", L"meshes\\archived.nif" }));
+        EXPECT_TRUE(bd.isLooseFile(L"meshes\\shared.nif"));
+        EXPECT_TRUE(bd.isBSAFile(L"meshes\\archived.nif"));
+        EXPECT_EQ(bd.fileIdentity(L"meshes\\shared.nif").kind, BethesdaDirectory::FileIdentity::Kind::Loose);
+    }
 }
 
 TEST(BethesdaDirectoryTest,

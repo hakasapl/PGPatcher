@@ -20,6 +20,8 @@
 - [Common] Fixed folders inside the data directory being listed as files
 - [Common] Fixed the thread count on systems with two or fewer logical processors
 - [Common] Fixed a complex material JSON whose `specular_color` has an entry that is not a number killing the run, ignoring instead
+- [PGLite] The files of a Mod Organizer 2 profile are read from the instance's mod folders instead of the virtual data folder, whose listing took most of the main menu hold on large mod lists
+- [PGPatcher] Mod Organizer 2 mods are attributed from one listing of the mod folders on the thread pool
 
 ## [2.1.2] - 2026-10-05
 

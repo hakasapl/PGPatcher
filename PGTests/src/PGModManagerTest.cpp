@@ -2,11 +2,13 @@
 
 #include "BSABuilder.hpp"
 #include "FakeGame.hpp"
+#include "FakeMO2.hpp"
 #include "NIFBuilder.hpp"
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "TestUtil.hpp"
 #include "common/BethesdaGame.hpp"
+#include "common/MO2DataFolder.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/ExceptionHandler.hpp"
@@ -17,65 +19,23 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/common.h>
 
+#include <algorithm>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
 #include <vector>
+#include <windows.h>
 
 namespace {
 
 namespace TestLog = TestUtil::TestLog;
 using ModManagerType = PGModManager::ModManagerType;
+using TestUtil::FakeMO2;
 using TestUtil::TempDir;
-
-/**
- * @brief A Mod Organizer 2 instance folder with a modorganizer.ini, a profile and a mods folder.
- */
-class FakeMO2 {
-private:
-    TempDir m_dir;
-
-public:
-    FakeMO2()
-    {
-        std::filesystem::create_directories(instanceDir());
-        std::filesystem::create_directories(modsDir());
-        std::filesystem::create_directories(profileDir());
-        writeINI("[General]\n"
-                 "gameName=Skyrim Special Edition\n"
-                 "game_edition=Steam\n"
-                 "selected_profile=@ByteArray(Default)\n"
-                 "gamePath=@ByteArray(C:\\\\Games\\\\Skyrim Special Edition)\n"
-                 "\n"
-                 "[Settings]\n"
-                 "profiles_directory=@ByteArray(%BASE_DIR%/profiles)\n"
-                 "mod_directory=@ByteArray(%BASE_DIR%/mods)\n");
-    }
-
-    [[nodiscard]] std::filesystem::path instanceDir() const { return m_dir / L"MO2"; }
-    [[nodiscard]] std::filesystem::path modsDir() const { return instanceDir() / L"mods"; }
-    [[nodiscard]] std::filesystem::path profileDir() const { return instanceDir() / L"profiles\\Default"; }
-    [[nodiscard]] std::filesystem::path outputDir() const { return m_dir / L"Output"; }
-
-    void writeINI(const std::string& content) const
-    {
-        TestUtil::writeFile(instanceDir() / L"modorganizer.ini", content);
-    }
-
-    void writeModlist(const std::string& content) const { TestUtil::writeFile(profileDir() / L"modlist.txt", content); }
-
-    void addModFile(const std::wstring& mod,
-                    const std::wstring& relPath,
-                    const std::string& content = "x") const
-    {
-        TestUtil::writeFile(modsDir() / mod / relPath, content);
-    }
-
-    void makePortable() const { TestUtil::writeFile(instanceDir() / L"ModOrganizer.exe", "exe"); }
-};
 
 TEST(PGModManagerTest,
      TypeStringsRoundTrip)
@@ -338,6 +298,130 @@ TEST(PGModManagerTest,
     EXPECT_EQ(pgmm.mod(L"ModB"), modB);
     EXPECT_EQ(modB->modManagerOrder, 0);
     EXPECT_EQ(pgmm.mod(L"ModA"), nullptr);
+}
+
+TEST(PGModManagerTest,
+     Mo2ViewPopulatesTheSameMapAsTheWalk)
+{
+    const FakeMO2 mo2;
+    std::filesystem::create_directories(mo2.dataDir());
+    mo2.writeModlist("# comment\n+ModA\n+ModB\n-Disabled\n*DLC: Dawnguard\n+Separators_separator\n+NoFiles\n\n");
+    mo2.addModFile(L"ModA", L"meshes\\a.nif");
+    mo2.addModFile(L"ModA", L"meshes\\Sub\\Deep.NIF");
+    mo2.addModFile(L"ModA", L"textures\\a_p.dds");
+    mo2.addModFile(L"ModA", L"meta.ini");
+    mo2.addModFile(L"ModA", L"ModA.bsa");
+    mo2.addModFile(L"ModA", L"readme.txt");
+    mo2.addModFile(L"ModB", L"meshes\\a.nif");
+    mo2.addModFile(L"ModB", L"meshes\\b.nif");
+    mo2.addModFile(L"ModB", L"scripts\\s.pex");
+    mo2.addModFile(L"ModB", L"meshes\\.hidden\\h.nif");
+    mo2.addModFile(L"ModB", L"meshes\\m.nif.mohidden");
+    mo2.addModFile(L"ModB", L"meshes\\attr.nif");
+    ASSERT_TRUE(SetFileAttributesW((mo2.modsDir() / L"ModB\\meshes\\attr.nif").c_str(), FILE_ATTRIBUTE_HIDDEN));
+    mo2.addModFile(L"ModB", L"lightplacer\\lp.json");
+    mo2.addModFile(L"ModB", L"meshes\\meta.ini");
+    mo2.addModFile(L"Disabled", L"meshes\\d.nif");
+    mo2.addModFile(L"Separators_separator", L"meshes\\s.nif");
+    std::filesystem::create_directories(mo2.modsDir() / L"NoFiles");
+    mo2.addOverwriteFile(L"meshes\\o.nif");
+    std::filesystem::create_directories(mo2.outputDir());
+
+    PGModManager walked(ModManagerType::ModOrganizer2);
+    walked.populateModFileMapMO2(mo2.instanceDir(), mo2.outputDir());
+
+    const auto view = MO2DataFolder::read(
+        mo2.instanceDir(), mo2.dataDir(), { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = true });
+    PGModManager viewed(ModManagerType::ModOrganizer2);
+    viewed.populateModFileMapMO2(view, mo2.outputDir());
+    EXPECT_EQ(viewed.stagingLocation(), mo2.modsDir());
+
+    // The same mods with the same order and folder.
+    using ModRow = std::tuple<std::wstring, int, std::filesystem::path, bool, int>;
+    const auto rows = [](const PGModManager& pgmm) {
+        std::vector<ModRow> rows;
+        for (const auto& mod : pgmm.mods())
+            rows.emplace_back(mod->name, mod->modManagerOrder, mod->folder, mod->isNew, mod->priority);
+        std::ranges::sort(rows);
+        return rows;
+    };
+    EXPECT_EQ(rows(viewed), rows(walked));
+    EXPECT_EQ(rows(viewed).size(), 3U);
+
+    // The same files owned by the same mods.
+    const auto owners = [](const PGModManager& pgmm) {
+        std::map<std::wstring, std::wstring> owners;
+        for (const auto& [path, mod] : pgmm.modFileMap())
+            owners[path.wstring()] = mod->name;
+        return owners;
+    };
+    EXPECT_EQ(owners(viewed), owners(walked));
+    EXPECT_EQ(owners(viewed),
+              (std::map<std::wstring, std::wstring> {
+                  { L"meshes\\a.nif", L"ModA" },
+                  { L"meshes\\sub\\deep.nif", L"ModA" },
+                  { L"textures\\a_p.dds", L"ModA" },
+                  { L"moda.bsa", L"ModA" },
+                  { L"meshes\\b.nif", L"ModB" },
+                  { L"lightplacer\\lp.json", L"ModB" },
+              }));
+}
+
+TEST(PGModManagerTest,
+     Mo2ViewReportsBrokenSetups)
+{
+    const FakeMO2 mo2;
+    std::filesystem::create_directories(mo2.dataDir());
+    const MO2DataFolder::Options options { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = false };
+
+    // The output folder must not be an enabled mod.
+    mo2.writeModlist("+Output\n+Other\n");
+    mo2.addModFile(L"Output", L"meshes\\o.nif");
+    mo2.addModFile(L"Other", L"meshes\\x.nif");
+    PGModManager pgmm(ModManagerType::ModOrganizer2);
+    pgmm.populateModFileMapMO2(MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), options),
+                               mo2.modsDir() / L"Output");
+    EXPECT_TRUE(TestLog::contains(spdlog::level::critical, "you must disable the mod Output first"));
+    EXPECT_EQ(pgmm.modByFile(L"meshes\\x.nif"), nullptr);
+
+    // An output folder that does not exist yet is fine.
+    pgmm.populateModFileMapMO2(MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), options),
+                               mo2.outputDir() / L"not yet created");
+    EXPECT_EQ(pgmm.modByFile(L"meshes\\o.nif"), pgmm.mod(L"Output"));
+    EXPECT_EQ(pgmm.modByFile(L"meshes\\x.nif"), pgmm.mod(L"Other"));
+
+    // A list without any mod.
+    mo2.writeModlist("# nothing\n-Disabled\n");
+    pgmm.populateModFileMapMO2(MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), options), mo2.outputDir());
+    EXPECT_TRUE(TestLog::contains(spdlog::level::critical, "modlist.txt was empty"));
+    EXPECT_TRUE(pgmm.mods().empty());
+}
+
+TEST(PGModManagerTest,
+     Mo2InstanceSettingsAreRead)
+{
+    const FakeMO2 mo2;
+    EXPECT_EQ(PGModManager::mo2OverwriteDir(mo2.instanceDir()), mo2.instanceDir() / L"overwrite");
+    EXPECT_EQ(PGModManager::mo2SkipFileSuffixes(mo2.instanceDir()), (std::vector<std::wstring> { L".mohidden" }));
+    EXPECT_EQ(PGModManager::mo2SkipDirectories(mo2.instanceDir()), (std::vector<std::wstring> { L".git" }));
+
+    mo2.writeINI("[Settings]\n"
+                 "base_directory=D:/Base\n"
+                 "overwrite_directory=@ByteArray(%BASE_DIR%/over)\n"
+                 "skip_file_suffixes=.mohidden, \".a, b\", c\n"
+                 "skip_directories=@Invalid()\n");
+    EXPECT_EQ(PGModManager::mo2OverwriteDir(mo2.instanceDir()), L"D:/Base/over");
+    EXPECT_EQ(PGModManager::mo2SkipFileSuffixes(mo2.instanceDir()),
+              (std::vector<std::wstring> { L".mohidden", L".a, b", L"c" }));
+    EXPECT_TRUE(PGModManager::mo2SkipDirectories(mo2.instanceDir()).empty());
+
+    mo2.writeModlist("# comment\n+ModA\n-Disabled\n*DLC: Dawnguard\n+Separators_separator\n\n+ModB\n");
+    EXPECT_EQ(PGModManager::mo2EnabledMods(mo2.profileDir() / L"modlist.txt"),
+              (std::vector<std::wstring> { L"ModA", L"ModB" }));
+    EXPECT_THROW(std::ignore = PGModManager::mo2EnabledMods(mo2.profileDir() / L"missing.txt"), std::runtime_error);
+
+    // Not launched from MO2: no running instance.
+    EXPECT_TRUE(PGModManager::runningMO2InstanceDir().empty());
 }
 
 TEST(PGModManagerTest,
