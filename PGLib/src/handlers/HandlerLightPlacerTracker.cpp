@@ -107,11 +107,7 @@ void HandlerLightPlacerTracker::init(const std::vector<std::filesystem::path>& l
         // Load JSON data.
         nlohmann::json jsonData;
         if (!parseLightPlacerJSON(pgd->looseFileFullPath(jsonPath), jsonData)) {
-            Logger::warn(
-                L"Light Placer JSON {} is invalid and was skipped, Light Placer will not load it either: check "
-                L"it for syntax errors such as comments, trailing commas or a byte order mark, and make sure "
-                L"its root is an array",
-                jsonPath.wstring());
+            Logger::warn(L"Light Placer JSON {} is invalid and was skipped", jsonPath.wstring());
             continue;
         }
 
