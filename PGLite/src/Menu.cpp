@@ -37,12 +37,9 @@
 #include <filesystem>
 #include <format>
 #include <mutex>
-#include <objbase.h>
-#include <optional>
 #include <set>
 #include <shared_mutex>
 #include <shlobj.h>
-#include <shobjidl.h>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -298,23 +295,8 @@ ImGuiKey imguiKeyOf(std::uint32_t scanCode)
     }
 }
 
-/// @brief The modifier an ImGui key is, ImGuiKey_None for a plain key.
-ImGuiKey modifierOf(ImGuiKey key)
-{
-    switch (key) {
-    case ImGuiKey_LeftCtrl:
-    case ImGuiKey_RightCtrl:
-        return ImGuiMod_Ctrl;
-    case ImGuiKey_LeftShift:
-    case ImGuiKey_RightShift:
-        return ImGuiMod_Shift;
-    case ImGuiKey_LeftAlt:
-    case ImGuiKey_RightAlt:
-        return ImGuiMod_Alt;
-    default:
-        return ImGuiKey_None;
-    }
-}
+/// @brief Whether a virtual key is down right now, from any thread.
+bool isVirtualKeyDown(int virtualKey) { return (static_cast<unsigned>(GetAsyncKeyState(virtualKey)) & 0x8000U) != 0U; }
 
 std::vector<std::string> toUTF8(const std::vector<std::wstring>& strings)
 {
@@ -401,7 +383,6 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
     auto& platformIO = ImGui::GetPlatformIO();
     platformIO.Platform_GetClipboardTextFn = &clipboardText;
     platformIO.Platform_SetClipboardTextFn = &setClipboardText;
-    m_gameWindow = desc.OutputWindow;
     m_runningImage.load(EmbeddedImages::runningGif, EmbeddedImages::runningGifSize, *m_device.Get());
     m_icon.loadIcon(EmbeddedImages::icon, EmbeddedImages::iconSize, *m_device.Get());
 
@@ -694,8 +675,24 @@ void Menu::drainInput()
         records.swap(m_pendingInput);
     }
 
+    // Before the frame's keys and characters, so that a Ctrl+V arrives with its Ctrl.
+    if (m_isOpen && m_isInitialized)
+        syncModifiers();
+
     for (const auto& record : records)
         applyInput(record);
+}
+
+void Menu::syncModifiers()
+{
+    // The engine reports a key only while the game has the focus, so the Alt of an Alt+Tab out of the game never gets
+    // its release: it would stay down for Dear ImGui, where the character of the next Ctrl+V is then typed (the
+    // engine makes the characters with a key state that knows only Shift) and the paste shortcut, which wants Ctrl
+    // alone, does nothing. The keyboard's state is the truth; Dear ImGui drops the events that change nothing.
+    auto& io = ImGui::GetIO();
+    io.AddKeyEvent(ImGuiMod_Ctrl, isVirtualKeyDown(VK_CONTROL));
+    io.AddKeyEvent(ImGuiMod_Shift, isVirtualKeyDown(VK_SHIFT));
+    io.AddKeyEvent(ImGuiMod_Alt, isVirtualKeyDown(VK_MENU));
 }
 
 void Menu::applyInput(const InputRecord& record)
@@ -743,8 +740,6 @@ void Menu::applyInput(const InputRecord& record)
         if (key == ImGuiKey_None)
             break;
 
-        if (const auto modifier = modifierOf(key); modifier != ImGuiKey_None)
-            io.AddKeyEvent(modifier, record.isDown);
         io.AddKeyEvent(key, record.isDown);
         break;
     }
@@ -1060,8 +1055,6 @@ void Menu::draw()
 
     if (!m_isStateLoaded)
         loadState();
-    pollPickedFolder();
-
     const auto& io = ImGui::GetIO();
     ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.4F, io.DisplaySize.y * 0.5F), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.3F, io.DisplaySize.y * 0.25F), ImGuiCond_FirstUseEver);
@@ -1486,14 +1479,11 @@ void Menu::drawConflictManager()
 
     const bool isMO2 = m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2;
     if (isMO2) {
-        const auto browseLabel = tr("common.browse");
+        // Typed: a folder dialog of the shell would open outside the game.
         ImGui::TextUnformatted(tr("launcher.mo2Options.instanceLocation.label").c_str());
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(-(buttonWidth(browseLabel.c_str()) + ImGui::GetStyle().ItemSpacing.x));
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         ImGui::InputText("##instance", &m_mo2InstanceDir);
-        ImGui::SameLine();
-        if (ImGui::Button(browseLabel.c_str()))
-            browseForFolder(tr("launcher.browse.mo2InstanceLocation").c_str());
         ImGui::Checkbox(tr("conflictManager.lockMO2Order.label").c_str(),
                         &m_params.modManager.shouldUseMO2LooseFileOrder);
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
@@ -1680,58 +1670,6 @@ void Menu::rebuildFonts()
     // The backend uploads the new atlas on its next frame.
     if (m_isInitialized)
         ImGui_ImplDX11_InvalidateDeviceObjects();
-}
-
-void Menu::browseForFolder(const char* title)
-{
-    {
-        const std::scoped_lock lock(m_pickerMutex);
-        if (m_isPickerOpen)
-            return;
-
-        m_isPickerOpen = true;
-    }
-
-    // The dialog needs a single-threaded apartment with a message loop of its own, which Show() runs; the game window
-    // is its owner, so it stays in front of the game and the game keeps drawing meanwhile.
-    std::thread([this, owner = m_gameWindow, dialogTitle = StringUtil::utf8toUTF16(title)] {
-        std::optional<std::wstring> picked;
-        if (SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))) {
-            Microsoft::WRL::ComPtr<IFileDialog> dialog;
-            if (SUCCEEDED(
-                    CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog)))) {
-                FILEOPENDIALOGOPTIONS options = 0;
-                std::ignore = dialog->GetOptions(&options);
-                std::ignore = dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR);
-                std::ignore = dialog->SetTitle(dialogTitle.c_str());
-                Microsoft::WRL::ComPtr<IShellItem> item;
-                wchar_t* path = nullptr;
-                if (SUCCEEDED(dialog->Show(owner)) && SUCCEEDED(dialog->GetResult(&item))
-                    && SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) {
-                    picked = path;
-                    CoTaskMemFree(path);
-                }
-            }
-            CoUninitialize();
-        } else {
-            Logger::error("The folder dialog could not initialize COM");
-        }
-
-        const std::scoped_lock lock(m_pickerMutex);
-        m_isPickerOpen = false;
-        if (picked)
-            m_pickedFolder = StringUtil::utf16toUTF8(*picked);
-    }).detach();
-}
-
-void Menu::pollPickedFolder()
-{
-    const std::scoped_lock lock(m_pickerMutex);
-    if (!m_pickedFolder)
-        return;
-
-    m_mo2InstanceDir = *m_pickedFolder;
-    m_pickedFolder.reset();
 }
 
 const char* Menu::clipboardText([[maybe_unused]] ImGuiContext* context)
