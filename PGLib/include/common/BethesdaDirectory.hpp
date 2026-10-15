@@ -87,6 +87,37 @@ public:
      */
     using FileReader = std::function<std::vector<std::byte>(const std::filesystem::path&)>;
 
+    /**
+     * @struct LooseFile
+     * @brief A loose file of the data folder as a listing of it reports the file, for a LooseFileSource.
+     */
+    struct LooseFile {
+        std::wstring relPath; /**< Path relative to the data folder, in the case of the listing */
+        int64_t mtime = 0; /**< Last write time (file_time_type ticks) */
+        uint64_t size = 0; /**< Size in bytes */
+        bool isHidden = false; /**< Hidden as isHidden() reports it: the attribute, a dot name or .mohidden */
+        bool isInHiddenFolder = false; /**< Below a folder that is hidden the same way */
+    };
+
+    /**
+     * @brief Supplies the loose files of the data folder in place of listing it, see setLooseFileSource().
+     */
+    class LooseFileSource {
+    public:
+        virtual ~LooseFileSource() = default;
+        LooseFileSource() = default;
+        LooseFileSource(const LooseFileSource&) = default;
+        LooseFileSource& operator=(const LooseFileSource&) = default;
+        LooseFileSource(LooseFileSource&&) = default;
+        LooseFileSource& operator=(LooseFileSource&&) = default;
+
+        /**
+         * @brief Calls the visitor for every loose file below the data folder, in any order. Files outside the top
+         * level and the folders to map may be among them, the directory leaves them out.
+         */
+        virtual void forEachLooseFile(const std::function<void(const LooseFile&)>& visitor) const = 0;
+    };
+
 private:
     /**
      * @struct BSAFile
@@ -165,6 +196,7 @@ private:
     FileReader m_fileReader; /**< When set, file() reads every mapped file through it */
     std::optional<std::vector<std::wstring>> m_archiveLoadOrder; /**< Replaces the derived archive load order */
     bool m_shouldSkipHiddenFiles = true; /**< Whether hidden loose files stay out of the file map */
+    const LooseFileSource* m_looseFileSource = nullptr; /**< Supplies the loose files instead of a listing */
 
     inline thread_local static FileQueryObserver* s_threadQueryObserver = nullptr;
 
@@ -337,6 +369,16 @@ public:
     void setFileReader(FileReader reader);
 
     /**
+     * @brief Takes the loose files from the source instead of listing the data folder, which usvfs merges file by
+     * file when the process runs under Mod Organizer 2 (MO2DataFolder). The hidden file rule, the folders to map, the
+     * extension block list and the excluded files apply to them as to a listing. nullptr restores the listing. Call
+     * before populateFileMap(); the source has to outlive the call.
+     *
+     * @param source Source of the loose files, or nullptr.
+     */
+    void setLooseFileSource(const LooseFileSource* source);
+
+    /**
      * @brief Replaces the archive load order bsaLoadOrder() derives from the INI files and the plugins, so archives
      * can be mapped without a BethesdaGame. Call before populateFileMap().
      *
@@ -450,6 +492,14 @@ private:
      * @param bsaName Archive file name in the data folder
      */
     void addBSAToFileMap(const std::wstring& bsaName);
+
+    /**
+     * @brief Checks whether a path relative to the data folder is one populateFileMap() maps: at the top level of the
+     * data folder or below one of the folders to map.
+     *
+     * @param relPath Path relative to the data folder, in any case.
+     */
+    [[nodiscard]] bool isMappedPath(const std::wstring& relPath) const;
 
     /**
      * @brief Checks whether a file may enter the file map, which only its extension decides (see extensionBlocklist()).

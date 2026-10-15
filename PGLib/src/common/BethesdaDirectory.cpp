@@ -361,6 +361,20 @@ void BethesdaDirectory::addLooseFilesToMap()
 {
     Logger::info("Adding loose files to file map.");
 
+    if (m_looseFileSource) {
+        // The source stands in for the listing below: the same files, the same rules.
+        m_looseFileSource->forEachLooseFile([this](const LooseFile& file) {
+            if (m_shouldSkipHiddenFiles && (file.isHidden || file.isInHiddenFolder))
+                return;
+            if (!isMappedPath(file.relPath) || !isFileAllowed(file.relPath))
+                return;
+
+            const std::filesystem::path relativePath = boost::to_lower_copy(file.relPath);
+            updateFileMap(relativePath, nullptr, false, file.mtime, file.size);
+        });
+        return;
+    }
+
     // Everything needed about an entry (hidden attribute, size, write time) comes with the directory listing, so no
     // file is queried on its own.
     const auto addEntry = [this](const std::wstring& relPath, const FileUtil::DirectoryEntry& entry) {
@@ -686,6 +700,15 @@ std::vector<std::wstring> BethesdaDirectory::findBSAFilesFromPluginName(const st
     return bsaFilesFound;
 }
 
+bool BethesdaDirectory::isMappedPath(const std::wstring& relPath) const
+{
+    const auto separator = relPath.find_first_of(L"\\/");
+    if (separator == std::wstring::npos)
+        return true;
+
+    return m_foldersToMap.contains(StringUtil::toLowerASCIIFast(relPath.substr(0, separator)));
+}
+
 bool BethesdaDirectory::isFileAllowed(const std::filesystem::path& filePath)
 {
     std::wstring fileExtension = filePath.extension().wstring();
@@ -695,6 +718,8 @@ bool BethesdaDirectory::isFileAllowed(const std::filesystem::path& filePath)
 }
 
 void BethesdaDirectory::setFileReader(FileReader reader) { m_fileReader = std::move(reader); }
+
+void BethesdaDirectory::setLooseFileSource(const LooseFileSource* source) { m_looseFileSource = source; }
 
 void BethesdaDirectory::setArchiveLoadOrder(std::vector<std::wstring> archives)
 {

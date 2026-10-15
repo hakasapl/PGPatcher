@@ -26,12 +26,13 @@ namespace {
 
 constexpr const char* iniSection = "General";
 
-/// @brief Gives a settings document without a "params" object the defaults, so a file PGLite writes before its first
-/// Apply reads the same in the offline program, which takes any file for a complete one.
-void ensureParams(nlohmann::json& settings)
+/// @brief Gives a settings document without a "params" object the given parameters, so a file PGLite writes before
+/// its first Apply reads the same in the offline program, which takes any file for a complete one.
+void ensureParams(nlohmann::json& settings,
+                  const PGParams& params)
 {
     if (!settings.contains("params"))
-        PGParams::defaults().writeJSON(settings["params"]);
+        params.writeJSON(settings["params"]);
 }
 
 }
@@ -160,7 +161,7 @@ bool Settings::writeIsEnabled(bool isEnabled)
         settings = nlohmann::json::object();
 
     try {
-        ensureParams(settings);
+        ensureParams(settings, PGParams::defaults());
         settings["pglite"]["enabled"] = isEnabled;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
@@ -191,7 +192,7 @@ bool Settings::writeLanguage(const std::string& language)
         settings = nlohmann::json::object();
 
     try {
-        ensureParams(settings);
+        ensureParams(settings, PGParams::defaults());
         settings["pglite"]["language"] = language;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
@@ -212,14 +213,14 @@ bool Settings::readDidOpenMenu()
     return pglite.contains("didOpenMenu") && pglite["didOpenMenu"].is_boolean() && pglite["didOpenMenu"].get<bool>();
 }
 
-bool Settings::writeDidOpenMenu()
+bool Settings::writeDidOpenMenu(const PGParams& params)
 {
     nlohmann::json settings;
     if (!FileUtil::getJSON(settingsFile(), settings) || !settings.is_object())
         settings = nlohmann::json::object();
 
     try {
-        ensureParams(settings);
+        ensureParams(settings, params);
         settings["pglite"]["didOpenMenu"] = true;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {

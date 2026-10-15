@@ -29,6 +29,7 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <exception>
@@ -38,6 +39,7 @@
 #include <memory>
 #include <mutex>
 #include <objbase.h>
+#include <optional>
 #include <shared_mutex>
 #include <shlobj.h>
 #include <stdexcept>
@@ -126,19 +128,39 @@ std::filesystem::path localAppDataGameFolder()
 }
 
 /**
+ * @brief The plugin file names the engine loads without a line of Plugins.txt: the masters of the game and the
+ * Creation Club content of Skyrim.ccc, read from the files so that the archives are known before the data is loaded.
+ */
+std::vector<std::wstring> builtInPlugins()
+{
+    std::vector<std::wstring> names
+        = { L"Skyrim.esm", L"Update.esm", L"Dawnguard.esm", L"HearthFires.esm", L"Dragonborn.esm" };
+    if (REL::Module::IsVR())
+        names.emplace_back(L"SkyrimVR.esm");
+
+    std::ifstream stream(Settings::gameFolder() / L"Skyrim.ccc");
+    std::string line;
+    while (stream && std::getline(stream, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+            line.pop_back();
+        if (!line.empty() && line.front() != '#')
+            names.push_back(StringUtil::windows1252toUTF16(line));
+    }
+
+    return names;
+}
+
+/**
  * @brief The plugin file names of the active lines of Plugins.txt in file order, as the engine reads them for its
- * archive registration (a line that starts with an asterisk; comments and empty lines skipped). Empty when the file
+ * archive registration (a line that starts with an asterisk; comments and empty lines skipped). Nothing when the file
  * cannot be read.
  */
-std::vector<std::wstring> activePluginsTxtLines()
+std::optional<std::vector<std::wstring>> activePluginsTxtLines()
 {
     std::vector<std::wstring> names;
-    const auto file = localAppDataGameFolder() / L"Plugins.txt";
-    std::ifstream stream(file);
-    if (!stream) {
-        Logger::warn(L"Unable to read {}, the archives of the plugins are ordered by their load order", file.wstring());
-        return names;
-    }
+    std::ifstream stream(Environment::activePluginsFile());
+    if (!stream)
+        return std::nullopt;
 
     std::string line;
     while (std::getline(stream, line)) {
@@ -181,32 +203,111 @@ void Environment::initialize(ClassificationCache& cache,
         if (reportStage)
             reportStage(name);
     };
+    // The time since the previous lap, for the breakdown of the summary line.
+    long long lastLap = 0;
+    const auto lap = [&stopwatch, &lastLap] {
+        const auto now = stopwatch.milliseconds();
+        const auto elapsed = now - lastLap;
+        lastLap = now;
+        return elapsed;
+    };
 
     stage("progress.steps.initModManager");
+    readMO2DataFolder();
     initializeModManager();
+    const auto modManagerMs = lap();
     stage("progress.steps.populatingFileMap");
     initializeDirectory();
+    const auto fileMapMs = lap();
     stage("pglite.stages.readingMeshes");
     classifyTextures(cache, reportProgress);
+    const auto meshesMs = lap();
 
+    long long pbrConfigsMs = 0;
     if (m_params.shaderPatcher.isTruePBREnabled) {
         stage("pglite.stages.loadingTruePBRConfigs");
         Logger::info("Loading {} TruePBR configs", m_directory->pbrJSONs().size());
         PatcherMeshShaderTruePBR::loadStatics(m_directory->pbrJSONs(), m_params.processing.multithread);
+        pbrConfigsMs = lap();
     }
 
     switchToEngineReads();
 
+    long long modOrderMs = 0;
     if (m_modManager) {
         // Shader attribution of every mod is complete now, so the mod list and the priorities are the offline ones.
         stage("pglite.stages.orderingMods");
         m_modManager->updateStateFromModlist(m_params.modManager.shouldUseMO2LooseFileOrder);
+        modOrderMs = lap();
     }
 
     stage("progress.steps.initPatchers");
     registerPatchers(m_params, m_ini);
+    const auto patchersMs = lap();
 
-    Logger::info("Runtime environment ready in {} ms", stopwatch.milliseconds());
+    Logger::info("Runtime environment ready in {} ms: mod manager {} ms, file map {} ms, meshes {} ms, PBR configs {} "
+                 "ms, mod order {} ms, patchers {} ms",
+                 stopwatch.milliseconds(),
+                 modManagerMs,
+                 fileMapMs,
+                 meshesMs,
+                 pbrConfigsMs,
+                 modOrderMs,
+                 patchersMs);
+}
+
+void Environment::readMO2DataFolder()
+{
+    if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2)
+        m_mo2InstanceDir = resolvedMO2InstanceDir(m_params.modManager.mo2InstanceDir);
+
+    // Only a game launched from MO2 reads through usvfs; elsewhere the data folder is what it is.
+    if (PGModManager::mo2DirFromUSVFS().empty())
+        return;
+
+    // The instance whose view is what usvfs serves (PGModManager::fileMapInstanceDir): the configured one when it can
+    // be the one the game runs under, else the one that launched the game. A configured instance left out is the mod
+    // list's alone, which is reported; none means the listing.
+    const auto viewInstanceDir = PGModManager::fileMapInstanceDir(m_mo2InstanceDir, activePluginsFile());
+    std::error_code ec;
+    if (!m_mo2InstanceDir.empty()
+        && (viewInstanceDir.empty() || !std::filesystem::equivalent(viewInstanceDir, m_mo2InstanceDir, ec))) {
+        Logger::warn(L"The configured Mod Organizer 2 instance {} does not supply the file map (not the instance the "
+                     L"game runs under, or not an instance folder); the mod list still comes from it when it can be "
+                     L"read",
+                     m_mo2InstanceDir.wstring());
+    }
+    if (viewInstanceDir.empty()) {
+        Logger::info("The data folder is listed as the game sees it");
+        return;
+    }
+
+    const Stopwatch stopwatch;
+    try {
+        m_mo2DataFolder = std::make_unique<MO2DataFolder>(MO2DataFolder::read(
+            viewInstanceDir,
+            Settings::dataFolder(),
+            { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = m_params.processing.multithread }));
+        Logger::info(L"Read the Mod Organizer 2 instance {} (profile {}): {} files of {} sources in {} ms",
+                     viewInstanceDir.wstring(),
+                     m_mo2DataFolder->profile(),
+                     m_mo2DataFolder->files().size(),
+                     m_mo2DataFolder->sources().size(),
+                     stopwatch.milliseconds());
+    } catch (const std::exception& e) {
+        Logger::warn(L"Unable to read the Mod Organizer 2 instance {}, the data folder is listed as the game sees "
+                     L"it: {}",
+                     viewInstanceDir.wstring(),
+                     StringUtil::utf8toUTF16(e.what()));
+    }
+}
+
+std::filesystem::path Environment::resolvedMO2InstanceDir(const std::filesystem::path& instanceDir)
+{
+    // A relative path is the game folder's, where the offline program's is its own folder's (section 7); an empty
+    // path stays empty (it counts as relative).
+    return !instanceDir.empty() && instanceDir.is_relative() ? (Settings::gameFolder() / instanceDir).lexically_normal()
+                                                             : instanceDir;
 }
 
 void Environment::initializeModManager()
@@ -224,17 +325,29 @@ void Environment::initializeModManager()
 
     try {
         if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
-            // A relative path is the game folder's, where the offline program's is its own folder's (section 7); an
-            // empty path stays empty (it counts as relative).
-            const auto& instanceDir = m_params.modManager.mo2InstanceDir;
-            m_mo2InstanceDir = !instanceDir.empty() && instanceDir.is_relative()
-                ? (Settings::gameFolder() / instanceDir).lexically_normal()
-                : instanceDir;
             if (m_mo2InstanceDir.empty()) {
                 Logger::warn("No Mod Organizer 2 instance is configured, mods are not attributed");
+                m_modManager = std::make_unique<PGModManager>(PGModManager::ModManagerType::None);
             } else {
                 Logger::info(L"Reading the Mod Organizer 2 instance {}", m_mo2InstanceDir.wstring());
-                m_modManager->populateModFileMapMO2(m_mo2InstanceDir, { });
+                // The view attributes the files it lists when it is the configured instance's. Another instance's
+                // view (the one that launched the game, read when the configured instance could not be) is the file
+                // map's alone, and the configured instance gets a view of its own mod folders, which throws when it
+                // cannot be read either.
+                std::error_code ec;
+                if (m_mo2DataFolder
+                    && std::filesystem::equivalent(m_mo2DataFolder->instanceDir(), m_mo2InstanceDir, ec)) {
+                    m_modManager->populateModFileMapMO2(*m_mo2DataFolder, { });
+                } else {
+                    const auto view = MO2DataFolder::read(m_mo2InstanceDir,
+                                                          Settings::dataFolder(),
+                                                          {
+                                                              .foldersToMap = PGGlobals::s_foldersToMap,
+                                                              .shouldMultithread = m_params.processing.multithread,
+                                                              .shouldListDataFolder = false,
+                                                          });
+                    m_modManager->populateModFileMapMO2(view, { });
+                }
             }
         } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
             Logger::info("Reading the Vortex deployment");
@@ -262,10 +375,16 @@ void Environment::initializeDirectory()
     m_directory->setShouldSkipHiddenFiles(false);
     m_directory->setArchiveLoadOrder(engineArchiveOrder());
     m_directory->setExcludedFiles(m_excludedFiles);
+    // The loose files come from the view of the Mod Organizer 2 instance when there is one (readMO2DataFolder).
+    m_directory->setLooseFileSource(m_mo2DataFolder.get());
 
     Logger::info("Building the file map");
     m_directory->populateFileMap(true, m_params.processing.multithread);
     PGGlobals::setPGD(m_directory.get());
+
+    // The view served its purpose.
+    m_directory->setLooseFileSource(nullptr);
+    m_mo2DataFolder.reset();
 
     Logger::info("File map of {} files built in {} ms", m_directory->fileMap().size(), stopwatch.milliseconds());
 }
@@ -322,30 +441,39 @@ std::vector<std::wstring> Environment::engineArchiveOrder()
     candidates.emplace_back(updateArchive);
 
     // The engine registers the archives of its built-in plugin list (the masters and the Creation Club content), then
-    // those of the active lines of Plugins.txt in file order. The loaded plugins without a line are the built-in ones;
-    // their archives share no file, so their order among themselves does not matter.
-    const auto activeLines = activePluginsTxtLines();
-    std::unordered_set<std::wstring> activeLower;
-    for (const auto& name : activeLines)
-        activeLower.insert(StringUtil::toLowerASCIIFast(name));
-    if (auto* const dataHandler = RE::TESDataHandler::GetSingleton()) {
-        const auto addBuiltIn = [&candidates, &activeLower](const RE::TESFile& file) {
-            const auto fileName = StringUtil::windows1252toUTF16(std::string(file.GetFilename()));
-            if (!activeLower.contains(StringUtil::toLowerASCIIFast(fileName)))
-                addArchivesOfPlugin(fileName, candidates);
-        };
-        const auto* const* const mods = dataHandler->GetLoadedMods();
-        for (std::uint8_t i = 0; mods && i < dataHandler->GetLoadedModCount(); i++)
-            if (mods[i])
-                addBuiltIn(*mods[i]);
-
-        const auto* const* const lightMods = dataHandler->GetLoadedLightMods();
-        for (std::uint16_t i = 0; lightMods && i < dataHandler->GetLoadedLightModCount(); i++)
-            if (lightMods[i])
-                addBuiltIn(*lightMods[i]);
-    }
-    for (const auto& name : activeLines)
+    // those of the active lines of Plugins.txt in file order. Both lists come from the files, so the order is known
+    // before the data is loaded; the built-in archives share no file, so their order among themselves does not
+    // matter, and a built-in plugin with a line of its own is registered once, in its built-in place. Without the
+    // file, the loaded plugins stand in, in their load order, once the data is loaded.
+    for (const auto& name : builtInPlugins())
         addArchivesOfPlugin(name, candidates);
+    if (const auto activeLines = activePluginsTxtLines()) {
+        for (const auto& name : *activeLines)
+            addArchivesOfPlugin(name, candidates);
+    } else {
+        auto* const dataHandler = RE::TESDataHandler::GetSingleton();
+        const bool areModsLoaded
+            = dataHandler && (dataHandler->GetLoadedModCount() || dataHandler->GetLoadedLightModCount());
+        if (areModsLoaded) {
+            const auto addLoaded = [&candidates](const RE::TESFile& file) {
+                addArchivesOfPlugin(StringUtil::windows1252toUTF16(std::string(file.GetFilename())), candidates);
+            };
+            const auto* const* const mods = dataHandler->GetLoadedMods();
+            for (std::uint8_t i = 0; mods && i < dataHandler->GetLoadedModCount(); i++)
+                if (mods[i])
+                    addLoaded(*mods[i]);
+
+            const auto* const* const lightMods = dataHandler->GetLoadedLightMods();
+            for (std::uint16_t i = 0; lightMods && i < dataHandler->GetLoadedLightModCount(); i++)
+                if (lightMods[i])
+                    addLoaded(*lightMods[i]);
+            Logger::warn(L"Unable to read {}, the archives of the plugins are ordered by their load order",
+                         activePluginsFile().wstring());
+        } else {
+            Logger::error(L"Unable to read {} and the plugins are not loaded, the archives of the mods are not mapped",
+                          activePluginsFile().wstring());
+        }
+    }
 
     // The engine registers an archive once, when it exists.
     std::vector<std::wstring> archives;
@@ -363,6 +491,37 @@ std::vector<std::wstring> Environment::engineArchiveOrder()
     Logger::debug("The engine loads {} archives", archives.size());
     return archives;
 }
+
+bool Environment::canOrderArchivesEarly() { return activePluginsTxtLines().has_value(); }
+
+void Environment::reportArchivesOfUnloadedPlugins()
+{
+    auto* const dataHandler = RE::TESDataHandler::GetSingleton();
+    const auto activeLines = activePluginsTxtLines();
+    if (!dataHandler || !activeLines)
+        return;
+
+    const auto dataFolder = Settings::dataFolder();
+    for (const auto& name : *activeLines) {
+        const auto fileName = StringUtil::utf16toWindows1252(name);
+        if (dataHandler->LookupLoadedModByName(fileName) || dataHandler->LookupLoadedLightModByName(fileName))
+            continue;
+
+        // Only an archive that exists was mapped (engineArchiveOrder()).
+        std::vector<std::wstring> archives;
+        addArchivesOfPlugin(name, archives);
+        const bool hasArchive = std::ranges::any_of(archives, [&dataFolder](const std::wstring& archive) {
+            std::error_code ec;
+            return std::filesystem::exists(dataFolder / archive, ec);
+        });
+        if (hasArchive) {
+            Logger::warn(L"Plugins.txt lists {} but the engine did not load it, its archives are mapped for nothing",
+                         name);
+        }
+    }
+}
+
+std::filesystem::path Environment::activePluginsFile() { return localAppDataGameFolder() / L"Plugins.txt"; }
 
 void Environment::registerPatchers(const PGParams& params,
                                    const Settings::Ini& ini)

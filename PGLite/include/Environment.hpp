@@ -5,6 +5,7 @@
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
 #include "Settings.hpp"
+#include "common/MO2DataFolder.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -24,9 +25,10 @@ class ClassificationCache;
  * natively for the mesh reading pass, through the engine's resource layer afterwards), the mesh reading pass and the
  * texture classification, the TruePBR configs, the mod manager and the registered patchers.
  *
- * One environment is built on the background thread after data load and replaced by Apply. The shared code reaches it
- * through PGGlobals, so a new environment installs itself there when it is built; the pipeline lock of the runtime
- * keeps a patch from running while that happens.
+ * One environment is built on a background thread during the plugin load (after the data load when the plugin order
+ * cannot be read early) and replaced by Apply. The shared code reaches it through PGGlobals, so a new environment
+ * installs itself there when it is built; the pipeline lock of the runtime keeps a patch from running while that
+ * happens.
  */
 class Environment {
 public:
@@ -72,14 +74,34 @@ public:
     /// @brief The MO2 instance the environment used, empty for none.
     [[nodiscard]] const std::filesystem::path& mo2InstanceDir() const { return m_mo2InstanceDir; }
 
+    /// @brief The configured MO2 instance as the runtime resolves it: a relative path is the game folder's, where the
+    /// offline program's is its own folder's; an empty path stays empty.
+    [[nodiscard]] static std::filesystem::path resolvedMO2InstanceDir(const std::filesystem::path& instanceDir);
+
     /**
      * @brief The archives the engine loads, in its order: the two INI lists, Update.bsa, the archives of the plugins
      * the engine loads without a Plugins.txt line (the masters and the Creation Club content) in their load order, then
      * those of the active lines of Plugins.txt in file order, light and regular plugins interleaved. Only archives that
      * exist in the data folder. Without a readable Plugins.txt the loaded plugins follow in their load order, light
-     * plugins last.
+     * plugins last, which needs the data load (canOrderArchivesEarly()); before it, the archives of the mods are not
+     * mapped then, which is reported.
      */
     [[nodiscard]] static std::vector<std::wstring> engineArchiveOrder();
+
+    /**
+     * @brief Whether engineArchiveOrder() can be computed before the data load: Plugins.txt is readable.
+     */
+    [[nodiscard]] static bool canOrderArchivesEarly();
+
+    /**
+     * @brief Reports the active lines of Plugins.txt whose plugin the engine did not load: their archives were mapped
+     * for nothing, and a mesh in them is served although the game never asks for it. Needs the data load.
+     */
+    static void reportArchivesOfUnloadedPlugins();
+
+    /// @brief The active plugins file the engine reads, Plugins.txt of the local application data; under Mod
+    /// Organizer 2 the file of the running profile.
+    [[nodiscard]] static std::filesystem::path activePluginsFile();
 
     /**
      * @brief Registers the patchers the parameters enable with the shared pipeline (PGPatcher::loadPatchers).
@@ -88,6 +110,12 @@ public:
                                  const Settings::Ini& ini);
 
 private:
+    /**
+     * @brief Builds the view of the data folder from the configured Mod Organizer 2 instance, else the one that
+     * launched the game, when the game runs under MO2's virtual file system. Without a view the data folder is
+     * listed, which usvfs merges file by file.
+     */
+    void readMO2DataFolder();
     void initializeModManager();
     void initializeDirectory();
     void classifyTextures(ClassificationCache& cache,
@@ -103,6 +131,7 @@ private:
     Settings::Ini m_ini;
     std::unordered_set<std::filesystem::path> m_excludedFiles;
     std::filesystem::path m_mo2InstanceDir;
+    std::unique_ptr<MO2DataFolder> m_mo2DataFolder; /**< The view the file maps are built from, until they are */
     std::unique_ptr<PGModManager> m_modManager;
     std::unique_ptr<PGDirectory> m_directory;
 };

@@ -14,6 +14,7 @@
 #include "PGRunCache.hpp"
 #include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
+#include "common/MO2DataFolder.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -526,23 +527,51 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     if (FileUtil::getJSON(modListFile, modJSON))
         pgmm->loadJSON(modJSON);
 
+    // Under MO2's virtual file system the view of an instance (its mod folders, listed in parallel, and the real data
+    // folder) is also the file map's source, since listing the data folder through usvfs merges it file by file: the
+    // configured instance's view when that instance is the one PGPatcher runs under, else the view of the instance
+    // that launched PGPatcher (PGModManager::fileMapInstanceDir), whatever the configured mod manager, else the
+    // listing as before. The configured MO2 instance's view is the mod list's in every case, and outlives the task
+    // queue that fills it.
+    const bool isMO2Configured = params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
+        && !params.modManager.mo2InstanceDir.empty();
+    const auto mo2Dir = PGModManager::mo2DirFromUSVFS();
+    const auto fileMapInstanceDir = PGModManager::fileMapInstanceDir(
+        isMO2Configured ? params.modManager.mo2InstanceDir : std::filesystem::path(), bg->pluginsFile());
+    std::error_code ec;
+    const bool isConfiguredTheFileMaps = isMO2Configured && !fileMapInstanceDir.empty()
+        && std::filesystem::equivalent(fileMapInstanceDir, params.modManager.mo2InstanceDir, ec);
+    if (!fileMapInstanceDir.empty()) {
+        Logger::info(L"The file map is built from the Mod Organizer 2 instance {}", fileMapInstanceDir.wstring());
+    } else if (!mo2Dir.empty()) {
+        Logger::info("The file map is listed through Mod Organizer 2's virtual file system, no known instance is the "
+                     "one PGPatcher runs under");
+    }
+    std::unique_ptr<MO2DataFolder> mo2View;
     TaskQueue modManagerInit;
 
-    if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
-        && !params.modManager.mo2InstanceDir.empty()) {
+    if (isMO2Configured) {
         // Make sure running is USVFS.
-        if (!args.ignoreMO2Check && !PGHandlers::isUnderUSVFS()) {
+        if (!args.ignoreMO2Check && mo2Dir.empty()) {
             Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
             return false;
         }
 
-        // MO2.
-        if (params.processing.multithread) {
-            modManagerInit.queueTask(
-                [&pgmm, &params] { pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir); });
-        } else {
-            pgmm->populateModFileMapMO2(params.modManager.mo2InstanceDir, params.output.dir);
-        }
+        const auto populateMO2 = [&pgmm, &params, &bg, &mo2View, isConfiguredTheFileMaps] {
+            mo2View = std::make_unique<MO2DataFolder>(
+                MO2DataFolder::read(params.modManager.mo2InstanceDir,
+                                    bg->gameDataPath(),
+                                    {
+                                        .foldersToMap = PGGlobals::s_foldersToMap,
+                                        .shouldMultithread = params.processing.multithread,
+                                        .shouldListDataFolder = isConfiguredTheFileMaps,
+                                    }));
+            pgmm->populateModFileMapMO2(*mo2View, params.output.dir);
+        };
+        if (params.processing.multithread)
+            modManagerInit.queueTask(populateMO2);
+        else
+            populateMO2();
     } else if (params.modManager.type == PGModManager::ModManagerType::Vortex) {
         // Vortex.
         if (params.processing.multithread)
@@ -562,8 +591,33 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     progressWindow->CallAfter(
         [progressWindow] { progressWindow->setStepLabel(pgTr("progress.steps.populatingFileMap")); });
 
-    // Init file map.
+    // Init file map, from a view when an instance's one is what the virtual file system serves: the configured
+    // instance's (read by the mod manager task; a read that failed is latched and stops the preparation below), or
+    // the one of the instance that launched PGPatcher, read here.
+    std::unique_ptr<MO2DataFolder> fileMapView;
+    if (!fileMapInstanceDir.empty()) {
+        if (isConfiguredTheFileMaps) {
+            // Joined, as the other queues are: the wait alone can return before the task ran.
+            modManagerInit.waitForCompletion();
+            modManagerInit.shutdown();
+            if (mo2View)
+                pgd->setLooseFileSource(mo2View.get());
+        } else {
+            try {
+                fileMapView = std::make_unique<MO2DataFolder>(MO2DataFolder::read(
+                    fileMapInstanceDir,
+                    bg->gameDataPath(),
+                    { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = params.processing.multithread }));
+                pgd->setLooseFileSource(fileMapView.get());
+            } catch (const std::exception& e) {
+                Logger::warn("Unable to read the Mod Organizer 2 instance that launched PGPatcher, the data folder is "
+                             "listed through the virtual file system: {}",
+                             e.what());
+            }
+        }
+    }
     pgd->populateFileMap(true, params.processing.multithread);
+    pgd->setLooseFileSource(nullptr);
 
     // The GPU and the update cache are needed from here on.
     gpuInit.waitForCompletion();
@@ -1062,6 +1116,15 @@ void mainRunner(ParallaxGenCLIArgs& args,
     // FIXME: Control the lifetime of these in PGLib.
     auto bg = BethesdaGame(params.game.type, params.game.dir);
     PGGlobals::setBG(&bg);
+    // A configured instance whose profile is not the game's (PGPatcher runs under another instance or profile) would
+    // attribute the mods wrongly. The game's Plugins.txt is the profile's only through the virtual file system.
+    if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
+        && !params.modManager.mo2InstanceDir.empty() && PGHandlers::isUnderUSVFS()
+        && !PGModManager::matchesActivePlugins(params.modManager.mo2InstanceDir, bg.pluginsFile())) {
+        Logger::warn(L"The active plugins of the Mod Organizer 2 instance {} are not the game's: PGPatcher runs under "
+                     L"another instance or profile; set the instance it runs under in the launcher",
+                     params.modManager.mo2InstanceDir.wstring());
+    }
     auto pgmm = PGModManager(params.modManager.type);
     PGGlobals::setPGMM(&pgmm);
     auto pgd = PGDirectory(&bg, params.output.dir);

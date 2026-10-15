@@ -771,7 +771,7 @@ void Menu::open()
     if (!m_didOpenMenu) {
         // The welcome message has done its job.
         m_didOpenMenu = true;
-        std::ignore = Settings::writeDidOpenMenu();
+        std::ignore = Settings::writeDidOpenMenu(m_runtime->params());
     }
     m_lastFrame = std::chrono::steady_clock::now();
     if (m_isInitialized) {

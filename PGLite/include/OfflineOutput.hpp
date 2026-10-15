@@ -40,6 +40,14 @@ public:
     [[nodiscard]] static bool hasStockRecords();
 
     /**
+     * @brief The textures the output generated (Result::generatedTextures), read from the stock records file alone,
+     * so the file map can leave them out before the data is loaded; empty without the file.
+     *
+     * @throws std::runtime_error as restore() does.
+     */
+    [[nodiscard]] static std::unordered_set<std::filesystem::path> generatedTextures();
+
+    /**
      * @brief Reads the stock records file and restores the records. At data load, before the uses are read, on the
      * thread that owns the records.
      *

@@ -2,6 +2,13 @@
 
 ## UNRELEASED
 
+- [PGLite] Startup tasks are run concurrently with engine tasks now, improving loading times
+- [PGLite] Under Mod Organizer 2 the file map is built from the instance folder rather than the data folder, improving loading times
+- [PGPatcher] Under Mod Organizer 2 the file map and the mod attribution are built from the instance's mod folders concurrently, improving populating map runtime
+- [Common] Mod manager is auto-selected and MO2 instance folder defined by default when no existing configuration exists
+
+## [2.2.0] - 2026-10-14
+
 - [PGLite] Added PGLite, an SKSE runtime implementation of PGPatcher
 - [PGPatcher] Added the PGLite Mode processing option: only what TexGen, DynDOLOD and BodySlide read is patched
 - [PGPatcher] BodySlide ShapeData meshes will now be patched
