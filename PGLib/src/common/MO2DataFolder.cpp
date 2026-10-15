@@ -25,14 +25,12 @@
 #include <string_view>
 #include <system_error>
 #include <thread>
-#include <unordered_set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <windows.h>
 
 namespace {
-
-constexpr std::wstring_view win32PathPrefix = LR"(\\?\)";
 
 /**
  * @brief The volume GUID path of a folder: the folder's path with the mount point replaced by the volume name,
@@ -60,23 +58,50 @@ std::filesystem::path volumeGUIDPath(const std::filesystem::path& folder)
     return volume + folderStr.substr(mount.size());
 }
 
-/// @brief The normalized path of an open file without the \\?\ prefix, empty on failure.
-std::filesystem::path finalPathOfHandle(HANDLE handle)
+/// @brief Opens a directory for listing, INVALID_HANDLE_VALUE on failure.
+HANDLE openDirectory(const std::filesystem::path& path)
 {
-    std::wstring buffer(MAX_PATH, L'\0');
-    auto length = GetFinalPathNameByHandleW(handle, buffer.data(), MAX_PATH, FILE_NAME_NORMALIZED);
-    if (length > MAX_PATH) {
-        buffer.assign(length, L'\0');
-        length = GetFinalPathNameByHandleW(handle, buffer.data(), length, FILE_NAME_NORMALIZED);
-    }
-    if (!length || length > buffer.size())
-        return { };
+    return CreateFileW(path.c_str(),
+                       FILE_LIST_DIRECTORY,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       nullptr,
+                       OPEN_EXISTING,
+                       FILE_FLAG_BACKUP_SEMANTICS,
+                       nullptr);
+}
 
-    std::wstring_view path(buffer.c_str(), length);
-    if (path.starts_with(win32PathPrefix))
-        path.remove_prefix(win32PathPrefix.size());
+/// @brief The identity of an open file on its volume, nothing on failure.
+std::optional<FILE_ID_INFO> identityOfHandle(HANDLE handle)
+{
+    FILE_ID_INFO identity { };
+    if (!GetFileInformationByHandleEx(handle, FileIdInfo, &identity, sizeof(identity)))
+        return std::nullopt;
 
-    return { path };
+    return identity;
+}
+
+/// @brief Whether two directories are the same one on disk, whatever the paths that opened them (a junction, a short
+/// name or a substituted drive spell the same folder differently).
+bool isSameDirectory(const std::filesystem::path& first,
+                     const std::filesystem::path& second)
+{
+    HANDLE firstHandle = openDirectory(first);
+    if (firstHandle == INVALID_HANDLE_VALUE)
+        return false;
+    const std::unique_ptr<void, decltype(&CloseHandle)> firstCloser(firstHandle, &CloseHandle);
+
+    HANDLE secondHandle = openDirectory(second);
+    if (secondHandle == INVALID_HANDLE_VALUE)
+        return false;
+    const std::unique_ptr<void, decltype(&CloseHandle)> secondCloser(secondHandle, &CloseHandle);
+
+    const auto firstIdentity = identityOfHandle(firstHandle);
+    const auto secondIdentity = identityOfHandle(secondHandle);
+    if (!firstIdentity || !secondIdentity)
+        return false;
+
+    return firstIdentity->VolumeSerialNumber == secondIdentity->VolumeSerialNumber
+        && std::ranges::equal(firstIdentity->FileId.Identifier, secondIdentity->FileId.Identifier);
 }
 
 /**
@@ -89,13 +114,7 @@ std::filesystem::path finalPathOfHandle(HANDLE handle)
 std::optional<std::vector<FileUtil::DirectoryEntry>> listDirectoryOnDisk(const std::filesystem::path& volumePath,
                                                                          const std::filesystem::path& path)
 {
-    HANDLE handle = CreateFileW(volumePath.c_str(),
-                                FILE_LIST_DIRECTORY,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                nullptr,
-                                OPEN_EXISTING,
-                                FILE_FLAG_BACKUP_SEMANTICS,
-                                nullptr);
+    HANDLE handle = openDirectory(volumePath);
     if (handle == INVALID_HANDLE_VALUE)
         return std::nullopt;
     const std::unique_ptr<void, decltype(&CloseHandle)> handleCloser(handle, &CloseHandle);
@@ -170,19 +189,9 @@ onDiskLister(const std::filesystem::path& folder)
     if (volumePath.empty())
         return std::nullopt;
 
-    // The path has to lead to the folder itself: a handle on it says where it really is.
-    HANDLE handle = CreateFileW(volumePath.c_str(),
-                                FILE_LIST_DIRECTORY,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                nullptr,
-                                OPEN_EXISTING,
-                                FILE_FLAG_BACKUP_SEMANTICS,
-                                nullptr);
-    if (handle == INVALID_HANDLE_VALUE)
-        return std::nullopt;
-    const auto finalPath = finalPathOfHandle(handle);
-    CloseHandle(handle);
-    if (!boost::iequals(finalPath.wstring(), folder.wstring()))
+    // The volume path has to open the folder itself (the game folder may be reached through a junction or a short
+    // name), which the identities of the two directories tell.
+    if (!isSameDirectory(volumePath, folder))
         return std::nullopt;
 
     return [volumePath, folder](const std::filesystem::path& relDir) {
@@ -241,18 +250,34 @@ MO2DataFolder MO2DataFolder::read(const std::filesystem::path& instanceDir,
 
         view.m_sources.push_back({ .kind = SourceKind::Mod, .name = name, .folder = folder, .order = order++ });
     }
-    view.m_sources.push_back({ .kind = SourceKind::DataFolder, .name = { }, .folder = dataFolder, .order = 0 });
+    // The real data folder: what it holds on disk, below the files usvfs merges into it. When it cannot be reached
+    // through its volume, the listing is the one the process sees, with the files of the mods in it, which lose to
+    // the mods' own entries, at the cost usvfs charges for every merged file.
+    DirectoryLister dataFolderLister;
+    if (options.shouldListDataFolder) {
+        view.m_sources.push_back({ .kind = SourceKind::DataFolder, .name = { }, .folder = dataFolder, .order = 0 });
+        auto onDisk = onDiskLister(dataFolder);
+        view.m_isDataFolderListedOnDisk = onDisk.has_value();
+        if (onDisk) {
+            dataFolderLister = std::move(*onDisk);
+        } else {
+            Logger::info(L"The data folder {} cannot be listed on disk, it is listed as the process sees it",
+                         dataFolder.wstring());
+            dataFolderLister = processViewLister(dataFolder);
+        }
+    }
 
     const auto skipSuffixes = PGModManager::mo2SkipFileSuffixes(instanceDir);
     const auto skipFolders = PGModManager::mo2SkipDirectories(instanceDir);
+    const auto isNeverSkipped = [](const FileUtil::DirectoryEntry&) { return false; };
 
-    // Every source is listed on its own, the mod folders on the pool.
+    // Every source is listed on its own, the sources spread over one thread per hardware thread.
     std::vector<std::vector<File>> listings(view.m_sources.size());
-    const auto listOne = [&view, &listings, &options, &skipSuffixes, &skipFolders](std::size_t index) {
+    const auto listOne = [&](std::size_t index) {
         const auto& source = view.m_sources[index];
         try {
             listings[index] = source.kind == SourceKind::DataFolder
-                ? listDataFolder(source, index, options)
+                ? walkFolder(source.folder, index, options, dataFolderLister, isNeverSkipped, isNeverSkipped)
                 : listSource(source, index, options, skipSuffixes, skipFolders);
         } catch (const std::exception& e) {
             Logger::error(L"Unable to list {}: {}", source.folder.wstring(), StringUtil::utf8toUTF16(e.what()));
@@ -278,17 +303,30 @@ MO2DataFolder MO2DataFolder::read(const std::filesystem::path& instanceDir,
             listOne(index);
     }
 
-    // The first source that has a path wins it. The key is the file map's key, see BethesdaDirectory.
+    // The first source that has a path wins it, and the first mod with a copy a walk of the mod folders would map
+    // owns it (PGModManager maps every top level archive, and below the folders to map nothing hidden). The key is
+    // the file map's key, see BethesdaDirectory.
     std::size_t total = 0;
     for (const auto& listing : listings)
         total += listing.size();
-    std::unordered_set<std::wstring> seen;
-    seen.reserve(total);
+    std::unordered_map<std::wstring, std::size_t> indexByKey;
+    indexByKey.reserve(total);
     view.m_files.reserve(total);
-    for (auto& listing : listings) {
-        for (auto& file : listing)
-            if (seen.insert(boost::to_lower_copy(file.relPath)).second)
+    for (std::size_t sourceIndex = 0; sourceIndex < listings.size(); ++sourceIndex) {
+        const bool isMod = view.m_sources[sourceIndex].kind == SourceKind::Mod;
+        for (auto& file : listings[sourceIndex]) {
+            const bool isWalked = !file.isHidden && !file.isInHiddenFolder;
+            const bool isTopLevel = file.relPath.find_first_of(L"\\/") == std::wstring::npos;
+            const bool isOwnable = isMod && (isWalked || isTopLevel);
+
+            const auto [it, isNew] = indexByKey.try_emplace(boost::to_lower_copy(file.relPath), view.m_files.size());
+            if (isNew)
                 view.m_files.push_back(std::move(file));
+
+            auto& winner = view.m_files[it->second];
+            if (isOwnable && winner.ownerSource == noSource)
+                winner.ownerSource = sourceIndex;
+        }
     }
     std::ranges::sort(view.m_files, { }, &File::relPath);
     view.m_files.shrink_to_fit();
@@ -319,28 +357,6 @@ std::vector<MO2DataFolder::File> MO2DataFolder::listSource(const Source& source,
         processViewLister(source.folder),
         [&isSkippedFile](const FileUtil::DirectoryEntry& entry) { return isSkippedFile(entry.name); },
         [&isSkippedFolder](const FileUtil::DirectoryEntry& entry) { return isSkippedFolder(entry.name); });
-}
-
-std::vector<MO2DataFolder::File> MO2DataFolder::listDataFolder(const Source& source,
-                                                               std::size_t sourceIndex,
-                                                               const Options& options)
-{
-    // The folder on disk, below the mods usvfs links into it. When it cannot be reached through its volume, the
-    // listing is the one the process sees, with the files of the mods in it, which lose to the mods' own entries.
-    auto lister = onDiskLister(source.folder);
-    if (!lister) {
-        Logger::debug(L"The data folder {} cannot be listed through its volume, listing it as the process sees it",
-                      source.folder.wstring());
-        lister = processViewLister(source.folder);
-    }
-
-    return walkFolder(
-        source.folder,
-        sourceIndex,
-        options,
-        *lister,
-        [](const FileUtil::DirectoryEntry&) { return false; },
-        [](const FileUtil::DirectoryEntry&) { return false; });
 }
 
 std::vector<MO2DataFolder::File> MO2DataFolder::walkFolder(const std::filesystem::path& folder,

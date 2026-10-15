@@ -146,19 +146,29 @@ public:
     };
 
     /**
-     * @brief Detects the mod manager the process runs under: Mod Organizer 2 when its virtual file system is loaded
-     * into the process, Vortex when the data folder holds its deployment manifest, none otherwise. The MO2 instance
-     * is the override when it is an instance folder, else the one that launched the process
-     * (runningMO2InstanceDir()); an override that is no instance folder is reported and ignored. MO2 whose instance
-     * cannot be found counts as none, as its mods cannot be attributed.
+     * @brief The defaults of the mod manager settings, from what the process runs under: Mod Organizer 2 when its
+     * virtual file system is loaded into the process, with the instance that launched it (runningMO2InstanceDir();
+     * empty when it was not found, which is reported), Vortex when the data folder holds its deployment manifest,
+     * none otherwise. The settings keep what the user makes of them from there.
      *
-     * @param dataFolder The game's data folder, where Vortex deploys.
-     * @param mo2InstanceOverride An MO2 instance folder to use in place of the detected one, empty for none.
+     * @param dataFolder The game's data folder, where Vortex deploys. Empty for none: no Vortex then.
      * @param shouldLog Whether the outcome and the problems are logged.
      */
     [[nodiscard]] static Detection detect(const std::filesystem::path& dataFolder,
-                                          const std::filesystem::path& mo2InstanceOverride,
                                           bool shouldLog = true);
+
+    /**
+     * @brief The detection with the process's surroundings given, what detect() reads from the process.
+     *
+     * @param dataFolder The game's data folder, where Vortex deploys.
+     * @param mo2Dir The folder of the MO2 whose virtual file system is loaded, empty when none is.
+     * @param runningInstanceDir The instance that launched the process, empty when none was found.
+     * @param shouldLog Whether the outcome and the problems are logged.
+     */
+    [[nodiscard]] static Detection detect(const std::filesystem::path& dataFolder,
+                                          const std::filesystem::path& mo2Dir,
+                                          const std::filesystem::path& runningInstanceDir,
+                                          bool shouldLog);
 
     /**
      * @brief Constructs a PGModManager for the given mod manager type. No mods are known until one of the populate
@@ -343,9 +353,10 @@ public:
 
     /**
      * @brief Populates the mod file map from a view of the instance's data folder (MO2DataFolder) instead of walking
-     * the mod folders: the same mods in the same order, and every file of the view that comes from a mod, with the
-     * rules of the walk (the folders to map and the archives at the top level, no hidden file, no meta.ini). A
-     * missing or output folder mod stops the population as the walk does.
+     * the mod folders: the same mods in the same order, and every file owned by a mod (the first mod of the list with
+     * a copy the walk would map, whichever file the game sees), with the rules of the walk (the folders to map and
+     * the archives at the top level, no meta.ini). An output folder mod stops the population as the walk does; a mod
+     * without a folder is not in the view (MO2 cannot serve it), where the walk stops.
      *
      * @param view The data folder view of the instance.
      * @param outputDir Path to the PGPatcher output directory, which must not be an enabled mod.
@@ -432,12 +443,75 @@ public:
      * instance of the MO2 folder when its lock file exists, else the global instance MO2 keeps as current in the
      * registry, else the portable instance when the MO2 folder has one.
      *
-     * The choice is MO2's default; a run started with another instance on its command line is not seen. Whether the
-     * instance is the one the process sees is checked by MO2DataFolder::matchesVirtualFolder().
+     * The choice is MO2's default; a run started with another instance on its command line is not seen, which
+     * matchesActivePlugins() tells afterwards.
      *
      * @return The instance folder, or empty if the process was not launched from MO2 or no instance is found.
      */
     [[nodiscard]] static std::filesystem::path runningMO2InstanceDir();
+
+    /**
+     * @brief The choice of runningMO2InstanceDir() with the surroundings given, what it reads from the process.
+     *
+     * @param mo2Dir The folder of the MO2 whose virtual file system is loaded.
+     * @param currentInstanceName The global instance MO2 keeps as current, empty for none.
+     * @param globalInstancesDir The folder of the global instances, the "ModOrganizer" folder of the local
+     * application data.
+     * @return The instance folder, or empty if no instance is found.
+     */
+    [[nodiscard]] static std::filesystem::path runningMO2InstanceDir(const std::filesystem::path& mo2Dir,
+                                                                     const std::wstring& currentInstanceName,
+                                                                     const std::filesystem::path& globalInstancesDir);
+
+    /**
+     * @brief Checks that the selected profile of an instance is the one a process runs under: the profile's
+     * plugins.txt and the active plugins file the game reads (which MO2 links from the profile) have the same
+     * content. An MO2 started with another instance or profile on its command line fails this.
+     *
+     * @param instanceDir Path to the MO2 instance directory.
+     * @param pluginsFile The active plugins file as the process sees it (Plugins.txt of the local application data).
+     * @return false when both files are readable and differ; true otherwise, since nothing says they differ.
+     */
+    [[nodiscard]] static bool matchesActivePlugins(const std::filesystem::path& instanceDir,
+                                                   const std::filesystem::path& pluginsFile);
+
+    /**
+     * @brief Whether an instance can be the one a process runs under Mod Organizer 2's virtual file system with, so
+     * that its view is what the file system serves: not a portable instance of another MO2 (a portable instance is
+     * run by the MO2 in its own folder alone), and with the process's active plugins (matchesActivePlugins()). An
+     * instance that cannot be read passes; reading it reports the problem.
+     *
+     * @param instanceDir Path to the MO2 instance directory.
+     * @param pluginsFile The active plugins file as the process sees it (Plugins.txt of the local application data).
+     * @param mo2Dir The folder of the MO2 whose virtual file system is loaded (mo2DirFromUSVFS()).
+     */
+    [[nodiscard]] static bool canBeRunningInstance(const std::filesystem::path& instanceDir,
+                                                   const std::filesystem::path& pluginsFile,
+                                                   const std::filesystem::path& mo2Dir);
+
+    /**
+     * @brief The MO2 instance whose view (MO2DataFolder) is what the virtual file system serves to this process, so
+     * that the file map can be built from it instead of listing the data folder through usvfs: the configured
+     * instance when it is an instance folder that can be the running one (canBeRunningInstance()), else the instance
+     * that launched the process (runningMO2InstanceDir()) on the same terms, else empty, which means the listing.
+     * Empty without the virtual file system.
+     *
+     * @param configuredInstanceDir The configured MO2 instance, absolute; empty for none.
+     * @param pluginsFile The active plugins file as the process sees it.
+     */
+    [[nodiscard]] static std::filesystem::path fileMapInstanceDir(const std::filesystem::path& configuredInstanceDir,
+                                                                  const std::filesystem::path& pluginsFile);
+
+    /**
+     * @brief fileMapInstanceDir() with the process's surroundings given.
+     *
+     * @param mo2Dir The folder of the MO2 whose virtual file system is loaded, empty when none is.
+     * @param runningInstanceDir The instance that launched the process, empty when none was found.
+     */
+    [[nodiscard]] static std::filesystem::path fileMapInstanceDir(const std::filesystem::path& configuredInstanceDir,
+                                                                  const std::filesystem::path& pluginsFile,
+                                                                  const std::filesystem::path& mo2Dir,
+                                                                  const std::filesystem::path& runningInstanceDir);
 
     /**
      * @brief Enables new mods and renumbers priorities the way the mod sort dialog saves them.

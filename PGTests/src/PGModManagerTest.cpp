@@ -321,9 +321,18 @@ TEST(PGModManagerTest,
     ASSERT_TRUE(SetFileAttributesW((mo2.modsDir() / L"ModB\\meshes\\attr.nif").c_str(), FILE_ATTRIBUTE_HIDDEN));
     mo2.addModFile(L"ModB", L"lightplacer\\lp.json");
     mo2.addModFile(L"ModB", L"meshes\\meta.ini");
+    // A hidden copy above a visible one: the walk skips it, so ModB owns the file although the game sees ModA's.
+    mo2.addModFile(L"ModA", L"meshes\\b.nif");
+    ASSERT_TRUE(SetFileAttributesW((mo2.modsDir() / L"ModA\\meshes\\b.nif").c_str(), FILE_ATTRIBUTE_HIDDEN));
+    // A hidden archive at the top level is mapped by the walk all the same.
+    mo2.addModFile(L"ModB", L"ModB.bsa");
+    ASSERT_TRUE(SetFileAttributesW((mo2.modsDir() / L"ModB\\ModB.bsa").c_str(), FILE_ATTRIBUTE_HIDDEN));
     mo2.addModFile(L"Disabled", L"meshes\\d.nif");
     mo2.addModFile(L"Separators_separator", L"meshes\\s.nif");
     std::filesystem::create_directories(mo2.modsDir() / L"NoFiles");
+    // The overwrite folder shadows a mod's file for the game; the mod keeps it for the attribution, as the walk,
+    // which never reads the overwrite folder, gives it.
+    mo2.addOverwriteFile(L"meshes\\a.nif");
     mo2.addOverwriteFile(L"meshes\\o.nif");
     std::filesystem::create_directories(mo2.outputDir());
 
@@ -364,7 +373,171 @@ TEST(PGModManagerTest,
                   { L"moda.bsa", L"ModA" },
                   { L"meshes\\b.nif", L"ModB" },
                   { L"lightplacer\\lp.json", L"ModB" },
+                  { L"modb.bsa", L"ModB" },
               }));
+
+    // The view itself tells who owns what and what the game sees.
+    const auto sourceName = [&view](std::size_t source) {
+        return source == MO2DataFolder::noSource ? std::wstring(L"-") : view.sources().at(source).name;
+    };
+    const auto fileOf = [&view](const std::wstring& relPath) {
+        return *std::ranges::find(view.files(), relPath, &MO2DataFolder::File::relPath);
+    };
+    EXPECT_EQ(view.sources().at(fileOf(L"meshes\\a.nif").source).kind, MO2DataFolder::SourceKind::Overwrite);
+    EXPECT_EQ(sourceName(fileOf(L"meshes\\a.nif").ownerSource), L"ModA");
+    EXPECT_EQ(sourceName(fileOf(L"meshes\\b.nif").source), L"ModA");
+    EXPECT_EQ(sourceName(fileOf(L"meshes\\b.nif").ownerSource), L"ModB");
+    EXPECT_EQ(sourceName(fileOf(L"meshes\\o.nif").ownerSource), L"-");
+    EXPECT_EQ(sourceName(fileOf(L"meshes\\attr.nif").ownerSource), L"-");
+    EXPECT_EQ(sourceName(fileOf(L"ModB.bsa").ownerSource), L"ModB");
+}
+
+TEST(PGModManagerTest,
+     DetectionWithTheSurroundingsGiven)
+{
+    const FakeMO2 mo2;
+    std::filesystem::create_directories(mo2.dataDir());
+    mo2.addDataFile(L"vortex.deployment.json", "{}");
+    const TempDir mo2Folder;
+
+    // The virtual file system loaded: MO2 with the instance that launched the process, whatever the data folder holds.
+    auto detection = PGModManager::detect(mo2.dataDir(), mo2Folder.path(), mo2.instanceDir(), true);
+    EXPECT_EQ(detection.type, ModManagerType::ModOrganizer2);
+    EXPECT_EQ(detection.mo2InstanceDir, mo2.instanceDir());
+    EXPECT_TRUE(TestLog::contains(spdlog::level::info, "Mod Organizer 2 detected"));
+
+    // No instance found: MO2 all the same, without an instance, reported.
+    TestLog::clear();
+    detection = PGModManager::detect(mo2.dataDir(), mo2Folder.path(), { }, true);
+    EXPECT_EQ(detection.type, ModManagerType::ModOrganizer2);
+    EXPECT_TRUE(detection.mo2InstanceDir.empty());
+    EXPECT_TRUE(TestLog::contains(spdlog::level::warn, "instance that launched the program was not found"));
+
+    // No virtual file system: the manifest makes it Vortex.
+    detection = PGModManager::detect(mo2.dataDir(), { }, { }, true);
+    EXPECT_EQ(detection.type, ModManagerType::Vortex);
+    EXPECT_TRUE(detection.mo2InstanceDir.empty());
+
+    // No data folder known: no Vortex either.
+    detection = PGModManager::detect({ }, { }, { }, false);
+    EXPECT_EQ(detection.type, ModManagerType::None);
+}
+
+TEST(PGModManagerTest,
+     RunningInstanceFollowsMo2sChoice)
+{
+    const TempDir dir;
+    const auto mo2Dir = dir / L"MO2";
+    const auto globalInstances = dir / L"ModOrganizer";
+    std::filesystem::create_directories(mo2Dir);
+    TestUtil::writeFile(globalInstances / L"Global\\modorganizer.ini", "[General]\n");
+
+    // Nothing to choose from.
+    EXPECT_TRUE(PGModManager::runningMO2InstanceDir(mo2Dir, L"", globalInstances).empty());
+    EXPECT_TRUE(PGModManager::runningMO2InstanceDir(mo2Dir, L"Missing", globalInstances).empty());
+
+    // The current global instance, when its folder is one.
+    EXPECT_EQ(PGModManager::runningMO2InstanceDir(mo2Dir, L"Global", globalInstances), globalInstances / L"Global");
+    EXPECT_TRUE(PGModManager::runningMO2InstanceDir(mo2Dir, L"Global", { }).empty());
+
+    // A portable instance stands in when the current global one is gone, and loses to one that exists.
+    TestUtil::writeFile(mo2Dir / L"ModOrganizer.ini", "[General]\n");
+    EXPECT_EQ(PGModManager::runningMO2InstanceDir(mo2Dir, L"", globalInstances), mo2Dir);
+    EXPECT_EQ(PGModManager::runningMO2InstanceDir(mo2Dir, L"Missing", globalInstances), mo2Dir);
+    EXPECT_EQ(PGModManager::runningMO2InstanceDir(mo2Dir, L"Global", globalInstances), globalInstances / L"Global");
+
+    // The lock file forces the portable instance.
+    TestUtil::writeFile(mo2Dir / L"portable.txt", "");
+    EXPECT_EQ(PGModManager::runningMO2InstanceDir(mo2Dir, L"Global", globalInstances), mo2Dir);
+}
+
+TEST(PGModManagerTest,
+     ActivePluginsTellTheProfileApart)
+{
+    const FakeMO2 mo2;
+    const TempDir dir;
+    const auto pluginsFile = dir / L"Plugins.txt";
+
+    // Nothing to compare: nothing says they differ.
+    EXPECT_TRUE(PGModManager::matchesActivePlugins(mo2.instanceDir(), pluginsFile));
+    TestUtil::writeFile(pluginsFile, "*Skyrim.esm\n*ModA.esp\n");
+    EXPECT_TRUE(PGModManager::matchesActivePlugins(mo2.instanceDir(), pluginsFile));
+
+    TestUtil::writeFile(mo2.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModA.esp\n");
+    EXPECT_TRUE(PGModManager::matchesActivePlugins(mo2.instanceDir(), pluginsFile));
+
+    // Another profile's plugins.
+    TestUtil::writeFile(mo2.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModB.esp\n");
+    EXPECT_FALSE(PGModManager::matchesActivePlugins(mo2.instanceDir(), pluginsFile));
+
+    // An instance that cannot be read is not compared.
+    EXPECT_TRUE(PGModManager::matchesActivePlugins(mo2.modsDir() / L"missing", pluginsFile));
+}
+
+TEST(PGModManagerTest,
+     RunningInstanceCandidatesAreToldApart)
+{
+    const FakeMO2 mo2;
+    const TempDir dir;
+    const auto pluginsFile = dir / L"Plugins.txt";
+    const auto otherMO2 = dir / L"OtherMO2";
+    std::filesystem::create_directories(otherMO2);
+
+    // A global instance with the process's plugins, or with nothing to compare.
+    EXPECT_TRUE(PGModManager::canBeRunningInstance(mo2.instanceDir(), pluginsFile, otherMO2));
+    TestUtil::writeFile(pluginsFile, "*Skyrim.esm\n*ModA.esp\n");
+    TestUtil::writeFile(mo2.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModA.esp\n");
+    EXPECT_TRUE(PGModManager::canBeRunningInstance(mo2.instanceDir(), pluginsFile, otherMO2));
+
+    // Another profile's plugins.
+    TestUtil::writeFile(mo2.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModB.esp\n");
+    EXPECT_FALSE(PGModManager::canBeRunningInstance(mo2.instanceDir(), pluginsFile, otherMO2));
+
+    // A portable instance is run by the MO2 in its own folder alone.
+    TestUtil::writeFile(mo2.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModA.esp\n");
+    TestUtil::writeFile(mo2.instanceDir() / L"ModOrganizer.exe", "");
+    EXPECT_FALSE(PGModManager::canBeRunningInstance(mo2.instanceDir(), pluginsFile, otherMO2));
+    EXPECT_TRUE(PGModManager::canBeRunningInstance(mo2.instanceDir(), pluginsFile, mo2.instanceDir()));
+}
+
+TEST(PGModManagerTest,
+     FileMapInstanceIsTheConfiguredOneElseTheRunningOne)
+{
+    const FakeMO2 configured;
+    const FakeMO2 running;
+    const TempDir dir;
+    const auto pluginsFile = dir / L"Plugins.txt";
+    const auto mo2Dir = dir / L"MO2";
+    std::filesystem::create_directories(mo2Dir);
+    TestUtil::writeFile(pluginsFile, "*Skyrim.esm\n*ModA.esp\n");
+    TestUtil::writeFile(configured.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModA.esp\n");
+    TestUtil::writeFile(running.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModA.esp\n");
+
+    // No virtual file system: nothing, the data folder is what it is.
+    EXPECT_TRUE(
+        PGModManager::fileMapInstanceDir(configured.instanceDir(), pluginsFile, { }, running.instanceDir()).empty());
+
+    // The configured instance when it can be the running one, else the one that launched the process.
+    EXPECT_EQ(PGModManager::fileMapInstanceDir(configured.instanceDir(), pluginsFile, mo2Dir, running.instanceDir()),
+              configured.instanceDir());
+    EXPECT_EQ(PGModManager::fileMapInstanceDir({ }, pluginsFile, mo2Dir, running.instanceDir()), running.instanceDir());
+    EXPECT_EQ(
+        PGModManager::fileMapInstanceDir(configured.modsDir() / L"missing", pluginsFile, mo2Dir, running.instanceDir()),
+        running.instanceDir());
+    TestUtil::writeFile(configured.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModB.esp\n");
+    EXPECT_EQ(PGModManager::fileMapInstanceDir(configured.instanceDir(), pluginsFile, mo2Dir, running.instanceDir()),
+              running.instanceDir());
+
+    // The running instance equal to a rejected configured one does not get a second judgment.
+    EXPECT_TRUE(
+        PGModManager::fileMapInstanceDir(configured.instanceDir(), pluginsFile, mo2Dir, configured.instanceDir())
+            .empty());
+
+    // Neither: the listing.
+    TestUtil::writeFile(running.profileDir() / L"plugins.txt", "*Skyrim.esm\n*ModB.esp\n");
+    EXPECT_TRUE(
+        PGModManager::fileMapInstanceDir(configured.instanceDir(), pluginsFile, mo2Dir, running.instanceDir()).empty());
+    EXPECT_TRUE(PGModManager::fileMapInstanceDir(configured.instanceDir(), pluginsFile, mo2Dir, { }).empty());
 }
 
 TEST(PGModManagerTest,
@@ -374,26 +547,27 @@ TEST(PGModManagerTest,
     std::filesystem::create_directories(mo2.dataDir());
     const MO2DataFolder::Options options { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = false };
 
-    // The output folder must not be an enabled mod.
-    mo2.writeModlist("+Output\n+Other\n");
-    mo2.addModFile(L"Output", L"meshes\\o.nif");
+    // The output folder must not be an enabled mod. The mod is not named like the walk test's: the logger reports a
+    // repeated critical text once per process, and the two tests share one when they run in one process.
+    mo2.writeModlist("+ViewOutput\n+Other\n");
+    mo2.addModFile(L"ViewOutput", L"meshes\\o.nif");
     mo2.addModFile(L"Other", L"meshes\\x.nif");
     PGModManager pgmm(ModManagerType::ModOrganizer2);
     pgmm.populateModFileMapMO2(MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), options),
-                               mo2.modsDir() / L"Output");
-    EXPECT_TRUE(TestLog::contains(spdlog::level::critical, "you must disable the mod Output first"));
+                               mo2.modsDir() / L"ViewOutput");
+    EXPECT_TRUE(TestLog::contains(spdlog::level::critical, "you must disable the mod ViewOutput first"));
     EXPECT_EQ(pgmm.modByFile(L"meshes\\x.nif"), nullptr);
 
     // An output folder that does not exist yet is fine.
     pgmm.populateModFileMapMO2(MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), options),
                                mo2.outputDir() / L"not yet created");
-    EXPECT_EQ(pgmm.modByFile(L"meshes\\o.nif"), pgmm.mod(L"Output"));
+    EXPECT_EQ(pgmm.modByFile(L"meshes\\o.nif"), pgmm.mod(L"ViewOutput"));
     EXPECT_EQ(pgmm.modByFile(L"meshes\\x.nif"), pgmm.mod(L"Other"));
 
     // A list without any mod.
     mo2.writeModlist("# nothing\n-Disabled\n");
     pgmm.populateModFileMapMO2(MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), options), mo2.outputDir());
-    EXPECT_TRUE(TestLog::contains(spdlog::level::critical, "modlist.txt was empty"));
+    EXPECT_TRUE(TestLog::contains(spdlog::level::critical, "no enabled mod with a folder"));
     EXPECT_TRUE(pgmm.mods().empty());
 }
 
@@ -427,32 +601,26 @@ TEST(PGModManagerTest,
 TEST(PGModManagerTest,
      DetectionFollowsTheVirtualFileSystemAndTheManifest)
 {
-    // The tests do not run under MO2's virtual file system, so MO2 is never detected, not even with an override.
+    // The tests do not run under MO2's virtual file system, so MO2 is never detected.
     const FakeMO2 mo2;
     std::filesystem::create_directories(mo2.dataDir());
-    auto detection = PGModManager::detect(mo2.dataDir(), { });
+    auto detection = PGModManager::detect(mo2.dataDir());
     EXPECT_EQ(detection.type, ModManagerType::None);
     EXPECT_TRUE(detection.mo2InstanceDir.empty());
     EXPECT_TRUE(TestLog::contains(spdlog::level::info, "No mod manager detected"));
 
-    detection = PGModManager::detect(mo2.dataDir(), mo2.instanceDir());
-    EXPECT_EQ(detection.type, ModManagerType::None);
-
     // Vortex deploys its manifest into the data folder.
     mo2.addDataFile(L"vortex.deployment.json", "{}");
-    detection = PGModManager::detect(mo2.dataDir(), { });
+    detection = PGModManager::detect(mo2.dataDir());
     EXPECT_EQ(detection.type, ModManagerType::Vortex);
     EXPECT_TRUE(detection.mo2InstanceDir.empty());
     EXPECT_TRUE(TestLog::contains(spdlog::level::info, "Vortex deployment detected"));
 
-    // An override that is no instance folder is reported, and only when asked to log.
+    // Only when asked to log.
     TestLog::clear();
-    detection = PGModManager::detect(mo2.dataDir(), mo2.modsDir(), false);
+    detection = PGModManager::detect(mo2.dataDir(), false);
     EXPECT_EQ(detection.type, ModManagerType::Vortex);
     EXPECT_TRUE(TestLog::entries().empty());
-    detection = PGModManager::detect(mo2.dataDir(), mo2.modsDir());
-    EXPECT_EQ(detection.type, ModManagerType::Vortex);
-    EXPECT_TRUE(TestLog::contains(spdlog::level::err, "instance override"));
 }
 
 TEST(PGModManagerTest,

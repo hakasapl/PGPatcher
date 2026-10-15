@@ -218,20 +218,43 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
 void Runtime::onInputLoaded()
 {
     // The conditions that disable PGLite are checked again at data load, which shows the notice; here they only say
-    // whether the environment is worth building.
-    if (disableReason())
+    // whether the environment is worth building. Nothing here may take the game down: a failure leaves the build
+    // to the data load, which reports it.
+    try {
+        if (disableReason())
+            return;
+
+        detectShaderFrameworks();
+        if (detectDisableCondition())
+            return;
+
+        readSettings();
+        if (!m_isEnabled)
+            return;
+
+        if (!Environment::canOrderArchivesEarly()) {
+            Logger::warn("Plugins.txt cannot be read, the environment is built after the data load, which orders the "
+                         "archives by the loaded plugins");
+            return;
+        }
+
+        Logger::info("Building the environment while the engine loads the plugins");
+        m_earlyInitialization = std::async(std::launch::async, [this] { prepareEnvironment(); });
+    } catch (const std::exception& e) {
+        Logger::error("The environment is built after the data load instead of during the plugin load: {}", e.what());
+    }
+}
+
+void Runtime::waitForEarlyInitialization()
+{
+    if (!m_earlyInitialization.valid())
         return;
 
-    detectShaderFrameworks();
-    if (detectDisableCondition())
-        return;
-
-    readSettings();
-    if (!m_isEnabled)
-        return;
-
-    Logger::info("Building the environment while the engine loads the plugins");
-    m_earlyInitialization = std::async(std::launch::async, [this] { prepareEnvironment(); });
+    try {
+        m_earlyInitialization.get();
+    } catch (const std::exception& e) {
+        Logger::error("The environment build started at the input load failed: {}", e.what());
+    }
 }
 
 void Runtime::detectShaderFrameworks()
@@ -251,7 +274,6 @@ void Runtime::readSettings()
     if (m_areSettingsRead)
         return;
 
-    m_areSettingsRead = true;
     {
         // A first start, without a settings.json, enables the patchers the loaded framework renders; a file keeps
         // what it has, less what the framework cannot render.
@@ -261,17 +283,30 @@ void Runtime::readSettings()
         } else {
             Logger::info("No settings.json yet: the patchers of the loaded shader framework are enabled");
             params = ShaderFrameworks::firstStartParams(m_shaderFrameworks);
+
+            // The mod manager and the MO2 instance default to the detected ones (PGModManager::detect).
+            const auto detection = PGModManager::detect(Settings::dataFolder());
+            params.modManager.type = detection.type;
+            params.modManager.mo2InstanceDir = detection.mo2InstanceDir;
         }
         ShaderFrameworks::limitPatchers(params, m_shaderFrameworks);
 
-        // The mod manager is the one the game runs under, not a setting of the file.
-        const auto detection = PGModManager::detect(Settings::dataFolder(), m_ini.mo2InstanceOverride);
-        params.modManager.type = detection.type;
-        params.modManager.mo2InstanceDir = detection.mo2InstanceDir;
+        // A configured instance whose profile is not the game's (the game runs under another instance or profile)
+        // would attribute the mods wrongly. The game's Plugins.txt is the profile's only through the virtual file
+        // system.
+        const auto instanceDir = Environment::resolvedMO2InstanceDir(params.modManager.mo2InstanceDir);
+        if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2 && !instanceDir.empty()
+            && !PGModManager::mo2DirFromUSVFS().empty()
+            && !PGModManager::matchesActivePlugins(instanceDir, Environment::activePluginsFile())) {
+            Logger::warn(L"The active plugins of the Mod Organizer 2 instance {} are not the game's: the game runs "
+                         L"under another instance or profile; set the instance the game runs under in the PGLite menu",
+                         instanceDir.wstring());
+        }
 
         const std::scoped_lock lock(m_stateMutex);
         m_params = std::move(params);
     }
+    m_areSettingsRead = true;
 
     m_isEnabled = Settings::readIsEnabled();
     for (const auto& problem : params().validate()) {
@@ -412,6 +447,10 @@ void Runtime::disable(const std::string& reason,
     }
 
     Logger::critical("PGLite is disabled because {}", reason);
+
+    // A build started at the input load is joined before the runtime counts as ready, so nothing reads the
+    // environment it would still be assigning.
+    waitForEarlyInitialization();
 
     // Whoever waits for the initialization is released: every stream serves the original mesh from now on.
     {
@@ -625,7 +664,9 @@ void Runtime::initializeInBackground()
     long long environmentMs = 0;
     try {
         if (m_isEnabled) {
-            reportStage("pglite.stages.registeringFacegenStreams");
+            // The stage of a build started at the input load stays on the loading line, with its progress.
+            if (!m_earlyInitialization.valid())
+                reportStage("pglite.stages.registeringFacegenStreams");
             registerFacegenStreams();
             facegenMs = lap();
             if (m_earlyInitialization.valid()) {
@@ -638,6 +679,7 @@ void Runtime::initializeInBackground()
                 prepareEnvironment();
                 environmentMs = lap();
             }
+            Environment::reportArchivesOfUnloadedPlugins();
         } else {
             // The Apply that enables PGLite builds the environment; until then nothing is read.
             Logger::info("PGLite is disabled in settings.json, the environment is built when it is enabled");

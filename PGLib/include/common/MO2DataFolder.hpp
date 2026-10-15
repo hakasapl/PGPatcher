@@ -23,8 +23,9 @@
  * in parallel, and the real data folder through a handle usvfs does not reroute.
  *
  * The view is the one usvfs serves when it comes from the instance and profile that launched the process
- * (PGModManager::detect). Files MO2 skips (the skip suffixes and skip folders of its settings) are left out as usvfs
- * leaves them out; hidden files stay in, as the game sees them, and are flagged for the readers that skip them.
+ * (PGModManager::runningMO2InstanceDir()). Files MO2 skips (the skip suffixes and skip folders of its settings) are
+ * left out as usvfs leaves them out; hidden files stay in, as the game sees them, and are flagged for the readers
+ * that skip them.
  */
 class MO2DataFolder : public BethesdaDirectory::LooseFileSource {
 public:
@@ -42,12 +43,19 @@ public:
         int order = 0; /**< The mod's index among the enabled mods of modlist.txt, 0 for the first line, which wins */
     };
 
+    /// @brief The source index of a file no mod owns.
+    static constexpr std::size_t noSource = static_cast<std::size_t>(-1);
+
     /**
      * @struct File
      * @brief A file of the view: the one the game sees at its path.
      */
     struct File : BethesdaDirectory::LooseFile {
-        std::size_t source = 0; /**< Index into sources() */
+        std::size_t source = 0; /**< Index into sources() of the file the game sees */
+        /// @brief Index into sources() of the mod that owns the file for the mod attribution: the first mod of
+        /// modlist.txt with a copy that a walk of the mod folders maps (not hidden below the folders to map), as
+        /// PGModManager walks them, whichever source the game sees. noSource when no mod has one.
+        std::size_t ownerSource = noSource;
     };
 
     /**
@@ -59,6 +67,8 @@ public:
         /// listed, without recursion, as BethesdaDirectory lists it.
         std::unordered_set<std::filesystem::path> foldersToMap;
         bool shouldMultithread = true;
+        /// @brief Whether the real data folder is listed below the mods. Off for a reader that only attributes mods.
+        bool shouldListDataFolder = true;
     };
 
     /**
@@ -86,6 +96,10 @@ public:
     [[nodiscard]] const std::filesystem::path& instanceDir() const { return m_instanceDir; }
     [[nodiscard]] const std::filesystem::path& modsDir() const { return m_modsDir; }
     [[nodiscard]] const std::wstring& profile() const { return m_profile; }
+
+    /// @brief Whether the real data folder was listed on disk, through its volume, rather than as the process sees
+    /// it. False as well when it was not listed at all.
+    [[nodiscard]] bool isDataFolderListedOnDisk() const { return m_isDataFolderListedOnDisk; }
 
     /// @brief Every file of the view, as a LooseFileSource for BethesdaDirectory.
     void forEachLooseFile(const std::function<void(const BethesdaDirectory::LooseFile&)>& visitor) const override;
@@ -116,13 +130,6 @@ private:
                                         const std::vector<std::wstring>& skipFolders);
 
     /**
-     * @brief Lists the real data folder: what it holds on disk, below the files usvfs merges into it.
-     */
-    static std::vector<File> listDataFolder(const Source& source,
-                                            std::size_t sourceIndex,
-                                            const Options& options);
-
-    /**
      * @brief Lists a folder the way BethesdaDirectory lists the data folder: its top level without recursion, the
      * folders to map with their subfolders. Links are visited and never followed; a hidden folder is walked and
      * what is below it flagged.
@@ -147,4 +154,5 @@ private:
     std::wstring m_profile;
     std::vector<Source> m_sources;
     std::vector<File> m_files;
+    bool m_isDataFolderListedOnDisk = false;
 };

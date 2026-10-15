@@ -135,6 +135,20 @@ TEST(MO2DataFolderTest,
                   { L"Skyrim.esm", { SourceKind::DataFolder, L"" } },
               }));
     EXPECT_TRUE(std::ranges::is_sorted(view.files(), { }, &MO2DataFolder::File::relPath));
+    EXPECT_TRUE(view.isDataFolderListedOnDisk());
+
+    // The owner for the mod attribution is the first mod with a copy, whatever the game sees.
+    const auto ownerName = [&view](const std::wstring& relPath) {
+        const auto owner = fileOf(view, relPath).ownerSource;
+        return owner == MO2DataFolder::noSource ? std::wstring(L"-") : view.sources().at(owner).name;
+    };
+    EXPECT_EQ(ownerName(L"meshes\\x.nif"), L"ModA");
+    EXPECT_EQ(ownerName(L"meshes\\o.nif"), L"-");
+    EXPECT_EQ(ownerName(L"meshes\\y.nif"), L"ModB");
+    EXPECT_EQ(ownerName(L"meta.ini"), L"ModA");
+    EXPECT_EQ(ownerName(L"ModA.bsa"), L"ModA");
+    EXPECT_EQ(ownerName(L"meshes\\real.nif"), L"-");
+    EXPECT_EQ(ownerName(L"Skyrim.esm"), L"-");
 
     // Size and write time are the winner's.
     const auto& x = fileOf(view, L"meshes\\x.nif");
@@ -226,6 +240,39 @@ TEST(MO2DataFolderTest,
     EXPECT_FALSE(fileOf(view, L"meshes\\plain.nif").isHidden);
     EXPECT_FALSE(fileOf(view, L"meshes\\plain.nif").isInHiddenFolder);
     EXPECT_TRUE(fileOf(view, L"meshes\\.datadot\\d.nif").isInHiddenFolder);
+
+    // A hidden copy owns nothing below the folders to map.
+    EXPECT_EQ(fileOf(view, L"meshes\\.dotfile.nif").ownerSource, MO2DataFolder::noSource);
+    EXPECT_EQ(fileOf(view, L"meshes\\hdir\\in.nif").ownerSource, MO2DataFolder::noSource);
+    EXPECT_NE(fileOf(view, L"meshes\\plain.nif").ownerSource, MO2DataFolder::noSource);
+}
+
+TEST(MO2DataFolderTest,
+     DataFolderIsListedOnDiskThroughAJunctionOrLeftOut)
+{
+    const FakeMO2 mo2;
+    mo2.writeModlist("+Mod\n");
+    mo2.addModFile(L"Mod", L"meshes\\m.nif");
+    mo2.addDataFile(L"meshes\\real.nif");
+    mo2.addDataFile(L"Data.esm");
+
+    // The game folder reached through a junction is the same folder on disk.
+    const TestUtil::TempDir linkDir;
+    const auto link = linkDir / L"Game";
+    if (!TestUtil::createJunction(link, mo2.dataDir().parent_path()))
+        GTEST_SKIP() << "junctions cannot be created here";
+
+    const auto view = MO2DataFolder::read(mo2.instanceDir(), link / L"Data", options());
+    EXPECT_TRUE(view.isDataFolderListedOnDisk());
+    EXPECT_EQ(paths(view), (std::vector<std::wstring> { L"Data.esm", L"meshes\\m.nif", L"meshes\\real.nif" }));
+
+    // A reader of the mods alone leaves the data folder out.
+    auto modsOnly = options();
+    modsOnly.shouldListDataFolder = false;
+    const auto modsView = MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), modsOnly);
+    EXPECT_FALSE(modsView.isDataFolderListedOnDisk());
+    EXPECT_EQ(modsView.sources().size(), 1U);
+    EXPECT_EQ(paths(modsView), (std::vector<std::wstring> { L"meshes\\m.nif" }));
 }
 
 TEST(MO2DataFolderTest,

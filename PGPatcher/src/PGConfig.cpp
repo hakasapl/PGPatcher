@@ -91,7 +91,19 @@ void PGConfig::resolveRelativePaths(PGParams& params)
         params.game.dir = resolveExeRelativePath(params.game.dir);
 }
 
-auto PGConfig::defaultParams() -> PGParams { return PGParams::defaults(); }
+auto PGConfig::defaultParams() -> PGParams
+{
+    auto params = PGParams::defaults();
+
+    // The mod manager and the MO2 instance default to the detected ones (PGModManager::detect): Mod Organizer 2 with
+    // the instance that launched PGPatcher when launched from it, Vortex when its deployment manifest is in the data
+    // folder, none otherwise. The log is not up this early, so the outcome is not logged.
+    const auto gameDir = resolveExeRelativePath(params.game.dir);
+    const auto detection = PGModManager::detect(gameDir.empty() ? std::filesystem::path() : gameDir / "Data", false);
+    params.modManager.type = detection.type;
+    params.modManager.mo2InstanceDir = detection.mo2InstanceDir;
+    return params;
+}
 
 void PGConfig::loadConfig()
 {

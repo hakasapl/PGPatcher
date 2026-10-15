@@ -60,7 +60,11 @@ void PGParams::readJSON(const nlohmann::json& paramsJSON)
     if (paramsJSON.contains("game") && paramsJSON["game"].contains("type"))
         paramsJSON["game"]["type"].get_to<BethesdaGame::GameType>(game.type);
 
-    // "modmanager". The type and the instance of older files are detected now and left unread.
+    // "modmanager".
+    if (paramsJSON.contains("modmanager") && paramsJSON["modmanager"].contains("type"))
+        paramsJSON["modmanager"]["type"].get_to<PGModManager::ModManagerType>(modManager.type);
+    if (paramsJSON.contains("modmanager") && paramsJSON["modmanager"].contains("mo2instancedir"))
+        paramsJSON["modmanager"]["mo2instancedir"].get_to<std::filesystem::path>(modManager.mo2InstanceDir);
     if (paramsJSON.contains("modmanager") && paramsJSON["modmanager"].contains("mo2useloosefileorder"))
         paramsJSON["modmanager"]["mo2useloosefileorder"].get_to<bool>(modManager.shouldUseMO2LooseFileOrder);
 
@@ -143,6 +147,8 @@ void PGParams::writeJSON(nlohmann::json& paramsJSON) const
     paramsJSON["game"]["type"] = game.type;
 
     // "modmanager".
+    paramsJSON["modmanager"]["type"] = modManager.type;
+    paramsJSON["modmanager"]["mo2instancedir"] = StringUtil::utf16toUTF8(modManager.mo2InstanceDir.wstring());
     paramsJSON["modmanager"]["mo2useloosefileorder"] = modManager.shouldUseMO2LooseFileOrder;
 
     // "output".

@@ -37,9 +37,6 @@ public:
         bool shouldShowLoadingMessage = true;
         /// @brief Whether the welcome message shows in the top right corner until the menu was opened once.
         bool shouldShowWelcomeMessage = true;
-        /// @brief A Mod Organizer 2 instance folder to use in place of the one that launched the game (an MO2 started
-        /// with -i), absolute; empty for none.
-        std::filesystem::path mo2InstanceOverride;
     };
 
     /// @brief F8.
@@ -113,11 +110,14 @@ public:
     [[nodiscard]] static bool readDidOpenMenu();
 
     /**
-     * @brief Records in the "pglite" object of settings.json that the menu was opened, keeping everything else.
+     * @brief Records in the "pglite" object of settings.json that the menu was opened, keeping everything else. A
+     * file without parameters yet (no Apply so far) gets the session's, so the defaults of a first start (the detected
+     * mod manager, the patchers of the loaded shader framework) outlive the first look at the menu.
      *
+     * @param params The session's parameters, written when the file has none.
      * @return false if the file could not be written (logged).
      */
-    static bool writeDidOpenMenu();
+    static bool writeDidOpenMenu(const PGParams& params);
 
     /**
      * @brief Reads modrules.json.

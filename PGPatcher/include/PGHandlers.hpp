@@ -1,5 +1,7 @@
 #pragma once
 
+#include "PGModManager.hpp"
+
 #include <array>
 #include <atomic>
 #include <ctime>
@@ -106,4 +108,14 @@ public:
 
         return { };
     }
+
+    /**
+     * @brief Check whether the process is running under Mod Organizer 2's virtual filesystem.
+     *
+     * Looks for "usvfs_x64.dll", which MO2's USVFS layer injects, among the loaded modules of the
+     * current process (see PGModManager::mo2DirFromUSVFS()).
+     *
+     * @return true if usvfs_x64.dll is loaded in the process, false otherwise.
+     */
+    static bool isUnderUSVFS() { return !PGModManager::mo2DirFromUSVFS().empty(); }
 };

@@ -95,8 +95,13 @@ private:
     std::unordered_map<BethesdaGame::GameType, wxRadioButton*> m_gameTypeRadios;
     void onGameTypeChange(wxCommandEvent& event);
 
-    // Mod Manager: detected when PGPatcher starts (PGModManager::detect), told rather than chosen.
-    wxStaticText* m_modManagerLabel;
+    // Mod Manager.
+    std::unordered_map<PGModManager::ModManagerType, wxRadioButton*> m_modManagerRadios;
+    void onModManagerChange(wxCommandEvent& event);
+
+    wxButton* m_mo2InstanceBrowseButton;
+    wxTextCtrl* m_mo2InstanceLocationTextbox;
+    void onMO2InstanceLocationChange(wxCommandEvent& event);
 
     // Output.
     wxTextCtrl* m_outputLocationTextbox;
@@ -172,6 +177,7 @@ private:
     //
     // UI Controls.
     //
+    wxStaticBoxSizer* m_mo2OptionsSizer; /** Stores the MO2-specific options since these are only sometimes shown */
     wxStaticBoxSizer* m_processingOptionsSizer; /** Stores the processing options */
 
     /**
@@ -181,6 +187,14 @@ private:
      * @param event wxWidgets event object
      */
     void onBrowseGameLocation(wxCommandEvent& event);
+
+    /**
+     * @brief Event handler responsible for showing the browse dialog when the user clicks on the browse button - for
+     * MO2 instance location
+     *
+     * @param event wxWidgets event object
+     */
+    void onBrowseMO2InstanceLocation(wxCommandEvent& event);
 
     /**
      * @brief Event handler responsible for showing the browse dialog when the user clicks on the browse button - for
@@ -197,16 +211,10 @@ private:
 
     /**
      * @brief Locks the game location and game type to the values read from the MO2 instance (modorganizer.ini) while
-     * MO2 is the detected mod manager, and unlocks them otherwise. The install location lock
+     * MO2 is the selected mod manager, and unlocks them otherwise. The install location lock
      * (setGamePathBasedOnExe()) is kept either way
      */
     void updateMO2Items();
-
-    /**
-     * @brief Tells the detected mod manager: MO2 with its instance, Vortex when its manifest is in the data folder of
-     * the game location as typed, none otherwise.
-     */
-    void updateModManagerLabel();
 
     //
     // Validation.

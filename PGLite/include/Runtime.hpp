@@ -164,6 +164,12 @@ private:
      */
     void onInputLoaded();
 
+    /**
+     * @brief Waits for the environment build started at the input load, if one runs: what it threw is logged. For
+     * the paths that end the initialization without initializeInBackground(), which joins it itself.
+     */
+    void waitForEarlyInitialization();
+
     /// @brief Detects the shader frameworks once; the SKSE plugins and ENB's proxy are loaded before the input is.
     void detectShaderFrameworks();
 

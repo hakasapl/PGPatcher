@@ -2,6 +2,13 @@
 
 ## UNRELEASED
 
+- [PGLite] Startup tasks are run concurrently with engine tasks now, improving loading times
+- [PGLite] Under Mod Organizer 2 the file map is built from the instance folder rather than the data folder, improving loading times
+- [PGPatcher] Under Mod Organizer 2 the file map and the mod attribution are built from the instance's mod folders concurrently, improving populating map runtime
+- [Common] Mod manager is auto-selected and MO2 instance folder defined by default when no existing configuration exists
+
+## [2.2.0] - 2026-10-14
+
 - [PGLite] Added PGLite, an SKSE runtime implementation of PGPatcher
 - [PGPatcher] Added the PGLite Mode processing option: only what TexGen, DynDOLOD and BodySlide read is patched
 - [PGPatcher] BodySlide ShapeData meshes will now be patched
@@ -20,9 +27,6 @@
 - [Common] Fixed folders inside the data directory being listed as files
 - [Common] Fixed the thread count on systems with two or fewer logical processors
 - [Common] Fixed a complex material JSON whose `specular_color` has an entry that is not a number killing the run, ignoring instead
-- [PGLite] The files of a Mod Organizer 2 profile are read from the instance's mod folders instead of the virtual data folder, whose listing took most of the main menu hold on large mod lists
-- [PGPatcher] Mod Organizer 2 mods are attributed from one listing of the mod folders on the thread pool
-- [Common] The mod manager is detected instead of selected: Mod Organizer 2 when launched from it (the instance that launched the program, or the `--mo2-instance` argument and the `sMO2InstanceOverride` PGLite INI setting for an MO2 started with `-i`), Vortex when its deployment manifest is in the data folder; the selection and the instance location leave the launcher and the PGLite menu
 
 ## [2.1.2] - 2026-10-05
 

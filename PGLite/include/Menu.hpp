@@ -236,6 +236,10 @@ private:
     std::vector<ModRow> m_mods;
     std::string m_modListSignature;
     std::string m_modListMessage;
+    std::string m_mo2InstanceDir;
+    /// @brief The validity of the instance location as typed, told under it.
+    std::string m_instanceMessage;
+    bool m_isInstanceValid = false;
     std::string m_newAllowEntry;
     std::string m_newBlockEntry;
     std::string m_newTexturePath;

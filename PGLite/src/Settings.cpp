@@ -6,7 +6,6 @@
 #include "PGParams.hpp"
 #include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
-#include "util/StringUtil.hpp"
 
 #include <SimpleIni.h>
 #include <nlohmann/json.hpp>
@@ -27,12 +26,13 @@ namespace {
 
 constexpr const char* iniSection = "General";
 
-/// @brief Gives a settings document without a "params" object the defaults, so a file PGLite writes before its first
-/// Apply reads the same in the offline program, which takes any file for a complete one.
-void ensureParams(nlohmann::json& settings)
+/// @brief Gives a settings document without a "params" object the given parameters, so a file PGLite writes before
+/// its first Apply reads the same in the offline program, which takes any file for a complete one.
+void ensureParams(nlohmann::json& settings,
+                  const PGParams& params)
 {
     if (!settings.contains("params"))
-        PGParams::defaults().writeJSON(settings["params"]);
+        params.writeJSON(settings["params"]);
 }
 
 }
@@ -105,13 +105,6 @@ Settings::Ini Settings::readIni()
     ini.shouldShowLoadingMessage = file.GetBoolValue(iniSection, "bShowLoadingMessage", true);
     ini.shouldShowWelcomeMessage = file.GetBoolValue(iniSection, "bShowWelcomeMessage", true);
 
-    // A relative folder is the game folder's.
-    const std::filesystem::path mo2InstanceOverride
-        = StringUtil::utf8toUTF16(file.GetValue(iniSection, "sMO2InstanceOverride", ""));
-    ini.mo2InstanceOverride = !mo2InstanceOverride.empty() && mo2InstanceOverride.is_relative()
-        ? (gameFolder() / mo2InstanceOverride).lexically_normal()
-        : mo2InstanceOverride;
-
     return ini;
 }
 
@@ -168,7 +161,7 @@ bool Settings::writeIsEnabled(bool isEnabled)
         settings = nlohmann::json::object();
 
     try {
-        ensureParams(settings);
+        ensureParams(settings, PGParams::defaults());
         settings["pglite"]["enabled"] = isEnabled;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
@@ -199,7 +192,7 @@ bool Settings::writeLanguage(const std::string& language)
         settings = nlohmann::json::object();
 
     try {
-        ensureParams(settings);
+        ensureParams(settings, PGParams::defaults());
         settings["pglite"]["language"] = language;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
@@ -220,14 +213,14 @@ bool Settings::readDidOpenMenu()
     return pglite.contains("didOpenMenu") && pglite["didOpenMenu"].is_boolean() && pglite["didOpenMenu"].get<bool>();
 }
 
-bool Settings::writeDidOpenMenu()
+bool Settings::writeDidOpenMenu(const PGParams& params)
 {
     nlohmann::json settings;
     if (!FileUtil::getJSON(settingsFile(), settings) || !settings.is_object())
         settings = nlohmann::json::object();
 
     try {
-        ensureParams(settings);
+        ensureParams(settings, params);
         settings["pglite"]["didOpenMenu"] = true;
         FileUtil::saveJSON(settingsFile(), settings, true);
     } catch (const std::exception& e) {
