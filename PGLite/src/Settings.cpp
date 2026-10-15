@@ -6,6 +6,7 @@
 #include "PGParams.hpp"
 #include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
+#include "util/StringUtil.hpp"
 
 #include <SimpleIni.h>
 #include <nlohmann/json.hpp>
@@ -103,6 +104,13 @@ Settings::Ini Settings::readIni()
     ini.shouldForceAlwaysCM = file.GetBoolValue(iniSection, "bForceAlwaysCM", false);
     ini.shouldShowLoadingMessage = file.GetBoolValue(iniSection, "bShowLoadingMessage", true);
     ini.shouldShowWelcomeMessage = file.GetBoolValue(iniSection, "bShowWelcomeMessage", true);
+
+    // A relative folder is the game folder's.
+    const std::filesystem::path mo2InstanceOverride
+        = StringUtil::utf8toUTF16(file.GetValue(iniSection, "sMO2InstanceOverride", ""));
+    ini.mo2InstanceOverride = !mo2InstanceOverride.empty() && mo2InstanceOverride.is_relative()
+        ? (gameFolder() / mo2InstanceOverride).lexically_normal()
+        : mo2InstanceOverride;
 
     return ini;
 }

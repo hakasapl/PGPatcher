@@ -252,7 +252,7 @@ void PGModManager::populateModFileMapVortex(const std::filesystem::path& deploym
     // Required file is vortex.deployment.json in the data folder.
     Logger::info("Populating mods from Vortex");
 
-    const auto deploymentFile = deploymentDir / "vortex.deployment.json";
+    const auto deploymentFile = deploymentDir / vortexDeploymentFileName;
 
     if (!std::filesystem::exists(deploymentFile)) {
         throw std::runtime_error("Vortex deployment file does not exist: "
@@ -612,6 +612,55 @@ std::vector<std::wstring> PGModManager::mo2EnabledMods(const std::filesystem::pa
     }
 
     return mods;
+}
+
+auto PGModManager::detect(const std::filesystem::path& dataFolder,
+                          const std::filesystem::path& mo2InstanceOverride,
+                          bool shouldLog) -> Detection
+{
+    Detection detection;
+
+    std::filesystem::path overrideDir = mo2InstanceOverride;
+    if (!overrideDir.empty() && !isValidMO2InstanceDir(overrideDir)) {
+        if (shouldLog) {
+            Logger::error(L"The Mod Organizer 2 instance override {} is not an instance folder (no ModOrganizer.ini), "
+                          L"the instance is detected instead",
+                          overrideDir.wstring());
+        }
+        overrideDir.clear();
+    }
+
+    if (!mo2DirFromUSVFS().empty()) {
+        detection.mo2InstanceDir = overrideDir.empty() ? runningMO2InstanceDir() : overrideDir;
+        if (detection.mo2InstanceDir.empty()) {
+            if (shouldLog) {
+                Logger::error(
+                    "Mod Organizer 2's virtual file system is loaded but its instance was not found, mods are "
+                    "not attributed; the instance folder can be given with the instance override");
+            }
+            return detection;
+        }
+
+        detection.type = ModManagerType::ModOrganizer2;
+        if (shouldLog) {
+            Logger::info(L"Mod Organizer 2 detected, instance {}{}",
+                         detection.mo2InstanceDir.wstring(),
+                         overrideDir.empty() ? L"" : L" (the override)");
+        }
+        return detection;
+    }
+
+    std::error_code ec;
+    if (std::filesystem::exists(dataFolder / vortexDeploymentFileName, ec)) {
+        detection.type = ModManagerType::Vortex;
+        if (shouldLog)
+            Logger::info("Vortex deployment detected");
+        return detection;
+    }
+
+    if (shouldLog)
+        Logger::info("No mod manager detected, mods are not attributed");
+    return detection;
 }
 
 auto PGModManager::modManagerTypes() -> std::vector<ModManagerType>

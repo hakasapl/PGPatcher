@@ -425,6 +425,37 @@ TEST(PGModManagerTest,
 }
 
 TEST(PGModManagerTest,
+     DetectionFollowsTheVirtualFileSystemAndTheManifest)
+{
+    // The tests do not run under MO2's virtual file system, so MO2 is never detected, not even with an override.
+    const FakeMO2 mo2;
+    std::filesystem::create_directories(mo2.dataDir());
+    auto detection = PGModManager::detect(mo2.dataDir(), { });
+    EXPECT_EQ(detection.type, ModManagerType::None);
+    EXPECT_TRUE(detection.mo2InstanceDir.empty());
+    EXPECT_TRUE(TestLog::contains(spdlog::level::info, "No mod manager detected"));
+
+    detection = PGModManager::detect(mo2.dataDir(), mo2.instanceDir());
+    EXPECT_EQ(detection.type, ModManagerType::None);
+
+    // Vortex deploys its manifest into the data folder.
+    mo2.addDataFile(L"vortex.deployment.json", "{}");
+    detection = PGModManager::detect(mo2.dataDir(), { });
+    EXPECT_EQ(detection.type, ModManagerType::Vortex);
+    EXPECT_TRUE(detection.mo2InstanceDir.empty());
+    EXPECT_TRUE(TestLog::contains(spdlog::level::info, "Vortex deployment detected"));
+
+    // An override that is no instance folder is reported, and only when asked to log.
+    TestLog::clear();
+    detection = PGModManager::detect(mo2.dataDir(), mo2.modsDir(), false);
+    EXPECT_EQ(detection.type, ModManagerType::Vortex);
+    EXPECT_TRUE(TestLog::entries().empty());
+    detection = PGModManager::detect(mo2.dataDir(), mo2.modsDir());
+    EXPECT_EQ(detection.type, ModManagerType::Vortex);
+    EXPECT_TRUE(TestLog::contains(spdlog::level::err, "instance override"));
+}
+
+TEST(PGModManagerTest,
      Mo2PopulateReportsBrokenSetups)
 {
     const FakeMO2 mo2;

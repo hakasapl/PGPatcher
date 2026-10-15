@@ -88,6 +88,7 @@ struct ParallaxGenCLIArgs {
     bool excludeFacegens = false;
     bool esmAll = false;
     bool noEsm = false;
+    std::string mo2InstanceOverride;
 };
 
 void addFileToZip(mz_zip_archive& zip,
@@ -531,12 +532,6 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
 
     if (params.modManager.type == PGModManager::ModManagerType::ModOrganizer2
         && !params.modManager.mo2InstanceDir.empty()) {
-        // Make sure running is USVFS.
-        if (!args.ignoreMO2Check && !PGHandlers::isUnderUSVFS()) {
-            Logger::critical("Please verify that you are launching PGPatcher from MO2, VFS not detected.");
-            return false;
-        }
-
         // MO2. The mods are attributed from the view of the instance's data folder, the mod folders listed on the
         // pool instead of one after the other.
         const auto populateMO2 = [&pgmm, &params, &bg] {
@@ -1031,6 +1026,19 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     auto params = pgc.params();
 
+    // The mod manager is the one PGPatcher runs under, not a setting (PGModManager::detect): detected for the
+    // launcher, which locks the game folder of an MO2 instance, and again with the game folder the run gets. The log
+    // is not up until the parameters are final, so the outcome is logged by the last detection alone.
+    const std::filesystem::path mo2InstanceOverride = PGConfig::resolveExeRelativePath(args.mo2InstanceOverride);
+    const auto detectModManager = [&params, &mo2InstanceOverride](bool shouldLog) {
+        const auto detection = PGModManager::detect(
+            PGConfig::resolveExeRelativePath(params.game.dir) / "Data", mo2InstanceOverride, shouldLog);
+        params.modManager.type = detection.type;
+        params.modManager.mo2InstanceDir = detection.mo2InstanceDir;
+    };
+    detectModManager(false);
+    pgc.setParams(params);
+
     // Show launcher UI. "Update Output" (or --autostart-update) updates the previous output in the output location in
     // place, "Start Patching" (or --autostart) regenerates it from scratch.
     const bool autostart = args.autostart || args.autostartUpdate;
@@ -1041,6 +1049,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
     // Paths in the config may be relative to the PGPatcher.exe folder: the config keeps them as typed, the run uses
     // the resolved paths.
     PGConfig::resolveRelativePaths(params);
+    detectModManager(false);
 
     // Validate config.
     std::vector<std::string> errors;
@@ -1059,6 +1068,7 @@ void mainRunner(ParallaxGenCLIArgs& args,
 
     // Welcome Message.
     Logger::info("Welcome to PGPatcher version {}!", PG_FULL_VERSION);
+    detectModManager(true);
 
 #if defined(PG_PRERELEASE) && (PG_PRERELEASE > 0)
     // Post test message for test builds.
@@ -1182,7 +1192,14 @@ void addArguments(CLI::App& app,
     app.add_flag("--console", args.console, "Show console in the background");
     app.add_flag(
         "--consider-allmeshes", args.considerAllMeshes, "Consider all meshes, even those not in plugins, for patching");
-    app.add_flag("--ignore-mo2vfscheck", args.ignoreMO2Check, "Ignore MO2 VFS check - might be useful for Linux users");
+    app.add_flag("--ignore-mo2vfscheck",
+                 args.ignoreMO2Check,
+                 "No effect: the mod manager is detected from the MO2 virtual file system (kept for existing command "
+                 "lines)");
+    app.add_option("--mo2-instance",
+                   args.mo2InstanceOverride,
+                   "Mod Organizer 2 instance folder (the one with ModOrganizer.ini) to read the mods from instead of "
+                   "the instance that launched PGPatcher, for an MO2 started with -i");
     app.add_flag(
         "--disable-dyncubemap", args.disableDynCubemap, "Do not apply dynamic cubemap to any Complex Material");
     app.add_flag(

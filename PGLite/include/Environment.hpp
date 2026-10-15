@@ -90,9 +90,8 @@ public:
 
 private:
     /**
-     * @brief Builds the view of the data folder from the Mod Organizer 2 instance the game runs under (the one that
-     * launched it, else the configured one), when the view is what the game sees. Without it the data folder is
-     * listed, which usvfs merges file by file.
+     * @brief Builds the view of the data folder from the Mod Organizer 2 instance the game runs under
+     * (PGModManager::detect). Without it the data folder is listed, which usvfs merges file by file.
      */
     void readMO2DataFolder();
     void initializeModManager();

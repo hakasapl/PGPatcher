@@ -37,6 +37,9 @@ public:
         bool shouldShowLoadingMessage = true;
         /// @brief Whether the welcome message shows in the top right corner until the menu was opened once.
         bool shouldShowWelcomeMessage = true;
+        /// @brief A Mod Organizer 2 instance folder to use in place of the one that launched the game (an MO2 started
+        /// with -i), absolute; empty for none.
+        std::filesystem::path mo2InstanceOverride;
     };
 
     /// @brief F8.

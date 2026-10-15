@@ -133,6 +133,33 @@ private:
     static constexpr const wchar_t* mo2GlobalInstancesFolder = L"ModOrganizer";
 
 public:
+    /// @brief Vortex's deployment manifest in the data folder, which tells a Vortex deployment apart.
+    static constexpr const wchar_t* vortexDeploymentFileName = L"vortex.deployment.json";
+
+    /**
+     * @struct Detection
+     * @brief The mod manager a process runs under, see detect().
+     */
+    struct Detection {
+        ModManagerType type = ModManagerType::None;
+        std::filesystem::path mo2InstanceDir; /**< The MO2 instance, empty for the other types */
+    };
+
+    /**
+     * @brief Detects the mod manager the process runs under: Mod Organizer 2 when its virtual file system is loaded
+     * into the process, Vortex when the data folder holds its deployment manifest, none otherwise. The MO2 instance
+     * is the override when it is an instance folder, else the one that launched the process
+     * (runningMO2InstanceDir()); an override that is no instance folder is reported and ignored. MO2 whose instance
+     * cannot be found counts as none, as its mods cannot be attributed.
+     *
+     * @param dataFolder The game's data folder, where Vortex deploys.
+     * @param mo2InstanceOverride An MO2 instance folder to use in place of the detected one, empty for none.
+     * @param shouldLog Whether the outcome and the problems are logged.
+     */
+    [[nodiscard]] static Detection detect(const std::filesystem::path& dataFolder,
+                                          const std::filesystem::path& mo2InstanceOverride,
+                                          bool shouldLog = true);
+
     /**
      * @brief Constructs a PGModManager for the given mod manager type. No mods are known until one of the populate
      * functions ran.

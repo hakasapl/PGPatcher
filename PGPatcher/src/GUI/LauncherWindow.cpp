@@ -29,6 +29,7 @@
 #include <iterator>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -113,49 +114,12 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
     leftSizer->Add(gameSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
-    // Mod Manager.
+    // Mod Manager: told, not chosen (PGModManager::detect).
     //
     auto* modManagerSizer = new wxStaticBoxSizer(wxVERTICAL, this, pgTr("launcher.modManager.title"));
-
-    isFirst = true;
-    for (const auto& mmType : PGModManager::modManagerTypes()) {
-        auto mmString = wxString(PGModManager::strFromModManagerType(mmType));
-        if (mmType == PGModManager::ModManagerType::None)
-            mmString += pgTr("launcher.modManager.noneSuffix");
-
-        auto* radio
-            = new wxRadioButton(this, wxID_ANY, mmString, wxDefaultPosition, wxDefaultSize, isFirst ? wxRB_GROUP : 0);
-        isFirst = false;
-        m_modManagerRadios[mmType] = radio;
-        modManagerSizer->Add(radio, 0, wxALL, borderSize);
-        radio->Bind(wxEVT_RADIOBUTTON, &LauncherWindow::onModManagerChange, this);
-    }
-
+    m_modManagerLabel = new wxStaticText(this, wxID_ANY, wxEmptyString);
+    modManagerSizer->Add(m_modManagerLabel, 0, wxALL, borderSize);
     leftSizer->Add(modManagerSizer, 0, wxEXPAND | wxALL, borderSize);
-
-    // MO2-specific controls (initially hidden).
-    m_mo2OptionsSizer = new wxStaticBoxSizer(wxVERTICAL, this, pgTr("launcher.mo2Options.title"));
-
-    auto* mo2InstanceLocationSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* mo2InstanceLocationLabel
-        = new wxStaticText(this, wxID_ANY, pgTr("launcher.mo2Options.instanceLocation.label"));
-
-    m_mo2InstanceLocationTextbox = new wxTextCtrl(this, wxID_ANY);
-    m_mo2InstanceLocationTextbox->SetToolTip(pgTr("launcher.mo2Options.instanceLocation.tooltip"));
-    m_mo2InstanceLocationTextbox->Bind(wxEVT_TEXT, &LauncherWindow::onMO2InstanceLocationChange, this);
-
-    m_mo2InstanceBrowseButton = new wxButton(this, wxID_ANY, pgTr("common.browse"));
-    m_mo2InstanceBrowseButton->Bind(wxEVT_BUTTON, &LauncherWindow::onBrowseMO2InstanceLocation, this);
-
-    mo2InstanceLocationSizer->Add(m_mo2InstanceLocationTextbox, 1, wxEXPAND | wxALL, borderSize);
-    mo2InstanceLocationSizer->Add(m_mo2InstanceBrowseButton, 0, wxALL, borderSize);
-
-    // Add the label and dropdown to MO2 options sizer.
-    m_mo2OptionsSizer->Add(mo2InstanceLocationLabel, 0, wxLEFT | wxRIGHT | wxTOP, borderSize);
-    m_mo2OptionsSizer->Add(mo2InstanceLocationSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 0);
-
-    // Add MO2 options to leftSizer but hide it initially.
-    modManagerSizer->Add(m_mo2OptionsSizer, 0, wxEXPAND | wxALL, borderSize);
 
     //
     // Output.
@@ -518,28 +482,9 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
         if (gameType == initParams.game.type)
             m_gameTypeRadios[gameType]->SetValue(true);
 
-    // Mod Manager.
-    for (const auto& mmType : PGModManager::modManagerTypes()) {
-        if (mmType == initParams.modManager.type) {
-            m_modManagerRadios[mmType]->SetValue(true);
-
-            // Show MO2 options only if MO2 is selected.
-            if (mmType == PGModManager::ModManagerType::ModOrganizer2) {
-                m_mo2InstanceLocationTextbox->Enable(true);
-                m_mo2InstanceBrowseButton->Enable(true);
-            } else {
-                m_mo2InstanceLocationTextbox->Enable(false);
-                m_mo2InstanceBrowseButton->Enable(false);
-            }
-        }
-    }
-
-    // MO2-specific options.
-    m_mo2InstanceLocationTextbox->SetValue(initParams.modManager.mo2InstanceDir.wstring());
-
-    // Manually trigger the onMO2InstanceLocationChange to populate the listbox.
-    wxCommandEvent changeEvent(wxEVT_TEXT, m_mo2InstanceLocationTextbox->GetId());
-    onMO2InstanceLocationChange(changeEvent); // Call the handler directly
+    // Mod Manager: the detected one of the config, which locks the game location of an MO2 instance.
+    updateMO2Items();
+    updateModManagerLabel();
 
     // Output.
     m_outputLocationTextbox->SetValue(initParams.output.dir.wstring());
@@ -578,7 +523,11 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
 
 // Component event handlers.
 
-void LauncherWindow::onGameLocationChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
+void LauncherWindow::onGameLocationChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateModManagerLabel();
+    updateDisabledElements();
+}
 
 void LauncherWindow::onGameTypeChange([[maybe_unused]] wxCommandEvent& event)
 {
@@ -603,23 +552,6 @@ void LauncherWindow::onGameTypeChange([[maybe_unused]] wxCommandEvent& event)
     }
 
     updateDisabledElements();
-}
-
-void LauncherWindow::onModManagerChange([[maybe_unused]] wxCommandEvent& event)
-{
-    // Show MO2 options only if the MO2 radio button is selected.
-    const bool isMO2Selected
-        = (event.GetEventObject() == m_modManagerRadios[PGModManager::ModManagerType::ModOrganizer2]);
-    m_mo2InstanceLocationTextbox->Enable(isMO2Selected);
-    m_mo2InstanceBrowseButton->Enable(isMO2Selected);
-
-    updateMO2Items();
-
-    Layout(); // Refresh layout to apply visibility changes
-    Fit();
-
-    updateDisabledElements();
-    setGamePathBasedOnExe();
 }
 
 void LauncherWindow::onOutputLocationChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
@@ -734,14 +666,7 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     }
     params.game.dir = m_gameLocationTextbox->GetValue().ToStdWstring();
 
-    // Mod Manager.
-    for (const auto& mmType : PGModManager::modManagerTypes()) {
-        if (m_modManagerRadios.at(mmType)->GetValue()) {
-            params.modManager.type = mmType;
-            break;
-        }
-    }
-    params.modManager.mo2InstanceDir = m_mo2InstanceLocationTextbox->GetValue().ToStdWstring();
+    // Mod Manager: detected, so the params keep what they have.
 
     // Output.
     params.output.dir = m_outputLocationTextbox->GetValue().ToStdWstring();
@@ -791,24 +716,11 @@ void LauncherWindow::onBrowseGameLocation([[maybe_unused]] wxCommandEvent& event
         m_gameLocationTextbox->SetValue(dialog.GetPath());
 }
 
-void LauncherWindow::onBrowseMO2InstanceLocation([[maybe_unused]] wxCommandEvent& event)
-{
-    wxDirDialog dialog(
-        this,
-        pgTr("launcher.browse.mo2InstanceLocation"),
-        PGConfig::resolveExeRelativePath(m_mo2InstanceLocationTextbox->GetValue().ToStdWstring()).wstring());
-    if (dialog.ShowModal() == wxID_OK)
-        m_mo2InstanceLocationTextbox->SetValue(dialog.GetPath());
-
-    // Trigger the change event to update the profiles.
-    wxCommandEvent changeEvent(wxEVT_TEXT, m_mo2InstanceLocationTextbox->GetId());
-    onMO2InstanceLocationChange(changeEvent); // Call the handler directly
-}
-
 void LauncherWindow::updateMO2Items()
 {
-    // Check if MO2 is selected.
-    if (!m_modManagerRadios[PGModManager::ModManagerType::ModOrganizer2]->GetValue()) {
+    // Check if MO2 is the detected mod manager.
+    const auto& modManager = m_pgc.params().modManager;
+    if (modManager.type != PGModManager::ModManagerType::ModOrganizer2) {
         const bool shouldLock = m_isGameLocationLockedByInstallLocation;
         m_gameLocationTextbox->Enable(!shouldLock);
         m_gameLocationBrowseButton->Enable(!shouldLock);
@@ -818,8 +730,8 @@ void LauncherWindow::updateMO2Items()
         return;
     }
 
-    // May be relative to the PGPatcher.exe folder (kept as typed in the textbox and the config).
-    const auto instanceDir = PGConfig::resolveExeRelativePath(m_mo2InstanceLocationTextbox->GetValue().ToStdWstring());
+    // The detected instance, or the --mo2-instance override, which may be relative to the PGPatcher.exe folder.
+    const auto instanceDir = PGConfig::resolveExeRelativePath(modManager.mo2InstanceDir);
 
     // Get game path.
     const auto gamePathMO2 = PGModManager::gamePathFromInstanceDir(instanceDir);
@@ -848,7 +760,27 @@ void LauncherWindow::updateMO2Items()
     }
 }
 
-void LauncherWindow::onMO2InstanceLocationChange([[maybe_unused]] wxCommandEvent& event) { updateMO2Items(); }
+void LauncherWindow::updateModManagerLabel()
+{
+    // MO2 is detected once, when PGPatcher starts (it comes with its virtual file system); Vortex deploys into the
+    // data folder of the game location, which the user may still change here.
+    const auto& modManager = m_pgc.params().modManager;
+    wxString text;
+    if (modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
+        text = wxString::Format(pgTr("launcher.modManager.detected.mo2"),
+                                wxString(PGConfig::resolveExeRelativePath(modManager.mo2InstanceDir).wstring()));
+    } else {
+        const auto gameDir = PGConfig::resolveExeRelativePath(m_gameLocationTextbox->GetValue().ToStdWstring());
+        std::error_code ec;
+        const bool isVortex = !gameDir.empty()
+            && std::filesystem::exists(gameDir / L"Data" / PGModManager::vortexDeploymentFileName, ec);
+        text = pgTr(isVortex ? "launcher.modManager.detected.vortex" : "launcher.modManager.detected.none");
+    }
+
+    m_modManagerLabel->SetLabel(text);
+    m_modManagerLabel->Wrap(FromDIP(leftSizerWrapSize));
+    Layout();
+}
 
 void LauncherWindow::onBrowseOutputLocation([[maybe_unused]] wxCommandEvent& event)
 {

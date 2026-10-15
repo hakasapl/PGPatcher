@@ -45,8 +45,10 @@ TEST(PGParamsTest,
 
     EXPECT_TRUE(json["game"].contains("dir"));
     EXPECT_TRUE(json["game"].contains("type"));
-    EXPECT_TRUE(json["modmanager"].contains("mo2instancedir"));
     EXPECT_TRUE(json["modmanager"].contains("mo2useloosefileorder"));
+    // The mod manager is detected at every start, so neither its type nor its instance is a setting.
+    EXPECT_FALSE(json["modmanager"].contains("type"));
+    EXPECT_FALSE(json["modmanager"].contains("mo2instancedir"));
     EXPECT_TRUE(json["output"].contains("pluginlang"));
     EXPECT_TRUE(json["processing"].contains("allowedmodelrecordtypes"));
     EXPECT_TRUE(json["processing"].contains("vanillabsalist"));
@@ -60,7 +62,6 @@ TEST(PGParamsTest,
     // The rest of the keys, so a rename of any of them fails here and not in a user's settings file.
     EXPECT_TRUE(json["output"].contains("dir"));
     EXPECT_TRUE(json["output"].contains("zip"));
-    EXPECT_TRUE(json["modmanager"].contains("type"));
     EXPECT_TRUE(json["processing"].contains("multithread"));
     EXPECT_TRUE(json["processing"].contains("devmode"));
     EXPECT_TRUE(json["processing"].contains("enabledebuglogging"));

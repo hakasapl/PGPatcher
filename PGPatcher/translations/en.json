@@ -44,13 +44,10 @@
     },
     "modManager": {
       "title": "Mod Manager",
-      "noneSuffix": " (No Conflict Resolution)"
-    },
-    "mo2Options": {
-      "title": "MO2 Options",
-      "instanceLocation": {
-        "label": "Instance Location",
-        "tooltip": "Path to the MO2 instance folder (Folder Icon > Open Instance folder in MO2)"
+      "detected": {
+        "mo2": "Mod Organizer 2, instance %s (launch PGPatcher from another instance or use --mo2-instance to change it)",
+        "vortex": "Vortex (the deployment manifest of the data folder is read)",
+        "none": "None detected, so there is no conflict resolution. Launch PGPatcher from Mod Organizer 2, or deploy with Vortex."
       }
     },
     "output": {
@@ -149,7 +146,6 @@
     },
     "browse": {
       "gameLocation": "Select Game Location",
-      "mo2InstanceLocation": "Select MO2 Instance Location",
       "outputLocation": "Select Output Location"
     },
     "confirmLoadConfig": {
@@ -457,9 +453,8 @@
       "vortex": "The Vortex deployment manifest of the data folder is read.",
       "notReady": "The mod list is available once PGLite is initialized and enabled.",
       "dragHint": "Drag a mod onto another one to move it there.",
-      "instanceValid": "MO2 Instance Location is valid",
       "applyForList": "The mod list follows the applied settings. Press Apply to build it with these.",
-      "notAttributed": "The applied mod manager could not be read, so mods are not attributed and there is no list to sort. Correct the location and press Apply."
+      "notAttributed": "The mod manager could not be read, so mods are not attributed and there is no list to sort."
     },
     "messages": {
       "count": "%zu warnings and errors this session",

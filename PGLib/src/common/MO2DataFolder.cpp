@@ -424,39 +424,6 @@ std::vector<MO2DataFolder::File> MO2DataFolder::walkFolder(const std::filesystem
     return files;
 }
 
-bool MO2DataFolder::matchesVirtualFolder(const std::filesystem::path& dataFolder) const
-{
-    // One file of every source first, then files spread over the view.
-    std::vector<const File*> sample;
-    std::vector<bool> isSourceSampled(m_sources.size(), false);
-    for (const auto& file : m_files) {
-        if (sample.size() >= matchSampleSize)
-            break;
-        if (isSourceSampled[file.source])
-            continue;
-
-        isSourceSampled[file.source] = true;
-        sample.push_back(&file);
-    }
-    const std::size_t stride = std::max<std::size_t>(1, m_files.size() / matchSampleSize);
-    for (std::size_t i = 0; i < m_files.size() && sample.size() < matchSampleSize; i += stride)
-        sample.push_back(&m_files[i]);
-
-    if (sample.empty())
-        return false;
-
-    return std::ranges::all_of(sample, [&dataFolder](const File* file) {
-        WIN32_FILE_ATTRIBUTE_DATA data { };
-        if (!GetFileAttributesExW((dataFolder / file->relPath).c_str(), GetFileExInfoStandard, &data))
-            return false;
-
-        const auto size = (static_cast<uint64_t>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
-        const auto mtime = (static_cast<int64_t>(data.ftLastWriteTime.dwHighDateTime) << 32)
-            | static_cast<int64_t>(data.ftLastWriteTime.dwLowDateTime);
-        return size == file->size && mtime == file->mtime;
-    });
-}
-
 void MO2DataFolder::forEachLooseFile(const std::function<void(const BethesdaDirectory::LooseFile&)>& visitor) const
 {
     for (const auto& file : m_files)

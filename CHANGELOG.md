@@ -22,6 +22,7 @@
 - [Common] Fixed a complex material JSON whose `specular_color` has an entry that is not a number killing the run, ignoring instead
 - [PGLite] The files of a Mod Organizer 2 profile are read from the instance's mod folders instead of the virtual data folder, whose listing took most of the main menu hold on large mod lists
 - [PGPatcher] Mod Organizer 2 mods are attributed from one listing of the mod folders on the thread pool
+- [Common] The mod manager is detected instead of selected: Mod Organizer 2 when launched from it (the instance that launched the program, or the `--mo2-instance` argument and the `sMO2InstanceOverride` PGLite INI setting for an MO2 started with `-i`), Vortex when its deployment manifest is in the data folder; the selection and the instance location leave the launcher and the PGLite menu
 
 ## [2.1.2] - 2026-10-05
 

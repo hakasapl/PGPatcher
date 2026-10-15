@@ -801,8 +801,6 @@ void Menu::loadState()
                                    .typeIndex = it == typeNames.end() ? 0 : static_cast<int>(it - typeNames.begin()) });
     }
 
-    m_mo2InstanceDir = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
-
     m_languages = PGTranslation::availableLanguages();
     m_language = PGTranslation::currentLanguage();
 
@@ -810,45 +808,21 @@ void Menu::loadState()
     m_mods.clear();
     m_modListSignature.clear();
     m_modListMessage.clear();
-    m_instanceMessage.clear();
-    m_isInstanceValid = false;
 
     m_isStateLoaded = true;
 }
 
 void Menu::rebuildModList()
 {
+    // The mod manager is the one the game runs under (PGModManager::detect); the loose file order is the one setting.
     const auto type = m_params.modManager.type;
-    const bool isMO2 = type == PGModManager::ModManagerType::ModOrganizer2;
-    const auto signature = std::format(
-        "{}|{}|{}", static_cast<int>(type), m_mo2InstanceDir, m_params.modManager.shouldUseMO2LooseFileOrder);
+    const auto signature = std::format("{}|{}", static_cast<int>(type), m_params.modManager.shouldUseMO2LooseFileOrder);
     if (signature == m_modListSignature)
         return;
 
     m_modListSignature = signature;
     m_mods.clear();
     m_modListMessage.clear();
-    m_instanceMessage.clear();
-    m_isInstanceValid = false;
-
-    // The location's validity as it is typed, with the checks and the messages of the offline launcher. A relative
-    // path is the game folder's, as the runtime resolves it.
-    if (isMO2) {
-        std::filesystem::path dir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
-        if (!dir.empty() && dir.is_relative())
-            dir = (Settings::gameFolder() / dir).lexically_normal();
-        std::error_code ec;
-        if (dir.empty()) {
-            m_instanceMessage = tr("launcher.validation.mo2InstanceRequired");
-        } else if (!std::filesystem::exists(dir, ec)) {
-            m_instanceMessage = tr("launcher.validation.mo2InstanceMissing");
-        } else if (!PGModManager::isValidMO2InstanceDir(dir)) {
-            m_instanceMessage = tr("launcher.validation.mo2InstanceInvalid");
-        } else {
-            m_instanceMessage = tr("pglite.conflictManager.instanceValid");
-            m_isInstanceValid = true;
-        }
-    }
 
     if (type == PGModManager::ModManagerType::None) {
         m_modListMessage = tr("pglite.conflictManager.noModManager");
@@ -856,14 +830,10 @@ void Menu::rebuildModList()
     }
 
     // The list is the applied settings' alone: the environment's own mod manager, attributed by the mesh reading
-    // pass and costing no walk of the mod folders. Edited settings have no list until they are applied, and applied
-    // settings whose mod manager the environment could not read (a wrong location goes through Apply) have none
-    // either, their mods being unattributed.
+    // pass and costing no walk of the mod folders. An edited order setting has no list until it is applied, and an
+    // instance the environment could not read has none either, its mods being unattributed.
     const auto applied = m_runtime->params().modManager;
-    const bool isApplied = type == applied.type
-        && std::filesystem::path(StringUtil::utf8toUTF16(m_mo2InstanceDir)) == applied.mo2InstanceDir
-        && m_params.modManager.shouldUseMO2LooseFileOrder == applied.shouldUseMO2LooseFileOrder;
-    if (!isApplied) {
+    if (m_params.modManager.shouldUseMO2LooseFileOrder != applied.shouldUseMO2LooseFileOrder) {
         m_modListMessage = tr("pglite.conflictManager.applyForList");
         return;
     }
@@ -920,7 +890,6 @@ void Menu::startApply(bool isEnabled)
         params.processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(rule.path),
                                                    PGEnums::texTypeFromStr(typeNames.at(rule.typeIndex)));
     }
-    params.modManager.mo2InstanceDir = StringUtil::utf8toUTF16(m_mo2InstanceDir);
 
     // The rules as a read of the file spells them, so two spellings of one rule are refused as the duplicate the next
     // start would report, and a rule typed with forward slashes matches from this Apply on.
@@ -1431,49 +1400,13 @@ void Menu::drawTextureRules()
 
 void Menu::drawConflictManager()
 {
-    // The choices of the offline launcher: the type names of PGModManager, "None" with its suffix.
-    const auto types = PGModManager::modManagerTypes();
-    std::vector<std::string> labels;
-    std::vector<const char*> labelPointers;
-    int current = 0;
-    for (std::size_t i = 0; i < types.size(); i++) {
-        auto label = PGModManager::strFromModManagerType(types.at(i));
-        if (types.at(i) == PGModManager::ModManagerType::None)
-            label += tr("launcher.modManager.noneSuffix");
-        labels.push_back(std::move(label));
-        if (types.at(i) == m_params.modManager.type)
-            current = static_cast<int>(i);
-    }
-    for (const auto& label : labels)
-        labelPointers.push_back(label.c_str());
-
-    // The label at the left of the dropdown, as the rows below have it; the dropdown is as wide as its longest choice.
-    float comboWidth = 0;
-    for (const auto& label : labels)
-        comboWidth = std::max(comboWidth, ImGui::CalcTextSize(label.c_str()).x);
-    comboWidth += ImGui::GetStyle().FramePadding.x * 2 + ImGui::GetFrameHeight();
-    ImGui::TextUnformatted(tr("launcher.modManager.title").c_str());
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(comboWidth);
-    if (ImGui::Combo("##modmanager", &current, labelPointers.data(), static_cast<int>(labelPointers.size())))
-        m_params.modManager.type = types.at(static_cast<std::size_t>(current));
-
+    // The mod manager is the one the game runs under (PGModManager::detect), told rather than chosen; the list
+    // itself waits for Apply when the order setting is edited.
     const bool isMO2 = m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2;
-    if (isMO2) {
-        // Typed: a folder dialog of the shell would open outside the game.
-        ImGui::TextUnformatted(tr("launcher.mo2Options.instanceLocation.label").c_str());
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        ImGui::InputText("##instance", &m_mo2InstanceDir);
-    }
-
-    // The messages follow the settings above as they are edited: the location's validity is told as it is typed,
-    // the list itself waits for Apply.
     rebuildModList();
     if (isMO2) {
-        ImGui::PushStyleColor(ImGuiCol_Text, m_isInstanceValid ? ImVec4(0.6F, 1, 0.6F, 1) : ImVec4(1, 0.85F, 0.4F, 1));
-        ImGui::TextWrapped("%s", m_instanceMessage.c_str());
-        ImGui::PopStyleColor();
+        ImGui::TextWrapped(tr("pglite.status.mo2Instance").c_str(),
+                           StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring()).c_str());
         ImGui::Checkbox(tr("conflictManager.lockMO2Order.label").c_str(),
                         &m_params.modManager.shouldUseMO2LooseFileOrder);
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {

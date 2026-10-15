@@ -250,42 +250,4 @@ TEST(MO2DataFolderTest,
     EXPECT_EQ(paths(view), (std::vector<std::wstring> { L"meshes\\r.nif" }));
 }
 
-TEST(MO2DataFolderTest,
-     MatchesVirtualFolderComparesSizesAndWriteTimes)
-{
-    const FakeMO2 mo2;
-    std::filesystem::create_directories(mo2.dataDir());
-    mo2.writeModlist("+Mod\n");
-    mo2.addModFile(L"Mod", L"meshes\\m.nif", "mesh");
-    mo2.addModFile(L"Mod", L"textures\\t.dds", "tex");
-
-    // Nothing of the view is below the data folder.
-    const auto view = MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), options());
-    EXPECT_FALSE(view.matchesVirtualFolder(mo2.dataDir()));
-
-    // The same files, as usvfs would serve them.
-    for (const auto* relPath : { L"meshes\\m.nif", L"textures\\t.dds" }) {
-        const auto source = mo2.modsDir() / L"Mod" / relPath;
-        const auto target = mo2.dataDir() / relPath;
-        std::filesystem::create_directories(target.parent_path());
-        std::filesystem::copy_file(source, target);
-        std::filesystem::last_write_time(target, std::filesystem::last_write_time(source));
-    }
-    EXPECT_TRUE(view.matchesVirtualFolder(mo2.dataDir()));
-
-    // Another content at the same time.
-    const auto source = mo2.modsDir() / L"Mod\\meshes\\m.nif";
-    TestUtil::writeFile(mo2.dataDir() / L"meshes\\m.nif", "other");
-    std::filesystem::last_write_time(mo2.dataDir() / L"meshes\\m.nif", std::filesystem::last_write_time(source));
-    EXPECT_FALSE(view.matchesVirtualFolder(mo2.dataDir()));
-
-    // A view without any file cannot be confirmed.
-    const FakeMO2 empty;
-    std::filesystem::create_directories(empty.dataDir());
-    empty.writeModlist("# nothing\n");
-    const auto emptyView = MO2DataFolder::read(empty.instanceDir(), empty.dataDir(), options());
-    EXPECT_TRUE(emptyView.files().empty());
-    EXPECT_FALSE(emptyView.matchesVirtualFolder(empty.dataDir()));
-}
-
 }

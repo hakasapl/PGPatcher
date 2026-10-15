@@ -10,6 +10,7 @@
 #include "Menu.hpp"
 #include "OfflineOutput.hpp"
 #include "PGGlobals.hpp"
+#include "PGModManager.hpp"
 #include "PGParams.hpp"
 #include "PGRunObserver.hpp"
 #include "PGTranslation.hpp"
@@ -262,6 +263,11 @@ void Runtime::readSettings()
             params = ShaderFrameworks::firstStartParams(m_shaderFrameworks);
         }
         ShaderFrameworks::limitPatchers(params, m_shaderFrameworks);
+
+        // The mod manager is the one the game runs under, not a setting of the file.
+        const auto detection = PGModManager::detect(Settings::dataFolder(), m_ini.mo2InstanceOverride);
+        params.modManager.type = detection.type;
+        params.modManager.mo2InstanceDir = detection.mo2InstanceDir;
 
         const std::scoped_lock lock(m_stateMutex);
         m_params = std::move(params);

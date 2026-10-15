@@ -28,7 +28,8 @@ struct PGParams {
         bool operator==(const Game& other) const { return dir == other.dir && type == other.type; }
     } game;
 
-    // Mod Manager.
+    // Mod Manager. The type and the instance are detected when the program starts (PGModManager::detect), not read
+    // from the settings file; the loose file order is the one setting.
     struct ModManager {
         PGModManager::ModManagerType type = PGModManager::ModManagerType::None;
         std::filesystem::path mo2InstanceDir;

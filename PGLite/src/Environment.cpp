@@ -259,62 +259,36 @@ void Environment::initialize(ClassificationCache& cache,
 
 void Environment::readMO2DataFolder()
 {
-    if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
-        // A relative path is the game folder's, where the offline program's is its own folder's (section 7); an
-        // empty path stays empty (it counts as relative).
-        const auto& instanceDir = m_params.modManager.mo2InstanceDir;
-        m_mo2InstanceDir = !instanceDir.empty() && instanceDir.is_relative()
-            ? (Settings::gameFolder() / instanceDir).lexically_normal()
-            : instanceDir;
-    }
-
-    // Only a game launched from MO2 reads through usvfs; elsewhere the data folder is what it is.
-    if (PGModManager::mo2DirFromUSVFS().empty())
+    if (m_params.modManager.type != PGModManager::ModManagerType::ModOrganizer2)
         return;
 
-    // The instance that launched the game first, the configured one when it is another.
-    std::vector<std::filesystem::path> candidates;
-    const auto runningInstanceDir = PGModManager::runningMO2InstanceDir();
-    if (!runningInstanceDir.empty())
-        candidates.push_back(runningInstanceDir);
-    std::error_code ec;
-    if (!m_mo2InstanceDir.empty()
-        && (candidates.empty() || !std::filesystem::equivalent(candidates.front(), m_mo2InstanceDir, ec))) {
-        candidates.push_back(m_mo2InstanceDir);
+    // A relative path is the game folder's, where the offline program's is its own folder's (section 7); an empty
+    // path stays empty (it counts as relative).
+    const auto& instanceDir = m_params.modManager.mo2InstanceDir;
+    m_mo2InstanceDir = !instanceDir.empty() && instanceDir.is_relative()
+        ? (Settings::gameFolder() / instanceDir).lexically_normal()
+        : instanceDir;
+    if (m_mo2InstanceDir.empty())
+        return;
+
+    const Stopwatch stopwatch;
+    try {
+        m_mo2DataFolder = std::make_unique<MO2DataFolder>(MO2DataFolder::read(
+            m_mo2InstanceDir,
+            Settings::dataFolder(),
+            { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = m_params.processing.multithread }));
+        Logger::info(L"Read the Mod Organizer 2 instance {} (profile {}): {} files of {} sources in {} ms",
+                     m_mo2InstanceDir.wstring(),
+                     m_mo2DataFolder->profile(),
+                     m_mo2DataFolder->files().size(),
+                     m_mo2DataFolder->sources().size(),
+                     stopwatch.milliseconds());
+    } catch (const std::exception& e) {
+        Logger::warn(L"Unable to read the Mod Organizer 2 instance {}, the data folder is listed as the game sees "
+                     L"it: {}",
+                     m_mo2InstanceDir.wstring(),
+                     StringUtil::utf8toUTF16(e.what()));
     }
-
-    const auto dataFolder = Settings::dataFolder();
-    for (const auto& candidate : candidates) {
-        const Stopwatch stopwatch;
-        try {
-            auto view = std::make_unique<MO2DataFolder>(MO2DataFolder::read(
-                candidate,
-                dataFolder,
-                { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = m_params.processing.multithread }));
-            if (!view->matchesVirtualFolder(dataFolder)) {
-                Logger::info(L"The Mod Organizer 2 instance {} (profile {}) is not the one the game runs under",
-                             candidate.wstring(),
-                             view->profile());
-                continue;
-            }
-
-            Logger::info(L"Read the Mod Organizer 2 instance {} (profile {}): {} files of {} sources in {} ms",
-                         candidate.wstring(),
-                         view->profile(),
-                         view->files().size(),
-                         view->sources().size(),
-                         stopwatch.milliseconds());
-            m_mo2DataFolder = std::move(view);
-            return;
-        } catch (const std::exception& e) {
-            Logger::warn(L"Unable to read the Mod Organizer 2 instance {}: {}",
-                         candidate.wstring(),
-                         StringUtil::utf8toUTF16(e.what()));
-        }
-    }
-
-    if (!candidates.empty())
-        Logger::info("The data folder is listed as the game sees it");
 }
 
 void Environment::initializeModManager()
@@ -333,18 +307,14 @@ void Environment::initializeModManager()
     try {
         if (m_params.modManager.type == PGModManager::ModManagerType::ModOrganizer2) {
             if (m_mo2InstanceDir.empty()) {
-                Logger::warn("No Mod Organizer 2 instance is configured, mods are not attributed");
+                Logger::warn("No Mod Organizer 2 instance is known, mods are not attributed");
             } else {
                 Logger::info(L"Reading the Mod Organizer 2 instance {}", m_mo2InstanceDir.wstring());
-                // The view of the configured instance attributes the files it lists; another instance's view, the
-                // one the game runs under, is only the file map's.
-                std::error_code ec;
-                if (m_mo2DataFolder
-                    && std::filesystem::equivalent(m_mo2DataFolder->instanceDir(), m_mo2InstanceDir, ec)) {
+                // The view attributes the files it lists; without one the mod folders are walked.
+                if (m_mo2DataFolder)
                     m_modManager->populateModFileMapMO2(*m_mo2DataFolder, { });
-                } else {
+                else
                     m_modManager->populateModFileMapMO2(m_mo2InstanceDir, { });
-                }
             }
         } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
             Logger::info("Reading the Vortex deployment");

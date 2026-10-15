@@ -22,10 +22,9 @@
  * wins over every mod, and the files of the real data folder below everything. The mod folders are listed on disk,
  * in parallel, and the real data folder through a handle usvfs does not reroute.
  *
- * The view is the one usvfs serves when it comes from the instance and profile that launched the process, which
- * matchesVirtualFolder() checks. Files MO2 skips (the skip suffixes and skip folders of its settings) are left out
- * as usvfs leaves them out; hidden files stay in, as the game sees them, and are flagged for the readers that skip
- * them.
+ * The view is the one usvfs serves when it comes from the instance and profile that launched the process
+ * (PGModManager::detect). Files MO2 skips (the skip suffixes and skip folders of its settings) are left out as usvfs
+ * leaves them out; hidden files stay in, as the game sees them, and are flagged for the readers that skip them.
  */
 class MO2DataFolder : public BethesdaDirectory::LooseFileSource {
 public:
@@ -88,21 +87,10 @@ public:
     [[nodiscard]] const std::filesystem::path& modsDir() const { return m_modsDir; }
     [[nodiscard]] const std::wstring& profile() const { return m_profile; }
 
-    /**
-     * @brief Checks that the view is what the process sees below the data folder: a sample of its files, from as
-     * many sources as possible, must have the same size and write time there, where usvfs serves them.
-     *
-     * @return false when the sample differs, which means that another instance or profile launched the process or
-     * that the process does not run under MO2, or when the view has no file at all.
-     */
-    [[nodiscard]] bool matchesVirtualFolder(const std::filesystem::path& dataFolder) const;
-
     /// @brief Every file of the view, as a LooseFileSource for BethesdaDirectory.
     void forEachLooseFile(const std::function<void(const BethesdaDirectory::LooseFile&)>& visitor) const override;
 
 private:
-    static constexpr std::size_t matchSampleSize = 24;
-
     /// @brief Lists one directory of a folder, by its path relative to the folder, or nothing when it cannot be
     /// listed.
     using DirectoryLister
