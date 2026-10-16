@@ -127,7 +127,12 @@ struct PGParams {
 
     // Global Patchers.
     struct GlobalPatcher {
-        bool operator==([[maybe_unused]] const GlobalPatcher& other) const { return true; }
+        bool isRecalculateBoundsEnabled = false;
+
+        bool operator==(const GlobalPatcher& other) const
+        {
+            return isRecalculateBoundsEnabled == other.isRecalculateBoundsEnabled;
+        }
     } globalPatcher;
 
     bool operator==(const PGParams& other) const

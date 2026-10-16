@@ -110,6 +110,13 @@
         "tooltip": "Adds flow maps to texture sets for those that match the normal texture"
       }
     },
+    "globalPatchers": {
+      "title": "Global Patchers",
+      "recalculateBounds": {
+        "label": "Recalculate Bounds",
+        "tooltip": "Recalculates the bounds of every mesh PG outputs and the OBND of the STAT, TREE and GRAS records using them, fixing wrong or empty values left by mod authors. DynDOLOD reads them for tree/grass LOD billboards and large references. Edits plugin records."
+      }
+    },
     "buttons": {
       "restoreDefaults": "Restore Defaults",
       "loadConfig": "Load Config",

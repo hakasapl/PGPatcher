@@ -110,6 +110,13 @@
         "tooltip": "Ajoute des flow maps aux texture sets pour celles correspondant à la texture normale"
       }
     },
+    "globalPatchers": {
+      "title": "Patchers globaux",
+      "recalculateBounds": {
+        "label": "Recalculer les bounds",
+        "tooltip": "Recalcule les bounds de chaque mesh que PG écrit et l'OBND des records STAT, TREE et GRAS qui les utilisent, en corrigeant les valeurs fausses ou vides laissées par les auteurs de mods. DynDOLOD les lit pour les billboards de LOD des arbres/herbes et les grandes références. Modifie des records du plugin."
+      }
+    },
     "buttons": {
       "restoreDefaults": "Restaurer les valeurs par défaut",
       "loadConfig": "Charger la configuration",
@@ -213,6 +220,7 @@
       "readingNifs": "Lecture des NIF",
       "classifyingTextures": "Classification des textures",
       "patchingMeshes": "Patch des meshes",
+      "evaluatingPreviousOutput": "Évaluation de la sortie précédente",
       "processingNifs": "Traitement des NIF",
       "patchingTextures": "Patch des textures",
       "processingTextures": "Traitement des textures",

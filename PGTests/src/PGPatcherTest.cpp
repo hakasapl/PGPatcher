@@ -31,8 +31,10 @@
 #include <gtest/gtest.h>
 #include <spdlog/common.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -427,6 +429,194 @@ TEST_F(PGPatcherTest,
     std::filesystem::remove_all(outDir());
     EXPECT_TRUE(PGPatcher::isOutputEmpty());
     EXPECT_NO_THROW(PGPatcher::deleteOutputDir(true, false));
+}
+
+/// @brief The OBND subrecord of a record of a plugin file, std::nullopt if the plugin has no such record or OBND.
+std::optional<TestUtil::PluginBuilder::ObjectBounds> objectBoundsOf(const std::filesystem::path& plugin,
+                                                                    const std::string& type,
+                                                                    uint32_t formID)
+{
+    if (!std::filesystem::exists(plugin))
+        return std::nullopt;
+
+    const auto bytes = FileUtil::fileBytes(plugin);
+    const auto readUInt32 = [&bytes](size_t offset) {
+        uint32_t value = 0;
+        if (offset + sizeof(value) <= bytes.size())
+            std::memcpy(&value, &bytes.at(offset), sizeof(value));
+        return value;
+    };
+    const auto signature = [&bytes](size_t offset) {
+        std::string sig;
+        for (size_t i = offset; i < offset + 4 && i < bytes.size(); i++)
+            sig.push_back(static_cast<char>(bytes[i]));
+        return sig;
+    };
+
+    size_t pos = 0;
+    while (pos + 24 <= bytes.size()) {
+        const auto sig = signature(pos);
+        const auto size = readUInt32(pos + 4);
+        if (sig == "GRUP") {
+            pos += 24; // the records of the group follow its header
+            continue;
+        }
+
+        if (sig == type && readUInt32(pos + 12) == formID) {
+            size_t subPos = pos + 24;
+            const size_t end = std::min(subPos + size, bytes.size());
+            while (subPos + 6 <= end) {
+                uint16_t subSize = 0;
+                std::memcpy(&subSize, &bytes.at(subPos + 4), sizeof(subSize));
+                if (signature(subPos) == "OBND" && subSize == sizeof(TestUtil::PluginBuilder::ObjectBounds)) {
+                    TestUtil::PluginBuilder::ObjectBounds bounds { };
+                    std::memcpy(bounds.data(), &bytes.at(subPos + 6), sizeof(bounds));
+                    return bounds;
+                }
+                subPos += 6 + subSize;
+            }
+            return std::nullopt;
+        }
+
+        pos += 24 + size;
+    }
+
+    return std::nullopt;
+}
+
+/**
+ * @brief A game whose master has a record for every outcome of the object bounds, and the meshes they use: the stone
+ * and the wood are patched (the stone is used by a static and an activator, the wood by a tree), the plain mesh is not
+ * (a tree, grass and a static use it; grass is never patched, which is why its bounds are taken from the original
+ * mesh). Every shape sits away from the origin, so the bounds are recognizable.
+ */
+class PGPatcherObjectBoundsTest : public ::testing::Test {
+protected:
+    // gtest fixtures share their state with the tests through protected members.
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+    TestUtil::FakeGame m_fake;
+    std::optional<BethesdaGame> m_game;
+    std::unique_ptr<PGDirectory> m_pgd;
+    PGD3D m_d3d;
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+
+    static constexpr uint32_t stoneStaticID = 0x000800;
+    static constexpr uint32_t woodTreeID = 0x000801;
+    static constexpr uint32_t plainTreeID = 0x000802;
+    static constexpr uint32_t plainStaticID = 0x000803;
+    static constexpr uint32_t stoneActivatorID = 0x000804;
+    static constexpr uint32_t plainGrassID = 0x000805;
+
+    // The quad of the meshes moved to x 5.5 to 6.5, y -3.5 to -2.5 and z 2.5, truncated toward zero.
+    static constexpr TestUtil::PluginBuilder::ObjectBounds meshBounds { 5, -3, 2, 6, -2, 2 };
+
+    [[nodiscard]] std::filesystem::path outDir() const { return m_fake.gameDir() / L"Output"; }
+
+    void SetUp() override
+    {
+        for (const auto* texture : {
+                 L"textures\\pgtest\\stone.dds",
+                 L"textures\\pgtest\\stone_n.dds",
+                 L"textures\\pgtest\\stone_m.dds",
+                 L"textures\\pgtest\\wood.dds",
+                 L"textures\\pgtest\\wood_n.dds",
+                 L"textures\\pgtest\\wood_p.dds",
+                 L"textures\\pgtest\\plain.dds",
+                 L"textures\\pgtest\\plain_n.dds",
+             }) {
+            TestUtil::DDSBuilder::writeDDS(m_fake.dataDir() / texture, 16, 16);
+        }
+
+        const auto writeMesh = [this](const wchar_t* path, const std::wstring& base) {
+            NIFBuilder builder;
+            auto* shape = builder.addShape(
+                "Shape", slots(L"textures\\pgtest\\" + base + L".dds", L"textures\\pgtest\\" + base + L"_n.dds"));
+            shape->transform.translation = nifly::Vector3(5.5F, -3.5F, 2.5F);
+            builder.save(m_fake.dataDir() / path);
+        };
+        writeMesh(L"meshes\\pgtest\\stone.nif", L"stone");
+        writeMesh(L"meshes\\pgtest\\wood.nif", L"wood");
+        writeMesh(L"meshes\\pgtest\\plain.nif", L"plain");
+        std::filesystem::create_directories(outDir());
+
+        TestUtil::PluginBuilder master("Skyrim.esm", true);
+        master.addStatic(stoneStaticID, "StoneSTAT", "pgtest\\stone.nif");
+        master.addModelRecord("TREE", woodTreeID, "WoodTREE", "pgtest\\wood.nif");
+        master.addModelRecord("TREE", plainTreeID, "PlainTREE", "pgtest\\plain.nif");
+        master.addStatic(plainStaticID, "PlainSTAT", "pgtest\\plain.nif");
+        master.addModelRecord("ACTI", stoneActivatorID, "StoneACTI", "pgtest\\stone.nif");
+        master.addModelRecord("GRAS", plainGrassID, "PlainGRAS", "pgtest\\plain.nif");
+        m_fake.writeDataFile(L"Skyrim.esm", master.bytes());
+        m_game.emplace(m_fake.game());
+        PGPlugin::initialize(*m_game, TestUtil::executableDir());
+        PGPlugin::populateObjs();
+
+        m_pgd = std::make_unique<PGDirectory>(m_fake.dataDir(), outDir());
+        m_pgd->populateFileMap(false, false);
+        m_pgd->mapFiles({ }, { }, { { L"textures\\pgtest\\stone_m.dds", TextureType::ComplexMaterial } }, { }, false);
+        m_pgd->waitForMeshMapping();
+        PGGlobals::setPGD(m_pgd.get());
+        PGGlobals::setPGD3D(&m_d3d);
+        PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
+        PGPatcher::resetRunState();
+
+        PatcherUtil::PatcherMeshSet meshPatchers;
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::factory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::shaderType(),
+                                            PatcherMeshShaderDefault::factory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderVanillaParallax::shaderType(),
+                                            PatcherMeshShaderVanillaParallax::factory());
+        meshPatchers.shaderPatchers.emplace(PatcherMeshShaderComplexMaterial::shaderType(),
+                                            PatcherMeshShaderComplexMaterial::factory());
+        meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::factory());
+        PGPatcher::loadPatchers(meshPatchers, { });
+    }
+
+    void TearDown() override
+    {
+        PGGlobals::fileSaver().waitForCompletion();
+        PGPatcher::resetRunState();
+        PGPatcher::loadPatchers(PatcherUtil::PatcherMeshSet(), PatcherUtil::PatcherTextureSet());
+        PGPlugin::resetPatchingState();
+        PGGlobals::setPGD3D(nullptr);
+        PGGlobals::setPGD(nullptr);
+    }
+
+    /// @brief Patches the meshes, saves the plugins next to the meshes and returns the plugin with the overrides.
+    [[nodiscard]] std::filesystem::path patchAndSave(bool shouldComputeObjectBounds)
+    {
+        PGPatcher::patchMeshes(false, false, { }, false, false, false, { }, { }, shouldComputeObjectBounds);
+        PGGlobals::fileSaver().waitForCompletion();
+        PGPlugin::savePlugin(outDir(), PGPlugin::ESMMode::PGPatcherOnly);
+        return outDir() / L"PG_1.esp";
+    }
+};
+
+TEST_F(PGPatcherObjectBoundsTest,
+       RecordsGetTheBoundsOfTheirMeshOnlyWhenAsked)
+{
+    const auto plugin = patchAndSave(true);
+    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\stone.nif"));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\wood.nif"));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\plain.nif"));
+
+    // Records of a mesh PG outputs get the bounds of that mesh, if they are statics, trees or grass.
+    EXPECT_EQ(objectBoundsOf(plugin, "STAT", stoneStaticID), meshBounds);
+    EXPECT_EQ(objectBoundsOf(plugin, "TREE", woodTreeID), meshBounds);
+    EXPECT_EQ(objectBoundsOf(plugin, "ACTI", stoneActivatorID), std::nullopt);
+
+    // Trees and grass get them even though PG does not output their mesh (DynDOLOD reads them), statics do not.
+    EXPECT_EQ(objectBoundsOf(plugin, "TREE", plainTreeID), meshBounds);
+    EXPECT_EQ(objectBoundsOf(plugin, "GRAS", plainGrassID), meshBounds);
+    EXPECT_EQ(objectBoundsOf(plugin, "STAT", plainStaticID), std::nullopt);
+}
+
+TEST_F(PGPatcherObjectBoundsTest,
+       NoRecordIsUpdatedWithoutTheOption)
+{
+    const auto plugin = patchAndSave(false);
+    EXPECT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\stone.nif"));
+    EXPECT_FALSE(std::filesystem::exists(plugin)); // no record changed
 }
 
 TEST(PGPatcherSortTest,

@@ -92,6 +92,30 @@ TEST(PGParamsTest,
 }
 
 TEST(PGParamsTest,
+     RecalculateBoundsIsOffByDefaultAndRoundTrips)
+{
+    EXPECT_FALSE(PGParams::defaults().globalPatcher.isRecalculateBoundsEnabled);
+
+    PGParams params;
+    params.globalPatcher.isRecalculateBoundsEnabled = true;
+    nlohmann::json json = nlohmann::json::object();
+    params.writeJSON(json);
+    EXPECT_EQ(json["globalpatcher"]["recalculatebounds"], true);
+
+    PGParams read;
+    read.readJSON(json);
+    EXPECT_TRUE(read.globalPatcher.isRecalculateBoundsEnabled);
+    EXPECT_TRUE(read == params);
+    read.globalPatcher.isRecalculateBoundsEnabled = false;
+    EXPECT_FALSE(read == params);
+
+    // A settings file written before the option existed leaves it off.
+    PGParams old;
+    old.readJSON(nlohmann::json::object());
+    EXPECT_FALSE(old.globalPatcher.isRecalculateBoundsEnabled);
+}
+
+TEST(PGParamsTest,
      ReadKeepsTheValuesOfMissingKeysAndAppendsToLists)
 {
     auto params = PGParams::defaults();

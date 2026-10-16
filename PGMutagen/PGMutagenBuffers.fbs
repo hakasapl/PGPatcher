@@ -30,4 +30,21 @@ table ModelUses {
   uses:[ModelUse] (required);
 }
 
+// A single OBND (Object Bounds) update for a plugin record's primary model
+table ObjectBoundsUpdate {
+  mod_name:string (required);
+  form_id:uint;
+  x_min:short;
+  y_min:short;
+  z_min:short;
+  x_max:short;
+  y_max:short;
+  z_max:short;
+}
+
+// Container for multiple ObjectBoundsUpdate entries
+table ObjectBoundsUpdates {
+  updates:[ObjectBoundsUpdate] (required);
+}
+
 root_type ModelUses;

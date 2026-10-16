@@ -321,6 +321,15 @@ public:
     static void setModelUses(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
 
     /**
+     * @brief Updates the OBND (Object Bounds) of plugin records with the bounds computed for each mesh result's
+     * primary model. Only STAT, TREE and GRAS records are updated, the types for which the bounds were verified to
+     * match the Creation Kit's own. Results without bounds are skipped.
+     *
+     * @param meshResults List of MeshResult objects produced by PGMeshPermutationTracker::saveMeshes().
+     */
+    static void setObjectBounds(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
+
+    /**
      * @brief Writes PGPatcher.esp (new texture sets) and PG_<n>.esp (overridden records, split by master count) to the
      * given directory. Nothing is written when no record changed.
      *
