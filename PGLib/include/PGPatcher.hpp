@@ -118,8 +118,8 @@ public:
      * @param stageCallback invoked when a new stage starts. When a previous output is updated, every mesh is
      * evaluated before patching and the progress callback counts that evaluation first, so the stages are reported
      * separately for progress displays.
-     * @param shouldComputeObjectBounds whether to recalculate the OBND of the records that use the output meshes, and of
-     * the tree and grass records whose mesh is not output (the "Recalculate Bounds" global patcher)
+     * @param shouldComputeObjectBounds whether to recalculate the OBND of the records that use the output meshes, and
+     * of the tree and grass records whose mesh is not output (the "Recalculate Bounds" global patcher)
      */
     static void patchMeshes(const bool& shouldMultithread = true,
                             const bool& forceBasePatch = false,
