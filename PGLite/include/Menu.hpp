@@ -85,6 +85,8 @@ private:
         std::string shaders;
         bool isEnabled = false;
         bool areMeshesIgnored = false;
+        /// @brief Whether the row is selected; the row keeps it, so the selection moves with the mods.
+        bool isSelected = false;
     };
 
     /// @brief One texture rule row, as edited.
@@ -139,6 +141,41 @@ private:
 
     /// @brief The rows of the mod list from a mod manager: the mods with shaders or meshes, in priority order.
     void fillModRows(PGModManager& manager);
+
+    /**
+     * @brief Whether a row moves with a drag: the selection moves when the row the drag started on is part of it,
+     * that row alone otherwise.
+     *
+     * @param row The row asked about.
+     * @param draggedRow The row the drag started on.
+     */
+    [[nodiscard]] bool isMovedByDrag(std::size_t row,
+                                     std::size_t draggedRow) const;
+
+    /// @brief Draws the mods a drag moves into the drag source's tooltip; called inside BeginDragDropSource().
+    void drawDragGhost(std::size_t draggedRow) const;
+
+    /**
+     * @brief Moves the mods of a drag to a gap between the rows, in their order; every other row keeps its order.
+     *
+     * @param draggedRow The row the drag started on.
+     * @param gap The row the mods go before, the row count for the end of the list.
+     * @return The new index of every row, by its index before the move.
+     */
+    std::vector<std::size_t> moveMods(std::size_t draggedRow,
+                                      std::size_t gap);
+
+    /**
+     * @brief Scrolls the mod list while a drag holds the cursor near its top or bottom edge or past it, faster the
+     * farther in. Called inside the table after its rows, where the current window is the list's scrolling child.
+     *
+     * @param rowsTop The top of the visible rows, below the frozen header.
+     * @param rowsBottom The bottom of the visible rows.
+     * @param rowHeight The height of one row.
+     */
+    void autoscrollModList(float rowsTop,
+                           float rowsBottom,
+                           float rowHeight);
 
     void draw();
     void drawStatus();
@@ -234,6 +271,8 @@ private:
     std::vector<std::string> m_blockList;
     std::vector<TextureRule> m_textureRules;
     std::vector<ModRow> m_mods;
+    /// @brief The part of a pixel the mod list's autoscroll has not scrolled yet; scrolling moves whole pixels.
+    float m_autoscrollCarry = 0;
     std::string m_modListSignature;
     std::string m_modListMessage;
     std::string m_mo2InstanceDir;

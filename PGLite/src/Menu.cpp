@@ -37,6 +37,7 @@
 #include <filesystem>
 #include <format>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <shared_mutex>
 #include <shlobj.h>
@@ -60,6 +61,16 @@ constexpr float referenceHeight = 1080;
 constexpr float fontSize = 18;
 /// @brief The first code point the Latin and Cyrillic font does not cover.
 constexpr ImWchar firstCJKCodePoint = 0x2E80;
+/// @brief The drag and drop payload type of the mod list; the payload is the index of the row the drag started on.
+constexpr const char* modPayloadType = "PGLITE_MOD";
+/// @brief The most mods the ghost of a drag names; it counts the others.
+constexpr std::size_t maxGhostRows = 10;
+/// @brief How deep the mod list's autoscroll zones at its top and bottom edges are, in rows.
+constexpr float autoscrollZoneRows = 2;
+/// @brief How fast the mod list scrolls while a drag holds the cursor at its edge, in rows per second.
+constexpr float autoscrollRowsPerSecond = 12;
+/// @brief The depth, in zones from a zone's inner border, past which the scrolling stops speeding up.
+constexpr float autoscrollMaxDepth = 4;
 
 /// @brief A font of the Windows installation (Segoe UI, and Microsoft YaHei merged for the Chinese translation).
 std::string fontPath(const wchar_t* fileName)
@@ -775,6 +786,8 @@ void Menu::open()
     }
     m_lastFrame = std::chrono::steady_clock::now();
     if (m_isInitialized) {
+        // A drag cut short by closing the menu ends here, or the button the reopened menu sees released would drop it.
+        ImGui::ClearDragDrop();
         auto& io = ImGui::GetIO();
         io.ClearInputKeys();
         io.ClearInputMouse();
@@ -1507,8 +1520,28 @@ void Menu::drawConflictManager()
     ImGui::TableSetupColumn(tr("components.checkedDragList.ignoreMeshes").c_str(), ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableHeadersRow();
 
-    int moveFrom = -1;
-    int moveTo = -1;
+    // Where the list can be reordered, a click selects a mod, Ctrl+click adds one or takes it out, Shift+click selects
+    // a range and Ctrl+A every mod. Clicking a selected mod keeps the selection until the button is released, so the
+    // selection can be dragged.
+    ImGuiSelectionExternalStorage selection;
+    selection.UserData = &m_mods;
+    selection.AdapterSetItemSelected = [](ImGuiSelectionExternalStorage* self, int index, bool isSelected) {
+        static_cast<std::vector<ModRow>*>(self->UserData)->at(static_cast<std::size_t>(index)).isSelected = isSelected;
+    };
+    ImGuiID selectionScope = 0;
+    if (canReorder) {
+        const auto selectedCount = std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isSelected; });
+        selection.ApplyRequests(ImGui::BeginMultiSelect(
+            ImGuiMultiSelectFlags_ClearOnClickVoid, static_cast<int>(selectedCount), static_cast<int>(m_mods.size())));
+        selectionScope = ImGui::GetCurrentFocusScope();
+    }
+
+    // A drop goes into the gap between the rows that is closest to the cursor: before the first row whose middle is
+    // below it. The line that shows the gap is drawn at gapY.
+    const auto rowPadding = ImGui::GetStyle().CellPadding.y;
+    const auto mouseY = ImGui::GetMousePos().y;
+    std::size_t gap = 0;
+    float gapY = 0;
     for (std::size_t i = 0; i < m_mods.size(); i++) {
         auto& row = m_mods.at(i);
         ImGui::PushID(static_cast<int>(i));
@@ -1517,55 +1550,194 @@ void Menu::drawConflictManager()
         ImGui::Checkbox("##enabled", &row.isEnabled);
 
         ImGui::TableNextColumn();
-        // The column shows the shaders alone, empty for a mod without one, as the offline dialog's column does.
-        const auto* const shaders = row.shaders.c_str();
-        // The selectable is as tall as the checkbox next to it, and the drop target covers the whole row including
-        // the cell padding, so the rows leave no gap a mod cannot be dropped on.
+        // The selectable is as tall as the checkbox next to it; with the cell padding it covers the row.
+        if (canReorder)
+            ImGui::SetNextItemSelectionUserData(static_cast<ImGuiSelectionUserData>(i));
         ImGui::Selectable(row.displayName.c_str(),
-                          false,
+                          row.isSelected,
                           ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
                           ImVec2(0, ImGui::GetFrameHeight()));
-        ImRect rowRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-        const auto rowPadding = ImGui::GetStyle().CellPadding.y;
-        rowRect.Min.y -= rowPadding;
-        rowRect.Max.y += rowPadding;
+        // Read before the drag source, whose tooltip becomes the last item.
+        const auto rowTop = ImGui::GetItemRectMin().y - rowPadding;
+        const auto rowBottom = ImGui::GetItemRectMax().y + rowPadding;
+        if (!i)
+            gapY = rowTop;
+        if ((rowTop + rowBottom) / 2 < mouseY) {
+            gap = i + 1;
+            gapY = rowBottom;
+        }
+
         if (canReorder) {
-            // The ghost that follows the cursor shows the row as it is in the list, a little translucent.
+            // The ghost that follows the cursor shows the mods that move as the list shows them, a little translucent.
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.85F);
             if (ImGui::BeginDragDropSource()) {
                 const int index = static_cast<int>(i);
-                ImGui::SetDragDropPayload("PGLITE_MOD", &index, sizeof(index));
-                ImGui::TextUnformatted(row.displayName.c_str());
-                if (*shaders) {
-                    ImGui::SameLine();
-                    ImGui::TextDisabled("%s", shaders);
-                }
+                ImGui::SetDragDropPayload(modPayloadType, &index, sizeof(index));
+                drawDragGhost(i);
                 ImGui::EndDragDropSource();
             }
             ImGui::PopStyleVar();
-            if (ImGui::BeginDragDropTargetCustom(rowRect, ImGui::GetID("drop"))) {
-                if (const auto* const payload = ImGui::AcceptDragDropPayload("PGLITE_MOD")) {
-                    moveFrom = *static_cast<const int*>(payload->Data);
-                    moveTo = static_cast<int>(i);
-                }
-                ImGui::EndDragDropTarget();
-            }
         }
 
+        // The column shows the shaders alone, empty for a mod without one, as the offline dialog's column does.
         ImGui::TableNextColumn();
-        ImGui::TextUnformatted(shaders);
+        ImGui::TextUnformatted(row.shaders.c_str());
 
         ImGui::TableNextColumn();
         ImGui::Checkbox("##ignored", &row.areMeshesIgnored);
         ImGui::PopID();
     }
+    if (canReorder)
+        selection.ApplyRequests(ImGui::EndMultiSelect());
+
+    // While mods are dragged, the visible rows below the frozen header are one drop target with a line at the gap the
+    // mods would go to, and the list scrolls when the cursor nears its top or bottom edge. The row the drag started on
+    // stays submitted when it scrolls out of view, so the drag goes on.
+    std::optional<std::size_t> dropGap;
+    std::size_t draggedRow = 0;
+    const auto* const dragged = ImGui::GetDragDropPayload();
+    if (canReorder && !m_mods.empty() && dragged && dragged->IsDataType(modPayloadType)) {
+        // The rows as far as the list shows them, below the header row, which a list scrolled to its top has not
+        // frozen yet.
+        ImRect rowsRect = ImGui::GetCurrentTable()->BgClipRect;
+        rowsRect.Min.y = std::max(rowsRect.Min.y, ImGui::GetWindowPos().y + ImGui::TableGetHeaderRowHeight());
+        autoscrollModList(rowsRect.Min.y, rowsRect.Max.y, ImGui::GetFrameHeight() + (2 * rowPadding));
+
+        // The target and the line span every column, which the cell's own clip rectangle would cut to one.
+        ImGui::PushClipRect(rowsRect.Min, rowsRect.Max, false);
+        if (ImGui::BeginDragDropTargetCustom(rowsRect, ImGui::GetID("drop"))) {
+            const auto* const payload = ImGui::AcceptDragDropPayload(
+                modPayloadType, ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
+            if (payload) {
+                // A gap above the first visible row is shown at the top edge, where the header does not hide it.
+                const auto thickness = 2 * m_uiScale;
+                const auto lineTop = rowsRect.Min.y + (thickness / 2);
+                const auto lineBottom = rowsRect.Max.y - (thickness / 2);
+                const auto lineY = std::max(lineTop, std::min(gapY, lineBottom));
+                ImGui::GetWindowDrawList()->AddLine(ImVec2(rowsRect.Min.x, lineY),
+                                                    ImVec2(rowsRect.Max.x, lineY),
+                                                    ImGui::GetColorU32(ImGuiCol_DragDropTarget),
+                                                    thickness);
+                if (payload->IsDelivery()) {
+                    dropGap = gap;
+                    draggedRow = static_cast<std::size_t>(*static_cast<const int*>(payload->Data));
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+        ImGui::PopClipRect();
+    } else {
+        m_autoscrollCarry = 0;
+    }
     ImGui::EndTable();
 
-    if (moveFrom >= 0 && moveTo >= 0 && moveFrom != moveTo) {
-        auto moved = m_mods.at(static_cast<std::size_t>(moveFrom));
-        m_mods.erase(m_mods.begin() + moveFrom);
-        m_mods.insert(m_mods.begin() + moveTo, std::move(moved));
+    if (!dropGap || draggedRow >= m_mods.size())
+        return;
+
+    const auto newIndices = moveMods(draggedRow, *dropGap);
+
+    // Shift+click selects from the row clicked last, which goes wherever the move took it.
+    auto* const selectionState = ImGui::GetMultiSelectState(selectionScope);
+    if (selectionState && selectionState->RangeSrcItem >= 0
+        && static_cast<std::size_t>(selectionState->RangeSrcItem) < newIndices.size()) {
+        selectionState->RangeSrcItem = static_cast<ImGuiSelectionUserData>(
+            newIndices.at(static_cast<std::size_t>(selectionState->RangeSrcItem)));
     }
+}
+
+bool Menu::isMovedByDrag(std::size_t row,
+                         std::size_t draggedRow) const
+{
+    return m_mods.at(draggedRow).isSelected ? m_mods.at(row).isSelected : row == draggedRow;
+}
+
+void Menu::drawDragGhost(std::size_t draggedRow) const
+{
+    // Each mod shows its shaders greyed, as the drag of a single mod always did; a long selection is named in part and
+    // counted.
+    std::size_t count = 0;
+    for (std::size_t i = 0; i < m_mods.size(); i++) {
+        if (!isMovedByDrag(i, draggedRow))
+            continue;
+
+        count++;
+        if (count > maxGhostRows)
+            continue;
+
+        const auto& row = m_mods.at(i);
+        ImGui::TextUnformatted(row.displayName.c_str());
+        if (!row.shaders.empty()) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", row.shaders.c_str());
+        }
+    }
+
+    if (count > maxGhostRows)
+        ImGui::TextDisabled("%s", formatCount(tr("pglite.conflictManager.dragMore"), count - maxGhostRows).c_str());
+}
+
+std::vector<std::size_t> Menu::moveMods(std::size_t draggedRow,
+                                        std::size_t gap)
+{
+    // The new order is the rows above the gap that stay, the moved ones, then the rows below the gap that stay.
+    gap = std::min(gap, m_mods.size());
+    std::vector<std::size_t> order;
+    order.reserve(m_mods.size());
+    for (std::size_t i = 0; i < gap; i++)
+        if (!isMovedByDrag(i, draggedRow))
+            order.push_back(i);
+    for (std::size_t i = 0; i < m_mods.size(); i++)
+        if (isMovedByDrag(i, draggedRow))
+            order.push_back(i);
+    for (std::size_t i = gap; i < m_mods.size(); i++)
+        if (!isMovedByDrag(i, draggedRow))
+            order.push_back(i);
+
+    std::vector<ModRow> rows;
+    rows.reserve(m_mods.size());
+    std::vector<std::size_t> newIndices(m_mods.size());
+    for (std::size_t i = 0; i < order.size(); i++) {
+        rows.push_back(std::move(m_mods.at(order.at(i))));
+        newIndices.at(order.at(i)) = i;
+    }
+    m_mods = std::move(rows);
+    return newIndices;
+}
+
+void Menu::autoscrollModList(float rowsTop,
+                             float rowsBottom,
+                             float rowHeight)
+{
+    // The zones are two rows deep, less in a short list, whose middle never scrolls. The depth is the cursor's
+    // distance from the inner border of its zone in zone depths: one at the edge of the list, more past it, negative
+    // at the top. The window is the list's, scrollbar included.
+    const auto zone = std::min(autoscrollZoneRows * rowHeight, (rowsBottom - rowsTop) / 4);
+    const auto mouse = ImGui::GetMousePos();
+    const auto left = ImGui::GetWindowPos().x;
+    const bool isOverList = mouse.x >= left && mouse.x < left + ImGui::GetWindowWidth();
+    float depth = 0;
+    if (zone > 0 && isOverList && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        if (mouse.y < rowsTop + zone)
+            depth = std::max(((mouse.y - rowsTop) / zone) - 1, -autoscrollMaxDepth);
+        else if (mouse.y > rowsBottom - zone)
+            depth = std::min(((mouse.y - rowsBottom) / zone) + 1, autoscrollMaxDepth);
+    }
+
+    const auto scroll = ImGui::GetScrollY();
+    const bool canScroll = depth < 0 ? scroll > 0 : (depth > 0 && scroll < ImGui::GetScrollMaxY());
+    if (!canScroll) {
+        m_autoscrollCarry = 0;
+        return;
+    }
+
+    // The speed grows with the depth; a frame scrolls whole pixels and leaves the rest to the next one.
+    m_autoscrollCarry += depth * autoscrollRowsPerSecond * rowHeight * ImGui::GetIO().DeltaTime;
+    const auto step = static_cast<int>(m_autoscrollCarry);
+    if (!step)
+        return;
+
+    m_autoscrollCarry -= static_cast<float>(step);
+    ImGui::SetScrollY(scroll + static_cast<float>(step));
 }
 
 void Menu::drawMessages()

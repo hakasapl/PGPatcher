@@ -456,7 +456,8 @@
       "noModManager": "Without a mod manager there is no mod list to sort.",
       "vortex": "The Vortex deployment manifest of the data folder is read.",
       "notReady": "The mod list is available once PGLite is initialized and enabled.",
-      "dragHint": "Drag a mod onto another one to move it there.",
+      "dragHint": "Drag mods to move them; a line shows where they go. Ctrl+click or Shift+click to select several, Ctrl+A for all.",
+      "dragMore": "and %zu more",
       "instanceValid": "MO2 Instance Location is valid",
       "applyForList": "The mod list follows the applied settings. Press Apply to build it with these.",
       "notAttributed": "The applied mod manager could not be read, so mods are not attributed and there is no list to sort. Correct the location and press Apply."
