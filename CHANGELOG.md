@@ -2,6 +2,11 @@
 
 ## UNRELEASED
 
+- [PGLite] Multiple mods can now be selected when moving mods in the conflict manager tab
+- [PGLite] Fixed autoscrolling while dragging sometimes not working
+
+## [2.2.1] - 2026-10-15
+
 - [PGLite] Startup tasks are run concurrently with engine tasks now, improving loading times
 - [PGLite] Under Mod Organizer 2 the file map is built from the instance folder rather than the data folder, improving loading times
 - [PGPatcher] Under Mod Organizer 2 the file map and the mod attribution are built from the instance's mod folders concurrently, improving populating map runtime
