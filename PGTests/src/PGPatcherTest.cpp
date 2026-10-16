@@ -497,7 +497,7 @@ protected:
     TestUtil::FakeGame m_fake;
     std::optional<BethesdaGame> m_game;
     std::unique_ptr<PGDirectory> m_pgd;
-    PGD3D m_d3d { TestUtil::shaderDir() };
+    PGD3D m_d3d;
     // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
     static constexpr uint32_t stoneStaticID = 0x000800;
@@ -585,7 +585,7 @@ protected:
     /// @brief Patches the meshes, saves the plugins next to the meshes and returns the plugin with the overrides.
     [[nodiscard]] std::filesystem::path patchAndSave(bool shouldComputeObjectBounds)
     {
-        PGPatcher::patchMeshes(false, false, { }, false, false, { }, { }, shouldComputeObjectBounds);
+        PGPatcher::patchMeshes(false, false, { }, false, false, false, { }, { }, shouldComputeObjectBounds);
         PGGlobals::fileSaver().waitForCompletion();
         PGPlugin::savePlugin(outDir(), PGPlugin::ESMMode::PGPatcherOnly);
         return outDir() / L"PG_1.esp";
