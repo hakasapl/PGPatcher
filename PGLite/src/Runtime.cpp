@@ -104,10 +104,6 @@ bool Runtime::load()
     if (PGTranslation::availableLanguages().empty())
         Logger::warn(L"No translation files in {}, the menu shows its keys instead of its texts",
                      Settings::translationsFolder().wstring());
-    // The input redirect of the menu writes one call into the SKSE trampoline (Hooks); the swap chain is detoured
-    // as soon as the game creates it.
-    SKSE::AllocTrampoline(Hooks::trampolineSize);
-    Hooks::installEarly();
 
     const auto version = REL::Module::get().version();
     Logger::info("PGLite {} loading (runtime {})", PG_FULL_VERSION, version.string("."));
@@ -126,6 +122,11 @@ bool Runtime::load()
         disable(PGTranslation::tr("pglite.disabled.noMessaging"), false);
         return true;
     }
+
+    // The menu's redirects write their calls into the SKSE trampoline (Hooks). The interface draws are redirected now,
+    // before anything renders, through the Address Library checked above, and draw nothing until the menu exists.
+    SKSE::AllocTrampoline(Hooks::trampolineSize);
+    Hooks::installEarly();
 
     return true;
 }

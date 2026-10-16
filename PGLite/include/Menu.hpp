@@ -5,13 +5,14 @@
 #include "PGParams.hpp"
 #include "PGTranslation.hpp"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <d3d11.h>
-#include <dxgi.h>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -28,8 +29,9 @@ class Runtime;
  * @brief The Dear ImGui menu (DESIGN.md section 4.10): the status of the plugin, the patcher settings, the allowed
  * record types, the mesh and texture rules, the mod manager and the mod list, the warnings, and Apply.
  *
- * Everything runs on the thread that presents: the loading-screen thread while the game loads, the main thread
- * afterwards, never both at once, and the input events are applied there. The menu keeps a working copy of the
+ * Everything runs on the thread that draws the game's interface: the loading-screen thread while the game loads, the
+ * main thread afterwards, never both at once, and the input events are applied there. The menu is drawn right after
+ * the interface, into the render target the interface was drawn into (Hooks). The menu keeps a working copy of the
  * parameters and of the mod list; Apply writes them to disk and hands them to the runtime.
  */
 class Menu {
@@ -41,41 +43,50 @@ public:
     Menu(Menu&&) = delete;
     Menu& operator=(Menu&&) = delete;
 
-    /// @brief Draws the menu into the swap chain's back buffer when it is open. Called from Present.
-    void render(IDXGISwapChain* swapChain);
-
-    /// @brief Drops the back buffer view before the swap chain resizes its buffers.
-    void onResize();
+    /// @brief Draws the menu and the corner messages over the game's interface, into the render target the interface
+    /// was drawn into. Called right after the interface is drawn.
+    void render();
 
     /**
      * @brief Queues one input event: the hotkey always, everything else while the menu is open. The engine dispatches
-     * its input events on the main thread, which is not always the thread that presents, so they are applied to Dear
+     * its input events on the main thread, which is not always the thread that draws, so they are applied to Dear
      * ImGui in render(), on the thread that draws.
      */
     void handleInput(const RE::InputEvent& event);
 
     [[nodiscard]] bool isOpen() const { return m_isOpen; }
 
-    /// @brief True while Apply runs on its worker thread; Present keeps presenting progress frames then.
+    /// @brief True while Apply runs on its worker thread; the interface draw keeps presenting progress frames then.
     [[nodiscard]] bool isApplying() const { return m_isApplying; }
 
     /**
-     * @brief One progress frame of Apply: the game image kept when Apply started, the menu with the elapsed time and
-     * the step the runtime is at. Called from Present while isApplying(); the frame that sees the worker done shows
-     * the result and ends the sequence.
+     * @brief Starts an Apply that was asked for in the previous frame, before the game draws its interface: the frame
+     * as the game rendered it is kept for the progress frames, and the runtime's apply starts on the worker thread.
+     * Called before every interface draw; does nothing without a pending Apply.
      */
-    void renderApplyFrame(IDXGISwapChain* swapChain);
+    void startPendingApply();
+
+    /**
+     * @brief Puts back the frame kept when Apply started and binds the render targets the interface was drawn into, so
+     * the interface can be drawn again for the next progress frame (a present may have unbound them).
+     */
+    void restoreGameFrame();
+
+    /**
+     * @brief One progress frame of Apply over the interface drawn again: the menu with the elapsed time and the step
+     * the runtime is at. Called while isApplying(); the frame that sees the worker done shows the result and ends the
+     * sequence.
+     */
+    void renderApplyFrame();
 
 private:
     /// @brief One queued input event.
     struct InputRecord {
-        enum class Kind : std::uint8_t { Hotkey, MouseMove, MouseButton, MouseWheel, Key, Character };
+        enum class Kind : std::uint8_t { Hotkey, MouseButton, MouseWheel, Key, Character };
 
         Kind kind = Kind::Hotkey;
         bool isDown = false;
         std::uint32_t code = 0;
-        float x = 0;
-        float y = 0;
     };
 
     /// @brief One row of the mod list.
@@ -95,26 +106,34 @@ private:
         int typeIndex = 0;
     };
 
-    bool initialize(IDXGISwapChain* swapChain);
-    bool createBackBufferView(IDXGISwapChain* swapChain);
+    /// @brief An Apply the menu asked for, which the next interface draw starts.
+    struct PendingApply {
+        PGParams params;
+        bool isEnabled = true;
+    };
 
-    /**
-     * @brief The engine's framebuffer render target when it is another texture than the swap chain's back buffer, or
-     * nullptr. Community Shaders' frame generation composes the presented frame from the framebuffer, so the menu is
-     * drawn into it as well; when the two are one texture, or the framebuffer was already composed into the back
-     * buffer, the second draw is not needed or changes nothing.
-     */
-    [[nodiscard]] RE::BSGraphics::RenderTargetData* separateFrameTarget() const;
+    /// @brief Creates the Dear ImGui context on the game's device, as the renderer holds it.
+    bool initialize();
     void open();
     void close();
 
-    /// @brief One Dear ImGui frame into the back buffer. Render thread, initialized.
-    void drawFrame(IDXGISwapChain* swapChain);
+    /**
+     * @brief One Dear ImGui frame, drawn into the render targets that are bound: the ones the game's interface was
+     * drawn into. The canvas is the game's screen size, which the interface is drawn at. Render thread, initialized.
+     */
+    void drawFrame();
 
     /// @brief Ends the frame a failed draw left begun, so the next frame can begin.
     void endOpenFrame();
-    bool capturePausedFrame(IDXGISwapChain* swapChain);
-    void restorePausedFrame(IDXGISwapChain* swapChain);
+
+    /// @brief Keeps a copy of the engine's framebuffer, before the interface is drawn over it, for the progress frames.
+    bool keepGameFrame();
+
+    /// @brief Keeps the render targets the interface was drawn into, for the interface draws of the progress frames.
+    void keepInterfaceTargets();
+
+    /// @brief Drops what Apply kept for its progress frames.
+    void releaseApplyFrames();
 
     /// @brief Applies the queued input events to the menu and to Dear ImGui. Render thread.
     void drainInput();
@@ -123,10 +142,17 @@ private:
     /// @brief Gives Dear ImGui the keyboard's modifier state. Render thread, open and initialized.
     static void syncModifiers();
 
+    /// @brief Gives Dear ImGui the Windows cursor's position on the canvas. Render thread, open and initialized.
+    static void syncMousePosition();
+
+    /// @brief Puts the Windows cursor in the middle of the game's window when the game has the focus.
+    static void centerCursor();
+
     /// @brief Copies the parameters and the mod list from the runtime into the working copy.
     void loadState();
 
-    /// @brief Writes the settings and the mod rules, then starts the runtime's apply on the worker thread.
+    /// @brief Writes the settings and the mod rules, then asks the next interface draw to start the runtime's apply
+    /// (startPendingApply).
     void startApply(bool isEnabled);
     void finishApply();
 
@@ -240,11 +266,7 @@ private:
     std::vector<InputRecord> m_pendingInput;
     Microsoft::WRL::ComPtr<ID3D11Device> m_device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_context;
-    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> m_backBufferView;
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> m_backBuffer;
     std::chrono::steady_clock::time_point m_lastFrame;
-    float m_mouseX = 0;
-    float m_mouseY = 0;
     float m_uiScale = 1;
     AnimatedImage m_runningImage;
     AnimatedImage m_icon;
@@ -256,6 +278,7 @@ private:
     static inline std::string s_clipboard;
 
     // Apply in progress.
+    std::optional<PendingApply> m_pendingApply;
     std::atomic<bool> m_isApplying { false };
     std::atomic<bool> m_isApplyDone { false };
     bool m_didApplySucceed = false;
@@ -263,7 +286,15 @@ private:
     bool m_isApplyEnabling = true;
     std::thread m_applyThread;
     std::chrono::steady_clock::time_point m_applyStart;
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> m_pausedFrame;
+    /// @brief The engine's framebuffer as the game rendered it when Apply started, before the interface, and the
+    /// framebuffer texture it is put back into.
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> m_gameFrame;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> m_gameFrameTarget;
+    /// @brief The render targets the interface was drawn into when Apply started.
+    std::array<Microsoft::WRL::ComPtr<ID3D11RenderTargetView>, D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT>
+        m_interfaceTargets;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilView> m_interfaceDepth;
+    bool m_areInterfaceTargetsKept = false;
 
     // The working copy.
     PGParams m_params;

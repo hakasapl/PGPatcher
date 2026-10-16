@@ -32,7 +32,6 @@
 #include <cstdio>
 #include <cstring>
 #include <d3d11.h>
-#include <dxgi.h>
 #include <exception>
 #include <filesystem>
 #include <format>
@@ -309,6 +308,23 @@ ImGuiKey imguiKeyOf(std::uint32_t scanCode)
 /// @brief Whether a virtual key is down right now, from any thread.
 bool isVirtualKeyDown(int virtualKey) { return (static_cast<unsigned>(GetAsyncKeyState(virtualKey)) & 0x8000U) != 0U; }
 
+/// @brief The game's window, or nullptr before the renderer has one.
+HWND gameWindow()
+{
+    auto* const renderer = RE::BSGraphics::Renderer::GetSingleton();
+    return renderer ? reinterpret_cast<HWND>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                          renderer->GetRuntimeData().renderWindows[0].hWnd)
+                    : nullptr;
+}
+
+/// @brief Whether a window has the focus: it is the foreground window or a child of it, as Dear ImGui's Win32 backend
+/// tests it.
+bool isWindowFocused(HWND window)
+{
+    auto* const foreground = GetForegroundWindow();
+    return foreground != nullptr && (foreground == window || IsChild(foreground, window) != FALSE);
+}
+
 std::vector<std::string> toUTF8(const std::vector<std::wstring>& strings)
 {
     std::vector<std::string> result;
@@ -363,13 +379,18 @@ Menu::~Menu()
     }
 }
 
-bool Menu::initialize(IDXGISwapChain* swapChain)
+bool Menu::initialize()
 {
-    if (FAILED(swapChain->GetDevice(IID_PPV_ARGS(&m_device))) || !m_device)
+    // The game's device and immediate context, as the renderer holds them; the swap chain is not needed.
+    auto* const renderer = RE::BSGraphics::Renderer::GetSingleton();
+    if (!renderer)
         return false;
 
-    m_device->GetImmediateContext(&m_context);
-    if (!m_context)
+    const auto& data = renderer->GetRuntimeData();
+    m_device = reinterpret_cast<ID3D11Device*>(data.forwarder); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    m_context = reinterpret_cast<ID3D11DeviceContext*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        data.context);
+    if (!m_device || !m_context)
         return false;
 
     IMGUI_CHECKVERSION();
@@ -380,10 +401,11 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
     io.MouseDrawCursor = true;
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
-    DXGI_SWAP_CHAIN_DESC desc = { };
+    // Scaled for the screen the interface is drawn at.
+    const auto screen = RE::BSGraphics::Renderer::GetScreenSize();
     float scale = 1;
-    if (SUCCEEDED(swapChain->GetDesc(&desc)) && desc.BufferDesc.Height)
-        scale = std::clamp(static_cast<float>(desc.BufferDesc.Height) / referenceHeight, 1.0F, 2.0F);
+    if (screen.height)
+        scale = std::clamp(static_cast<float>(screen.height) / referenceHeight, 1.0F, 2.0F);
     m_uiScale = scale;
 
     rebuildFonts();
@@ -402,43 +424,14 @@ bool Menu::initialize(IDXGISwapChain* swapChain)
         return false;
     }
 
-    Logger::debug(
-        "Menu initialized Dear ImGui for a {} x {} back buffer", desc.BufferDesc.Width, desc.BufferDesc.Height);
+    Logger::debug("Menu initialized Dear ImGui for a {} x {} screen", screen.width, screen.height);
     m_isInitialized = true;
     return true;
 }
 
-bool Menu::createBackBufferView(IDXGISwapChain* swapChain)
+void Menu::render()
 {
-    if (FAILED(swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffer))) || !m_backBuffer)
-        return false;
-
-    if (FAILED(m_device->CreateRenderTargetView(m_backBuffer.Get(), nullptr, &m_backBufferView)))
-        return false;
-
-    Logger::debug("The engine's framebuffer is {} the back buffer",
-                  separateFrameTarget() ? "another texture than" : "the same texture as");
-    return true;
-}
-
-RE::BSGraphics::RenderTargetData* Menu::separateFrameTarget() const
-{
-    auto* const renderer = RE::BSGraphics::Renderer::GetSingleton();
-    if (!renderer)
-        return nullptr;
-
-    auto& target = renderer->GetRuntimeData().renderTargets[RE::RENDER_TARGET::kFRAMEBUFFER];
-    if (!target.texture || !target.RTV)
-        return nullptr;
-
-    auto* const texture
-        = reinterpret_cast<ID3D11Texture2D*>(target.texture); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    return texture == m_backBuffer.Get() ? nullptr : &target;
-}
-
-void Menu::render(IDXGISwapChain* swapChain)
-{
-    if (m_didFailInitialization || !swapChain)
+    if (m_didFailInitialization)
         return;
 
     // The loading screen state the hotkey is refused in, per change, so a log explains a refused key.
@@ -460,7 +453,7 @@ void Menu::render(IDXGISwapChain* swapChain)
             || (ini.shouldShowWelcomeMessage && !m_didOpenMenu && m_runtime->isReady()));
 
     try {
-        if (!m_isInitialized && (m_isOpen || shouldShowOverlay) && !initialize(swapChain)) {
+        if (!m_isInitialized && (m_isOpen || shouldShowOverlay) && !initialize()) {
             m_didFailInitialization = true;
             Logger::error("The menu could not initialize Dear ImGui on the game's device");
             m_isOpen = false;
@@ -471,17 +464,18 @@ void Menu::render(IDXGISwapChain* swapChain)
         drainInput();
         if (!m_isOpen && !shouldShowOverlay)
             return;
-        if (!m_isInitialized && !initialize(swapChain)) {
+        if (!m_isInitialized && !initialize()) {
             m_didFailInitialization = true;
             Logger::error("The menu could not initialize Dear ImGui on the game's device");
             m_isOpen = false;
             return;
         }
 
-        if (!m_backBufferView && !createBackBufferView(swapChain))
-            return;
+        // Apply started before this interface draw: its progress frames draw the interface into the same targets.
+        if (m_isApplying && !m_areInterfaceTargetsKept)
+            keepInterfaceTargets();
 
-        drawFrame(swapChain);
+        drawFrame();
     } catch (const std::exception& e) {
         Logger::error("The menu failed to draw: {}", e.what());
         endOpenFrame();
@@ -499,7 +493,7 @@ void Menu::endOpenFrame()
     m_isFrameOpen = false;
 }
 
-void Menu::drawFrame(IDXGISwapChain* swapChain)
+void Menu::drawFrame()
 {
     // A language change rebuilds the atlas between frames, never inside one.
     if (m_shouldRebuildFonts) {
@@ -507,16 +501,15 @@ void Menu::drawFrame(IDXGISwapChain* swapChain)
         rebuildFonts();
     }
 
-    DXGI_SWAP_CHAIN_DESC desc = { };
-    if (FAILED(swapChain->GetDesc(&desc)))
-        return;
-
     const auto now = std::chrono::steady_clock::now();
     const auto delta = std::chrono::duration<float>(now - m_lastFrame).count();
     m_lastFrame = now;
 
+    // The canvas is the screen the interface is drawn at, which is not the window's size when the game renders at
+    // another resolution than the one it presents.
+    const auto screen = RE::BSGraphics::Renderer::GetScreenSize();
     auto& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(static_cast<float>(desc.BufferDesc.Width), static_cast<float>(desc.BufferDesc.Height));
+    io.DisplaySize = ImVec2(static_cast<float>(screen.width), static_cast<float>(screen.height));
     io.DeltaTime = std::max(delta, minDeltaTime);
 
     ImGui_ImplDX11_NewFrame();
@@ -526,74 +519,88 @@ void Menu::drawFrame(IDXGISwapChain* swapChain)
     ImGui::Render();
     m_isFrameOpen = false;
 
-    // Apply started in this frame: keep the game image before the menu is drawn over it, for the progress frames.
-    if (m_isApplying && !m_pausedFrame && !capturePausedFrame(swapChain))
-        Logger::warn("The game image could not be kept for the progress frames of Apply");
-
-    // Draw over whatever the game left in the back buffer, then give the context its targets back.
-    ID3D11RenderTargetView* previousTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { };
-    ID3D11DepthStencilView* previousDepth = nullptr;
-    m_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, previousTargets, &previousDepth);
-
-    ID3D11RenderTargetView* const target = m_backBufferView.Get();
-    m_context->OMSetRenderTargets(1, &target, nullptr);
+    // Into the render targets the interface was drawn into, which stay bound: the engine's framebuffer, or the buffer
+    // Community Shaders composes the interface from for its HDR output and its frame generation. The backend restores
+    // the rest of the pipeline state it changes.
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    if (auto* const frameTarget = separateFrameTarget()) {
-        auto* const frameView
-            = reinterpret_cast<ID3D11RenderTargetView*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-                frameTarget->RTV);
-        m_context->OMSetRenderTargets(1, &frameView, nullptr);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    }
-
-    m_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, previousTargets, previousDepth);
-    for (auto* const previous : previousTargets)
-        if (previous)
-            previous->Release();
-    if (previousDepth)
-        previousDepth->Release();
 }
 
-bool Menu::capturePausedFrame(IDXGISwapChain* swapChain)
+bool Menu::keepGameFrame()
 {
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
-    if (FAILED(swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer))) || !backBuffer)
+    auto* const renderer = RE::BSGraphics::Renderer::GetSingleton();
+    if (!renderer || !m_isInitialized)
+        return false;
+
+    auto* const framebuffer = reinterpret_cast<ID3D11Texture2D*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        renderer->GetRuntimeData().renderTargets[RE::RENDER_TARGET::kFRAMEBUFFER].texture);
+    if (!framebuffer)
         return false;
 
     D3D11_TEXTURE2D_DESC desc = { };
-    backBuffer->GetDesc(&desc);
+    framebuffer->GetDesc(&desc);
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.BindFlags = 0;
     desc.CPUAccessFlags = 0;
     desc.MiscFlags = 0;
-    if (FAILED(m_device->CreateTexture2D(&desc, nullptr, &m_pausedFrame)) || !m_pausedFrame)
+    if (FAILED(m_device->CreateTexture2D(&desc, nullptr, &m_gameFrame)) || !m_gameFrame)
         return false;
 
-    m_context->CopyResource(m_pausedFrame.Get(), backBuffer.Get());
+    m_gameFrameTarget = framebuffer;
+    m_context->CopyResource(m_gameFrame.Get(), framebuffer);
     return true;
 }
 
-void Menu::restorePausedFrame(IDXGISwapChain* swapChain)
+void Menu::keepInterfaceTargets()
 {
-    if (!m_pausedFrame)
-        return;
-
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
-    if (SUCCEEDED(swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer))) && backBuffer)
-        m_context->CopyResource(backBuffer.Get(), m_pausedFrame.Get());
+    std::array<ID3D11RenderTargetView*, D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT> targets = { };
+    ID3D11DepthStencilView* depth = nullptr;
+    m_context->OMGetRenderTargets(static_cast<UINT>(targets.size()), targets.data(), &depth);
+    for (std::size_t i = 0; i < targets.size(); i++)
+        m_interfaceTargets.at(i).Attach(targets.at(i));
+    m_interfaceDepth.Attach(depth);
+    m_areInterfaceTargetsKept = true;
 }
 
-void Menu::renderApplyFrame(IDXGISwapChain* swapChain)
+void Menu::restoreGameFrame()
+{
+    if (!m_isInitialized)
+        return;
+
+    // The interface is drawn over the framebuffer as the game rendered it, not over the previous progress frame. Where
+    // Community Shaders redirects the interface into its own buffer, the framebuffer was not drawn into, and putting it
+    // back changes nothing.
+    if (m_gameFrame && m_gameFrameTarget)
+        m_context->CopyResource(m_gameFrameTarget.Get(), m_gameFrame.Get());
+
+    if (!m_areInterfaceTargetsKept)
+        return;
+
+    std::array<ID3D11RenderTargetView*, D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT> targets = { };
+    for (std::size_t i = 0; i < targets.size(); i++)
+        targets.at(i) = m_interfaceTargets.at(i).Get();
+    m_context->OMSetRenderTargets(static_cast<UINT>(targets.size()), targets.data(), m_interfaceDepth.Get());
+}
+
+void Menu::releaseApplyFrames()
+{
+    m_gameFrame.Reset();
+    m_gameFrameTarget.Reset();
+    for (auto& target : m_interfaceTargets)
+        target.Reset();
+    m_interfaceDepth.Reset();
+    m_areInterfaceTargetsKept = false;
+}
+
+void Menu::renderApplyFrame()
 {
     const bool isDone = m_isApplyDone;
     if (isDone)
         finishApply();
 
     try {
-        if (m_isInitialized && swapChain && (m_backBufferView || createBackBufferView(swapChain))) {
+        if (m_isInitialized) {
             drainInput();
-            restorePausedFrame(swapChain);
-            drawFrame(swapChain);
+            drawFrame();
         }
     } catch (const std::exception& e) {
         Logger::error("The menu failed to draw a progress frame: {}", e.what());
@@ -601,17 +608,9 @@ void Menu::renderApplyFrame(IDXGISwapChain* swapChain)
     }
 
     if (isDone) {
-        m_pausedFrame.Reset();
+        releaseApplyFrames();
         m_isApplying = false;
     }
-}
-
-void Menu::onResize()
-{
-    m_backBufferView.Reset();
-    m_backBuffer.Reset();
-    if (m_isInitialized)
-        ImGui_ImplDX11_InvalidateDeviceObjects();
 }
 
 void Menu::handleInput(const RE::InputEvent& event)
@@ -629,15 +628,9 @@ void Menu::handleInput(const RE::InputEvent& event)
     if (!m_isOpen)
         return;
 
+    // The engine's mouse moves are not needed: the cursor is the Windows cursor (syncMousePosition).
     InputRecord record;
     switch (event.GetEventType()) {
-    case RE::INPUT_EVENT_TYPE::kMouseMove: {
-        const auto* const move = static_cast<const RE::MouseMoveEvent*>(&event);
-        record.kind = InputRecord::Kind::MouseMove;
-        record.x = static_cast<float>(move->mouseInputX);
-        record.y = static_cast<float>(move->mouseInputY);
-        break;
-    }
     case RE::INPUT_EVENT_TYPE::kChar: {
         const auto* const character = static_cast<const RE::CharEvent*>(&event);
         record.kind = InputRecord::Kind::Character;
@@ -686,12 +679,50 @@ void Menu::drainInput()
         records.swap(m_pendingInput);
     }
 
-    // Before the frame's keys and characters, so that a Ctrl+V arrives with its Ctrl.
-    if (m_isOpen && m_isInitialized)
+    // Before the frame's keys, characters and clicks, so that a Ctrl+V arrives with its Ctrl and a click lands where
+    // the cursor is.
+    if (m_isOpen && m_isInitialized) {
         syncModifiers();
+        syncMousePosition();
+    }
 
     for (const auto& record : records)
         applyInput(record);
+}
+
+void Menu::syncMousePosition()
+{
+    // The Windows cursor, as SKSE Menu Framework reads it through Dear ImGui's Win32 backend: it moves at the speed and
+    // with the acceleration Windows gives the pointer, whatever the mouse's resolution, where the engine's moves are
+    // the mouse's raw counts. Read while the game has the focus only, as the backend does.
+    auto* const window = gameWindow();
+    POINT position = { };
+    RECT client = { };
+    if (!window || !isWindowFocused(window) || !GetCursorPos(&position) || !ScreenToClient(window, &position)
+        || !GetClientRect(window, &client) || client.right <= 0 || client.bottom <= 0)
+        return;
+
+    // From the window's pixels to the canvas, the screen the interface is drawn at; the two are the same size unless
+    // the game renders at another resolution than its window has.
+    const auto screen = RE::BSGraphics::Renderer::GetScreenSize();
+    const auto width = static_cast<float>(screen.width);
+    const auto height = static_cast<float>(screen.height);
+    const auto x = static_cast<float>(position.x) * width / static_cast<float>(client.right);
+    const auto y = static_cast<float>(position.y) * height / static_cast<float>(client.bottom);
+    ImGui::GetIO().AddMousePosEvent(std::clamp(x, 0.0F, width), std::clamp(y, 0.0F, height));
+}
+
+void Menu::centerCursor()
+{
+    // As SKSE Menu Framework does when one of its menus opens, and only while the game has the focus.
+    auto* const window = gameWindow();
+    RECT client = { };
+    if (!window || !isWindowFocused(window) || !GetClientRect(window, &client))
+        return;
+
+    POINT center = { .x = client.right / 2, .y = client.bottom / 2 };
+    if (ClientToScreen(window, &center))
+        SetCursorPos(center.x, center.y);
 }
 
 void Menu::syncModifiers()
@@ -708,8 +739,8 @@ void Menu::syncModifiers()
 
 void Menu::applyInput(const InputRecord& record)
 {
-    // While Apply runs the menu stays open and only follows the mouse.
-    if (m_isApplying && record.kind != InputRecord::Kind::MouseMove)
+    // While Apply runs the menu stays open and takes no input; the cursor still follows the mouse (syncMousePosition).
+    if (m_isApplying)
         return;
 
     if (record.kind == InputRecord::Kind::Hotkey) {
@@ -727,11 +758,6 @@ void Menu::applyInput(const InputRecord& record)
 
     auto& io = ImGui::GetIO();
     switch (record.kind) {
-    case InputRecord::Kind::MouseMove:
-        m_mouseX = std::clamp(m_mouseX + record.x, 0.0F, io.DisplaySize.x);
-        m_mouseY = std::clamp(m_mouseY + record.y, 0.0F, io.DisplaySize.y);
-        io.AddMousePosEvent(m_mouseX, m_mouseY);
-        break;
     case InputRecord::Kind::Character:
         io.AddInputCharacter(record.code);
         break;
@@ -785,15 +811,14 @@ void Menu::open()
         std::ignore = Settings::writeDidOpenMenu(m_runtime->params());
     }
     m_lastFrame = std::chrono::steady_clock::now();
+    centerCursor();
     if (m_isInitialized) {
         // A drag cut short by closing the menu ends here, or the button the reopened menu sees released would drop it.
         ImGui::ClearDragDrop();
         auto& io = ImGui::GetIO();
         io.ClearInputKeys();
         io.ClearInputMouse();
-        m_mouseX = io.DisplaySize.x / 2;
-        m_mouseY = io.DisplaySize.y / 2;
-        io.AddMousePosEvent(m_mouseX, m_mouseY);
+        io.AddMousePosEvent(io.DisplaySize.x / 2, io.DisplaySize.y / 2);
     }
 }
 
@@ -1006,14 +1031,31 @@ void Menu::startApply(bool isEnabled)
         }
     }
 
-    // The runtime's apply runs on a worker thread; Present shows the progress until it is done (renderApplyFrame).
+    // The next interface draw starts it, before the interface is drawn over the game's frame (startPendingApply).
     m_applyMessage.clear();
-    m_isApplyEnabling = isEnabled;
+    m_pendingApply = PendingApply { .params = params, .isEnabled = isEnabled };
+}
+
+void Menu::startPendingApply()
+{
+    if (!m_pendingApply)
+        return;
+
+    auto pending = std::move(*m_pendingApply);
+    m_pendingApply.reset();
+
+    // The progress frames put the framebuffer back as it is now and draw the interface and the menu over it again.
+    if (!keepGameFrame())
+        Logger::warn("The game image could not be kept for the progress frames of Apply");
+
+    // The runtime's apply runs on a worker thread; the interface draw shows the progress until it is done
+    // (renderApplyFrame).
+    m_isApplyEnabling = pending.isEnabled;
     m_isApplyDone = false;
     m_didApplySucceed = false;
     m_applyStart = std::chrono::steady_clock::now();
     m_isApplying = true;
-    m_applyThread = std::thread([this, params, isEnabled] {
+    m_applyThread = std::thread([this, params = std::move(pending.params), isEnabled = pending.isEnabled] {
         m_didApplySucceed = m_runtime->apply(params, isEnabled);
         m_isApplyDone = true;
     });
