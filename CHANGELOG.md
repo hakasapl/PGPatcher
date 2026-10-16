@@ -4,6 +4,7 @@
 
 - [PGLite] Multiple mods can now be selected when moving mods in the conflict manager tab
 - [PGLite] Fixed autoscrolling while dragging sometimes not working
+- [PGPatcher] Added an optional "Recalculate Bounds" global patcher (recalculates the bounds of every mesh PG outputs, equivalent to NifSkope's Update Bounds, and updates the OBND of the STAT, TREE and GRAS records that use them, repairing missing or outdated values; DynDOLOD reads them to pick the trees and grass that get LOD billboards and for its large reference check)
 
 ## [2.2.1] - 2026-10-15
 
@@ -39,7 +40,6 @@
 - Fixed Light Placer JSON patching when model paths are uppercase
 - Fixed Light Placer JSON acceptance criteria to match Light Placer itself
 - Fixed the mesh progress bar filling up twice under the same status when updating a previous output
-- Added an optional "Recalculate Bounds" global patcher (recalculates the bounds of every mesh PG outputs, equivalent to NifSkope's Update Bounds, and updates the OBND of the STAT, TREE and GRAS records that use them, repairing missing or outdated values; DynDOLOD reads them to pick the trees and grass that get LOD billboards and for its large reference check)
 
 ## [2.1.1] - 2026-09-17
 
