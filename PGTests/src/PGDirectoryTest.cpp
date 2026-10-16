@@ -252,6 +252,23 @@ TEST(PGDirectoryPlainTest,
 }
 
 TEST_F(PGDirectoryTest,
+       ExcludedFilesStayOutOfTheMapLooseOrArchived)
+{
+    PGDirectory pgd(&*m_game, m_fake.gameDir() / L"out2");
+    pgd.setExcludedFiles({ L"textures\\a\\stone_m.dds", L"textures\\vanilla\\rock_m.dds" });
+    pgd.populateFileMap(true, false);
+
+    EXPECT_FALSE(pgd.isFile(L"textures\\a\\stone_m.dds")); // loose
+    EXPECT_FALSE(pgd.isFile(L"textures\\vanilla\\rock_m.dds")); // archived
+    EXPECT_TRUE(pgd.isFile(L"textures\\a\\stone.dds"));
+    EXPECT_TRUE(pgd.isFile(L"textures\\vanilla\\rock.dds"));
+
+    // The fixture's own directory, without exclusions, has them.
+    EXPECT_TRUE(m_pgd->isFile(L"textures\\a\\stone_m.dds"));
+    EXPECT_TRUE(m_pgd->isFile(L"textures\\vanilla\\rock_m.dds"));
+}
+
+TEST_F(PGDirectoryTest,
        FindsMeshesTexturesAndJsons)
 {
     mapAll(false);
@@ -461,6 +478,20 @@ TEST_F(PGDirectoryTest,
     EXPECT_TRUE(mapHas(
         *m_pgd, TextureSlots::Parallax, L"textures\\new\\thing", L"textures\\new\\thing_p.dds", TextureType::Height));
     EXPECT_EQ(&m_pgd->textureMapConst(TextureSlots::Parallax), &map);
+}
+
+TEST_F(PGDirectoryTest,
+       TextureRulesMatchWhateverTheirCaseAndSlashes)
+{
+    // The rule as a user types it in a dialog, against the mapped path (lower case, backslashes).
+    m_pgd->mapFiles({ L"meshes\\blocked\\*" },
+                    { },
+                    { { L"Textures/A/Manual.DDS", TextureType::ComplexMaterial } },
+                    { vanillaArchive },
+                    false);
+    m_pgd->waitForMeshMapping();
+    m_pgd->waitForCMClassification();
+    EXPECT_EQ(m_pgd->textureType(L"textures\\a\\manual.dds"), TextureType::ComplexMaterial);
 }
 
 }

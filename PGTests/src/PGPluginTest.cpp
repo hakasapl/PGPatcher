@@ -10,6 +10,7 @@
 #include "util/FileUtil.hpp"
 
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 #include <spdlog/common.h>
 
 #include <algorithm>
@@ -324,6 +325,28 @@ TEST(PGPluginStaticTest,
 }
 
 TEST(PGPluginStaticTest,
+     DynDOLODRecordTypesAreTheEightItScans)
+{
+    const auto types = PGPlugin::dynDOLODRecTypeSet();
+    EXPECT_EQ(types.size(), 8U);
+    for (const auto type : {
+             ModelRecordType::Activator,
+             ModelRecordType::Container,
+             ModelRecordType::Door,
+             ModelRecordType::Furniture,
+             ModelRecordType::Grass,
+             ModelRecordType::MoveableStatic,
+             ModelRecordType::StaticObject,
+             ModelRecordType::Tree,
+         }) {
+        EXPECT_TRUE(types.contains(type)) << PGPlugin::stringFromRecType(type);
+        EXPECT_TRUE(PGPlugin::defaultRecTypeSet().contains(type)) << PGPlugin::stringFromRecType(type);
+    }
+    EXPECT_FALSE(types.contains(ModelRecordType::Armor));
+    EXPECT_FALSE(types.contains(ModelRecordType::Unknown));
+}
+
+TEST(PGPluginStaticTest,
      PluginPathFromDataPathDropsTheMeshesOrTexturesFolder)
 {
     EXPECT_EQ(PGPlugin::pluginPathFromDataPath(L"meshes\\clutter\\rock.nif"), L"clutter\\rock.nif");
@@ -530,6 +553,97 @@ TEST_F(PGPluginTest,
     PGPlugin::savePlugin(outCarried, PGPlugin::ESMMode::PGPatcherOnly);
     ASSERT_TRUE(std::filesystem::exists(outCarried / L"PGPatcher.esp"));
     EXPECT_EQ(firstRecordFormID(outCarried / L"PGPatcher.esp", "TXST"), textureSetFormID);
+}
+
+TEST_F(PGPluginTest,
+       StockRecordsDescribeWhatTheOverridesReplaced)
+{
+    const FormKey newStatic { .modKey = L"TestPlugin.esp", .formID = newStaticID, .subMODL = "MODL" };
+    const FormKey altTexStatic { .modKey = L"Skyrim.esm", .formID = altTexStaticFormID, .subMODL = "MODL" };
+    const FormKey ironMale { .modKey = L"Skyrim.esm", .formID = ironAddonFormID, .subMODL = "MALE" };
+
+    PGTypes::TextureSet patched;
+    patched[0] = L"textures\\clutter\\rock_patched.dds";
+    patched[1] = L"textures\\clutter\\rock_n.dds";
+
+    std::vector<MeshResult> results;
+    results.push_back(resultFor(newStatic, L"meshes\\_pgpatcher_dups\\1\\clutter\\rock.nif"));
+    results.push_back(resultFor(altTexStatic, L"meshes\\clutter\\alt.nif", { { 1, patched } }));
+    results.push_back(resultFor(ironMale, L"meshes\\_pgpatcher_dups\\1\\armor\\iron\\iron_0.nif"));
+    // A use that keeps its mesh and textures is no stock record.
+    results.push_back(resultFor(FormKey { .modKey = L"Skyrim.esm", .formID = rockFormID, .subMODL = "MODL" },
+                                L"meshes\\clutter\\rock2.nif"));
+    PGPlugin::setModelUses(results);
+
+    const auto out = m_fake.gameDir() / L"Output";
+    std::filesystem::create_directories(out);
+    PGPlugin::savePlugin(out, PGPlugin::ESMMode::PGPatcherOnly);
+    PGPlugin::saveStockRecords(out, { L"textures\\b\\wood_m.dds", L"textures\\a\\skin_s.dds" });
+    const auto textureSetID = firstRecordFormID(out / L"PGPatcher.esp", "TXST") & 0x00FFFFFFU;
+    ASSERT_NE(textureSetID, 0U);
+
+    nlohmann::json stock;
+    ASSERT_TRUE(FileUtil::getJSON(out / PGPlugin::stockRecordsFile, stock));
+    EXPECT_EQ(stock["version"], 1);
+
+    // One entry per changed record model, sorted by plugin, form ID and sub model, with the stock state and the
+    // written one.
+    ASSERT_EQ(stock["records"].size(), 3U) << stock.dump();
+    const auto& alt = stock["records"][0];
+    EXPECT_EQ(alt["plugin"], "Skyrim.esm");
+    EXPECT_EQ(alt["formid"], altTexStaticFormID);
+    EXPECT_EQ(alt["submodel"], "MODL");
+    EXPECT_EQ(alt["stock"]["model"], "clutter\\alt.nif");
+    ASSERT_EQ(alt["stock"]["alternatetextures"].size(), 1U);
+    EXPECT_EQ(alt["stock"]["alternatetextures"][0]["name"], "Shape1");
+    EXPECT_EQ(alt["stock"]["alternatetextures"][0]["index"], 1);
+    EXPECT_EQ(alt["stock"]["alternatetextures"][0]["plugin"], "Skyrim.esm");
+    EXPECT_EQ(alt["stock"]["alternatetextures"][0]["formid"], rockTextureSetFormID);
+    EXPECT_EQ(alt["patched"]["model"], "clutter\\alt.nif"); // the mesh kept its path
+    ASSERT_EQ(alt["patched"]["alternatetextures"].size(), 1U);
+    EXPECT_EQ(alt["patched"]["alternatetextures"][0]["name"], "Shape1");
+    EXPECT_EQ(alt["patched"]["alternatetextures"][0]["index"], 1);
+    EXPECT_EQ(alt["patched"]["alternatetextures"][0]["plugin"], "PGPatcher.esp");
+    EXPECT_EQ(alt["patched"]["alternatetextures"][0]["formid"], textureSetID);
+
+    const auto& iron = stock["records"][1];
+    EXPECT_EQ(iron["plugin"], "Skyrim.esm");
+    EXPECT_EQ(iron["formid"], ironAddonFormID);
+    EXPECT_EQ(iron["submodel"], "MALE");
+    EXPECT_EQ(iron["stock"]["model"], "armor\\iron\\iron_0.nif");
+    EXPECT_EQ(iron["patched"]["model"], "_pgpatcher_dups\\1\\armor\\iron\\iron_0.nif");
+    ASSERT_EQ(iron["stock"]["alternatetextures"].size(), 1U);
+    EXPECT_EQ(iron["patched"]["alternatetextures"], iron["stock"]["alternatetextures"]); // untouched entries
+
+    const auto& rock = stock["records"][2];
+    EXPECT_EQ(rock["plugin"], "TestPlugin.esp");
+    EXPECT_EQ(rock["formid"], newStaticID);
+    EXPECT_EQ(rock["submodel"], "MODL");
+    EXPECT_EQ(rock["stock"]["model"], "clutter\\rock.nif");
+    EXPECT_EQ(rock["patched"]["model"], "_pgpatcher_dups\\1\\clutter\\rock.nif");
+    EXPECT_TRUE(rock["stock"]["alternatetextures"].empty());
+    EXPECT_TRUE(rock["patched"]["alternatetextures"].empty());
+
+    // The created texture set names the stock one it replaced.
+    ASSERT_EQ(stock["texturesets"].size(), 1U);
+    EXPECT_EQ(stock["texturesets"][0]["formid"], textureSetID);
+    EXPECT_EQ(stock["texturesets"][0]["stockplugin"], "Skyrim.esm");
+    EXPECT_EQ(stock["texturesets"][0]["stockformid"], rockTextureSetFormID);
+
+    // The generated textures of the run, sorted.
+    EXPECT_EQ(stock["generatedtextures"], nlohmann::json({ "textures\\a\\skin_s.dds", "textures\\b\\wood_m.dds" }));
+
+    // Without changes the file is still written, with nothing in it: it marks the output as one PGLite accepts.
+    PGPlugin::resetPatchingState();
+    const auto outEmpty = m_fake.gameDir() / L"OutputEmpty";
+    std::filesystem::create_directories(outEmpty);
+    PGPlugin::saveStockRecords(outEmpty);
+    nlohmann::json empty;
+    ASSERT_TRUE(FileUtil::getJSON(outEmpty / PGPlugin::stockRecordsFile, empty));
+    EXPECT_EQ(empty["version"], 1);
+    EXPECT_TRUE(empty["records"].empty());
+    EXPECT_TRUE(empty["texturesets"].empty());
+    EXPECT_TRUE(empty["generatedtextures"].empty());
 }
 
 TEST_F(PGPluginTest,

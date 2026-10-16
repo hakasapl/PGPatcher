@@ -54,6 +54,8 @@ protected:
         m_shader = m_builder.lightingShader(m_shape);
     }
 
+    void TearDown() override { Marker::loadOptions(false); }
+
     [[nodiscard]] nifly::NifFile& nif() { return m_builder.nif(); }
 };
 
@@ -255,6 +257,39 @@ TEST_F(PatcherMeshPreStockMarkerTest,
     auto* effect = m_builder.addEffectShape("Glow");
     EXPECT_FALSE(patcher.applyPatch(current, *effect));
     EXPECT_EQ(Marker::findMarker(nif(), *effect), nullptr);
+}
+
+TEST_F(PatcherMeshPreStockMarkerTest,
+       EveryPatchedShapeGetsAMarkerInPGLiteMode)
+{
+    Marker patcher(meshPath, &nif());
+    PGPlugin::MeshUseAttributes use;
+    use.recType = PGPlugin::ModelRecordType::StaticObject;
+    patcher.setMeshUse(use);
+    auto current = PGNIFUtil::textureSlots(&nif(), m_shape);
+
+    // A plugin use gets no block by default.
+    EXPECT_FALSE(patcher.applyPatch(current, *m_shape));
+    EXPECT_EQ(Marker::findMarker(nif(), *m_shape), nullptr);
+
+    // In PGLite mode every patched shape gets one, trimmed to the changes as for BodySlide ShapeData.
+    Marker::loadOptions(true);
+    const auto stock = Marker::captureStock(nif(), *m_shape);
+    EXPECT_FALSE(patcher.applyPatch(current, *m_shape));
+    auto* marker = Marker::findMarker(nif(), *m_shape);
+    ASSERT_NE(marker, nullptr);
+    EXPECT_EQ(nlohmann::json::parse(marker->stringData.get()), stock);
+    m_shader->glossiness = 99;
+    Marker::finalizeMarker(nif(), *m_shape);
+    EXPECT_EQ(nlohmann::json::parse(marker->stringData.get()),
+              nlohmann::json({ { "version", Marker::formatVersion },
+                               { "shader", { { "glossiness", stock["shader"]["glossiness"] } } } }));
+
+    // The option is the run's: off again, a shape gets no block.
+    Marker::loadOptions(false);
+    auto* other = m_builder.addShape("Other", slots(L"textures\\a\\other.dds"));
+    EXPECT_FALSE(patcher.applyPatch(current, *other));
+    EXPECT_EQ(Marker::findMarker(nif(), *other), nullptr);
 }
 
 TEST_F(PatcherMeshPreStockMarkerTest,

@@ -90,6 +90,21 @@ public:
         std::optional<PGTypes::ObjectBounds> objectBounds;
     };
 
+    /// @brief What the weighted (_0/_1) layout check tells the blocks of a mesh apart by, see blockTypeSignature().
+    enum class BlockKind : uint8_t { ParticleSystem, TriShape, Shape };
+
+    /// @brief One output mesh serialized in memory, see serializeMeshes().
+    struct SerializedOutput {
+        /// @brief The output and the plugin uses it serves, with its index corrections filled in.
+        MeshResult result;
+        /// @brief The bytes of the saved mesh.
+        std::string bytes;
+        /// @brief The block type signature of the mesh, see blockTypeSignature().
+        std::vector<BlockKind> blockKinds;
+        /// @brief CRC32 of the bytes.
+        unsigned long long crc32 = 0;
+    };
+
 private:
     std::filesystem::path m_origMeshPath;
     nifly::NifFile m_origNifFile;
@@ -134,6 +149,17 @@ public:
      * @throws std::runtime_error if the file is not in the file map of PGGlobals::pgd().
      */
     explicit PGMeshPermutationTracker(const std::filesystem::path& origMeshPath);
+
+    /**
+     * @brief Constructs a tracker for a mesh given as bytes, and loads it (do not call load()). Needs no file map; the
+     * PGLite runtime uses it with the bytes the game would read.
+     *
+     * @param origMeshPath Relative path (within the data directory) of the mesh the bytes belong to.
+     * @param nifBytes The mesh file.
+     * @throws std::runtime_error if the bytes are not a NIF.
+     */
+    PGMeshPermutationTracker(std::filesystem::path origMeshPath,
+                             const std::vector<std::byte>& nifBytes);
 
     // Plugin mesh staging.
     /**
@@ -185,6 +211,9 @@ public:
      * output (see validateWeightedVariants()).
      * @param altTexResults Patched alternate textures of the use by original 3D shape index.
      * @param nonAltTexShapes Original 3D indices of the shapes that had no alternate texture.
+     * @param shouldCompareWithOriginal Whether a first result that equals the original mesh is dropped
+     * (CommitResult::UnchangedFromOriginal) instead of becoming an output. The PGLite runtime passes false when it
+     * produces again a member whose first patch became an output, so that the same bytes are served.
      * @return What became of the staged mesh. Only CommitResult::Added means a new output mesh was created.
      * @throws std::runtime_error if no mesh is staged.
      */
@@ -192,7 +221,8 @@ public:
                             bool isWeighted,
                             const std::unordered_map<unsigned,
                                                      PGTypes::TextureSet>& altTexResults,
-                            const std::unordered_set<unsigned>& nonAltTexShapes);
+                            const std::unordered_set<unsigned>& nonAltTexShapes,
+                            bool shouldCompareWithOriginal = true);
 
     /**
      * @brief Sorts the blocks of every output mesh, queues the files for writing through PGGlobals::fileSaver() and
@@ -220,6 +250,23 @@ public:
      * @return The bounding box, or std::nullopt if the mesh has no shapes with vertices.
      */
     std::optional<PGTypes::ObjectBounds> originalObjectBounds();
+
+    /**
+     * @brief Sorts the blocks of every output mesh and serializes it in memory: the same outputs, index corrections and
+     * bytes saveMeshes() writes, without touching the output directory. Call once per tracker.
+     *
+     * @param shouldComputeObjectBounds whether to compute the bounding box of each output mesh
+     * (MeshResult::objectBounds)
+     * @return One entry per output mesh, in output order. Empty when a mesh could not be serialized (logged as
+     * critical).
+     */
+    std::vector<SerializedOutput> serializeMeshes(const bool& shouldComputeObjectBounds = false);
+
+    /**
+     * @brief The block kinds of the shapes and particle systems of a mesh in 3D index order: what the weighted (_0/_1)
+     * layout check compares, so two meshes pass that check exactly when their signatures are equal.
+     */
+    static std::vector<BlockKind> blockTypeSignature(const nifly::NifFile& mesh);
 
     /**
      * @brief Reports every weighted mesh whose _0/_1 counterpart was also patched as weighted but produced a different
@@ -250,6 +297,7 @@ private:
     void processWeightVariant(const nifly::NifFile& mesh,
                               std::size_t dupIdx);
 
+public:
     // Helpers.
     /**
      * @brief Compares the shapes and particle systems of two NIFs in 3D index order: block types, vertex colors,
@@ -273,6 +321,7 @@ private:
                             const std::unordered_map<int,
                                                      int>* meshAInverseIdxCorrectionsPatching = nullptr);
 
+private:
     /**
      * @brief Compares the vertex colors of two BSTriShape blocks (the only geometry patchers change).
      *

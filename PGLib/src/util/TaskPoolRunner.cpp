@@ -3,24 +3,18 @@
 #include "util/ExceptionHandler.hpp"
 #include "util/Logger.hpp"
 
-#include <boost/asio/post.hpp>
-#include <boost/asio/thread_pool.hpp>
-#include <cpptrace/from_current.hpp>
-#include <spdlog/spdlog.h>
-
 #include <atomic>
-#include <chrono>
-#include <exception>
+#include <cstddef>
 #include <functional>
 #include <thread>
+#include <vector>
 
 // STATICS.
 std::function<void()> TaskPoolRunner::s_exceptionCallback = nullptr;
 
 TaskPoolRunner::TaskPoolRunner(const bool& multithread)
-    : m_threadPool(poolThreadCount(std::thread::hardware_concurrency()))
-    , m_multithread(multithread)
-    , m_completedTasks(0)
+    : m_multithread(multithread)
+    , m_threadCount(poolThreadCount(std::thread::hardware_concurrency()))
 {
 }
 
@@ -35,68 +29,53 @@ void TaskPoolRunner::addTask(const std::function<void()>& task) { m_tasks.push_b
 void TaskPoolRunner::runTasks()
 {
     if (!m_multithread) {
-        CPPTRACE_TRY
-        {
-            for (const auto& task : m_tasks) {
-                task();
-                m_completedTasks.fetch_add(1);
+        for (const auto& task : m_tasks) {
+            if (!ExceptionHandler::runGuarded(task)) {
+                if (s_exceptionCallback)
+                    s_exceptionCallback();
+
+                // A guard that recorded the exception stops the batch, as the pool does; one that only reported it
+                // lets the rest of the batch run.
+                if (ExceptionHandler::hasException())
+                    return;
             }
-        }
-        CPPTRACE_CATCH(const std::exception& e)
-        {
-            ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
-            if (s_exceptionCallback)
-                s_exceptionCallback();
         }
 
         return;
     }
 
-    // Multithreading only beyond this point.
-    for (const auto& task : m_tasks) {
-        boost::asio::post(m_threadPool, [this, task] {
+    // Multithreading only beyond this point. Every worker takes the next task until none is left. An exception, from
+    // one of the tasks or recorded before the batch started, skips every task that did not start yet.
+    std::atomic<size_t> nextTask { 0 };
+    const auto worker = [this, &nextTask] {
+        while (true) {
+            const size_t taskIndex = nextTask.fetch_add(1);
+            if (taskIndex >= m_tasks.size())
+                break;
+
             if (ExceptionHandler::hasException()) {
-                // Exception already thrown, don't run thread.
-                return;
+                // Exception already thrown, don't run the task.
+                continue;
             }
 
             // Create log buffer.
             Logger::startThreadedBuffer();
 
-            CPPTRACE_TRY
-            {
-                task();
-                m_completedTasks.fetch_add(1);
-            }
-            CPPTRACE_CATCH(const std::exception& e)
-            {
-                ExceptionHandler::setException(e, cpptrace::from_current_exception().to_string());
-                if (s_exceptionCallback)
-                    s_exceptionCallback();
-            }
+            if (!ExceptionHandler::runGuarded(m_tasks.at(taskIndex)) && s_exceptionCallback)
+                s_exceptionCallback();
 
             // Flush log buffer.
             Logger::flushThreadedBuffer();
-        });
-    }
-
-    while (true) {
-        // Check if all tasks are done.
-        if (m_completedTasks.load() >= m_tasks.size()) {
-            // All tasks done.
-            break;
         }
+    };
 
-        // If exception stop thread pool and throw.
-        if (ExceptionHandler::hasException()) {
-            m_threadPool.stop();
-            m_threadPool.join();
-            break;
-        }
+    std::vector<std::jthread> threads;
+    threads.reserve(m_threadCount);
+    for (unsigned i = 0; i < m_threadCount; i++)
+        threads.emplace_back(worker);
 
-        // Sleep in between loops.
-        std::this_thread::sleep_for(std::chrono::milliseconds(loopInterval));
-    }
+    for (auto& thread : threads)
+        thread.join();
 }
 
 void TaskPoolRunner::setExceptionCallback(const std::function<void()>& callback) { s_exceptionCallback = callback; }

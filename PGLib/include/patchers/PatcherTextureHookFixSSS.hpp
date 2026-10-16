@@ -5,9 +5,12 @@
 #include <DirectXTex.h>
 #include <d3d11.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <shared_mutex>
 #include <unordered_set>
+#include <vector>
 #include <wrl/client.h>
 
 /**
@@ -19,6 +22,13 @@ class PatcherTextureHookFixSSS : public PatcherTextureHook {
 private:
     static constexpr const float shaderAlbedoSatPower = 0.5;
     static constexpr const float shaderAlbedoNorm = 1.8;
+    /// @brief The output has half the width and height of the diffuse.
+    static constexpr size_t scaleFactor = 2;
+    /// @brief The format the shader writes and the format and compression of the output file, which the generator
+    /// signature covers.
+    static constexpr DXGI_FORMAT shaderOutputFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    static constexpr DXGI_FORMAT outputFormat = DXGI_FORMAT_BC2_UNORM;
+    static constexpr DirectX::TEX_COMPRESS_FLAGS compressFlags = DirectX::TEX_COMPRESS_DEFAULT;
 
     struct ShaderParams {
         float fAlbedoSatPower;
@@ -26,12 +36,13 @@ private:
     };
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* shaderName = "SSSFix.hlsl";
-
     static inline std::shared_mutex s_texToProcessMutex;
     static inline std::unordered_set<std::filesystem::path> s_texToProcess;
 
 public:
+    /// @brief The patcher name of the hook, as its log lines carry it.
+    static constexpr const char* hookName = "SSSFix";
+
     /**
      * @brief Forgets every registered texture. Called at the start of a patch run.
      */
@@ -52,6 +63,17 @@ public:
      * @return true if the texture is in the process list; false otherwise.
      */
     static bool isInProcessList(const std::filesystem::path& texPath);
+
+    /**
+     * @brief The textures registered for SSS fixing, in no particular order.
+     */
+    static std::vector<std::filesystem::path> processList();
+
+    /**
+     * @brief The signature of the fix (the shader, the formats, the scale and the shader parameters), see
+     * PatcherTextureHook::signatureOf(). A cached output is only valid for the signature it was generated with.
+     */
+    static std::uint32_t generatorSignature();
 
     /**
      * @brief Computes the output filename for the generated subsurface color texture.
@@ -93,4 +115,13 @@ public:
      * @throws std::runtime_error if the patcher has no image.
      */
     bool applyPatch() override;
+
+    /**
+     * @brief Generates the half size BC2 subsurface color texture in memory.
+     *
+     * @param[out] compressed The subsurface color texture.
+     * @return true if the texture was generated; false otherwise.
+     * @throws std::runtime_error if the patcher has no image.
+     */
+    bool generate(DirectX::ScratchImage& compressed) override;
 };

@@ -4,10 +4,11 @@
 #include "PGDirectory.hpp"
 #include "PGModManager.hpp"
 #include "common/BethesdaGame.hpp"
-#include "util/TaskQueue.hpp"
 
 #include <filesystem>
 #include <unordered_set>
+
+class TaskQueue;
 
 /**
  * @brief Provides global singleton accessors for the core PGPatcher subsystem objects.

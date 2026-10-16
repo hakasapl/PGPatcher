@@ -12,7 +12,7 @@ RWTexture2D<float4> Output : register(u0);
 void main(uint3 id : SV_DispatchThreadID)
 {
     // Sample a 4x4 block from the input texture
-    const int scaleFactor = 2;
+    const uint scaleFactor = 2;
     uint2 baseCoord = id.xy * scaleFactor;
 
     // Accumulate samples from the 4x4 block

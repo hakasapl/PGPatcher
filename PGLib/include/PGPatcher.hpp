@@ -10,11 +10,7 @@
 
 #include "Geometry.hpp"
 #include "NifFile.hpp"
-#include "util/TaskQueue.hpp"
 #include <DirectXTex.h>
-#include <boost/container_hash/hash.hpp>
-#include <boost/functional/hash.hpp>
-#include <miniz.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
@@ -33,12 +29,18 @@
 #include <utility>
 #include <vector>
 
+class TaskQueue;
+
 /**
  * @brief Runs the registered patchers over every mesh and texture of the load order.
  *
  * Meshes are patched once per plugin use (see PGMeshPermutationTracker), textures once. Alongside the output files it
  * collects the data the conflict viewer shows (patchMeta()) and the CRC diff of changed base meshes (diffJSON()). With
  * an update cache present (PGRunCache), meshes whose previous output is still valid are replayed instead of patched.
+ *
+ * The per-mesh pipeline, processNIF() and the functions it uses (PGPatcherPipeline.cpp), is shared with the PGLite
+ * runtime, which patches a mesh when the game loads it; the runners that walk the load order and write files
+ * (PGPatcher.cpp) belong to the offline programs.
  */
 class PGPatcher {
 public:
@@ -109,16 +111,22 @@ public:
      * @param checkAllowedRecTypes when true, a use of a record type not in allowedModelRecTypes is skipped and the
      * original mesh is kept for it
      * @param excludeFacegens whether to skip patching facegen meshes
+     * @param isPGLiteMode when true, only what the 3rd party tools read is patched: the uses of the record types
+     * DynDOLOD scans (PGPlugin::dynDOLODRecTypeSet, within allowedModelRecTypes when those are checked) and the
+     * BodySlide ShapeData meshes. Facegen meshes, meshes without such a use and forceBasePatch are left out.
      * @param progressCallback receives (completed, total) counts of the current stage
      * @param stageCallback invoked when a new stage starts. When a previous output is updated, every mesh is
      * evaluated before patching and the progress callback counts that evaluation first, so the stages are reported
      * separately for progress displays.
+     * @param shouldComputeObjectBounds whether to recalculate the OBND of the records that use the output meshes, and of
+     * the tree and grass records whose mesh is not output (the "Recalculate Bounds" global patcher)
      */
     static void patchMeshes(const bool& shouldMultithread = true,
                             const bool& forceBasePatch = false,
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                             const bool& checkAllowedRecTypes = false,
                             const bool& excludeFacegens = false,
+                            const bool& isPGLiteMode = false,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback = { },
                             const std::function<void(MeshPatchStage)>& stageCallback = { },
@@ -222,10 +230,12 @@ private:
      *
      * A mesh is skipped (Success) when its mod has meshes ignored, when it is a facegen mesh and those are excluded, or
      * when nothing uses it and forceBasePatch is off. Facegen and BodySlide ShapeData meshes have no plugin uses and
-     * are patched for a dummy use.
+     * are patched for a dummy use. In PGLite mode (see patchMeshes()) facegen meshes and meshes without a use that
+     * passes the record type filter are skipped as well.
      *
      * @param nifPath lower case relative path to the NIF file
      * @param setModelUsesQueue queue the plugin updates are posted to
+     * @param shouldComputeObjectBounds whether to also update the OBND of the records, see patchMeshes()
      * @return Result::Failure if the mesh could not be processed
      */
     static TaskTracker::Result patchNIF(const std::filesystem::path& nifPath,
@@ -234,6 +244,7 @@ private:
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes = { },
                                         const bool& checkAllowedRecTypes = false,
                                         const bool& excludeFacegens = false,
+                                        const bool& isPGLiteMode = false,
                                         const bool& shouldComputeObjectBounds = false);
 
     /**
@@ -257,7 +268,21 @@ private:
     static uint64_t digestMatches(const std::vector<PatcherUtil::ShaderPatcherMatch>& matches,
                                   const PatcherUtil::PatcherMeshObjectSet& patchers);
 
-    // NIF Helpers.
+public:
+    // NIF Helpers (the per-mesh pipeline).
+
+    /**
+     * @brief Whether a plugin use keeps the original, unpatched mesh instead of being patched: an ignored use, or a
+     * use of a record type outside the allowed set when that set is enforced. The offline runner and the PGLite plan
+     * apply the same rule.
+     *
+     * @param use the use's attributes
+     * @param allowedModelRecTypes the record types that are patched
+     * @param shouldCheckAllowedRecTypes whether the record type filter applies
+     */
+    [[nodiscard]] static bool isUseUnpatched(const PGPlugin::MeshUseAttributes& use,
+                                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
+                                             bool shouldCheckAllowedRecTypes);
 
     /**
      * @brief Patches a staged mesh for one plugin use: every patchable shape through processNIFShape(), then the
@@ -286,6 +311,7 @@ private:
                                               PGTypes::TextureSet>& alternateTextures,
                            std::unordered_set<unsigned>& nonAltTexShapes);
 
+private:
     /**
      * @brief Patches one shape: a shader shared with other shapes is copied for it, then pre patchers, the winning
      * shader match (first enabled match of matches()) with its transform, post patchers, then the texture set is

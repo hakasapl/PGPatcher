@@ -173,6 +173,15 @@ void PGMutagenWrapper::libFinalize(const std::filesystem::path& outputPath,
     libThrowExceptionIfExists();
 }
 
+void PGMutagenWrapper::libSaveStockRecords(const std::filesystem::path& filePath)
+{
+    const std::scoped_lock lock(s_libMutex);
+
+    SaveStockRecords(filePath.c_str());
+    libLogMessageIfExists();
+    libThrowExceptionIfExists();
+}
+
 auto PGMutagenWrapper::libGetModelUses(const std::wstring& modelPath) -> std::vector<ModelUse>
 {
     uint8_t* buffer = nullptr;

@@ -2,20 +2,36 @@
 
 ## UNRELEASED
 
-- BodySlide ShapeData meshes will now be patched
-- Added the `PG_STOCK` extra data block for preserving initial mesh state
-- Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
-- Added the `alphaprop_flags`, `alphaprop_thresh`, `alphaprop_create` and `alphaprop_delete` PBR json fields
-- Extended dedup behavior of texture sets in meshes to NiAlphaProperties and shader properties
-- Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
-- Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
-- Fixed the Restore Default Shaders post-patcher being named HairFlowMap in logs
-- Fixed the `pgtools` Convert to HDR patcher running the Parallax to Complex Material shader instead of its own
-- Fixed a plugin error from one run being reported again by every later plugin operation in the same session
-- Fixed plugin names with non-ASCII characters being read incorrectly from plugins
-- Fixed truncated NIF files being patched as if they were complete
-- Fixed folders inside the data directory being listed as files
-- Fixed the thread count on systems with two or fewer logical processors
+- [PGLite] Multiple mods can now be selected when moving mods in the conflict manager tab
+- [PGLite] Fixed autoscrolling while dragging sometimes not working
+
+## [2.2.1] - 2026-10-15
+
+- [PGLite] Startup tasks are run concurrently with engine tasks now, improving loading times
+- [PGLite] Under Mod Organizer 2 the file map is built from the instance folder rather than the data folder, improving loading times
+- [PGPatcher] Under Mod Organizer 2 the file map and the mod attribution are built from the instance's mod folders concurrently, improving populating map runtime
+- [Common] Mod manager is auto-selected and MO2 instance folder defined by default when no existing configuration exists
+
+## [2.2.0] - 2026-10-14
+
+- [PGLite] Added PGLite, an SKSE runtime implementation of PGPatcher
+- [PGPatcher] Added the PGLite Mode processing option: only what TexGen, DynDOLOD and BodySlide read is patched
+- [PGPatcher] BodySlide ShapeData meshes will now be patched
+- [Common] Added the `PG_STOCK` extra data block for preserving initial mesh state
+- [PGPatcher] Added `pgtools gendiffblocks` for mod authors, which creates the `PG_STOCK` blocks from an original and a patched mesh or folder
+- [Common] Added the `alphaprop_flags`, `alphaprop_thresh`, `alphaprop_create` and `alphaprop_delete` PBR json fields
+- [Common] Extended dedup behavior of texture sets in meshes to NiAlphaProperties and shader properties
+- [Common] Changed `nif_filter` in PBR JSONs to only apply to regular meshes; facegen and BodySlide ShapeData meshes are not filtered
+- [PGPatcher] Fixed alternate textures of a plugin record not being patched when the mesh itself needed no changes
+- [Common] Texture rules now match regardless of case and slash direction; a rule typed with forward slashes or capitals never applied before
+- [Common] Fixed the Restore Default Shaders post-patcher being named HairFlowMap in logs
+- [PGPatcher] Fixed the `pgtools` Convert to HDR patcher running the Parallax to Complex Material shader instead of its own
+- [PGPatcher] Fixed a plugin error from one run being reported again by every later plugin operation in the same session
+- [PGPatcher] Fixed plugin names with non-ASCII characters being read incorrectly from plugins
+- [Common] Fixed truncated NIF files being patched as if they were complete
+- [Common] Fixed folders inside the data directory being listed as files
+- [Common] Fixed the thread count on systems with two or fewer logical processors
+- [Common] Fixed a complex material JSON whose `specular_color` has an entry that is not a number killing the run, ignoring instead
 
 ## [2.1.2] - 2026-10-05
 

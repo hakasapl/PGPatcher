@@ -19,7 +19,7 @@ add_library(${LIBRARY_NAME} SHARED ${SOURCES} ${HEADERS})
 #
 find_package(spdlog REQUIRED CONFIG)
 find_package(bsa REQUIRED CONFIG)
-find_package(Boost REQUIRED COMPONENTS locale)
+find_package(Boost REQUIRED)
 find_package(directxtex REQUIRED CONFIG)
 find_package(miniz REQUIRED CONFIG)
 find_package(nlohmann_json REQUIRED CONFIG)
@@ -38,12 +38,11 @@ set(D3D_LIBS
     shell32.lib
     ole32.lib
     oleaut32.lib
-    D3DCompiler.lib
 )
 target_link_libraries(${LIBRARY_NAME} PUBLIC
     spdlog::spdlog
     bsa::bsa
-    ${Boost_LIBRARIES}
+    Boost::headers
     nifly
     miniz::miniz
     Microsoft::DirectXTex
@@ -57,15 +56,12 @@ target_link_libraries(${LIBRARY_NAME} PUBLIC
 target_include_directories(${LIBRARY_NAME} PUBLIC include)
 
 #
-# Shader Files
+# Shaders, compiled at build time and embedded in the binary (see cmake/PGShaders.cmake)
 #
-add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/cshaders
-        $<TARGET_FILE_DIR:${LIBRARY_NAME}>/cshaders
-)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/PGShaders.cmake)
+pg_add_compiled_shaders(PGLibShaders ${CMAKE_CURRENT_SOURCE_DIR}/cshaders ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+add_dependencies(${LIBRARY_NAME} PGLibShaders)
+target_include_directories(${LIBRARY_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 
 # include and link mutagen wrapper output
 add_dependencies(${LIBRARY_NAME} PGMutagenWrapper)

@@ -2,8 +2,10 @@
 
 #include "BSABuilder.hpp"
 #include "FakeGame.hpp"
+#include "FakeMO2.hpp"
 #include "TestUtil.hpp"
 #include "common/BethesdaGame.hpp"
+#include "common/MO2DataFolder.hpp"
 #include "util/FileUtil.hpp"
 
 #include <gtest/gtest.h>
@@ -12,6 +14,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -27,6 +30,7 @@ namespace {
 namespace TestLog = TestUtil::TestLog;
 using TestUtil::BSABuilder;
 using TestUtil::FakeGame;
+using TestUtil::FakeMO2;
 using TestUtil::TempDir;
 
 std::string bytesToString(const std::vector<std::byte>& bytes)
@@ -480,4 +484,253 @@ TEST(BethesdaDirectoryTest,
     EXPECT_NE(bsa, loose);
 }
 
+TEST(BethesdaDirectoryTest,
+     FileReaderServesEveryMappedFile)
+{
+    FakeGame fake;
+    fake.writeDataFile(L"meshes\\loose.nif", "loose");
+    BethesdaDirectory bd(fake.dataDir(), { L"meshes" }, fake.dataDir() / L"out");
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\loose.nif")), "loose");
+
+    std::vector<std::filesystem::path> requested;
+    bd.setFileReader([&requested](const std::filesystem::path& relPath) {
+        requested.push_back(relPath);
+        return std::vector<std::byte> { std::byte { 'r' } };
+    });
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\loose.nif")), "r");
+    EXPECT_EQ(requested, (std::vector<std::filesystem::path> { L"meshes\\loose.nif" }));
+
+    // Only mapped files are read through the reader.
+    EXPECT_THROW(std::ignore = bd.file(L"meshes\\missing.nif"), std::runtime_error);
+    EXPECT_EQ(requested.size(), 1U);
+
+    bd.setFileReader({ });
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\loose.nif")), "loose");
+}
+
+/// @brief A source that hands out a fixed list of loose files.
+class VectorLooseFileSource : public BethesdaDirectory::LooseFileSource {
+public:
+    std::vector<BethesdaDirectory::LooseFile> files;
+
+    void forEachLooseFile(const std::function<void(const BethesdaDirectory::LooseFile&)>& visitor) const override
+    {
+        for (const auto& file : files)
+            visitor(file);
+    }
+};
+
+TEST(BethesdaDirectoryTest,
+     LooseFileSourceReplacesTheListing)
+{
+    const TempDir dir;
+    const auto data = dir / L"Data";
+    std::filesystem::create_directories(data);
+    TestUtil::writeFile(data / L"meshes\\listed.nif", "listed");
+
+    VectorLooseFileSource source;
+    source.files = {
+        { .relPath = L"Meshes\\A.nif", .mtime = 10, .size = 5, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"textures\\t.dds", .mtime = 20, .size = 6, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"scripts\\s.pex", .mtime = 30, .size = 7, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"top.txt", .mtime = 40, .size = 8, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"plugin.esp", .mtime = 50, .size = 9, .isHidden = false, .isInHiddenFolder = false },
+        { .relPath = L"meshes\\h.nif", .mtime = 60, .size = 10, .isHidden = true, .isInHiddenFolder = false },
+        { .relPath = L"meshes\\.d\\x.nif", .mtime = 70, .size = 11, .isHidden = false, .isInHiddenFolder = true },
+        { .relPath = L"meshes\\ex.nif", .mtime = 80, .size = 12, .isHidden = false, .isInHiddenFolder = false },
+    };
+
+    BethesdaDirectory bd(data, { L"meshes", L"textures" }, dir / L"out");
+    bd.setExcludedFiles({ L"meshes\\ex.nif" });
+    bd.setLooseFileSource(&source);
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(mappedPaths(bd), (std::set<std::wstring> { L"meshes\\a.nif", L"textures\\t.dds", L"top.txt" }));
+
+    const auto identity = bd.fileIdentity(L"meshes\\a.nif");
+    EXPECT_EQ(identity.kind, BethesdaDirectory::FileIdentity::Kind::Loose);
+    EXPECT_EQ(identity.mtime, 10);
+    EXPECT_EQ(identity.size, 5U);
+    EXPECT_TRUE(bd.isLooseFile(L"textures\\t.dds"));
+
+    // Hidden files are the source's to flag and the directory's to keep or skip.
+    bd.setShouldSkipHiddenFiles(false);
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(mappedPaths(bd),
+              (std::set<std::wstring> {
+                  L"meshes\\a.nif", L"textures\\t.dds", L"top.txt", L"meshes\\h.nif", L"meshes\\.d\\x.nif" }));
+
+    // Without the source the data folder is listed again.
+    bd.setLooseFileSource(nullptr);
+    bd.populateFileMap(false, false);
+    EXPECT_EQ(mappedPaths(bd), (std::set<std::wstring> { L"meshes\\listed.nif" }));
+}
+
+TEST(BethesdaDirectoryTest,
+     LooseFileSourceFilesWinOverArchives)
+{
+    const TempDir dir;
+    BSABuilder archive;
+    archive.addFile("meshes\\shared.nif", "archived");
+    archive.addFile("meshes\\archived.nif", "archived only");
+    archive.write(dir / L"Mod.bsa");
+
+    VectorLooseFileSource source;
+    source.files = {
+        { .relPath = L"meshes\\shared.nif", .mtime = 1, .size = 2, .isHidden = false, .isInHiddenFolder = false },
+    };
+
+    for (const bool shouldMultithread : { false, true }) {
+        BethesdaDirectory bd(dir.path(), { L"meshes" }, dir / L"out");
+        bd.setArchiveLoadOrder({ L"Mod.bsa" });
+        bd.setLooseFileSource(&source);
+        bd.populateFileMap(true, shouldMultithread);
+        EXPECT_EQ(mappedPaths(bd), (std::set<std::wstring> { L"meshes\\shared.nif", L"meshes\\archived.nif" }));
+        EXPECT_TRUE(bd.isLooseFile(L"meshes\\shared.nif"));
+        EXPECT_TRUE(bd.isBSAFile(L"meshes\\archived.nif"));
+        EXPECT_EQ(bd.fileIdentity(L"meshes\\shared.nif").kind, BethesdaDirectory::FileIdentity::Kind::Loose);
+    }
+}
+
+TEST(BethesdaDirectoryTest,
+     Mo2ViewMapsWhatAListingOfTheMergedFolderMaps)
+{
+    // The view of an instance against a folder merged by hand the way usvfs merges it: the same paths, sizes and
+    // write times, hidden entries included and skipped alike.
+    const FakeMO2 mo2;
+    mo2.writeModlist("+ModA\n+ModB\n-Off\n");
+    mo2.addModFile(L"ModA", L"meshes\\shared.nif", "a");
+    mo2.addModFile(L"ModA", L"meshes\\Deep\\a.nif", "deep");
+    mo2.addModFile(L"ModA", L"textures\\t.dds", "t");
+    mo2.addModFile(L"ModA", L"meta.ini", "meta");
+    mo2.addModFile(L"ModA", L"top.txt", "top");
+    mo2.addModFile(L"ModA", L"Plugin.esp", "esp");
+    mo2.addModFile(L"ModB", L"meshes\\shared.nif", "bb");
+    mo2.addModFile(L"ModB", L"meshes\\b.nif", "b");
+    mo2.addModFile(L"ModB", L"meshes\\.dot\\x.nif", "dot");
+    mo2.addModFile(L"ModB", L"meshes\\hidden.nif", "hidden");
+    ASSERT_TRUE(SetFileAttributesW((mo2.modsDir() / L"ModB\\meshes\\hidden.nif").c_str(), FILE_ATTRIBUTE_HIDDEN));
+    mo2.addModFile(L"ModB", L"scripts\\s.pex", "pex");
+    mo2.addModFile(L"Off", L"meshes\\off.nif", "off");
+    mo2.addOverwriteFile(L"meshes\\shared.nif", "overwrite");
+    mo2.addOverwriteFile(L"meshes\\o.nif", "o");
+    mo2.addDataFile(L"meshes\\shared.nif", "data");
+    mo2.addDataFile(L"meshes\\real.nif", "real");
+    mo2.addDataFile(L"Skyrim.esm", "esm");
+
+    // The merged folder: the data folder, then the mods from the last line up, then the overwrite folder, each copy
+    // replacing the one before and keeping its write time.
+    const TempDir mergedDir;
+    const auto merged = mergedDir / L"Data";
+    const auto copyInto = [&merged](const std::filesystem::path& folder) {
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(folder)) {
+            if (!entry.is_regular_file())
+                continue;
+            const auto target = merged / std::filesystem::relative(entry.path(), folder);
+            std::filesystem::create_directories(target.parent_path());
+            std::filesystem::copy_file(entry.path(), target, std::filesystem::copy_options::overwrite_existing);
+            std::filesystem::last_write_time(target, std::filesystem::last_write_time(entry.path()));
+            SetFileAttributesW(target.c_str(), GetFileAttributesW(entry.path().c_str()));
+        }
+    };
+    copyInto(mo2.dataDir());
+    copyInto(mo2.modsDir() / L"ModB");
+    copyInto(mo2.modsDir() / L"ModA");
+    copyInto(mo2.overwriteDir());
+
+    const auto view
+        = MO2DataFolder::read(mo2.instanceDir(), mo2.dataDir(), { .foldersToMap = { L"meshes", L"textures" } });
+
+    for (const bool shouldSkipHidden : { true, false }) {
+        BethesdaDirectory listed(merged, { L"meshes", L"textures" }, mergedDir / L"out");
+        listed.setShouldSkipHiddenFiles(shouldSkipHidden);
+        listed.populateFileMap(false, false);
+
+        BethesdaDirectory viewed(mo2.dataDir(), { L"meshes", L"textures" }, mergedDir / L"out");
+        viewed.setShouldSkipHiddenFiles(shouldSkipHidden);
+        viewed.setLooseFileSource(&view);
+        viewed.populateFileMap(false, false);
+
+        EXPECT_EQ(mappedPaths(viewed), mappedPaths(listed)) << "skip hidden " << shouldSkipHidden;
+        EXPECT_EQ(mappedPaths(viewed).count(L"meshes\\hidden.nif"), shouldSkipHidden ? 0U : 1U);
+        for (const auto& [path, file] : listed.fileMap()) {
+            const auto expected = listed.fileIdentity(path);
+            const auto actual = viewed.fileIdentity(path);
+            EXPECT_EQ(actual.kind, expected.kind) << TestUtil::pathToUTF8(path);
+            EXPECT_EQ(actual.size, expected.size) << TestUtil::pathToUTF8(path);
+            EXPECT_EQ(actual.mtime, expected.mtime) << TestUtil::pathToUTF8(path);
+        }
+    }
+}
+
+TEST(BethesdaDirectoryTest,
+     InjectedArchiveOrderMapsArchivesWithoutAGame)
+{
+    const TempDir dir;
+    BSABuilder modA;
+    modA.addFile("meshes\\shared.nif", "a");
+    modA.addFile("meshes\\a_only.nif", "a only");
+    modA.write(dir / L"ModA.bsa");
+    BSABuilder modB;
+    modB.addFile("meshes\\shared.nif", "b");
+    modB.write(dir / L"ModB.bsa");
+
+    BethesdaDirectory bd(dir.path(), { L"meshes" }, dir / L"out");
+    EXPECT_THROW(std::ignore = bd.bsaLoadOrder(), std::runtime_error);
+
+    bd.setArchiveLoadOrder({ L"ModA.bsa", L"ModB.bsa" });
+    EXPECT_EQ(bd.bsaLoadOrder(), (std::vector<std::wstring> { L"ModA.bsa", L"ModB.bsa" }));
+    bd.populateFileMap(true, false);
+
+    EXPECT_TRUE(bd.isBSAFile(L"meshes\\shared.nif"));
+    EXPECT_TRUE(bd.isBSAFile(L"meshes\\a_only.nif"));
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\shared.nif")), "b"); // the later archive wins
+    EXPECT_EQ(bd.modLookupFile(L"meshes\\shared.nif"), L"modb.bsa");
+
+    // Without the archive contents a file is only readable through a reader; the map still knows its archive.
+    bd.dropArchiveContents();
+    EXPECT_THROW(std::ignore = bd.file(L"meshes\\shared.nif"), std::runtime_error);
+    EXPECT_TRUE(bd.isFileInBSA(L"meshes\\shared.nif", { L"ModB.bsa" }));
+    bd.setFileReader([](const std::filesystem::path& relPath) {
+        const auto name = relPath.filename().string();
+        std::vector<std::byte> bytes;
+        for (const char ch : name)
+            bytes.push_back(static_cast<std::byte>(ch));
+        return bytes;
+    });
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\shared.nif")), "shared.nif");
+}
+
+TEST(BethesdaDirectoryTest,
+     HiddenFilesAreMappedWhenNotSkipped)
+{
+    FakeGame fake;
+    fake.writeDataFile(L"meshes\\hidden.nif", "hidden");
+    fake.writeDataFile(L"meshes\\visible.nif", "visible");
+    ASSERT_TRUE(SetFileAttributesW((fake.dataDir() / L"meshes\\hidden.nif").c_str(), FILE_ATTRIBUTE_HIDDEN));
+
+    BethesdaDirectory bd(fake.dataDir(), { L"meshes" }, fake.dataDir() / L"out");
+    bd.populateFileMap(false, false);
+    EXPECT_FALSE(bd.isFile(L"meshes\\hidden.nif"));
+    EXPECT_TRUE(bd.isFile(L"meshes\\visible.nif"));
+
+    bd.setShouldSkipHiddenFiles(false);
+    bd.populateFileMap(false, false);
+    EXPECT_TRUE(bd.isFile(L"meshes\\hidden.nif"));
+    EXPECT_EQ(bytesToString(bd.file(L"meshes\\hidden.nif")), "hidden");
+}
+
+TEST(BethesdaDirectoryTest,
+     FoldersToMapCanBeReplaced)
+{
+    FakeGame fake;
+    fake.writeDataFile(L"meshes\\a.nif", "mesh");
+    fake.writeDataFile(L"textures\\a.dds", "texture");
+
+    BethesdaDirectory bd(fake.dataDir(), { L"meshes", L"textures" }, fake.dataDir() / L"out");
+    bd.setFoldersToMap({ L"textures" });
+    bd.populateFileMap(false, false);
+    EXPECT_FALSE(bd.isFile(L"meshes\\a.nif"));
+    EXPECT_TRUE(bd.isFile(L"textures\\a.dds"));
+}
 }

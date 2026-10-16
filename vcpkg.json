@@ -5,10 +5,6 @@
       "version>=": "1.86.0"
     },
     {
-      "name": "boost-asio",
-      "version>=": "1.86.0"
-    },
-    {
       "name": "boost-crc",
       "version>=": "1.86.0"
     },
@@ -18,10 +14,6 @@
     },
     {
       "name": "boost-iostreams",
-      "version>=": "1.86.0"
-    },
-    {
-      "name": "boost-locale",
       "version>=": "1.86.0"
     },
     {

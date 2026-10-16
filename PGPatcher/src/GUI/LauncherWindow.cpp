@@ -416,6 +416,11 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableTraceLoggingChange, this);
     processingCheckboxSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, borderSize);
 
+    m_processingPGLiteModeCheckbox = new wxCheckBox(this, wxID_ANY, pgTr("launcher.processing.pgliteMode.label"));
+    m_processingPGLiteModeCheckbox->SetToolTip(pgTr("launcher.processing.pgliteMode.tooltip"));
+    m_processingPGLiteModeCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingPGLiteModeChange, this);
+    processingCheckboxSizer->Add(m_processingPGLiteModeCheckbox, 0, wxALL, borderSize);
+
     processingOptionsHorizontalSizer->Add(processingCheckboxSizer, 0, wxALL, borderSize);
 
     m_processingOptionsSizer->Add(processingOptionsHorizontalSizer, 0, wxALL, 0);
@@ -554,6 +559,7 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
     m_processingEnableDevModeCheckbox->SetValue(initParams.processing.enableModDevMode);
     m_processingEnableDebugLoggingCheckbox->SetValue(initParams.processing.enableDebugLogging);
     m_processingEnableTraceLoggingCheckbox->SetValue(initParams.processing.enableTraceLogging);
+    m_processingPGLiteModeCheckbox->SetValue(initParams.processing.isPGLiteMode);
     m_meshRulesAllowListState = initParams.processing.allowList;
     m_meshRulesBlockListState = initParams.processing.blockList;
     m_textureRulesTextureMapsState = initParams.processing.textureMaps;
@@ -650,6 +656,8 @@ void LauncherWindow::onProcessingEnableTraceLoggingChange([[maybe_unused]] wxCom
 {
     updateDisabledElements();
 }
+
+void LauncherWindow::onProcessingPGLiteModeChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
 
 void LauncherWindow::onPrePatcherFixMeshLightingChange([[maybe_unused]] wxCommandEvent& event)
 {
@@ -760,6 +768,7 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.processing.enableModDevMode = m_processingEnableDevModeCheckbox->GetValue();
     params.processing.enableDebugLogging = m_processingEnableDebugLoggingCheckbox->GetValue();
     params.processing.enableTraceLogging = m_processingEnableTraceLoggingCheckbox->GetValue();
+    params.processing.isPGLiteMode = m_processingPGLiteModeCheckbox->GetValue();
     params.processing.allowList = m_meshRulesAllowListState;
     params.processing.blockList = m_meshRulesBlockListState;
     params.processing.textureMaps = m_textureRulesTextureMapsState;

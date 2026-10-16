@@ -22,8 +22,6 @@ private:
 
     static inline Microsoft::WRL::ComPtr<ID3D11ComputeShader> s_shader;
 
-    static constexpr const char* shaderName = "ConvertToHDR.hlsl";
-
     struct ShaderParams {
         float luminanceMult;
     };

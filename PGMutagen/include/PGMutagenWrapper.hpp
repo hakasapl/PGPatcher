@@ -93,6 +93,15 @@ public:
                             int esmMode);
 
     /**
+     * @brief Writes the stock records file: the stock and the written model path and alternate textures of every
+     * record model libSetModelUses() changed, and the stock texture set every created texture set replaced. Always
+     * written, with no records when nothing changed.
+     *
+     * @param filePath The file to write.
+     */
+    static void libSaveStockRecords(const std::filesystem::path& filePath);
+
+    /**
      * @brief Retrieves all plugin records that reference the given model path.
      *
      * @param modelPath Mesh path relative to the data folder (e.g. L"meshes\\foo\\bar.nif"), compared without

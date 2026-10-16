@@ -5,91 +5,20 @@
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/EnumStringHelper.hpp"
+#include "util/FileUtil.hpp"
+#include "util/StringUtil.hpp"
 
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-auto PGPlugin::pluginLangFromString(const std::string& lang) -> PluginLang
-{
-    return EnumStringHelper::enumFromString(lang, pluginLangTable, PluginLang::English);
-}
-
-std::string PGPlugin::stringFromPluginLang(const PluginLang& lang)
-{
-    return std::string(EnumStringHelper::stringFromEnum(lang, pluginLangTable, "English"));
-}
-
-std::vector<std::string> PGPlugin::availablePluginLangStrs()
-{
-    return EnumStringHelper::allEnumStrings(pluginLangTable);
-}
-
-auto PGPlugin::recTypeFromString(const std::string& recTypeStr) -> ModelRecordType
-{
-    return EnumStringHelper::enumFromString(recTypeStr, modelRecordTypeTable, ModelRecordType::Unknown);
-}
-
-std::string PGPlugin::stringFromRecType(const ModelRecordType& recType)
-{
-    return std::string(EnumStringHelper::stringFromEnum(recType, modelRecordTypeTable, ""));
-}
-
-std::vector<std::string> PGPlugin::availableRecTypeStrs()
-{
-    return EnumStringHelper::allEnumStrings(modelRecordTypeTable);
-}
-
-auto PGPlugin::defaultRecTypeSet() -> std::unordered_set<ModelRecordType>
-{
-    // These are enabled by default in the initial config.
-    static const std::unordered_set<ModelRecordType> defaultSet = {
-        ModelRecordType::Activator,
-        ModelRecordType::Ammunition,
-        ModelRecordType::AnimatedObject,
-        ModelRecordType::Armor,
-        ModelRecordType::ArmorAddon,
-        ModelRecordType::ArtObject,
-        ModelRecordType::BodyPartData,
-        ModelRecordType::Book,
-        ModelRecordType::CameraShot,
-        ModelRecordType::Climate,
-        ModelRecordType::Container,
-        ModelRecordType::Door,
-        ModelRecordType::Explosion,
-        ModelRecordType::Flora,
-        ModelRecordType::Furniture,
-        ModelRecordType::Grass,
-        ModelRecordType::Hazard,
-        ModelRecordType::HeadPart,
-        ModelRecordType::IdleMarker,
-        ModelRecordType::Impact,
-        ModelRecordType::Ingestible,
-        ModelRecordType::Ingredient,
-        ModelRecordType::Key,
-        ModelRecordType::LeveledNPC,
-        ModelRecordType::Light,
-        ModelRecordType::MaterialObject,
-        ModelRecordType::MiscItem,
-        ModelRecordType::MoveableStatic,
-        ModelRecordType::Projectile,
-        ModelRecordType::Scroll,
-        ModelRecordType::SoulGem,
-        ModelRecordType::StaticObject,
-        ModelRecordType::TalkingActivator,
-        ModelRecordType::Tree,
-        ModelRecordType::Weapon,
-    };
-
-    return defaultSet;
-}
-
 void PGPlugin::initialize(const BethesdaGame& game,
                           const std::filesystem::path& exePath,
                           const PluginLang& lang)
@@ -133,20 +62,18 @@ auto PGPlugin::modelUses(const std::wstring& modelPath) -> std::vector<std::pair
         return { };
 
     auto modelUses = PGMutagenWrapper::libGetModelUses(modelPath);
-    // Sort modelUses by putting weighted ones first, then by mod name, then by
-    // formid, then by submodel.
-    std::ranges::sort(modelUses, [](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) {
-        const bool aHasAltTex = !a.alternateTextures.empty();
-        const bool bHasAltTex = !b.alternateTextures.empty();
-        if (aHasAltTex != bHasAltTex)
-            return !aHasAltTex; // no alternate textures first
-        if (a.isWeighted != b.isWeighted)
-            return a.isWeighted > b.isWeighted; // weighted first
-        if (a.modName != b.modName)
-            return a.modName < b.modName; // alphabetical mod name
-        if (a.formID != b.formID)
-            return a.formID < b.formID; // ascending formid
-        return a.subModel < b.subModel; // alphabetical submodel
+    // The order the uses are patched in, see isUseOrderedBefore().
+    const auto orderOf = [](const PGMutagenWrapper::ModelUse& use) {
+        return UseOrder {
+            .hasAlternateTextures = !use.alternateTextures.empty(),
+            .isWeighted = use.isWeighted,
+            .modName = use.modName,
+            .formID = use.formID,
+            .subModel = use.subModel,
+        };
+    };
+    std::ranges::sort(modelUses, [&orderOf](const PGMutagenWrapper::ModelUse& a, const PGMutagenWrapper::ModelUse& b) {
+        return isUseOrderedBefore(orderOf(a), orderOf(b));
     });
 
     for (const auto& modelUse : modelUses) {
@@ -268,29 +195,23 @@ void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
     // FIXME: Add to the generated files.
 }
 
-std::filesystem::path PGPlugin::pluginPathFromDataPath(const std::filesystem::path& dataPath)
+void PGPlugin::saveStockRecords(const std::filesystem::path& outputDir,
+                                const std::vector<std::filesystem::path>& generatedTextures)
 {
-    static const std::filesystem::path meshesPrefix = "meshes";
-    static const std::filesystem::path texturesPrefix = "textures";
+    const auto file = outputDir / stockRecordsFile;
+    PGMutagenWrapper::libSaveStockRecords(file);
 
-    auto relativePath = dataPath;
+    // The generated textures are the runner's to know; they go into the file the plugin library wrote, sorted so two
+    // runs write the same file.
+    nlohmann::json stockRecords;
+    if (!FileUtil::getJSON(file, stockRecords) || !stockRecords.is_object())
+        throw std::runtime_error("The stock records file could not be read back: " + file.string());
 
-    // Check if the first component is "meshes" or "textures".
-    if (!dataPath.empty()) {
-        auto iter = dataPath.begin();
-        if (*iter == meshesPrefix) {
-            // Erase the first component.
-            relativePath = std::filesystem::path { };
-            for (++iter; iter != dataPath.end(); ++iter)
-                relativePath /= *iter;
-        } else if (*iter == texturesPrefix) {
-            relativePath = std::filesystem::path { };
-            for (++iter; iter != dataPath.end(); ++iter)
-                relativePath /= *iter;
-        } else {
-            return dataPath;
-        }
-    }
-
-    return relativePath;
+    std::vector<std::string> textures;
+    textures.reserve(generatedTextures.size());
+    for (const auto& texture : generatedTextures)
+        textures.push_back(StringUtil::utf16toUTF8(texture.wstring()));
+    std::ranges::sort(textures);
+    stockRecords["generatedtextures"] = textures;
+    FileUtil::saveJSON(file, stockRecords, true);
 }

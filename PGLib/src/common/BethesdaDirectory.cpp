@@ -122,7 +122,7 @@ void BethesdaDirectory::populateFileMap(bool includeBSAs,
     // of the two is added first. bsaException is declared before the thread so that it outlives it if the walk throws.
     std::exception_ptr bsaException;
     std::jthread bsaThread;
-    if (includeBSAs && m_bg) {
+    if (includeBSAs && (m_bg || m_archiveLoadOrder)) {
         if (shouldMultithread) {
             bsaThread = std::jthread([this, &bsaException] {
                 try {
@@ -162,6 +162,11 @@ std::vector<std::byte> BethesdaDirectory::file(const std::filesystem::path& relP
 
     if (s_threadQueryObserver)
         s_threadQueryObserver->onGetFile(relPath, buildIdentity(file));
+
+    if (m_fileReader) {
+        // Every read goes through the installed reader, whatever the file's source.
+        return m_fileReader(relPath);
+    }
 
     std::vector<std::byte> outFileBytes;
     const std::shared_ptr<BSAFile> bsaStruct = file.bsaFile;
@@ -337,7 +342,7 @@ std::filesystem::path BethesdaDirectory::generatedPath() const { return m_genera
 
 void BethesdaDirectory::addBSAFilesToMap()
 {
-    if (!m_bg)
+    if (!m_bg && !m_archiveLoadOrder)
         throw std::runtime_error("BethesdaGame object is not set which is required to load BSA files");
 
     Logger::info("Adding BSA files to file map.");
@@ -356,6 +361,20 @@ void BethesdaDirectory::addLooseFilesToMap()
 {
     Logger::info("Adding loose files to file map.");
 
+    if (m_looseFileSource) {
+        // The source stands in for the listing below: the same files, the same rules.
+        m_looseFileSource->forEachLooseFile([this](const LooseFile& file) {
+            if (m_shouldSkipHiddenFiles && (file.isHidden || file.isInHiddenFolder))
+                return;
+            if (!isMappedPath(file.relPath) || !isFileAllowed(file.relPath))
+                return;
+
+            const std::filesystem::path relativePath = boost::to_lower_copy(file.relPath);
+            updateFileMap(relativePath, nullptr, false, file.mtime, file.size);
+        });
+        return;
+    }
+
     // Everything needed about an entry (hidden attribute, size, write time) comes with the directory listing, so no
     // file is queried on its own.
     const auto addEntry = [this](const std::wstring& relPath, const FileUtil::DirectoryEntry& entry) {
@@ -369,7 +388,7 @@ void BethesdaDirectory::addLooseFilesToMap()
 
     // Map top level folder (not recursive).
     for (const auto& entry : FileUtil::listDirectory(m_dataDir, true)) {
-        if (isHidden(entry) || entry.isDirectory)
+        if ((m_shouldSkipHiddenFiles && isHidden(entry)) || entry.isDirectory)
             continue;
 
         addEntry(entry.name, entry);
@@ -385,8 +404,8 @@ void BethesdaDirectory::addLooseFilesToMap()
         const std::wstring folderPrefix = (folder / L"").wstring();
         FileUtil::walkDirectory(
             curCheckFolder,
-            [&addEntry, &folderPrefix](const std::wstring& relPath, const FileUtil::DirectoryEntry& entry) {
-                if (isHidden(entry)) {
+            [this, &addEntry, &folderPrefix](const std::wstring& relPath, const FileUtil::DirectoryEntry& entry) {
+                if (m_shouldSkipHiddenFiles && isHidden(entry)) {
                     // If it's a directory, don't recurse into it.
                     return false;
                 }
@@ -497,6 +516,9 @@ void BethesdaDirectory::addBSAToFileMap(const std::wstring& bsaName)
                 if (hasIgnoredSuffix && !isFileAllowed(curPath))
                     continue;
 
+                if (!m_excludedFiles.empty() && m_excludedFiles.contains(curPath))
+                    continue;
+
                 folderFiles.push_back(std::move(curPath));
             }
 
@@ -533,6 +555,11 @@ void BethesdaDirectory::addBSAToFileMap(const std::wstring& bsaName)
 
 std::vector<std::wstring> BethesdaDirectory::bsaLoadOrder() const
 {
+    if (m_archiveLoadOrder) {
+        // An injected order replaces the one derived from the INI files and the plugins.
+        return *m_archiveLoadOrder;
+    }
+
     if (!m_bg)
         throw std::runtime_error("BethesdaGame object is not set which is required to determine the BSA load order");
 
@@ -673,12 +700,50 @@ std::vector<std::wstring> BethesdaDirectory::findBSAFilesFromPluginName(const st
     return bsaFilesFound;
 }
 
+bool BethesdaDirectory::isMappedPath(const std::wstring& relPath) const
+{
+    const auto separator = relPath.find_first_of(L"\\/");
+    if (separator == std::wstring::npos)
+        return true;
+
+    return m_foldersToMap.contains(StringUtil::toLowerASCIIFast(relPath.substr(0, separator)));
+}
+
 bool BethesdaDirectory::isFileAllowed(const std::filesystem::path& filePath)
 {
     std::wstring fileExtension = filePath.extension().wstring();
     boost::algorithm::to_lower(fileExtension);
 
     return !ContainerUtil::isInVector(extensionBlocklist(), fileExtension);
+}
+
+void BethesdaDirectory::setFileReader(FileReader reader) { m_fileReader = std::move(reader); }
+
+void BethesdaDirectory::setLooseFileSource(const LooseFileSource* source) { m_looseFileSource = source; }
+
+void BethesdaDirectory::setArchiveLoadOrder(std::vector<std::wstring> archives)
+{
+    m_archiveLoadOrder = std::move(archives);
+}
+
+void BethesdaDirectory::dropArchiveContents()
+{
+    const std::unique_lock lock(m_fileMapMutex);
+    for (auto& [path, file] : m_fileMap)
+        if (file.bsaFile)
+            file.bsaFile->archive.clear();
+}
+
+void BethesdaDirectory::setShouldSkipHiddenFiles(bool shouldSkip) { m_shouldSkipHiddenFiles = shouldSkip; }
+
+void BethesdaDirectory::setFoldersToMap(std::unordered_set<std::filesystem::path> foldersToMap)
+{
+    m_foldersToMap = std::move(foldersToMap);
+}
+
+void BethesdaDirectory::setExcludedFiles(std::unordered_set<std::filesystem::path> files)
+{
+    m_excludedFiles = std::move(files);
 }
 
 // Helpers.
@@ -714,6 +779,9 @@ void BethesdaDirectory::updateFileMap(const std::filesystem::path& filePath,
                                       const uint64_t& size)
 {
     // const filesystem::path lowerPath = getAsciiPathLower(filePath);
+
+    if (!m_excludedFiles.empty() && m_excludedFiles.contains(filePath))
+        return;
 
     const std::unique_lock lock(m_fileMapMutex);
 

@@ -27,13 +27,21 @@ if(MSVC)
     target_link_libraries(${TEST_EXE_NAME} PRIVATE delayimp)
 endif()
 
+#
+# Test shaders, compiled at build time like the shaders of PGLib
+#
+include(${CMAKE_SOURCE_DIR}/PGLib/cmake/PGShaders.cmake)
+pg_add_compiled_shaders(PGTestsShaders ${CMAKE_CURRENT_SOURCE_DIR}/cshaders ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+add_dependencies(${TEST_EXE_NAME} PGTestsShaders)
+target_include_directories(${TEST_EXE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+
 target_link_libraries(${TEST_EXE_NAME} PRIVATE
     PGLib
     GTest::gtest
     GTest::gmock
 )
 
-# The tests run from the bin folder, next to the DLLs and the cshaders / dotnetlib folders they need
+# The tests run from the bin folder, next to the DLLs and the dotnetlib folder they need
 gtest_discover_tests(${TEST_EXE_NAME}
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     DISCOVERY_MODE PRE_TEST

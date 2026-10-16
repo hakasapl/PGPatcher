@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <exception>
+#include <functional>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -15,6 +16,7 @@ std::atomic<bool> ExceptionHandler::s_exceptionThrown { false };
 std::mutex ExceptionHandler::s_exceptionMutex;
 std::exception ExceptionHandler::s_exception;
 std::string ExceptionHandler::s_exceptionStackTrace;
+std::atomic<ExceptionHandler::TaskGuard> ExceptionHandler::s_taskGuard { nullptr };
 
 void ExceptionHandler::setMainThread() { s_mainThreadId = std::this_thread::get_id(); }
 
@@ -55,3 +57,20 @@ void ExceptionHandler::reset()
     s_exceptionStackTrace.clear();
     s_exceptionThrown.store(false);
 }
+
+bool ExceptionHandler::runGuarded(const std::function<void()>& task)
+{
+    if (auto* const guard = s_taskGuard.load())
+        return guard(task);
+
+    try {
+        task();
+    } catch (const std::exception& e) {
+        setException(e, "");
+        return false;
+    }
+
+    return true;
+}
+
+void ExceptionHandler::setTaskGuard(TaskGuard guard) { s_taskGuard.store(guard); }

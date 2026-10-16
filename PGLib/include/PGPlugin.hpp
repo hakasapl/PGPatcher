@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -171,6 +172,25 @@ public:
     };
 
     /**
+     * @brief What orders the uses of a mesh, see isUseOrderedBefore(). The strings are views into the use.
+     */
+    struct UseOrder {
+        bool hasAlternateTextures = false;
+        bool isWeighted = false;
+        std::wstring_view modName;
+        unsigned formID = 0;
+        std::string_view subModel;
+    };
+
+    /**
+     * @brief The order the uses of a mesh are patched in: uses without alternate textures first, weighted uses first,
+     * then by plugin name, form ID and sub model. The first use of a mesh is the one that keeps the original path when
+     * the uses patch differently, so the offline program and the PGLite runtime order them the same way.
+     */
+    [[nodiscard]] static bool isUseOrderedBefore(const UseOrder& a,
+                                                 const UseOrder& b);
+
+    /**
      * @brief Stores attributes describing how a mesh record uses a 3D model.
      */
     struct MeshUseAttributes {
@@ -246,6 +266,12 @@ public:
     static std::unordered_set<ModelRecordType> defaultRecTypeSet();
 
     /**
+     * @brief Returns the record types DynDOLOD scans for full models (ACTI, CONT, DOOR, FURN, MSTT, STAT, TREE and
+     * GRAS): what the PGLite mode of the offline program patches, within the allowed record types.
+     */
+    static std::unordered_set<ModelRecordType> dynDOLODRecTypeSet();
+
+    /**
      * @brief Initializes the PGMutagen library with the game's active load order.
      *
      * Must be called before populateObjs(), modelUses(), setModelUses() or savePlugin().
@@ -312,6 +338,22 @@ public:
      */
     static void savePlugin(const std::filesystem::path& outputDir,
                            ESMMode esmMode);
+
+    /// @brief The stock records file of an output generated in PGLite mode, next to the plugins.
+    static constexpr const wchar_t* stockRecordsFile = L"PGPatcher_Stock.json";
+
+    /**
+     * @brief Writes stockRecordsFile into the directory, after savePlugin(): for every record model the output plugins
+     * changed, the stock model path and alternate textures and the written ones, for every texture set record
+     * created, the stock texture set it replaced, and the textures the run generated, which PGLite leaves out of its
+     * inputs. PGLite puts the records back from it when the output is enabled. The file is written even when no
+     * record changed, since it marks the output as one PGLite accepts.
+     *
+     * @param outputDir Directory in which to write the file.
+     * @param generatedTextures Lower case data relative paths of the textures the run generated.
+     */
+    static void saveStockRecords(const std::filesystem::path& outputDir,
+                                 const std::vector<std::filesystem::path>& generatedTextures = { });
 
     /**
      * @brief Returns a data path the way plugins store it: without the leading "meshes" or "textures" folder

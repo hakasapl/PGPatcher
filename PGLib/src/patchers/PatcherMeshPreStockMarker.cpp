@@ -76,6 +76,11 @@ PatcherMeshPreStockMarker::PatcherMeshPreStockMarker(std::filesystem::path nifPa
 {
 }
 
+void PatcherMeshPreStockMarker::loadOptions(bool shouldMarkEveryShape)
+{
+    s_shouldMarkEveryShape = shouldMarkEveryShape;
+}
+
 bool PatcherMeshPreStockMarker::applyPatch(PGTypes::TextureSet& slots,
                                            nifly::NiShape& nifShape)
 {
@@ -124,11 +129,12 @@ bool PatcherMeshPreStockMarker::applyPatch(PGTypes::TextureSet& slots,
         return isChanged;
     }
 
-    if (!meshUse().isBodySlideShapeData)
+    if (!meshUse().isBodySlideShapeData && !s_shouldMarkEveryShape)
         return false;
 
     // BodySlide clones the extra data of a ShapeData shape into every mesh it builds from it. The block created here
-    // lets a later run revert those meshes to stock before patching them. finalizeMarker() keeps only what changed.
+    // lets a later run revert those meshes to stock before patching them; in PGLite mode every patched shape gets
+    // one, which lets PGLite revert the output's meshes at runtime. finalizeMarker() keeps only what changed.
     writeMarker(*nif(), nifShape, captureStock(*nif(), nifShape));
     Logger::trace("Added {} block", extraDataName);
 

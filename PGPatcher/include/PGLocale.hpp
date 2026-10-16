@@ -10,6 +10,9 @@
  * @class PGLocale
  * @brief GUI localization system backed by JSON translation files
  *
+ * The string table is PGTranslation of PGLib, shared with PGLite; this is its wxWidgets face: wxString results and
+ * the wx language database as the display name of a translation file that has none.
+ *
  * Translation files live in the "translations" folder next to the executable, one file per language named by its
  * IETF/ISO language code (e.g. "en.json", "de.json", "pt-BR.json"). The schema is i18next-style nested JSON (the
  * de-facto standard JSON translation format, supported by Crowdin/Weblate/Lokalise and similar tools): nested objects

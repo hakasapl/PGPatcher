@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "pglite",
+  "version-string": "0.0.0",
+  "dependencies": [
+    "boost-algorithm",
+    "boost-crc",
+    "boost-gil",
+    "boost-iostreams",
+    {
+      "name": "directxtex",
+      "features": [
+        "dx11"
+      ]
+    },
+    "directxtk",
+    {
+      "name": "imgui",
+      "features": [
+        "dx11-binding"
+      ]
+    },
+    "nlohmann-json",
+    "rapidcsv",
+    "rsm-bsa",
+    "simpleini",
+    "stb",
+    {
+      "name": "spdlog",
+      "features": [
+        "wchar"
+      ]
+    }
+  ]
+}

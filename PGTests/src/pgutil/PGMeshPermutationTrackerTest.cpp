@@ -20,6 +20,7 @@
 #include <boost/crc.hpp>
 #include <spdlog/common.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -619,6 +620,107 @@ TEST_F(PGMeshPermutationTrackerTest,
     EXPECT_EQ(errors[0].first, weightedPath1);
     EXPECT_NE(errors[0].second.find(L"do not match"), std::wstring::npos);
     EXPECT_TRUE(PGMeshPermutationTracker::validateWeightedVariants().empty()); // the state was cleared
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       BytesConstructorNeedsNoFileMap)
+{
+    const auto bytes = FileUtil::fileBytes(dataDir() / meshPath);
+
+    // No file map lookup is made.
+    PGGlobals::setPGD(nullptr);
+    PGMeshPermutationTracker tracker(meshPath, bytes);
+    PGGlobals::setPGD(m_pgd.get());
+
+    auto* staged = tracker.stageMesh();
+    ASSERT_NE(staged, nullptr);
+    EXPECT_EQ(staged->GetShapes().size(), 2U);
+
+    EXPECT_THROW(PGMeshPermutationTracker(meshPath, std::vector<std::byte> { }), std::runtime_error);
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       SerializeMeshesReturnsTheOutputsWithoutWriting)
+{
+    PGMeshPermutationTracker tracker(meshPath, FileUtil::fileBytes(dataDir() / meshPath));
+    stageWithTexture(tracker, "textures\\a\\patched.dds");
+    EXPECT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }), CommitResult::Added);
+    stageWithTexture(tracker, "textures\\a\\other.dds");
+    EXPECT_EQ(tracker.commitMesh(s_useB, false, { }, { 0, 1 }), CommitResult::Added);
+
+    const auto outputs = tracker.serializeMeshes();
+    ASSERT_EQ(outputs.size(), 2U);
+    EXPECT_EQ(outputs[0].result.meshPath, meshPath);
+    EXPECT_EQ(outputs[1].result.meshPath, L"meshes\\_pgpatcher_dups\\1\\a\\stone.nif");
+    EXPECT_EQ(outputs[0].result.idxCorrections, (std::unordered_map<int, int> { { 0, 0 }, { 1, 1 } }));
+    ASSERT_EQ(outputs[0].result.altTexResults.size(), 1U);
+    EXPECT_EQ(outputs[0].result.altTexResults[0].first, s_useA);
+    EXPECT_FALSE(outputs[0].bytes.empty());
+    EXPECT_NE(outputs[0].crc32, 0U);
+    EXPECT_NE(outputs[0].crc32, outputs[1].crc32);
+    EXPECT_EQ(outputs[0].blockKinds,
+              (std::vector<PGMeshPermutationTracker::BlockKind> { PGMeshPermutationTracker::BlockKind::TriShape,
+                                                                  PGMeshPermutationTracker::BlockKind::TriShape }));
+    EXPECT_EQ(outputs[0].blockKinds, outputs[1].blockKinds);
+
+    // Nothing reached the output folder or the file map.
+    EXPECT_FALSE(std::filesystem::exists(outDir() / meshPath));
+    EXPECT_FALSE(m_pgd->isGenerated(meshPath));
+
+    // The bytes are the saved mesh.
+    std::vector<std::byte> bytes(outputs[0].bytes.size());
+    std::ranges::transform(outputs[0].bytes, bytes.begin(), [](char ch) { return static_cast<std::byte>(ch); });
+    const auto saved = PGNIFUtil::loadNIFFromBytes(bytes);
+    EXPECT_EQ(PGNIFUtil::textureSlot(&saved, saved.GetShapes()[0], TextureSlots::Diffuse), "textures\\a\\patched.dds");
+    EXPECT_EQ(PGNIFUtil::textureSlot(&saved, saved.GetShapes()[1], TextureSlots::Diffuse), "textures\\a\\stone.dds");
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       BlockTypeSignatureFollowsThe3DIndexOrder)
+{
+    NIFBuilder withParticles;
+    withParticles.addShape("Shape", stoneTextures());
+    withParticles.addParticleSystem("Particles");
+    withParticles.addNiTriShape("Old", stoneTextures());
+    EXPECT_EQ(PGMeshPermutationTracker::blockTypeSignature(withParticles.nif()),
+              (std::vector<PGMeshPermutationTracker::BlockKind> {
+                  PGMeshPermutationTracker::BlockKind::TriShape,
+                  PGMeshPermutationTracker::BlockKind::ParticleSystem,
+                  PGMeshPermutationTracker::BlockKind::Shape,
+              }));
+
+    // The textures of the shapes do not matter, only the kinds and their order.
+    NIFBuilder sameLayout;
+    sameLayout.addShape("Other", PGTypes::TextureSet());
+    sameLayout.addParticleSystem("P");
+    sameLayout.addNiTriShape("Older", PGTypes::TextureSet());
+    EXPECT_EQ(PGMeshPermutationTracker::blockTypeSignature(withParticles.nif()),
+              PGMeshPermutationTracker::blockTypeSignature(sameLayout.nif()));
+
+    NIFBuilder shapesOnly;
+    shapesOnly.addShape("Shape", stoneTextures());
+    shapesOnly.addShape("Second", stoneTextures());
+    EXPECT_NE(PGMeshPermutationTracker::blockTypeSignature(withParticles.nif()),
+              PGMeshPermutationTracker::blockTypeSignature(shapesOnly.nif()));
+    EXPECT_TRUE(PGMeshPermutationTracker::blockTypeSignature(NIFBuilder().nif()).empty());
+
+    // The signature decides exactly what the weighted layout check of compareMesh decides.
+    EXPECT_TRUE(PGMeshPermutationTracker::compareMesh(withParticles.nif(), sameLayout.nif(), { }, true, true));
+    EXPECT_FALSE(PGMeshPermutationTracker::compareMesh(withParticles.nif(), shapesOnly.nif(), { }, true, true));
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       ACommitWithoutTheOriginalCheckKeepsAnUnchangedMeshAsAnOutput)
+{
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load();
+    tracker.stageMesh();
+    EXPECT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }, false), CommitResult::Added);
+
+    const auto serialized = tracker.serializeMeshes();
+    ASSERT_EQ(serialized.size(), 1U);
+    EXPECT_FALSE(serialized[0].bytes.empty());
+    EXPECT_EQ(serialized[0].result.meshPath, meshPath); // the base output, since the base mesh is not ignored
 }
 
 }

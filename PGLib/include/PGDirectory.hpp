@@ -143,6 +143,17 @@ private:
     void findFiles();
 
     /**
+     * @brief Decides the slot and type of every unconfirmed texture from the votes cast so far (the file name suffix
+     * when there are none), applies the manual texture maps and the vanilla archive exclusion, and adds the textures
+     * to the texture maps. Environment masks go through the complex material classification, on the classification
+     * queue when multithreading.
+     */
+    void classifyUnconfirmedTextures(const std::unordered_map<std::wstring,
+                                                              PGEnums::TextureType>& manualTextureMapsMap,
+                                     const std::vector<std::wstring>& parallaxBSAExcludes,
+                                     const bool& multithreading);
+
+    /**
      * @brief Casts the texture votes of one mesh (from the update cache when the mesh is unchanged), queues the lookup
      * of its plugin uses and marks its mod as having meshes
      *
@@ -260,6 +271,18 @@ public:
      * @return Const reference to the vector of PBR JSON paths.
      */
     [[nodiscard]] const std::vector<std::filesystem::path>& pbrJSONs() const;
+
+    /**
+     * @brief Gives a mod manager what the mapping gave the installed one (PGGlobals::pgmm()): the shader of every
+     * mapped texture's mod as addToTextureMaps() assigned it, TruePBR for the mods of the TruePBR configs, and
+     * hasMeshes for the mods of the meshes the mesh reading pass read. For a mod list built from other mod manager
+     * settings than the installed ones (the PGLite menu). Call it on the installed directory (PGGlobals::pgd()), which
+     * the mod manager resolves archived files through, and while nothing replaces it; the patches that run meanwhile
+     * are fine, the maps it reads are locked.
+     *
+     * @param modManager The mod manager to attribute, with its mod file map populated.
+     */
+    void attributeMods(PGModManager& modManager);
 
     /**
      * @brief Returns the ordered list of Light Placer JSON configuration file paths.

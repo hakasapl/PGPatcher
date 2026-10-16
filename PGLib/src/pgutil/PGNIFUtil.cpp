@@ -2,7 +2,7 @@
 
 #include "BasicTypes.hpp"
 #include "ExtraData.hpp"
-#include "PGRunCache.hpp"
+#include "PGRunObserver.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/StringUtil.hpp"
@@ -723,7 +723,7 @@ PGNIFUtil::texMatch(const std::wstring& base,
     }
 
     // Record lookup for incremental runs (no-op unless a mesh is being recorded on this thread).
-    PGRunCache::recordTexMatch(baseLower, desiredType, outTex);
+    PGRunObserver::current().recordTexMatch(baseLower, desiredType, outTex);
 
     return outTex;
 }
@@ -865,9 +865,9 @@ bool PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
 
 bool PGNIFUtil::isFacegenMesh(const std::filesystem::path& path)
 {
-    // All facegen paths start with "meshes\actors\character\facegendata\facegeom\".
+    // All facegen paths start with the facegen folder.
     const std::filesystem::path lowerPath = StringUtil::toLowerASCIIFast(path.wstring());
-    const auto relativePath = lowerPath.lexically_relative("meshes/actors/character/facegendata/facegeom");
+    const auto relativePath = lowerPath.lexically_relative(facegenFolder);
     return !relativePath.empty() && relativePath.wstring().find(L"..") == std::string::npos;
 }
 
