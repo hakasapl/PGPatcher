@@ -114,7 +114,7 @@
       "title": "Patchers globaux",
       "recalculateBounds": {
         "label": "Recalculer les bounds",
-        "tooltip": "Recalcule les bounds de chaque mesh que PG écrit (équivalent à \"Update Bounds\" de NifSkope), ainsi que l'OBND (Object Bounds) des records STAT, TREE et GRAS qui les utilisent. Les records TREE et GRAS sont aussi mis à jour lorsque leur mesh n'est pas patché par ailleurs, car DynDOLOD s'appuie sur leur OBND pour générer les LODs. Ceci modifie des records du plugin, pas seulement les meshes."
+        "tooltip": "Recalcule les bounds de chaque mesh que PG écrit et l'OBND des records STAT, TREE et GRAS qui les utilisent, en corrigeant les valeurs fausses ou vides laissées par les auteurs de mods. DynDOLOD les lit pour les billboards de LOD des arbres/herbes et les grandes références. Modifie des records du plugin."
       }
     },
     "buttons": {
