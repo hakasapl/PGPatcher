@@ -60,6 +60,10 @@ jobs:
             A maintainer asked for this review, so in step 1 stop only when the pull request is closed. Do not stop because it is a draft, looks like it needs no review, or already has comments from Claude: it may have changed since then. Do not post an inline comment for an issue that an earlier Claude comment on the same lines already reports.
 
             The working directory holds the base branch. The pull request head is checked out in pr-head, so read the changed files from there.
-          claude_args: '--model claude-opus-5-5 --effort high --allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          # The gh commands are the ones the plugin uses to read the pull request and post its summary.
+          # Its own allowed-tools list does not cover this run, so without them it is denied and posts nothing.
+          claude_args: |
+            --model claude-opus-5-5 --effort high
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*)"
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
