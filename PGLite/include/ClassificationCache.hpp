@@ -24,12 +24,17 @@ namespace PGLite {
  * or changed files. The file is written for the PGLite version that made it: another version starts empty, since the
  * votes depend on the code that casts them. The cache is the process's PGRunObserver: the lookups a patch makes are
  * not recorded, since nothing replays them, and the textures the mesh patchers register with the texture hooks are
- * passed on to a listener (the texture generator).
+ * passed on to a listener (the texture generator), as are the texture files a lookup could not read (the plan, which
+ * patches the mesh again at a later open).
  */
 class ClassificationCache final : public PGRunObserver {
 public:
     /// @brief Receives a hook registration on the thread that patches, see PGRunObserver::recordHookRegistration().
     using HookRegistrationListener = std::function<void(HookKind, const std::filesystem::path&)>;
+
+    /// @brief Receives a texture read failure on the thread that looked the texture up, see
+    /// PGRunObserver::recordTextureReadFailure().
+    using TextureReadFailureListener = std::function<void(const std::filesystem::path&)>;
 
     /// @brief Reads the cache file, if there is one. A file that cannot be read, or of another version, starts empty.
     void load(const std::filesystem::path& file);
@@ -39,6 +44,9 @@ public:
 
     /// @brief Sets the listener of the hook registrations. Before the cache is installed as the observer.
     void setHookRegistrationListener(HookRegistrationListener listener);
+
+    /// @brief Sets the listener of the texture read failures. Before the cache is installed as the observer.
+    void setTextureReadFailureListener(TextureReadFailureListener listener);
 
     /**
      * @brief Writes the cache file when an entry was added since it was read. Only the entries this session looked up
@@ -71,6 +79,8 @@ public:
     void recordHookRegistration(const HookKind& kind,
                                 const std::filesystem::path& texPath) override;
 
+    void recordTextureReadFailure(const std::filesystem::path& path) override;
+
 private:
     struct CMEntry {
         BethesdaDirectory::FileIdentity identity;
@@ -87,6 +97,7 @@ private:
 
     std::filesystem::path m_file;
     HookRegistrationListener m_hookRegistrationListener;
+    TextureReadFailureListener m_textureReadFailureListener;
     std::unordered_map<std::filesystem::path, CMEntry> m_cmEntries;
     std::unordered_map<std::filesystem::path, MeshEntry> m_meshEntries;
     mutable std::mutex m_mutex;

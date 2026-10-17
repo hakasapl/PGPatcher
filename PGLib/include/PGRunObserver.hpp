@@ -101,6 +101,17 @@ public:
                                   const std::filesystem::path& output);
 
     //
+    // Reads that failed.
+    //
+
+    /**
+     * @brief A texture file a lookup needed and could not read: the file could not be opened or read, as opposed to
+     * not being a DDS file. The lookup treats the texture as missing. Reported even while recording is suspended, as
+     * it is an event of the run, not a query; the PGLite runtime patches the mesh again at a later open because of it.
+     */
+    virtual void recordTextureReadFailure(const std::filesystem::path& path);
+
+    //
     // Classifications of a previous run.
     //
 

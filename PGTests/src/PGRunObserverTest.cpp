@@ -93,6 +93,7 @@ TEST_F(PGRunObserverTest,
     EXPECT_FALSE(observer.tryReuseHookOutput(HookKind::ConvertToCM, L"textures\\a\\stone_p.dds"));
     observer.recordHookRegistration(HookKind::FixSSS, L"textures\\a\\leaf.dds");
     observer.recordHookOutput(HookKind::FixSSS, L"textures\\a\\leaf.dds", L"textures\\a\\leaf_s.dds");
+    observer.recordTextureReadFailure(L"textures\\a\\leaf.dds");
 
     std::vector<PGTypes::TextureVote> votes;
     EXPECT_FALSE(observer.tryGetCachedMeshVotes(L"meshes\\a\\stone.nif", { }, votes));

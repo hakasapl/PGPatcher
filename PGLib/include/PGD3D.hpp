@@ -3,6 +3,7 @@
 #include <DirectXTex.h>
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <d3d11.h>
 #include <d3dcommon.h>
@@ -44,6 +45,16 @@ private:
 
     std::unordered_map<std::filesystem::path, DirectX::TexMetadata> m_ddsMetaDataCache;
     std::shared_mutex m_ddsMetaDataMutex;
+
+    /// @brief A metadata read that failed: when, and whether the file could not be read at all (as opposed to not being
+    /// a DDS file), see getDDSMetadata(). Guarded by m_ddsMetaDataMutex.
+    struct DDSMetadataFailure {
+        std::chrono::steady_clock::time_point time;
+        bool isReadFailure = false;
+    };
+    static constexpr std::chrono::seconds defaultDDSMetadataRetryInterval { 5 };
+    std::unordered_map<std::filesystem::path, DDSMetadataFailure> m_ddsMetaDataFailures;
+    std::chrono::steady_clock::duration m_ddsMetadataRetryInterval = defaultDDSMetadataRetryInterval;
 
     // Global shader storage.
     Microsoft::WRL::ComPtr<ID3D11ComputeShader> m_shaderCountAlphaValues;
@@ -354,7 +365,11 @@ public:
                 DirectX::ScratchImage& dds) const;
 
     /**
-     * @brief Read the header of a DDS texture of the load order. Results are cached, so a texture is read once
+     * @brief Read the header of a DDS texture of the load order. Results are cached, so a texture is read once. A
+     * failed read is remembered for the retry interval (setDDSMetadataRetryInterval()), so a burst of lookups does not
+     * read a failing file for each of them, and the file is read again afterwards. A file that could not be read at
+     * all, as opposed to one that is no DDS file, is reported to the run observer by every failed lookup
+     * (PGRunObserver::recordTextureReadFailure())
      *
      * @param ddsPath lower case path of the DDS file relative to the data folder
      * @param[out] ddsMeta the metadata
@@ -363,6 +378,14 @@ public:
      */
     bool getDDSMetadata(const std::filesystem::path& ddsPath,
                         DirectX::TexMetadata& ddsMeta);
+
+    /**
+     * @brief Set how long getDDSMetadata() remembers a failed read before it reads the file again. Five seconds by
+     * default
+     *
+     * @param interval the time a failure is remembered
+     */
+    void setDDSMetadataRetryInterval(std::chrono::steady_clock::duration interval);
 
     /**
      * @brief Pre-populate the DDS metadata cache with known metadata (from a previous run) so the file is not read
@@ -398,6 +421,24 @@ private:
     // Private Helpers.
     //
     static bool isPowerOfTwo(unsigned x);
+
+    /**
+     * @brief Whether a DirectXTex result says the file could not be opened or read, as opposed to not being a DDS
+     * file
+     *
+     * @param hr the result of a DirectXTex file function
+     * @return true if the file system failed; false for a file that is no DDS or any other result
+     */
+    [[nodiscard]] static bool isFileReadError(HRESULT hr);
+
+    /**
+     * @brief Remember a failed metadata read for the retry interval, see getDDSMetadata()
+     *
+     * @param ddsPath lower case path of the DDS file relative to the data folder
+     * @param isReadFailure whether the file could not be read at all
+     */
+    void rememberDDSMetadataFailure(const std::filesystem::path& ddsPath,
+                                    bool isReadFailure);
 
     static DirectX::ScratchImage loadRawPixelsToScratchImage(const std::vector<unsigned char>& rawPixels,
                                                              const size_t& width,

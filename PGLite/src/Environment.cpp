@@ -396,7 +396,7 @@ void Environment::switchToEngineReads()
     m_directory->setFileReader([](const std::filesystem::path& relPath) {
         std::vector<std::byte> bytes;
         if (!Resources::readFile(StringUtil::utf16toWindows1252(relPath.wstring()), bytes))
-            throw std::runtime_error("The engine cannot read " + StringUtil::utf16toUTF8(relPath.wstring()));
+            throw EngineReadError("The engine cannot read " + StringUtil::utf16toUTF8(relPath.wstring()));
 
         return bytes;
     });

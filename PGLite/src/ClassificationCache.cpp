@@ -235,11 +235,22 @@ void ClassificationCache::setHookRegistrationListener(HookRegistrationListener l
     m_hookRegistrationListener = std::move(listener);
 }
 
+void ClassificationCache::setTextureReadFailureListener(TextureReadFailureListener listener)
+{
+    m_textureReadFailureListener = std::move(listener);
+}
+
 void ClassificationCache::recordHookRegistration(const HookKind& kind,
                                                  const std::filesystem::path& texPath)
 {
     if (m_hookRegistrationListener)
         m_hookRegistrationListener(kind, texPath);
+}
+
+void ClassificationCache::recordTextureReadFailure(const std::filesystem::path& path)
+{
+    if (m_textureReadFailureListener)
+        m_textureReadFailureListener(path);
 }
 
 void ClassificationCache::save() const

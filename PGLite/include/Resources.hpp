@@ -2,10 +2,21 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace PGLite {
+
+/**
+ * @brief Thrown by a read that goes through the engine's resource layer, or of a texture file, when the input was not
+ * there: a path the engine cannot resolve, a stream that cannot be read, a header that cannot be read. A patch that
+ * throws it is not kept, since a later open may find the input (Family::bytes).
+ */
+class EngineReadError final : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
 
 /**
  * @brief The engine's resource layer (DESIGN.md section 3.1): the registry that maps a path to the stream the engine

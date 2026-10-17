@@ -6,6 +6,7 @@
 #include "FakeGame.hpp"
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "PGRunObserver.hpp"
 #include "TestUtil.hpp"
 #include "common/BethesdaGame.hpp"
 
@@ -17,6 +18,7 @@
 #include <wrl/client.h>
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -25,6 +27,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -32,6 +35,19 @@ namespace {
 
 namespace TestLog = TestUtil::TestLog;
 using TestUtil::DDSBuilder::RGBA;
+
+/**
+ * @brief An observer that keeps the texture files the GPU helpers report as unreadable.
+ */
+class ReadFailureObserver final : public PGRunObserver {
+public:
+    // The test reads the records directly.
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+    std::vector<std::filesystem::path> readFailures;
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+
+    void recordTextureReadFailure(const std::filesystem::path& path) override { readFailures.push_back(path); }
+};
 
 /**
  * @brief A game whose data folder holds a few textures, loose and archived, mapped by a PGDirectory that is the global
@@ -73,7 +89,11 @@ protected:
         m_hasGPU = m_d3d.initGPU() && m_d3d.initShaders();
     }
 
-    void TearDown() override { PGGlobals::setPGD(nullptr); }
+    void TearDown() override
+    {
+        PGRunObserver::install(nullptr);
+        PGGlobals::setPGD(nullptr);
+    }
 
     void requireGPU() const
     {
@@ -199,6 +219,62 @@ TEST_F(PGD3DTest,
     EXPECT_TRUE(snapshot.contains(L"textures\\wide.dds"));
     EXPECT_TRUE(snapshot.contains(L"textures\\archived.dds"));
     EXPECT_FALSE(snapshot.contains(L"textures\\bad.dds"));
+}
+
+TEST_F(PGD3DTest,
+       GetDdsMetadataRemembersAFailedReadForTheRetryIntervalAndReportsUnreadableFiles)
+{
+    ReadFailureObserver observer;
+    PGRunObserver::install(&observer);
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::milliseconds(200));
+
+    // A file that is no DDS file is remembered but not reported: nothing about it is transient.
+    DirectX::TexMetadata meta { };
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\bad.dds", meta));
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\archived_bad.dds", meta));
+    EXPECT_TRUE(observer.readFailures.empty());
+
+    // A mapped loose file that is gone from the disk could not be read: reported, and remembered for the interval, so
+    // a file that appears meanwhile is not seen before the interval passed.
+    std::filesystem::remove(m_fake.dataDir() / L"textures\\tall.dds");
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\tall.dds", meta));
+    ASSERT_EQ(observer.readFailures.size(), 1U);
+    EXPECT_EQ(observer.readFailures[0], L"textures\\tall.dds");
+    TestUtil::DDSBuilder::writeDDS(m_fake.dataDir() / L"textures\\tall.dds", 64, 128);
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\tall.dds", meta));
+    EXPECT_EQ(observer.readFailures.size(), 2U);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_TRUE(m_d3d.getDDSMetadata(L"textures\\tall.dds", meta));
+    EXPECT_EQ(meta.height, 128U);
+    EXPECT_EQ(observer.readFailures.size(), 2U);
+
+    // Cached from now on, like every texture that was read.
+    std::filesystem::remove(m_fake.dataDir() / L"textures\\tall.dds");
+    ASSERT_TRUE(m_d3d.getDDSMetadata(L"textures\\tall.dds", meta));
+    EXPECT_EQ(meta.height, 128U);
+
+    // An archived file the directory cannot read is a read failure too, remembered the same way.
+    m_pgd->setFileReader([](const std::filesystem::path& relPath) -> std::vector<std::byte> {
+        throw std::runtime_error("The engine cannot read " + TestUtil::pathToUTF8(relPath));
+    });
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\archived.dds", meta));
+    ASSERT_EQ(observer.readFailures.size(), 3U);
+    EXPECT_EQ(observer.readFailures[2], L"textures\\archived.dds");
+    m_pgd->setFileReader(BethesdaDirectory::FileReader());
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\archived.dds", meta));
+    EXPECT_EQ(observer.readFailures.size(), 4U);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_TRUE(m_d3d.getDDSMetadata(L"textures\\archived.dds", meta));
+    EXPECT_EQ(meta.width, 16U);
+    EXPECT_EQ(observer.readFailures.size(), 4U);
+
+    // The aspect ratio check reports through the same lookup.
+    std::filesystem::remove(m_fake.dataDir() / L"textures\\wide2.dds");
+    EXPECT_FALSE(m_d3d.checkIfAspectRatioMatches(L"textures\\wide.dds", L"textures\\wide2.dds"));
+    ASSERT_EQ(observer.readFailures.size(), 5U);
+    EXPECT_EQ(observer.readFailures[4], L"textures\\wide2.dds");
 }
 
 TEST_F(PGD3DTest,

@@ -111,7 +111,13 @@ void TextureGenerator::onEnvironmentReplaced(PGDirectory& directory)
 
 TextureGenerator::Stats TextureGenerator::stats() const
 {
-    return { .generated = m_generated, .fromCache = m_fromCache, .failed = m_failed };
+    Stats stats { .generated = m_generated, .fromCache = m_fromCache, .failed = 0 };
+    const std::scoped_lock lock(m_mutex);
+    for (const auto& [output, entry] : m_entries)
+        if (entry.isDone && !entry.isServed)
+            stats.failed++;
+
+    return stats;
 }
 
 void TextureGenerator::process(HookKind kind,
@@ -123,15 +129,23 @@ void TextureGenerator::process(HookKind kind,
         std::unique_lock lock(m_mutex);
         const auto [it, isNew] = m_entries.try_emplace(output);
         entry = &it->second; // the map is node based, so the entry stays where it is
-        if (!isNew) {
+        if (isNew) {
+            entry->type = PatcherTextureHook::outputTypeOf(kind);
+        } else {
             // Made already, or being made by another thread: the mesh that names it is about to be parsed, so wait.
+            const auto attemptsSeen = entry->attempts;
             m_done.wait(lock, [entry] { return entry->isDone; });
-            return;
-        }
+            if (entry->isServed)
+                return;
 
-        // Recorded first: a texture that fails is not tried again for every mesh that names it. Offline logs it once
-        // too.
-        entry->type = PatcherTextureHook::outputTypeOf(kind);
+            // A texture that failed is tried again by the next open that names it, since the failure may have been
+            // the engine's or the disk's at the time; a generation that finished while this open waited was its try.
+            // The entry stays, so a texture that keeps failing is tried once per open, not once per mesh of the open.
+            if (entry->attempts != attemptsSeen)
+                return;
+
+            entry->isDone = false;
+        }
     }
 
     bool isServed = false;
@@ -142,6 +156,7 @@ void TextureGenerator::process(HookKind kind,
     {
         const std::scoped_lock lock(m_mutex);
         entry->isServed = isServed;
+        entry->attempts++;
         entry->isDone = true;
     }
     m_done.notify_all();
@@ -159,7 +174,6 @@ bool TextureGenerator::make(HookKind kind,
         std::vector<std::byte> source;
         if (!Resources::readFile(pathString(texPath), source)) {
             Logger::error(L"Unable to read {} to generate {}", texPath.wstring(), output.wstring());
-            m_failed++;
             return false;
         }
 
@@ -169,10 +183,8 @@ bool TextureGenerator::make(HookKind kind,
             m_fromCache++;
             Logger::debug(L"The cached {} is current", output.wstring());
         } else {
-            if (!generate(kind, texPath, source, cacheFile, key)) {
-                m_failed++;
+            if (!generate(kind, texPath, source, cacheFile, key))
                 return false;
-            }
 
             m_generated++;
             const auto elapsed
@@ -204,12 +216,10 @@ bool TextureGenerator::make(HookKind kind,
                       output.wstring(),
                       texPath.wstring(),
                       StringUtil::utf8toUTF16(e.what()));
-        m_failed++;
         return false;
     } catch (...) {
         // Whatever is thrown, the caller marks the entry done, so no thread waits for it forever.
         Logger::error(L"Unable to generate {} from {}", output.wstring(), texPath.wstring());
-        m_failed++;
         return false;
     }
 }
