@@ -118,8 +118,8 @@ public:
      * @param stageCallback invoked when a new stage starts. When a previous output is updated, every mesh is
      * evaluated before patching and the progress callback counts that evaluation first, so the stages are reported
      * separately for progress displays.
-     * @param shouldComputeObjectBounds whether to recalculate the OBND of the records that use the output meshes, and
-     * of the tree and grass records whose mesh is not output (the "Recalculate Bounds" global patcher)
+     * @param shouldRecalculateBounds whether to recalculate the bounds of the output meshes and the OBND of the tree
+     * and grass records that use them, or the original mesh when it is not output (the "Recalculate Bounds" option)
      */
     static void patchMeshes(const bool& shouldMultithread = true,
                             const bool& forceBasePatch = false,
@@ -130,7 +130,7 @@ public:
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback = { },
                             const std::function<void(MeshPatchStage)>& stageCallback = { },
-                            const bool& shouldComputeObjectBounds = false);
+                            const bool& shouldRecalculateBounds = false);
 
     /**
      * @brief Patches every texture of PGGlobals::pgd()->textures(): runs the texture hooks the mesh patchers
@@ -235,7 +235,7 @@ private:
      *
      * @param nifPath lower case relative path to the NIF file
      * @param setModelUsesQueue queue the plugin updates are posted to
-     * @param shouldComputeObjectBounds whether to also update the OBND of the records, see patchMeshes()
+     * @param shouldRecalculateBounds whether to recalculate the bounds, see patchMeshes()
      * @return Result::Failure if the mesh could not be processed
      */
     static TaskTracker::Result patchNIF(const std::filesystem::path& nifPath,
@@ -245,7 +245,7 @@ private:
                                         const bool& checkAllowedRecTypes = false,
                                         const bool& excludeFacegens = false,
                                         const bool& isPGLiteMode = false,
-                                        const bool& shouldComputeObjectBounds = false);
+                                        const bool& shouldRecalculateBounds = false);
 
     /**
      * @brief Replays the side effects of patching a NIF whose output from the previous run is still valid
@@ -253,13 +253,11 @@ private:
      * @param nifPath relative path to the NIF file
      * @param replayedMeshResults collects the mesh results of all replayed NIFs so their plugin model uses can be
      * applied in a single batch
-     * @param replayedBoundsResults collects the bounds-only results (see patchNIF) of all replayed NIFs
-     * @param replayedMeshResultsMutex mutex protecting both replayed result vectors
+     * @param replayedMeshResultsMutex mutex protecting the replayed result vector
      * @return TaskTracker::Result result of the replay
      */
     static TaskTracker::Result replayNIF(const std::filesystem::path& nifPath,
                                          std::vector<PGMeshPermutationTracker::MeshResult>& replayedMeshResults,
-                                         std::vector<PGMeshPermutationTracker::MeshResult>& replayedBoundsResults,
                                          std::mutex& replayedMeshResultsMutex);
 
     /**

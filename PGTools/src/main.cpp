@@ -3,7 +3,6 @@
 #include "PGGlobals.hpp"
 #include "PGPatcher.hpp"
 #include "patchers/PatcherMeshGlobalParticleLightsToLP.hpp"
-#include "patchers/PatcherMeshGlobalRecalculateBounds.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -429,8 +428,6 @@ int mainRunner(PGToolsCLIArgs& args)
         }
         if (patcherDefs.contains("particlelightstolp"))
             meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalParticleLightsToLP::factory());
-        if (patcherDefs.contains("recalculatebounds"))
-            meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalRecalculateBounds::factory());
 
         if (patcherDefs.contains("restoredefaultshaders"))
             meshPatchers.postPatchers.emplace_back(PatcherMeshPostRestoreDefaultShaders::factory());
@@ -451,7 +448,8 @@ int mainRunner(PGToolsCLIArgs& args)
         }
 
         PGPatcher::loadPatchers(meshPatchers, texPatchers);
-        PGPatcher::patchMeshes(args.multithreading, true);
+        PGPatcher::patchMeshes(
+            args.multithreading, true, { }, false, false, false, { }, { }, patcherDefs.contains("recalculatebounds"));
         PGPatcher::patchTextures(args.multithreading);
 
         // Finalize step.

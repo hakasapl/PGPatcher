@@ -476,6 +476,34 @@ public class PGMutagen
         return false;
     }
 
+    // The mutable copy of a record the output overrides: the one an earlier update made, or a new copy of the winning
+    // record. Null when the record cannot be copied, which is remembered so it is skipped from then on.
+    private static IMajorRecord? GetMutableRecord(FormKey formKey, IMajorRecordGetter existingRecord)
+    {
+        if (ModifiedRecords.TryGetValue(formKey, out IMajorRecord? modifiedRecord))
+        {
+            return modifiedRecord;
+        }
+
+        try
+        {
+            return existingRecord.DeepCopy();
+        }
+        catch (Exception)
+        {
+            MessageHandler.Log("Failed to copy model record: " + GetRecordDesc(existingRecord), 4);
+            ModifiedRecords[formKey] = null;
+            return null;
+        }
+    }
+
+    // Whether the output overrides any record so far, which is when a plugin gets written.
+    [UnmanagedCallersOnly(EntryPoint = "HasModifiedRecords", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void HasModifiedRecords([DNNE.C99Type("int*")] int* hasModifiedRecords)
+    {
+        *hasModifiedRecords = ModifiedRecords.Values.Any(record => record is not null) ? 1 : 0;
+    }
+
     [UnmanagedCallersOnly(EntryPoint = "ResetPatchingState", CallConvs = [typeof(CallConvCdecl)])]
     public static void ResetPatchingState([DNNE.C99Type("const int")] int _reserved)
     {
@@ -1107,27 +1135,7 @@ public class PGMutagen
                     continue;
                 }
 
-                // check if we already modified this record
-                IMajorRecord? modRecord = null;
-                if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
-                {
-                    // record already modified
-                    modRecord = value;
-                }
-                else
-                {
-                    try
-                    {
-                        // create a mutable copy of the existing record
-                        modRecord = existingRecord.DeepCopy();
-                    }
-                    catch (Exception)
-                    {
-                        MessageHandler.Log("Failed to copy model record: " + GetRecordDesc(existingRecord), 4);
-                        ModifiedRecords[searchFormKey] = null;
-                    }
-                }
-
+                var modRecord = GetMutableRecord(searchFormKey, existingRecord);
                 if (modRecord is null)
                 {
                     // invalid record, skip
@@ -1330,11 +1338,10 @@ public class PGMutagen
                     throw new Exception("Failed to resolve model record for formkey: " + searchFormKey);
                 }
 
-                // The OBND is only recomputed for the record types where it was verified to match the Creation Kit's
-                // own calculation from the model's geometry (statics, trees and grass). For other types, such as
-                // furniture, activators and moveable statics, the vanilla OBND is often authored differently, so it is
-                // left alone.
-                if (existingRecord is not (IStaticGetter or ITreeGetter or IGrassGetter)
+                // Only trees and grass get a recalculated OBND: TexGen reads it for their LOD billboards. For the other
+                // record types the vanilla OBND is often authored differently from the geometry (statics, furniture,
+                // activators, moveable statics), so it is left alone.
+                if (existingRecord is not (ITreeGetter or IGrassGetter)
                     || existingRecord is not IObjectBoundedGetter existingBoundedRecord)
                 {
                     continue;
@@ -1353,40 +1360,15 @@ public class PGMutagen
                     continue;
                 }
 
-                // check if we already modified this record
-                IMajorRecord? modRecord = null;
-                if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
-                {
-                    // record already modified
-                    modRecord = value;
-                }
-                else
-                {
-                    try
-                    {
-                        // create a mutable copy of the existing record
-                        modRecord = existingRecord.DeepCopy();
-                    }
-                    catch (Exception)
-                    {
-                        MessageHandler.Log("Failed to copy model record: " + GetRecordDesc(existingRecord), 4);
-                        ModifiedRecords[searchFormKey] = null;
-                    }
-                }
-
+                var modRecord = GetMutableRecord(searchFormKey, existingRecord);
                 if (modRecord is null)
                 {
                     // invalid record, skip
                     continue;
                 }
 
-                if (modRecord is not IObjectBounded modBoundedRecord)
-                {
-                    // Should not happen since existingRecord already implements IObjectBoundedGetter, but guard
-                    // against a DeepCopy() implementation that returns a different concrete type.
-                    continue;
-                }
-
+                // A copy of an IObjectBoundedGetter record is an IObjectBounded one, anything else is a bug.
+                var modBoundedRecord = (IObjectBounded)modRecord;
                 modBoundedRecord.ObjectBounds = newBounds;
                 ModifiedRecords[searchFormKey] = modRecord;
             }

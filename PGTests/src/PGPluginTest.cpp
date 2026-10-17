@@ -3,6 +3,7 @@
 #include "FakeGame.hpp"
 #include "PGMutagenWrapper.hpp"
 #include "PluginBuilder.hpp"
+#include "PluginReader.hpp"
 #include "TestUtil.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
@@ -30,6 +31,11 @@ namespace {
 
 namespace TestLog = TestUtil::TestLog;
 using TestUtil::PluginBuilder;
+using TestUtil::PluginReader::objectBounds;
+using TestUtil::PluginReader::readUInt32;
+using TestUtil::PluginReader::signature;
+using TestUtil::PluginReader::subrecord;
+using TestUtil::PluginReader::subrecordString;
 using FormKey = PGMeshPermutationTracker::FormKey;
 using MeshResult = PGMeshPermutationTracker::MeshResult;
 using ModelRecordType = PGPlugin::ModelRecordType;
@@ -56,7 +62,7 @@ constexpr uint32_t newStaticID = 0x000800;
 constexpr uint32_t sharedStatic2FormID = 0x01000801;
 constexpr uint32_t sharedStatic2ID = 0x000801;
 
-constexpr PluginBuilder::ObjectBounds boundedTreeBounds { 1, 2, 3, 4, 5, 6 };
+constexpr PGTypes::ObjectBounds boundedTreeBounds { .min = { 1, 2, 3 }, .max = { 4, 5, 6 } };
 
 /// @brief The flags of the TES4 header of a plugin file.
 uint32_t headerFlags(const std::filesystem::path& plugin)
@@ -96,94 +102,6 @@ uint32_t firstRecordFormID(const std::filesystem::path& plugin,
     }
 
     return 0;
-}
-
-/// @brief Little endian unsigned integer at an offset of a byte buffer, 0 when it does not fit.
-uint32_t readUInt32(const std::vector<std::byte>& bytes,
-                    size_t offset)
-{
-    uint32_t value = 0;
-    if (offset + sizeof(value) <= bytes.size())
-        std::memcpy(&value, &bytes.at(offset), sizeof(value));
-    return value;
-}
-
-/// @brief Four character signature at an offset of a plugin file.
-std::string signature(const std::vector<std::byte>& bytes,
-                      size_t offset)
-{
-    std::string sig;
-    for (size_t i = offset; i < offset + 4 && i < bytes.size(); i++)
-        sig.push_back(static_cast<char>(bytes[i]));
-    return sig;
-}
-
-/// @brief Data of a subrecord of the record with the given type and form ID, empty if there is none.
-std::vector<std::byte> subrecord(const std::filesystem::path& plugin,
-                                 const std::string& type,
-                                 uint32_t formID,
-                                 const std::string& sub)
-{
-    const auto bytes = FileUtil::fileBytes(plugin);
-    size_t pos = 0;
-    while (pos + 24 <= bytes.size()) {
-        const auto sig = signature(bytes, pos);
-        const auto size = readUInt32(bytes, pos + 4);
-        if (sig == "GRUP") {
-            pos += 24; // the records of the group follow its header
-            continue;
-        }
-
-        if (sig == type && readUInt32(bytes, pos + 12) == formID) {
-            size_t subPos = pos + 24;
-            const size_t end = std::min(subPos + size, bytes.size());
-            while (subPos + 6 <= end) {
-                const auto subSig = signature(bytes, subPos);
-                uint16_t subSize = 0;
-                std::memcpy(&subSize, &bytes.at(subPos + 4), sizeof(subSize));
-                subPos += 6;
-                if (subSig == sub) {
-                    const auto first = static_cast<std::ptrdiff_t>(subPos);
-                    const auto last = static_cast<std::ptrdiff_t>(std::min(subPos + subSize, end));
-                    return { bytes.begin() + first, bytes.begin() + last };
-                }
-                subPos += subSize;
-            }
-            return { };
-        }
-
-        pos += 24 + size;
-    }
-
-    return { };
-}
-
-/// @brief Zero terminated string subrecord of a record, without the terminator.
-std::string subrecordString(const std::filesystem::path& plugin,
-                            const std::string& type,
-                            uint32_t formID,
-                            const std::string& sub)
-{
-    std::string text;
-    for (const auto byte : subrecord(plugin, type, formID, sub))
-        text.push_back(static_cast<char>(byte));
-    while (!text.empty() && text.back() == '\0')
-        text.pop_back();
-    return text;
-}
-
-/// @brief The OBND subrecord of a record, std::nullopt if the record is not in the plugin or has none.
-std::optional<PluginBuilder::ObjectBounds> objectBounds(const std::filesystem::path& plugin,
-                                                        const std::string& type,
-                                                        uint32_t formID)
-{
-    const auto data = subrecord(plugin, type, formID, "OBND");
-    PluginBuilder::ObjectBounds bounds { };
-    if (data.size() != sizeof(bounds))
-        return std::nullopt;
-
-    std::memcpy(bounds.data(), data.data(), data.size());
-    return bounds;
 }
 
 /**
@@ -687,42 +605,47 @@ TEST_F(PGPluginTest,
 }
 
 TEST_F(PGPluginTest,
-       SetObjectBoundsWritesTheBoundsOfStaticTreeAndGrassRecords)
+       SetObjectBoundsWritesTheBoundsOfTreeAndGrassRecordsOnly)
 {
     const PGTypes::ObjectBounds bounds { .min = { -10, -5, 0 }, .max = { 10, 5, 20 } };
-    const PluginBuilder::ObjectBounds expected { -10, -5, 0, 10, 5, 20 };
+    EXPECT_FALSE(PGPlugin::hasModifiedRecords());
     PGPlugin::setObjectBounds({
-        boundsResultFor(masterKey(altTexStaticFormID), bounds),
         boundsResultFor(masterKey(treeFormID), bounds),
         boundsResultFor(masterKey(grassFormID), bounds),
+        boundsResultFor(masterKey(altTexStaticFormID), bounds),
         boundsResultFor(masterKey(activatorFormID), bounds),
     });
+    EXPECT_TRUE(PGPlugin::hasModifiedRecords());
 
     const auto out = m_fake.gameDir() / L"Output";
     std::filesystem::create_directories(out);
     PGPlugin::savePlugin(out, PGPlugin::ESMMode::PGPatcherOnly);
     ASSERT_TRUE(std::filesystem::exists(out / L"PG_1.esp"));
-    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "STAT", altTexStaticFormID), expected);
-    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "TREE", treeFormID), expected);
-    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "GRAS", grassFormID), expected);
+    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "TREE", treeFormID), bounds);
+    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "GRAS", grassFormID), bounds);
 
-    // The bounds of the other record types are authored differently, so the record is not overridden.
+    // The OBND of the other types is authored differently from the geometry, so their records are not overridden.
+    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "STAT", altTexStaticFormID), std::nullopt);
     EXPECT_EQ(objectBounds(out / L"PG_1.esp", "ACTI", activatorFormID), std::nullopt);
+
+    // Forgetting the run forgets the overrides.
+    PGPlugin::resetPatchingState();
+    EXPECT_FALSE(PGPlugin::hasModifiedRecords());
 }
 
 TEST_F(PGPluginTest,
        SetObjectBoundsSkipsUnchangedUnsupportedAndBoundlessUses)
 {
     const PGTypes::ObjectBounds bounds { .min = { -10, -5, 0 }, .max = { 10, 5, 20 } };
-    const PGTypes::ObjectBounds unchanged { .min = { 1, 2, 3 }, .max = { 4, 5, 6 } };
     const FormKey dummy { .modKey = L"", .formID = 0, .subMODL = "" };
     const FormKey secondaryModel { .modKey = L"Skyrim.esm", .formID = ironAddonFormID, .subMODL = "MALE" };
     PGPlugin::setObjectBounds({
-        boundsResultFor(masterKey(boundedTreeFormID), unchanged), // the record already has these bounds
+        boundsResultFor(masterKey(boundedTreeFormID), boundedTreeBounds), // the record already has these bounds
         boundsResultFor(dummy, bounds), // a use without a plugin record
         boundsResultFor(secondaryModel, bounds), // OBND belongs to the primary model only
         resultFor(masterKey(treeFormID), L"meshes\\landscape\\tree.nif"), // no bounds were computed
     });
+    EXPECT_FALSE(PGPlugin::hasModifiedRecords());
 
     const auto out = m_fake.gameDir() / L"Output";
     std::filesystem::create_directories(out);
@@ -734,7 +657,8 @@ TEST_F(PGPluginTest,
        SetObjectBoundsAndSetModelUsesShareTheOverriddenRecord)
 {
     const PGTypes::ObjectBounds bounds { .min = { -10, -5, 0 }, .max = { 10, 5, 20 } };
-    PGPlugin::setModelUses({ resultFor(masterKey(treeFormID), L"meshes\\_pgpatcher_dups\\1\\landscape\\tree.nif") });
+    PGPlugin::setModelUses(
+        { resultFor(masterKey(treeFormID), L"meshes\\_pgpatcher_dups\\1\\landscape\\tree.nif") });
     PGPlugin::setObjectBounds({ boundsResultFor(masterKey(treeFormID), bounds) });
 
     const auto out = m_fake.gameDir() / L"Output";
@@ -742,8 +666,24 @@ TEST_F(PGPluginTest,
     PGPlugin::savePlugin(out, PGPlugin::ESMMode::PGPatcherOnly);
     EXPECT_EQ(subrecordString(out / L"PG_1.esp", "TREE", treeFormID, "MODL"),
               "_pgpatcher_dups\\1\\landscape\\tree.nif");
-    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "TREE", treeFormID),
-              (PluginBuilder::ObjectBounds { -10, -5, 0, 10, 5, 20 }));
+    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "TREE", treeFormID), bounds);
+}
+
+TEST_F(PGPluginTest,
+       ABoundsOnlyResultKeepsTheModelOfTheRecord)
+{
+    // The result the runner adds for a tree whose mesh is not output: the original mesh path and nothing else.
+    const PGTypes::ObjectBounds bounds { .min = { -10, -5, 0 }, .max = { 10, 5, 20 } };
+    auto result = boundsResultFor(masterKey(treeFormID), bounds);
+    result.meshPath = L"meshes\\landscape\\tree.nif";
+    PGPlugin::setModelUses({ result });
+    PGPlugin::setObjectBounds({ result });
+
+    const auto out = m_fake.gameDir() / L"Output";
+    std::filesystem::create_directories(out);
+    PGPlugin::savePlugin(out, PGPlugin::ESMMode::PGPatcherOnly);
+    EXPECT_EQ(subrecordString(out / L"PG_1.esp", "TREE", treeFormID, "MODL"), "landscape\\tree.nif");
+    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "TREE", treeFormID), bounds);
 }
 
 TEST_F(PGPluginTest,
@@ -753,8 +693,12 @@ TEST_F(PGPluginTest,
     const FormKey unknownRecord { .modKey = L"TestPlugin.esp", .formID = 0x009999, .subMODL = "MODL" };
     EXPECT_THROW(PGPlugin::setObjectBounds({ boundsResultFor(unknownRecord, bounds) }), std::runtime_error);
 
-    // A failure is reported once; the plugin state is usable afterwards.
-    EXPECT_NO_THROW(PGPlugin::setObjectBounds({ }));
+    // A failure is reported once; the plugin state is usable afterwards, which a real update shows.
+    PGPlugin::setObjectBounds({ boundsResultFor(masterKey(treeFormID), bounds) });
+    const auto out = m_fake.gameDir() / L"Output";
+    std::filesystem::create_directories(out);
+    PGPlugin::savePlugin(out, PGPlugin::ESMMode::PGPatcherOnly);
+    EXPECT_EQ(objectBounds(out / L"PG_1.esp", "TREE", treeFormID), bounds);
 }
 
 TEST_F(PGPluginTest,

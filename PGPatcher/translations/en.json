@@ -114,7 +114,7 @@
       "title": "Global Patchers",
       "recalculateBounds": {
         "label": "Recalculate Bounds",
-        "tooltip": "Recalculates the bounds of every mesh PG outputs and the OBND of the STAT, TREE and GRAS records using them, fixing wrong or empty values left by mod authors. DynDOLOD reads them for tree/grass LOD billboards and large references. Edits plugin records."
+        "tooltip": "Recalculates the bounds of every mesh PG outputs, and the OBND of the tree and grass records using them, even when their mesh is not output. TexGen reads the OBND to pick the trees and grass that get LOD billboards. Edits plugin records."
       }
     },
     "buttons": {

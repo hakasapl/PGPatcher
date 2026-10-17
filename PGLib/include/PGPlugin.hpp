@@ -322,12 +322,21 @@ public:
 
     /**
      * @brief Updates the OBND (Object Bounds) of plugin records with the bounds computed for each mesh result's
-     * primary model. Only STAT, TREE and GRAS records are updated, the types for which the bounds were verified to
-     * match the Creation Kit's own. Results without bounds are skipped.
+     * primary model. Only TREE and GRAS records are updated: TexGen reads their OBND to decide which of them get LOD
+     * billboards, while the OBND of other types is often authored differently from the geometry. Results without
+     * bounds are skipped.
      *
      * @param meshResults List of MeshResult objects produced by PGMeshPermutationTracker::saveMeshes().
      */
     static void setObjectBounds(const std::vector<PGMeshPermutationTracker::MeshResult>& meshResults);
+
+    /**
+     * @brief Whether any record has been overridden so far, by setModelUses() or setObjectBounds(). A run whose only
+     * changes are such overrides writes no file but the plugin.
+     *
+     * @return true if savePlugin() would write a plugin with an override. False before initialize().
+     */
+    [[nodiscard]] static bool hasModifiedRecords();
 
     /**
      * @brief Writes PGPatcher.esp (new texture sets) and PG_<n>.esp (overridden records, split by master count) to the

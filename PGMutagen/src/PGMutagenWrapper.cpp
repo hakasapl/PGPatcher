@@ -310,6 +310,18 @@ void PGMutagenWrapper::libSetModelUses(const std::vector<ModelUse>& modelUses)
     }
 }
 
+bool PGMutagenWrapper::libHasModifiedRecords()
+{
+    int hasModifiedRecords = 0;
+
+    const std::scoped_lock lock(s_libMutex);
+    HasModifiedRecords(&hasModifiedRecords);
+    libLogMessageIfExists();
+    libThrowExceptionIfExists();
+
+    return hasModifiedRecords != 0;
+}
+
 void PGMutagenWrapper::libSetObjectBounds(const std::vector<ObjectBoundsUpdate>& updates)
 {
     flatbuffers::FlatBufferBuilder builder(defaultBufferSize);

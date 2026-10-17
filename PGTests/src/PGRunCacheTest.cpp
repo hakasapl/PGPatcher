@@ -359,7 +359,6 @@ TEST_F(PGRunCacheTest,
     writeOutputs();
 
     const PGTypes::ObjectBounds meshBounds { .min = { -5, 0, 3 }, .max = { 9, 8, 7 } };
-    const PGTypes::ObjectBounds originalBounds { .min = { -1, -2, -3 }, .max = { 1, 2, 3 } };
     {
         PGRunCache::MeshRecorder recorder(meshPath);
         std::ignore = m_pgd->file(meshPath); // queried for the recorder
@@ -373,13 +372,6 @@ TEST_F(PGRunCacheTest,
         PGMeshPermutationTracker::MeshResult withoutBounds;
         withoutBounds.meshPath = L"meshes\\a\\other.nif";
         recorder.setMeshResults({ saved, withoutBounds });
-
-        // Bounds that do not belong to an output mesh, for the records whose mesh PG does not output.
-        PGMeshPermutationTracker::MeshResult boundsOnly;
-        boundsOnly.meshPath = meshPath;
-        boundsOnly.altTexResults.emplace_back(s_use, std::unordered_map<unsigned, PGTypes::TextureSet> { });
-        boundsOnly.objectBounds = originalBounds;
-        recorder.setBoundsResults({ boundsOnly });
         recorder.setMeta(PGPatcher::MeshMeta { });
         recorder.commit();
     }
@@ -393,10 +385,6 @@ TEST_F(PGRunCacheTest,
     ASSERT_EQ(record->meshResults.size(), 2U);
     EXPECT_EQ(record->meshResults[0].objectBounds, meshBounds);
     EXPECT_EQ(record->meshResults[1].objectBounds, std::nullopt);
-    ASSERT_EQ(record->boundsResults.size(), 1U);
-    EXPECT_EQ(record->boundsResults[0].objectBounds, originalBounds);
-    ASSERT_EQ(record->boundsResults[0].altTexResults.size(), 1U);
-    EXPECT_EQ(record->boundsResults[0].altTexResults[0].first, s_use);
 }
 
 TEST_F(PGRunCacheTest,

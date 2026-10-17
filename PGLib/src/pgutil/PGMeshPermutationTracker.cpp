@@ -37,6 +37,59 @@
 
 namespace {
 
+/// @brief The box around the positions seen so far.
+struct BoundsAccumulator {
+    nifly::Vector3 min;
+    nifly::Vector3 max;
+    bool hasPositions = false;
+
+    /// @brief Adds a position, a position with a coordinate that is not a finite number is skipped.
+    void add(const nifly::Vector3& position)
+    {
+        if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z))
+            return;
+
+        if (!hasPositions) {
+            min = position;
+            max = position;
+            hasPositions = true;
+            return;
+        }
+
+        min.x = std::min(min.x, position.x);
+        min.y = std::min(min.y, position.y);
+        min.z = std::min(min.z, position.z);
+        max.x = std::max(max.x, position.x);
+        max.y = std::max(max.y, position.y);
+        max.z = std::max(max.z, position.z);
+    }
+};
+
+/// @brief Adds the vertices of every shape below a node, in model space. Each block is visited once.
+void accumulateBounds(nifly::NifFile& nif,
+                      nifly::NiNode& node,
+                      const nifly::MatTransform& nodeToModel,
+                      std::unordered_set<const nifly::NiObject*>& visited,
+                      BoundsAccumulator& accumulator)
+{
+    for (auto* child : nif.GetChildren<nifly::NiAVObject>(&node)) {
+        if (!visited.insert(child).second)
+            continue;
+
+        const auto childToModel = nodeToModel.ComposeTransforms(child->GetTransformToParent());
+        if (auto* shape = dynamic_cast<nifly::NiShape*>(child)) {
+            const auto* vertices = PGNIFUtil::hasVertexPositions(shape) ? nif.GetVertsForShape(shape) : nullptr;
+            if (!vertices)
+                continue;
+
+            for (const auto& vertex : *vertices)
+                accumulator.add(childToModel.ApplyTransform(vertex));
+        } else if (auto* childNode = dynamic_cast<nifly::NiNode*>(child)) {
+            accumulateBounds(nif, *childNode, childToModel, visited, accumulator);
+        }
+    }
+}
+
 /// @brief The CRC32 of a file's bytes, as the trackers record it for the original mesh.
 unsigned long long crc32Of(const std::vector<std::byte>& bytes)
 {
@@ -208,7 +261,8 @@ auto PGMeshPermutationTracker::commitMesh(const FormKey& formKey,
     return CommitResult::Added;
 }
 
-auto PGMeshPermutationTracker::serializeMeshes(const bool& shouldComputeObjectBounds) -> std::vector<SerializedOutput>
+auto PGMeshPermutationTracker::serializeMeshes(const bool& shouldUpdateBounds,
+                                               const bool& shouldComputeObjectBounds) -> std::vector<SerializedOutput>
 {
     std::vector<SerializedOutput> outputs;
     outputs.reserve(m_outputMeshes.size());
@@ -264,6 +318,15 @@ auto PGMeshPermutationTracker::serializeMeshes(const bool& shouldComputeObjectBo
         // Get filename of mesh.
         meshResult.meshPath = meshPath(m_origMeshPath, curIndex);
 
+        // Recompute the bounding sphere of every shape, like NifSkope's "Update Bounds". Nothing after the patchers moves
+        // vertices, so doing it here once per output gives what doing it for every staged copy would.
+        if (shouldUpdateBounds) {
+            for (auto* shape : mesh.GetShapes()) {
+                if (PGNIFUtil::hasVertexPositions(shape))
+                    shape->UpdateBounds();
+            }
+        }
+
         // Compute the mesh's bounding box for a later OBND update, before the buffer below is written.
         if (shouldComputeObjectBounds)
             meshResult.objectBounds = computeObjectBounds(mesh);
@@ -287,7 +350,8 @@ auto PGMeshPermutationTracker::serializeMeshes(const bool& shouldComputeObjectBo
     return outputs;
 }
 
-auto PGMeshPermutationTracker::saveMeshes(const bool& shouldComputeObjectBounds)
+auto PGMeshPermutationTracker::saveMeshes(const bool& shouldUpdateBounds,
+                                          const bool& shouldComputeObjectBounds)
     -> std::pair<std::vector<MeshResult>,
                  std::pair<unsigned long long,
                            unsigned long long>>
@@ -301,7 +365,7 @@ auto PGMeshPermutationTracker::saveMeshes(const bool& shouldComputeObjectBounds)
             throw std::runtime_error("Output mesh file already exists: " + meshFilename.string());
     }
 
-    const auto serialized = serializeMeshes(shouldComputeObjectBounds);
+    const auto serialized = serializeMeshes(shouldUpdateBounds, shouldComputeObjectBounds);
     if (serialized.size() != m_outputMeshes.size()) {
         // A mesh could not be serialized, which is logged.
         return { };
@@ -708,56 +772,29 @@ std::optional<PGTypes::ObjectBounds> PGMeshPermutationTracker::computeObjectBoun
     constexpr auto int16Min = static_cast<float>(std::numeric_limits<int16_t>::min());
     constexpr auto int16Max = static_cast<float>(std::numeric_limits<int16_t>::max());
 
-    nifly::Vector3 boundsMin;
-    nifly::Vector3 boundsMax;
-    bool hasVertices = false;
+    auto* root = nif.GetRootNode();
+    if (!root)
+        return std::nullopt;
 
-    for (auto* shape : nif.GetShapes()) {
-        if (!shape)
-            continue;
+    // Walk down from the root, like the game places the shapes: only what hangs below the root counts, each block is
+    // visited once so a mesh whose blocks list each other cannot loop, and the transforms compose from the top.
+    BoundsAccumulator accumulator;
+    std::unordered_set<const nifly::NiObject*> visited { root };
+    accumulateBounds(nif, *root, root->GetTransformToParent(), visited, accumulator);
 
-        const auto* verts = nif.GetVertsForShape(shape);
-        if (!verts || verts->empty())
-            continue;
-
-        // GetNodeTransformToGlobal() only matches NiNode blocks by name, so it cannot be used for a shape (NiShape
-        // is not an NiNode); walk the shape's own parent chain instead, mirroring what that function does internally.
-        nifly::MatTransform transform = shape->GetTransformToParent();
-        for (auto* parent = nif.GetParentNode(shape); parent; parent = nif.GetParentNode(parent))
-            transform = parent->GetTransformToParent().ComposeTransforms(transform);
-
-        for (const auto& vert : *verts) {
-            const auto pos = transform.ApplyTransform(vert);
-
-            if (!hasVertices) {
-                boundsMin = pos;
-                boundsMax = pos;
-                hasVertices = true;
-                continue;
-            }
-
-            boundsMin.x = std::min(boundsMin.x, pos.x);
-            boundsMin.y = std::min(boundsMin.y, pos.y);
-            boundsMin.z = std::min(boundsMin.z, pos.z);
-            boundsMax.x = std::max(boundsMax.x, pos.x);
-            boundsMax.y = std::max(boundsMax.y, pos.y);
-            boundsMax.z = std::max(boundsMax.z, pos.z);
-        }
-    }
-
-    if (!hasVertices)
+    if (!accumulator.hasPositions)
         return std::nullopt;
 
     // OBND stores each corner as a signed 16-bit integer. The Creation Kit truncates toward zero (verified against
     // vanilla records, e.g. -380.78 -> -380 and 313.70 -> 313), so do the same to match it. Clamp in the (extremely
     // unlikely) case a mesh exceeds the representable range.
-    const auto toInt16 = [int16Min, int16Max](const float value) -> int16_t {
+    const auto toInt16 = [int16Min, int16Max](const float value) {
         return static_cast<int16_t>(std::clamp(std::trunc(value), int16Min, int16Max));
     };
 
     PGTypes::ObjectBounds bounds;
-    bounds.min = { toInt16(boundsMin.x), toInt16(boundsMin.y), toInt16(boundsMin.z) };
-    bounds.max = { toInt16(boundsMax.x), toInt16(boundsMax.y), toInt16(boundsMax.z) };
+    bounds.min = { toInt16(accumulator.min.x), toInt16(accumulator.min.y), toInt16(accumulator.min.z) };
+    bounds.max = { toInt16(accumulator.max.x), toInt16(accumulator.max.y), toInt16(accumulator.max.z) };
     return bounds;
 }
 

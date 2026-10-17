@@ -22,8 +22,10 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -479,10 +481,10 @@ TEST_F(PGMeshPermutationTrackerTest,
     first->transform.translation = nifly::Vector3(-2.7F, 5.5F, 3.9F);
     // A shape below a scaled and moved node, which has to be placed in model space too.
     auto* node = builder.addNode("Node");
-    node->transform.translation = nifly::Vector3(10.0F, 0.0F, 0.0F);
-    node->transform.scale = 2.0F;
+    node->transform.translation = nifly::Vector3(10, 0, 0);
+    node->transform.scale = 2;
     auto* second = builder.addShape("Second", PGTypes::TextureSet(), nifly::BSLSP_DEFAULT, node);
-    second->transform.translation = nifly::Vector3(0.0F, 0.0F, -1.5F);
+    second->transform.translation = nifly::Vector3(0, 0, -1.5F);
 
     PGMeshPermutationTracker tracker(meshPath);
     tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
@@ -497,7 +499,7 @@ TEST_F(PGMeshPermutationTrackerTest,
 {
     NIFBuilder builder;
     auto* distant = builder.addShape("Distant");
-    distant->transform.translation = nifly::Vector3(40000.0F, -40000.0F, 0.0F);
+    distant->transform.translation = nifly::Vector3(40000, -40000, 0);
 
     PGMeshPermutationTracker tracker(meshPath);
     tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
@@ -524,7 +526,7 @@ TEST_F(PGMeshPermutationTrackerTest,
     stageWithTexture(tracker, "textures\\a\\patched.dds");
     ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }), CommitResult::Added);
 
-    const auto [results, crcs] = tracker.saveMeshes(true);
+    const auto [results, crcs] = tracker.saveMeshes(false, true);
     waitForFiles();
     ASSERT_EQ(results.size(), 1U);
     EXPECT_EQ(results[0].objectBounds, (PGTypes::ObjectBounds { .min = { 0, 0, 0 }, .max = { 1, 1, 0 } }));
@@ -542,6 +544,85 @@ TEST_F(PGMeshPermutationTrackerTest,
     waitForFiles();
     ASSERT_EQ(results.size(), 1U);
     EXPECT_EQ(results[0].objectBounds, std::nullopt);
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       ObjectBoundsOfAMeshWhoseBlocksListEachOtherAreStillComputed)
+{
+    NIFBuilder builder;
+    auto* shape = builder.addShape("Loop");
+    shape->transform.translation = nifly::Vector3(5.5F, -3.5F, 2.5F);
+    // The root lists itself as a child, which a walk up through the parents would never leave.
+    builder.root()->childRefs.AddBlockRef(builder.nif().GetBlockID(builder.root()));
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    EXPECT_EQ(tracker.originalObjectBounds(), (PGTypes::ObjectBounds { .min = { 5, -3, 2 }, .max = { 6, -2, 2 } }));
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       ObjectBoundsSkipPositionsThatAreNotNumbers)
+{
+    NIFBuilder builder;
+    auto* shape = builder.addShape("Broken");
+    shape->transform.translation = nifly::Vector3(5.5F, 5.5F, 5.5F);
+    // The corner at the origin loses its x coordinate, which would otherwise seed the box with a NaN.
+    shape->vertData.at(0).vert.x = std::numeric_limits<float>::quiet_NaN();
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    EXPECT_EQ(tracker.originalObjectBounds(), (PGTypes::ObjectBounds { .min = { 5, 5, 5 }, .max = { 6, 6, 5 } }));
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       ObjectBoundsIgnoreShapesThatAreNotBelowTheRoot)
+{
+    NIFBuilder builder;
+    builder.addShape("Detached")->transform.translation = nifly::Vector3(5.5F, -3.5F, 2.5F);
+    builder.root()->childRefs.Clear(); // the shape stays in the file, but nothing links to it
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    EXPECT_EQ(tracker.originalObjectBounds(), std::nullopt);
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       SavedMeshesKeepTheirBoundingSpheresByDefault)
+{
+    NIFBuilder builder;
+    builder.addShape("Stale", stoneTextures())->SetBounds(nifly::BoundingSphere(nifly::Vector3(500, 500, 500), 1));
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    stageWithTexture(tracker, "textures\\a\\patched.dds");
+    ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0 }), CommitResult::Added);
+    tracker.saveMeshes();
+    waitForFiles();
+
+    const auto saved = PGNIFUtil::loadNIFFromBytes(FileUtil::fileBytes(outDir() / meshPath));
+    EXPECT_NEAR(saved.GetShapes().at(0)->GetBounds().center.x, 500, 1e-3F);
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
+       SavedMeshesGetTheirBoundingSpheresRecalculatedWhenAsked)
+{
+    NIFBuilder builder;
+    builder.addShape("Stale", stoneTextures())->SetBounds(nifly::BoundingSphere(nifly::Vector3(500, 500, 500), 1));
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    stageWithTexture(tracker, "textures\\a\\patched.dds");
+    ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0 }), CommitResult::Added);
+    tracker.saveMeshes(true, false);
+    waitForFiles();
+
+    // The shape is a unit quad, so the sphere is centered on the quad and goes through its corners.
+    const auto saved = PGNIFUtil::loadNIFFromBytes(FileUtil::fileBytes(outDir() / meshPath));
+    const auto bounds = saved.GetShapes().at(0)->GetBounds();
+    EXPECT_NEAR(bounds.center.x, 0.5F, 1e-3F);
+    EXPECT_NEAR(bounds.center.y, 0.5F, 1e-3F);
+    EXPECT_NEAR(bounds.center.z, 0, 1e-3F);
+    EXPECT_NEAR(bounds.radius, std::sqrt(0.5F), 1e-3F);
 }
 
 TEST(PGMeshPermutationTrackerStaticTest,

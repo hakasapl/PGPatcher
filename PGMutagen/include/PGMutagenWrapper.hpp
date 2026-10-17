@@ -136,6 +136,14 @@ public:
      */
     static void libSetObjectBounds(const std::vector<ObjectBoundsUpdate>& updates);
 
+    /**
+     * @brief Whether any record has been overridden by the updates so far, which is when libFinalize() writes a
+     * plugin.
+     *
+     * @return true if at least one record was modified.
+     */
+    static bool libHasModifiedRecords();
+
 private:
     // Helpers.
     static std::wstring utf8toUTF16(const std::string& str);

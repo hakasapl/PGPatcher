@@ -114,7 +114,7 @@
       "title": "Patchers globaux",
       "recalculateBounds": {
         "label": "Recalculer les bounds",
-        "tooltip": "Recalcule les bounds de chaque mesh que PG écrit et l'OBND des records STAT, TREE et GRAS qui les utilisent, en corrigeant les valeurs fausses ou vides laissées par les auteurs de mods. DynDOLOD les lit pour les billboards de LOD des arbres/herbes et les grandes références. Modifie des records du plugin."
+        "tooltip": "Recalcule les bounds de chaque mesh que PG écrit, et l'OBND des records d'arbres et d'herbe qui les utilisent, même si leur mesh n'est pas écrit. TexGen lit l'OBND pour choisir les arbres et l'herbe qui reçoivent des billboards de LOD. Modifie des records du plugin."
       }
     },
     "buttons": {

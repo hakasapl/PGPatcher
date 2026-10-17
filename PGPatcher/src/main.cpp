@@ -15,7 +15,6 @@
 #include "PGUI.hpp"
 #include "common/BethesdaGame.hpp"
 #include "common/MO2DataFolder.hpp"
-#include "patchers/PatcherMeshGlobalRecalculateBounds.hpp"
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
@@ -742,10 +741,6 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
         Logger::debug("Adding Hair Flow Map post-patcher");
         meshPatchers.postPatchers.emplace_back(PatcherMeshPostHairFlowMap::factory());
     }
-    if (params.globalPatcher.isRecalculateBoundsEnabled) {
-        Logger::debug("Adding Recalculate Bounds global patcher");
-        meshPatchers.globalPatchers.emplace_back(PatcherMeshGlobalRecalculateBounds::factory());
-    }
 
     const PatcherUtil::PatcherTextureSet texPatchers;
     PGPatcher::loadPatchers(meshPatchers, texPatchers);
@@ -938,8 +933,9 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
         return;
     }
 
-    // Check for empty output.
-    if (PGPatcher::isOutputEmpty()) {
+    // Check for empty output. Record overrides count: a run whose only changes are OBND overrides writes no file but
+    // the plugin.
+    if (PGPatcher::isOutputEmpty() && !PGPlugin::hasModifiedRecords()) {
         // Output is empty, there is no previous output to update anymore.
         PGRunCache::discard();
         Logger::warn("Output directory is empty. No files were generated.");

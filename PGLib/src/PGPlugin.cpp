@@ -188,6 +188,8 @@ void PGPlugin::setObjectBounds(const std::vector<PGMeshPermutationTracker::MeshR
         PGMutagenWrapper::libSetObjectBounds(updates);
 }
 
+bool PGPlugin::hasModifiedRecords() { return s_initialized && PGMutagenWrapper::libHasModifiedRecords(); }
+
 void PGPlugin::savePlugin(const std::filesystem::path& outputDir,
                           ESMMode esmMode)
 {
