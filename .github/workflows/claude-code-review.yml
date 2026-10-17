@@ -1,23 +1,37 @@
 name: Claude Code Review
+run-name: Claude Code Review of PR #${{ inputs.pr }} (${{ inputs.model }}, ${{ inputs.effort }})
 
+# Reviews run only when started by hand: Actions > Claude Code Review > Run workflow,
+# or `gh workflow run claude-code-review.yml -f pr=<number> -f model=<model> -f effort=<effort>`.
+# A manual run uses this repository's secrets, so it also works on pull requests from forks.
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number
+        type: number
+        required: true
+      model:
+        description: Model
+        type: choice
+        options:
+          - claude-opus-5-5
+          - claude-sonnet-5-5
+          - claude-fable-5-1
+        default: claude-opus-5-5
+      effort:
+        description: Effort
+        type: choice
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
+        default: high
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,11 +40,15 @@ jobs:
       id-token: write
 
     steps:
+      # Checks out the dispatching branch, not the pull request: the review reads the change with
+      # gh, and a fork's CLAUDE.md never becomes Claude's instructions.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
+      # The action only installs its inline comment tool for pull request events, so a manual run
+      # posts its inline comments through the pull request review API instead.
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
@@ -38,7 +56,17 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          claude_args: '--model claude-opus-5-5 --effort high --allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          prompt: |
+            /code-review:code-review --comment ${{ github.repository }}/pull/${{ inputs.pr }}
+
+            The mcp__github_inline_comment__create_inline_comment tool is not available in this run.
+            Wherever the review says to use it, post the inline comments instead as a single pull request
+            review with `gh api repos/${{ github.repository }}/pulls/${{ inputs.pr }}/reviews`, with event
+            COMMENT, commit_id set to the pull request's head sha, and one entry per issue in comments
+            (path, line, side RIGHT, body; start_line and start_side for a range).
+          claude_args: >-
+            --model ${{ inputs.model }}
+            --effort ${{ inputs.effort }}
+            --allowedTools "Bash(gh api repos/${{ github.repository }}/pulls/${{ inputs.pr }}/*)"
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
