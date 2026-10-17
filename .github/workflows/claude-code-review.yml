@@ -48,7 +48,7 @@ jobs:
           fetch-depth: 1
 
       # The action only installs its inline comment tool for pull request events, so a manual run
-      # posts its inline comments through the pull request review API instead.
+      # posts each inline comment through the pull request review comments API instead.
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
@@ -60,10 +60,10 @@ jobs:
             /code-review:code-review --comment ${{ github.repository }}/pull/${{ inputs.pr }}
 
             The mcp__github_inline_comment__create_inline_comment tool is not available in this run.
-            Wherever the review says to use it, post the inline comments instead as a single pull request
-            review with `gh api repos/${{ github.repository }}/pulls/${{ inputs.pr }}/reviews`, with event
-            COMMENT, commit_id set to the pull request's head sha, and one entry per issue in comments
-            (path, line, side RIGHT, body; start_line and start_side for a range).
+            Wherever the review says to use it, post each issue as its own inline comment on the diff with
+            `gh api repos/${{ github.repository }}/pulls/${{ inputs.pr }}/comments`, one call per issue,
+            setting commit_id to the pull request's head sha, path, line, side RIGHT and body (add
+            start_line and start_side RIGHT for a range). Never collect the issues into one comment.
           claude_args: >-
             --model ${{ inputs.model }}
             --effort ${{ inputs.effort }}
