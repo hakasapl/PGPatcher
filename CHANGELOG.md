@@ -6,6 +6,9 @@
 - [PGLite] Fixed autoscrolling while dragging sometimes not working
 - [PGLite] Fixed GUI draw behavior, CS HDR should no longer discolor it
 - [PGLite] Fixed cursor sensitivity
+- [PGLite] A generated texture whose generation failed is made again at a later mesh load that needs it, up to three tries, instead of staying missing for the session
+- [PGLite] A mesh whose patch could not read one of its inputs is patched again at a later load, up to 3 times that session
+- [Common] A texture header that could not be read is remembered for five seconds and read again afterwards, instead of being read for every mesh that needs it
 
 ## [2.2.1] - 2026-10-15
 

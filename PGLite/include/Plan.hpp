@@ -9,6 +9,7 @@
 #include "pgutil/PGTypes.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
@@ -100,9 +101,18 @@ public:
 
     /**
      * @brief The bytes the stream of a member serves: patches the family on its first open, then produces the member's
-     * group. Never throws; a failure of the first patch leaves the family unpatched for the session, a failure of a
-     * later open serves the original bytes for that open only, since the records already carry the edits of the
-     * first patch.
+     * group. Never throws. A first patch that could not read one of its inputs (EngineReadError: the engine's stream
+     * of the mesh, a texture header, a complex material JSON) is not kept: every open of the family inside the
+     * readFailureRetryInterval that follows serves the original mesh without patching, so the opens of one burst
+     * stay consistent with each other, and the first open after the interval patches the family again. Up to
+     * maxPatchReadFailures such attempts may fail; after those the family behaves as it did before the retries: a
+     * texture header that cannot be read is treated as missing and the patch is kept, and a mesh or JSON that cannot
+     * be read leaves the family unpatched for the session. Any other failure of the first patch leaves the family
+     * unpatched for the session at once. A failure of a later open serves the original bytes for that open only,
+     * since the records already carry the edits of the first patch; a texture header that cannot be read then is
+     * treated as missing, so the bytes keep the shape order the records were edited for. What the retries cannot
+     * undo: the engine keeps an original it was served until its references let go, so a reference it builds from
+     * that original after a later attempt edited the records gets the edits of the patched mesh.
      *
      * @param member Index of the member.
      * @param pathIndex Index of the file of the family.
@@ -115,9 +125,25 @@ public:
                                                                       TextureSetFactory& textureSets,
                                                                       unsigned generation);
 
+    /**
+     * @brief Counts a texture file a lookup of the patch running on the calling thread could not read, as the run
+     * observer reports it: the patch is not kept, see bytes().
+     */
+    static void noteTextureReadFailure(const std::filesystem::path& texPath);
+
     [[nodiscard]] State state() const { return m_state; }
 
 private:
+    /// @brief How many attempts of the first patch may end in a read failure before the family stops retrying, see
+    /// bytes().
+    static constexpr unsigned maxPatchReadFailures = 3;
+
+    /// @brief The bytes of bytes(), or throws. Under m_patchMutex.
+    [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> serve(std::size_t member,
+                                                                      std::size_t pathIndex,
+                                                                      TextureSetFactory& textureSets,
+                                                                      unsigned generation);
+
     /// @brief The patch of every member of every file, then the record edits. Under m_patchMutex.
     void patch(std::size_t wantedMember,
                std::size_t wantedPath,
@@ -157,6 +183,10 @@ private:
 
     std::mutex m_patchMutex;
     std::atomic<State> m_state { State::Unpatched };
+    /// @brief The attempts of the first patch that could not read an input, and when the last one failed, see bytes().
+    /// Under m_patchMutex.
+    unsigned m_readFailures = 0;
+    std::chrono::steady_clock::time_point m_readFailureTime;
     /// @brief The outcome per file and member, once patched.
     std::vector<std::vector<MemberOutput>> m_outputs;
     /// @brief Per member, the first member whose results it shares in every file (itself when it leads).

@@ -1,11 +1,44 @@
 #pragma once
 
+#include "PGD3D.hpp"
+#include "common/BethesdaDirectory.hpp"
+
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace PGLite {
+
+/**
+ * @brief Thrown by a read that goes through the engine's resource layer, or of a texture file, when an input that is
+ * there could not be read this time: a stream the engine resolves but cannot read, a header that cannot be read. A
+ * patch that throws it is not kept, since a later open may read the input (Family::bytes). A path the engine cannot
+ * resolve is not this: it is not there for the engine, whatever the file map says.
+ */
+class EngineReadError final : public BethesdaDirectory::ReadFailure {
+public:
+    using ReadFailure::ReadFailure;
+};
+
+/**
+ * @brief Thrown in place of a new attempt while the retry interval of an earlier read failure runs (Family::serve):
+ * the original is served, and no attempt is spent. No reader throws it, so it is no ReadFailure.
+ */
+class RememberedReadFailure final : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
+/**
+ * @brief How long after a read failure the runtime serves what it has without a new attempt: a family keeps serving
+ * the original mesh (Family::bytes) and a failed generated texture is not made again (TextureGenerator). PGD3D
+ * remembers a failed header read for the same time, so the attempt after the interval is a new read, unless another
+ * family's lookup of the same header failed meanwhile and armed PGD3D again.
+ */
+constexpr std::chrono::seconds readFailureRetryInterval = PGD3D::defaultDDSMetadataRetryInterval;
 
 /**
  * @brief The engine's resource layer (DESIGN.md section 3.1): the registry that maps a path to the stream the engine

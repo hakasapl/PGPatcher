@@ -6,7 +6,9 @@
 #include "FakeGame.hpp"
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
+#include "PGRunObserver.hpp"
 #include "TestUtil.hpp"
+#include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
 
 #include <gtest/gtest.h>
@@ -14,9 +16,11 @@
 #include <DirectXTex.h>
 #include <d3d11.h>
 #include <spdlog/common.h>
+#include <windows.h>
 #include <wrl/client.h>
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -32,6 +36,75 @@ namespace {
 
 namespace TestLog = TestUtil::TestLog;
 using TestUtil::DDSBuilder::RGBA;
+
+/**
+ * @brief An observer that keeps the texture files the GPU helpers report as unreadable.
+ */
+class ReadFailureObserver final : public PGRunObserver {
+public:
+    // The test reads the records directly.
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+    std::vector<std::filesystem::path> readFailures;
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+
+    void recordTextureReadFailure(const std::filesystem::path& path) override { readFailures.push_back(path); }
+};
+
+/**
+ * @brief Locks the first bytes of a file exclusively while alive, so every read of its header fails with a lock
+ * violation: a file that is there but cannot be read this time. The handle shares everything, so another open handle
+ * on the file (an indexer, an antivirus) does not get in the way.
+ */
+class HeaderLock {
+public:
+    explicit HeaderLock(const std::filesystem::path& path)
+        : m_handle(CreateFileW(path.c_str(),
+                               GENERIC_READ,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                               nullptr,
+                               OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL,
+                               nullptr))
+        , m_isLocked(lockHeader(m_handle))
+    {
+    }
+
+    ~HeaderLock()
+    {
+        if (m_handle == INVALID_HANDLE_VALUE)
+            return;
+
+        if (m_isLocked) {
+            OVERLAPPED range { };
+            UnlockFileEx(m_handle, 0, lockedBytes, 0, &range);
+        }
+        CloseHandle(m_handle);
+    }
+
+    HeaderLock(const HeaderLock&) = delete;
+    HeaderLock& operator=(const HeaderLock&) = delete;
+    HeaderLock(HeaderLock&&) = delete;
+    HeaderLock& operator=(HeaderLock&&) = delete;
+
+    [[nodiscard]] bool isLocked() const { return m_isLocked; }
+
+private:
+    /// @brief More than the DDS header DirectXTex reads.
+    static constexpr DWORD lockedBytes = 4096;
+
+    /// @brief Locks the first bytes through an open handle; false for an invalid handle or a range another lock holds.
+    static bool lockHeader(HANDLE handle)
+    {
+        if (handle == INVALID_HANDLE_VALUE)
+            return false;
+
+        OVERLAPPED range { };
+        return LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, lockedBytes, 0, &range) != 0;
+    }
+
+    HANDLE m_handle;
+    bool m_isLocked;
+};
 
 /**
  * @brief A game whose data folder holds a few textures, loose and archived, mapped by a PGDirectory that is the global
@@ -73,7 +146,11 @@ protected:
         m_hasGPU = m_d3d.initGPU() && m_d3d.initShaders();
     }
 
-    void TearDown() override { PGGlobals::setPGD(nullptr); }
+    void TearDown() override
+    {
+        PGRunObserver::install(nullptr);
+        PGGlobals::setPGD(nullptr);
+    }
 
     void requireGPU() const
     {
@@ -199,6 +276,91 @@ TEST_F(PGD3DTest,
     EXPECT_TRUE(snapshot.contains(L"textures\\wide.dds"));
     EXPECT_TRUE(snapshot.contains(L"textures\\archived.dds"));
     EXPECT_FALSE(snapshot.contains(L"textures\\bad.dds"));
+}
+
+TEST_F(PGD3DTest,
+       GetDdsMetadataRemembersAFailedReadForTheRetryIntervalAndReportsUnreadableFiles)
+{
+    ReadFailureObserver observer;
+    PGRunObserver::install(&observer);
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::hours(1));
+
+    // A file that is no DDS file is remembered but not reported: nothing about it is transient.
+    DirectX::TexMetadata meta { };
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\bad.dds", meta));
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\archived_bad.dds", meta));
+    EXPECT_TRUE(observer.readFailures.empty());
+
+    // A mapped loose file that is gone from the disk is not there, like a path the engine cannot resolve: remembered,
+    // not reported. The file is read again once the interval passed; the interval is checked at the lookup, so a
+    // zero interval is one that passed.
+    std::filesystem::remove(m_fake.dataDir() / L"textures\\tall.dds");
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\tall.dds", meta));
+    EXPECT_TRUE(observer.readFailures.empty());
+    TestUtil::DDSBuilder::writeDDS(m_fake.dataDir() / L"textures\\tall.dds", 64, 128);
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\tall.dds", meta));
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::seconds(0));
+    ASSERT_TRUE(m_d3d.getDDSMetadata(L"textures\\tall.dds", meta));
+    EXPECT_EQ(meta.height, 128U);
+    EXPECT_TRUE(observer.readFailures.empty());
+
+    // A loose file that is there but cannot be read could not be read this time: reported, and remembered for the
+    // interval, so a file that can be read again meanwhile is not read before the interval passed.
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::hours(1));
+    {
+        const HeaderLock locked(m_fake.dataDir() / L"textures\\square2.dds");
+        ASSERT_TRUE(locked.isLocked());
+        EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\square2.dds", meta));
+    }
+    ASSERT_EQ(observer.readFailures.size(), 1U);
+    EXPECT_EQ(observer.readFailures[0], L"textures\\square2.dds");
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\square2.dds", meta));
+    EXPECT_EQ(observer.readFailures.size(), 2U);
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::seconds(0));
+    ASSERT_TRUE(m_d3d.getDDSMetadata(L"textures\\square2.dds", meta));
+    EXPECT_EQ(meta.width, 32U);
+    EXPECT_EQ(observer.readFailures.size(), 2U);
+
+    // Cached from now on, like every texture that was read.
+    std::filesystem::remove(m_fake.dataDir() / L"textures\\square2.dds");
+    ASSERT_TRUE(m_d3d.getDDSMetadata(L"textures\\square2.dds", meta));
+    EXPECT_EQ(meta.width, 32U);
+
+    // An archived file whose reader says it could not be read this time is a read failure too, remembered the same
+    // way.
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::hours(1));
+    m_pgd->setFileReader([](const std::filesystem::path& relPath) -> std::vector<std::byte> {
+        throw BethesdaDirectory::ReadFailure("The engine cannot read " + TestUtil::pathToUTF8(relPath));
+    });
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\archived.dds", meta));
+    ASSERT_EQ(observer.readFailures.size(), 3U);
+    EXPECT_EQ(observer.readFailures[2], L"textures\\archived.dds");
+    m_pgd->setFileReader(BethesdaDirectory::FileReader());
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\archived.dds", meta));
+    EXPECT_EQ(observer.readFailures.size(), 4U);
+
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::seconds(0));
+    ASSERT_TRUE(m_d3d.getDDSMetadata(L"textures\\archived.dds", meta));
+    EXPECT_EQ(meta.width, 16U);
+    EXPECT_EQ(observer.readFailures.size(), 4U);
+
+    // A reader that cannot read the file at all is a failure like a file that is no DDS: remembered, not reported.
+    m_pgd->setFileReader([](const std::filesystem::path& relPath) -> std::vector<std::byte> {
+        throw std::runtime_error("The engine cannot resolve " + TestUtil::pathToUTF8(relPath));
+    });
+    EXPECT_FALSE(m_d3d.getDDSMetadata(L"textures\\archived_bad.dds", meta));
+    EXPECT_EQ(observer.readFailures.size(), 4U);
+    m_pgd->setFileReader(BethesdaDirectory::FileReader());
+
+    // The aspect ratio check reports through the same lookup.
+    m_d3d.setDDSMetadataRetryInterval(std::chrono::hours(1));
+    {
+        const HeaderLock locked(m_fake.dataDir() / L"textures\\wide2.dds");
+        ASSERT_TRUE(locked.isLocked());
+        EXPECT_FALSE(m_d3d.checkIfAspectRatioMatches(L"textures\\wide.dds", L"textures\\wide2.dds"));
+    }
+    ASSERT_EQ(observer.readFailures.size(), 5U);
+    EXPECT_EQ(observer.readFailures[4], L"textures\\wide2.dds");
 }
 
 TEST_F(PGD3DTest,
