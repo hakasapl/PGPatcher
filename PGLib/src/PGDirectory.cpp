@@ -11,6 +11,7 @@
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
+#include "util/FileUtil.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 #include "util/TaskPoolRunner.hpp"
@@ -24,6 +25,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/crc.hpp>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <spdlog/spdlog.h>
 
@@ -283,6 +285,10 @@ void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstr
             // Manual texture map found, override.
             winningType = manualTextureMapsMap.at(texture.wstring());
             winningSlot = PGNIFUtil::slotFromTexType(winningType);
+        } else if (isDisabledByJSON(texture, winningType)) {
+            // Left out like a texture that a manual texture map sets to unknown.
+            Logger::debug(L"Ignoring texture disabled by its JSON: {}", texture.wstring());
+            continue;
         }
 
         if (winningSlot == PGEnums::TextureSlots::Parallax && isFileInBSA(texture, parallaxBSAExcludes))
@@ -316,6 +322,37 @@ void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstr
             addToTextureMaps(texture, winningSlot, winningType, { });
         }
     }
+}
+
+bool PGDirectory::isDisabledByJSON(const std::filesystem::path& texture,
+                                   const PGEnums::TextureType& type)
+{
+    // Height maps have parallax JSONs and environment masks have complex material JSONs. The textures of every other
+    // type, the height maps of the TruePBR shader among them, have none.
+    if (type != PGEnums::TextureType::Height && type != PGEnums::TextureType::EnvironmentMask)
+        return false;
+
+    auto jsonPath = texture;
+    jsonPath.replace_extension(".json");
+    if (!isFile(jsonPath))
+        return false;
+
+    std::vector<std::byte> jsonBytes;
+    try {
+        jsonBytes = file(jsonPath);
+    } catch (...) {
+        Logger::error(L"Unable to read JSON: {}", jsonPath.wstring());
+        return false;
+    }
+
+    nlohmann::json json;
+    if (!FileUtil::getJSONFromBytes(jsonBytes, json)) {
+        Logger::error(L"Failed to parse JSON: {}", jsonPath.wstring());
+        return false;
+    }
+
+    const auto disabled = json.find("disabled");
+    return disabled != json.end() && disabled->is_boolean() && disabled->get<bool>();
 }
 
 void PGDirectory::checkIfCMAddToMap(const std::filesystem::path& texture,

@@ -102,9 +102,11 @@ public:
     /// @brief Finds the meshes, textures, PBR JSONs and Light Placer JSONs of the file map and classifies every texture
     ///
     /// The slot and type of a texture are decided by a vote of the shapes that use it; a texture no mesh uses is
-    /// classified by its file name suffix. Environment masks are then classified as complex material textures on the
-    /// GPU, on a background queue when multithreading (see waitForCMClassification()). Plugin uses of the meshes are
-    /// looked up on another background queue (see waitForMeshMapping()). Requires a populated file map.
+    /// classified by its file name suffix. A height map or an environment mask whose JSON (its path with the extension
+    /// replaced by .json) holds "disabled": true is left out like a texture set to unknown by a manual texture map,
+    /// unless a manual texture map of its own gives its type. Environment masks are then classified as complex material
+    /// textures on the GPU, on a background queue when multithreading (see waitForCMClassification()). Plugin uses of
+    /// the meshes are looked up on another background queue (see waitForMeshMapping()). Requires a populated file map.
     ///
     /// @param nifBlocklist Globs of meshes to skip
     /// @param nifAllowlist Globs of meshes to map; everything else is skipped when it is not empty
@@ -144,14 +146,26 @@ private:
 
     /**
      * @brief Decides the slot and type of every unconfirmed texture from the votes cast so far (the file name suffix
-     * when there are none), applies the manual texture maps and the vanilla archive exclusion, and adds the textures
-     * to the texture maps. Environment masks go through the complex material classification, on the classification
-     * queue when multithreading.
+     * when there are none), applies the manual texture maps, the texture JSONs and the vanilla archive exclusion, and
+     * adds the textures to the texture maps. Environment masks go through the complex material classification, on the
+     * classification queue when multithreading.
      */
     void classifyUnconfirmedTextures(const std::unordered_map<std::wstring,
                                                               PGEnums::TextureType>& manualTextureMapsMap,
                                      const std::vector<std::wstring>& parallaxBSAExcludes,
                                      const bool& multithreading);
+
+    /**
+     * @brief Checks whether the JSON of a height map (parallax JSON) or of an environment mask (complex material JSON)
+     * disables the texture: the texture's path with the extension replaced by .json holds "disabled": true. A JSON that
+     * cannot be read or parsed is logged and disables nothing
+     *
+     * @param texture Texture to check
+     * @param type Type the texture was classified as; textures of other types have no such JSON
+     * @return true if the texture must be left out of the texture maps
+     */
+    bool isDisabledByJSON(const std::filesystem::path& texture,
+                          const PGEnums::TextureType& type);
 
     /**
      * @brief Casts the texture votes of one mesh (from the update cache when the mesh is unchanged), queues the lookup

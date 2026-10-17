@@ -429,6 +429,63 @@ TEST_F(PGPatcherTest,
     EXPECT_NO_THROW(PGPatcher::deleteOutputDir(true, false));
 }
 
+TEST_F(PGPatcherTest,
+       AnUpdateFollowsTheJSONOfAHeightMap)
+{
+    // A run as the launcher makes one after the preparation: a new directory classifies the textures again, and a
+    // previous output is updated in place.
+    const auto run = [this](bool isUpdate) {
+        PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, true, !isUpdate);
+        auto pgd = std::make_unique<PGDirectory>(dataDir(), outDir());
+        pgd->populateFileMap(false, false);
+        pgd->mapFiles({ }, { }, { { L"textures\\pgtest\\stone_m.dds", TextureType::ComplexMaterial } }, { }, false);
+        pgd->waitForMeshMapping();
+        PGGlobals::setPGD(pgd.get());
+        m_pgd = std::move(pgd);
+
+        PGPatcher::resetRunState();
+        PGRunCache::beginRun();
+        if (PGRunCache::hasPreviousRun()) {
+            PGPatcher::deleteOutputDir(true, true);
+            PGRunCache::snapshotOutputDirectory();
+        } else {
+            PGPatcher::deleteOutputDir();
+        }
+        PGPatcher::patchMeshes(false, true);
+        PGPatcher::patchTextures(false);
+        PGGlobals::fileSaver().waitForCompletion();
+        EXPECT_TRUE(PGRunCache::finishRun(true));
+    };
+    const auto shaderType = [this](const wchar_t* path) {
+        const auto nif = loadOutput(path);
+        return nif.GetShader(nif.GetShapes().at(0))->GetShaderType();
+    };
+    const auto jsonPath = dataDir() / L"textures\\pgtest\\wood_p.json";
+
+    run(false);
+    ASSERT_TRUE(std::filesystem::exists(outDir() / woodPath));
+    EXPECT_EQ(shaderType(woodPath), nifly::BSLSP_PARALLAX);
+    const auto stoneWritten = std::filesystem::last_write_time(outDir() / stonePath);
+
+    // The JSON disables the height map: the update patches the wood again, which leaves nothing to write.
+    TestUtil::writeFile(jsonPath, R"({"disabled": true})");
+    run(true);
+    EXPECT_FALSE(std::filesystem::exists(outDir() / woodPath));
+    EXPECT_FALSE(PGPatcher::diffJSON().contains("meshes\\pgtest\\wood.nif"));
+    // The stone does not use the height map, so its output was kept.
+    EXPECT_EQ(std::filesystem::last_write_time(outDir() / stonePath), stoneWritten);
+
+    // Enabled again, the height map is back.
+    TestUtil::writeFile(jsonPath, R"({"disabled": false})");
+    run(true);
+    ASSERT_TRUE(std::filesystem::exists(outDir() / woodPath));
+    EXPECT_EQ(shaderType(woodPath), nifly::BSLSP_PARALLAX);
+    EXPECT_EQ(std::filesystem::last_write_time(outDir() / stonePath), stoneWritten);
+
+    PGRunCache::discard();
+    PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
+}
+
 TEST(PGPatcherSortTest,
      ShaderMatchesAreSortedByModPriorityShaderAndPath)
 {

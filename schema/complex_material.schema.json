@@ -2,13 +2,18 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/complex_material.schema.json",
   "title": "PGPatcher complex material JSON",
-  "description": "Material settings of a complex material texture (an environment mask, usually named _m.dds), which PGPatcher reads from the JSON file next to it: the texture's path with the extension replaced by .json, for example textures\\armor\\steel\\cuirass_m.json for textures\\armor\\steel\\cuirass_m.dds. The file can be loose or in a BSA, and its name is matched without regard to case. The settings apply to every shape that PGPatcher patches for complex material with that texture. For each such shape PGPatcher sets the environment map scale and the specular strength to 1, the specular color to white when the texture uses its blue (metalness) channel and the Specular flag when it uses its green (glossiness) channel, and it puts the dynamic cubemap in the cubemap slot. The keys of this file override these values and set the glossiness, which PGPatcher otherwise keeps. Every key is optional. Keys are case sensitive and unknown keys are ignored. The file must be plain JSON without comments: a file that cannot be parsed is reported in the log and ignored. PGPatcher reads no file for the textures that Upgrade Parallax to Complex Material generates from height maps.",
+  "description": "Material settings of a complex material texture (an environment mask, usually named _m.dds), which PGPatcher reads from the JSON file next to it: the texture's path with the extension replaced by .json, for example textures\\armor\\steel\\cuirass_m.json for textures\\armor\\steel\\cuirass_m.dds. The file can be loose or in a BSA, and its name is matched without regard to case. The disabled key makes PGPatcher ignore the texture. The other keys apply to every shape that PGPatcher patches for complex material with that texture. For each such shape PGPatcher sets the environment map scale and the specular strength to 1, the specular color to white when the texture uses its blue (metalness) channel and the Specular flag when it uses its green (glossiness) channel, and it puts the dynamic cubemap in the cubemap slot. These keys override those values and set the glossiness, which PGPatcher otherwise keeps. Every key is optional. Keys are case sensitive and unknown keys are ignored. The file must be plain JSON without comments: a file that cannot be parsed is reported in the log and ignored. PGPatcher reads no file for the textures that Upgrade Parallax to Complex Material generates from height maps.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "$schema": {
       "type": "string",
       "description": "Optional link to this schema for editor support. PGPatcher ignores it."
+    },
+    "disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "true makes PGPatcher ignore the texture when it matches textures, the same as a texture rule that sets the texture to unknown: no shape is patched for complex material with it, and it does not add the complex material shader to its mod in the conflict manager. The other keys of this file have no effect then. A texture rule for the texture takes precedence over this key. false, the default, leaves the texture to the usual matching."
     },
     "specular_enabled": {
       "type": "boolean",
@@ -67,6 +72,9 @@
       ],
       "specular_strength": 1.5,
       "glossiness": 80
+    },
+    {
+      "disabled": true
     }
   ]
 }

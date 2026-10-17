@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/parallax.schema.json",
+  "title": "PGPatcher parallax JSON",
+  "description": "Settings of a parallax texture (a height map, usually named _p.dds), which PGPatcher reads from the JSON file next to it: the texture's path with the extension replaced by .json, for example textures\\architecture\\farmhouse\\farmhousewall01_p.json for textures\\architecture\\farmhouse\\farmhousewall01_p.dds. The file can be loose or in a BSA, and its name is matched without regard to case. PGPatcher reads it when it classifies the textures, before it patches any mesh. It has no effect on the height maps of the TruePBR shader. Every key is optional. Keys are case sensitive and unknown keys are ignored. The file must be plain JSON without comments: a file that cannot be parsed is reported in the log and ignored.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional link to this schema for editor support. PGPatcher ignores it."
+    },
+    "disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "true makes PGPatcher ignore the height map when it matches textures, the same as a texture rule that sets the texture to unknown: no shape is patched for parallax with it, Upgrade Parallax to Complex Material makes no complex material texture from it, and it does not add the parallax shader to its mod in the conflict manager. A texture rule for the texture takes precedence over this key. false, the default, leaves the height map to the usual matching."
+    }
+  },
+  "examples": [
+    {
+      "$schema": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/parallax.schema.json",
+      "disabled": true
+    }
+  ]
+}

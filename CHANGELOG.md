@@ -6,6 +6,7 @@
 - [PGLite] Fixed autoscrolling while dragging sometimes not working
 - [PGLite] Fixed GUI draw behavior, CS HDR should no longer discolor it
 - [PGLite] Fixed cursor sensitivity
+- [Common] Added the `disabled` key to complex material JSONs and to the new parallax JSONs (the `.json` next to a height map), which makes PG ignore the texture when matching like a texture rule that sets it to unknown
 
 ## [2.2.1] - 2026-10-15
 

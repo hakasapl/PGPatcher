@@ -1,8 +1,11 @@
 #include "PGDirectory.hpp"
 
 #include "BSABuilder.hpp"
+#include "DDSBuilder.hpp"
 #include "FakeGame.hpp"
 #include "NIFBuilder.hpp"
+#include "PGD3D.hpp"
+#include "PGGlobals.hpp"
 #include "TestUtil.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
@@ -31,6 +34,7 @@ using PGEnums::TextureSlots;
 using PGEnums::TextureType;
 using TestUtil::FakeGame;
 using TestUtil::NIFBuilder;
+using TestUtil::DDSBuilder::RGBA;
 
 PGTypes::TextureSet slots(const std::vector<std::pair<unsigned,
                                                       std::wstring>>& textures)
@@ -56,6 +60,23 @@ void writeMesh(const FakeGame& fake,
     shader->shaderFlags1 |= flags1;
     shader->shaderFlags2 |= flags2;
     builder.save(fake.dataDir() / relPath);
+}
+
+/**
+ * @brief Whether the texture map of a slot lists a texture of the given type under a base path.
+ */
+bool mapHas(const PGDirectory& pgd,
+            TextureSlots slot,
+            const std::wstring& base,
+            const std::wstring& texture,
+            TextureType type)
+{
+    const auto& map = pgd.textureMapConst(slot);
+    const auto it = map.find(base);
+    if (it == map.end())
+        return false;
+
+    return it->second.contains(PGTypes::PGTexture { .path = texture, .type = type });
 }
 
 /**
@@ -212,20 +233,6 @@ protected:
                         multithreading);
         m_pgd->waitForMeshMapping();
         m_pgd->waitForCMClassification();
-    }
-
-    static bool mapHas(const PGDirectory& pgd,
-                       TextureSlots slot,
-                       const std::wstring& base,
-                       const std::wstring& texture,
-                       TextureType type)
-    {
-        const auto& map = pgd.textureMapConst(slot);
-        const auto it = map.find(base);
-        if (it == map.end())
-            return false;
-
-        return it->second.contains(PGTypes::PGTexture { .path = texture, .type = type });
     }
 };
 
@@ -492,6 +499,167 @@ TEST_F(PGDirectoryTest,
     m_pgd->waitForMeshMapping();
     m_pgd->waitForCMClassification();
     EXPECT_EQ(m_pgd->textureType(L"textures\\a\\manual.dds"), TextureType::ComplexMaterial);
+}
+
+/**
+ * @brief A data folder whose height maps and environment masks have JSONs next to them, loose and archived, mapped by a
+ * PGDirectory.
+ */
+class PGDirectoryTextureJSONTest : public ::testing::Test {
+protected:
+    // gtest fixtures share their state with the tests through protected members.
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+    FakeGame m_fake;
+    std::optional<BethesdaGame> m_game;
+    std::unique_ptr<PGDirectory> m_pgd;
+    PGD3D m_d3d;
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+
+    static constexpr const char* disabledJSON = R"({"disabled": true})";
+
+    void SetUp() override
+    {
+        ExceptionHandler::reset();
+
+        // Textures; only the complex material classification reads one.
+        for (const auto* texture : {
+                 L"textures\\json\\off_p.dds",
+                 L"textures\\json\\on_p.dds",
+                 L"textures\\json\\nokey_p.dds",
+                 L"textures\\json\\string_p.dds",
+                 L"textures\\json\\array_p.dds",
+                 L"textures\\json\\broken_p.dds",
+                 L"textures\\json\\upper_p.dds",
+                 L"textures\\json\\ruled_p.dds",
+                 L"textures\\json\\plain_p.dds",
+                 L"textures\\json\\off_m.dds",
+                 L"textures\\json\\wall_n.dds",
+                 L"textures\\pbr\\json\\x_p.dds",
+             }) {
+            m_fake.writeDataFile(texture, "DDS");
+        }
+        // Two equal complex material textures: transparent, with the environment mask and metalness channels in use.
+        for (const auto* texture : { L"textures\\json\\cm_m.dds", L"textures\\json\\cmoff_m.dds" }) {
+            TestUtil::DDSBuilder::writeDDS(
+                m_fake.dataDir() / texture, 16, 16, RGBA { .r = 255, .g = 0, .b = 100, .a = 0 });
+        }
+
+        for (const auto& [path, content] : std::vector<std::pair<std::wstring, std::string>> {
+                 { L"textures\\json\\off_p.json", disabledJSON },
+                 { L"textures\\json\\on_p.json", R"({"disabled": false})" },
+                 { L"textures\\json\\nokey_p.json", R"({"$schema": "parallax.schema.json"})" },
+                 { L"textures\\json\\string_p.json", R"({"disabled": "true"})" },
+                 { L"textures\\json\\array_p.json", R"([{"disabled": true}])" },
+                 { L"textures\\json\\broken_p.json", R"({"disabled": true)" },
+                 { L"textures\\json\\Upper_P.JSON", disabledJSON },
+                 { L"textures\\json\\ruled_p.json", disabledJSON },
+                 { L"textures\\json\\off_m.json", disabledJSON },
+                 { L"textures\\json\\cmoff_m.json", disabledJSON },
+                 { L"textures\\json\\wall_n.json", disabledJSON },
+                 { L"textures\\pbr\\json\\x_p.json", disabledJSON },
+             }) {
+            m_fake.writeDataFile(path, content);
+        }
+
+        // A height map archived together with its JSON.
+        m_fake.addPlugin(L"JSONMod.esp");
+        TestUtil::BSABuilder archive;
+        archive.addFile("textures\\json\\packed_p.dds", "DDS");
+        archive.addFile("textures\\json\\packed_p.json", disabledJSON);
+        archive.write(m_fake.dataDir() / L"JSONMod.bsa");
+
+        m_game.emplace(m_fake.game());
+        m_pgd = std::make_unique<PGDirectory>(&*m_game, m_fake.gameDir() / L"out");
+        m_pgd->populateFileMap(true, false);
+    }
+
+    void TearDown() override
+    {
+        PGGlobals::setPGD3D(nullptr);
+        PGGlobals::setPGD(nullptr);
+        ExceptionHandler::reset();
+    }
+
+    void mapAll(const std::vector<std::pair<std::wstring,
+                                            TextureType>>& textureRules = { })
+    {
+        m_pgd->mapFiles({ }, { }, textureRules, { }, false);
+        m_pgd->waitForMeshMapping();
+        m_pgd->waitForCMClassification();
+    }
+};
+
+TEST_F(PGDirectoryTextureJSONTest,
+       AHeightMapItsJSONDisablesIsLeftOut)
+{
+    mapAll({ { L"textures\\json\\ruled_p.dds", TextureType::Height } });
+
+    // Left out as if a texture rule set it to unknown, whatever the case of the file name and archived or not.
+    for (const auto* base : { L"textures\\json\\off", L"textures\\json\\upper", L"textures\\json\\packed" }) {
+        const auto texture = std::wstring(base) + L"_p.dds";
+        EXPECT_EQ(m_pgd->textureType(texture), TextureType::Unknown) << TestUtil::pathToUTF8(texture);
+        EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::Parallax).contains(base)) << TestUtil::pathToUTF8(texture);
+        EXPECT_TRUE(TestLog::contains(spdlog::level::debug,
+                                      "Ignoring texture disabled by its JSON: " + TestUtil::pathToUTF8(texture)));
+    }
+
+    // Everything else is mapped as usual: false, no key, a key that is not a boolean, a JSON that is not an object or
+    // cannot be parsed, no JSON at all, and a texture rule, which takes precedence over the JSON.
+    for (const auto* base : {
+             L"textures\\json\\on",
+             L"textures\\json\\nokey",
+             L"textures\\json\\string",
+             L"textures\\json\\array",
+             L"textures\\json\\broken",
+             L"textures\\json\\plain",
+             L"textures\\json\\ruled",
+         }) {
+        const auto texture = std::wstring(base) + L"_p.dds";
+        EXPECT_TRUE(mapHas(*m_pgd, TextureSlots::Parallax, base, texture, TextureType::Height))
+            << TestUtil::pathToUTF8(texture);
+    }
+    EXPECT_TRUE(TestLog::contains(spdlog::level::err, "Failed to parse JSON: textures\\json\\broken_p.json"));
+
+    // The JSON of a texture of another type does nothing, the height maps of the TruePBR shader included.
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\wall_n.dds"), TextureType::Normal);
+    EXPECT_EQ(m_pgd->textureType(L"textures\\pbr\\json\\x_p.dds"), TextureType::HeightPBR);
+}
+
+TEST_F(PGDirectoryTextureJSONTest,
+       AnEnvironmentMaskItsJSONDisablesIsLeftOutUnclassified)
+{
+    mapAll();
+
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\off_m.dds"), TextureType::Unknown);
+    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\json\\off"));
+    EXPECT_TRUE(
+        TestLog::contains(spdlog::level::debug, "Ignoring texture disabled by its JSON: textures\\json\\off_m.dds"));
+
+    // Without a GPU the complex material classification fails, so a mask that was not classified logged no error.
+    EXPECT_TRUE(TestLog::contains(spdlog::level::err, "Unable to process texture: textures\\json\\cm_m.dds"));
+    EXPECT_FALSE(TestLog::contains(spdlog::level::err, "Unable to process texture: textures\\json\\off_m.dds"));
+    EXPECT_FALSE(TestLog::contains(spdlog::level::err, "Unable to process texture: textures\\json\\cmoff_m.dds"));
+}
+
+TEST_F(PGDirectoryTextureJSONTest,
+       AComplexMaterialTextureItsJSONDisablesIsNotMapped)
+{
+    if (!m_d3d.initGPU() || !m_d3d.initShaders())
+        GTEST_SKIP() << "no Direct3D 11 hardware device";
+
+    PGGlobals::setPGD(m_pgd.get());
+    PGGlobals::setPGD3D(&m_d3d);
+    mapAll();
+
+    // The two textures are equal, only the JSON tells them apart.
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\cm_m.dds"), TextureType::ComplexMaterial);
+    EXPECT_TRUE(mapHas(*m_pgd,
+                       TextureSlots::EnvMask,
+                       L"textures\\json\\cm",
+                       L"textures\\json\\cm_m.dds",
+                       TextureType::ComplexMaterial));
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\cmoff_m.dds"), TextureType::Unknown);
+    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\json\\cmoff"));
 }
 
 }
