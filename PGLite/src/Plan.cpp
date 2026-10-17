@@ -124,13 +124,19 @@ std::shared_ptr<const std::vector<std::byte>> Family::bytes(std::size_t member,
 
     try {
         return serve(member, pathIndex, textureSets, generation);
+    } catch (const RememberedReadFailure&) {
+        // An open inside the retry interval of an earlier failure: the original is served, no attempt is spent.
+        Logger::debug(L"The original mesh of {} is used for this load, an input could not be read moments ago",
+                      basePaths.at(pathIndex).wstring());
     } catch (const EngineReadError& e) {
-        // An input that was not there this time, which a later open may find: nothing of the patch is kept. A first
-        // patch throws before it edits a record, so the family stays unpatched and the next open patches it again,
-        // until the retries are spent; then the family stays unpatched for the session, as before the retries.
+        // An input that could not be read this time, which a later attempt may read: nothing of the patch is kept. A
+        // first patch throws before it edits a record, so the family stays unpatched, and the first open after the
+        // retry interval patches it again, until the attempts are spent; then the family stays unpatched for the
+        // session, as before the retries.
         m_readFailures++;
+        m_readFailureTime = std::chrono::steady_clock::now();
         if (m_state == State::Unpatched && m_readFailures > maxPatchReadFailures) {
-            Logger::error(L"Unable to patch {} in {} loads, the original mesh is used for the session: {}",
+            Logger::error(L"Unable to patch {} in {} attempts, the original mesh is used for the session: {}",
                           basePaths.at(pathIndex).wstring(),
                           m_readFailures,
                           StringUtil::utf8toUTF16(e.what()));
@@ -163,6 +169,12 @@ std::shared_ptr<const std::vector<std::byte>> Family::serve(std::size_t member,
                                                             unsigned generation)
 {
     if (m_state == State::Unpatched) {
+        // An input could not be read moments ago: until the retry interval passed, every open of the family serves
+        // the original without patching again, so the opens of one burst stay consistent with each other and the
+        // next attempt is a new read (PGD3D remembers a failed header read for the same time).
+        if (m_readFailures && std::chrono::steady_clock::now() - m_readFailureTime < readFailureRetryInterval)
+            throw RememberedReadFailure("an input could not be read moments ago");
+
         std::shared_ptr<const std::vector<std::byte>> wanted;
         patch(member, pathIndex, textureSets, generation, wanted);
         if (wanted)
@@ -322,7 +334,7 @@ bool Family::patchMember(PGMeshPermutationTracker& tracker,
                                                    nonAltTexShapes);
     if (s_textureReadFailures != readFailuresBefore) {
         // A texture header a lookup could not read (the observer reports it): the match it was for was dropped. A
-        // first patch is not kept, so that a later open can read it, until the family's retries are spent. A later
+        // first patch is not kept, so that a later attempt can read it, until the family's attempts are spent. A later
         // open, or a spent budget, keeps the result: the texture is treated as missing, as before the retries, and
         // the shape order stays the one the records were edited for.
         if (m_state == State::Unpatched && m_readFailures < maxPatchReadFailures) {

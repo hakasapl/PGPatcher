@@ -32,6 +32,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <winerror.h>
@@ -89,16 +90,25 @@ void TextureGenerator::generatePending()
 {
     std::vector<std::pair<HookKind, std::filesystem::path>> pending;
     pending.swap(s_pending);
+
+    // A texture is registered once per shape that names it, and this open gets one try per texture.
+    std::unordered_set<std::filesystem::path> outputs;
     for (const auto& [kind, texPath] : pending)
-        process(kind, texPath);
+        if (outputs.insert(PatcherTextureHook::outputPathOf(kind, texPath)).second)
+            process(kind, texPath);
 }
 
 void TextureGenerator::onEnvironmentReplaced(PGDirectory& directory)
 {
     const std::scoped_lock lock(m_mutex);
-    for (const auto& [output, entry] : m_entries) {
-        if (!entry.isServed)
+    for (auto& [output, entry] : m_entries) {
+        if (!entry.isServed) {
+            // A new start for a texture that failed: its attempts are given back, the first open that names it tries
+            // at once. Nothing is in flight while this runs.
+            entry.attempts = 0;
+            entry.failureTime = { };
             continue;
+        }
 
         directory.addGeneratedFile(output);
         directory.setTextureType(output, entry.type);
@@ -138,11 +148,14 @@ void TextureGenerator::process(HookKind kind,
             if (entry->isServed)
                 return;
 
-            // A texture that failed is tried again by the next open that names it, since the failure may have been
-            // the engine's or the disk's at the time; a generation that finished while this open waited was its try.
-            // The entry stays, so a texture that keeps failing is tried once per open, not once per mesh of the open.
-            if (entry->attempts != attemptsSeen)
+            // A texture that failed is tried again by the first open that names it after the retry interval, since
+            // the failure may have been the engine's or the disk's at the time; a generation that finished while this
+            // open waited was its try, and so is one that failed moments ago, as the opens of one burst share it. A
+            // texture that keeps failing stays missing once the attempts since the last Apply are spent.
+            if (entry->attempts != attemptsSeen || entry->attempts >= maxAttempts
+                || std::chrono::steady_clock::now() - entry->failureTime < readFailureRetryInterval) {
                 return;
+            }
 
             entry->isDone = false;
         }
@@ -157,6 +170,8 @@ void TextureGenerator::process(HookKind kind,
         const std::scoped_lock lock(m_mutex);
         entry->isServed = isServed;
         entry->attempts++;
+        if (!isServed)
+            entry->failureTime = std::chrono::steady_clock::now();
         entry->isDone = true;
     }
     m_done.notify_all();

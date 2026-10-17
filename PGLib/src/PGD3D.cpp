@@ -855,11 +855,14 @@ PGD3D::ddsMetadataCacheSnapshot()
 bool PGD3D::isFileReadError(HRESULT hr)
 {
     // DirectXTex returns the Win32 error of a file it could not open or read, and reports a file that is no DDS file
-    // with E_FAIL or with the Win32 codes below. Every other Win32 code is the file system's.
+    // with E_FAIL or with the Win32 codes below. A file that is not there is not a read failure either: like a path
+    // the engine cannot resolve at runtime, it is missing, not refused. Every other Win32 code is the file system's.
     if (HRESULT_FACILITY(hr) != FACILITY_WIN32)
         return false;
 
     switch (HRESULT_CODE(hr)) {
+    case ERROR_FILE_NOT_FOUND:
+    case ERROR_PATH_NOT_FOUND:
     case ERROR_INVALID_DATA:
     case ERROR_NOT_SUPPORTED:
     case ERROR_HANDLE_EOF:
@@ -931,9 +934,14 @@ bool PGD3D::getDDSMetadata(const std::filesystem::path& ddsPath,
 
             // Load DDS file.
             hr = DirectX::GetMetadataFromDDSMemory(ddsBytes.data(), ddsBytes.size(), DirectX::DDS_FLAGS_NONE, ddsMeta);
-        } catch (...) {
+        } catch (const BethesdaDirectory::ReadFailure&) {
+            // The reader could not read a file that is there (the PGLite runtime reading through the engine): the
+            // lookup that asked may try again later.
             Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
             isReadFailure = true;
+        } catch (...) {
+            // Not readable at all: remembered like a file that is no DDS.
+            Logger::error(L"Failed to read DDS file from BSA: {}", ddsPath.wstring());
         }
     } else {
         // Not in the load order: nothing to remember, the lookup will not find it next time either.

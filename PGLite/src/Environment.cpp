@@ -394,8 +394,14 @@ void Environment::switchToEngineReads()
     // Every read goes through the engine from here on, what the game itself loads for a path; the archive tables are
     // not needed anymore.
     m_directory->setFileReader([](const std::filesystem::path& relPath) {
+        // A path the engine cannot resolve is not there for it, whatever the file map says (an archive of a plugin
+        // it did not load); a stream it resolves but cannot read may be readable later (EngineReadError).
+        RE::BSTSmartPointer<RE::BSResource::Stream> stream;
+        if (!Resources::resolveStream(StringUtil::utf16toWindows1252(relPath.wstring()), stream))
+            throw std::runtime_error("The engine cannot resolve " + StringUtil::utf16toUTF8(relPath.wstring()));
+
         std::vector<std::byte> bytes;
-        if (!Resources::readFile(StringUtil::utf16toWindows1252(relPath.wstring()), bytes))
+        if (!Resources::readStream(*stream, bytes))
             throw EngineReadError("The engine cannot read " + StringUtil::utf16toUTF8(relPath.wstring()));
 
         return bytes;
