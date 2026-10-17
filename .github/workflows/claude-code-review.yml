@@ -61,6 +61,12 @@ jobs:
           # The plugin starts its reviewers in parallel, which would put them in the background. The action
           # ends the job at Claude's first result, which arrives while background reviewers are still running.
           CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: 1
+          # Every agent runs on Opus 5.5 at max effort. The plugin starts some of its agents on Haiku or
+          # Sonnet, which only the forced subagent model overrides, and the effort variable takes
+          # precedence over any effort an agent is started with.
+          CLAUDE_CODE_SUBAGENT_MODEL: claude-opus-5-5
+          CLAUDE_CODE_SUBAGENT_MODEL_FORCE: 1
+          CLAUDE_CODE_EFFORT_LEVEL: max
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
@@ -75,7 +81,7 @@ jobs:
             The working directory holds the base branch. The pull request head is checked out in pr-head, so read the changed files from there.
           # The gh commands are the ones the plugin uses to read the pull request and post its summary.
           claude_args: |
-            --model claude-opus-5-5 --effort high
+            --model claude-opus-5-5
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*)"
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
