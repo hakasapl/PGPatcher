@@ -6,6 +6,7 @@
 #include "pgutil/PGEnums.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <filesystem>
@@ -40,6 +41,8 @@ public:
     struct Stats {
         std::size_t generated = 0;
         std::size_t fromCache = 0;
+        /// @brief The textures that are missing right now: their last generation failed, and the next open that
+        /// names them tries again while the attempts since the last Apply last.
         std::size_t failed = 0;
     };
 
@@ -60,15 +63,19 @@ public:
      * session has not made yet, records its type with the directory and registers its stream. Called right after a
      * family was patched, before its bytes reach the engine, under the shared pipeline lock. A texture another thread
      * is making is waited for; one that is made already costs nothing. Never throws: a texture that cannot be made is
-     * logged once and stays missing, as offline.
+     * logged and stays missing until the first open that names it after readFailureRetryInterval, which tries again
+     * (maxAttempts times since the last Apply), since the failure may have been the engine's or the disk's at the
+     * time (a source the engine could not read, a cache file that could not be written). Offline it is logged once and
+     * stays missing.
      */
     void generatePending();
 
     /**
      * @brief Gives a new environment's directory what the hooks and generatePending() gave the old one for every
-     * texture of the session (the generated file and its type), and empties the hooks' lists so the next patch
-     * registers its textures with the new directory again. Called while no patch runs: at the initialization and
-     * under the exclusive pipeline lock of Apply.
+     * texture of the session (the generated file and its type), empties the hooks' lists so the next patch
+     * registers its textures with the new directory again, and gives every texture that failed its attempts back,
+     * since an Apply is a new start. Called while no patch runs: at the initialization and under the exclusive
+     * pipeline lock of Apply.
      */
     void onEnvironmentReplaced(PGDirectory& directory);
 
@@ -80,15 +87,24 @@ public:
                                                                          SourceStream& source) override;
 
 private:
+    /// @brief How often a texture that fails is made since the last Apply, see generatePending(): three attempts in
+    /// all, at least readFailureRetryInterval apart.
+    static constexpr unsigned maxAttempts = 3;
+
     /// @brief A texture of the session: being made, made or failed.
     struct Entry {
         PGEnums::TextureType type = PGEnums::TextureType::Unknown;
-        /// @brief Whether the generation finished, either way.
+        /// @brief Whether no generation is in flight.
         bool isDone = false;
         bool isServed = false;
+        /// @brief The generations that finished, served or failed: an open that waited for one has had its try.
+        unsigned attempts = 0;
+        /// @brief When the last generation failed: until readFailureRetryInterval passed, no open tries again.
+        std::chrono::steady_clock::time_point failureTime;
     };
 
-    /// @brief Makes one texture once, or waits for the thread that makes it, see generatePending().
+    /// @brief Makes one texture, waits for the thread that makes it, or tries a failed one again, see
+    /// generatePending().
     void process(HookKind kind,
                  const std::filesystem::path& texPath);
 
@@ -129,7 +145,7 @@ private:
 
     /// @brief Guards the entries. A texture is generated outside it; the thread that needs a texture another thread
     /// is making waits on m_done.
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
     std::condition_variable m_done;
     /// @brief One generation at a time: the reads and the cache writes go through the mod manager's virtual file
     /// system, which has failed and crashed under many threads writing at once, and the GPU work is serialized
@@ -143,7 +159,6 @@ private:
 
     std::atomic<std::size_t> m_generated { 0 };
     std::atomic<std::size_t> m_fromCache { 0 };
-    std::atomic<std::size_t> m_failed { 0 };
 };
 
 }

@@ -104,10 +104,6 @@ bool Runtime::load()
     if (PGTranslation::availableLanguages().empty())
         Logger::warn(L"No translation files in {}, the menu shows its keys instead of its texts",
                      Settings::translationsFolder().wstring());
-    // The input redirect of the menu writes one call into the SKSE trampoline (Hooks); the swap chain is detoured
-    // as soon as the game creates it.
-    SKSE::AllocTrampoline(Hooks::trampolineSize);
-    Hooks::installEarly();
 
     const auto version = REL::Module::get().version();
     Logger::info("PGLite {} loading (runtime {})", PG_FULL_VERSION, version.string("."));
@@ -126,6 +122,11 @@ bool Runtime::load()
         disable(PGTranslation::tr("pglite.disabled.noMessaging"), false);
         return true;
     }
+
+    // The menu's redirects write their calls into the SKSE trampoline (Hooks). The interface draws are redirected now,
+    // before anything renders, through the Address Library checked above, and draw nothing until the menu exists.
+    SKSE::AllocTrampoline(Hooks::trampolineSize);
+    Hooks::installEarly();
 
     return true;
 }
@@ -638,11 +639,14 @@ void Runtime::prepareEnvironment()
         PGGlobals::setPGD3D(&m_d3d);
     }
 
-    // The cache is the process's observer: the classifications of the mesh reading pass, and the registrations the
-    // texture hooks make, which reach the texture generator through it.
+    // The cache is the process's observer: the classifications of the mesh reading pass, the registrations the
+    // texture hooks make, which reach the texture generator through it, and the texture files a patch could not read,
+    // which keep that patch from being kept (Family::bytes).
     m_cache.setHookRegistrationListener([this](PGRunObserver::HookKind kind, const std::filesystem::path& texPath) {
         m_textures.noteRegistration(kind, texPath);
     });
+    m_cache.setTextureReadFailureListener(
+        [](const std::filesystem::path& texPath) { Family::noteTextureReadFailure(texPath); });
     PGRunObserver::install(&m_cache);
 
     buildEnvironment([this](const char* stage) { reportStage(stage); },

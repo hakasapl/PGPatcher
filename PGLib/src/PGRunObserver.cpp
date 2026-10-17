@@ -71,6 +71,8 @@ void PGRunObserver::recordHookOutput([[maybe_unused]] const HookKind& kind,
 {
 }
 
+void PGRunObserver::recordTextureReadFailure([[maybe_unused]] const std::filesystem::path& path) { }
+
 bool PGRunObserver::tryGetCachedMeshVotes([[maybe_unused]] const std::filesystem::path& nifPath,
                                           [[maybe_unused]] const BethesdaDirectory::FileIdentity& identity,
                                           [[maybe_unused]] std::vector<PGTypes::TextureVote>& votes)
