@@ -505,7 +505,8 @@ protected:
             addShape(forest, "Twig", L"twig", nifly::Vector3(100.5F, 100.5F, 100.5F));
             forest.save(m_fake.dataDir() / L"meshes\\pgtest\\forest.nif");
         }
-        TestUtil::writeFile(m_fake.dataDir() / L"PBRNIFPatcher\\pgtest.json", R"([{"match_diffuse": "pgtest\\twig", "delete": true}])");
+        TestUtil::writeFile(m_fake.dataDir() / L"PBRNIFPatcher\\pgtest.json",
+                            R"([{"match_diffuse": "pgtest\\twig", "delete": true}])");
         std::filesystem::create_directories(outDir());
 
         TestUtil::PluginBuilder master("Skyrim.esm", true);

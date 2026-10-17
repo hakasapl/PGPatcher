@@ -21,8 +21,8 @@
 #include <spdlog/common.h>
 
 #include <algorithm>
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <limits>

@@ -318,13 +318,12 @@ auto PGMeshPermutationTracker::serializeMeshes(const bool& shouldUpdateBounds,
         // Get filename of mesh.
         meshResult.meshPath = meshPath(m_origMeshPath, curIndex);
 
-        // Recompute the bounding sphere of every shape, like NifSkope's "Update Bounds". Nothing after the patchers moves
-        // vertices, so doing it here once per output gives what doing it for every staged copy would.
+        // Recompute the bounding sphere of every shape, like NifSkope's "Update Bounds". Nothing after the patchers
+        // moves vertices, so doing it here once per output gives what doing it for every staged copy would.
         if (shouldUpdateBounds) {
-            for (auto* shape : mesh.GetShapes()) {
+            for (auto* shape : mesh.GetShapes())
                 if (PGNIFUtil::hasVertexPositions(shape))
                     shape->UpdateBounds();
-            }
         }
 
         // Compute the mesh's bounding box for a later OBND update, before the buffer below is written.

@@ -659,10 +659,9 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         // vertices, so these match the bounds of an output mesh, except when a patcher deletes a shape (the TruePBR
         // delete attribute), which is why the uses above take theirs from the saved mesh.
         PGMeshPermutationTracker::MeshResult boundsResult { .meshPath = nifPath };
-        for (const auto& [formKey, attributes] : originalMeshUses) {
+        for (const auto& [formKey, attributes] : originalMeshUses)
             if (isBoundsUse(attributes) && !savedFormKeys.contains(formKey))
                 boundsResult.altTexResults.emplace_back(formKey, std::unordered_map<unsigned, PGTypes::TextureSet> { });
-        }
 
         if (!boundsResult.altTexResults.empty()) {
             boundsResult.objectBounds = meshTracker.originalObjectBounds();
