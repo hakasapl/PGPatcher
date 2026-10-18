@@ -217,4 +217,20 @@ TEST_F(TaskQueueTest,
     EXPECT_FALSE(ExceptionHandler::hasException());
 }
 
+TEST_F(TaskQueueTest,
+       IsWorkingUntilTheLastTaskHasRun)
+{
+    // The worker takes a task off the queue and then runs it. A thread that asks in between must not see an idle
+    // queue, or waitForCompletion() returns before the task ran. Asking without a pause hits that moment often.
+    TaskQueue queue;
+    for (int attempt = 0; attempt < 5000; attempt++) {
+        std::atomic<bool> hasRun = false;
+        queue.queueTask([&hasRun] { hasRun = true; });
+        while (queue.isWorking()) {
+            // Ask again at once.
+        }
+        ASSERT_TRUE(hasRun) << "attempt " << attempt;
+    }
+}
+
 }

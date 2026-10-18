@@ -12,6 +12,7 @@
 - [PGPatcher] Added an optional "Recalculate Bounds" global patcher: recalculates the bounds of every mesh PG outputs and the OBND of TREE and GRAS records, which TexGen reads to pick the trees and grass that get LOD billboards (also available in `pgtools` as `recalculatebounds`)
 - [Common] Added parallax metadata JSONs
 - [Common] Added the `disabled` key to complex material JSONs and to the parallax JSONs: `"disabled": true` makes PG ignore the texture when matching
+- [Common] Fixed a rare race that let a run go on before the last queued background task had finished, such as a texture classification, a plugin record update or a file save
 
 ## [2.2.1] - 2026-10-15
 

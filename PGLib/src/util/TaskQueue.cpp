@@ -43,12 +43,13 @@ void TaskQueue::workerLoop()
             if (!m_taskQueue.empty()) {
                 task = std::move(m_taskQueue.front());
                 m_taskQueue.pop();
+                // Busy before the task leaves the count, so that isWorking() always sees it queued or running.
+                m_isBusy = true;
                 m_queuedTasks--;
             }
         }
 
         if (task) {
-            m_isBusy = true;
             if (!ExceptionHandler::runGuarded(task) && s_exceptionCallback)
                 s_exceptionCallback();
             m_isBusy = false;
@@ -62,7 +63,12 @@ void TaskQueue::workerLoop()
     m_queuedTasks = 0;
 }
 
-bool TaskQueue::isWorking() const { return m_isBusy || m_queuedTasks > 0; }
+bool TaskQueue::isWorking() const
+{
+    // The count first: the worker is busy before a task leaves the count, so a task that is not counted anymore is
+    // either still running or done.
+    return m_queuedTasks > 0 || m_isBusy;
+}
 
 size_t TaskQueue::queuedTaskCount() const { return m_queuedTasks; }
 
