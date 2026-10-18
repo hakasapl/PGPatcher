@@ -98,8 +98,10 @@ std::optional<PGTypes::ObjectBounds> objectBounds(const std::filesystem::path& p
         return std::nullopt;
 
     std::memcpy(values.data(), data.data(), data.size());
-    return PGTypes::ObjectBounds { .min = { values[0], values[1], values[2] },
-                                   .max = { values[3], values[4], values[5] } };
+    return PGTypes::ObjectBounds {
+        .min = { values[0], values[1], values[2] },
+        .max = { values[3], values[4], values[5] },
+    };
 }
 
 }

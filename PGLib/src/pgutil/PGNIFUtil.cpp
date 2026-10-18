@@ -813,7 +813,8 @@ PGNIFUtil::shapesWith3DIdx(const nifly::NifFile* nif)
 
 bool PGNIFUtil::hasVertexPositions(nifly::NiShape* nifShape)
 {
-    return nifShape && nifShape->HasVertices() && !dynamic_cast<nifly::BSDynamicTriShape*>(nifShape);
+    return nifShape != nullptr && nifShape->HasVertices()
+        && dynamic_cast<nifly::BSDynamicTriShape*>(nifShape) == nullptr;
 }
 
 bool PGNIFUtil::isPatchableShape(const nifly::NifFile& nif,

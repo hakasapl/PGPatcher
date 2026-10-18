@@ -579,7 +579,7 @@ protected:
     }
 
     /// @brief What the records of a run have to hold when the bounds are recalculated.
-    void expectRecalculatedBounds(const std::filesystem::path& plugin) const
+    static void expectRecalculatedBounds(const std::filesystem::path& plugin)
     {
         // Trees and grass get the bounds of the mesh PG outputs, and those of the original mesh when it is not output.
         EXPECT_EQ(PluginReader::objectBounds(plugin, "TREE", woodTreeID), meshBounds);
