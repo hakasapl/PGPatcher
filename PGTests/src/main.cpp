@@ -1,6 +1,7 @@
 #include "TestUtil.hpp"
 
 #include "util/ExceptionHandler.hpp"
+#include "util/Logger.hpp"
 
 #include <gtest/gtest.h>
 
@@ -8,6 +9,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <windows.h>
 
 namespace {
@@ -40,6 +42,20 @@ void configureDotNetLibDirectory(const std::filesystem::path& exeDir)
         exit(1);
     }
 }
+
+/**
+ * @brief Gives every test a log of its own, so the tests pass in any order and more than once in one process
+ * (--gtest_shuffle, --gtest_repeat): the messages that earlier tests logged are forgotten, and Logger logs a warning or
+ * an error again that an earlier test logged instead of suppressing it as a repeat.
+ */
+class FreshLogPerTest final : public ::testing::EmptyTestEventListener {
+public:
+    void OnTestStart([[maybe_unused]] const ::testing::TestInfo& testInfo) override
+    {
+        Logger::resetToRunStart();
+        TestUtil::TestLog::clear();
+    }
+};
 }
 
 int main(int argc,
@@ -51,6 +67,11 @@ int main(int argc,
 
     // Everything PGLib logs is captured so tests can assert on it.
     TestUtil::TestLog::install();
+
+    // Nothing has been logged yet, so this is the empty suppression baseline that every test starts from.
+    Logger::markRunStart();
+    ::testing::UnitTest::GetInstance()->listeners().Append(
+        std::make_unique<FreshLogPerTest>().release()); // gtest owns its listeners
 
     // The tests run on this thread, which is the main thread as far as ExceptionHandler is concerned.
     ExceptionHandler::setMainThread();

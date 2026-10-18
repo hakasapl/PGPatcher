@@ -286,6 +286,18 @@ TEST_F(PGPluginTest,
 }
 
 TEST_F(PGPluginTest,
+       ANewInitializationReportsTheBrokenPluginsAgain)
+{
+    // The plugin library reports a warning or an error only once, until it is initialized for a new environment.
+    TestLog::clear();
+    PGPlugin::initialize(*m_game, TestUtil::executableDir());
+    PGPlugin::populateObjs();
+    EXPECT_EQ(TestLog::count(spdlog::level::err, "Failed to read plugin: Broken.esp"), 1U);
+    EXPECT_EQ(TestLog::count(spdlog::level::err, "Plugin has missing masters: Orphan.esp"), 1U);
+    EXPECT_TRUE(TestLog::contains(spdlog::level::warn, "Weight slider enabled but mesh name doesn't end with _0.nif"));
+}
+
+TEST_F(PGPluginTest,
        ModelUsesListTheWinningRecordsUsingAMesh)
 {
     // The master's record is overridden, so only the new record uses rock.nif.

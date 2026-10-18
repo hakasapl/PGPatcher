@@ -91,6 +91,13 @@ public static class MessageHandler
         LogQueue.Enqueue(new Tuple<string, int>(message, level));
     }
 
+    // Forgets the warnings and errors logged so far, so that they are logged again when they happen again.
+    public static void ForgetLoggedMessages()
+    {
+        WarningMessages.Clear();
+        ErrorMessages.Clear();
+    }
+
     [UnmanagedCallersOnly(EntryPoint = "GetLogMessage", CallConvs = [typeof(CallConvCdecl)])]
     public static unsafe void GetLogMessage([DNNE.C99Type("wchar_t**")] IntPtr* messagePtr, [DNNE.C99Type("int*")] int* level)
     {
@@ -182,6 +189,9 @@ public class PGMutagen
             // Set base directory so Mutagen can resolve assemblies relative to our DLL location
             string ExePath = Marshal.PtrToStringUni(exePath) ?? string.Empty;
             AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", ExePath);
+
+            // A new environment reports its problems again, even those that a previous one reported.
+            MessageHandler.ForgetLoggedMessages();
 
             // Main method
             string dataPath = Marshal.PtrToStringUni(dataPathPtr) ?? string.Empty;
