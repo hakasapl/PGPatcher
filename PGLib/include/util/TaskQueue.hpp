@@ -27,6 +27,7 @@ private:
     std::atomic<bool> m_running { true };
     std::atomic<bool> m_isBusy { false };
     std::atomic<size_t> m_queuedTasks { 0 };
+    std::atomic<size_t> m_unfinishedTasks { 0 }; /** Queued or running: a task leaves this count once it has run */
     std::thread m_workerThread;
 
     static std::function<void()> s_exceptionCallback;
@@ -74,6 +75,7 @@ public:
 
             m_taskQueue.emplace(std::forward<Func>(func));
             m_queuedTasks++;
+            m_unfinishedTasks++;
         }
         m_cv.notify_one();
     }

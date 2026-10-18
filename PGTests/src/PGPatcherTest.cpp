@@ -533,18 +533,18 @@ protected:
     void SetUp() override
     {
         for (const auto* texture : {
-                 L"textures\\pgtest\\stone.dds",
-                 L"textures\\pgtest\\stone_n.dds",
-                 L"textures\\pgtest\\stone_m.dds",
-                 L"textures\\pgtest\\wood.dds",
-                 L"textures\\pgtest\\wood_n.dds",
-                 L"textures\\pgtest\\wood_p.dds",
-                 L"textures\\pgtest\\plain.dds",
-                 L"textures\\pgtest\\plain_n.dds",
-                 L"textures\\pgtest\\forest.dds",
-                 L"textures\\pgtest\\forest_n.dds",
-                 L"textures\\pgtest\\twig.dds",
-                 L"textures\\pgtest\\twig_n.dds",
+                 L"textures\\pgbounds\\stone.dds",
+                 L"textures\\pgbounds\\stone_n.dds",
+                 L"textures\\pgbounds\\stone_m.dds",
+                 L"textures\\pgbounds\\wood.dds",
+                 L"textures\\pgbounds\\wood_n.dds",
+                 L"textures\\pgbounds\\wood_p.dds",
+                 L"textures\\pgbounds\\plain.dds",
+                 L"textures\\pgbounds\\plain_n.dds",
+                 L"textures\\pgbounds\\forest.dds",
+                 L"textures\\pgbounds\\forest_n.dds",
+                 L"textures\\pgbounds\\twig.dds",
+                 L"textures\\pgbounds\\twig_n.dds",
              }) {
             TestUtil::DDSBuilder::writeDDS(m_fake.dataDir() / texture, 16, 16);
         }
@@ -554,7 +554,7 @@ protected:
                                  const std::wstring& base,
                                  const nifly::Vector3& translation) {
             auto* shape = builder.addShape(
-                name, slots(L"textures\\pgtest\\" + base + L".dds", L"textures\\pgtest\\" + base + L"_n.dds"));
+                name, slots(L"textures\\pgbounds\\" + base + L".dds", L"textures\\pgbounds\\" + base + L"_n.dds"));
             shape->transform.translation = translation;
         };
         const auto writeMesh = [&](const wchar_t* path, const std::wstring& base) {
@@ -562,27 +562,29 @@ protected:
             addShape(builder, "Shape", base, nifly::Vector3(5.5F, -3.5F, 2.5F));
             builder.save(m_fake.dataDir() / path);
         };
-        writeMesh(L"meshes\\pgtest\\stone.nif", L"stone");
-        writeMesh(L"meshes\\pgtest\\wood.nif", L"wood");
-        writeMesh(L"meshes\\pgtest\\plain.nif", L"plain");
+        writeMesh(L"meshes\\pgbounds\\stone.nif", L"stone");
+        writeMesh(L"meshes\\pgbounds\\wood.nif", L"wood");
+        writeMesh(L"meshes\\pgbounds\\plain.nif", L"plain");
         {
             NIFBuilder forest;
             addShape(forest, "Trunk", L"forest", nifly::Vector3(5.5F, -3.5F, 2.5F));
             addShape(forest, "Twig", L"twig", nifly::Vector3(100.5F, 100.5F, 100.5F));
-            forest.save(m_fake.dataDir() / L"meshes\\pgtest\\forest.nif");
+            forest.save(m_fake.dataDir() / L"meshes\\pgbounds\\forest.nif");
         }
-        TestUtil::writeFile(m_fake.dataDir() / L"PBRNIFPatcher\\pgtest.json",
-                            R"([{"match_diffuse": "pgtest\\twig", "delete": true}])");
+        TestUtil::writeFile(m_fake.dataDir() / L"PBRNIFPatcher\\pgbounds.json",
+                            R"([{"match_diffuse": "pgbounds\\twig", "delete": true}])");
         std::filesystem::create_directories(outDir());
 
+        // PGPlugin stays initialized for the rest of the process, so these records must not name a mesh of another
+        // test: the meshes of this fixture have a folder of their own.
         TestUtil::PluginBuilder master("Skyrim.esm", true);
-        master.addStatic(stoneStaticID, "StoneSTAT", "pgtest\\stone.nif");
-        master.addModelRecord("TREE", woodTreeID, "WoodTREE", "pgtest\\wood.nif");
-        master.addModelRecord("TREE", plainTreeID, "PlainTREE", "pgtest\\plain.nif");
-        master.addStatic(plainStaticID, "PlainSTAT", "pgtest\\plain.nif");
-        master.addModelRecord("ACTI", stoneActivatorID, "StoneACTI", "pgtest\\stone.nif");
-        master.addModelRecord("GRAS", plainGrassID, "PlainGRAS", "pgtest\\plain.nif");
-        master.addModelRecord("TREE", forestTreeID, "ForestTREE", "pgtest\\forest.nif");
+        master.addStatic(stoneStaticID, "StoneSTAT", "pgbounds\\stone.nif");
+        master.addModelRecord("TREE", woodTreeID, "WoodTREE", "pgbounds\\wood.nif");
+        master.addModelRecord("TREE", plainTreeID, "PlainTREE", "pgbounds\\plain.nif");
+        master.addStatic(plainStaticID, "PlainSTAT", "pgbounds\\plain.nif");
+        master.addModelRecord("ACTI", stoneActivatorID, "StoneACTI", "pgbounds\\stone.nif");
+        master.addModelRecord("GRAS", plainGrassID, "PlainGRAS", "pgbounds\\plain.nif");
+        master.addModelRecord("TREE", forestTreeID, "ForestTREE", "pgbounds\\forest.nif");
         m_fake.writeDataFile(L"Skyrim.esm", master.bytes());
         m_game.emplace(m_fake.game());
         PGPlugin::initialize(*m_game, TestUtil::executableDir());
@@ -590,7 +592,7 @@ protected:
 
         m_pgd = std::make_unique<PGDirectory>(m_fake.dataDir(), outDir());
         m_pgd->populateFileMap(false, false);
-        m_pgd->mapFiles({ }, { }, { { L"textures\\pgtest\\stone_m.dds", TextureType::ComplexMaterial } }, { }, false);
+        m_pgd->mapFiles({ }, { }, { { L"textures\\pgbounds\\stone_m.dds", TextureType::ComplexMaterial } }, { }, false);
         m_pgd->waitForMeshMapping();
         PGGlobals::setPGD(m_pgd.get());
         PGGlobals::setPGD3D(&m_d3d);
@@ -668,10 +670,10 @@ TEST_F(PGPatcherObjectBoundsTest,
        TreeAndGrassRecordsGetTheBoundsOfTheirMeshWhenAsked)
 {
     const auto plugin = patchAndSave(true);
-    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\stone.nif"));
-    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\wood.nif"));
-    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\forest.nif"));
-    EXPECT_FALSE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\plain.nif"));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgbounds\\stone.nif"));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgbounds\\wood.nif"));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgbounds\\forest.nif"));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / L"meshes\\pgbounds\\plain.nif"));
     expectRecalculatedBounds(plugin);
 }
 
@@ -679,7 +681,7 @@ TEST_F(PGPatcherObjectBoundsTest,
        NoRecordIsUpdatedWithoutTheOption)
 {
     const auto plugin = patchAndSave(false);
-    EXPECT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgtest\\stone.nif"));
+    EXPECT_TRUE(std::filesystem::exists(outDir() / L"meshes\\pgbounds\\stone.nif"));
     EXPECT_FALSE(std::filesystem::exists(plugin)); // no record changed
 }
 
