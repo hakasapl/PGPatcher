@@ -111,9 +111,9 @@ jobs:
           prerelease: false
 
   # Commits the dated changelog to main as the release app: a GitHub App with read and write access to contents and
-  # pull requests, which main's branch protection lets bypass its pull request rule. Its ID and key live in the release
-  # environment, which only main may use, so no workflow on another branch can act as the app. A job of its own, so
-  # that it can be re-run without building the release again.
+  # pull requests, on the bypass list of main's ruleset (classic branch protection only has bypass lists in
+  # organizations). Its ID and key live in the release environment, which only main may use, so no workflow on another
+  # branch can act as the app. A job of its own, so that it can be re-run without building the release again.
   changelog:
     needs: release
     if: ${{ !inputs.prerelease }}
