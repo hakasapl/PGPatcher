@@ -547,8 +547,7 @@ TEST(PGModManagerTest,
     std::filesystem::create_directories(mo2.dataDir());
     const MO2DataFolder::Options options { .foldersToMap = PGGlobals::s_foldersToMap, .shouldMultithread = false };
 
-    // The output folder must not be an enabled mod. The mod is not named like the walk test's: the logger reports a
-    // repeated critical text once per process, and the two tests share one when they run in one process.
+    // The output folder must not be an enabled mod.
     mo2.writeModlist("+ViewOutput\n+Other\n");
     mo2.addModFile(L"ViewOutput", L"meshes\\o.nif");
     mo2.addModFile(L"Other", L"meshes\\x.nif");

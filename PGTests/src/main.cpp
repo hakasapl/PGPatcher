@@ -68,7 +68,8 @@ int main(int argc,
     // Everything PGLib logs is captured so tests can assert on it.
     TestUtil::TestLog::install();
 
-    // Nothing has been logged yet, so this is the empty suppression baseline that every test starts from.
+    // Nothing has been logged yet, so this marks an empty suppression baseline for the tests to start from. Only
+    // LoggerTest marks the run start again, which adds a message of its own that no other test logs.
     Logger::markRunStart();
     ::testing::UnitTest::GetInstance()->listeners().Append(
         std::make_unique<FreshLogPerTest>().release()); // gtest owns its listeners

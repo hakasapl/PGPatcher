@@ -598,7 +598,7 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     std::unique_ptr<MO2DataFolder> fileMapView;
     if (!fileMapInstanceDir.empty()) {
         if (isConfiguredTheFileMaps) {
-            // Joined, as the other queues are: the wait alone can return before the task ran.
+            // Joined, as the other queues are.
             modManagerInit.waitForCompletion();
             modManagerInit.shutdown();
             if (mo2View)
