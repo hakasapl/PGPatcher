@@ -6,21 +6,26 @@
 #include "NIFBuilder.hpp"
 #include "PGD3D.hpp"
 #include "PGGlobals.hpp"
+#include "PGRunObserver.hpp"
 #include "TestUtil.hpp"
+#include "common/BethesdaDirectory.hpp"
 #include "common/BethesdaGame.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/ExceptionHandler.hpp"
+#include "util/Logger.hpp"
 
 #include "Shaders.hpp"
 #include <gtest/gtest.h>
 #include <spdlog/common.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -501,9 +506,87 @@ TEST_F(PGDirectoryTest,
     EXPECT_EQ(m_pgd->textureType(L"textures\\a\\manual.dds"), TextureType::ComplexMaterial);
 }
 
+// Warnings and errors handed to the thread capture callback, which has to be a plain function pointer. The capture sees
+// every message, also one that Logger suppresses because it was logged before in the process.
+std::vector<std::pair<spdlog::level::level_enum, std::wstring>>
+    s_captured; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+void captureCallback(spdlog::level::level_enum level,
+                     const std::wstring& message)
+{
+    s_captured.emplace_back(level, message);
+}
+
 /**
- * @brief A data folder whose height maps and environment masks have JSONs next to them, loose and archived, mapped by a
- * PGDirectory.
+ * @brief Whether a captured message of the given level contains needle.
+ */
+bool wasCaptured(spdlog::level::level_enum level,
+                 const std::wstring& needle)
+{
+    return std::ranges::any_of(s_captured, [&level, &needle](const auto& entry) {
+        return entry.first == level && entry.second.find(needle) != std::wstring::npos;
+    });
+}
+
+/**
+ * @brief Captures the warnings and errors that this thread logs while alive.
+ */
+class ThreadCapture {
+public:
+    ThreadCapture()
+    {
+        s_captured.clear();
+        Logger::setThreadMessageCapture(&captureCallback);
+    }
+
+    ~ThreadCapture() { Logger::setThreadMessageCapture(nullptr); }
+
+    ThreadCapture(const ThreadCapture&) = delete;
+    ThreadCapture& operator=(const ThreadCapture&) = delete;
+    ThreadCapture(ThreadCapture&&) = delete;
+    ThreadCapture& operator=(ThreadCapture&&) = delete;
+};
+
+/**
+ * @brief An observer that answers every complex material classification from its cache, the way PGLite's
+ * classification cache and the update cache answer for the textures they classified before, and keeps the textures it
+ * was asked for.
+ */
+class CachedClassificationObserver final : public PGRunObserver {
+public:
+    // The test reads the questions directly.
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+    std::vector<std::filesystem::path> questions;
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+
+    bool tryGetCachedCMClassification(const std::filesystem::path& texture,
+                                      [[maybe_unused]] const BethesdaDirectory::FileIdentity& identity,
+                                      PGTypes::CMClassification& result) override
+    {
+        questions.push_back(texture);
+        result = { .isCM = true, .hasEnvMask = true, .hasGlossiness = false, .hasMetalness = true };
+        return true;
+    }
+};
+
+/**
+ * @brief Installs an observer while alive.
+ */
+class ScopedObserver {
+public:
+    explicit ScopedObserver(PGRunObserver& observer) { PGRunObserver::install(&observer); }
+
+    ~ScopedObserver() { PGRunObserver::install(nullptr); }
+
+    ScopedObserver(const ScopedObserver&) = delete;
+    ScopedObserver& operator=(const ScopedObserver&) = delete;
+    ScopedObserver(ScopedObserver&&) = delete;
+    ScopedObserver& operator=(ScopedObserver&&) = delete;
+};
+
+/**
+ * @brief A data folder whose height maps and environment masks have JSONs next to them, loose and archived, with
+ * meshes whose shapes decide the type of some of them, mapped by a PGDirectory.
  */
 class PGDirectoryTextureJSONTest : public ::testing::Test {
 protected:
@@ -513,6 +596,7 @@ protected:
     std::optional<BethesdaGame> m_game;
     std::unique_ptr<PGDirectory> m_pgd;
     PGD3D m_d3d;
+    std::size_t m_logStart = 0; /** Number of log entries before the last mapAll() */
     // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
     static constexpr const char* disabledJSON = R"({"disabled": true})";
@@ -521,19 +605,22 @@ protected:
     {
         ExceptionHandler::reset();
 
+        // Nothing that an earlier test captured or logged counts for this one.
+        s_captured.clear();
+        m_logStart = TestLog::entries().size();
+
         // Textures; only the complex material classification reads one.
         for (const auto* texture : {
-                 L"textures\\json\\off_p.dds",
-                 L"textures\\json\\on_p.dds",
-                 L"textures\\json\\nokey_p.dds",
-                 L"textures\\json\\string_p.dds",
-                 L"textures\\json\\array_p.dds",
-                 L"textures\\json\\broken_p.dds",
-                 L"textures\\json\\upper_p.dds",
-                 L"textures\\json\\ruled_p.dds",
-                 L"textures\\json\\plain_p.dds",
-                 L"textures\\json\\off_m.dds",
-                 L"textures\\json\\wall_n.dds",
+                 L"textures\\json\\off_p.dds",       L"textures\\json\\on_p.dds",
+                 L"textures\\json\\nokey_p.dds",     L"textures\\json\\keycase_p.dds",
+                 L"textures\\json\\string_p.dds",    L"textures\\json\\array_p.dds",
+                 L"textures\\json\\broken_p.dds",    L"textures\\json\\upper_p.dds",
+                 L"textures\\json\\ruled_p.dds",     L"textures\\json\\ruledbroken_p.dds",
+                 L"textures\\json\\ruledcm_m.dds",   L"textures\\json\\plain_p.dds",
+                 L"textures\\json\\off_m.dds",       L"textures\\json\\wall_n.dds",
+                 L"textures\\json\\voted.dds",       L"textures\\json\\voted_d.dds",
+                 L"textures\\json\\envvote.dds",     L"textures\\json\\pbrvote_p.dds",
+                 L"textures\\json\\rmaosvote_m.dds", L"textures\\json\\diffvote_p.dds",
                  L"textures\\pbr\\json\\x_p.dds",
              }) {
             m_fake.writeDataFile(texture, "DDS");
@@ -548,18 +635,47 @@ protected:
                  { L"textures\\json\\off_p.json", disabledJSON },
                  { L"textures\\json\\on_p.json", R"({"disabled": false})" },
                  { L"textures\\json\\nokey_p.json", R"({"$schema": "parallax.schema.json"})" },
+                 { L"textures\\json\\keycase_p.json", R"({"Disabled": true})" },
                  { L"textures\\json\\string_p.json", R"({"disabled": "true"})" },
                  { L"textures\\json\\array_p.json", R"([{"disabled": true}])" },
                  { L"textures\\json\\broken_p.json", R"({"disabled": true)" },
                  { L"textures\\json\\Upper_P.JSON", disabledJSON },
                  { L"textures\\json\\ruled_p.json", disabledJSON },
+                 { L"textures\\json\\ruledbroken_p.json", R"({"disabled": true)" },
+                 { L"textures\\json\\ruledcm_m.json", disabledJSON },
                  { L"textures\\json\\off_m.json", disabledJSON },
                  { L"textures\\json\\cmoff_m.json", disabledJSON },
                  { L"textures\\json\\wall_n.json", disabledJSON },
+                 { L"textures\\json\\voted.json", disabledJSON },
+                 { L"textures\\json\\envvote.json", disabledJSON },
+                 { L"textures\\json\\pbrvote_p.json", disabledJSON },
+                 { L"textures\\json\\rmaosvote_m.json", disabledJSON },
+                 { L"textures\\json\\diffvote_p.json", disabledJSON },
                  { L"textures\\pbr\\json\\x_p.json", disabledJSON },
              }) {
             m_fake.writeDataFile(path, content);
         }
+
+        // Shapes decide the type before the file name suffix does: a parallax shape makes a height map and an
+        // environment map shape an environment mask of a texture without the suffix, a TruePBR shape makes a TruePBR
+        // height map of a _p texture and an RMAOS map of a _m texture, and a diffuse slot makes a diffuse map.
+        writeMesh(m_fake,
+                  L"meshes\\json\\parallax.nif",
+                  slots({ { 0, L"textures\\json\\voted_d.dds" }, { 3, L"textures\\json\\voted.dds" } }),
+                  nifly::BSLSP_PARALLAX,
+                  nifly::SLSF1_PARALLAX);
+        writeMesh(m_fake,
+                  L"meshes\\json\\envmap.nif",
+                  slots({ { 5, L"textures\\json\\envvote.dds" } }),
+                  nifly::BSLSP_ENVMAP,
+                  nifly::SLSF1_ENVIRONMENT_MAPPING);
+        writeMesh(m_fake,
+                  L"meshes\\json\\pbr.nif",
+                  slots({ { 3, L"textures\\json\\pbrvote_p.dds" }, { 5, L"textures\\json\\rmaosvote_m.dds" } }),
+                  nifly::BSLSP_DEFAULT,
+                  0,
+                  nifly::SLSF2_UNUSED01);
+        writeMesh(m_fake, L"meshes\\json\\diffuse.nif", slots({ { 0, L"textures\\json\\diffvote_p.dds" } }));
 
         // A height map archived together with its JSON.
         m_fake.addPlugin(L"JSONMod.esp");
@@ -580,69 +696,162 @@ protected:
         ExceptionHandler::reset();
     }
 
+    /// @brief Maps the files on this thread, capturing every warning and error the mapping logs (see wasCaptured()).
     void mapAll(const std::vector<std::pair<std::wstring,
                                             TextureType>>& textureRules = { })
     {
+        m_logStart = TestLog::entries().size();
+        const ThreadCapture capture;
         m_pgd->mapFiles({ }, { }, textureRules, { }, false);
         m_pgd->waitForMeshMapping();
         m_pgd->waitForCMClassification();
     }
+
+    /// @brief Whether the last mapAll() logged a message of the given level containing needle. Only levels below
+    /// warnings, which Logger never suppresses as repeats.
+    [[nodiscard]] bool wasLogged(spdlog::level::level_enum level,
+                                 const std::string& needle) const
+    {
+        const auto entries = TestLog::entries();
+        const auto start = static_cast<std::ptrdiff_t>(std::min(m_logStart, entries.size()));
+        return std::ranges::any_of(entries | std::views::drop(start), [&level, &needle](const TestLog::Entry& entry) {
+            return entry.level == level && entry.message.find(needle) != std::string::npos;
+        });
+    }
+
+    [[nodiscard]] bool isIgnoredByItsJSON(const std::wstring& texture) const
+    {
+        return wasLogged(spdlog::level::debug,
+                         "Ignoring texture disabled by its JSON: " + TestUtil::pathToUTF8(texture));
+    }
 };
 
 TEST_F(PGDirectoryTextureJSONTest,
-       AHeightMapItsJSONDisablesIsLeftOut)
+       AHeightMapDisabledByItsJSONIsLeftOut)
 {
-    mapAll({ { L"textures\\json\\ruled_p.dds", TextureType::Height } });
+    mapAll({
+        { L"textures\\json\\ruled_p.dds", TextureType::Height },
+        { L"textures\\json\\ruledbroken_p.dds", TextureType::Height },
+    });
 
     // Left out as if a texture rule set it to unknown, whatever the case of the file name and archived or not.
     for (const auto* base : { L"textures\\json\\off", L"textures\\json\\upper", L"textures\\json\\packed" }) {
         const auto texture = std::wstring(base) + L"_p.dds";
         EXPECT_EQ(m_pgd->textureType(texture), TextureType::Unknown) << TestUtil::pathToUTF8(texture);
         EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::Parallax).contains(base)) << TestUtil::pathToUTF8(texture);
-        EXPECT_TRUE(TestLog::contains(spdlog::level::debug,
-                                      "Ignoring texture disabled by its JSON: " + TestUtil::pathToUTF8(texture)));
+        EXPECT_TRUE(isIgnoredByItsJSON(texture)) << TestUtil::pathToUTF8(texture);
     }
 
-    // Everything else is mapped as usual: false, no key, a key that is not a boolean, a JSON that is not an object or
-    // cannot be parsed, no JSON at all, and a texture rule, which takes precedence over the JSON.
+    // Everything else is mapped as usual: false, no key, the key in another case, a key that is not a boolean, a JSON
+    // that is not an object or cannot be parsed, and no JSON at all.
     for (const auto* base : {
              L"textures\\json\\on",
              L"textures\\json\\nokey",
+             L"textures\\json\\keycase",
              L"textures\\json\\string",
              L"textures\\json\\array",
              L"textures\\json\\broken",
              L"textures\\json\\plain",
-             L"textures\\json\\ruled",
          }) {
         const auto texture = std::wstring(base) + L"_p.dds";
         EXPECT_TRUE(mapHas(*m_pgd, TextureSlots::Parallax, base, texture, TextureType::Height))
             << TestUtil::pathToUTF8(texture);
     }
-    EXPECT_TRUE(TestLog::contains(spdlog::level::err, "Failed to parse JSON: textures\\json\\broken_p.json"));
+    EXPECT_TRUE(wasCaptured(spdlog::level::err, L"Failed to parse JSON: textures\\json\\broken_p.json"));
 
-    // The JSON of a texture of another type does nothing, the height maps of the TruePBR shader included.
-    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\wall_n.dds"), TextureType::Normal);
-    EXPECT_EQ(m_pgd->textureType(L"textures\\pbr\\json\\x_p.dds"), TextureType::HeightPBR);
+    // A texture rule takes precedence, and the JSON of a texture that a rule gives its type is not even read.
+    EXPECT_TRUE(mapHas(
+        *m_pgd, TextureSlots::Parallax, L"textures\\json\\ruled", L"textures\\json\\ruled_p.dds", TextureType::Height));
+    EXPECT_TRUE(mapHas(*m_pgd,
+                       TextureSlots::Parallax,
+                       L"textures\\json\\ruledbroken",
+                       L"textures\\json\\ruledbroken_p.dds",
+                       TextureType::Height));
+    EXPECT_FALSE(wasCaptured(spdlog::level::err, L"textures\\json\\ruledbroken_p.json"));
+
+    // One line counts every texture left out, environment masks included: off_p, upper_p, packed_p, voted, off_m,
+    // cmoff_m, ruledcm_m and envvote.
+    EXPECT_TRUE(wasLogged(spdlog::level::info, "Ignored 8 textures disabled by their JSON"));
 }
 
 TEST_F(PGDirectoryTextureJSONTest,
-       AnEnvironmentMaskItsJSONDisablesIsLeftOutUnclassified)
+       TheVotedTypeDecidesWhetherTheJSONCounts)
 {
     mapAll();
 
-    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\off_m.dds"), TextureType::Unknown);
-    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\json\\off"));
-    EXPECT_TRUE(
-        TestLog::contains(spdlog::level::debug, "Ignoring texture disabled by its JSON: textures\\json\\off_m.dds"));
+    // A parallax shape makes a height map and an environment map shape an environment mask of a texture without the
+    // suffix, so their JSONs leave them out.
+    EXPECT_TRUE(isIgnoredByItsJSON(L"textures\\json\\voted.dds"));
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\voted.dds"), TextureType::Unknown);
+    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::Parallax).contains(L"textures\\json\\voted"));
+    EXPECT_TRUE(isIgnoredByItsJSON(L"textures\\json\\envvote.dds"));
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\envvote.dds"), TextureType::Unknown);
+    EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\json\\envvote"));
 
-    // Without a GPU the complex material classification fails, so a mask that was not classified logged no error.
-    EXPECT_TRUE(TestLog::contains(spdlog::level::err, "Unable to process texture: textures\\json\\cm_m.dds"));
-    EXPECT_FALSE(TestLog::contains(spdlog::level::err, "Unable to process texture: textures\\json\\off_m.dds"));
-    EXPECT_FALSE(TestLog::contains(spdlog::level::err, "Unable to process texture: textures\\json\\cmoff_m.dds"));
+    // A TruePBR shape and a diffuse slot make other types of _p and _m textures, whose JSONs do nothing.
+    EXPECT_TRUE(mapHas(*m_pgd,
+                       TextureSlots::Parallax,
+                       L"textures\\json\\pbrvote",
+                       L"textures\\json\\pbrvote_p.dds",
+                       TextureType::HeightPBR));
+    EXPECT_TRUE(mapHas(*m_pgd,
+                       TextureSlots::EnvMask,
+                       L"textures\\json\\rmaosvote",
+                       L"textures\\json\\rmaosvote_m.dds",
+                       TextureType::RMAOS));
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\diffvote_p.dds"), TextureType::Diffuse);
+
+    // Neither do the JSONs of the textures the suffix gives another type, the height maps of the TruePBR folder
+    // included.
+    EXPECT_EQ(m_pgd->textureType(L"textures\\json\\wall_n.dds"), TextureType::Normal);
+    EXPECT_EQ(m_pgd->textureType(L"textures\\pbr\\json\\x_p.dds"), TextureType::HeightPBR);
+    for (const auto* texture : {
+             L"textures\\json\\pbrvote_p.dds",
+             L"textures\\json\\rmaosvote_m.dds",
+             L"textures\\json\\diffvote_p.dds",
+             L"textures\\json\\wall_n.dds",
+             L"textures\\pbr\\json\\x_p.dds",
+         }) {
+        EXPECT_FALSE(isIgnoredByItsJSON(texture)) << TestUtil::pathToUTF8(texture);
+    }
 }
 
 TEST_F(PGDirectoryTextureJSONTest,
-       AComplexMaterialTextureItsJSONDisablesIsNotMapped)
+       AnEnvironmentMaskDisabledByItsJSONIsLeftOutBeforeItsCachedClassification)
+{
+    // PGLite's classification cache and the update cache answer for the masks they classified before. No PGD3D is
+    // installed, so only a texture rule or an answer from the cache can map a mask here.
+    CachedClassificationObserver observer;
+    const ScopedObserver scopedObserver(observer);
+    mapAll({ { L"textures\\json\\ruledcm_m.dds", TextureType::ComplexMaterial } });
+
+    // The cache was asked for the one mask that neither a rule nor its JSON decides, and its answer mapped that mask.
+    EXPECT_EQ(observer.questions, (std::vector<std::filesystem::path> { L"textures\\json\\cm_m.dds" }));
+    EXPECT_TRUE(mapHas(*m_pgd,
+                       TextureSlots::EnvMask,
+                       L"textures\\json\\cm",
+                       L"textures\\json\\cm_m.dds",
+                       TextureType::ComplexMaterial));
+
+    for (const auto* base : { L"textures\\json\\off", L"textures\\json\\cmoff" }) {
+        const auto texture = std::wstring(base) + L"_m.dds";
+        EXPECT_EQ(m_pgd->textureType(texture), TextureType::Unknown) << TestUtil::pathToUTF8(texture);
+        EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(base)) << TestUtil::pathToUTF8(texture);
+        EXPECT_TRUE(isIgnoredByItsJSON(texture)) << TestUtil::pathToUTF8(texture);
+    }
+
+    // A texture rule takes precedence here too: the mask it makes a complex material texture is mapped as one without a
+    // classification, its JSON notwithstanding.
+    EXPECT_TRUE(mapHas(*m_pgd,
+                       TextureSlots::EnvMask,
+                       L"textures\\json\\ruledcm",
+                       L"textures\\json\\ruledcm_m.dds",
+                       TextureType::ComplexMaterial));
+    EXPECT_FALSE(isIgnoredByItsJSON(L"textures\\json\\ruledcm_m.dds"));
+}
+
+TEST_F(PGDirectoryTextureJSONTest,
+       AComplexMaterialTextureDisabledByItsJSONIsNotMapped)
 {
     if (!m_d3d.initGPU() || !m_d3d.initShaders())
         GTEST_SKIP() << "no Direct3D 11 hardware device";
@@ -660,6 +869,54 @@ TEST_F(PGDirectoryTextureJSONTest,
                        TextureType::ComplexMaterial));
     EXPECT_EQ(m_pgd->textureType(L"textures\\json\\cmoff_m.dds"), TextureType::Unknown);
     EXPECT_FALSE(m_pgd->textureMapConst(TextureSlots::EnvMask).contains(L"textures\\json\\cmoff"));
+}
+
+TEST_F(PGDirectoryTextureJSONTest,
+       AJSONThatCannotBeReadDisablesNothing)
+{
+    // A JSON that is gone by the time the textures are classified reads as empty, which is reported like a broken file.
+    std::filesystem::remove(m_fake.dataDir() / L"textures\\json\\off_p.json");
+    mapAll();
+
+    EXPECT_TRUE(mapHas(
+        *m_pgd, TextureSlots::Parallax, L"textures\\json\\off", L"textures\\json\\off_p.dds", TextureType::Height));
+    EXPECT_TRUE(wasCaptured(spdlog::level::err, L"Failed to parse JSON: textures\\json\\off_p.json"));
+}
+
+TEST_F(PGDirectoryTextureJSONTest,
+       AJSONWhoseReaderThrowsDisablesNothing)
+{
+    // No program classifies through a reader (PGLite installs its engine reader after the classification), but a
+    // reader that throws must not end the classification either.
+    m_pgd->setFileReader([](const std::filesystem::path& relPath) -> std::vector<std::byte> {
+        throw BethesdaDirectory::ReadFailure("Unable to read " + TestUtil::pathToUTF8(relPath));
+    });
+    mapAll();
+
+    for (const auto* base : { L"textures\\json\\off", L"textures\\json\\packed" }) {
+        const auto texture = std::wstring(base) + L"_p.dds";
+        EXPECT_TRUE(mapHas(*m_pgd, TextureSlots::Parallax, base, texture, TextureType::Height))
+            << TestUtil::pathToUTF8(texture);
+        EXPECT_TRUE(wasCaptured(spdlog::level::err, L"Unable to read JSON: " + std::wstring(base) + L"_p.json"))
+            << TestUtil::pathToUTF8(texture);
+    }
+}
+
+TEST_F(PGDirectoryTextureJSONTest,
+       TheJSONThatWinsAtThePathCounts)
+{
+    // A loose JSON wins over the archived one at its path, so it enables the archived height map again.
+    m_fake.writeDataFile(L"textures\\json\\packed_p.json", R"({"disabled": false})");
+    m_pgd = std::make_unique<PGDirectory>(&*m_game, m_fake.gameDir() / L"out");
+    m_pgd->populateFileMap(true, false);
+    mapAll();
+
+    EXPECT_TRUE(mapHas(*m_pgd,
+                       TextureSlots::Parallax,
+                       L"textures\\json\\packed",
+                       L"textures\\json\\packed_p.dds",
+                       TextureType::Height));
+    EXPECT_FALSE(isIgnoredByItsJSON(L"textures\\json\\packed_p.dds"));
 }
 
 }

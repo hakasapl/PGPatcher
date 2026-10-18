@@ -158,7 +158,7 @@ private:
     /**
      * @brief Checks whether the JSON of a height map (parallax JSON) or of an environment mask (complex material JSON)
      * disables the texture: the texture's path with the extension replaced by .json holds "disabled": true. A JSON that
-     * cannot be read or parsed is logged and disables nothing
+     * cannot be read or parsed is logged and disables nothing.
      *
      * @param texture Texture to check
      * @param type Type the texture was classified as; textures of other types have no such JSON

@@ -36,6 +36,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -187,6 +188,8 @@ protected:
     void TearDown() override
     {
         PGGlobals::fileSaver().waitForCompletion();
+        PGRunCache::discard();
+        PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
         PGPatcher::resetRunState();
         PGPatcher::loadPatchers(PatcherUtil::PatcherMeshSet(), PatcherUtil::PatcherTextureSet());
         PGGlobals::setPGD3D(nullptr);
@@ -448,6 +451,7 @@ TEST_F(PGPatcherTest,
 
         PGPatcher::resetRunState();
         PGRunCache::beginRun();
+        EXPECT_EQ(PGRunCache::hasPreviousRun(), isUpdate);
         if (PGRunCache::hasPreviousRun()) {
             PGPatcher::deleteOutputDir(true, true);
             PGRunCache::snapshotOutputDirectory();
@@ -461,8 +465,12 @@ TEST_F(PGPatcherTest,
     };
     const auto shaderType = [this](const wchar_t* path) {
         const auto nif = loadOutput(path);
-        return nif.GetShader(nif.GetShapes().at(0))->GetShaderType();
+        const auto* const shader = nif.GetShader(nif.GetShapes().at(0));
+        return shader ? shader->GetShaderType() : std::numeric_limits<uint32_t>::max();
     };
+    // Every mesh but the wood is skipped by an update (info lines are never suppressed as repeats).
+    const auto updatesSkippingAllButTheWood
+        = [] { return TestLog::count(spdlog::level::info, "Update cache: 5 of 6 meshes are unchanged"); };
     const auto jsonPath = dataDir() / L"textures\\pgtest\\wood_p.json";
 
     run(false);
@@ -472,7 +480,9 @@ TEST_F(PGPatcherTest,
 
     // The JSON disables the height map: the update patches the wood again, which leaves nothing to write.
     TestUtil::writeFile(jsonPath, R"({"disabled": true})");
+    auto updates = updatesSkippingAllButTheWood();
     run(true);
+    EXPECT_EQ(updatesSkippingAllButTheWood(), updates + 1);
     EXPECT_FALSE(std::filesystem::exists(outDir() / woodPath));
     EXPECT_FALSE(PGPatcher::diffJSON().contains("meshes\\pgtest\\wood.nif"));
     // The stone does not use the height map, so its output was kept.
@@ -480,13 +490,12 @@ TEST_F(PGPatcherTest,
 
     // Enabled again, the height map is back.
     TestUtil::writeFile(jsonPath, R"({"disabled": false})");
+    updates = updatesSkippingAllButTheWood();
     run(true);
+    EXPECT_EQ(updatesSkippingAllButTheWood(), updates + 1);
     ASSERT_TRUE(std::filesystem::exists(outDir() / woodPath));
     EXPECT_EQ(shaderType(woodPath), nifly::BSLSP_PARALLAX);
     EXPECT_EQ(std::filesystem::last_write_time(outDir() / stonePath), stoneWritten);
-
-    PGRunCache::discard();
-    PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
 }
 
 /**

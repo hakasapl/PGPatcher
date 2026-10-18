@@ -248,6 +248,8 @@ void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstr
                                               const std::vector<std::wstring>& parallaxBSAExcludes,
                                               const bool& multithreading)
 {
+    size_t disabledCount = 0;
+
     // Loop through unconfirmed textures to confirm them.
     for (const auto& [texture, property] : m_unconfirmedTextures) {
         bool foundInstance = false;
@@ -288,6 +290,7 @@ void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstr
         } else if (isDisabledByJSON(texture, winningType)) {
             // Left out like a texture that a manual texture map sets to unknown.
             Logger::debug(L"Ignoring texture disabled by its JSON: {}", texture.wstring());
+            disabledCount++;
             continue;
         }
 
@@ -322,6 +325,10 @@ void PGDirectory::classifyUnconfirmedTextures(const std::unordered_map<std::wstr
             addToTextureMaps(texture, winningSlot, winningType, { });
         }
     }
+
+    // The textures themselves are listed at debug level.
+    if (disabledCount)
+        Logger::info("Ignored {} textures disabled by their JSON", disabledCount);
 }
 
 bool PGDirectory::isDisabledByJSON(const std::filesystem::path& texture,
