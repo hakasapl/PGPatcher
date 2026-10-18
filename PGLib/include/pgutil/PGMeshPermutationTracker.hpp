@@ -13,6 +13,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -84,6 +85,9 @@ public:
         /// @brief 3D index of each shape after patching mapped back to its original 3D index, so shapes deleted by
         /// patchers do not shift the indices alternate textures refer to.
         std::unordered_map<int, int> inverseIdxCorrectionsPatching;
+        /// @brief Bounding box of the saved mesh in model space, computed across the shapes below the root that store
+        /// vertex positions. Empty if the mesh has none, or if bounds were not requested when saving.
+        std::optional<PGTypes::ObjectBounds> objectBounds;
     };
 
     /// @brief What the weighted (_0/_1) layout check tells the blocks of a mesh apart by, see blockTypeSignature().
@@ -227,6 +231,9 @@ public:
      * The first output takes the original path unless ignoreBaseMesh() was called, the others go under
      * _pgpatcher_dups. Each result carries the shape index corrections the plugin needs.
      *
+     * @param shouldUpdateBounds whether to recompute the bounding sphere of every shape of each saved mesh
+     * @param shouldComputeObjectBounds whether to compute the bounding box of each saved mesh
+     * (MeshResult::objectBounds)
      * @return The results, and a pair of the original mesh's CRC32 and the CRC32 of the saved base mesh (0 when the
      * base mesh was not written). An empty result list with an all-zero pair means a mesh could not be serialized.
      * @throws std::runtime_error if an output file already exists or the shape bookkeeping is inconsistent.
@@ -234,16 +241,30 @@ public:
     std::pair<std::vector<MeshResult>,
               std::pair<unsigned long long,
                         unsigned long long>>
-    saveMeshes();
+    saveMeshes(const bool& shouldUpdateBounds = false,
+               const bool& shouldComputeObjectBounds = false);
+
+    /**
+     * @brief Computes the bounding box of the original (unpatched) mesh. Patchers never move vertices, so this matches
+     * the bounding box of an output mesh unless a patcher deleted a shape (e.g. the TruePBR delete attribute). It does
+     * not require an output mesh to be produced.
+     *
+     * @return The bounding box, or std::nullopt if the mesh has no shapes with vertices.
+     */
+    std::optional<PGTypes::ObjectBounds> originalObjectBounds();
 
     /**
      * @brief Sorts the blocks of every output mesh and serializes it in memory: the same outputs, index corrections and
      * bytes saveMeshes() writes, without touching the output directory. Call once per tracker.
      *
+     * @param shouldUpdateBounds whether to recompute the bounding sphere of every shape of each output mesh
+     * @param shouldComputeObjectBounds whether to compute the bounding box of each output mesh
+     * (MeshResult::objectBounds)
      * @return One entry per output mesh, in output order. Empty when a mesh could not be serialized (logged as
      * critical).
      */
-    std::vector<SerializedOutput> serializeMeshes();
+    std::vector<SerializedOutput> serializeMeshes(const bool& shouldUpdateBounds = false,
+                                                  const bool& shouldComputeObjectBounds = false);
 
     /**
      * @brief The block kinds of the shapes and particle systems of a mesh in 3D index order: what the weighted (_0/_1)
@@ -376,6 +397,17 @@ private:
      */
     static std::filesystem::path meshPath(const std::filesystem::path& nifPath,
                                           const size_t& index);
+
+    /**
+     * @brief Computes the bounding box of a NIF in model space, across every shape below the root that stores vertex
+     * positions (not only the ones PG can patch), accounting for the transforms from the root down. Positions that are
+     * not finite numbers are skipped. Truncated toward zero like the OBND subrecord the Creation Kit stores for
+     * statics, trees and grass.
+     *
+     * @param nif The NIF file to measure.
+     * @return The bounding box, or std::nullopt if the NIF has no such shape.
+     */
+    static std::optional<PGTypes::ObjectBounds> computeObjectBounds(nifly::NifFile& nif);
 
     /**
      * @brief Returns the shapes and particle systems of a NIF in 3D index order.

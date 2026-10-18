@@ -138,6 +138,8 @@ void PGParams::readJSON(const nlohmann::json& paramsJSON)
         paramsJSON["postpatcher"]["hairflowmap"].get_to<bool>(postPatcher.isHairFlowMapEnabled);
 
     // "globalpatcher".
+    if (paramsJSON.contains("globalpatcher") && paramsJSON["globalpatcher"].contains("recalculatebounds"))
+        paramsJSON["globalpatcher"]["recalculatebounds"].get_to<bool>(globalPatcher.isRecalculateBoundsEnabled);
 }
 
 void PGParams::writeJSON(nlohmann::json& paramsJSON) const
@@ -189,6 +191,7 @@ void PGParams::writeJSON(nlohmann::json& paramsJSON) const
     paramsJSON["postpatcher"]["hairflowmap"] = postPatcher.isHairFlowMapEnabled;
 
     // "globalpatcher".
+    paramsJSON["globalpatcher"]["recalculatebounds"] = globalPatcher.isRecalculateBoundsEnabled;
 }
 
 void PGParams::replaceForwardSlashes(nlohmann::json& json)

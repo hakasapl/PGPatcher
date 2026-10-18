@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -347,6 +348,43 @@ TEST_F(PGRunCacheTest,
     EXPECT_FALSE(PGRunCache::hasPreviousRun());
     EXPECT_FALSE(std::filesystem::exists(cacheFile()));
     EXPECT_FALSE(PGRunCache::isUpdateAvailable(outDir()));
+}
+
+TEST_F(PGRunCacheTest,
+       ObjectBoundsOfTheResultsSurviveTheCache)
+{
+    PGRunCache::initialize(cacheFile(), true, true);
+    PGRunCache::setConfigFingerprint(42);
+    PGRunCache::setPluginFingerprint(7);
+    writeOutputs();
+
+    const PGTypes::ObjectBounds meshBounds { .min = { -5, 0, 3 }, .max = { 9, 8, 7 } };
+    {
+        PGRunCache::MeshRecorder recorder(meshPath);
+        std::ignore = m_pgd->file(meshPath); // queried for the recorder
+        PGRunCache::recordOutputFile(meshPath, 12);
+        recorder.setUses({ { s_use, PGPlugin::MeshUseAttributes { } } });
+
+        PGMeshPermutationTracker::MeshResult saved;
+        saved.meshPath = meshPath;
+        saved.altTexResults.emplace_back(s_use, std::unordered_map<unsigned, PGTypes::TextureSet> { });
+        saved.objectBounds = meshBounds;
+        PGMeshPermutationTracker::MeshResult withoutBounds;
+        withoutBounds.meshPath = L"meshes\\a\\other.nif";
+        recorder.setMeshResults({ saved, withoutBounds });
+        recorder.setMeta(PGPatcher::MeshMeta { });
+        recorder.commit();
+    }
+    ASSERT_TRUE(PGRunCache::finishRun(true));
+
+    PGRunCache::initialize(cacheFile(), true, false);
+    PGRunCache::setConfigFingerprint(42);
+    PGRunCache::setPluginFingerprint(7);
+    const auto* record = PGRunCache::previousRecord(meshPath);
+    ASSERT_NE(record, nullptr);
+    ASSERT_EQ(record->meshResults.size(), 2U);
+    EXPECT_EQ(record->meshResults[0].objectBounds, meshBounds);
+    EXPECT_EQ(record->meshResults[1].objectBounds, std::nullopt);
 }
 
 TEST_F(PGRunCacheTest,
