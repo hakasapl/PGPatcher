@@ -110,6 +110,13 @@
         "tooltip": "Ajoute des flow maps aux texture sets pour celles correspondant à la texture normale"
       }
     },
+    "globalPatchers": {
+      "title": "Patchers globaux",
+      "recalculateBounds": {
+        "label": "Recalculer les bounds",
+        "tooltip": "Recalcule les bounds de chaque mesh que PG écrit, et l'OBND des records d'arbres et d'herbe qui les utilisent, même si leur mesh n'est pas écrit. TexGen lit l'OBND pour choisir les arbres et l'herbe qui reçoivent des billboards de LOD. Modifie des records du plugin."
+      }
+    },
     "buttons": {
       "restoreDefaults": "Restaurer les valeurs par défaut",
       "loadConfig": "Charger la configuration",
@@ -213,6 +220,7 @@
       "readingNifs": "Lecture des NIF",
       "classifyingTextures": "Classification des textures",
       "patchingMeshes": "Patch des meshes",
+      "evaluatingPreviousOutput": "Évaluation de la sortie précédente",
       "processingNifs": "Traitement des NIF",
       "patchingTextures": "Patch des textures",
       "processingTextures": "Traitement des textures",

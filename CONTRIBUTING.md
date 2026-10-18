@@ -14,11 +14,11 @@ As every PR is squashed when merging automatically, the commit messages within t
 
 All PRs will be reviewed by GitHub copilot, alongside a human maintainer. Often copilot has erroneous results but it is good to read what it has to say regardless.
 
-If your change is a user-facing change (ie. not a refactor, CI, or other project change), a changelog entry in `CHANGELOG.md` is required.
+If your change is a user-facing change (ie. not a refactor, CI, or other project change), a changelog entry under `## UNRELEASED` in `CHANGELOG.md` is required. A CI check fails when an entry lands in a section that was already released, which happens when a branch made before a release appended its entry to the old `## UNRELEASED` section.
 
 ### Versioning
 
-This project uses the [semantic versioning v2 specification](https://semver.org/). Versions are determined automatically based on the conventional commit titles used between tags. The manually triggered `Build and Publish Release` workflow will build the main branch, determine the next release version, and then create a draft release to be approved manually. Pre-releases are occasionally released for community feedback. These have the format `0.0.0-preX` where X is the number of commits since the last tag.
+This project uses the [semantic versioning v2 specification](https://semver.org/). Versions are determined automatically based on the conventional commit titles used between tags. The manually triggered `Build and Publish Release` workflow will build the main branch, determine the next release version, and then create a draft release to be approved manually. For a stable release it also commits the dated changelog to main: the `## UNRELEASED` section becomes the section of that version, dated the day of the run, below a new empty `## UNRELEASED` section. If `CHANGELOG.md` changed on main while the release was building, that change comes as a pull request instead, to be merged before the draft release is published. Pre-releases are occasionally released for community feedback. These have the format `0.0.0-preX` where X is the number of commits since the last tag.
 
 Tags are exclusively used to designate versions in this repository.
 

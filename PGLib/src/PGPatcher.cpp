@@ -70,7 +70,8 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             const bool& isPGLiteMode,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback,
-                            const std::function<void(MeshPatchStage)>& stageCallback)
+                            const std::function<void(MeshPatchStage)>& stageCallback,
+                            const bool& shouldRecalculateBounds)
 {
     auto* const pgd = PGGlobals::pgd();
     pgd->waitForMeshMapping();
@@ -148,14 +149,16 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             &recTypes,
                             &shouldCheckRecTypes,
                             &excludeFacegens,
-                            &isPGLiteMode] {
+                            &isPGLiteMode,
+                            &shouldRecalculateBounds] {
             taskTracker.completeJob(patchNIF(mesh,
                                              setModelUsesQueue,
                                              shouldForceBasePatch,
                                              recTypes,
                                              shouldCheckRecTypes,
                                              excludeFacegens,
-                                             isPGLiteMode));
+                                             isPGLiteMode,
+                                             shouldRecalculateBounds));
         });
     }
 
@@ -163,8 +166,12 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
     meshRunner.runTasks();
 
     // Apply the plugin model uses of all replayed meshes at once.
-    if (!replayedMeshResults.empty())
-        setModelUsesQueue.queueTask([results = std::move(replayedMeshResults)] { PGPlugin::setModelUses(results); });
+    if (!replayedMeshResults.empty()) {
+        setModelUsesQueue.queueTask([results = std::move(replayedMeshResults)] {
+            PGPlugin::setModelUses(results);
+            PGPlugin::setObjectBounds(results);
+        });
+    }
 
     // Final validation for weight variants.
     const auto weightVariantErrors = PGMeshPermutationTracker::validateWeightedVariants();
@@ -471,7 +478,8 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                                         const bool& checkAllowedRecTypes,
                                         const bool& excludeFacegens,
-                                        const bool& isPGLiteMode)
+                                        const bool& isPGLiteMode,
+                                        const bool& shouldRecalculateBounds)
 {
     const Logger::Prefix nifPrefix(nifPath.wstring());
 
@@ -614,8 +622,27 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         }
     }
 
+    // DynDOLOD reads the OBND of TREE and GRAS records to decide which of them get LOD billboards, and mods that add or
+    // replace those meshes often leave it unset or stale. Only the uses of those two types get one, from the saved mesh
+    // when PG outputs it and from the original mesh otherwise.
+    const auto isBoundsUse = [&](const PGPlugin::MeshUseAttributes& use) {
+        return (use.recType == PGPlugin::ModelRecordType::Tree || use.recType == PGPlugin::ModelRecordType::Grass)
+            && !isUseUnpatched(use, allowedModelRecTypes, checkAllowedRecTypes);
+    };
+    const bool hasBoundsUse = shouldRecalculateBounds
+        && std::ranges::any_of(originalMeshUses, [&](const auto& use) { return isBoundsUse(use.second); });
+
     // Save meshes.
-    auto saveResults = meshTracker.saveMeshes();
+    auto saveResults = meshTracker.saveMeshes(shouldRecalculateBounds, hasBoundsUse);
+
+    // The uses whose mesh PG outputs, collected before the entries below are appended: their results carry the bounds.
+    std::unordered_set<PGMeshPermutationTracker::FormKey, PGMeshPermutationTracker::FormKeyHash> savedFormKeys;
+    if (hasBoundsUse) {
+        for (const auto& meshResult : saveResults.first)
+            for (const auto& formKeyEntry : meshResult.altTexResults)
+                savedFormKeys.insert(formKeyEntry.first);
+    }
+
     if (!originalMeshAltTexResults.empty()) {
         // No file is written for these uses: their records keep the original mesh and only get the patched alternate
         // textures. The shapes are not reordered since the mesh is not saved, so the shape indices stay as they are.
@@ -626,7 +653,27 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
             .inverseIdxCorrectionsPatching = { },
         });
     }
-    setModelUsesQueue.queueTask([saveResults] { PGPlugin::setModelUses(saveResults.first); });
+
+    if (hasBoundsUse) {
+        // The remaining uses keep the original mesh, so their records only get the bounds of it. Patchers never move
+        // vertices, so these match the bounds of an output mesh, except when a patcher deletes a shape (the TruePBR
+        // delete attribute), which is why the uses above take theirs from the saved mesh.
+        PGMeshPermutationTracker::MeshResult boundsResult { .meshPath = nifPath };
+        for (const auto& [formKey, attributes] : originalMeshUses)
+            if (isBoundsUse(attributes) && !savedFormKeys.contains(formKey))
+                boundsResult.altTexResults.emplace_back(formKey, std::unordered_map<unsigned, PGTypes::TextureSet> { });
+
+        if (!boundsResult.altTexResults.empty()) {
+            boundsResult.objectBounds = meshTracker.originalObjectBounds();
+            if (boundsResult.objectBounds.has_value())
+                saveResults.first.push_back(std::move(boundsResult));
+        }
+    }
+
+    setModelUsesQueue.queueTask([saveResults] {
+        PGPlugin::setModelUses(saveResults.first);
+        PGPlugin::setObjectBounds(saveResults.first);
+    });
 
     // Run handlers.
     for (const auto& meshResult : saveResults.first) {

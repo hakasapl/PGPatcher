@@ -16,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <shared_mutex>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -86,6 +87,15 @@ public:
      * file and archive reading, see setFileReader().
      */
     using FileReader = std::function<std::vector<std::byte>(const std::filesystem::path&)>;
+
+    /**
+     * @brief Thrown by a reader (setFileReader()) for a mapped file that could not be read this time, as opposed to one
+     * that is not there: the lookups that catch it treat the read as one that may succeed later.
+     */
+    class ReadFailure : public std::runtime_error {
+    public:
+        using std::runtime_error::runtime_error;
+    };
 
     /**
      * @struct LooseFile

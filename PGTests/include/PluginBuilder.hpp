@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pgutil/PGTypes.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -73,6 +75,21 @@ public:
                    const std::vector<AlternateTexture>& alternateTextures = { },
                    uint32_t materialFormID = 0,
                    uint32_t recordFlags = 0);
+
+    /**
+     * @brief Adds a record that is made of an editor ID, object bounds and a model, such as a TREE, GRAS or ACTI.
+     *
+     * @param type Record type, for example "TREE"
+     * @param formID Full form ID
+     * @param editorID Editor ID
+     * @param model Path of the model, relative to the meshes folder
+     * @param bounds Value of the OBND subrecord
+     */
+    void addModelRecord(const std::string& type,
+                        uint32_t formID,
+                        const std::string& editorID,
+                        const std::string& model,
+                        const PGTypes::ObjectBounds& bounds = { });
 
     /// @brief Adds a TXST record with the given slot textures (paths relative to the textures folder).
     void addTextureSet(uint32_t formID,

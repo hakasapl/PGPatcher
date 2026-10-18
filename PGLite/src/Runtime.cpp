@@ -639,11 +639,14 @@ void Runtime::prepareEnvironment()
         PGGlobals::setPGD3D(&m_d3d);
     }
 
-    // The cache is the process's observer: the classifications of the mesh reading pass, and the registrations the
-    // texture hooks make, which reach the texture generator through it.
+    // The cache is the process's observer: the classifications of the mesh reading pass, the registrations the
+    // texture hooks make, which reach the texture generator through it, and the texture files a patch could not read,
+    // which keep that patch from being kept (Family::bytes).
     m_cache.setHookRegistrationListener([this](PGRunObserver::HookKind kind, const std::filesystem::path& texPath) {
         m_textures.noteRegistration(kind, texPath);
     });
+    m_cache.setTextureReadFailureListener(
+        [](const std::filesystem::path& texPath) { Family::noteTextureReadFailure(texPath); });
     PGRunObserver::install(&m_cache);
 
     buildEnvironment([this](const char* stage) { reportStage(stage); },

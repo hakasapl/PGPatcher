@@ -301,6 +301,10 @@ shapesWith3DIdx(const nifly::NifFile* nif);
 bool isPatchableShape(const nifly::NifFile& nif,
                       nifly::NiShape& nifShape);
 
+/// @brief Check whether a shape stores vertex positions. A shape without the vertex flag holds zero vectors instead,
+/// and so does a BSDynamicTriShape, whose positions live in its dynamic data, so none of them can give bounds.
+bool hasVertexPositions(nifly::NiShape* nifShape);
+
 /// @brief Check whether a shape can get a different shader: it is patchable, its shader is a BSLightingShaderProperty
 /// with a texture set, and neither the shape nor the shader carries a PG_IGNORE boolean extra data set to true
 bool isShaderPatchableShape(nifly::NifFile& nif,

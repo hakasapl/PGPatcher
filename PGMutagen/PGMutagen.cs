@@ -476,6 +476,34 @@ public class PGMutagen
         return false;
     }
 
+    // The mutable copy of a record the output overrides: the one an earlier update made, or a new copy of the winning
+    // record. Null when the record cannot be copied, which is remembered so it is skipped from then on.
+    private static IMajorRecord? GetMutableRecord(FormKey formKey, IMajorRecordGetter existingRecord)
+    {
+        if (ModifiedRecords.TryGetValue(formKey, out IMajorRecord? modifiedRecord))
+        {
+            return modifiedRecord;
+        }
+
+        try
+        {
+            return existingRecord.DeepCopy();
+        }
+        catch (Exception)
+        {
+            MessageHandler.Log("Failed to copy model record: " + GetRecordDesc(existingRecord), 4);
+            ModifiedRecords[formKey] = null;
+            return null;
+        }
+    }
+
+    // Whether the output overrides any record so far, which is when a plugin gets written.
+    [UnmanagedCallersOnly(EntryPoint = "HasModifiedRecords", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void HasModifiedRecords([DNNE.C99Type("int*")] int* hasModifiedRecords)
+    {
+        *hasModifiedRecords = ModifiedRecords.Values.Any(record => record is not null) ? 1 : 0;
+    }
+
     [UnmanagedCallersOnly(EntryPoint = "ResetPatchingState", CallConvs = [typeof(CallConvCdecl)])]
     public static void ResetPatchingState([DNNE.C99Type("const int")] int _reserved)
     {
@@ -1107,27 +1135,7 @@ public class PGMutagen
                     continue;
                 }
 
-                // check if we already modified this record
-                IMajorRecord? modRecord = null;
-                if (ModifiedRecords.TryGetValue(searchFormKey, out IMajorRecord? value))
-                {
-                    // record already modified
-                    modRecord = value;
-                }
-                else
-                {
-                    try
-                    {
-                        // create a mutable copy of the existing record
-                        modRecord = existingRecord.DeepCopy();
-                    }
-                    catch (Exception)
-                    {
-                        MessageHandler.Log("Failed to copy model record: " + GetRecordDesc(existingRecord), 4);
-                        ModifiedRecords[searchFormKey] = null;
-                    }
-                }
-
+                var modRecord = GetMutableRecord(searchFormKey, existingRecord);
                 if (modRecord is null)
                 {
                     // invalid record, skip
@@ -1275,6 +1283,94 @@ public class PGMutagen
                     ModifiedRecords[searchFormKey] = modRecord;
                     RememberStockModel(searchFormKey, modelUse.SubModel, matchExistingElem);
                 }
+            }
+        }
+        catch (Exception ex)
+        {
+            ExceptionHandler.SetLastException(ex);
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "SetObjectBounds", CallConvs = [typeof(CallConvCdecl)])]
+    public static unsafe void SetObjectBounds(
+      [DNNE.C99Type("const unsigned int")] uint length,
+      [DNNE.C99Type("const uint8_t*")] byte* bufferPtr)
+    {
+        try
+        {
+            if (Env is null)
+            {
+                throw new Exception("Initialize must be called before SetObjectBounds");
+            }
+
+            if (OutMod is null)
+            {
+                throw new Exception("OutMod is null in SetObjectBounds");
+            }
+
+            if (length == 0 || bufferPtr == null)
+            {
+                return;
+            }
+
+            // Convert bufferPtr to span
+            Span<byte> bufferSpan = new(bufferPtr, (int)length);
+
+            // Load onto buffer
+            var buffer = new ByteBuffer(bufferSpan.ToArray());
+            var objectBoundsUpdates = PGMutagenBuffers.ObjectBoundsUpdates.GetRootAsObjectBoundsUpdates(buffer);
+
+            // Loop through each update
+            for (int i = 0; i < objectBoundsUpdates.UpdatesLength; i++)
+            {
+                var updateContainer = objectBoundsUpdates.Updates(i);
+                if (!updateContainer.HasValue)
+                {
+                    continue;
+                }
+
+                var update = updateContainer.Value;
+                var searchFormKey = new FormKey(update.ModName, update.FormId);
+
+                // Find winning record for this formkey
+                if (!ResolveModelRecord(searchFormKey, out var existingRecord))
+                {
+                    throw new Exception("Failed to resolve model record for formkey: " + searchFormKey);
+                }
+
+                // Only trees and grass get a recalculated OBND: TexGen reads it for their LOD billboards. For the other
+                // record types the vanilla OBND is often authored differently from the geometry (statics, furniture,
+                // activators, moveable statics), so it is left alone.
+                if (existingRecord is not (ITreeGetter or IGrassGetter)
+                    || existingRecord is not IObjectBoundedGetter existingBoundedRecord)
+                {
+                    continue;
+                }
+
+                var newBounds = new ObjectBounds
+                {
+                    First = new P3Int16(update.XMin, update.YMin, update.ZMin),
+                    Second = new P3Int16(update.XMax, update.YMax, update.ZMax),
+                };
+
+                var existingBounds = existingBoundedRecord.ObjectBounds;
+                if (existingBounds.First.Equals(newBounds.First) && existingBounds.Second.Equals(newBounds.Second))
+                {
+                    // Nothing to do for this record.
+                    continue;
+                }
+
+                var modRecord = GetMutableRecord(searchFormKey, existingRecord);
+                if (modRecord is null)
+                {
+                    // invalid record, skip
+                    continue;
+                }
+
+                // A copy of an IObjectBoundedGetter record is an IObjectBounded one, anything else is a bug.
+                var modBoundedRecord = (IObjectBounded)modRecord;
+                modBoundedRecord.ObjectBounds = newBounds;
+                ModifiedRecords[searchFormKey] = modRecord;
             }
         }
         catch (Exception ex)

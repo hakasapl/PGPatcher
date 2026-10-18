@@ -110,6 +110,13 @@
         "tooltip": "Adds flow maps to texture sets for those that match the normal texture"
       }
     },
+    "globalPatchers": {
+      "title": "Global Patchers",
+      "recalculateBounds": {
+        "label": "Recalculate Bounds",
+        "tooltip": "Recalculates the bounds of every mesh PG outputs, and the OBND of the tree and grass records using them, even when their mesh is not output. TexGen reads the OBND to pick the trees and grass that get LOD billboards. Edits plugin records."
+      }
+    },
     "buttons": {
       "restoreDefaults": "Restore Defaults",
       "loadConfig": "Load Config",
