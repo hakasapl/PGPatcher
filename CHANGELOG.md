@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+## [2.3.0] - 2026-10-18
+
 - [PGLite] Multiple mods can now be selected when moving mods in the conflict manager tab
 - [PGLite] Fixed autoscrolling while dragging sometimes not working
 - [PGLite] Fixed GUI draw behavior, CS HDR should no longer discolor it
