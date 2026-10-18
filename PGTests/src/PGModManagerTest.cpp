@@ -846,6 +846,8 @@ TEST(PGModManagerTest,
     fake.writeDataFile(L"textures\\a\\stone.dds", "DDS");
     fake.writeDataFile(L"textures\\a\\stone_p.dds", "DDS");
     fake.writeDataFile(L"textures\\a\\caf\u00e9.dds", "DDS"); // a name outside ASCII is never mapped
+    fake.writeDataFile(L"textures\\a\\off_p.dds", "DDS"); // its JSON keeps it out of the maps
+    fake.writeDataFile(L"textures\\a\\off_p.json", R"({"disabled": true})");
     fake.writeDataFile(L"pbrnifpatcher\\x.json", "[]");
     TestUtil::NIFBuilder builder;
     PGTypes::TextureSet textures;
@@ -859,12 +861,14 @@ TEST(PGModManagerTest,
     pgd.populateFileMap(true, false);
 
     const FakeMO2 mo2;
-    mo2.writeModlist("+Parallax\n+Diffuse\n+PBR\n+Meshes\n+Unmapped\n");
+    mo2.writeModlist("+Parallax\n+Diffuse\n+PBR\n+Meshes\n+Unmapped\n+DisabledByJSON\n");
     mo2.addModFile(L"Parallax", L"textures\\a\\stone_p.dds");
     mo2.addModFile(L"Diffuse", L"textures\\a\\stone.dds");
     mo2.addModFile(L"PBR", L"pbrnifpatcher\\x.json");
     mo2.addModFile(L"Meshes", L"meshes\\a\\stone.nif");
     mo2.addModFile(L"Unmapped", L"textures\\a\\caf\u00e9.dds");
+    mo2.addModFile(L"DisabledByJSON", L"textures\\a\\off_p.dds");
+    mo2.addModFile(L"DisabledByJSON", L"textures\\a\\off_p.json");
     PGModManager installed(ModManagerType::ModOrganizer2);
     installed.populateModFileMapMO2(mo2.instanceDir(), mo2.outputDir());
     PGGlobals::setPGD(&pgd);
@@ -877,7 +881,7 @@ TEST(PGModManagerTest,
     PGModManager other(ModManagerType::ModOrganizer2);
     other.populateModFileMapMO2(mo2.instanceDir(), mo2.outputDir());
     pgd.attributeMods(other);
-    for (const auto* name : { L"Parallax", L"Diffuse", L"PBR", L"Meshes", L"Unmapped" }) {
+    for (const auto* name : { L"Parallax", L"Diffuse", L"PBR", L"Meshes", L"Unmapped", L"DisabledByJSON" }) {
         EXPECT_EQ(other.mod(name)->shaders, installed.mod(name)->shaders) << StringUtil::utf16toUTF8(name);
         EXPECT_EQ(other.mod(name)->hasMeshes, installed.mod(name)->hasMeshes) << StringUtil::utf16toUTF8(name);
     }
@@ -890,6 +894,8 @@ TEST(PGModManagerTest,
     // A texture that never reached the maps gave its mod no shader, in the installed manager and in the replay.
     EXPECT_TRUE(installed.mod(L"Unmapped")->shaders.empty());
     EXPECT_TRUE(other.mod(L"Unmapped")->shaders.empty());
+    EXPECT_TRUE(installed.mod(L"DisabledByJSON")->shaders.empty());
+    EXPECT_TRUE(other.mod(L"DisabledByJSON")->shaders.empty());
 }
 
 }

@@ -36,6 +36,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -187,6 +188,8 @@ protected:
     void TearDown() override
     {
         PGGlobals::fileSaver().waitForCompletion();
+        PGRunCache::discard();
+        PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
         PGPatcher::resetRunState();
         PGPatcher::loadPatchers(PatcherUtil::PatcherMeshSet(), PatcherUtil::PatcherTextureSet());
         PGGlobals::setPGD3D(nullptr);
@@ -430,6 +433,69 @@ TEST_F(PGPatcherTest,
     std::filesystem::remove_all(outDir());
     EXPECT_TRUE(PGPatcher::isOutputEmpty());
     EXPECT_NO_THROW(PGPatcher::deleteOutputDir(true, false));
+}
+
+TEST_F(PGPatcherTest,
+       AnUpdateFollowsTheJSONOfAHeightMap)
+{
+    // A run as the launcher makes one after the preparation: a new directory classifies the textures again, and a
+    // previous output is updated in place.
+    const auto run = [this](bool isUpdate) {
+        PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, true, !isUpdate);
+        auto pgd = std::make_unique<PGDirectory>(dataDir(), outDir());
+        pgd->populateFileMap(false, false);
+        pgd->mapFiles({ }, { }, { { L"textures\\pgtest\\stone_m.dds", TextureType::ComplexMaterial } }, { }, false);
+        pgd->waitForMeshMapping();
+        PGGlobals::setPGD(pgd.get());
+        m_pgd = std::move(pgd);
+
+        PGPatcher::resetRunState();
+        PGRunCache::beginRun();
+        EXPECT_EQ(PGRunCache::hasPreviousRun(), isUpdate);
+        if (PGRunCache::hasPreviousRun()) {
+            PGPatcher::deleteOutputDir(true, true);
+            PGRunCache::snapshotOutputDirectory();
+        } else {
+            PGPatcher::deleteOutputDir();
+        }
+        PGPatcher::patchMeshes(false, true);
+        PGPatcher::patchTextures(false);
+        PGGlobals::fileSaver().waitForCompletion();
+        EXPECT_TRUE(PGRunCache::finishRun(true));
+    };
+    const auto shaderType = [this](const wchar_t* path) {
+        const auto nif = loadOutput(path);
+        const auto* const shader = nif.GetShader(nif.GetShapes().at(0));
+        return shader ? shader->GetShaderType() : std::numeric_limits<uint32_t>::max();
+    };
+    // Every mesh but the wood is skipped by an update (info lines are never suppressed as repeats).
+    const auto updatesSkippingAllButTheWood
+        = [] { return TestLog::count(spdlog::level::info, "Update cache: 5 of 6 meshes are unchanged"); };
+    const auto jsonPath = dataDir() / L"textures\\pgtest\\wood_p.json";
+
+    run(false);
+    ASSERT_TRUE(std::filesystem::exists(outDir() / woodPath));
+    EXPECT_EQ(shaderType(woodPath), nifly::BSLSP_PARALLAX);
+    const auto stoneWritten = std::filesystem::last_write_time(outDir() / stonePath);
+
+    // The JSON disables the height map: the update patches the wood again, which leaves nothing to write.
+    TestUtil::writeFile(jsonPath, R"({"disabled": true})");
+    auto updates = updatesSkippingAllButTheWood();
+    run(true);
+    EXPECT_EQ(updatesSkippingAllButTheWood(), updates + 1);
+    EXPECT_FALSE(std::filesystem::exists(outDir() / woodPath));
+    EXPECT_FALSE(PGPatcher::diffJSON().contains("meshes\\pgtest\\wood.nif"));
+    // The stone does not use the height map, so its output was kept.
+    EXPECT_EQ(std::filesystem::last_write_time(outDir() / stonePath), stoneWritten);
+
+    // Enabled again, the height map is back.
+    TestUtil::writeFile(jsonPath, R"({"disabled": false})");
+    updates = updatesSkippingAllButTheWood();
+    run(true);
+    EXPECT_EQ(updatesSkippingAllButTheWood(), updates + 1);
+    ASSERT_TRUE(std::filesystem::exists(outDir() / woodPath));
+    EXPECT_EQ(shaderType(woodPath), nifly::BSLSP_PARALLAX);
+    EXPECT_EQ(std::filesystem::last_write_time(outDir() / stonePath), stoneWritten);
 }
 
 /**

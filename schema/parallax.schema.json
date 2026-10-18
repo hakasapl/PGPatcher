@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/parallax.schema.json",
+  "title": "PGPatcher parallax JSON",
+  "description": "Settings of a parallax texture (a height map, usually named _p.dds), which PGPatcher reads from the JSON file next to it: the texture's path with the extension replaced by .json, for example textures\\architecture\\farmhouse\\farmhousewall01_p.json for textures\\architecture\\farmhouse\\farmhousewall01_p.dds. The file can be loose or in a BSA, and its name is matched without regard to case. The file that counts is the one that wins at that path in the load order, whichever mod provides the texture. PGPatcher reads it whenever it prepares a run, and PGLite whenever it builds its environment (at game start and on every Apply in its menu), when the textures are classified, before any mesh is patched. It has no effect on the height maps of the TruePBR shader. Every key is optional. Keys are case sensitive and unknown keys are ignored. The file must be plain JSON without comments: a file that cannot be parsed is reported in the log and ignored.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional link to this schema for editor support. PGPatcher ignores it."
+    },
+    "disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "true makes PGPatcher ignore the height map when it matches textures, the same as a texture rule that sets the texture to unknown: no shape is patched for parallax with it, Upgrade Parallax to Complex Material makes no complex material texture from it, and it does not add the parallax shader to its mod in the conflict manager. It does not remove the height map from a shape whose original mesh already uses it: such a shape keeps it unless PGPatcher patches another texture or shader onto the shape. A texture rule for the texture takes precedence over this key. false, the default, leaves the height map to the usual matching. A mod that replaces a disabled height map can enable it again with a JSON of its own that sets false, as long as that JSON is the one that wins at the path."
+    }
+  },
+  "examples": [
+    {
+      "$schema": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/parallax.schema.json",
+      "disabled": true
+    }
+  ]
+}
