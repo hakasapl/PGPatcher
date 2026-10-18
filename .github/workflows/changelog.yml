@@ -1,0 +1,45 @@
+name: Changelog
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "CHANGELOG.md"
+      - "scripts/check_changelog.py"
+      - ".github/workflows/changelog.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "CHANGELOG.md"
+      - "scripts/check_changelog.py"
+      - ".github/workflows/changelog.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  # A branch made before a release can append its entries to the end of the old UNRELEASED
+  # section, which git merges into the newly dated section without a conflict. A pull request's
+  # checkout is its merge into main, so this sees where its lines land. Its checks do not run
+  # again when main moves on, so main is checked after each push as well.
+  released-sections:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # The commit and its first parent: main for the merge commit of a pull request, the
+          # previous main for a squashed pull request pushed to main.
+          fetch-depth: 2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Check Released Sections
+        run: |
+          python scripts/check_changelog.py HEAD^1

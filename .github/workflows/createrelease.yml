@@ -13,6 +13,8 @@ on:
 jobs:
   release:
     runs-on: windows-2022
+    outputs:
+      version: ${{ steps.semver.outputs.version }}
 
     steps:
       - uses: ilammy/msvc-dev-cmd@v1
@@ -30,6 +32,11 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
       - uses: paulhatch/semantic-version@v5.4.0
         id: semver
         with:
@@ -42,6 +49,14 @@ jobs:
       - name: Check if release already exists
         if: ${{ steps.semver.outputs.increment == '0' }}
         run: exit 1
+
+      # A stable release takes over the UNRELEASED changelog entries, which the changelog job commits once the release
+      # exists. Checking them before the build fails a changelog with nothing to release in seconds.
+      - name: Check Changelog
+        if: ${{ !inputs.prerelease }}
+        shell: pwsh
+        run: |
+          python scripts/release_changelog.py --check ${{ steps.semver.outputs.version }}
 
       - name: Build Release
         if: ${{ inputs.prerelease }}
@@ -94,3 +109,83 @@ jobs:
             ./dist/PGLite-${{ steps.semver.outputs.version }}.zip
           generate_release_notes: true
           prerelease: false
+
+  # Commits the dated changelog to main as the release app: a GitHub App with read and write access to contents and
+  # pull requests, on the bypass list of main's ruleset (classic branch protection only has bypass lists in
+  # organizations). Its ID and key live in the release environment, which only main may use, so no workflow on another
+  # branch can act as the app. A job of its own, so that it can be re-run without building the release again.
+  changelog:
+    needs: release
+    if: ${{ !inputs.prerelease }}
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      deployment: false
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Update Changelog
+        run: |
+          python scripts/release_changelog.py ${{ needs.release.outputs.version }}
+
+      - name: Get Release App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # GitHub takes the commit only while main's CHANGELOG.md is still the blob passed as sha, the one this release was
+      # built from. Otherwise entries merged since would end up in the dated section, so the change goes through a pull
+      # request instead.
+      - name: Commit Changelog To Main
+        id: commit
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          base64 -w0 CHANGELOG.md > "$RUNNER_TEMP/changelog.b64"
+          if gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/CHANGELOG.md" \
+              -f message="docs: changelog for $VERSION" \
+              -f sha="$(git rev-parse HEAD:CHANGELOG.md)" \
+              -f branch=main \
+              -F content=@"$RUNNER_TEMP/changelog.b64" \
+              --jq .commit.html_url; then
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::The dated changelog was not committed to main (see the error above), so it goes to a pull request. GitHub refuses the commit when CHANGELOG.md changed on main since the release was built, or when the release app may not bypass main's pull request rule."
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open Changelog Pull Request
+        if: ${{ steps.commit.outputs.committed != 'true' }}
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: chore/changelog-${{ needs.release.outputs.version }}
+          add-paths: CHANGELOG.md
+          commit-message: "docs: changelog for ${{ needs.release.outputs.version }}"
+          title: "docs: changelog for ${{ needs.release.outputs.version }}"
+          labels: pr/docs
+          body: |
+            The ${{ needs.release.outputs.version }} release run moved the entries under `## UNRELEASED`
+            into a dated `## [${{ needs.release.outputs.version }}]` section and opened an empty
+            `## UNRELEASED` section above it for the next version. It could not commit this to main
+            directly; the warning on the run says why.
+
+            Merge this before publishing the draft release, so that its tag includes the dated
+            section. Entries merged to main after the release was built belong under
+            `## UNRELEASED`, but git merges those appended to the end of the old section into the
+            dated section without a conflict, so check where they land.
+
+            Generated by `scripts/release_changelog.py`, run by
+            `.github/workflows/createrelease.yml`.
