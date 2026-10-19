@@ -8,6 +8,7 @@
 - [PGLite] Fixed cursor sensitivity
 - [PGLite] A generated texture whose generation failed is made again at a later mesh load that needs it, up to three tries, instead of staying missing for the session
 - [PGLite] A mesh whose patch could not read one of its inputs is patched again at a later load, up to 3 times that session
+- [PGLite] Fixed a crash while loading a mesh with patched alternate textures when another plugin hooks the engine's form map lock
 - [Common] A texture header that could not be read is remembered for five seconds and read again afterwards, instead of being read for every mesh that needs it
 - [PGPatcher] Added an optional "Recalculate Bounds" global patcher: recalculates the bounds of every mesh PG outputs and the OBND of TREE and GRAS records, which TexGen reads to pick the trees and grass that get LOD billboards (also available in `pgtools` as `recalculatebounds`)
 - [Common] Added parallax metadata JSONs

@@ -25,6 +25,35 @@ constexpr std::size_t recordSlotCount = 8;
 constexpr std::wstring_view meshesPrefix = L"meshes\\";
 constexpr std::wstring_view texturesPrefix = L"textures\\";
 
+/// @brief The engine's per-thread "form read from a plugin file" flag, byte 0x5DB of its thread local block, as an
+/// index into RE::TLSData::unk5D0. TESForm's constructor gives a form the next dynamic form ID and puts it into the
+/// global form map only while the flag is clear; the plugin loader sets it around the construction of every form it
+/// reads, whose ID comes from the file. The same offset in SE 1.5.97, AE 1.6.1170 and 1.7.99 and VR 1.4.15.
+constexpr std::size_t formFromFileFlagIndex = 0x5DB - offsetof(RE::TLSData, unk5D0);
+static_assert(formFromFileFlagIndex < sizeof(RE::TLSData::unk5D0));
+
+/// @brief Sets the form-from-file flag of the calling thread while it lives, and gives the flag its value back.
+class FormFromFileScope {
+public:
+    FormFromFileScope()
+        : m_flag(&RE::GetStaticTLSData()->unk5D0[formFromFileFlagIndex])
+        , m_previous(*m_flag)
+    {
+        *m_flag = 1;
+    }
+
+    ~FormFromFileScope() { *m_flag = m_previous; }
+
+    FormFromFileScope(const FormFromFileScope&) = delete;
+    FormFromFileScope& operator=(const FormFromFileScope&) = delete;
+    FormFromFileScope(FormFromFileScope&&) = delete;
+    FormFromFileScope& operator=(FormFromFileScope&&) = delete;
+
+private:
+    std::uint8_t* m_flag;
+    std::uint8_t m_previous;
+};
+
 }
 
 void RecordSnapshot::capture(const Uses& uses)
@@ -159,8 +188,17 @@ RE::BGSTextureSet* TextureSetFactory::textureSet(const PGTypes::TextureSet& text
     if (it != m_sets.end())
         return it->second;
 
+    // The set is never registered: no form ID and no entry in the global form map, so a save never stores it and a
+    // load never purges it; the swap needs the pointer only. TESForm's constructor, which the factory runs, skips both
+    // while the thread's form-from-file flag is set, so nothing takes the form map's lock on the thread that opens the
+    // mesh (a loader thread, usually).
     auto* const factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::BGSTextureSet>();
-    auto* const set = factory ? factory->Create() : nullptr;
+    RE::BGSTextureSet* set = nullptr;
+    if (factory) {
+        const FormFromFileScope formFromFile;
+        set = factory->Create();
+    }
+
     if (!set) {
         if (!m_didReportFailure) {
             Logger::error("Unable to create texture set records, patched alternate textures keep their original sets");
@@ -182,19 +220,24 @@ RE::BGSTextureSet* TextureSetFactory::textureSet(const PGTypes::TextureSet& text
         set->SetTexturePath(static_cast<RE::BSTextureSet::Texture>(slot), path.c_str());
     }
 
-    // The constructor the factory runs gives the form the next dynamic form ID and puts it into the global form map
-    // (TESForm's constructor, 1.7.99), which is where a save load would meet it. The set is unregistered again, as
-    // DESIGN.md 4.4 requires: no form ID, no map entry, never saved, never purged. The swap needs the pointer only.
-    const auto formID = set->GetFormID();
-    if (formID) {
+    // A constructor that ignored the flag registered the set: it leaves the form map again.
+    if (const auto formID = set->GetFormID()) {
+        if (!m_didReportFormID) {
+            Logger::warn("Texture set records get form IDs on this runtime (first {:08X}), PGLite takes them out of "
+                         "the global form map again",
+                         formID);
+            m_didReportFormID = true;
+        }
+
         const auto [forms, formsLock] = RE::TESForm::GetAllForms();
         const RE::BSWriteLockGuard guard { formsLock.get() };
         if (forms)
             forms->erase(formID);
+        set->formID = 0;
     }
-    set->formID = 0;
 
     m_sets.emplace(std::move(key), set);
+    Logger::debug(L"Created texture set {} for {}", m_sets.size(), textures.front());
     return set;
 }
 
