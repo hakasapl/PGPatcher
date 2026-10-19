@@ -9,6 +9,7 @@
 - [Common] Added parallax metadata JSONs
 - [Common] Added the `disabled` key to complex material JSONs and to the parallax JSONs: `"disabled": true` makes PG ignore the texture when matching
 - [PGLite] Fixed a crash while loading a mesh with patched alternate textures when another plugin hooks the engine's form map lock
+- [Common] Fixed build CI (this is the reason 2.3.1 is disregarding conventional commits versioning, the feats were supposed to be part of 2.3.0)
 
 ## [2.3.0] - 2026-10-18
 
