@@ -9,12 +9,17 @@ on:
         required: true
         default: false
         type: boolean
+      version:
+        description: "Version to release (X.Y.Z) instead of the one the commit titles give; empty to calculate it"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   release:
     runs-on: windows-2022
     outputs:
-      version: ${{ steps.semver.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: ilammy/msvc-dev-cmd@v1
@@ -50,50 +55,80 @@ jobs:
         if: ${{ steps.semver.outputs.increment == '0' }}
         run: exit 1
 
+      # The version input replaces the calculated version, for when the commit titles or tags get it wrong. Its tag must
+      # not exist yet: the release step would otherwise update that release.
+      - name: Resolve Version
+        id: version
+        shell: pwsh
+        env:
+          REQUESTED: ${{ inputs.version }}
+          CALCULATED: ${{ steps.semver.outputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          INCREMENT: ${{ steps.semver.outputs.increment }}
+        run: |
+          $version = "$env:REQUESTED".Trim()
+          if (-not $version) {
+            "version=$env:CALCULATED" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Output "::error::The version input must look like 2.3.0, not '$version'."
+            exit 1
+          }
+          $tag = if ($env:PRERELEASE -eq 'true') { "$version-pre$env:INCREMENT" } else { $version }
+          git rev-parse --quiet --verify "refs/tags/$tag" > $null
+          if (-not $LASTEXITCODE) {
+            Write-Output "::error::Tag $tag already exists."
+            exit 1
+          }
+          Write-Output "Releasing $version instead of the calculated $env:CALCULATED."
+          "version=$version" >> $env:GITHUB_OUTPUT
+          exit 0
+
       # A stable release takes over the UNRELEASED changelog entries, which the changelog job commits once the release
       # exists. Checking them before the build fails a changelog with nothing to release in seconds.
       - name: Check Changelog
         if: ${{ !inputs.prerelease }}
         shell: pwsh
         run: |
-          python scripts/release_changelog.py --check ${{ steps.semver.outputs.version }}
+          python scripts/release_changelog.py --check ${{ steps.version.outputs.version }}
 
       - name: Build Release
         if: ${{ inputs.prerelease }}
         shell: pwsh
         run: |
-          ./buildRelease.ps1 -Version ${{ steps.semver.outputs.version }} -Prerelease ${{ steps.semver.outputs.increment }}
+          ./buildRelease.ps1 -Version ${{ steps.version.outputs.version }} -Prerelease ${{ steps.semver.outputs.increment }}
 
       - name: Build Release
         if: ${{ !inputs.prerelease }}
         shell: pwsh
         run: |
-          ./buildRelease.ps1 -Version ${{ steps.semver.outputs.version }} -Prerelease 0
+          ./buildRelease.ps1 -Version ${{ steps.version.outputs.version }} -Prerelease 0
 
       - name: Rename dist zip (pre-release)
         if: ${{ inputs.prerelease }}
         shell: pwsh
         run: |
-          Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip"
-          Move-Item -Force "./dist/PGLite.zip" "./dist/PGLite-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip"
+          Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.version.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip"
+          Move-Item -Force "./dist/PGLite.zip" "./dist/PGLite-${{ steps.version.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip"
 
       - name: Rename dist zip (stable release)
         if: ${{ !inputs.prerelease }}
         shell: pwsh
         run: |
-          Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.semver.outputs.version }}.zip"
-          Move-Item -Force "./dist/PGLite.zip" "./dist/PGLite-${{ steps.semver.outputs.version }}.zip"
+          Move-Item -Force "./dist/PGPatcher.zip" "./dist/PGPatcher-${{ steps.version.outputs.version }}.zip"
+          Move-Item -Force "./dist/PGLite.zip" "./dist/PGLite-${{ steps.version.outputs.version }}.zip"
 
       - name: Release Pre-Release
         uses: softprops/action-gh-release@v2
         if: ${{ inputs.prerelease }}
         with:
-          name: ${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}
-          tag_name: ${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}
+          name: ${{ steps.version.outputs.version }}-pre${{ steps.semver.outputs.increment }}
+          tag_name: ${{ steps.version.outputs.version }}-pre${{ steps.semver.outputs.increment }}
           draft: true
           files: |
-            ./dist/PGPatcher-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
-            ./dist/PGLite-${{ steps.semver.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
+            ./dist/PGPatcher-${{ steps.version.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
+            ./dist/PGLite-${{ steps.version.outputs.version }}-pre${{ steps.semver.outputs.increment }}.zip
           generate_release_notes: true
           prerelease: true
 
@@ -101,12 +136,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: ${{ !inputs.prerelease }}
         with:
-          name: ${{ steps.semver.outputs.version }}
-          tag_name: ${{ steps.semver.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.version }}
           draft: true
           files: |
-            ./dist/PGPatcher-${{ steps.semver.outputs.version }}.zip
-            ./dist/PGLite-${{ steps.semver.outputs.version }}.zip
+            ./dist/PGPatcher-${{ steps.version.outputs.version }}.zip
+            ./dist/PGLite-${{ steps.version.outputs.version }}.zip
           generate_release_notes: true
           prerelease: false
 
