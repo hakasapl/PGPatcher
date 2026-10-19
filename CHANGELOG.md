@@ -2,21 +2,25 @@
 
 ## UNRELEASED
 
+- [Common] Updated RU localization
+- [Common] Updated ZH_CN localization
+- [PGPatcher] Fixed a rare race that could let PGPatcher check, cache or zip the output before the last patched mesh was written
+- [Common] Fixed a rare hang when a background task queue was stopped right after its last task, such as at the end of mesh patching or texture classification
+- [Common] Added parallax metadata JSONs
+- [Common] Added the `disabled` key to complex material JSONs and to the parallax JSONs: `"disabled": true` makes PG ignore the texture when matching
+- [PGLite] Fixed a crash while loading a mesh with patched alternate textures when another plugin hooks the engine's form map lock
+- [Common] Fixed build CI (this is the reason 2.3.1 is disregarding conventional commits versioning, the feats were supposed to be part of 2.3.0)
+
+## [2.3.0] - 2026-10-18
+
 - [PGLite] Multiple mods can now be selected when moving mods in the conflict manager tab
 - [PGLite] Fixed autoscrolling while dragging sometimes not working
 - [PGLite] Fixed GUI draw behavior, CS HDR should no longer discolor it
 - [PGLite] Fixed cursor sensitivity
-- [PGLite] A generated texture whose generation failed is made again at a later mesh load that needs it, up to three tries, instead of staying missing for the session
-- [PGLite] A mesh whose patch could not read one of its inputs is patched again at a later load, up to 3 times that session
-- [PGLite] Fixed a crash while loading a mesh with patched alternate textures when another plugin hooks the engine's form map lock
 - [Common] A texture header that could not be read is remembered for five seconds and read again afterwards, instead of being read for every mesh that needs it
 - [PGPatcher] Added an optional "Recalculate Bounds" global patcher: recalculates the bounds of every mesh PG outputs and the OBND of TREE and GRAS records, which TexGen reads to pick the trees and grass that get LOD billboards (also available in `pgtools` as `recalculatebounds`)
-- [Common] Added parallax metadata JSONs
-- [Common] Added the `disabled` key to complex material JSONs and to the parallax JSONs: `"disabled": true` makes PG ignore the texture when matching
-- [PGPatcher] Fixed a rare race that could let PGPatcher check, cache or zip the output before the last patched mesh was written
-- [Common] Fixed a rare hang when a background task queue was stopped right after its last task, such as at the end of mesh patching or texture classification
-- [Common] Updated RU localization
-- [Common] Updated ZH_CN localization
+- [PGLite] A generated texture whose generation failed is made again at a later mesh load that needs it, up to three tries, instead of staying missing for the session
+- [PGLite] A mesh whose patch could not read one of its inputs is patched again at a later load, up to 3 times that session
 
 ## [2.2.1] - 2026-10-15
 
