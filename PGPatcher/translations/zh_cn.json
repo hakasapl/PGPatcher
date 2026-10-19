@@ -110,6 +110,13 @@
         "tooltip": "为法线贴图匹配的贴图集添加流向贴图"
       }
     },
+    "globalPatchers": {
+      "title": "全局补丁",
+      "recalculateBounds": {
+        "label": "重新计算边界",
+        "tooltip": "重新计算 PG 输出的每个网格的边界，以及使用这些网格的树木和草地记录的 OBND，即使这些网格未被输出。TexGen 会读取 OBND 来决定哪些树木和草地获得 LOD 广告牌。会修改插件记录。"
+      }
+    },
     "buttons": {
       "restoreDefaults": "恢复默认",
       "loadConfig": "加载配置",
@@ -141,6 +148,10 @@
       "traceLogging": {
         "label": "启用追踪日志",
         "tooltip": "在输出日志中启用追踪日志（非常详细）"
+      },
+      "pgliteMode": {
+        "label": "PGLite 模式",
+        "tooltip": "启用后，PGPatcher 只打补丁第三方工具所需的内容"
       }
     },
     "browse": {
@@ -213,6 +224,7 @@
       "readingNifs": "读取 NIF",
       "classifyingTextures": "分类贴图",
       "patchingMeshes": "为网格打补丁",
+      "evaluatingPreviousOutput": "评估先前的输出",
       "processingNifs": "处理 NIF",
       "patchingTextures": "为贴图打补丁",
       "processingTextures": "处理贴图",
@@ -392,6 +404,97 @@
       "moveToBottom": "移至底部",
       "patchMeshes": "为网格打补丁",
       "ignoreMeshes": "忽略网格"
+    }
+  },
+  "pglite": {
+    "tabs": {
+      "status": "状态",
+      "patchers": "补丁",
+      "meshRules": "网格规则",
+      "messages": "消息"
+    },
+    "status": {
+      "applying": "正在应用，游戏已暂停：%s（%.1f 秒）",
+      "applyingShort": "正在应用设置。",
+      "working": "进行中",
+      "waitingForData": "正在等待游戏数据。",
+      "initializing": "正在加载，当前步骤：%s。",
+      "initializingDefault": "正在构建贴图映射和 Mod 列表",
+      "disabled": "已禁用。",
+      "active": "运行中。",
+      "enable": "启用 PGLite",
+      "disable": "禁用 PGLite",
+      "uses": "记录模型引用：%zu，命名 %zu 个不同网格",
+      "families": "网格族：已规划 %zu 个（其中 %zu 个为 FaceGen 头部），目前已打补丁 %zu 个",
+      "variants": "变体路径：%zu",
+      "streams": "已注册的数据流：%zu",
+      "textureSets": "已创建的贴图集记录：%zu",
+      "textures": "已生成贴图：%zu 来自缓存，%zu 本次会话生成，%zu 失败",
+      "mo2Instance": "Mod Organizer 2 实例：%s",
+      "offlineOutput": "离线 PGPatcher 输出：已启用，%zu 个记录模型已还原为原版，%zu 个保留其他插件的值，%zu 份副本映射到原版",
+      "shaderFramework": "着色器框架：%s",
+      "frameworkCommunityShaders": "Community Shaders",
+      "frameworkENB": "ENB",
+      "frameworkBoth": "Community Shaders 和 ENB",
+      "frameworkNone": "无",
+      "loading": "正在加载 PGLite：%s",
+      "loadingProgress": "正在加载 PGLite：%s（%zu / %zu）",
+      "starting": "正在启动",
+      "welcome": "欢迎使用 PGLite。按 %s 打开菜单，并在其“冲突管理器”标签页中设置你的 Mod 管理器"
+    },
+    "apply": {
+      "applied": "已在 %.1f 秒内应用。此后加载的网格会使用新设置",
+      "disabled": "PGLite 当前已禁用",
+      "failed": "应用失败，请查看日志。",
+      "loading": "加载界面期间无法应用。",
+      "moreProblems": "（另有 %zu 项，请查看日志）",
+      "settingsNotWritten": "设置无法写入，请查看日志。",
+      "modRulesNotWritten": "Mod 规则无法写入，请查看日志。"
+    },
+    "meshRules": {
+      "allowlist": "如果此处存在任何规则，则只有匹配规则的网格才会被打补丁。输入网格路径，如 \"meshes/armor/helmet.nif\"，或使用通配符（* 为通配符）将整个文件夹/文件加入白名单。右键单击可添加/删除条目。",
+      "blocklist": "匹配此处规则的网格将不会被打补丁。输入网格路径，如 \"meshes/armor/helmet.nif\"，或使用通配符（* 为通配符）将整个文件夹/文件加入黑名单。右键单击可添加/删除条目。"
+    },
+    "textureRules": {
+      "description": "当自动检测出错时（极少发生），可用此功能告诉 PGLite 某张贴图的类型。输入贴图的完整路径，如 \"textures/armor/helmet.dds\"，然后选择贴图类型。此处不支持通配符。将贴图设为 \"unknown\" 可将其忽略。"
+    },
+    "conflictManager": {
+      "help": "请对你的 Mod 排序，以决定 PGLite 在各处使用哪个 Mod 来为网格打补丁。",
+      "noModManager": "没有 Mod 管理器时，就没有可排序的 Mod 列表。",
+      "vortex": "会读取 Data 文件夹的 Vortex 部署清单。",
+      "notReady": "PGLite 初始化并启用后，Mod 列表才可用。",
+      "dragHint": "拖动 Mod 即可移动，会显示一条线指示放置位置。Ctrl+ 单击或 Shift+ 单击可多选，Ctrl+A 可全选。",
+      "dragMore": "另有 %zu 个",
+      "instanceValid": "MO2 实例位置有效",
+      "applyForList": "Mod 列表依据已应用的设置。按“应用”以当前设置构建它。",
+      "notAttributed": "无法读取已应用的 Mod 管理器，因此 Mod 未被归属，也没有可排序的列表。请修正位置后按“应用”。"
+    },
+    "messages": {
+      "count": "本次会话有 %zu 条警告和错误",
+      "clear": "清空"
+    },
+    "settings": {
+      "noTranslations": "在 SKSE\\Plugins\\PGLite\\translations 中未找到翻译文件。"
+    },
+    "disabled": {
+      "notice": "PGLite 已禁用，原因：%s。",
+      "addressLibraryMissing": "缺少适用于此游戏版本的 Address Library（%s）",
+      "noMessaging": "SKSE 消息接口不可用",
+      "offlineOutput": "加载顺序中存在未以 PGLite 模式生成的离线 PGPatcher 输出；请启用 PGLite 模式后重新生成，或禁用该 Mod",
+      "autoParallax": "已安装 Auto Parallax，它会修改相同的材质",
+      "noShaderFramework": "既未加载 Community Shaders 也未加载 ENB，而打补丁后的材质需要其中之一",
+      "initializationFailed": "其初始化失败：%s",
+      "backgroundInitializationFailed": "其后台初始化失败：%s"
+    },
+    "stages": {
+      "restoringRecords": "正在还原记录",
+      "planningMeshes": "正在规划网格",
+      "registeringStreams": "正在注册数据流",
+      "loadingClassificationCache": "正在加载分类缓存",
+      "readingMeshes": "正在读取网格",
+      "registeringFacegenStreams": "正在注册 FaceGen 数据流",
+      "loadingTruePBRConfigs": "正在加载 TruePBR 配置",
+      "orderingMods": "正在排序 Mod"
     }
   }
 }
