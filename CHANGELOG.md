@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+## [2.3.1] - 2026-10-19
+
 - [Common] Updated RU localization
 - [Common] Updated ZH_CN localization
 - [PGPatcher] Fixed a rare race that could let PGPatcher check, cache or zip the output before the last patched mesh was written
