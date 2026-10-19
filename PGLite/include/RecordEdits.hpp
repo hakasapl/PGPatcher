@@ -117,6 +117,7 @@ private:
     std::unordered_map<std::wstring, RE::BGSTextureSet*> m_sets;
     mutable std::mutex m_mutex;
     bool m_didReportFailure = false;
+    bool m_didReportFormID = false;
 };
 
 /**
