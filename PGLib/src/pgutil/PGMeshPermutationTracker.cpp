@@ -93,7 +93,8 @@ auto boxCenteredSphere(const std::vector<nifly::Vector3>& vertices) -> std::opti
 /// made that wall disappear even with a larger radius, while a slightly smaller radius around the original center
 /// did not. A replacement is therefore centered on the middle of the box around the vertices, as most tools do, rather
 /// than on the point nifly's fitting leaves it.
-void recalculateBoundingSphere(nifly::NifFile& nif, nifly::NiShape* shape)
+void recalculateBoundingSphere(nifly::NifFile& nif,
+                               nifly::NiShape* shape)
 {
     constexpr float tolerance = 1e-3F; // of the radius, for the rounding of the stored sphere
     constexpr float maxOversize = 1.25F; // how much larger than a tight sphere a kept sphere may be
@@ -114,9 +115,9 @@ void recalculateBoundingSphere(nifly::NifFile& nif, nifly::NiShape* shape)
         && std::isfinite(current.center.z) && std::isfinite(current.radius) && current.radius > 0;
     const float limit = current.radius * (1.0F + tolerance);
     const bool holdsEveryVertex = isCurrentUsable && std::ranges::all_of(*vertices, [&](const nifly::Vector3& vertex) {
-        return !std::isfinite(vertex.x) || !std::isfinite(vertex.y) || !std::isfinite(vertex.z)
-            || current.center.DistanceTo(vertex) <= limit;
-    });
+                                      return !std::isfinite(vertex.x) || !std::isfinite(vertex.y)
+                                          || !std::isfinite(vertex.z) || current.center.DistanceTo(vertex) <= limit;
+                                  });
 
     shape->SetBounds(holdsEveryVertex && current.radius <= tight.radius * maxOversize ? current : *replacement);
 }
