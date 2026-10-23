@@ -682,6 +682,29 @@ TEST_F(PGMeshPermutationTrackerTest,
     EXPECT_NEAR(bounds.radius, std::sqrt(0.5F), 1e-3F);
 }
 
+TEST_F(PGMeshPermutationTrackerTest,
+       ReplacedBoundingSpheresAreCenteredOnTheMiddleOfTheBoxAroundTheVertices)
+{
+    // For these vertices a tight fitting sphere is centered at y = 3.17, the box is centered at y = 4.5
+    NIFBuilder builder;
+    auto* shape = builder.addShape("Skewed", stoneTextures());
+    builder.nif().SetVertsForShape(shape, { { 0, 0, 0 }, { 10, 0, 0 }, { 0, 3, 0 }, { 4, 9, 0 } });
+    shape->SetBounds(nifly::BoundingSphere(nifly::Vector3(500, 500, 500), 1));
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    stageWithTexture(tracker, "textures\\a\\patched.dds");
+    ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0 }), CommitResult::Added);
+    tracker.saveMeshes(true, false);
+    waitForFiles();
+
+    const auto saved = PGNIFUtil::loadNIFFromBytes(FileUtil::fileBytes(outDir() / meshPath));
+    const auto bounds = saved.GetShapes().at(0)->GetBounds();
+    EXPECT_NEAR(bounds.center.x, 5.0F, 1e-3F);
+    EXPECT_NEAR(bounds.center.y, 4.5F, 1e-3F);
+    EXPECT_NEAR(bounds.radius, std::sqrt(25.0F + 20.25F), 1e-3F);
+}
+
 TEST(PGMeshPermutationTrackerStaticTest,
      OtherWeightVariantSwapsTheSuffix)
 {

@@ -65,34 +65,60 @@ struct BoundsAccumulator {
     }
 };
 
+/// @brief The sphere centered on the middle of the box around the vertices, through the farthest one. Nothing when no
+/// vertex has a position that is a number.
+auto boxCenteredSphere(const std::vector<nifly::Vector3>& vertices) -> std::optional<nifly::BoundingSphere>
+{
+    BoundsAccumulator box;
+    for (const auto& vertex : vertices)
+        box.add(vertex);
+    if (!box.hasPositions)
+        return std::nullopt;
+
+    const nifly::Vector3 center((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2);
+    float radius = 0;
+    for (const auto& vertex : vertices)
+        if (std::isfinite(vertex.x) && std::isfinite(vertex.y) && std::isfinite(vertex.z))
+            radius = std::max(radius, center.DistanceTo(vertex));
+    return nifly::BoundingSphere(center, radius);
+}
+
 /// @brief Gives a shape the bounding sphere of its vertices, unless the sphere it already has is a good one.
 ///
-/// A sphere is kept when it holds every vertex and is not much larger than the vertices need: it works, and the
-/// engine reads more than a size into it (the position of its center among them), so replacing a working sphere by
-/// another one that is just as valid has made a wall disappear in game. Only a sphere that is missing, too small,
-/// not a number or far too large is replaced.
+/// A sphere is kept when it holds every vertex and is not much larger than the vertices need: it works, and replacing
+/// a working sphere by another one has made a wall disappear in game. Only a sphere that is missing, too small, not a
+/// number or far too large is replaced.
+///
+/// The center of a sphere matters to the engine, not only its size: moving it from the middle of the shape to its edge
+/// made that wall disappear even with a larger radius, while a slightly smaller radius around the original center
+/// did not. A replacement is therefore centered on the middle of the box around the vertices, as most tools do, rather
+/// than on the point nifly's fitting leaves it.
 void recalculateBoundingSphere(nifly::NifFile& nif, nifly::NiShape* shape)
 {
     constexpr float tolerance = 1e-3F; // of the radius, for the rounding of the stored sphere
-    constexpr float maxOversize = 1.25F; // how much larger than the recalculated one a kept sphere may be
+    constexpr float maxOversize = 1.25F; // how much larger than a tight sphere a kept sphere may be
 
     const auto current = shape->GetBounds();
-    shape->UpdateBounds();
-    const auto recalculated = shape->GetBounds();
+    shape->UpdateBounds(); // a tight sphere, the size a kept one is compared to
+    const auto tight = shape->GetBounds();
 
     const auto* vertices = nif.GetVertsForShape(shape);
-    const bool isCurrentUsable = vertices != nullptr && std::isfinite(current.center.x) && std::isfinite(current.center.y)
-        && std::isfinite(current.center.z) && std::isfinite(current.radius) && current.radius > 0;
-    if (!isCurrentUsable)
+    if (vertices == nullptr)
         return;
 
+    const auto replacement = boxCenteredSphere(*vertices);
+    if (!replacement)
+        return;
+
+    const bool isCurrentUsable = std::isfinite(current.center.x) && std::isfinite(current.center.y)
+        && std::isfinite(current.center.z) && std::isfinite(current.radius) && current.radius > 0;
     const float limit = current.radius * (1.0F + tolerance);
-    const bool holdsEveryVertex = std::ranges::all_of(*vertices, [&](const nifly::Vector3& vertex) {
+    const bool holdsEveryVertex = isCurrentUsable && std::ranges::all_of(*vertices, [&](const nifly::Vector3& vertex) {
         return !std::isfinite(vertex.x) || !std::isfinite(vertex.y) || !std::isfinite(vertex.z)
             || current.center.DistanceTo(vertex) <= limit;
     });
-    if (holdsEveryVertex && current.radius <= recalculated.radius * maxOversize)
-        shape->SetBounds(current);
+
+    shape->SetBounds(holdsEveryVertex && current.radius <= tight.radius * maxOversize ? current : *replacement);
 }
 
 /// @brief Adds the vertices of every shape below a node, in model space. Each block is visited once.
