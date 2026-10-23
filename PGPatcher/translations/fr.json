@@ -114,7 +114,7 @@
       "title": "Patchers globaux",
       "recalculateBounds": {
         "label": "Recalculer les bounds",
-        "tooltip": "Recalcule les bounds de chaque mesh que PG écrit, et l'OBND des records d'arbres et d'herbe qui les utilisent, même si leur mesh n'est pas écrit. TexGen lit l'OBND pour choisir les arbres et l'herbe qui reçoivent des billboards de LOD. Modifie des records du plugin."
+        "tooltip": "Recalcule la sphère englobante des meshes que PG écrit quand elle est fausse, et l'OBND des records d'arbres et d'herbe qui les utilisent, même si leur mesh n'est pas écrit. TexGen lit l'OBND pour choisir les arbres et l'herbe qui reçoivent des billboards de LOD. Modifie des records du plugin."
       }
     },
     "buttons": {

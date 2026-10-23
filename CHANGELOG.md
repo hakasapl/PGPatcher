@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+- [PGPatcher] "Recalculate Bounds" no longer replaces the bounding sphere of a mesh when it already holds every vertex and fits them closely; replacing a working sphere made a wall invisible in some places in game
+
 ## [2.3.1] - 2026-10-19
 
 - [Common] Updated RU localization
