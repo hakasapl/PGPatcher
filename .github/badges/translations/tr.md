@@ -12,7 +12,7 @@ To help, edit [`tr.json`](https://github.com/hakasapl/PGPatcher/blob/main/PGPatc
 | --- | --- |
 | `launcher.globalPatchers.title` | `Global Patchers` |
 | `launcher.globalPatchers.recalculateBounds.label` | `Recalculate Bounds` |
-| `launcher.globalPatchers.recalculateBounds.tooltip` | `Recalculates the bounds of every mesh PG outputs, and the OBND of the tree and grass records using them, even when their mesh is not output. TexGen reads the OBND to pick the trees and grass that get LOD billboards. Edits plugin records.` |
+| `launcher.globalPatchers.recalculateBounds.tooltip` | `Recalculates the bounding sphere of the meshes PG outputs when it is wrong, and the OBND of the tree and grass records using them, even when their mesh is not output. TexGen reads the OBND to pick the trees and grass that get LOD billboards. Edits plugin records.` |
 | `launcher.buttons.startPatchingTooltip` | `Generate the output from scratch (any previous output in the output location is replaced)` |
 | `launcher.buttons.updateOutput` | `Update Output` |
 | `launcher.buttons.updateOutputTooltip` | `Update the previous output in the output location: only meshes whose inputs changed since that output was generated are patched again. Available when the output location contains a previous output and zip output is disabled.` |
