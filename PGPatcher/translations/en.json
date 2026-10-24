@@ -114,7 +114,7 @@
       "title": "Global Patchers",
       "recalculateBounds": {
         "label": "Recalculate Bounds",
-        "tooltip": "Recalculates the bounds of every mesh PG outputs, and the OBND of the tree and grass records using them, even when their mesh is not output. TexGen reads the OBND to pick the trees and grass that get LOD billboards. Edits plugin records."
+        "tooltip": "Recalculates the bounding sphere of the meshes PG outputs when it is wrong, and the OBND of the tree and grass records using them, even when their mesh is not output. TexGen reads the OBND to pick the trees and grass that get LOD billboards. Edits plugin records."
       }
     },
     "buttons": {
