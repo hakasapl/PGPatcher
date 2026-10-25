@@ -2,6 +2,7 @@
 
 ## UNRELEASED
 
+- [PGLite] Added the `pgblock` and `pgallow` console commands to block selected meshes quicker
 - [PGPatcher] "Recalculate Bounds" no longer replaces the bounding sphere of a mesh when it already holds every vertex and fits them closely, and a sphere it does replace is centered on the middle of the mesh; a sphere moved to the edge of a wall made it invisible in some places in game
 
 ## [2.3.1] - 2026-10-19

@@ -16,6 +16,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <future>
@@ -67,6 +68,9 @@ public:
         const char* stage = nullptr;
     };
 
+    /// @brief What setMeshBlocked() did to the mesh block list.
+    enum class BlockListChange : std::uint8_t { Added, Removed, Unchanged, NotWritten };
+
     /// @brief The one runtime of the process. It lives for the session and is never destroyed.
     static Runtime& instance();
 
@@ -82,7 +86,8 @@ public:
     /// @brief The values of PGLite.ini.
     [[nodiscard]] const Settings::Ini& ini() const { return m_ini; }
 
-    /// @brief The parameters the current plan and environment were built from.
+    /// @brief The parameters the current plan and environment were built from, with the mesh block list as the
+    /// console commands changed it since (setMeshBlocked).
     [[nodiscard]] PGParams params() const;
 
     /// @brief The shader frameworks found at data load: what the patcher options of the menu can offer.
@@ -138,6 +143,27 @@ public:
      */
     bool apply(const PGParams& requestedParams,
                bool isEnabled);
+
+    /**
+     * @brief The mesh a record model names: the original file of the family when PGLite pointed the record at a
+     * variant path, the record's own path otherwise. Lower case with the meshes\ prefix, as the uses are keyed. Main
+     * thread.
+     *
+     * @return The path, empty for a model without one.
+     */
+    [[nodiscard]] std::filesystem::path originalMeshPath(const RE::TESModel& model);
+
+    /**
+     * @brief Adds the rule of one mesh to the mesh block list, or removes it, and writes the list to settings.json.
+     * The rule is the path itself; rules with wildcards are left alone. The plan and the environment keep the rules
+     * they were built with: the change takes effect at the next Apply, which the menu starts with the list as changed
+     * here, or at the next game start. Main thread.
+     *
+     * @param meshPath Lower case with the meshes\ prefix, as originalMeshPath() returns it.
+     * @param isBlocked true adds the rule, false removes it.
+     */
+    BlockListChange setMeshBlocked(const std::filesystem::path& meshPath,
+                                   bool isBlocked);
 
     // PatchStream::Provider.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> bytesFor(const std::string& path,
