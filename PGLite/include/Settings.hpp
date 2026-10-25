@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace PGLite {
 
@@ -85,6 +86,19 @@ public:
      * @return false if the file could not be written (logged).
      */
     static bool writeParams(const PGParams& params);
+
+    /**
+     * @brief Writes the mesh block list into the "params" object of settings.json, keeping everything else in the file:
+     * the other parameters stay as the file has them, which is not always how the session runs them (the patchers the
+     * loaded shader framework cannot render are off for the session only). A file without parameters yet gets the
+     * session's, as writeDidOpenMenu() writes them.
+     *
+     * @param blockList The rules, spelled as a read of the file spells them.
+     * @param params The session's parameters, written when the file has none.
+     * @return false if the file could not be written (logged).
+     */
+    static bool writeBlockList(const std::vector<std::wstring>& blockList,
+                               const PGParams& params);
 
     /// @brief Whether PGLite is enabled, the "pglite" object of settings.json. A missing file or key means enabled.
     [[nodiscard]] static bool readIsEnabled();

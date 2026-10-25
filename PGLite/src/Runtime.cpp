@@ -3,6 +3,7 @@
 #include "Runtime.hpp"
 
 #include "ClassificationCache.hpp"
+#include "ConsoleCommands.hpp"
 #include "Environment.hpp"
 #include "Hooks.hpp"
 #include "LightPlacerBridge.hpp"
@@ -26,6 +27,7 @@
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <exception>
@@ -207,6 +209,7 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
     runtime.m_menu = std::make_unique<Menu>(runtime);
     if (!Hooks::install(*runtime.m_menu))
         runtime.m_menu.reset();
+    ConsoleCommands::install();
 
     // This message comes on the thread that loaded the data, while the main thread waits for the load and opens the
     // main menu the moment it completes, and a loading-screen thread presents frames. The work is done here, on the
@@ -814,6 +817,46 @@ bool Runtime::apply(const PGParams& requestedParams,
         = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
     Logger::info("Applied the settings in {} ms", elapsed.count());
     return true;
+}
+
+std::filesystem::path Runtime::originalMeshPath(const RE::TESModel& model)
+{
+    const auto path = Uses::normalizedModelPath(model.GetModel());
+    if (path.empty())
+        return path;
+
+    // A record PGLite pointed at a variant path names a member of the family of its original file.
+    const std::shared_lock lock(m_pipelineLock);
+    const auto* const target = m_plan ? m_plan->target(pathString(path)) : nullptr;
+    if (target && target->family)
+        return target->family->basePaths.at(target->pathIndex);
+
+    return path;
+}
+
+Runtime::BlockListChange Runtime::setMeshBlocked(const std::filesystem::path& meshPath,
+                                                 bool isBlocked)
+{
+    const auto mesh = meshPath.wstring();
+    // The rules match without case (PGDirectory::checkGlobMatchInVector), so a rule of the mesh can have any.
+    const auto isRuleOfMesh = [&mesh](const std::wstring& rule) { return StringUtil::asciiFastIEquals(rule, mesh); };
+
+    const std::scoped_lock lock(m_stateMutex);
+    auto blockList = m_params.processing.blockList;
+    if (isBlocked) {
+        if (std::ranges::any_of(blockList, isRuleOfMesh))
+            return BlockListChange::Unchanged;
+
+        blockList.push_back(mesh);
+    } else if (!std::erase_if(blockList, isRuleOfMesh)) {
+        return BlockListChange::Unchanged;
+    }
+
+    if (!Settings::writeBlockList(blockList, m_params))
+        return BlockListChange::NotWritten;
+
+    m_params.processing.blockList = std::move(blockList);
+    return isBlocked ? BlockListChange::Added : BlockListChange::Removed;
 }
 
 std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::string& path,

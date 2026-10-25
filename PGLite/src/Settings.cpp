@@ -144,6 +144,28 @@ bool Settings::writeParams(const PGParams& params)
     return true;
 }
 
+bool Settings::writeBlockList(const std::vector<std::wstring>& blockList,
+                              const PGParams& params)
+{
+    nlohmann::json settings;
+    if (!FileUtil::getJSON(settingsFile(), settings) || !settings.is_object())
+        settings = nlohmann::json::object();
+
+    try {
+        ensureParams(settings, params);
+        PGParams fileParams;
+        fileParams.readJSON(settings["params"]);
+        fileParams.processing.blockList = blockList;
+        fileParams.writeJSON(settings["params"]);
+        FileUtil::saveJSON(settingsFile(), settings, true);
+    } catch (const std::exception& e) {
+        Logger::error("Unable to write settings.json: {}", e.what());
+        return false;
+    }
+
+    return true;
+}
+
 bool Settings::readIsEnabled()
 {
     nlohmann::json settings;

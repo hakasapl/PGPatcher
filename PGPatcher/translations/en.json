@@ -455,6 +455,16 @@
       "allowlist": "If any rules exist here, only meshes matching them will be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to allowlist entire folders/files.",
       "blocklist": "Any meshes matching rules here will not be patched. Enter path to mesh like \"meshes/armor/helmet.nif\" or use wildcards (* is the wildcard) to blocklist entire folders/files."
     },
+    "console": {
+      "blockHelp": "Adds the mesh of the selected object to the PGLite mesh blocklist",
+      "allowHelp": "Removes the mesh of the selected object from the PGLite mesh blocklist",
+      "noMesh": "No object with a mesh is selected. Click an object while the console is open, then run the command again.",
+      "blocked": "Added %s to the PGLite mesh blocklist. It takes effect after Apply in the PGLite menu or at the next game start.",
+      "allowed": "Removed %s from the PGLite mesh blocklist. It takes effect after Apply in the PGLite menu or at the next game start.",
+      "alreadyBlocked": "%s is already on the PGLite mesh blocklist.",
+      "notBlocked": "%s has no rule of its own on the PGLite mesh blocklist.",
+      "notWritten": "The PGLite settings could not be written, see the log. The blocklist is unchanged."
+    },
     "textureRules": {
       "description": "Use this to tell PGLite what type of texture something is if the auto detection is wrong (very rare). Enter the full path to the texture like \"textures/armor/helmet.dds\" and select the type of texture. Wildcards are NOT supported here. A texture can be ignored by setting it to \"unknown\"."
     },
