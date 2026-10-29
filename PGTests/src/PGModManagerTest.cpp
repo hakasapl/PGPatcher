@@ -744,6 +744,45 @@ TEST(PGModManagerTest,
 }
 
 TEST(PGModManagerTest,
+     VortexDeploymentMapsArchivesAtTheTopLevel)
+{
+    const TempDir dir;
+    const auto data = dir / L"Data";
+    const auto staging = dir / L"Staging";
+    for (const auto* folder : { L"ArchiveMod-10-1-1", L"MixedMod-11-1-1", L"ScriptMod-12-1-1" })
+        std::filesystem::create_directories(staging / folder);
+
+    nlohmann::json deployment;
+    deployment["stagingPath"] = TestUtil::pathToUTF8(staging);
+    deployment["files"] = nlohmann::json::array({
+        // A mod that ships nothing but an archive.
+        { { "relPath", "ArchiveMod.bsa" }, { "source", "ArchiveMod-10-1-1" } },
+        { { "relPath", "MixedMod - Textures.BSA" }, { "source", "MixedMod-11-1-1" } },
+        { { "relPath", "meshes\\mixed.nif" }, { "source", "MixedMod-11-1-1" } },
+        // Other files at the top level are not mapped, and the game loads no archive below the top level.
+        { { "relPath", "MixedMod.esp" }, { "source", "MixedMod-11-1-1" } },
+        { { "relPath", "scripts\\inner.bsa" }, { "source", "ScriptMod-12-1-1" } },
+    });
+    TestUtil::writeFile(data / L"vortex.deployment.json", deployment.dump());
+
+    PGModManager pgmm(ModManagerType::Vortex);
+    pgmm.populateModFileMapVortex(data);
+
+    ASSERT_EQ(pgmm.mods().size(), 2U);
+    const auto archiveMod = pgmm.mod(L"ArchiveMod");
+    const auto mixedMod = pgmm.mod(L"MixedMod");
+    ASSERT_NE(archiveMod, nullptr);
+    ASSERT_NE(mixedMod, nullptr);
+    EXPECT_EQ(archiveMod->folder, staging / L"ArchiveMod-10-1-1");
+    EXPECT_EQ(pgmm.modByFile(L"archivemod.bsa"), archiveMod);
+    EXPECT_EQ(pgmm.modByFile(L"mixedmod - textures.bsa"), mixedMod);
+    EXPECT_EQ(pgmm.modByFile(L"meshes\\mixed.nif"), mixedMod);
+    EXPECT_EQ(pgmm.modByFile(L"mixedmod.esp"), nullptr);
+    EXPECT_EQ(pgmm.modByFile(L"scripts\\inner.bsa"), nullptr);
+    EXPECT_EQ(pgmm.mod(L"ScriptMod"), nullptr);
+}
+
+TEST(PGModManagerTest,
      ModByFileSmartResolvesArchivedFilesThroughTheDirectory)
 {
     const TestUtil::FakeGame fake;
@@ -776,6 +815,45 @@ TEST(PGModManagerTest,
     pgmm.addShaderToModByFile(L"meshes\\unknown.nif", PGEnums::ShapeShader::TruePBR); // no mod, nothing happens
     EXPECT_EQ(pgmm.mod(L"TexMod")->shaders, (std::set<PGEnums::ShapeShader> { PGEnums::ShapeShader::ComplexMaterial }));
     EXPECT_TRUE(pgmm.mod(L"MeshMod")->shaders.empty());
+    PGGlobals::setPGD(nullptr);
+}
+
+TEST(PGModManagerTest,
+     ModByFileSmartResolvesArchivedFilesOfVortexMods)
+{
+    const TestUtil::FakeGame fake;
+    fake.addPlugin(L"Meshes.esp");
+    TestUtil::BSABuilder archive;
+    archive.addFile("meshes\\archived.nif", "NIF");
+    archive.addFile("textures\\archived.dds", "DDS");
+    archive.write(fake.dataDir() / L"Meshes.bsa");
+    fake.writeDataFile(L"meshes\\loose.nif", "x");
+    BethesdaGame game = fake.game();
+    PGDirectory pgd(&game, fake.gameDir() / L"out");
+    pgd.populateFileMap(true, false);
+
+    const TempDir staging;
+    std::filesystem::create_directories(staging / L"ArchiveMod-1-1-1");
+    std::filesystem::create_directories(staging / L"LooseMod-2-1-1");
+    nlohmann::json deployment;
+    deployment["stagingPath"] = TestUtil::pathToUTF8(staging.path());
+    deployment["files"] = nlohmann::json::array({
+        { { "relPath", "Meshes.bsa" }, { "source", "ArchiveMod-1-1-1" } },
+        { { "relPath", "meshes\\loose.nif" }, { "source", "LooseMod-2-1-1" } },
+    });
+    TestUtil::writeFile(fake.dataDir() / L"vortex.deployment.json", deployment.dump());
+    PGModManager pgmm(ModManagerType::Vortex);
+    pgmm.populateModFileMapVortex(fake.dataDir());
+
+    // The files in the archive belong to the mod that deployed the archive, so its meshes ignored setting and its
+    // shaders reach them.
+    PGGlobals::setPGD(&pgd);
+    EXPECT_EQ(pgmm.modByFileSmart(L"meshes\\archived.nif"), pgmm.mod(L"ArchiveMod"));
+    EXPECT_EQ(pgmm.modByFileSmart(L"textures\\archived.dds"), pgmm.mod(L"ArchiveMod"));
+    EXPECT_EQ(pgmm.modByFileSmart(L"meshes\\loose.nif"), pgmm.mod(L"LooseMod"));
+    pgmm.addShaderToModByFile(L"textures\\archived.dds", PGEnums::ShapeShader::VanillaParallax);
+    EXPECT_EQ(pgmm.mod(L"ArchiveMod")->shaders,
+              (std::set<PGEnums::ShapeShader> { PGEnums::ShapeShader::VanillaParallax }));
     PGGlobals::setPGD(nullptr);
 }
 

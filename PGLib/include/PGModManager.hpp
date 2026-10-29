@@ -366,7 +366,7 @@ public:
 
     /**
      * @brief Populates the mod file map from vortex.deployment.json in the given directory. Only files under the
-     * folders to map are mapped; mods that are not deployed anymore are forgotten.
+     * folders to map and the archives at the top level are mapped; mods that are not deployed anymore are forgotten.
      *
      * @param deploymentDir Directory holding vortex.deployment.json (the game's data folder).
      * @throws std::runtime_error if the manifest is missing or lacks the "files" or "stagingPath" field.
