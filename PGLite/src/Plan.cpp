@@ -198,7 +198,8 @@ void Family::patch(std::size_t wantedMember,
                    std::shared_ptr<const std::vector<std::byte>>& wantedBytes)
 {
     // Mod-level "meshes ignored" is a per-path rule that needs the mod manager, so it is applied here (DESIGN.md 4.4).
-    if (!isFacegen && PGGlobals::isPGMMSet()) {
+    // Facegen heads are no exception: offline, PGPatcher::patchNIF checks the mod before anything else.
+    if (PGGlobals::isPGMMSet()) {
         const auto mod = PGGlobals::pgmm()->modByFileSmart(basePaths.front());
         if (mod) {
             const std::shared_lock modLock(mod->mutex);
