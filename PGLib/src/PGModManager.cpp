@@ -248,6 +248,40 @@ nlohmann::json PGModManager::json()
     return json;
 }
 
+auto PGModManager::modStates() const -> std::unordered_map<std::wstring,
+                                                           ModState>
+{
+    std::unordered_map<std::wstring, ModState> states;
+    states.reserve(m_modMap.size());
+    for (const auto& [modName, mod] : m_modMap) {
+        const std::shared_lock<std::shared_mutex> modLock(mod->mutex);
+        states.emplace(modName,
+                       ModState {
+                           .isEnabled = mod->isEnabled,
+                           .priority = mod->priority,
+                           .areMeshesIgnored = mod->areMeshesIgnored,
+                       });
+    }
+
+    return states;
+}
+
+void PGModManager::setModStates(const std::unordered_map<std::wstring,
+                                                         ModState>& states) const
+{
+    for (const auto& [modName, state] : states) {
+        const auto it = m_modMap.find(modName);
+        if (it == m_modMap.end())
+            continue;
+
+        const auto& mod = it->second;
+        const std::unique_lock<std::shared_mutex> modLock(mod->mutex);
+        mod->isEnabled = state.isEnabled;
+        mod->priority = state.priority;
+        mod->areMeshesIgnored = state.areMeshesIgnored;
+    }
+}
+
 void PGModManager::populateModFileMapVortex(const std::filesystem::path& deploymentDir)
 {
     // Required file is vortex.deployment.json in the data folder.

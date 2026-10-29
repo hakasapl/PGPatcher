@@ -44,6 +44,7 @@ ModSortDialog::ModSortDialog(wxWindow* parent)
                wxDefaultPosition,
                wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX)
+    , m_savedModStates(PGGlobals::pgmm()->modStates())
 {
     const auto* pgc = PGPatcherGlobals::pgc();
     if (!pgc)
@@ -465,6 +466,7 @@ void ModSortDialog::onClose(wxCloseEvent& event)
         return;
     }
 
+    restoreSavedModStates();
     EndModal(wxID_CANCEL);
 }
 
@@ -479,6 +481,7 @@ void ModSortDialog::onBtnClose([[maybe_unused]] wxCommandEvent& event)
     if (!confirmDiscardUnsavedChanges())
         return;
 
+    restoreSavedModStates();
     EndModal(wxID_CANCEL);
 }
 
@@ -599,6 +602,9 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
                                       this);
 
     if (response == wxYES) {
+        // The mods follow the list live, so they are set back first and the list is filled from them.
+        restoreSavedModStates();
+
         // Restore checkbox state.
         const auto* pgc = PGPatcherGlobals::pgc();
         if (!pgc)
@@ -620,6 +626,7 @@ void ModSortDialog::onDiscardChanges([[maybe_unused]] wxCommandEvent& event)
 
         rebuildCacheFromListCtrl();
         rebuildListCtrlFromCache();
+        refreshConflictViews();
     }
 }
 
@@ -814,8 +821,10 @@ void ModSortDialog::updateMods()
     if (!pgc)
         throw std::runtime_error("PGConfig is null");
 
-    if (!PGConfig::saveModConfig()) {
-        // Critical dialog.
+    if (PGConfig::saveModConfig()) {
+        m_savedModStates = pgmm->modStates();
+    } else {
+        // Critical dialog. The changes stay unsaved, so Apply can try again.
         pgMessageBox(pgTr("conflictManager.errors.saveModConfig"), pgTr("common.error"), wxOK | wxICON_ERROR, this);
     }
 
@@ -862,6 +871,8 @@ void ModSortDialog::updateModStatesLive()
 
     updateApplyButtonState();
 }
+
+void ModSortDialog::restoreSavedModStates() { PGGlobals::pgmm()->setModStates(m_savedModStates); }
 
 void ModSortDialog::fillListCtrl(const std::vector<std::shared_ptr<PGModManager::Mod>>& modList,
                                  bool autoEnable,
@@ -1197,22 +1208,23 @@ bool ModSortDialog::hasUnsavedChanges()
     // Reconstruct full visual order: enabled rows first, disabled rows second, both stable by cached order.
     const auto orderedRows = orderedCachedRows();
 
-    // Compare cached UI state against PGModManager baseline.
-    const auto* pgmm = PGGlobals::pgmm();
+    // Compare cached UI state against the saved state. The mods themselves follow the list live (for the conflict
+    // viewer), so they cannot tell what changed.
     const int itemCount = static_cast<int>(orderedRows.size());
     for (int i = 0; i < itemCount; ++i) {
         const auto& row = *orderedRows.at(static_cast<size_t>(i));
-        const auto mod = pgmm->mod(row.modName);
-        if (!mod)
+        const auto savedIt = m_savedModStates.find(row.modName);
+        if (savedIt == m_savedModStates.end())
             return true;
 
-        if (mod->isEnabled != row.isChecked)
+        const auto& saved = savedIt->second;
+        if (saved.isEnabled != row.isChecked)
             return true;
 
-        if (mod->isEnabled && mod->priority != itemCount - i)
+        if (saved.isEnabled && saved.priority != itemCount - i)
             return true;
 
-        if (mod->areMeshesIgnored != row.areMeshesIgnored)
+        if (saved.areMeshesIgnored != row.areMeshesIgnored)
             return true;
     }
 
