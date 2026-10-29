@@ -149,9 +149,13 @@
         "label": "Enable Trace Logging",
         "tooltip": "Enables trace logging in the output log (very verbose)"
       },
-      "pgliteMode": {
-        "label": "PGLite Mode",
-        "tooltip": "Enabling this tells PGPatcher to only patch what is necessary for 3rd party tools"
+      "patchShapeData": {
+        "label": "Patch BodySlide ShapeData",
+        "tooltip": "You only need this if you want to visualize patched shapes in Outfit Studio, otherwise it is not needed for gameplay"
+      },
+      "generateDynDOLOD": {
+        "label": "Generate DynDOLOD Files",
+        "tooltip": "Generate files needed for a DynDOLOD generation (Only required for PBR users)"
       }
     },
     "browse": {
@@ -490,7 +494,7 @@
       "notice": "PGLite is disabled because %s.",
       "addressLibraryMissing": "the Address Library for this game version is missing (%s)",
       "noMessaging": "the SKSE messaging interface is unavailable",
-      "offlineOutput": "an offline PGPatcher output that was not generated in PGLite Mode is in the load order; generate it again with PGLite Mode enabled, or disable the mod",
+      "offlineOutput": "an offline PGPatcher output that was not generated with the Generate DynDOLOD Files option is in the load order; generate it again with that option enabled, or disable the mod",
       "autoParallax": "Auto Parallax is installed, which edits the same materials",
       "noShaderFramework": "neither Community Shaders nor ENB is loaded, and the patched materials need one of them",
       "initializationFailed": "its initialization failed: %s",

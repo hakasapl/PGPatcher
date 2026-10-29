@@ -217,6 +217,7 @@ TEST_F(PGPatcherTest,
         false,
         false,
         false,
+        false,
         [&progress](size_t done, size_t total) { progress.emplace_back(done, total); },
         [&stages](PGPatcher::MeshPatchStage stage) { stages.push_back(stage); });
     PGGlobals::fileSaver().waitForCompletion();
@@ -633,7 +634,7 @@ protected:
                                                     bool shouldCheckRecTypes = false)
     {
         PGPatcher::patchMeshes(
-            false, false, recTypes, shouldCheckRecTypes, false, false, { }, { }, shouldRecalculateBounds);
+            false, false, recTypes, shouldCheckRecTypes, false, false, false, { }, { }, shouldRecalculateBounds);
         PGGlobals::fileSaver().waitForCompletion();
         return outDir() / L"PG_1.esp";
     }
@@ -900,32 +901,44 @@ TEST_F(PGPatcherPGLiteModeTest,
 {
     ASSERT_EQ(PGPlugin::modelUses(staticPath).size(), 1U); // the plugin layer sees the master
     PatcherMeshPreStockMarker::loadOptions(true);
-    PGPatcher::patchMeshes(false, true, PGPlugin::defaultRecTypeSet(), true, false, true);
+    PGPatcher::patchMeshes(false, true, PGPlugin::defaultRecTypeSet(), true, false, false, true);
     PGGlobals::fileSaver().waitForCompletion();
 
-    // The static's mesh and the ShapeData mesh are written, their shapes with the block of their stock state.
+    // The static's mesh is written, its shape with the block of its stock state.
     ASSERT_TRUE(std::filesystem::exists(outDir() / staticPath));
     EXPECT_TRUE(hasMarker(staticPath));
-    ASSERT_TRUE(std::filesystem::exists(outDir() / shapeDataPath));
-    EXPECT_TRUE(hasMarker(shapeDataPath));
 
     // The armor addon's mesh, the facegen head and the unused mesh (forceBasePatch or not) are not what the tools
-    // read.
+    // read. The ShapeData mesh is left to its own option, which is off.
     EXPECT_FALSE(std::filesystem::exists(outDir() / addonPath));
     EXPECT_FALSE(std::filesystem::exists(outDir() / facegenPath));
     EXPECT_FALSE(std::filesystem::exists(outDir() / unusedPath));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / shapeDataPath));
 
     // The diff lists the written meshes only.
     const auto diff = PGPatcher::diffJSON();
-    EXPECT_EQ(diff.size(), 2U) << diff.dump();
+    EXPECT_EQ(diff.size(), 1U) << diff.dump();
     EXPECT_TRUE(diff.contains(TestUtil::pathToUTF8(staticPath)));
+}
+
+TEST_F(PGPatcherPGLiteModeTest,
+       PGLiteModePatchesTheShapeDataWhenItsOptionIsOn)
+{
+    PatcherMeshPreStockMarker::loadOptions(true);
+    PGPatcher::patchMeshes(false, false, PGPlugin::defaultRecTypeSet(), true, false, true, true);
+    PGGlobals::fileSaver().waitForCompletion();
+
+    ASSERT_TRUE(std::filesystem::exists(outDir() / staticPath));
+    ASSERT_TRUE(std::filesystem::exists(outDir() / shapeDataPath));
+    EXPECT_TRUE(hasMarker(shapeDataPath));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / addonPath));
 }
 
 TEST_F(PGPatcherPGLiteModeTest,
        PGLiteModeKeepsTheAllowedRecordTypes)
 {
     // Statics are not allowed, so only the ShapeData mesh is written.
-    PGPatcher::patchMeshes(false, false, { PGPlugin::ModelRecordType::ArmorAddon }, true, false, true);
+    PGPatcher::patchMeshes(false, false, { PGPlugin::ModelRecordType::ArmorAddon }, true, false, true, true);
     PGGlobals::fileSaver().waitForCompletion();
     EXPECT_FALSE(std::filesystem::exists(outDir() / staticPath));
     EXPECT_FALSE(std::filesystem::exists(outDir() / addonPath));
@@ -933,9 +946,21 @@ TEST_F(PGPatcherPGLiteModeTest,
 }
 
 TEST_F(PGPatcherPGLiteModeTest,
+       TheShapeDataIsNotPatchedWhenItsOptionIsOff)
+{
+    // Not even when every mesh is forced through the base patch.
+    PGPatcher::patchMeshes(false, true, PGPlugin::defaultRecTypeSet(), true, false, false, false);
+    PGGlobals::fileSaver().waitForCompletion();
+    EXPECT_TRUE(std::filesystem::exists(outDir() / staticPath));
+    EXPECT_TRUE(std::filesystem::exists(outDir() / facegenPath));
+    EXPECT_FALSE(std::filesystem::exists(outDir() / shapeDataPath));
+    EXPECT_FALSE(PGPatcher::patchMeta().contains(shapeDataPath));
+}
+
+TEST_F(PGPatcherPGLiteModeTest,
        TheRegularRunWritesNoStockBlocksOnPluginMeshes)
 {
-    PGPatcher::patchMeshes(false, false, PGPlugin::defaultRecTypeSet(), true, false, false);
+    PGPatcher::patchMeshes(false, false, PGPlugin::defaultRecTypeSet(), true, false, true, false);
     PGGlobals::fileSaver().waitForCompletion();
     ASSERT_TRUE(std::filesystem::exists(outDir() / staticPath));
     EXPECT_FALSE(hasMarker(staticPath));

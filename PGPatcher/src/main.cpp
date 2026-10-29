@@ -276,6 +276,7 @@ uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
 
     hasher.add(params.processing.enableModDevMode);
     hasher.add(params.processing.isPGLiteMode);
+    hasher.add(params.processing.shouldPatchShapeData);
 
     std::vector<uint8_t> recTypes;
     for (const auto& recType : params.processing.allowedModelRecordTypes)
@@ -889,6 +890,7 @@ void mainRunnerPatch(const ParallaxGenCLIArgs& args,
                            params.processing.allowedModelRecordTypes,
                            true,
                            args.excludeFacegens,
+                           params.processing.shouldPatchShapeData,
                            params.processing.isPGLiteMode,
                            progressCallback,
                            meshPatchStageCallback,
@@ -1087,6 +1089,11 @@ void mainRunner(ParallaxGenCLIArgs& args,
     bool updateOutput = args.autostartUpdate;
     if (!autostart)
         updateOutput = PGUI::showLauncher(pgc, params);
+
+    // The DynDOLOD files are only generated for PBR. The launcher turns the option off without the TruePBR patcher;
+    // an autostart reads the config as it is.
+    if (!params.shaderPatcher.isTruePBREnabled)
+        params.processing.isPGLiteMode = false;
 
     // Paths in the config may be relative to the PGPatcher.exe folder: the config keeps them as typed, the run uses
     // the resolved paths.
