@@ -1,5 +1,6 @@
 #include "PGPatcher.hpp"
 
+#include "BSABuilder.hpp"
 #include "DDSBuilder.hpp"
 #include "FakeGame.hpp"
 #include "NIFBuilder.hpp"
@@ -31,6 +32,7 @@
 #include "NifFile.hpp"
 #include "Shaders.hpp"
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 #include <spdlog/common.h>
 
 #include <cstddef>
@@ -192,6 +194,7 @@ protected:
         PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
         PGPatcher::resetRunState();
         PGPatcher::loadPatchers(PatcherUtil::PatcherMeshSet(), PatcherUtil::PatcherTextureSet());
+        PGGlobals::setPGMM(nullptr);
         PGGlobals::setPGD3D(nullptr);
         PGGlobals::setPGD(nullptr);
     }
@@ -497,6 +500,94 @@ TEST_F(PGPatcherTest,
     ASSERT_TRUE(std::filesystem::exists(outDir() / woodPath));
     EXPECT_EQ(shaderType(woodPath), nifly::BSLSP_PARALLAX);
     EXPECT_EQ(std::filesystem::last_write_time(outDir() / stonePath), stoneWritten);
+}
+
+TEST_F(PGPatcherTest,
+       MeshesOfAModWithIgnoredMeshesAreNotPatched)
+{
+    static constexpr const wchar_t* archivedPath = L"meshes\\pgignored\\archived.nif";
+    static constexpr const wchar_t* loosePath = L"meshes\\pgignored\\loose.nif";
+    static constexpr const wchar_t* keptPath = L"meshes\\pgignored\\kept.nif";
+
+    // A game with the same height mapped mesh in the archive of one mod and loose in two others, deployed by Vortex.
+    // The archive's mod ships the height map loose, so it is a known mod even without its archive.
+    const TestUtil::FakeGame fake;
+    for (const auto* texture : {
+             L"textures\\pgignored\\wood.dds",
+             L"textures\\pgignored\\wood_n.dds",
+             L"textures\\pgignored\\wood_p.dds",
+         }) {
+        TestUtil::DDSBuilder::writeDDS(fake.dataDir() / texture, 16, 16);
+    }
+    NIFBuilder builder;
+    builder.addShape("Shape", slots(L"textures\\pgignored\\wood.dds", L"textures\\pgignored\\wood_n.dds"));
+    const auto mesh = builder.bytes();
+    fake.addPlugin(L"ArchiveMod.esp");
+    TestUtil::BSABuilder archive;
+    archive.addFile("meshes\\pgignored\\archived.nif", mesh);
+    archive.write(fake.dataDir() / L"ArchiveMod.bsa");
+    fake.writeDataFile(loosePath, mesh);
+    fake.writeDataFile(keptPath, mesh);
+
+    const TestUtil::TempDir staging;
+    for (const auto* folder : { L"ArchiveMod-1-1-1", L"LooseMod-2-1-1", L"KeptMod-3-1-1" })
+        std::filesystem::create_directories(staging / folder);
+    nlohmann::json deployment;
+    deployment["stagingPath"] = TestUtil::pathToUTF8(staging.path());
+    deployment["files"] = nlohmann::json::array({
+        { { "relPath", "ArchiveMod.bsa" }, { "source", "ArchiveMod-1-1-1" } },
+        { { "relPath", "textures\\pgignored\\wood_p.dds" }, { "source", "ArchiveMod-1-1-1" } },
+        { { "relPath", "meshes\\pgignored\\loose.nif" }, { "source", "LooseMod-2-1-1" } },
+        { { "relPath", "meshes\\pgignored\\kept.nif" }, { "source", "KeptMod-3-1-1" } },
+    });
+    TestUtil::writeFile(fake.dataDir() / L"vortex.deployment.json", deployment.dump());
+    PGModManager pgmm(PGModManager::ModManagerType::Vortex);
+    pgmm.populateModFileMapVortex(fake.dataDir());
+    const auto archiveMod = pgmm.mod(L"ArchiveMod");
+    const auto looseMod = pgmm.mod(L"LooseMod");
+    ASSERT_NE(archiveMod, nullptr);
+    ASSERT_NE(looseMod, nullptr);
+    // A new mod with a height map is enabled (PGModManager::updateStateFromModlist()), and only the height maps of
+    // enabled mods are used.
+    archiveMod->isEnabled = true;
+    PGGlobals::setPGMM(&pgmm);
+
+    BethesdaGame game = fake.game();
+    PGDirectory pgd(&game, outDir());
+    pgd.populateFileMap(true, false);
+    pgd.mapFiles({ }, { }, { }, { }, false);
+    pgd.waitForMeshMapping();
+    PGGlobals::setPGD(&pgd);
+
+    const auto patch = [this, &pgd] {
+        std::filesystem::remove_all(outDir() / L"meshes");
+        pgd.clearGeneratedFiles();
+        PGPatcher::resetRunState();
+        PGPatcher::patchMeshes(false, true);
+        PGGlobals::fileSaver().waitForCompletion();
+    };
+    const auto isPatched = [this](const wchar_t* path) { return std::filesystem::exists(outDir() / path); };
+
+    // The meshes of the mod that deployed the archive and of the first loose mesh's mod are ignored.
+    archiveMod->areMeshesIgnored = true;
+    looseMod->areMeshesIgnored = true;
+    patch();
+    EXPECT_FALSE(isPatched(archivedPath));
+    EXPECT_FALSE(isPatched(loosePath));
+    EXPECT_TRUE(isPatched(keptPath));
+    EXPECT_FALSE(PGPatcher::patchMeta().contains(archivedPath));
+    EXPECT_FALSE(PGPatcher::patchMeta().contains(loosePath));
+
+    // With their meshes no longer ignored, both get the height map like the other one.
+    archiveMod->areMeshesIgnored = false;
+    looseMod->areMeshesIgnored = false;
+    patch();
+    EXPECT_TRUE(isPatched(archivedPath));
+    EXPECT_TRUE(isPatched(loosePath));
+    EXPECT_TRUE(isPatched(keptPath));
+
+    // The fixture's directory is the global one again before this one goes away.
+    PGGlobals::setPGD(m_pgd.get());
 }
 
 /**

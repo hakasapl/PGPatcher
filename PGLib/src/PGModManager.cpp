@@ -319,10 +319,12 @@ void PGModManager::populateModFileMapVortex(const std::filesystem::path& deploym
     for (const auto& file : vortexDeployment["files"]) {
         const auto relPath = std::filesystem::path(StringUtil::utf8toUTF16(file["relPath"].get<std::string>()));
 
-        // Check if relPath is within s_foldersToMap.
+        // Check if relPath is within s_foldersToMap, or is an archive at the top level: like for Mod Organizer 2, the
+        // archives are mapped so that the files in them can be traced back to their mod (modByFileSmart()).
         // Get the first path component of relPath.
         const auto relPathStr = boost::to_lower_copy(relPath.begin()->wstring());
-        if (!PGGlobals::s_foldersToMap.contains(relPathStr)) {
+        const bool isArchive = !relPath.has_parent_path() && boost::iequals(relPath.extension().wstring(), L".bsa");
+        if (!isArchive && !PGGlobals::s_foldersToMap.contains(relPathStr)) {
             // Skip if not mapping from this folder.
             continue;
         }
