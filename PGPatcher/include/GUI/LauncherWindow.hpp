@@ -126,8 +126,11 @@ private:
     wxCheckBox* m_processingEnableTraceLoggingCheckbox;
     void onProcessingEnableTraceLoggingChange(wxCommandEvent& event);
 
-    wxCheckBox* m_processingPGLiteModeCheckbox;
-    void onProcessingPGLiteModeChange(wxCommandEvent& event);
+    wxCheckBox* m_processingPatchShapeDataCheckbox;
+    void onProcessingPatchShapeDataChange(wxCommandEvent& event);
+
+    wxCheckBox* m_processingGenerateDynDOLODCheckbox;
+    void onProcessingGenerateDynDOLODChange(wxCommandEvent& event);
 
     // Pre-Patchers.
     wxCheckBox* m_prePatcherFixMeshLightingCheckbox;

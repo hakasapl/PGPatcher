@@ -67,6 +67,7 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                             const bool& checkAllowedRecTypes,
                             const bool& excludeFacegens,
+                            const bool& shouldPatchShapeData,
                             const bool& isPGLiteMode,
                             const std::function<void(size_t,
                                                      size_t)>& progressCallback,
@@ -78,7 +79,7 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
     pgd->waitForCMClassification();
 
     // PGLite mode patches the uses of the record types DynDOLOD scans, within the allowed ones, and nothing that has
-    // no plugin use (the BodySlide ShapeData meshes aside, which patchNIF() keeps).
+    // no plugin use (the BodySlide ShapeData meshes aside, which patchNIF() patches when shouldPatchShapeData is set).
     std::unordered_set<PGPlugin::ModelRecordType> recTypes = allowedModelRecTypes;
     bool shouldCheckRecTypes = checkAllowedRecTypes;
     bool shouldForceBasePatch = forceBasePatch;
@@ -149,6 +150,7 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                             &recTypes,
                             &shouldCheckRecTypes,
                             &excludeFacegens,
+                            &shouldPatchShapeData,
                             &isPGLiteMode,
                             &shouldRecalculateBounds] {
             taskTracker.completeJob(patchNIF(mesh,
@@ -157,6 +159,7 @@ void PGPatcher::patchMeshes(const bool& shouldMultithread,
                                              recTypes,
                                              shouldCheckRecTypes,
                                              excludeFacegens,
+                                             shouldPatchShapeData,
                                              isPGLiteMode,
                                              shouldRecalculateBounds));
         });
@@ -478,6 +481,7 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
                                         const std::unordered_set<PGPlugin::ModelRecordType>& allowedModelRecTypes,
                                         const bool& checkAllowedRecTypes,
                                         const bool& excludeFacegens,
+                                        const bool& shouldPatchShapeData,
                                         const bool& isPGLiteMode,
                                         const bool& shouldRecalculateBounds)
 {
@@ -518,8 +522,14 @@ TaskTracker::Result PGPatcher::patchNIF(const std::filesystem::path& nifPath,
         return TaskTracker::Result::Success;
     }
 
-    // BodySlide ShapeData never appears in plugins either, so it is always patched for a dummy use like facegen.
+    // BodySlide ShapeData never appears in plugins either, so it is patched for a dummy use like facegen. Only Outfit
+    // Studio shows it: the game loads the meshes BodySlide builds from it.
     const bool isBodySlideShapeData = PGNIFUtil::isBodySlideShapeDataMesh(nifPath);
+    if (isBodySlideShapeData && !shouldPatchShapeData) {
+        Logger::trace(L"Skipping NIF patching for BodySlide ShapeData mesh (ShapeData patching disabled): {}",
+                      nifPath.wstring());
+        return TaskTracker::Result::Success;
+    }
 
     if (nifCache.meshUses.empty() && !forceBasePatch && !isFacegen && !isBodySlideShapeData) {
         Logger::trace(L"Skipping NIF patching for mesh with no plugin uses: {}", nifPath.wstring());

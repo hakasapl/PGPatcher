@@ -66,6 +66,7 @@ TEST(PGParamsTest,
     EXPECT_TRUE(json["processing"].contains("enabledebuglogging"));
     EXPECT_TRUE(json["processing"].contains("enabletracelogging"));
     EXPECT_TRUE(json["processing"].contains("pglitemode"));
+    EXPECT_TRUE(json["processing"].contains("patchshapedata"));
     EXPECT_TRUE(json["shaderpatcher"].contains("parallax"));
     EXPECT_TRUE(json["shaderpatcher"].contains("truepbr"));
     EXPECT_TRUE(json["postpatcher"].contains("fixsss"));
@@ -88,6 +89,25 @@ TEST(PGParamsTest,
     EXPECT_TRUE(read.processing.isPGLiteMode);
     EXPECT_TRUE(read == params);
     read.processing.isPGLiteMode = false;
+    EXPECT_FALSE(read == params);
+}
+
+TEST(PGParamsTest,
+     PatchShapeDataIsOffByDefaultAndRoundTrips)
+{
+    EXPECT_FALSE(PGParams::defaults().processing.shouldPatchShapeData);
+
+    PGParams params;
+    params.processing.shouldPatchShapeData = true;
+    nlohmann::json json = nlohmann::json::object();
+    params.writeJSON(json);
+    EXPECT_EQ(json["processing"]["patchshapedata"], true);
+
+    PGParams read;
+    read.readJSON(json);
+    EXPECT_TRUE(read.processing.shouldPatchShapeData);
+    EXPECT_TRUE(read == params);
+    read.processing.shouldPatchShapeData = false;
     EXPECT_FALSE(read == params);
 }
 

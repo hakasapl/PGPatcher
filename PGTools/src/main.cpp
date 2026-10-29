@@ -448,8 +448,16 @@ int mainRunner(PGToolsCLIArgs& args)
         }
 
         PGPatcher::loadPatchers(meshPatchers, texPatchers);
-        PGPatcher::patchMeshes(
-            args.multithreading, true, { }, false, false, false, { }, { }, patcherDefs.contains("recalculatebounds"));
+        PGPatcher::patchMeshes(args.multithreading,
+                               true,
+                               { },
+                               false,
+                               false,
+                               true,
+                               false,
+                               { },
+                               { },
+                               patcherDefs.contains("recalculatebounds"));
         PGPatcher::patchTextures(args.multithreading);
 
         // Finalize step.

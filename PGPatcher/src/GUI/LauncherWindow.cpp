@@ -416,10 +416,18 @@ LauncherWindow::LauncherWindow(PGConfig& pgc,
         wxEVT_CHECKBOX, &LauncherWindow::onProcessingEnableTraceLoggingChange, this);
     processingCheckboxSizer->Add(m_processingEnableTraceLoggingCheckbox, 0, wxALL, borderSize);
 
-    m_processingPGLiteModeCheckbox = new wxCheckBox(this, wxID_ANY, pgTr("launcher.processing.pgliteMode.label"));
-    m_processingPGLiteModeCheckbox->SetToolTip(pgTr("launcher.processing.pgliteMode.tooltip"));
-    m_processingPGLiteModeCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingPGLiteModeChange, this);
-    processingCheckboxSizer->Add(m_processingPGLiteModeCheckbox, 0, wxALL, borderSize);
+    m_processingPatchShapeDataCheckbox
+        = new wxCheckBox(this, wxID_ANY, pgTr("launcher.processing.patchShapeData.label"));
+    m_processingPatchShapeDataCheckbox->SetToolTip(pgTr("launcher.processing.patchShapeData.tooltip"));
+    m_processingPatchShapeDataCheckbox->Bind(wxEVT_CHECKBOX, &LauncherWindow::onProcessingPatchShapeDataChange, this);
+    processingCheckboxSizer->Add(m_processingPatchShapeDataCheckbox, 0, wxALL, borderSize);
+
+    m_processingGenerateDynDOLODCheckbox
+        = new wxCheckBox(this, wxID_ANY, pgTr("launcher.processing.generateDynDOLOD.label"));
+    m_processingGenerateDynDOLODCheckbox->SetToolTip(pgTr("launcher.processing.generateDynDOLOD.tooltip"));
+    m_processingGenerateDynDOLODCheckbox->Bind(
+        wxEVT_CHECKBOX, &LauncherWindow::onProcessingGenerateDynDOLODChange, this);
+    processingCheckboxSizer->Add(m_processingGenerateDynDOLODCheckbox, 0, wxALL, borderSize);
 
     processingOptionsHorizontalSizer->Add(processingCheckboxSizer, 0, wxALL, borderSize);
 
@@ -559,7 +567,8 @@ void LauncherWindow::setUIParams(const PGConfig::PGParams& initParams)
     m_processingEnableDevModeCheckbox->SetValue(initParams.processing.enableModDevMode);
     m_processingEnableDebugLoggingCheckbox->SetValue(initParams.processing.enableDebugLogging);
     m_processingEnableTraceLoggingCheckbox->SetValue(initParams.processing.enableTraceLogging);
-    m_processingPGLiteModeCheckbox->SetValue(initParams.processing.isPGLiteMode);
+    m_processingPatchShapeDataCheckbox->SetValue(initParams.processing.shouldPatchShapeData);
+    m_processingGenerateDynDOLODCheckbox->SetValue(initParams.processing.isPGLiteMode);
     m_meshRulesAllowListState = initParams.processing.allowList;
     m_meshRulesBlockListState = initParams.processing.blockList;
     m_textureRulesTextureMapsState = initParams.processing.textureMaps;
@@ -657,7 +666,15 @@ void LauncherWindow::onProcessingEnableTraceLoggingChange([[maybe_unused]] wxCom
     updateDisabledElements();
 }
 
-void LauncherWindow::onProcessingPGLiteModeChange([[maybe_unused]] wxCommandEvent& event) { updateDisabledElements(); }
+void LauncherWindow::onProcessingPatchShapeDataChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
+
+void LauncherWindow::onProcessingGenerateDynDOLODChange([[maybe_unused]] wxCommandEvent& event)
+{
+    updateDisabledElements();
+}
 
 void LauncherWindow::onPrePatcherFixMeshLightingChange([[maybe_unused]] wxCommandEvent& event)
 {
@@ -768,7 +785,8 @@ void LauncherWindow::getParams(PGConfig::PGParams& params) const
     params.processing.enableModDevMode = m_processingEnableDevModeCheckbox->GetValue();
     params.processing.enableDebugLogging = m_processingEnableDebugLoggingCheckbox->GetValue();
     params.processing.enableTraceLogging = m_processingEnableTraceLoggingCheckbox->GetValue();
-    params.processing.isPGLiteMode = m_processingPGLiteModeCheckbox->GetValue();
+    params.processing.shouldPatchShapeData = m_processingPatchShapeDataCheckbox->GetValue();
+    params.processing.isPGLiteMode = m_processingGenerateDynDOLODCheckbox->GetValue();
     params.processing.allowList = m_meshRulesAllowListState;
     params.processing.blockList = m_meshRulesBlockListState;
     params.processing.textureMaps = m_textureRulesTextureMapsState;
@@ -891,6 +909,15 @@ void LauncherWindow::updateDisabledElements()
     } else {
         m_shaderPatcherParallaxCheckbox->Enable(true);
         m_shaderPatcherComplexMaterialCheckbox->Enable(true);
+    }
+
+    // The DynDOLOD files are only needed for PBR, so the option is off without the TruePBR patcher.
+    if (curParams.shaderPatcher.isTruePBREnabled) {
+        m_processingGenerateDynDOLODCheckbox->Enable(true);
+    } else {
+        m_processingGenerateDynDOLODCheckbox->SetValue(false);
+        m_processingGenerateDynDOLODCheckbox->Enable(false);
+        curParams.processing.isPGLiteMode = false;
     }
 
     // Save button.
