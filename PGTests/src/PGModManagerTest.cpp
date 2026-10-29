@@ -133,6 +133,63 @@ TEST(PGModManagerTest,
 }
 
 TEST(PGModManagerTest,
+     ModStatesKeepTheSavedStateThatSetModStatesRestores)
+{
+    using ModState = PGModManager::ModState;
+
+    PGModManager pgmm(ModManagerType::None);
+    pgmm.loadJSON({
+        { "ModA", { { "priority", 2 }, { "enabled", true } } },
+        { "ModB", { { "priority", 1 }, { "enabled", true }, { "meshesignored", true } } },
+    });
+    const auto modA = pgmm.mod(L"ModA");
+    const auto modB = pgmm.mod(L"ModB");
+    modB->hasMeshes = true;
+    modB->shaders = { PGEnums::ShapeShader::VanillaParallax };
+
+    const auto saved = pgmm.modStates();
+    ASSERT_EQ(saved.size(), 2U);
+    EXPECT_EQ(saved.at(L"ModA"), (ModState { .isEnabled = true, .priority = 2, .areMeshesIgnored = false }));
+    EXPECT_EQ(saved.at(L"ModB"), (ModState { .isEnabled = true, .priority = 1, .areMeshesIgnored = true }));
+
+    // The conflict manager changes the mods live while the list is edited: ModA's meshes are ignored, ModB is disabled
+    // and moved. The saved copy does not follow, so the edits show against it.
+    modA->areMeshesIgnored = true;
+    modB->isEnabled = false;
+    modB->priority = 5;
+    EXPECT_FALSE(saved.at(L"ModA").areMeshesIgnored);
+    EXPECT_TRUE(saved.at(L"ModB").isEnabled);
+    EXPECT_NE(pgmm.modStates(), saved);
+    EXPECT_EQ(pgmm.modStates().at(L"ModA"), (ModState { .isEnabled = true, .priority = 2, .areMeshesIgnored = true }));
+
+    // Discarding the edits sets the saved copy back, and leaves everything else of the mods alone.
+    pgmm.setModStates(saved);
+    EXPECT_EQ(pgmm.modStates(), saved);
+    EXPECT_FALSE(modA->areMeshesIgnored);
+    EXPECT_TRUE(modB->isEnabled);
+    EXPECT_EQ(modB->priority, 1);
+    EXPECT_TRUE(modB->areMeshesIgnored);
+    EXPECT_TRUE(modB->hasMeshes);
+    EXPECT_EQ(modB->shaders, (std::set<PGEnums::ShapeShader> { PGEnums::ShapeShader::VanillaParallax }));
+    EXPECT_FALSE(modA->isNew);
+
+    // Names that are not known are skipped, and mods missing from the map keep their state.
+    pgmm.setModStates({
+        { L"Unknown", ModState { .isEnabled = true, .priority = 9, .areMeshesIgnored = true } },
+        { L"ModA", ModState { .isEnabled = false, .priority = -1, .areMeshesIgnored = true } },
+    });
+    EXPECT_EQ(pgmm.mod(L"Unknown"), nullptr);
+    EXPECT_EQ(pgmm.mods().size(), 2U);
+    EXPECT_EQ(pgmm.modStates().at(L"ModA"),
+              (ModState { .isEnabled = false, .priority = -1, .areMeshesIgnored = true }));
+    EXPECT_EQ(pgmm.modStates().at(L"ModB"), saved.at(L"ModB"));
+
+    // The saved state is what modrules.json gets.
+    EXPECT_EQ(pgmm.json()["ModA"]["meshesignored"], true);
+    EXPECT_EQ(pgmm.json()["ModA"]["enabled"], false);
+}
+
+TEST(PGModManagerTest,
      SortsByPriorityOrderShaderAndName)
 {
     PGModManager pgmm(ModManagerType::None);

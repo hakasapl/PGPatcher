@@ -44,6 +44,9 @@ private:
 
     std::vector<CachedModRow> m_cachedRows; /** Cached full mod list state used for filtering */
 
+    /** Mod states as last saved: the mods follow the list live, so unsaved changes are found against this copy */
+    std::unordered_map<std::wstring, PGModManager::ModState> m_savedModStates;
+
     std::unordered_set<DialogModConflictView*> m_openConflictDialogs; /** Modeless conflict windows currently open */
 
     // Sizes in DIPs (pixels at 100% scaling), scaled to the monitor's DPI with FromDIP() where they are used
@@ -280,6 +283,11 @@ private:
     void updateModStatesLive();
 
     /**
+     * @brief Sets the mods back to the state they were last saved with, undoing the live updates of unsaved changes
+     */
+    void restoreSavedModStates();
+
+    /**
      * @brief Fills the list control with the given mod list: enabled mods first, the cutoff line, then disabled mods.
      * Mods without shaders and without meshes are left out
      *
@@ -329,7 +337,8 @@ private:
                                            bool moveToTop);
 
     /**
-     * @brief Checks whether the current list/checkbox state differs from the saved state
+     * @brief Checks whether the current list/checkbox state differs from the saved state (m_savedModStates and the
+     * saved config)
      *
      * @return true if there are unsaved changes
      */

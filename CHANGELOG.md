@@ -2,6 +2,7 @@
 
 ## UNRELEASED
 
+- [PGPatcher] Fixed the conflict manager not noticing unsaved changes to the mod list (order, enabled, Ignore Meshes): Apply and Discard Changes stayed disabled, closing it did not ask to discard them, and a cancelled change came back the next time it was opened
 - [PGLite] Added the `pgblock` and `pgallow` console commands to block selected meshes quicker
 - [PGPatcher] BodySlide ShapeData meshes are only patched with the new "Patch BodySlide ShapeData" processing option
 - [PGPatcher] Renamed the PGLite Mode processing option to "Generate DynDOLOD Files" and locked it behind PBR being enabled

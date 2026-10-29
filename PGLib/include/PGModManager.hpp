@@ -91,6 +91,20 @@ public:
         std::unordered_set<std::shared_ptr<Mod>, ModHash> conflicts;
     };
 
+    /**
+     * @brief The state of a mod that the user sets in the conflict manager and modrules.json stores.
+     */
+    struct ModState {
+        /// @brief True if the mod is enabled (see Mod::isEnabled).
+        bool isEnabled = false;
+        /// @brief Patch priority (see Mod::priority).
+        int priority = -1;
+        /// @brief True if mesh files from this mod are excluded from patching.
+        bool areMeshesIgnored = false;
+
+        bool operator==(const ModState& other) const = default;
+    };
+
 private:
     std::unordered_map<std::wstring, std::shared_ptr<Mod>> m_modMap;
     std::unordered_map<std::filesystem::path, std::shared_ptr<Mod>> m_modFileMap;
@@ -259,6 +273,25 @@ public:
      * @return JSON object mapping mod names to their properties.
      */
     nlohmann::json json();
+
+    /**
+     * @brief Returns the state the user sets (enabled, priority, meshes ignored) of every known mod by name. The result
+     * is a copy, so later changes to the mods do not show in it.
+     *
+     * @return Map of mod names to their states.
+     */
+    [[nodiscard]] std::unordered_map<std::wstring,
+                                     ModState>
+    modStates() const;
+
+    /**
+     * @brief Sets the state the user sets of the named mods, for example back to what modStates() returned. Names
+     * that are not known are skipped, and mods missing from the map keep their state.
+     *
+     * @param states Map of mod names to the states to set.
+     */
+    void setModStates(const std::unordered_map<std::wstring,
+                                               ModState>& states) const;
 
     /**
      * @brief Checks whether the given directory is a valid MO2 instance (contains modorganizer.ini).
