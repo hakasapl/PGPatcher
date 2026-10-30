@@ -105,6 +105,15 @@ public:
     /// @brief The toggle of the status page, persisted in settings.json. Any thread.
     [[nodiscard]] bool isEnabled() const { return m_isEnabled; }
 
+    /// @brief The menu once its hooks are in place, nullptr before data load and when they could not be installed.
+    /// Any thread.
+    [[nodiscard]] Menu* menu() const { return m_installedMenu; }
+
+    /// @brief Whether the menu key of PGLite.ini opens and closes the menu; a plugin that opens the menu with its own
+    /// keys turns it off for the session (Exports). Any thread.
+    [[nodiscard]] bool isMenuKeyEnabled() const { return m_isMenuKeyEnabled; }
+    void setMenuKeyEnabled(bool isEnabled);
+
     /// @brief The generation of the current plan; deferred record edits of an older plan do nothing.
     [[nodiscard]] unsigned planGeneration() const { return m_planGeneration; }
 
@@ -286,6 +295,9 @@ private:
     ClassificationCache m_cache;
     std::unique_ptr<Environment> m_environment;
     std::unique_ptr<Menu> m_menu;
+    /// @brief m_menu once its hooks are in place, for the plugins that open and close it from their threads (Exports).
+    std::atomic<Menu*> m_installedMenu { nullptr };
+    std::atomic<bool> m_isMenuKeyEnabled { true };
     /// @brief The environment build started at input load, joined by the data-load work; invalid when none was.
     std::future<void> m_earlyInitialization;
     bool m_didDetectShaderFrameworks = false;
