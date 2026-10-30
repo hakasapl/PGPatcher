@@ -47,7 +47,7 @@ std::filesystem::path Settings::gameFolder()
                 return std::filesystem::current_path();
 
             if (length < buffer.size())
-                return std::filesystem::path(buffer.data(), buffer.data() + length).parent_path();
+                return std::filesystem::path(std::wstring_view(buffer.data(), length)).parent_path();
 
             buffer.resize(buffer.size() * 2);
         }

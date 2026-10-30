@@ -70,11 +70,10 @@ void RecordSnapshot::capture(const Uses& uses)
             state.modelPath = model->model;
             state.writtenPath = model->model;
             if (state.swap && state.swap->alternateTextures) {
-                state.alternateTextures.reserve(state.swap->numAlternateTextures);
-                for (std::uint32_t i = 0; i < state.swap->numAlternateTextures; i++) {
-                    const auto& entry = state.swap->alternateTextures[i];
+                const auto entries = Uses::alternateTextures(*state.swap);
+                state.alternateTextures.reserve(entries.size());
+                for (const auto& entry : entries)
                     state.alternateTextures.push_back({ .textureSet = entry.textureSet, .index3D = entry.index3D });
-                }
             }
             state.writtenAlternateTextures = state.alternateTextures;
 
@@ -116,7 +115,7 @@ bool RecordSnapshot::setAlternateTexture(RE::TESModel& model,
                                          std::uint32_t index3D,
                                          RE::BGSTextureSet* textureSet)
 {
-    auto& entry = swap.alternateTextures[entryIndex];
+    auto& entry = Uses::alternateTextures(swap)[entryIndex];
     const auto it = m_captured.find(&model);
     auto* const state = it == m_captured.end() ? nullptr : &m_elements.at(it->second);
     auto* const written = state && entryIndex < state->writtenAlternateTextures.size()
@@ -152,8 +151,9 @@ void RecordSnapshot::restore()
 
         // The array itself is never resized, so the captured entries match the current ones.
         const auto count = std::min<std::size_t>(state.alternateTextures.size(), state.swap->numAlternateTextures);
+        const auto entries = Uses::alternateTextures(*state.swap);
         for (std::size_t i = 0; i < count; i++) {
-            auto& entry = state.swap->alternateTextures[i];
+            auto& entry = entries[i];
             auto& written = state.writtenAlternateTextures[i];
             if (entry.textureSet != written.textureSet || entry.index3D != written.index3D) {
                 keptEntries++;

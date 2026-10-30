@@ -51,7 +51,8 @@ RE::BSResource::ErrorCode PatchStream::DoGetInfo(RE::BSResource::Info& info)
 
 void PatchStream::DoClone(RE::BSTSmartPointer<RE::BSResource::Stream>& stream) const
 {
-    stream.reset(new PatchStream(m_path, m_source, *m_provider));
+    // The engine's smart pointer takes the stream over.
+    stream.reset(new PatchStream(m_path, m_source, *m_provider)); // NOLINT(cppcoreguidelines-owning-memory)
 }
 
 RE::BSResource::ErrorCode PatchStream::DoRead(void* buffer,
@@ -65,7 +66,7 @@ RE::BSResource::ErrorCode PatchStream::DoRead(void* buffer,
     const std::uint64_t remaining = m_bytes->size() - std::min<std::uint64_t>(m_position, m_bytes->size());
     read = std::min(toRead, remaining);
     if (read)
-        std::memcpy(buffer, m_bytes->data() + m_position, read);
+        std::memcpy(buffer, std::span(*m_bytes).subspan(m_position, read).data(), read);
 
     m_position += read;
     return RE::BSResource::ErrorCode::kNone;

@@ -12,7 +12,7 @@ release from llvm-project and puts it first on PATH; locally, install the same r
 do the same. Whatever `clang-tidy` is found on PATH must match the pin (the Visual Studio
 developer environment puts its own, older LLVM there), or the runner refuses to continue.
 
-Two quirks of this project are handled here:
+Three quirks of this project are handled here:
 
 * `--config-file` is passed explicitly. Without it clang-tidy walks up from each source
   file looking for a .clang-tidy, and for anything that pulls in nifly it finds
@@ -23,6 +23,15 @@ Two quirks of this project are handled here:
   format-string check under clang 19 and newer, so every TU that logs anything reports
   errors in fmt/spdlog headers. Those are not actionable here, and the header filter does
   not apply to compiler diagnostics.
+
+* MSVC precompiled headers are left out. PGLite builds with `target_precompile_headers`, so
+  its compile commands name an MSVC .pch with /Yu and /Fp, which clang cannot read: every
+  such TU failed with "is not a valid PCH file" and was analyzed no further. A tree with
+  those flags is checked against a copy of its compile commands without them; the /FI of
+  the precompiled header stays, so each TU parses that header itself.
+
+A clang-tidy error that names no file, or a fatal error anywhere, fails the run: either one
+means the TU was not analyzed in full, which must not pass as a clean result.
 """
 
 from __future__ import annotations
@@ -35,6 +44,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VERSION_FILE = os.path.join(REPO_ROOT, 'scripts', 'clang-tidy-version.txt')
@@ -47,6 +57,9 @@ PROJECT_DIRS = ('PGLib', 'PGPatcher', 'PGMutagen', 'PGTools', 'PGTests', 'PGLite
 # compile commands are checked alongside the root ones when that tree exists.
 SECONDARY_BUILD_DIRS = ('PGLite',)
 
+# The translation units clang-tidy can check.
+SOURCE_EXTENSIONS = ('.c', '.cc', '.cpp', '.cxx')
+
 # Where a configured build tree usually lives, best first.
 BUILD_DIR_CANDIDATES = (
     'buildRelease',
@@ -56,13 +69,18 @@ BUILD_DIR_CANDIDATES = (
 
 HEADER_FILTER = r'(' + '|'.join(PROJECT_DIRS) + r')[/\\](include|src)[/\\]'
 DIAG_LINE = re.compile(
-    r'^(?P<path>[A-Za-z]:[\\/].+?|/.+?):(\d+):(\d+):\s+(?:fatal error|error|warning):')
+    r'^(?P<path>[A-Za-z]:[\\/].+?|/.+?):(\d+):(\d+):\s+(?P<severity>fatal error|error|warning):')
 
-# clang-tidy's own failures: a bad config, an unusable compilation database, a crash. These
-# carry no file position, or point at a .clang-tidy rather than at our code, so the path
-# filter below would silently swallow them. "Error while processing <file>." is excluded on
-# purpose: every clean TU already emits it because of the fmt/spdlog errors.
-TOOL_FAILURE = re.compile(r'^Error(?! while processing\b)')
+# clang-tidy's own failures: a bad config, an unusable compilation database, a crash, a
+# precompiled header it cannot read. These carry no file position, or point at a .clang-tidy
+# rather than at our code, so the path filter below would silently swallow them. "Error while
+# processing <file>." is excluded on purpose: every clean TU already emits it because of the
+# fmt/spdlog errors.
+TOOL_FAILURE = re.compile(r'^(?:Error(?! while processing\b)|(?:fatal )?error: )')
+
+# The MSVC precompiled header options of a compile command: /Yc and /Yu name the header, /Fp
+# the .pch file. A token may be quoted as a whole or in its path.
+PCH_OPTION = re.compile(r'(?<!\S)(?:"[/-](?:Yc|Yu|Fp)[^"]*"|[/-](?:Yc|Yu|Fp)(?:"[^"]*"|\S)*)')
 
 
 def pinned_version() -> str:
@@ -131,13 +149,43 @@ def is_project_file(path: str) -> bool:
 def translation_units(compile_commands: str) -> list[str]:
     with open(compile_commands, encoding='utf-8') as handle:
         entries = json.load(handle)
-    units = {os.path.normpath(e['file']) for e in entries if is_project_file(e['file'])}
+    # The compile commands list the resource scripts as well (PGPatcher's icon.rc), which clang cannot compile.
+    units = {os.path.normpath(e['file']) for e in entries
+             if is_project_file(e['file']) and e['file'].lower().endswith(SOURCE_EXTENSIONS)}
     return sorted(units)
 
 
-def run_one(clang_tidy: str, build_dir: str, unit: str) -> tuple[str, list[str]]:
+def without_precompiled_headers(compile_commands: str, scratch: str) -> str | None:
+    """Writes the compile commands without their MSVC precompiled header options into scratch.
+
+    Returns the directory to pass to clang-tidy's -p, or None when no command has those options
+    and the tree's own compile commands serve as they are.
+    """
+    with open(compile_commands, encoding='utf-8') as handle:
+        entries = json.load(handle)
+
+    changed = False
+    for entry in entries:
+        if 'command' in entry:
+            command = PCH_OPTION.sub('', entry['command'])
+            changed |= command != entry['command']
+            entry['command'] = command
+        if 'arguments' in entry:
+            arguments = [a for a in entry['arguments'] if not PCH_OPTION.fullmatch(a)]
+            changed |= len(arguments) != len(entry['arguments'])
+            entry['arguments'] = arguments
+    if not changed:
+        return None
+
+    os.makedirs(scratch, exist_ok=True)
+    with open(os.path.join(scratch, 'compile_commands.json'), 'w', encoding='utf-8') as handle:
+        json.dump(entries, handle)
+    return scratch
+
+
+def run_one(clang_tidy: str, database_dir: str, unit: str) -> tuple[str, list[str]]:
     result = subprocess.run(
-        [clang_tidy, '-p', build_dir,
+        [clang_tidy, '-p', database_dir,
          '--config-file', os.path.join(REPO_ROOT, '.clang-tidy'),
          '--header-filter', HEADER_FILTER,
          '--quiet', unit],
@@ -153,6 +201,9 @@ def run_one(clang_tidy: str, build_dir: str, unit: str) -> tuple[str, list[str]]
         match = DIAG_LINE.match(line)
         if match:
             keeping = is_project_file(match.group('path'))
+            # A fatal error ends the parse, so the rest of the TU went unchecked, wherever it is.
+            if match.group('severity') == 'fatal error' and not keeping:
+                failures.append(line)
         elif line.startswith('Error while processing') or not line.strip():
             keeping = False
         if keeping:
@@ -162,8 +213,8 @@ def run_one(clang_tidy: str, build_dir: str, unit: str) -> tuple[str, list[str]]
     # on its own means nothing here. Anything above 1 is a crash rather than diagnostics.
     if result.returncode > 1:
         failures.append(f'clang-tidy exited {result.returncode}')
-    if failures and not kept:
-        kept = [f'{unit}: clang-tidy could not complete:'] + [f'  {f}' for f in failures]
+    if failures:
+        kept += [f'{unit}: clang-tidy could not complete:'] + [f'  {f}' for f in failures]
     return unit, kept
 
 
@@ -181,10 +232,12 @@ def main() -> int:
     compile_commands = find_compile_commands(args.build_dir)
     # Every translation unit is checked against the build tree whose compile commands list it.
     units_by_build_dir: dict[str, list[str]] = {}
+    commands_by_build_dir: dict[str, str] = {}
     for commands in [compile_commands] + secondary_compile_commands(compile_commands):
         found = translation_units(commands)
         if found:
             units_by_build_dir[os.path.dirname(commands)] = found
+            commands_by_build_dir[os.path.dirname(commands)] = commands
     if not units_by_build_dir:
         sys.exit(f'error: {compile_commands} lists no project sources; is the build tree stale?')
     units = [unit for found in units_by_build_dir.values() for unit in found]
@@ -198,24 +251,30 @@ def main() -> int:
     if not found or found.group(1) != expected:
         sys.exit(f'error: clang-tidy {found.group(1) if found else "(unknown version)"} does not match the pinned '
                  f'{expected}; install that LLVM release and put its bin directory first on PATH')
-    for tree, found in units_by_build_dir.items():
-        print(f'build tree: {tree} ({len(found)} translation units)')
-    print(f'checking {len(units)} translation units on {args.jobs} jobs\n', flush=True)
-
     # A redrawn counter is only useful on a terminal; in a CI log it would be one long line.
     progress = sys.stdout.isatty()
 
     # Keyed by build tree and unit: a PGLib unit is checked once per tree and may fail in one tree only.
     failed: dict[tuple[str, str], list[str]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(run_one, clang_tidy, tree, unit): tree
-                   for tree, found in units_by_build_dir.items() for unit in found}
-        for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            unit, diagnostics = future.result()
-            if diagnostics:
-                failed[(futures[future], unit)] = diagnostics
-            if progress:
-                print(f'\r  {done}/{len(units)}', end='', flush=True)
+    # The compile commands rewritten without precompiled headers live for the run.
+    with tempfile.TemporaryDirectory(prefix='clang-tidy-') as scratch:
+        database_dirs: dict[str, str] = {}
+        for index, (tree, found) in enumerate(units_by_build_dir.items()):
+            rewritten = without_precompiled_headers(commands_by_build_dir[tree], os.path.join(scratch, str(index)))
+            database_dirs[tree] = rewritten or tree
+            note = ', precompiled header options left out' if rewritten else ''
+            print(f'build tree: {tree} ({len(found)} translation units{note})')
+        print(f'checking {len(units)} translation units on {args.jobs} jobs\n', flush=True)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+            futures = {pool.submit(run_one, clang_tidy, database_dirs[tree], unit): tree
+                       for tree, found in units_by_build_dir.items() for unit in found}
+            for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
+                unit, diagnostics = future.result()
+                if diagnostics:
+                    failed[(futures[future], unit)] = diagnostics
+                if progress:
+                    print(f'\r  {done}/{len(units)}', end='', flush=True)
     if progress:
         print('\r' + ' ' * 24 + '\r', end='')
 

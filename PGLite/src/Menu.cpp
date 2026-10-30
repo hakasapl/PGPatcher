@@ -88,11 +88,14 @@ std::string fontPath(const wchar_t* fileName)
 bool canDrawText(const std::string& text)
 {
     auto* const font = ImGui::GetFont();
+    // Dear ImGui's UTF-8 decoder walks the characters of the text.
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const char* it = text.data();
     const char* const end = text.data() + text.size();
     while (it < end) {
         unsigned codePoint = 0;
         it += ImTextCharFromUtf8(&codePoint, it, end);
+        // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         if (codePoint && !font->FindGlyphNoFallback(static_cast<ImWchar>(codePoint)))
             return false;
     }
@@ -121,6 +124,24 @@ std::string formatCount(const std::string& text,
                         std::size_t count)
 {
     return formatText(text, count);
+}
+
+// Dear ImGui's text calls for a string drawn as it is; the placeholders of a translated string are filled in by
+// formatText.
+void textWrapped(const std::string& text)
+{
+    ImGui::TextWrapped("%s", text.c_str()); // NOLINT(cppcoreguidelines-pro-type-vararg)
+}
+
+void textColored(const ImVec4& color,
+                 const std::string& text)
+{
+    ImGui::TextColored(color, "%s", text.c_str()); // NOLINT(cppcoreguidelines-pro-type-vararg)
+}
+
+void textDisabled(const std::string& text)
+{
+    ImGui::TextDisabled("%s", text.c_str()); // NOLINT(cppcoreguidelines-pro-type-vararg)
 }
 
 /// @brief A string of the translation files (PGPatcher/translations), which both programs share.
@@ -416,8 +437,8 @@ bool Menu::initialize()
     auto& platformIO = ImGui::GetPlatformIO();
     platformIO.Platform_GetClipboardTextFn = &clipboardText;
     platformIO.Platform_SetClipboardTextFn = &setClipboardText;
-    m_runningImage.load(EmbeddedImages::runningGif, EmbeddedImages::runningGifSize, *m_device.Get());
-    m_icon.loadIcon(EmbeddedImages::icon, EmbeddedImages::iconSize, *m_device.Get());
+    m_runningImage.load(std::data(EmbeddedImages::runningGif), EmbeddedImages::runningGifSize, *m_device.Get());
+    m_icon.loadIcon(std::data(EmbeddedImages::icon), EmbeddedImages::iconSize, *m_device.Get());
 
     if (!ImGui_ImplDX11_Init(m_device.Get(), m_context.Get())) {
         ImGui::DestroyContext();
@@ -436,10 +457,10 @@ void Menu::render()
 
     // The loading screen state the hotkey is refused in, per change, so a log explains a refused key.
     if (auto* const ui = RE::UI::GetSingleton()) {
-        static bool s_wasLoadingMenuOpen = false;
+        static bool wasLoadingMenuOpen = false;
         const bool isLoadingMenuOpen = ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME);
-        if (isLoadingMenuOpen != s_wasLoadingMenuOpen) {
-            s_wasLoadingMenuOpen = isLoadingMenuOpen;
+        if (isLoadingMenuOpen != wasLoadingMenuOpen) {
+            wasLoadingMenuOpen = isLoadingMenuOpen;
             Logger::debug("Loading menu {} (main menu {})",
                           isLoadingMenuOpen ? "open" : "closed",
                           ui->IsMenuOpen(RE::MainMenu::MENU_NAME) ? "open" : "closed");
@@ -634,7 +655,7 @@ void Menu::handleInput(const RE::InputEvent& event)
     InputRecord record;
     switch (event.GetEventType()) {
     case RE::INPUT_EVENT_TYPE::kChar: {
-        const auto* const character = static_cast<const RE::CharEvent*>(&event);
+        const auto* const character = event.AsCharEvent();
         record.kind = InputRecord::Kind::Character;
         record.code = character->keyCode;
         break;
@@ -879,8 +900,10 @@ void Menu::loadState()
     for (const auto& [path, type] : m_params.processing.textureMaps) {
         const auto name = PGEnums::strFromTexType(type);
         const auto it = std::ranges::find(typeNames, name);
-        m_textureRules.push_back({ .path = StringUtil::utf16toUTF8(path),
-                                   .typeIndex = it == typeNames.end() ? 0 : static_cast<int>(it - typeNames.begin()) });
+        m_textureRules.push_back({
+            .path = StringUtil::utf16toUTF8(path),
+            .typeIndex = it == typeNames.end() ? 0 : static_cast<int>(it - typeNames.begin()),
+        });
     }
 
     m_mo2InstanceDir = StringUtil::utf16toUTF8(m_params.modManager.mo2InstanceDir.wstring());
@@ -950,7 +973,7 @@ void Menu::rebuildModList()
         return;
     }
 
-    auto* const environment = m_runtime->environment();
+    const auto* const environment = m_runtime->environment();
     if (!environment || !environment->modManager() || environment->modManager()->type() != type) {
         m_modListMessage = tr("pglite.conflictManager.notAttributed");
         return;
@@ -972,11 +995,13 @@ void Menu::fillModRows(PGModManager& manager)
         if (mod == cubemapMod && !mod->hasMeshes && mod->shaders == defaultShaderOnly)
             continue;
 
-        m_mods.push_back({ .name = mod->name,
-                           .displayName = StringUtil::utf16toUTF8(mod->name),
-                           .shaders = shaderNames(mod->shaders),
-                           .isEnabled = mod->isEnabled,
-                           .areMeshesIgnored = mod->areMeshesIgnored });
+        m_mods.push_back({
+            .name = mod->name,
+            .displayName = StringUtil::utf16toUTF8(mod->name),
+            .shaders = shaderNames(mod->shaders),
+            .isEnabled = mod->isEnabled,
+            .areMeshesIgnored = mod->areMeshesIgnored,
+        });
     }
 }
 
@@ -996,7 +1021,7 @@ void Menu::startApply(bool isEnabled)
     params.processing.textureMaps.clear();
     const auto typeNames = PGEnums::texTypesStr();
     for (const auto& rule : m_textureRules) {
-        if (rule.path.empty() || rule.typeIndex < 0 || rule.typeIndex >= static_cast<int>(typeNames.size()))
+        if (rule.path.empty() || rule.typeIndex < 0 || std::cmp_greater_equal(rule.typeIndex, typeNames.size()))
             continue;
 
         params.processing.textureMaps.emplace_back(StringUtil::utf8toUTF16(rule.path),
@@ -1058,7 +1083,7 @@ void Menu::startApply(bool isEnabled)
 
     // The mod rules: the displayed mods as ordered and set here, every other mod as it was. Without a list (the mod
     // manager settings as edited are not the applied ones) the rules stay as they are.
-    auto* const environment = m_runtime->environment();
+    const auto* const environment = m_runtime->environment();
     if (!m_mods.empty() && environment && environment->modManager()) {
         auto rules = environment->modManager()->json();
         int priority = static_cast<int>(std::ranges::count_if(m_mods, [](const ModRow& row) { return row.isEnabled; }));
@@ -1168,10 +1193,9 @@ void Menu::draw()
     if (m_isApplying) {
         const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
         const auto* const stage = m_runtime->stage();
-        ImGui::TextColored(ImVec4(1, 0.85F, 0.4F, 1),
-                           tr("pglite.status.applying").c_str(),
-                           tr(stage ? stage : "pglite.status.working").c_str(),
-                           seconds);
+        textColored(
+            ImVec4(1, 0.85F, 0.4F, 1),
+            formatText(tr("pglite.status.applying"), tr(stage ? stage : "pglite.status.working").c_str(), seconds));
         ImGui::Separator();
     }
 
@@ -1224,7 +1248,7 @@ void Menu::drawApplyRow()
         = !m_applyMessage.empty() || m_runtime->isEnabled() ? m_applyMessage : tr("pglite.apply.disabled");
     if (!message.empty()) {
         ImGui::SameLine();
-        ImGui::TextWrapped("%s", message.c_str());
+        textWrapped(message);
     }
 }
 
@@ -1254,8 +1278,8 @@ void Menu::drawCornerPanel(const AnimatedImage& image,
     const auto spacing = hasImage ? style.ItemSpacing.x * 2 : 0;
     const auto textSize = ImGui::CalcTextSize(text.c_str());
     const auto contentHeight = std::max(imageSize.y, textSize.y);
-    const auto panelSize = ImVec2(style.WindowPadding.x * 2 + imageSize.x + spacing + textSize.x,
-                                  style.WindowPadding.y * 2 + contentHeight);
+    const auto panelSize = ImVec2((style.WindowPadding.x * 2) + imageSize.x + spacing + textSize.x,
+                                  (style.WindowPadding.y * 2) + contentHeight);
     const auto panelMin = ImVec2(io.DisplaySize.x - margin - panelSize.x, margin);
     const auto panelMax = ImVec2(panelMin.x + panelSize.x, panelMin.y + panelSize.y);
 
@@ -1273,12 +1297,13 @@ void Menu::drawCornerPanel(const AnimatedImage& image,
     auto cursor = ImVec2(panelMin.x + style.WindowPadding.x, panelMin.y + style.WindowPadding.y);
     if (hasImage) {
         drawList->AddImage(image.frame(),
-                           ImVec2(cursor.x, cursor.y + (contentHeight - imageSize.y) / 2),
-                           ImVec2(cursor.x + imageSize.x, cursor.y + (contentHeight + imageSize.y) / 2));
+                           ImVec2(cursor.x, cursor.y + ((contentHeight - imageSize.y) / 2)),
+                           ImVec2(cursor.x + imageSize.x, cursor.y + ((contentHeight + imageSize.y) / 2)));
         cursor.x += imageSize.x + spacing;
     }
-    drawList->AddText(
-        ImVec2(cursor.x, cursor.y + (contentHeight - textSize.y) / 2), ImGui::GetColorU32(ImGuiCol_Text), text.c_str());
+    drawList->AddText(ImVec2(cursor.x, cursor.y + ((contentHeight - textSize.y) / 2)),
+                      ImGui::GetColorU32(ImGuiCol_Text),
+                      text.c_str());
 }
 
 void Menu::drawWelcomeMessage()
@@ -1315,8 +1340,9 @@ void Menu::drawStatus()
     if (!status.isActive) {
         ImGui::TextUnformatted(tr("pglite.status.waitingForData").c_str());
     } else if (!status.isReady) {
-        ImGui::Text(tr("pglite.status.initializing").c_str(),
-                    tr(status.stage ? status.stage : "pglite.status.initializingDefault").c_str());
+        ImGui::TextUnformatted(formatText(tr("pglite.status.initializing"),
+                                          tr(status.stage ? status.stage : "pglite.status.initializingDefault").c_str())
+                                   .c_str());
     } else {
         const auto color = status.isEnabled ? ImVec4(0.5F, 1, 0.5F, 1) : ImVec4(1, 0.5F, 0.3F, 1);
         const auto text = tr(status.isEnabled ? "pglite.status.active" : "pglite.status.disabled");
@@ -1332,12 +1358,12 @@ void Menu::drawStatus()
             const auto lineStart = ImGui::GetCursorPosY();
             ImGui::Image(m_runningImage.frame(status.isEnabled), imageSize);
             ImGui::SameLine(0, style.ItemSpacing.x * 2);
-            ImGui::SetCursorPosY(lineStart + (imageSize.y - ImGui::GetTextLineHeight()) / 2);
-            ImGui::TextColored(color, "%s", text.c_str());
+            ImGui::SetCursorPosY(lineStart + ((imageSize.y - ImGui::GetTextLineHeight()) / 2));
+            textColored(color, text);
             ImGui::Unindent(padding);
             ImGui::Dummy(ImVec2(0, padding));
         } else {
-            ImGui::TextColored(color, "%s", text.c_str());
+            textColored(color, text);
         }
     }
 
@@ -1347,15 +1373,17 @@ void Menu::drawStatus()
     }
 
     ImGui::Separator();
-    ImGui::Text(tr("pglite.status.uses").c_str(), status.uses, status.usedMeshes);
-    ImGui::Text(tr("pglite.status.families").c_str(), status.families, status.facegenFamilies, status.patchedFamilies);
-    ImGui::Text(tr("pglite.status.variants").c_str(), status.variants);
-    ImGui::Text(tr("pglite.status.streams").c_str(), status.streams);
-    ImGui::Text(tr("pglite.status.textureSets").c_str(), status.textureSets);
-    ImGui::Text(tr("pglite.status.textures").c_str(),
-                status.texturesFromCache,
-                status.texturesGenerated,
-                status.texturesFailed);
+    ImGui::TextUnformatted(formatText(tr("pglite.status.uses"), status.uses, status.usedMeshes).c_str());
+    ImGui::TextUnformatted(
+        formatText(tr("pglite.status.families"), status.families, status.facegenFamilies, status.patchedFamilies)
+            .c_str());
+    ImGui::TextUnformatted(formatText(tr("pglite.status.variants"), status.variants).c_str());
+    ImGui::TextUnformatted(formatText(tr("pglite.status.streams"), status.streams).c_str());
+    ImGui::TextUnformatted(formatText(tr("pglite.status.textureSets"), status.textureSets).c_str());
+    ImGui::TextUnformatted(
+        formatText(
+            tr("pglite.status.textures"), status.texturesFromCache, status.texturesGenerated, status.texturesFailed)
+            .c_str());
     const auto& frameworks = m_runtime->shaderFrameworks();
     const auto frameworkName = [&frameworks] {
         if (frameworks.hasCommunityShaders && frameworks.hasENB)
@@ -1366,15 +1394,17 @@ void Menu::drawStatus()
             return tr("pglite.status.frameworkENB");
         return tr("pglite.status.frameworkNone");
     }();
-    ImGui::Text(tr("pglite.status.shaderFramework").c_str(), frameworkName.c_str());
+    ImGui::TextUnformatted(formatText(tr("pglite.status.shaderFramework"), frameworkName.c_str()).c_str());
     if (!status.mo2Instance.empty())
-        ImGui::Text(tr("pglite.status.mo2Instance").c_str(),
-                    StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str());
+        ImGui::TextUnformatted(
+            formatText(tr("pglite.status.mo2Instance"), StringUtil::utf16toUTF8(status.mo2Instance.wstring()).c_str())
+                .c_str());
     if (status.offlineOutput) {
-        ImGui::Text(tr("pglite.status.offlineOutput").c_str(),
-                    status.offlineOutput->restored,
-                    status.offlineOutput->kept,
-                    status.offlineOutput->mapped);
+        ImGui::TextUnformatted(formatText(tr("pglite.status.offlineOutput"),
+                                          status.offlineOutput->restored,
+                                          status.offlineOutput->kept,
+                                          status.offlineOutput->mapped)
+                                   .c_str());
     }
 }
 
@@ -1411,7 +1441,7 @@ void Menu::drawPatchers()
 
 void Menu::drawRecordTypes()
 {
-    ImGui::TextWrapped("%s", tr("dialogs.recTypeSelector.description").c_str());
+    textWrapped(tr("dialogs.recTypeSelector.description"));
 
     const auto names = PGPlugin::availableRecTypeStrs();
     if (ImGui::BeginTable("recordtypes", 5)) {
@@ -1432,7 +1462,7 @@ void Menu::drawRecordTypes()
 
 float Menu::buttonWidth(const char* label)
 {
-    return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
+    return ImGui::CalcTextSize(label).x + (ImGui::GetStyle().FramePadding.x * 2);
 }
 
 void Menu::drawStringList(const char* id,
@@ -1471,17 +1501,17 @@ void Menu::drawStringList(const char* id,
 void Menu::drawMeshRules()
 {
     ImGui::SeparatorText(tr("launcher.processing.meshAllowlist").c_str());
-    ImGui::TextWrapped("%s", tr("pglite.meshRules.allowlist").c_str());
+    textWrapped(tr("pglite.meshRules.allowlist"));
     drawStringList("allow", m_allowList, m_newAllowEntry);
 
     ImGui::SeparatorText(tr("launcher.processing.meshBlocklist").c_str());
-    ImGui::TextWrapped("%s", tr("pglite.meshRules.blocklist").c_str());
+    textWrapped(tr("pglite.meshRules.blocklist"));
     drawStringList("block", m_blockList, m_newBlockEntry);
 }
 
 void Menu::drawTextureRules()
 {
-    ImGui::TextWrapped("%s", tr("pglite.textureRules.description").c_str());
+    textWrapped(tr("pglite.textureRules.description"));
     const auto typeNames = PGEnums::texTypesStr();
     std::vector<const char*> typeLabels;
     typeLabels.reserve(typeNames.size());
@@ -1495,9 +1525,9 @@ void Menu::drawTextureRules()
     const auto addLabel = tr("components.modifiableList.add");
     const auto removeLabel = tr("components.modifiableList.remove");
     const auto& style = ImGui::GetStyle();
-    comboWidth += style.FramePadding.x * 2 + ImGui::GetFrameHeight();
+    comboWidth += (style.FramePadding.x * 2) + ImGui::GetFrameHeight();
     const auto buttonSize = ImVec2(std::max(buttonWidth(removeLabel.c_str()), buttonWidth(addLabel.c_str())), 0);
-    const auto pathWidth = -(comboWidth + buttonSize.x + style.ItemSpacing.x * 2);
+    const auto pathWidth = -(comboWidth + buttonSize.x + (style.ItemSpacing.x * 2));
 
     for (std::size_t i = 0; i < m_textureRules.size();) {
         auto& rule = m_textureRules.at(i);
@@ -1543,6 +1573,7 @@ void Menu::drawConflictManager()
         if (types.at(i) == m_params.modManager.type)
             current = static_cast<int>(i);
     }
+    labelPointers.reserve(labels.size());
     for (const auto& label : labels)
         labelPointers.push_back(label.c_str());
 
@@ -1550,7 +1581,7 @@ void Menu::drawConflictManager()
     float comboWidth = 0;
     for (const auto& label : labels)
         comboWidth = std::max(comboWidth, ImGui::CalcTextSize(label.c_str()).x);
-    comboWidth += ImGui::GetStyle().FramePadding.x * 2 + ImGui::GetFrameHeight();
+    comboWidth += (ImGui::GetStyle().FramePadding.x * 2) + ImGui::GetFrameHeight();
     ImGui::TextUnformatted(tr("launcher.modManager.title").c_str());
     ImGui::SameLine();
     ImGui::SetNextItemWidth(comboWidth);
@@ -1571,12 +1602,12 @@ void Menu::drawConflictManager()
     rebuildModList();
     if (isMO2) {
         ImGui::PushStyleColor(ImGuiCol_Text, m_isInstanceValid ? ImVec4(0.6F, 1, 0.6F, 1) : ImVec4(1, 0.85F, 0.4F, 1));
-        ImGui::TextWrapped("%s", m_instanceMessage.c_str());
+        textWrapped(m_instanceMessage);
         ImGui::PopStyleColor();
         ImGui::Checkbox(tr("conflictManager.lockMO2Order.label").c_str(),
                         &m_params.modManager.shouldUseMO2LooseFileOrder);
     } else if (m_params.modManager.type == PGModManager::ModManagerType::Vortex) {
-        ImGui::TextWrapped("%s", tr("pglite.conflictManager.vortex").c_str());
+        textWrapped(tr("pglite.conflictManager.vortex"));
     }
     ImGui::Separator();
 
@@ -1587,14 +1618,14 @@ void Menu::drawConflictManager()
     }
 
     if (!m_modListMessage.empty()) {
-        ImGui::TextWrapped("%s", m_modListMessage.c_str());
+        textWrapped(m_modListMessage);
         return;
     }
 
-    ImGui::TextWrapped("%s", tr("pglite.conflictManager.help").c_str());
+    textWrapped(tr("pglite.conflictManager.help"));
     const bool canReorder = !(isMO2 && m_params.modManager.shouldUseMO2LooseFileOrder);
     if (canReorder)
-        ImGui::TextWrapped("%s", tr("pglite.conflictManager.dragHint").c_str());
+        textWrapped(tr("pglite.conflictManager.dragHint"));
 
     if (!ImGui::BeginTable("mods", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY))
         return;
@@ -1754,12 +1785,12 @@ void Menu::drawDragGhost(std::size_t draggedRow) const
         ImGui::TextUnformatted(row.displayName.c_str());
         if (!row.shaders.empty()) {
             ImGui::SameLine();
-            ImGui::TextDisabled("%s", row.shaders.c_str());
+            textDisabled(row.shaders);
         }
     }
 
     if (count > maxGhostRows)
-        ImGui::TextDisabled("%s", formatCount(tr("pglite.conflictManager.dragMore"), count - maxGhostRows).c_str());
+        textDisabled(formatCount(tr("pglite.conflictManager.dragMore"), count - maxGhostRows));
 }
 
 std::vector<std::size_t> Menu::moveMods(std::size_t draggedRow,
@@ -1829,7 +1860,7 @@ void Menu::autoscrollModList(float rowsTop,
 void Menu::drawMessages()
 {
     const auto messages = Logging::messages();
-    ImGui::Text(tr("pglite.messages.count").c_str(), messages.size());
+    ImGui::TextUnformatted(formatText(tr("pglite.messages.count"), messages.size()).c_str());
     ImGui::SameLine();
     if (ImGui::Button(tr("pglite.messages.clear").c_str()))
         Logging::clearMessages();
@@ -1840,7 +1871,7 @@ void Menu::drawMessages()
             const auto color
                 = message.level >= spdlog::level::err ? ImVec4(1, 0.45F, 0.45F, 1) : ImVec4(1, 0.85F, 0.4F, 1);
             ImGui::PushStyleColor(ImGuiCol_Text, color);
-            ImGui::TextWrapped("%s", message.text.c_str());
+            textWrapped(message.text);
             ImGui::PopStyleColor();
         }
     }
@@ -1850,7 +1881,7 @@ void Menu::drawMessages()
 void Menu::drawSettings()
 {
     if (m_languages.empty()) {
-        ImGui::TextWrapped("%s", tr("pglite.settings.noTranslations").c_str());
+        textWrapped(tr("pglite.settings.noTranslations"));
         return;
     }
 

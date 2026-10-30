@@ -27,11 +27,16 @@ void Hooks::installEarly()
     // Library IDs for SE and AE, offsets for VR, and the call inside each (checked in the 1.5.97, 1.7.104 and VR
     // 1.4.15 executables, `mov rcx, [UI singleton]` loads the argument right before it). 1.7 has the frame's call six
     // bytes further than 1.6, which has it where SE has it (as SKSE Menu Framework redirects it).
-    const auto renderOffset = REL::Module::IsVR() ? renderCallOffsetVR
-        : REL::Module::IsAE()                     ? renderCallOffsetAE
-                                                  : renderCallOffsetSE;
-    const bool isAE17 = REL::Module::IsAE() && REL::Module::get().version().minor() == 7;
-    const auto frameOffset = REL::Module::IsVR() ? frameCallOffsetVR : isAE17 ? frameCallOffsetAE17 : frameCallOffsetSE;
+    auto renderOffset = renderCallOffsetSE;
+    auto frameOffset = frameCallOffsetSE;
+    if (REL::Module::IsVR()) {
+        renderOffset = renderCallOffsetVR;
+        frameOffset = frameCallOffsetVR;
+    } else if (REL::Module::IsAE()) {
+        renderOffset = renderCallOffsetAE;
+        if (REL::Module::get().version().minor() == 7)
+            frameOffset = frameCallOffsetAE17;
+    }
     s_originalDrawInterfaceInRender = redirectDrawInterface(
         REL::VariantID(35556, 36555, renderVROffset).address() + renderOffset, &drawInterfaceInRender, "Main::Render");
     s_originalDrawInterfaceInFrame
@@ -45,8 +50,8 @@ std::uintptr_t Hooks::redirectDrawInterface(std::uintptr_t site,
                                             const char* name)
 {
     // Only the opcode is checked: another plugin that redirected the call first has already replaced its target.
-    const auto opcode
-        = *reinterpret_cast<const std::uint8_t*>(site); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
+    const auto opcode = *reinterpret_cast<const std::uint8_t*>(site);
     if (opcode != callOpcode) {
         Logger::error("The interface draw call of {} holds {:#x} instead of a call ({:#x})", name, opcode, site);
         return 0;
@@ -81,8 +86,8 @@ bool Hooks::install(Menu& menu)
     // is checked, because another plugin that redirected the call first has already replaced its target.
     const auto pollInputDevices = REL::VariantID(67315, 68617, pollInputDevicesVROffset).address();
     const auto site = pollInputDevices + (REL::Module::IsVR() ? pollDispatchCallOffsetVR : pollDispatchCallOffset);
-    const auto opcode
-        = *reinterpret_cast<const std::uint8_t*>(site); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
+    const auto opcode = *reinterpret_cast<const std::uint8_t*>(site);
     if (opcode != callOpcode) {
         Logger::error(
             "The input dispatch call site holds {:#x} instead of a call ({:#x}), the menu is disabled", opcode, site);
@@ -164,7 +169,7 @@ void Hooks::drawInterfaceAndMenu(void (*drawInterface)(RE::UI*),
 void Hooks::presentApplyFrame()
 {
     // Through the swap chain's vtable, so every overlay and compositor that detoured Present sees the frame.
-    auto& data = RE::BSGraphics::Renderer::GetSingleton()->GetRuntimeData();
+    const auto& data = RE::BSGraphics::Renderer::GetSingleton()->GetRuntimeData();
     auto* const swapChain = reinterpret_cast<IDXGISwapChain*>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         data.renderWindows[0].swapChain);
     if (swapChain)

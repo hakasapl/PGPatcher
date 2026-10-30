@@ -86,6 +86,8 @@ public:
     Family(Family&&) = delete;
     Family& operator=(Family&&) = delete;
 
+    // The plan and the runtime fill these as they build and register the family; the patch state below is private.
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
     /// @brief The files of the family: one path, or the _0 and _1 paths of a weighted pair.
     std::vector<std::filesystem::path> basePaths;
     /// @brief The engine's own streams for the files, set when the streams are registered; a file the engine cannot
@@ -98,6 +100,7 @@ public:
     bool isBaseUnpatched = false;
     /// @brief A facegen head: one dummy member without record uses.
     bool isFacegen = false;
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
     /**
      * @brief The bytes the stream of a member serves: patches the family on its first open, then produces the member's

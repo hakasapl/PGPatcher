@@ -225,7 +225,7 @@ private:
     void drawMeshRules();
     void drawTextureRules();
     void drawConflictManager();
-    void drawMessages();
+    static void drawMessages();
     void drawSettings();
 
     /// @brief The font atlas with the glyphs of the loaded translation; a CJK font is merged when it needs one.

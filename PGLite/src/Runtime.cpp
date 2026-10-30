@@ -654,8 +654,8 @@ void Runtime::prepareEnvironment()
     // The cache is the process's observer: the classifications of the mesh reading pass, the registrations the
     // texture hooks make, which reach the texture generator through it, and the texture files a patch could not read,
     // which keep that patch from being kept (Family::bytes).
-    m_cache.setHookRegistrationListener([this](PGRunObserver::HookKind kind, const std::filesystem::path& texPath) {
-        m_textures.noteRegistration(kind, texPath);
+    m_cache.setHookRegistrationListener([](PGRunObserver::HookKind kind, const std::filesystem::path& texPath) {
+        TextureGenerator::noteRegistration(kind, texPath);
     });
     m_cache.setTextureReadFailureListener(
         [](const std::filesystem::path& texPath) { Family::noteTextureReadFailure(texPath); });
@@ -830,7 +830,7 @@ bool Runtime::apply(const PGParams& requestedParams,
 
 std::filesystem::path Runtime::originalMeshPath(const RE::TESModel& model)
 {
-    const auto path = Uses::normalizedModelPath(model.GetModel());
+    auto path = Uses::normalizedModelPath(model.GetModel());
     if (path.empty())
         return path;
 
@@ -871,7 +871,7 @@ Runtime::BlockListChange Runtime::setMeshBlocked(const std::filesystem::path& me
 std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::string& path,
                                                                 SourceStream& source)
 {
-    const auto readOriginal = [&path, &source]() -> std::shared_ptr<const std::vector<std::byte>> {
+    const auto readOriginal = [&path, &source] -> std::shared_ptr<const std::vector<std::byte>> {
         auto bytes = std::make_shared<std::vector<std::byte>>();
         const std::scoped_lock sourceLock(source.mutex);
         if (!source.stream || !Resources::readStream(*source.stream, *bytes)) {
@@ -887,7 +887,7 @@ std::shared_ptr<const std::vector<std::byte>> Runtime::bytesFor(const std::strin
             return readOriginal();
 
         const std::shared_lock lock(m_pipelineLock);
-        auto* const target = m_plan ? m_plan->target(path) : nullptr;
+        const auto* const target = m_plan ? m_plan->target(path) : nullptr;
         if (target && target->family && !target->family->sources.empty() && !disableReason()) {
             auto bytes = target->family->bytes(target->member, target->pathIndex, m_textureSets, m_plan->generation());
             // The textures the patch registered with the texture hooks are served before the engine parses the mesh

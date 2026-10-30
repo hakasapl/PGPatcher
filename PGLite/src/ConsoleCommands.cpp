@@ -20,10 +20,10 @@ namespace {
 
 /// @brief One command and the entries of the game's console table it can take over, in order of preference.
 struct Command {
-    const char* name;
+    const char* name = nullptr;
     std::array<std::string_view, 2> replacedCommands;
-    const char* helpKey;
-    RE::SCRIPT_FUNCTION::Execute_t* execute;
+    const char* helpKey = nullptr;
+    RE::SCRIPT_FUNCTION::Execute_t* execute = nullptr;
 };
 
 void print(const std::string& text)
@@ -71,7 +71,7 @@ void run(RE::TESObjectREFR* reference,
          bool isBlocked)
 {
     auto& runtime = Runtime::instance();
-    auto* const model = reference ? referenceModel(*reference) : nullptr;
+    const auto* const model = reference ? referenceModel(*reference) : nullptr;
     const auto meshPath = model ? runtime.originalMeshPath(*model) : std::filesystem::path();
     if (meshPath.empty()) {
         print(PGTranslation::tr("pglite.console.noMesh"));
@@ -97,6 +97,8 @@ void run(RE::TESObjectREFR* reference,
     }
 }
 
+// The parameters are the console's Execute_t signature, so they cannot take the const their use allows.
+// NOLINTBEGIN(misc-const-correctness)
 bool executeBlock([[maybe_unused]] const RE::SCRIPT_PARAMETER* paramInfo,
                   [[maybe_unused]] RE::SCRIPT_FUNCTION::ScriptData* scriptData,
                   RE::TESObjectREFR* thisObject,
@@ -122,17 +124,22 @@ bool executeAllow([[maybe_unused]] const RE::SCRIPT_PARAMETER* paramInfo,
     run(thisObject, false);
     return true;
 }
+// NOLINTEND(misc-const-correctness)
 
 /// @brief The commands, each with debug commands of the PlayStation 3 build to take over.
 constexpr std::array<Command, 2> commands = {
-    Command { .name = "pgblock",
-              .replacedCommands = { "ToggleSPURenderBatch", "ToggleSPUCulling" },
-              .helpKey = "pglite.console.blockHelp",
-              .execute = &executeBlock },
-    Command { .name = "pgallow",
-              .replacedCommands = { "ToggleSPUTransformUpdate", "ToggleSPUMovement" },
-              .helpKey = "pglite.console.allowHelp",
-              .execute = &executeAllow },
+    Command {
+        .name = "pgblock",
+        .replacedCommands = { "ToggleSPURenderBatch", "ToggleSPUCulling" },
+        .helpKey = "pglite.console.blockHelp",
+        .execute = &executeBlock,
+    },
+    Command {
+        .name = "pgallow",
+        .replacedCommands = { "ToggleSPUTransformUpdate", "ToggleSPUMovement" },
+        .helpKey = "pglite.console.allowHelp",
+        .execute = &executeAllow,
+    },
 };
 
 }
@@ -140,7 +147,7 @@ constexpr std::array<Command, 2> commands = {
 void ConsoleCommands::install()
 {
     // The console reads the help texts for as long as the game runs.
-    static std::array<std::string, commands.size()> s_helpTexts;
+    static std::array<std::string, commands.size()> helpTexts;
 
     for (std::size_t i = 0; i < commands.size(); i++) {
         const auto& command = commands.at(i);
@@ -159,10 +166,10 @@ void ConsoleCommands::install()
         }
 
         Logger::debug("The console command {} replaces {}", command.name, function->functionName);
-        s_helpTexts.at(i) = PGTranslation::tr(command.helpKey);
+        helpTexts.at(i) = PGTranslation::tr(command.helpKey);
         function->functionName = command.name;
         function->shortName = command.name;
-        function->helpString = s_helpTexts.at(i).c_str();
+        function->helpString = helpTexts.at(i).c_str();
         // The command reads the selected reference itself, so that it can say so when none is selected.
         function->referenceFunction = false;
         function->SetParameters();
