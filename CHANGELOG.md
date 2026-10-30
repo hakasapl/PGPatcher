@@ -9,6 +9,7 @@
 - [PGPatcher] Renamed the PGLite Mode processing option to "Generate DynDOLOD Files" and locked it behind PBR being enabled
 - [PGPatcher] "Recalculate Bounds" no longer replaces the bounding sphere of a mesh when it already holds every vertex and fits them closely, and a sphere it does replace is centered on the middle of the mesh; a sphere moved to the edge of a wall made it invisible in some places in game
 - [Common] Fixed Ignore Meshes not applying to the meshes a Vortex mod ships in a BSA, and Vortex mods that only ship BSAs missing from the conflict manager
+- [PGLite] Added `PGLite_Open`, `PGLite_Close`, `PGLite_IsMenuOpen` and `PGLite_SetHotkeyEnabled` DLL exports so Risa's All In One Menu can open and close the PGLite menu with its own hotkeys
 
 ## [2.3.1] - 2026-10-19
 

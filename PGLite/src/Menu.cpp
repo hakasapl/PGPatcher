@@ -450,7 +450,8 @@ void Menu::render()
     const auto& ini = m_runtime->ini();
     const bool shouldShowOverlay = !m_isOpen && m_runtime->isActive() && !m_runtime->disableReason()
         && ((ini.shouldShowLoadingMessage && !m_runtime->isReady())
-            || (ini.shouldShowWelcomeMessage && !m_didOpenMenu && m_runtime->isReady()));
+            || (ini.shouldShowWelcomeMessage && !m_didOpenMenu && m_runtime->isReady()
+                && m_runtime->isMenuKeyEnabled()));
 
     try {
         if (!m_isInitialized && (m_isOpen || shouldShowOverlay) && !initialize()) {
@@ -618,8 +619,9 @@ void Menu::handleInput(const RE::InputEvent& event)
     const auto* const button = event.AsButtonEvent();
     const bool isKeyboard = event.GetDevice() == RE::INPUT_DEVICE::kKeyboard;
 
-    // The hotkey, open or closed.
-    if (button && isKeyboard && button->GetIDCode() == m_runtime->ini().menuKey && button->IsDown()) {
+    // The hotkey, open or closed, unless another plugin opens and closes the menu with its own keys.
+    if (button && isKeyboard && button->GetIDCode() == m_runtime->ini().menuKey && button->IsDown()
+        && m_runtime->isMenuKeyEnabled()) {
         const std::scoped_lock lock(m_inputMutex);
         m_pendingInput.push_back({ .kind = InputRecord::Kind::Hotkey });
         return;
@@ -669,6 +671,23 @@ void Menu::handleInput(const RE::InputEvent& event)
 
     const std::scoped_lock lock(m_inputMutex);
     m_pendingInput.push_back(record);
+}
+
+bool Menu::requestOpen()
+{
+    if (openRefusal())
+        return false;
+
+    const std::scoped_lock lock(m_inputMutex);
+    m_pendingInput.push_back({ .kind = InputRecord::Kind::Open });
+    return true;
+}
+
+void Menu::requestClose()
+{
+    // Queued even while the menu is closed: it closes an open request of the same frame.
+    const std::scoped_lock lock(m_inputMutex);
+    m_pendingInput.push_back({ .kind = InputRecord::Kind::Close });
 }
 
 void Menu::drainInput()
@@ -753,6 +772,23 @@ void Menu::applyInput(const InputRecord& record)
         return;
     }
 
+    // The requests of another plugin are logged when they change something only: a plugin may close the menu whenever
+    // it opens one of its own.
+    if (record.kind == InputRecord::Kind::Open) {
+        if (!m_isOpen) {
+            Logger::info("Another plugin asked the menu to open");
+            open();
+        }
+        return;
+    }
+    if (record.kind == InputRecord::Kind::Close) {
+        if (m_isOpen) {
+            Logger::info("Another plugin asked the menu to close");
+            close();
+        }
+        return;
+    }
+
     if (!m_isOpen || !m_isInitialized)
         return;
 
@@ -785,19 +821,27 @@ void Menu::applyInput(const InputRecord& record)
     }
 }
 
-void Menu::open()
+const char* Menu::openRefusal() const
 {
     // A disabled PGLite has no menu; the notice at data load said why. Before the initialization is done the plan and
     // the environment are still being built, and the status page reads both.
-    if (m_runtime->disableReason() || !m_runtime->isReady()) {
-        Logger::info("The menu does not open: PGLite is {}", m_runtime->disableReason() ? "disabled" : "still loading");
-        return;
-    }
+    if (m_runtime->disableReason())
+        return "PGLite is disabled";
+    if (!m_runtime->isReady())
+        return "PGLite is still loading";
 
     // Before the main menu the game is still loading, with the loading screen presenting the frames, and a load in
     // the game reads the records the menu would edit: the menu is for a running game and for its main menu.
-    if (auto* const ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) {
-        Logger::info("The menu does not open during a loading screen");
+    if (auto* const ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME))
+        return "a loading screen is shown";
+
+    return nullptr;
+}
+
+void Menu::open()
+{
+    if (const auto* const refusal = openRefusal()) {
+        Logger::info("The menu does not open: {}", refusal);
         return;
     }
 
@@ -1240,7 +1284,7 @@ void Menu::drawCornerPanel(const AnimatedImage& image,
 void Menu::drawWelcomeMessage()
 {
     if (!m_runtime->ini().shouldShowWelcomeMessage || m_didOpenMenu || !m_runtime->isActive() || !m_runtime->isReady()
-        || m_runtime->disableReason())
+        || m_runtime->disableReason() || !m_runtime->isMenuKeyEnabled())
         return;
 
     drawCornerPanel(m_icon,

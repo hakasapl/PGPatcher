@@ -145,6 +145,13 @@ std::optional<std::string> Runtime::disableReason() const
     return m_disableReason;
 }
 
+void Runtime::setMenuKeyEnabled(bool isEnabled)
+{
+    // Runtime only, as PGLite.ini stays the player's: the plugin that turned the key off says so again every session.
+    if (m_isMenuKeyEnabled.exchange(isEnabled) != isEnabled)
+        Logger::info("Another plugin {} the menu key", isEnabled ? "enabled" : "disabled");
+}
+
 Runtime::Status Runtime::status() const
 {
     Status status;
@@ -207,7 +214,9 @@ void Runtime::onMessage(SKSE::MessagingInterface::Message* message)
 
     // The menu's hooks draw the loading line into the frames presented during the wait below.
     runtime.m_menu = std::make_unique<Menu>(runtime);
-    if (!Hooks::install(*runtime.m_menu))
+    if (Hooks::install(*runtime.m_menu))
+        runtime.m_installedMenu = runtime.m_menu.get();
+    else
         runtime.m_menu.reset();
     ConsoleCommands::install();
 

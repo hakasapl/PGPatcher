@@ -48,11 +48,22 @@ public:
     void render();
 
     /**
-     * @brief Queues one input event: the hotkey always, everything else while the menu is open. The engine dispatches
-     * its input events on the main thread, which is not always the thread that draws, so they are applied to Dear
-     * ImGui in render(), on the thread that draws.
+     * @brief Queues one input event: the hotkey always unless another plugin turned it off (Runtime::isMenuKeyEnabled),
+     * everything else while the menu is open. The engine dispatches its input events on the main thread, which is not
+     * always the thread that draws, so they are applied to Dear ImGui in render(), on the thread that draws.
      */
     void handleInput(const RE::InputEvent& event);
+
+    /**
+     * @brief Asks for the menu to open in the next frame, for a plugin that opens it with its own keys (Exports). Any
+     * thread.
+     *
+     * @return Whether the request is taken: false while the menu cannot open (openRefusal).
+     */
+    bool requestOpen();
+
+    /// @brief Asks for the menu to close in the next frame; a closed menu stays closed. Any thread.
+    void requestClose();
 
     [[nodiscard]] bool isOpen() const { return m_isOpen; }
 
@@ -82,7 +93,7 @@ public:
 private:
     /// @brief One queued input event.
     struct InputRecord {
-        enum class Kind : std::uint8_t { Hotkey, MouseButton, MouseWheel, Key, Character };
+        enum class Kind : std::uint8_t { Hotkey, Open, Close, MouseButton, MouseWheel, Key, Character };
 
         Kind kind = Kind::Hotkey;
         bool isDown = false;
@@ -114,6 +125,10 @@ private:
 
     /// @brief Creates the Dear ImGui context on the game's device, as the renderer holds it.
     bool initialize();
+
+    /// @brief Why the menu cannot open now, as the log tells it, or nullptr when it can. Any thread.
+    [[nodiscard]] const char* openRefusal() const;
+
     void open();
     void close();
 
@@ -222,7 +237,8 @@ private:
     /// @brief "Loading PGLite" in the top right corner while the runtime initializes (PGLite.ini bShowLoadingMessage).
     void drawLoadingMessage();
 
-    /// @brief The welcome message in the top right corner until the menu was opened once (bShowWelcomeMessage).
+    /// @brief The welcome message in the top right corner until the menu was opened once (bShowWelcomeMessage). It
+    /// names the menu key, so it is not shown while another plugin turned the key off.
     void drawWelcomeMessage();
 
     /// @brief The name of a key by its DirectInput scan code, as the keyboard layout calls it.
