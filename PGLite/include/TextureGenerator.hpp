@@ -55,8 +55,8 @@ public:
      * @brief Notes a texture a mesh patcher registered with a hook, on the thread that patches (the observer calls
      * it); generatePending() of the same thread makes it.
      */
-    void noteRegistration(HookKind kind,
-                          const std::filesystem::path& texPath);
+    static void noteRegistration(HookKind kind,
+                                 const std::filesystem::path& texPath);
 
     /**
      * @brief Generates, or takes from the cache, every texture the calling thread's patch registered that this

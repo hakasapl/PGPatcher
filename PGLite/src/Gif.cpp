@@ -25,6 +25,9 @@
 
 namespace PGLite {
 
+// The image code reads the raw bytes of the embedded files and of stb_image, whose sizes it checks itself.
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-pro-type-reinterpret-cast)
+
 namespace {
 
 constexpr std::size_t iconHeaderSize = 6;
@@ -75,9 +78,9 @@ bool AnimatedImage::loadIcon(const unsigned char* data,
     const unsigned char* best = nullptr;
     std::size_t bestSize = 0;
     unsigned bestWidth = 0;
-    const auto count = size >= iconHeaderSize ? readU16(data + 4) : 0;
+    const std::size_t count = size >= iconHeaderSize ? readU16(data + 4) : 0;
     for (std::size_t i = 0; i < count; i++) {
-        const auto* const entry = data + iconHeaderSize + i * iconEntrySize;
+        const auto* const entry = data + iconHeaderSize + (i * iconEntrySize);
         if (static_cast<std::size_t>(entry - data) + iconEntrySize > size)
             break;
 
@@ -126,7 +129,7 @@ bool AnimatedImage::upload(const unsigned char* pixels,
         // The images are drawn far smaller than they are (a 256 pixel icon in a title bar), which needs the mip
         // chain, or the sampler picks single texels of the full image and thin lines fall apart. The levels are made
         // here, with the alpha weighting the colors, since the game's immediate context is not this thread's to use.
-        const auto levels = mipChain(pixels + static_cast<std::size_t>(i) * frameBytes, width, height);
+        const auto levels = mipChain(pixels + (static_cast<std::size_t>(i) * frameBytes), width, height);
         std::vector<D3D11_SUBRESOURCE_DATA> initial(levels.size());
         for (std::size_t level = 0; level < levels.size(); level++) {
             initial.at(level).pSysMem = levels.at(level).pixels.data();
@@ -172,7 +175,7 @@ std::vector<AnimatedImage::MipLevel> AnimatedImage::mipChain(const unsigned char
     MipLevel base;
     base.width = width;
     base.height = height;
-    base.pixels.assign(pixels, pixels + static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4);
+    base.pixels.assign(pixels, pixels + (static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4));
     levels.push_back(std::move(base));
 
     while (levels.back().width > 1 || levels.back().height > 1) {
@@ -190,12 +193,12 @@ std::vector<AnimatedImage::MipLevel> AnimatedImage::mipChain(const unsigned char
                 unsigned count = 0;
                 for (int dy = 0; dy < 2; dy++) {
                     for (int dx = 0; dx < 2; dx++) {
-                        const int sx = std::min(x * 2 + dx, source.width - 1);
-                        const int sy = std::min(y * 2 + dy, source.height - 1);
+                        const int sx = std::min((x * 2) + dx, source.width - 1);
+                        const int sy = std::min((y * 2) + dy, source.height - 1);
                         const auto* const texel = source.pixels.data()
-                            + (static_cast<std::size_t>(sy) * static_cast<std::size_t>(source.width)
-                               + static_cast<std::size_t>(sx))
-                                * 4;
+                            + (((static_cast<std::size_t>(sy) * static_cast<std::size_t>(source.width))
+                                + static_cast<std::size_t>(sx))
+                               * 4);
                         const unsigned alpha = texel[3];
                         for (int channel = 0; channel < 3; channel++)
                             sum[channel] += texel[channel] * alpha;
@@ -205,9 +208,9 @@ std::vector<AnimatedImage::MipLevel> AnimatedImage::mipChain(const unsigned char
                 }
 
                 auto* const texel = level.pixels.data()
-                    + (static_cast<std::size_t>(y) * static_cast<std::size_t>(level.width)
-                       + static_cast<std::size_t>(x))
-                        * 4;
+                    + (((static_cast<std::size_t>(y) * static_cast<std::size_t>(level.width))
+                        + static_cast<std::size_t>(x))
+                       * 4);
                 for (int channel = 0; channel < 3; channel++)
                     texel[channel] = sum[3] ? static_cast<unsigned char>(sum[channel] / sum[3]) : 0;
                 texel[3] = static_cast<unsigned char>(sum[3] / count);
@@ -225,8 +228,7 @@ ImTextureID AnimatedImage::frame(bool isAnimated) const
     if (m_frames.empty())
         return 0;
     if (!isAnimated)
-        return reinterpret_cast<ImTextureID>(
-            m_frames.front().view.Get()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        return reinterpret_cast<ImTextureID>(m_frames.front().view.Get());
 
     const auto elapsed
         = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_start).count();
@@ -239,7 +241,9 @@ ImTextureID AnimatedImage::frame(bool isAnimated) const
         }
     }
 
-    return reinterpret_cast<ImTextureID>(current->view.Get()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    return reinterpret_cast<ImTextureID>(current->view.Get());
 }
+
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-pro-type-reinterpret-cast)
 
 }

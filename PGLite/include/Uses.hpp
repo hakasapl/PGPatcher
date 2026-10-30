@@ -5,6 +5,7 @@
 #include "pgutil/PGTypes.hpp"
 
 #include <filesystem>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -60,6 +61,11 @@ public:
      * is lower cased and gets the meshes\ prefix unless it has one. Empty for an empty string.
      */
     [[nodiscard]] static std::filesystem::path normalizedModelPath(const char* model);
+
+    /// @brief The alternate textures of a model swap, which the engine holds as an array and a count; empty without
+    /// an array.
+    [[nodiscard]] static std::span<RE::TESModelTextureSwap::AlternateTexture>
+    alternateTextures(const RE::TESModelTextureSwap& swap);
 
     /**
      * @brief The file name of the plugin that defines a form, empty for a form without a file.

@@ -98,7 +98,7 @@ private:
     std::unordered_set<std::string> m_seen;
 };
 
-std::shared_ptr<MessageSink> s_messageSink;
+std::shared_ptr<MessageSink> s_messageSink; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 }
 

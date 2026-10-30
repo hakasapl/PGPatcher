@@ -45,7 +45,8 @@ namespace {
 constexpr std::string_view keyHeader = "PGLite texture cache 1";
 
 /// @brief The textures the patch running on this thread registered, until generatePending() takes them.
-thread_local std::vector<std::pair<PGRunObserver::HookKind, std::filesystem::path>> s_pending;
+thread_local std::vector<std::pair<PGRunObserver::HookKind, std::filesystem::path>>
+    s_pending; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::wstring hookName(PGRunObserver::HookKind kind)
 {
@@ -351,8 +352,8 @@ std::shared_ptr<const std::vector<std::byte>> TextureGenerator::bytesFor(const s
         }
 
         auto bytes = std::make_shared<std::vector<std::byte>>(size);
-        stream.read(reinterpret_cast<char*>(bytes->data()),
-                    static_cast<std::streamsize>(size)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        stream.read(reinterpret_cast<char*>(bytes->data()), static_cast<std::streamsize>(size));
         if (!stream) {
             Logger::error(L"Unable to read the generated texture {}", cacheFile.wstring());
             return nullptr;

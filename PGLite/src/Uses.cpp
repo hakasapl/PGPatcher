@@ -105,15 +105,16 @@ void addSwap(RE::TESModelTextureSwap& swap,
     elements.push_back({ .model = &swap, .swap = &swap, .subModel = std::move(subModel) });
 }
 
-void addDestructibleStages(RE::BGSDestructibleObjectForm& destructible,
+void addDestructibleStages(const RE::BGSDestructibleObjectForm& destructible,
                            std::vector<ModelElement>& elements)
 {
     const auto* data = destructible.data;
     if (!data || !data->stages)
         return;
 
-    for (std::int8_t stage = 0; stage < data->numStages; stage++) {
-        auto* const stageData = data->stages[stage];
+    const std::span stages(data->stages, data->numStages > 0 ? static_cast<std::size_t>(data->numStages) : 0);
+    for (std::size_t stage = 0; stage < stages.size(); stage++) {
+        const auto* const stageData = stages[stage];
         if (!stageData || !stageData->replacementModel)
             continue;
 
@@ -163,9 +164,9 @@ bool isWeightedArmorAddonModel(const RE::TESObjectARMA& armorAddon,
     const bool isMale = subModel == "MALE" || subModel == "1STMALE";
     const bool isFemale = subModel == "FEMALE" || subModel == "1STFEMALE";
     if (isMale)
-        return armorAddon.data.modelRange[RE::SEXES::kMale] & weightSliderEnabledFlag;
+        return (armorAddon.data.modelRange[RE::SEXES::kMale] & weightSliderEnabledFlag) != 0;
     if (isFemale)
-        return armorAddon.data.modelRange[RE::SEXES::kFemale] & weightSliderEnabledFlag;
+        return (armorAddon.data.modelRange[RE::SEXES::kFemale] & weightSliderEnabledFlag) != 0;
 
     return false;
 }
@@ -174,7 +175,7 @@ bool isWeightedArmorAddonModel(const RE::TESObjectARMA& armorAddon,
 bool isSinglePassStatic(const RE::TESObjectSTAT& stat)
 {
     const auto* const material = stat.data.materialObj;
-    return material && (material->directionalData.singlePass & singlePassFlag);
+    return material != nullptr && (material->directionalData.singlePass & singlePassFlag) != 0;
 }
 
 /// @brief The order the offline program patches the uses of a mesh in, see PGPlugin::isUseOrderedBefore().
@@ -230,17 +231,19 @@ void Uses::build()
                 use.form = form;
                 use.element = element;
                 use.attributes.recType = recType;
-                use.attributes.isIgnored = form->GetFormFlags() & ignoredRecordFlag;
+                use.attributes.isIgnored = (form->GetFormFlags() & ignoredRecordFlag) != 0U;
+                // The form type is known, and dynamic_cast cannot read the game's type information.
+                // NOLINTBEGIN(cppcoreguidelines-pro-type-static-cast-downcast)
                 if (formType == RE::FormType::Static)
                     use.attributes.isSinglepassMATO = isSinglePassStatic(static_cast<const RE::TESObjectSTAT&>(*form));
                 if (formType == RE::FormType::Armature) {
                     use.attributes.isWeighted
                         = isWeightedArmorAddonModel(static_cast<const RE::TESObjectARMA&>(*form), element.subModel);
                 }
+                // NOLINTEND(cppcoreguidelines-pro-type-static-cast-downcast)
 
-                if (element.swap && element.swap->alternateTextures) {
-                    for (std::uint32_t i = 0; i < element.swap->numAlternateTextures; i++) {
-                        const auto& alternateTexture = element.swap->alternateTextures[i];
+                if (element.swap) {
+                    for (const auto& alternateTexture : alternateTextures(*element.swap)) {
                         use.attributes.alternateTextures[alternateTexture.index3D]
                             = textureSet(alternateTexture.textureSet);
                     }
@@ -276,6 +279,14 @@ void Uses::build()
 
 const Uses::UsesByPath& Uses::byPath() const { return m_byPath; }
 
+std::span<RE::TESModelTextureSwap::AlternateTexture> Uses::alternateTextures(const RE::TESModelTextureSwap& swap)
+{
+    if (!swap.alternateTextures)
+        return { };
+
+    return { swap.alternateTextures, swap.numAlternateTextures };
+}
+
 std::filesystem::path Uses::normalizedModelPath(const char* model)
 {
     if (!model || !*model)
@@ -286,8 +297,8 @@ std::filesystem::path Uses::normalizedModelPath(const char* model)
     StringUtil::toLowerASCIIFastInPlace(path);
 
     // Leading separators and the current folder are not part of the path the engine hashes.
-    while (path.starts_with(L"\\") || path.starts_with(L".\\"))
-        path.erase(0, path.starts_with(L"\\") ? 1 : 2);
+    while (path.starts_with(L'\\') || path.starts_with(L".\\"))
+        path.erase(0, path.starts_with(L'\\') ? 1 : 2);
 
     if (path.empty())
         return { };
@@ -324,7 +335,7 @@ PGTypes::TextureSet Uses::textureSet(RE::BGSTextureSet* set)
         auto texture = StringUtil::windows1252toUTF16(name);
         StringUtil::toLowerASCIIFastInPlace(texture);
         if (!texture.starts_with(texturesPrefix))
-            texture = std::wstring(texturesPrefix) + texture;
+            texture.insert(0, texturesPrefix);
 
         textures.at(slot) = texture;
     }
@@ -336,6 +347,8 @@ std::vector<ModelElement> Uses::modelElements(RE::TESForm& form)
 {
     std::vector<ModelElement> elements;
 
+    // The form type is known, and dynamic_cast cannot read the game's type information.
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-static-cast-downcast)
     switch (form.GetFormType()) {
     case RE::FormType::Activator:
         addActivator(static_cast<RE::TESObjectACTI&>(form), elements);
@@ -460,6 +473,7 @@ std::vector<ModelElement> Uses::modelElements(RE::TESForm& form)
     default:
         break;
     }
+    // NOLINTEND(cppcoreguidelines-pro-type-static-cast-downcast)
 
     return elements;
 }

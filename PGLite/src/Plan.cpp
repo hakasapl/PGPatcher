@@ -92,8 +92,10 @@ bool isSameTextureSet(const PGTypes::TextureSet& a,
 
 /// @brief The texture files the lookups of this thread could not read, as the observer reported them, and the last
 /// one: a patch compares the count before and after its run (Family::noteTextureReadFailure).
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local unsigned s_textureReadFailures = 0;
 thread_local std::filesystem::path s_lastTextureReadFailure;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
 //
@@ -421,15 +423,16 @@ void Family::editRecords(TextureSetFactory& textureSets)
             // The output of the file the record names, or of the resolved file when the named one is missing from
             // the pair (the engine derives the resolved file's variant for such a record).
             const auto& output = m_outputs.at(resolvedPathIndex(ref.pathIndex)).at(member);
-            for (std::uint32_t i = 0; i < swap->numAlternateTextures; i++) {
-                const auto& entry = swap->alternateTextures[i];
+            const auto entries = Uses::alternateTextures(*swap);
+            for (std::uint32_t i = 0; i < entries.size(); i++) {
+                const auto& entry = entries[i];
                 const auto oldIndex = entry.index3D;
                 auto index3D = oldIndex;
                 auto* textureSet = entry.textureSet;
 
                 // The shape's index in the sorted output, -1 when the shape was deleted (the engine skips the entry).
                 const auto corrected = output.idxCorrections.find(static_cast<int>(oldIndex));
-                if (corrected != output.idxCorrections.end() && corrected->second != static_cast<int>(oldIndex))
+                if (corrected != output.idxCorrections.end() && std::cmp_not_equal(corrected->second, oldIndex))
                     index3D = static_cast<std::uint32_t>(corrected->second);
 
                 const auto patched = output.altTexResults.find(oldIndex);

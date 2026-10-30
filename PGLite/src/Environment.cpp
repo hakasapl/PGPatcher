@@ -56,7 +56,7 @@ namespace {
 
 /// @brief The top level folders of the data folder the runtime maps: the textures, the TruePBR configs and the meshes
 /// the mesh reading pass classifies the textures from.
-const std::unordered_set<std::filesystem::path> foldersToMap = { L"textures", L"pbrnifpatcher", L"meshes" };
+const std::unordered_set<std::filesystem::path> s_runtimeFoldersToMap = { L"textures", L"pbrnifpatcher", L"meshes" };
 
 constexpr const char* archiveListSetting = "sResourceArchiveList:Archive";
 constexpr const char* archiveList2Setting = "sResourceArchiveList2:Archive";
@@ -80,7 +80,7 @@ void addArchivesOfList(const char* settingName,
                        std::vector<std::wstring>& archives)
 {
     auto* const collection = RE::INISettingCollection::GetSingleton();
-    auto* const setting = collection ? collection->GetSetting(settingName) : nullptr;
+    const auto* const setting = collection ? collection->GetSetting(settingName) : nullptr;
     const char* const value = setting ? setting->GetString() : nullptr;
     if (!value)
         return;
@@ -111,7 +111,7 @@ std::filesystem::path localAppDataGameFolder()
     if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &buffer)) || !buffer)
         return { };
 
-    std::filesystem::path folder(buffer);
+    const std::filesystem::path folder(buffer);
     CoTaskMemFree(buffer);
 
     if (REL::Module::IsVR())
@@ -371,7 +371,7 @@ void Environment::initializeDirectory()
     // archive tables, built from the engine's archive set. The engine's resolver takes the registry lock exclusively
     // for every read, and the mesh reading pass reads every mesh on the task pool, which would starve the main thread.
     m_directory = std::make_unique<PGDirectory>(Settings::dataFolder(), std::filesystem::path());
-    m_directory->setFoldersToMap(foldersToMap);
+    m_directory->setFoldersToMap(s_runtimeFoldersToMap);
     m_directory->setShouldSkipHiddenFiles(false);
     m_directory->setArchiveLoadOrder(engineArchiveOrder());
     m_directory->setExcludedFiles(m_excludedFiles);
@@ -458,21 +458,23 @@ std::vector<std::wstring> Environment::engineArchiveOrder()
             addArchivesOfPlugin(name, candidates);
     } else {
         auto* const dataHandler = RE::TESDataHandler::GetSingleton();
-        const bool areModsLoaded
-            = dataHandler && (dataHandler->GetLoadedModCount() || dataHandler->GetLoadedLightModCount());
+        const bool areModsLoaded = dataHandler != nullptr
+            && (dataHandler->GetLoadedModCount() != 0U || dataHandler->GetLoadedLightModCount() != 0U);
         if (areModsLoaded) {
             const auto addLoaded = [&candidates](const RE::TESFile& file) {
                 addArchivesOfPlugin(StringUtil::windows1252toUTF16(std::string(file.GetFilename())), candidates);
             };
-            const auto* const* const mods = dataHandler->GetLoadedMods();
-            for (std::uint8_t i = 0; mods && i < dataHandler->GetLoadedModCount(); i++)
-                if (mods[i])
-                    addLoaded(*mods[i]);
+            if (const auto* const* const mods = dataHandler->GetLoadedMods()) {
+                for (const auto* const mod : std::span(mods, dataHandler->GetLoadedModCount()))
+                    if (mod)
+                        addLoaded(*mod);
+            }
 
-            const auto* const* const lightMods = dataHandler->GetLoadedLightMods();
-            for (std::uint16_t i = 0; lightMods && i < dataHandler->GetLoadedLightModCount(); i++)
-                if (lightMods[i])
-                    addLoaded(*lightMods[i]);
+            if (const auto* const* const lightMods = dataHandler->GetLoadedLightMods()) {
+                for (const auto* const mod : std::span(lightMods, dataHandler->GetLoadedLightModCount()))
+                    if (mod)
+                        addLoaded(*mod);
+            }
             Logger::warn(L"Unable to read {}, the archives of the plugins are ordered by their load order",
                          activePluginsFile().wstring());
         } else {

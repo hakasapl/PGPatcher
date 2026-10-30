@@ -35,8 +35,8 @@ public:
 
     template<typename T> void write(const T& value)
     {
-        m_stream->write(reinterpret_cast<const char*>(&value),
-                        sizeof(value)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        m_stream->write(reinterpret_cast<const char*>(&value), sizeof(value));
     }
 
     void write(const std::string& value)
@@ -77,8 +77,8 @@ public:
 
     template<typename T> [[nodiscard]] bool read(T& value)
     {
-        m_stream->read(reinterpret_cast<char*>(&value),
-                       sizeof(value)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        m_stream->read(reinterpret_cast<char*>(&value), sizeof(value));
         return m_stream->good();
     }
 
@@ -177,10 +177,10 @@ void ClassificationCache::load(const std::filesystem::path& file)
             return;
         }
 
-        entry.classification.isCM = flags & 1U;
-        entry.classification.hasEnvMask = flags & 2U;
-        entry.classification.hasGlossiness = flags & 4U;
-        entry.classification.hasMetalness = flags & 8U;
+        entry.classification.isCM = (flags & 1U) != 0U;
+        entry.classification.hasEnvMask = (flags & 2U) != 0U;
+        entry.classification.hasGlossiness = (flags & 4U) != 0U;
+        entry.classification.hasMetalness = (flags & 8U) != 0U;
         m_cmEntries[std::filesystem::path(texture)] = std::move(entry);
     }
 

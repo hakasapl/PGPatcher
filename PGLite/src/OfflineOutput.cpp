@@ -135,9 +135,8 @@ ModelState currentState(const ModelElement& element)
 {
     ModelState state;
     state.model = Uses::normalizedModelPath(element.model->GetModel());
-    if (element.swap && element.swap->alternateTextures) {
-        for (std::uint32_t i = 0; i < element.swap->numAlternateTextures; i++) {
-            const auto& entry = element.swap->alternateTextures[i];
+    if (element.swap) {
+        for (const auto& entry : Uses::alternateTextures(*element.swap)) {
             state.entries.push_back(
                 { .textureSet = entry.textureSet, .index3D = entry.index3D, .name3D = entry.name3D.c_str() });
         }
@@ -175,8 +174,9 @@ void applyState(const ModelElement& element,
 
     const auto count = static_cast<std::uint32_t>(state.entries.size());
     if (swap->numAlternateTextures == count && (swap->alternateTextures || !count)) {
+        const auto current = Uses::alternateTextures(*swap);
         for (std::uint32_t i = 0; i < count; i++) {
-            auto& entry = swap->alternateTextures[i];
+            auto& entry = current[i];
             entry.textureSet = state.entries.at(i).textureSet;
             entry.index3D = state.entries.at(i).index3D;
             entry.name3D = state.entries.at(i).name3D.c_str();
@@ -191,8 +191,9 @@ void applyState(const ModelElement& element,
         if (!entries)
             throw std::runtime_error("the engine's heap refused the alternate textures");
 
+        const std::span allocated(entries, count);
         for (std::uint32_t i = 0; i < count; i++) {
-            auto* const entry = new (&entries[i]) AlternateTexture { }; // NOLINT(cppcoreguidelines-owning-memory)
+            auto* const entry = new (&allocated[i]) AlternateTexture { }; // NOLINT(cppcoreguidelines-owning-memory)
             entry->textureSet = state.entries.at(i).textureSet;
             entry->index3D = state.entries.at(i).index3D;
             entry->unk0C = 0;
@@ -218,7 +219,7 @@ std::filesystem::path originalPathOf(const std::filesystem::path& duplicatePath)
 /// @brief Whether a texture set is a record of the output's plugin.
 bool isOutputTextureSet(const RE::BGSTextureSet* textureSet)
 {
-    return textureSet && StringUtil::asciiFastIEquals(pluginOf(*textureSet), std::string(outputPlugin));
+    return textureSet != nullptr && StringUtil::asciiFastIEquals(pluginOf(*textureSet), std::string(outputPlugin));
 }
 
 std::optional<ModelElement> elementOf(RE::TESForm& form,
@@ -265,8 +266,9 @@ bool OfflineOutput::isPresent()
         return true;
 
     auto* const dataHandler = RE::TESDataHandler::GetSingleton();
-    return dataHandler
-        && (dataHandler->LookupLoadedModByName(outputPlugin) || dataHandler->LookupLoadedLightModByName(outputPlugin));
+    return dataHandler != nullptr
+        && (dataHandler->LookupLoadedModByName(outputPlugin) != nullptr
+            || dataHandler->LookupLoadedLightModByName(outputPlugin) != nullptr);
 }
 
 bool OfflineOutput::hasStockRecords() { return Resources::exists(stockRecordsPath()); }

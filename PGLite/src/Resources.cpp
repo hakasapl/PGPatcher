@@ -106,7 +106,7 @@ bool Resources::readStream(RE::BSResource::Stream& stream,
     std::uint64_t total = 0;
     while (total < size) {
         std::uint64_t read = 0;
-        const auto error = stream.DoRead(bytes.data() + total, size - total, read);
+        const auto error = stream.DoRead(std::span(bytes).subspan(total).data(), size - total, read);
         if (error != RE::BSResource::ErrorCode::kNone || !read)
             break;
 
