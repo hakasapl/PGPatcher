@@ -797,7 +797,12 @@ bool Runtime::apply(const PGParams& requestedParams,
             return true;
         }
 
-        buildEnvironment([this](const char* stage) { m_stage = stage; }, { });
+        // A session that started disabled has neither the GPU nor the observer: the Apply that enables it prepares them
+        // before its build, as the start does.
+        if (PGGlobals::isPGD3DSet())
+            buildEnvironment([this](const char* stage) { m_stage = stage; }, { });
+        else
+            prepareEnvironment();
 
         m_stage = "pglite.stages.planningMeshes";
         auto plan = std::make_unique<Plan>(++m_planGeneration);
