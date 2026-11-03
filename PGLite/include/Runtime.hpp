@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ClassificationCache.hpp"
+#include "DynDOLODExport.hpp"
 #include "Environment.hpp"
 #include "OfflineOutput.hpp"
 #include "PGD3D.hpp"
@@ -152,6 +153,14 @@ public:
      */
     bool apply(const PGParams& requestedParams,
                bool isEnabled);
+
+    /**
+     * @brief Writes the DynDOLOD file (DynDOLODExport) from the current plan. Runs on the menu's worker thread
+     * while the game's main thread waits inside Present, like apply(); the stage and the progress show meanwhile.
+     *
+     * @return What was written; didSucceed is false when PGLite is not ready or disabled, or the write failed.
+     */
+    [[nodiscard]] DynDOLODExport::Result exportDynDOLOD();
 
     /**
      * @brief The mesh a record model names: the original file of the family when PGLite pointed the record at a

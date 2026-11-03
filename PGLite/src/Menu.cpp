@@ -2,6 +2,7 @@
 
 #include "Menu.hpp"
 
+#include "DynDOLODExport.hpp"
 #include "Environment.hpp"
 #include "Icon.h"
 #include "Logging.hpp"
@@ -1102,28 +1103,50 @@ void Menu::startApply(bool isEnabled)
 
     // The next interface draw starts it, before the interface is drawn over the game's frame (startPendingApply).
     m_applyMessage.clear();
-    m_pendingApply = PendingApply { .params = params, .isEnabled = isEnabled };
+    m_pendingJob = PendingJob { .job = Job::Apply, .params = params, .isEnabled = isEnabled };
+}
+
+void Menu::startDynDOLODExport()
+{
+    // As for Apply: a job started from a frame of the loading-screen thread would park that thread while the main
+    // thread goes on loading.
+    if (auto* const ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) {
+        m_dynDOLODMessage = tr("pglite.thirdParty.dynDOLOD.loading");
+        return;
+    }
+
+    m_dynDOLODMessage.clear();
+    m_pendingJob = PendingJob { .job = Job::DynDOLODExport };
 }
 
 void Menu::startPendingApply()
 {
-    if (!m_pendingApply)
+    if (!m_pendingJob)
         return;
 
-    auto pending = std::move(*m_pendingApply);
-    m_pendingApply.reset();
+    auto pending = std::move(*m_pendingJob);
+    m_pendingJob.reset();
 
     // The progress frames put the framebuffer back as it is now and draw the interface and the menu over it again.
     if (!keepGameFrame())
-        Logger::warn("The game image could not be kept for the progress frames of Apply");
+        Logger::warn("The game image could not be kept for the progress frames of the menu's job");
 
-    // The runtime's apply runs on a worker thread; the interface draw shows the progress until it is done
-    // (renderApplyFrame).
+    // The job runs on a worker thread; the interface draw shows the progress until it is done (renderApplyFrame).
+    m_job = pending.job;
     m_isApplyEnabling = pending.isEnabled;
     m_isApplyDone = false;
     m_didApplySucceed = false;
     m_applyStart = std::chrono::steady_clock::now();
     m_isApplying = true;
+    if (pending.job == Job::DynDOLODExport) {
+        m_applyThread = std::thread([this] {
+            m_dynDOLODResult = m_runtime->exportDynDOLOD();
+            m_didApplySucceed = m_dynDOLODResult.didSucceed;
+            m_isApplyDone = true;
+        });
+        return;
+    }
+
     m_applyThread = std::thread([this, params = std::move(pending.params), isEnabled = pending.isEnabled] {
         m_didApplySucceed = m_runtime->apply(params, isEnabled);
         m_isApplyDone = true;
@@ -1136,6 +1159,26 @@ void Menu::finishApply()
         m_applyThread.join();
 
     const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
+    if (m_job == Job::DynDOLODExport) {
+        // The working copy of the settings stays as it is: the file changed nothing of them. The job stays the
+        // export's until the next one starts, for the frame that shows the result.
+        const auto& result = m_dynDOLODResult;
+        if (!result.didSucceed) {
+            m_dynDOLODMessage = tr("pglite.thirdParty.dynDOLOD.failed");
+            return;
+        }
+
+        const auto file = DynDOLODExport::file().lexically_relative(Settings::dataFolder());
+        m_dynDOLODMessage = formatText(tr("pglite.thirdParty.dynDOLOD.done"),
+                                       result.records,
+                                       result.materials,
+                                       StringUtil::utf16toUTF8(file.wstring()).c_str(),
+                                       seconds);
+        if (result.failed)
+            m_dynDOLODMessage += " " + formatCount(tr("pglite.thirdParty.dynDOLOD.someFailed"), result.failed);
+        return;
+    }
+
     if (!m_didApplySucceed) {
         m_applyMessage = tr("pglite.apply.failed");
     } else if (!m_isApplyEnabling) {
@@ -1193,9 +1236,16 @@ void Menu::draw()
     if (m_isApplying) {
         const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
         const auto* const stage = m_runtime->stage();
-        textColored(
-            ImVec4(1, 0.85F, 0.4F, 1),
-            formatText(tr("pglite.status.applying"), tr(stage ? stage : "pglite.status.working").c_str(), seconds));
+        const auto stageText = tr(stage ? stage : "pglite.status.working");
+        const auto [done, total] = m_runtime->progress();
+        std::string text;
+        if (m_job == Job::Apply)
+            text = formatText(tr("pglite.status.applying"), stageText.c_str(), seconds);
+        else if (total)
+            text = formatText(tr("pglite.status.generatingProgress"), stageText.c_str(), done, total, seconds);
+        else
+            text = formatText(tr("pglite.status.generating"), stageText.c_str(), seconds);
+        textColored(ImVec4(1, 0.85F, 0.4F, 1), text);
         ImGui::Separator();
     }
 
@@ -1217,6 +1267,7 @@ void Menu::draw()
         page("launcher.processing.allowedRecordTypes", [this] { drawRecordTypes(); });
         page("pglite.tabs.meshRules", [this] { drawMeshRules(); });
         page("launcher.processing.textureRules", [this] { drawTextureRules(); });
+        page("pglite.tabs.thirdParty", [this] { drawThirdParty(); });
         page("pglite.tabs.messages", [this] { drawMessages(); });
         page("settings.title", [this] { drawSettings(); });
         ImGui::EndTabBar();
@@ -1330,7 +1381,7 @@ std::string Menu::keyName(unsigned scanCode)
 
 void Menu::drawStatus()
 {
-    if (m_isApplying) {
+    if (m_isApplying && m_job == Job::Apply) {
         // The runtime's plan and environment are being replaced; the counters return with the result.
         ImGui::TextUnformatted(tr("pglite.status.applyingShort").c_str());
         return;
@@ -1855,6 +1906,49 @@ void Menu::autoscrollModList(float rowsTop,
 
     m_autoscrollCarry -= static_cast<float>(step);
     ImGui::SetScrollY(scroll + static_cast<float>(step));
+}
+
+void Menu::drawThirdParty()
+{
+    ImGui::SeparatorText(tr("pglite.thirdParty.dynDOLOD.title").c_str());
+    textWrapped(tr("pglite.thirdParty.dynDOLOD.description"));
+
+    // The file describes what PGLite serves now: the applied settings, with TruePBR among the patchers.
+    const bool isRunning = m_runtime->isActive() && m_runtime->isReady() && !m_runtime->disableReason();
+    const bool isTruePBRApplied = m_runtime->params().shaderPatcher.isTruePBREnabled;
+    const bool isGenerateAllowed = isRunning && m_runtime->isEnabled() && isTruePBRApplied;
+    constexpr const char* confirmationID = "###dyndolodConfirmation";
+    ImGui::BeginDisabled(!isGenerateAllowed);
+    if (ImGui::Button(tr("pglite.thirdParty.dynDOLOD.generate").c_str()))
+        ImGui::OpenPopup(confirmationID);
+    ImGui::EndDisabled();
+
+    if (!isRunning)
+        textWrapped(tr("pglite.thirdParty.dynDOLOD.notRunning"));
+    else if (!m_runtime->isEnabled())
+        textWrapped(tr("pglite.apply.disabled"));
+    else if (!isTruePBRApplied)
+        textWrapped(tr("pglite.thirdParty.dynDOLOD.needsTruePBR"));
+    if (!m_dynDOLODMessage.empty())
+        textWrapped(m_dynDOLODMessage);
+
+    // The confirmation, as wide as a short paragraph; the game pauses once it is accepted.
+    const auto title = tr("pglite.thirdParty.dynDOLOD.confirmationTitle") + confirmationID;
+    if (!ImGui::BeginPopupModal(title.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30);
+    ImGui::TextUnformatted(tr("pglite.thirdParty.dynDOLOD.confirmation").c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing();
+    if (ImGui::Button(tr("pglite.thirdParty.dynDOLOD.begin").c_str())) {
+        startDynDOLODExport();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(tr("common.cancel").c_str()))
+        ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
 }
 
 void Menu::drawMessages()

@@ -4,6 +4,7 @@
 
 #include "ClassificationCache.hpp"
 #include "ConsoleCommands.hpp"
+#include "DynDOLODExport.hpp"
 #include "Environment.hpp"
 #include "Hooks.hpp"
 #include "LightPlacerBridge.hpp"
@@ -826,6 +827,28 @@ bool Runtime::apply(const PGParams& requestedParams,
         = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
     Logger::info("Applied the settings in {} ms", elapsed.count());
     return true;
+}
+
+DynDOLODExport::Result Runtime::exportDynDOLOD()
+{
+    if (!m_isActive || !m_isReady || !m_plan || !m_environment || !m_isEnabled || disableReason()) {
+        Logger::warn("The DynDOLOD file was refused, PGLite is not ready or disabled");
+        return { };
+    }
+
+    // The patches run as those of opens do, under the shared pipeline lock; the menu runs one job at a time, so no
+    // Apply replaces the plan meanwhile.
+    const std::shared_lock lock(m_pipelineLock);
+    const auto result = DynDOLODExport::write(
+        *m_plan,
+        m_snapshot,
+        m_textureSets,
+        [this](const char* stage) { reportStage(stage); },
+        [this](std::size_t done, std::size_t total) { reportProgress(done, total); });
+
+    m_stage = nullptr;
+    m_progressTotal = 0;
+    return result;
 }
 
 std::filesystem::path Runtime::originalMeshPath(const RE::TESModel& model)
