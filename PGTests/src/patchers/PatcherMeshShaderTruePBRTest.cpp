@@ -476,6 +476,44 @@ TEST_F(PatcherMeshShaderTruePBRTest,
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
+       EntriesAfterADeleteEntryAreNotApplied)
+{
+    TestUtil::writeFile(
+        dataDir() / L"pbrnifpatcher\\delete.json",
+        R"([{"texture": "b\\brick", "delete": true}, {"path_contains": "b\\", "specular_level": 0.5}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\delete.json" }, false);
+
+    // The shape shares its shader with another one, so the shader outlives the deleted shape.
+    NIFBuilder builder;
+    const auto brickTextures = slots(L"textures\\b\\brick.dds", L"textures\\b\\brick_n.dds");
+    auto* keep = builder.addShape("Keep", brickTextures);
+    auto* brick = builder.addShape("Brick", brickTextures);
+    brick->ShaderPropertyRef()->index = keep->ShaderPropertyRef()->index;
+    const auto* const sharedShader = builder.lightingShader(keep);
+    const auto glossiness = sharedShader->glossiness;
+    PatcherMeshShaderTruePBR patcher(meshPath, &builder.nif());
+
+    // Both entries of the file match, the delete entry first.
+    std::vector<PatcherMatch> matches;
+    EXPECT_TRUE(patcher.shouldApply(*brick, matches));
+    ASSERT_EQ(matches.size(), 1U);
+    ASSERT_EQ(entriesOf(matches[0]).size(), 2U);
+    EXPECT_EQ(entriesOf(matches[0])[0]["delete"], true);
+
+    auto brickSlots = brickTextures;
+    patcher.applyPatch(brickSlots, *brick, matches[0]);
+    EXPECT_EQ(builder.nif().GetBlockID(brick), nifly::NIF_NPOS);
+    ASSERT_EQ(builder.nif().GetShapes().size(), 1U);
+    EXPECT_EQ(builder.nif().GetShapes()[0]->name.get(), "Keep");
+
+    // The later entry reached neither the slots nor the shared shader through the deleted shape.
+    EXPECT_EQ(brickSlots, brickTextures);
+    EXPECT_FALSE(PGNIFUtil::hasShaderFlag(sharedShader, nifly::SLSF2_UNUSED01));
+    EXPECT_FLOAT_EQ(sharedShader->glossiness, glossiness);
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
        ApplyShaderAndGeometryAttributes)
 {
     PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());

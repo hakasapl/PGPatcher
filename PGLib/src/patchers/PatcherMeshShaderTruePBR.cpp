@@ -13,6 +13,7 @@
 #include "util/StringUtil.hpp"
 #include "util/TaskPoolRunner.hpp"
 
+#include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Object3d.hpp"
@@ -643,6 +644,11 @@ void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
         auto truePBRData = std::get<0>(data);
         const auto matchedPath = std::get<1>(data);
         applyOnePatch(&nifShape, truePBRData, matchedPath, slots);
+
+        if (nif()->GetBlockID(&nifShape) == nifly::NIF_NPOS) {
+            // A "delete" entry freed the shape, so the later entries have nothing to apply to.
+            return;
+        }
     }
 }
 
