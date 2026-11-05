@@ -2,6 +2,7 @@
 
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
+#include "common/BethesdaDirectory.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGMaterialState.hpp"
@@ -31,17 +32,22 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include <algorithm>
+#include <array>
+#include <charconv>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -49,12 +55,366 @@
 
 namespace {
 
+/// @brief INI of the TruePBR feature of Community Shaders, relative to the data folder.
+constexpr const wchar_t* truePBRFeatureINI = L"Shaders\\Features\\TruePBR.ini";
+
+/// @brief First major version of the TruePBR feature that uses the standalone format.
+constexpr unsigned standaloneFormatMajorVersion = 2;
+
+/// @brief Largest value a parameter without an upper limit can have.
+constexpr float maxParameter = std::numeric_limits<float>::max();
+
+/// @brief The coat options of a two layer material.
+constexpr uint32_t coatOptions
+    = nifly::TRUEPBR_COLORED_COAT | nifly::TRUEPBR_INTERLAYER_PARALLAX | nifly::TRUEPBR_COAT_NORMAL;
+
+/// @brief Features no attribute of an entry decides, which stay as they are.
+constexpr uint32_t keptFeatures = nifly::TRUEPBR_SUBSURFACE | nifly::TRUEPBR_FOLIAGE | nifly::TRUEPBR_THIN_SURFACE;
+
+/// @brief Shader flags that make Community Shaders reject a standalone shape.
+constexpr std::array rejectedFlags1 = {
+    nifly::SLSF1_ENVIRONMENT_MAPPING, nifly::SLSF1_FACEGEN_DETAIL_MAP,      nifly::SLSF1_PARALLAX,
+    nifly::SLSF1_LANDSCAPE,           nifly::SLSF1_EYE_ENVIRONMENT_MAPPING, nifly::SLSF1_HAIR_SOFT_LIGHTING,
+    nifly::SLSF1_FACEGEN_RGB_TINT,    nifly::SLSF1_PARALLAX_OCCLUSION,
+};
+
+/// @brief The second set of shader flags that make Community Shaders reject a standalone shape.
+constexpr std::array rejectedFlags2 = {
+    nifly::SLSF2_LOD_LANDSCAPE,        nifly::SLSF2_GLOW_MAP,  nifly::SLSF2_MULTI_INDEX_SNOW,
+    nifly::SLSF2_MULTI_LAYER_PARALLAX, nifly::SLSF2_CLOUD_LOD,
+};
+
+/// @brief Shader flags that held the material in the legacy format, and that Community Shaders removed when loading it.
+constexpr std::array legacyMaterialFlags = {
+    nifly::SLSF2_UNUSED01,      nifly::SLSF2_SOFT_LIGHTING,        nifly::SLSF2_RIM_LIGHTING,
+    nifly::SLSF2_BACK_LIGHTING, nifly::SLSF2_ANISOTROPIC_LIGHTING, nifly::SLSF2_EFFECT_LIGHTING,
+    nifly::SLSF2_FIT_SLOPE,
+};
+
 /// @brief Checks whether a PBR entry turns a boolean attribute on. A value of another type counts as off.
 bool isEnabled(const nlohmann::json& truePBRData,
                const char* key)
 {
     const auto it = truePBRData.find(key);
     return it != truePBRData.end() && it->is_boolean() && it->get<bool>();
+}
+
+/// @brief Reads the major version of a feature INI, which Community Shaders writes as major-minor-patch (2-0-0).
+std::optional<unsigned> featureMajorVersion(const std::wstring& version)
+{
+    const auto versionStr = StringUtil::utf16toUTF8(version);
+    unsigned majorVersion = 0;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const auto [end, error] = std::from_chars(versionStr.data(), versionStr.data() + versionStr.size(), majorVersion);
+    if (error != std::errc())
+        return std::nullopt;
+
+    return majorVersion;
+}
+
+/// @brief Reads a number attribute. A value of another type counts as missing.
+std::optional<float> numberOf(const nlohmann::json& truePBRData,
+                              const char* key)
+{
+    const auto it = truePBRData.find(key);
+    if (it == truePBRData.end() || !it->is_number())
+        return std::nullopt;
+
+    return it->get<float>();
+}
+
+/// @brief Reads a color attribute, an array that starts with three numbers. Anything else counts as missing.
+std::optional<nifly::Vector3> colorOf(const nlohmann::json& truePBRData,
+                                      const char* key)
+{
+    const auto it = truePBRData.find(key);
+    if (it == truePBRData.end() || !it->is_array() || it->size() < 3 || !it->at(0).is_number() || !it->at(1).is_number()
+        || !it->at(2).is_number()) {
+        return std::nullopt;
+    }
+
+    return nifly::Vector3(it->at(0).get<float>(), it->at(1).get<float>(), it->at(2).get<float>());
+}
+
+/// @brief Sets a value of the PBR payload, if there is one. Returns whether it changed.
+bool setValue(float& value,
+              const std::optional<float>& newValue)
+{
+    return newValue && PGNIFUtil::setShaderFloat(value, *newValue);
+}
+
+/// @brief Sets a color of the PBR payload, if there is one. Returns whether it changed.
+bool setColor(nifly::Vector3& color,
+              const std::optional<nifly::Vector3>& newColor)
+{
+    if (!newColor || color == *newColor)
+        return false;
+
+    color = *newColor;
+    return true;
+}
+
+/// @brief Turns a feature on or off as a boolean attribute asks. Without the attribute the feature stays as it is.
+void configureFeature(uint32_t& features,
+                      const nlohmann::json& truePBRData,
+                      const char* key,
+                      uint32_t feature)
+{
+    const auto it = truePBRData.find(key);
+    if (it == truePBRData.end() || !it->is_boolean())
+        return;
+
+    features = it->get<bool>() ? (features | feature) : (features & ~feature);
+}
+
+/// @brief Moves a value into a range. A value that is not finite is replaced. Returns whether it changed.
+bool clampValue(float& value,
+                float low,
+                float high,
+                float fallback)
+{
+    const float newValue = std::isfinite(value) ? std::clamp(value, low, high) : fallback;
+    if (newValue == value)
+        return false;
+
+    value = newValue;
+    return true;
+}
+
+/// @brief Moves a color into the range Community Shaders accepts. Returns whether it changed.
+bool clampColor(nifly::Vector3& color,
+                const nifly::Vector3& fallback)
+{
+    bool isChanged = clampValue(color.x, 0, maxParameter, fallback.x);
+    isChanged |= clampValue(color.y, 0, maxParameter, fallback.y);
+    isChanged |= clampValue(color.z, 0, maxParameter, fallback.z);
+    return isChanged;
+}
+
+/// @brief Whether slots hold the textures Community Shaders needs to draw a standalone shape.
+bool hasStandaloneTextures(const PGTypes::TextureSet& slots)
+{
+    return !slots[static_cast<size_t>(PGEnums::TextureSlots::Diffuse)].empty()
+        && !slots[static_cast<size_t>(PGEnums::TextureSlots::Normal)].empty()
+        && !slots[static_cast<size_t>(PGEnums::TextureSlots::EnvMask)].empty();
+}
+
+/// @brief The PBR payload that the fields and flags of a legacy PBR shader stand for, the way Community Shaders before
+/// 2.0 read them.
+nifly::TruePBRData standaloneFromLegacy(const nifly::BSLightingShaderProperty& shader)
+{
+    nifly::TruePBRData pbr;
+    uint32_t features = 0;
+    if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_MULTI_LAYER_PARALLAX)) {
+        features |= nifly::TRUEPBR_TWO_LAYER;
+        if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_SOFT_LIGHTING))
+            features |= nifly::TRUEPBR_INTERLAYER_PARALLAX;
+        if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_BACK_LIGHTING))
+            features |= nifly::TRUEPBR_COAT_NORMAL;
+        if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_EFFECT_LIGHTING))
+            features |= nifly::TRUEPBR_COLORED_COAT;
+    } else if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_BACK_LIGHTING)) {
+        features |= nifly::TRUEPBR_HAIR_MARSCHNER;
+    } else {
+        if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_ANISOTROPIC_LIGHTING))
+            features |= nifly::TRUEPBR_THIN_SURFACE;
+        if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_EFFECT_LIGHTING))
+            features |= nifly::TRUEPBR_FOLIAGE;
+        if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_RIM_LIGHTING))
+            features |= nifly::TRUEPBR_SUBSURFACE;
+        if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_SOFT_LIGHTING))
+            features |= nifly::TRUEPBR_FUZZ;
+        else if (PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_FIT_SLOPE))
+            features |= nifly::TRUEPBR_GLINT;
+    }
+    pbr.features = features;
+
+    pbr.roughnessScale = shader.specularStrength;
+    pbr.specularLevel = shader.glossiness;
+    pbr.displacementScale = shader.rimlightPower;
+
+    // These two fields are the coat or the subsurface layer.
+    if (features & nifly::TRUEPBR_TWO_LAYER) {
+        pbr.coatColor = shader.specularColor;
+        pbr.coatStrength = shader.softlighting;
+    } else {
+        pbr.subsurfaceColor = shader.specularColor;
+        pbr.subsurfaceOpacity = shader.softlighting;
+    }
+
+    // The multilayer fields hold the coat, the fuzz or the glint values, whichever the material uses.
+    if (shader.GetShaderType() == nifly::BSLSP_MULTILAYERPARALLAX) {
+        const float thickness = shader.parallaxInnerLayerThickness;
+        const float refractionScale = shader.parallaxRefractionScale;
+        const auto& textureScale = shader.parallaxInnerLayerTextureScale;
+
+        pbr.coatRoughness = thickness;
+        pbr.coatSpecularLevel = refractionScale;
+        pbr.fuzzColor = nifly::Vector3(thickness, refractionScale, textureScale.u);
+        pbr.fuzzWeight = textureScale.v;
+        pbr.glintScreenSpaceScale = thickness;
+        pbr.glintLogMicrofacetDensity = refractionScale;
+        pbr.glintMicrofacetRoughness = textureScale.u;
+        pbr.glintDensityRandomization = textureScale.v;
+    }
+
+    return pbr;
+}
+
+/// @brief Switches a shader to the standalone format. The payload of a legacy PBR shader comes from its material, and
+/// any other shader starts from the neutral payload: its specular values do not mean anything for PBR.
+bool convertToStandalone(nifly::BSLightingShaderProperty& shader)
+{
+    if (shader.GetShaderType() == nifly::BSLSP_TRUEPBR)
+        return false;
+
+    shader.truePBR = PGNIFUtil::hasShaderFlag(&shader, nifly::SLSF2_UNUSED01) ? standaloneFromLegacy(shader)
+                                                                              : nifly::TruePBRData();
+    PGNIFUtil::setShaderType(&shader, nifly::BSLSP_TRUEPBR);
+    return true;
+}
+
+/// @brief The features a material can have out of the ones asked for. What wins when they exclude each other is what
+/// won in the legacy format, and an option whose texture is missing would have the shape rejected.
+uint32_t supportedFeatures(uint32_t features,
+                           const PGTypes::TextureSet& slots)
+{
+    if (features & nifly::TRUEPBR_TWO_LAYER) {
+        features &= nifly::TRUEPBR_TWO_LAYER | coatOptions;
+        if (slots[static_cast<size_t>(PGEnums::TextureSlots::Parallax)].empty())
+            features &= ~static_cast<uint32_t>(nifly::TRUEPBR_INTERLAYER_PARALLAX);
+        if (slots[static_cast<size_t>(PGEnums::TextureSlots::MultiLayer)].empty())
+            features &= ~static_cast<uint32_t>(nifly::TRUEPBR_COAT_NORMAL);
+        return features;
+    }
+
+    if (features & nifly::TRUEPBR_HAIR_MARSCHNER)
+        return nifly::TRUEPBR_HAIR_MARSCHNER;
+
+    features &= ~coatOptions;
+    if (features & nifly::TRUEPBR_FUZZ)
+        features &= ~static_cast<uint32_t>(nifly::TRUEPBR_GLINT);
+    return features;
+}
+
+/// @brief Brings a standalone shader within what Community Shaders accepts, which rejects a material as a whole.
+bool finalizeStandalone(nifly::BSLightingShaderProperty& shader,
+                        const PGTypes::TextureSet& slots)
+{
+    bool isChanged = false;
+    for (const auto flag : rejectedFlags1)
+        isChanged |= PGNIFUtil::clearShaderFlag(&shader, flag);
+    for (const auto flag : rejectedFlags2)
+        isChanged |= PGNIFUtil::clearShaderFlag(&shader, flag);
+    for (const auto flag : legacyMaterialFlags)
+        isChanged |= PGNIFUtil::clearShaderFlag(&shader, flag);
+
+    auto& pbr = shader.truePBR;
+    const auto features = supportedFeatures(pbr.features, slots);
+    isChanged |= features != pbr.features;
+    pbr.features = features;
+
+    const nifly::TruePBRData neutral;
+    isChanged |= clampValue(pbr.roughnessScale, 0, maxParameter, neutral.roughnessScale);
+    isChanged |= clampValue(pbr.specularLevel, 0, 1, neutral.specularLevel);
+    isChanged |= clampValue(pbr.displacementScale, 0, maxParameter, neutral.displacementScale);
+    isChanged |= clampColor(pbr.subsurfaceColor, neutral.subsurfaceColor);
+    isChanged |= clampValue(pbr.subsurfaceOpacity, 0, 1, neutral.subsurfaceOpacity);
+    isChanged |= clampColor(pbr.coatColor, neutral.coatColor);
+    isChanged |= clampValue(pbr.coatStrength, 0, 1, neutral.coatStrength);
+    isChanged |= clampValue(pbr.coatRoughness, 0, 1, neutral.coatRoughness);
+    isChanged |= clampValue(pbr.coatSpecularLevel, 0, 1, neutral.coatSpecularLevel);
+    isChanged |= clampColor(pbr.fuzzColor, neutral.fuzzColor);
+    isChanged |= clampValue(pbr.fuzzWeight, 0, 1, neutral.fuzzWeight);
+    isChanged |= clampValue(pbr.glintScreenSpaceScale, 1, maxParameter, neutral.glintScreenSpaceScale);
+    isChanged |= clampValue(pbr.glintLogMicrofacetDensity, 1, 40, neutral.glintLogMicrofacetDensity);
+    isChanged |= clampValue(pbr.glintMicrofacetRoughness, 0.005F, 0.3F, neutral.glintMicrofacetRoughness);
+    isChanged |= clampValue(pbr.glintDensityRandomization, 0, 5, neutral.glintDensityRandomization);
+    isChanged |= clampValue(pbr.subsurfaceBalance, 0, 1, neutral.subsurfaceBalance);
+    isChanged |= clampValue(pbr.thinSurfaceFrontSpecularWeight, 0, 1, neutral.thinSurfaceFrontSpecularWeight);
+    isChanged |= clampValue(pbr.thinSurfaceBackSpecularWeight, 0, 1, neutral.thinSurfaceBackSpecularWeight);
+    isChanged |= clampValue(pbr.thinSurfaceBackRoughnessScale, 0, 3, neutral.thinSurfaceBackRoughnessScale);
+
+    // Community Shaders validates the fields every lighting shader has as well.
+    isChanged |= clampValue(shader.alpha, 0, 128, 1);
+    isChanged |= clampValue(shader.refractionStrength, 0, 1, 0);
+    isChanged |= clampValue(shader.emissiveMultiple, 0, maxParameter, 1);
+    isChanged |= clampValue(shader.emissiveColor.x, -maxParameter, maxParameter, 0);
+    isChanged |= clampValue(shader.emissiveColor.y, -maxParameter, maxParameter, 0);
+    isChanged |= clampValue(shader.emissiveColor.z, -maxParameter, maxParameter, 0);
+    isChanged |= clampValue(shader.uvOffset.u, -maxParameter, maxParameter, 0);
+    isChanged |= clampValue(shader.uvOffset.v, -maxParameter, maxParameter, 0);
+    isChanged |= clampValue(shader.uvScale.u, -maxParameter, maxParameter, 1);
+    isChanged |= clampValue(shader.uvScale.v, -maxParameter, maxParameter, 1);
+    if (shader.textureClampMode > nifly::WRAP_S_WRAP_T) {
+        shader.textureClampMode = nifly::WRAP_S_WRAP_T;
+        isChanged = true;
+    }
+
+    return isChanged;
+}
+
+/// @brief Applies the material attributes of a config entry to the PBR payload of a shape.
+bool applyStandaloneAttributes(nifly::BSLightingShaderProperty& shader,
+                               const nlohmann::json& truePBRData)
+{
+    bool isChanged = convertToStandalone(shader);
+    auto& pbr = shader.truePBR;
+
+    isChanged |= setValue(pbr.specularLevel, numberOf(truePBRData, "specular_level"));
+    isChanged |= setValue(pbr.roughnessScale, numberOf(truePBRData, "roughness_scale"));
+    isChanged |= setValue(pbr.displacementScale, numberOf(truePBRData, "displacement_scale"));
+    isChanged |= setColor(pbr.subsurfaceColor, colorOf(truePBRData, "subsurface_color"));
+    isChanged |= setValue(pbr.subsurfaceOpacity, numberOf(truePBRData, "subsurface_opacity"));
+
+    // Every entry decides the layers of the material, like it decides the shader type in the legacy format.
+    auto features = pbr.features & keptFeatures;
+
+    // "subsurface" attribute.
+    configureFeature(features, truePBRData, "subsurface", nifly::TRUEPBR_SUBSURFACE);
+
+    // "hair" attribute.
+    if (isEnabled(truePBRData, "hair"))
+        features |= nifly::TRUEPBR_HAIR_MARSCHNER;
+
+    // "multilayer" attribute. There is no field for the "inner_uv_scale" attribute, which never had an effect on PBR:
+    // Community Shaders read that field as the fuzz and glint values.
+    if (isEnabled(truePBRData, "multilayer")) {
+        features |= nifly::TRUEPBR_TWO_LAYER | (pbr.features & coatOptions);
+
+        // The subsurface and coat attributes used to share these fields, so the subsurface ones still work for a coat.
+        const auto coatColor = colorOf(truePBRData, "coat_color");
+        const auto coatStrength = numberOf(truePBRData, "coat_strength");
+        isChanged |= setColor(pbr.coatColor, coatColor ? coatColor : colorOf(truePBRData, "subsurface_color"));
+        isChanged
+            |= setValue(pbr.coatStrength, coatStrength ? coatStrength : numberOf(truePBRData, "subsurface_opacity"));
+
+        isChanged |= setValue(pbr.coatSpecularLevel, numberOf(truePBRData, "coat_specular_level"));
+        isChanged |= setValue(pbr.coatRoughness, numberOf(truePBRData, "coat_roughness"));
+
+        configureFeature(features, truePBRData, "coat_diffuse", nifly::TRUEPBR_COLORED_COAT);
+        configureFeature(features, truePBRData, "coat_parallax", nifly::TRUEPBR_INTERLAYER_PARALLAX);
+        configureFeature(features, truePBRData, "coat_normal", nifly::TRUEPBR_COAT_NORMAL);
+    } else if (truePBRData.contains("glint") && truePBRData["glint"].is_object()) {
+        const auto& glintParams = truePBRData["glint"];
+        features |= nifly::TRUEPBR_GLINT;
+
+        isChanged |= setValue(pbr.glintScreenSpaceScale, numberOf(glintParams, "screen_space_scale"));
+        isChanged |= setValue(pbr.glintLogMicrofacetDensity, numberOf(glintParams, "log_microfacet_density"));
+        isChanged |= setValue(pbr.glintMicrofacetRoughness, numberOf(glintParams, "microfacet_roughness"));
+        isChanged |= setValue(pbr.glintDensityRandomization, numberOf(glintParams, "density_randomization"));
+    } else if (truePBRData.contains("fuzz") && truePBRData["fuzz"].is_object()) {
+        const auto& fuzzParams = truePBRData["fuzz"];
+        features |= nifly::TRUEPBR_FUZZ;
+
+        isChanged |= setColor(pbr.fuzzColor, colorOf(fuzzParams, "color").value_or(nifly::Vector3(0, 0, 0)));
+        isChanged |= setValue(pbr.fuzzWeight, numberOf(fuzzParams, "weight").value_or(1));
+    }
+
+    isChanged |= features != pbr.features;
+    pbr.features = features;
+
+    return isChanged;
 }
 
 } // namespace
@@ -298,6 +658,36 @@ auto PatcherMeshShaderTruePBR::factory() -> PatcherMeshShader::PatcherMeshShader
     };
 }
 
+void PatcherMeshShaderTruePBR::loadFormat(const std::filesystem::path& dataDir)
+{
+    s_format = PGEnums::TruePBRFormat::Standalone;
+
+    const auto iniPath = dataDir / truePBRFeatureINI;
+    std::error_code error;
+    if (!std::filesystem::exists(iniPath, error)) {
+        Logger::info("No Community Shaders TruePBR feature found, writing the TruePBR format of version 2.0");
+        return;
+    }
+
+    const auto version = BethesdaDirectory::readINIValue(iniPath, L"Info", L"Version");
+    const auto majorVersion = featureMajorVersion(version);
+    if (!majorVersion) {
+        Logger::warn(L"Unable to read the version of {}, writing the TruePBR format of version 2.0", iniPath.wstring());
+        return;
+    }
+
+    if (*majorVersion < standaloneFormatMajorVersion)
+        s_format = PGEnums::TruePBRFormat::Legacy;
+
+    Logger::info(L"Found Community Shaders TruePBR version {}, writing the {} TruePBR format",
+                 version,
+                 s_format == PGEnums::TruePBRFormat::Legacy ? L"legacy" : L"2.0");
+}
+
+PGEnums::TruePBRFormat PatcherMeshShaderTruePBR::format() { return s_format; }
+
+void PatcherMeshShaderTruePBR::setFormat(PGEnums::TruePBRFormat format) { s_format = format; }
+
 PGEnums::ShapeShader PatcherMeshShaderTruePBR::shaderType() { return PGEnums::ShapeShader::TruePBR; }
 
 bool PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape,
@@ -323,7 +713,9 @@ bool PatcherMeshShaderTruePBR::shouldApply(nifly::NiShape& nifShape,
 
     shouldApply(oldSlots, matches);
 
-    if (nifShaderBSLSP && PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01)) {
+    if (nifShaderBSLSP
+        && (PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01)
+            || nifShaderBSLSP->GetShaderType() == nifly::BSLSP_TRUEPBR)) {
         // Check if RMAOS exists.
         const auto& rmaosPath = oldSlots[static_cast<size_t>(PGEnums::TextureSlots::EnvMask)];
         if (!rmaosPath.empty() && pgd->isFile(rmaosPath)) {
@@ -423,6 +815,18 @@ bool PatcherMeshShaderTruePBR::shouldApply(const PGTypes::TextureSet& oldSlots,
                     if (s_checkPaths)
                         valid = false;
                 }
+            }
+
+            // Community Shaders would not draw the shape at all, whatever the path checks say.
+            if (s_format == PGEnums::TruePBRFormat::Standalone && !hasStandaloneTextures(newSlots)) {
+                if (s_printNonExistentPaths) {
+                    Logger::warn(L"PBR json \"{}\" leaves mesh \"{}\" without a diffuse, normal or RMAOS texture "
+                                 L"(Skipping)",
+                                 match.matchedPath,
+                                 nifPath().wstring());
+                }
+
+                valid = false;
             }
         }
 
@@ -633,7 +1037,19 @@ void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
                                           const PatcherMatch& match)
 {
     if (!match.extraData) {
-        // No extra data, so this is a pre-patched mesh, do nothing.
+        // No extra data, so this is a pre-patched mesh, do nothing. Only a shape with the legacy flag needs work, since
+        // Community Shaders no longer reads that format once it writes the standalone one.
+        auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nif()->GetShader(&nifShape));
+        if (s_format != PGEnums::TruePBRFormat::Standalone || !nifShaderBSLSP
+            || !PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01) || !hasStandaloneTextures(slots)) {
+            return;
+        }
+
+        convertToStandalone(*nifShaderBSLSP);
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)].clear();
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Unused)].clear();
+        finalizeStandalone(*nifShaderBSLSP, slots);
+        PGNIFUtil::setTextureSlots(nif(), &nifShape, slots);
         return;
     }
 
@@ -649,6 +1065,14 @@ void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
             // A "delete" entry freed the shape, so the later entries have nothing to apply to.
             return;
         }
+    }
+
+    // Community Shaders checks the texture set of the mesh when it loads, before any alternate texture replaces it, so
+    // a standalone shape needs a valid one even if these slots end up in an alternate texture.
+    const auto* const nifShader = nif()->GetShader(&nifShape);
+    if (s_format == PGEnums::TruePBRFormat::Standalone && nifShader
+        && nifShader->GetShaderType() == nifly::BSLSP_TRUEPBR) {
+        PGNIFUtil::setTextureSlots(nif(), &nifShape, slots);
     }
 }
 
@@ -676,6 +1100,12 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
     auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nifShader);
     if (!nifShaderBSLSP) {
         // Only lighting shaders carry the PBR flags.
+        return;
+    }
+
+    if (s_format == PGEnums::TruePBRFormat::Standalone) {
+        convertToStandalone(*nifShaderBSLSP);
+        finalizeStandalone(*nifShaderBSLSP, PGNIFUtil::textureSlots(nif(), &nifShape));
         return;
     }
 
@@ -870,47 +1300,50 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
             *nif(), *nifShape, newAlphaFlags, newAlphaThreshold, isEnabled(truePBRData, "alphaprop_create"));
     }
 
-    // "specular_level" attribute.
-    if (truePBRData.contains("specular_level") && truePBRData["specular_level"].is_number()) {
-        const auto newSpecularLevel = truePBRData["specular_level"].get<float>();
-        if (nifShader->GetGlossiness() != newSpecularLevel) {
-            nifShader->SetGlossiness(newSpecularLevel);
-            isChanged = true;
+    // The standalone format keeps the next attributes in its payload, see applyStandaloneAttributes().
+    if (s_format == PGEnums::TruePBRFormat::Legacy) {
+        // "specular_level" attribute.
+        if (truePBRData.contains("specular_level") && truePBRData["specular_level"].is_number()) {
+            const auto newSpecularLevel = truePBRData["specular_level"].get<float>();
+            if (nifShader->GetGlossiness() != newSpecularLevel) {
+                nifShader->SetGlossiness(newSpecularLevel);
+                isChanged = true;
+            }
         }
-    }
 
-    // "subsurface_color" attribute.
-    if (truePBRData.contains("subsurface_color") && truePBRData["subsurface_color"].is_array()
-        && truePBRData["subsurface_color"].size() >= 3 && truePBRData["subsurface_color"][0].is_number()
-        && truePBRData["subsurface_color"][1].is_number() && truePBRData["subsurface_color"][2].is_number()) {
-        const auto newSpecularColor = nifly::Vector3(truePBRData["subsurface_color"][0].get<float>(),
-                                                     truePBRData["subsurface_color"][1].get<float>(),
-                                                     truePBRData["subsurface_color"][2].get<float>());
-        if (nifShader->GetSpecularColor() != newSpecularColor) {
-            nifShader->SetSpecularColor(newSpecularColor);
-            isChanged = true;
+        // "subsurface_color" attribute.
+        if (truePBRData.contains("subsurface_color") && truePBRData["subsurface_color"].is_array()
+            && truePBRData["subsurface_color"].size() >= 3 && truePBRData["subsurface_color"][0].is_number()
+            && truePBRData["subsurface_color"][1].is_number() && truePBRData["subsurface_color"][2].is_number()) {
+            const auto newSpecularColor = nifly::Vector3(truePBRData["subsurface_color"][0].get<float>(),
+                                                         truePBRData["subsurface_color"][1].get<float>(),
+                                                         truePBRData["subsurface_color"][2].get<float>());
+            if (nifShader->GetSpecularColor() != newSpecularColor) {
+                nifShader->SetSpecularColor(newSpecularColor);
+                isChanged = true;
+            }
         }
-    }
 
-    // "roughness_scale" attribute.
-    if (truePBRData.contains("roughness_scale") && truePBRData["roughness_scale"].is_number()) {
-        const auto newRoughnessScale = truePBRData["roughness_scale"].get<float>();
-        if (nifShader->GetSpecularStrength() != newRoughnessScale) {
-            nifShader->SetSpecularStrength(newRoughnessScale);
-            isChanged = true;
+        // "roughness_scale" attribute.
+        if (truePBRData.contains("roughness_scale") && truePBRData["roughness_scale"].is_number()) {
+            const auto newRoughnessScale = truePBRData["roughness_scale"].get<float>();
+            if (nifShader->GetSpecularStrength() != newRoughnessScale) {
+                nifShader->SetSpecularStrength(newRoughnessScale);
+                isChanged = true;
+            }
         }
-    }
 
-    // "subsurface_opacity" attribute.
-    if (truePBRData.contains("subsurface_opacity") && truePBRData["subsurface_opacity"].is_number()) {
-        const auto newSubsurfaceOpacity = truePBRData["subsurface_opacity"].get<float>();
-        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newSubsurfaceOpacity);
-    }
+        // "subsurface_opacity" attribute.
+        if (truePBRData.contains("subsurface_opacity") && truePBRData["subsurface_opacity"].is_number()) {
+            const auto newSubsurfaceOpacity = truePBRData["subsurface_opacity"].get<float>();
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->softlighting, newSubsurfaceOpacity);
+        }
 
-    // "displacement_scale" attribute.
-    if (truePBRData.contains("displacement_scale") && truePBRData["displacement_scale"].is_number()) {
-        const auto newDisplacementScale = truePBRData["displacement_scale"].get<float>();
-        isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
+        // "displacement_scale" attribute.
+        if (truePBRData.contains("displacement_scale") && truePBRData["displacement_scale"].is_number()) {
+            const auto newDisplacementScale = truePBRData["displacement_scale"].get<float>();
+            isChanged |= PGNIFUtil::setShaderFloat(nifShaderBSLSP->rimlightPower, newDisplacementScale);
+        }
     }
 
     // "emmissive_scale" attribute.
@@ -1059,6 +1492,12 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
             slots.at(i) = StringUtil::utf8toUTF16(newSlot);
         }
     }
+
+    // Community Shaders rejects a standalone shape with a texture in one of these slots.
+    if (s_format == PGEnums::TruePBRFormat::Standalone) {
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)].clear();
+        slots[static_cast<size_t>(PGEnums::TextureSlots::Unused)].clear();
+    }
 }
 
 bool PatcherMeshShaderTruePBR::enableTruePBROnShape(nifly::NiShader* nifShader,
@@ -1075,6 +1514,12 @@ bool PatcherMeshShaderTruePBR::enableTruePBROnShape(nifly::NiShader* nifShader,
     if (truePBRData.contains("emissive") && truePBRData["emissive"].is_boolean()) {
         isChanged |= PGNIFUtil::configureShaderFlag(
             nifShaderBSLSP, nifly::SLSF1_EXTERNAL_EMITTANCE, truePBRData["emissive"].get<bool>());
+    }
+
+    if (s_format == PGEnums::TruePBRFormat::Standalone) {
+        isChanged |= applyStandaloneAttributes(*nifShaderBSLSP, truePBRData);
+        isChanged |= finalizeStandalone(*nifShaderBSLSP, newSlots);
+        return isChanged;
     }
 
     // Revert to default NIFShader type, remove flags used in other types.

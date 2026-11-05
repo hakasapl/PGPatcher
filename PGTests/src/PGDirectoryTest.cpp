@@ -401,6 +401,49 @@ TEST_F(PGDirectoryTest,
 }
 
 TEST_F(PGDirectoryTest,
+       StandalonePBRShapesVoteForTheTypeOfTheirTextures)
+{
+    for (const auto* texture : {
+             L"textures\\pbr\\y_g.dds",
+             L"textures\\pbr\\y_p.dds",
+             L"textures\\pbr\\y_rmaos.dds",
+             L"textures\\a\\y_sub.dds",
+             L"textures\\a\\y_fuzz.dds",
+             L"textures\\a\\y_coat.dds",
+         }) {
+        m_fake.writeDataFile(texture, "DDS");
+    }
+
+    writeMesh(m_fake,
+              L"meshes\\a\\standalone.nif",
+              slots({
+                  { 2, L"textures\\pbr\\y_g.dds" },
+                  { 3, L"textures\\pbr\\y_p.dds" },
+                  { 5, L"textures\\pbr\\y_rmaos.dds" },
+                  { 6, L"textures\\a\\y_fuzz.dds" },
+                  { 7, L"textures\\a\\y_sub.dds" },
+              }),
+              nifly::BSLSP_TRUEPBR);
+
+    // Slot 7 of the mesh format is a coat map only for a material with a coat.
+    NIFBuilder coat;
+    auto* shader = coat.lightingShader(
+        coat.addShape("Shape", slots({ { 6, L"textures\\a\\y_coat.dds" } }), nifly::BSLSP_TRUEPBR));
+    shader->truePBR.features = nifly::TRUEPBR_TWO_LAYER;
+    coat.save(m_fake.dataDir() / L"meshes\\a\\standalone_coat.nif");
+
+    m_pgd->populateFileMap(true, false);
+    mapAll(false);
+
+    EXPECT_EQ(m_pgd->textureType(L"textures\\pbr\\y_g.dds"), TextureType::Emissive);
+    EXPECT_EQ(m_pgd->textureType(L"textures\\pbr\\y_p.dds"), TextureType::HeightPBR);
+    EXPECT_EQ(m_pgd->textureType(L"textures\\pbr\\y_rmaos.dds"), TextureType::RMAOS);
+    EXPECT_EQ(m_pgd->textureType(L"textures\\a\\y_sub.dds"), TextureType::SubsurfacePBR);
+    EXPECT_EQ(m_pgd->textureType(L"textures\\a\\y_coat.dds"), TextureType::CoatNormalRoughness);
+    EXPECT_EQ(m_pgd->textureType(L"textures\\a\\y_fuzz.dds"), TextureType::Unknown); // there is no fuzz type
+}
+
+TEST_F(PGDirectoryTest,
        MultithreadedMappingGivesTheSameResult)
 {
     mapAll(true);

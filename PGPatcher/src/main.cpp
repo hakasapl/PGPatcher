@@ -308,6 +308,8 @@ uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
     hasher.add(params.shaderPatcher.isParallaxEnabled);
     hasher.add(params.shaderPatcher.isComplexMaterialEnabled);
     hasher.add(params.shaderPatcher.isTruePBREnabled);
+    if (params.shaderPatcher.isTruePBREnabled)
+        hasher.add(PatcherMeshShaderTruePBR::format());
     hasher.add(params.shaderTransforms.isParallaxToCMEnabled);
     hasher.add(params.postPatcher.disablePrePatchedMaterials);
     hasher.add(params.postPatcher.isFixSSSEnabled);
@@ -446,6 +448,10 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // "Start Patching" regenerates everything. Zipped outputs are always generated from scratch and leave no cache.
     if (updateOutput && params.output.zip)
         Logger::warn("Zip output is enabled, so the previous output cannot be updated and is generated from scratch");
+
+    // The format is part of the configuration of the update cache.
+    if (params.shaderPatcher.isTruePBREnabled)
+        PatcherMeshShaderTruePBR::loadFormat(bg->gameDataPath());
 
     // Nothing reads the cache before the file map is populated, so a previous output is loaded in the background
     // until then.

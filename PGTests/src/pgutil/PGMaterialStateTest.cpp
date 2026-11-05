@@ -58,7 +58,7 @@ void setNonDefaultValues(nifly::BSLightingShaderProperty& shader)
     shader.uvScale = nifly::Vector2(2, 3);
     shader.emissiveColor = nifly::Vector3(0.1F, 0.2F, 0.3F);
     shader.emissiveMultiple = 2.5F;
-    shader.textureClampMode = 0;
+    shader.textureClampMode = nifly::CLAMP_S_CLAMP_T;
     shader.alpha = 0.5F;
     shader.refractionStrength = 0.1F;
     shader.glossiness = 12.5F;
@@ -79,6 +79,47 @@ void setNonDefaultValues(nifly::BSLightingShaderProperty& shader)
     shader.eyeCubemapScale = 1.2F;
     shader.eyeLeftReflectionCenter = nifly::Vector3(1, 2, 3);
     shader.eyeRightReflectionCenter = nifly::Vector3(4, 5, 6);
+}
+
+TEST(PGMaterialStateTest,
+     TheTruePBRPayloadOnlyCountsForTheStandaloneShader)
+{
+    NIFBuilder builder;
+    auto* shader = builder.lightingShader(builder.addShape("Shape"));
+    auto* other = builder.lightingShader(builder.addShape("Other"));
+    ASSERT_NE(shader, nullptr);
+    ASSERT_NE(other, nullptr);
+
+    // A mesh stores no payload for any other shader type.
+    shader->truePBR.features = nifly::TRUEPBR_GLINT;
+    EXPECT_FALSE(PGMaterialState::shaderToJSON(*shader).contains("true_pbr"));
+    EXPECT_TRUE(PGMaterialState::isShaderEqual(*shader, *other));
+
+    shader->SetShaderType(nifly::BSLSP_TRUEPBR);
+    other->SetShaderType(nifly::BSLSP_TRUEPBR);
+    shader->truePBR.specularLevel = 0.5F;
+    shader->truePBR.thinSurfaceBackRoughnessScale = 2;
+    EXPECT_FALSE(PGMaterialState::isShaderEqual(*shader, *other));
+
+    const auto json = PGMaterialState::shaderToJSON(*shader);
+    ASSERT_TRUE(json.contains("true_pbr"));
+    EXPECT_EQ(json["true_pbr"]["features"], nifly::TRUEPBR_GLINT);
+    ASSERT_EQ(json["true_pbr"]["parameters"].size(), 25U);
+    EXPECT_EQ(json["true_pbr"]["parameters"][1], 0.5);
+    EXPECT_EQ(json["true_pbr"]["parameters"][24], 2);
+
+    EXPECT_TRUE(PGMaterialState::shaderFromJSON(*other, json));
+    EXPECT_FALSE(PGMaterialState::shaderFromJSON(*other, json));
+    EXPECT_TRUE(PGMaterialState::isShaderEqual(*shader, *other));
+    EXPECT_EQ(other->truePBR.features, nifly::TRUEPBR_GLINT);
+    EXPECT_FLOAT_EQ(other->truePBR.specularLevel, 0.5F);
+
+    // A malformed payload is ignored as a whole.
+    auto malformed = json;
+    malformed["true_pbr"]["parameters"].erase(0);
+    malformed["true_pbr"]["features"] = 1;
+    EXPECT_FALSE(PGMaterialState::shaderFromJSON(*other, malformed));
+    EXPECT_EQ(other->truePBR.features, nifly::TRUEPBR_GLINT);
 }
 
 TEST(PGMaterialStateTest,
@@ -235,7 +276,7 @@ TEST(PGMaterialStateTest,
     EXPECT_FALSE(PGMaterialState::isShaderEqual(*a, *b));
     b->sparkleParameters = a->sparkleParameters;
 
-    b->textureClampMode = 0;
+    b->textureClampMode = nifly::CLAMP_S_CLAMP_T;
     EXPECT_FALSE(PGMaterialState::isShaderEqual(*a, *b));
     b->textureClampMode = a->textureClampMode;
 

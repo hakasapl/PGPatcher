@@ -483,6 +483,16 @@ public:
      */
     static bool isHidden(const FileUtil::DirectoryEntry& entry);
 
+    /**
+     * @brief Reads one value from an INI file. Section and key are compared without regard to case, ';' and '#' start
+     * comment lines.
+     *
+     * @return the trimmed value, or an empty string if the file, section or key does not exist
+     */
+    static std::wstring readINIValue(const std::filesystem::path& iniPath,
+                                     const std::wstring& section,
+                                     const std::wstring& key);
+
 private:
     /**
      * @brief Adds the files of every archive of bsaLoadOrder() to the file map. Requires a BethesdaGame.
@@ -586,14 +596,4 @@ private:
     static bool checkGlob(const LPCWSTR& str,
                           LPCWSTR& winningGlob,
                           const std::vector<LPCWSTR>& globList);
-
-    /**
-     * @brief Reads one value from an INI file. Section and key are compared without regard to case, ';' and '#' start
-     * comment lines.
-     *
-     * @return the trimmed value, or an empty string if the file, section or key does not exist
-     */
-    static std::wstring readINIValue(const std::filesystem::path& iniPath,
-                                     const std::wstring& section,
-                                     const std::wstring& key);
 };

@@ -228,6 +228,7 @@ void Environment::initialize(ClassificationCache& cache,
         stage("pglite.stages.loadingTruePBRConfigs");
         Logger::info("Loading {} TruePBR configs", m_directory->pbrJSONs().size());
         PatcherMeshShaderTruePBR::loadStatics(m_directory->pbrJSONs(), m_params.processing.multithread);
+        PatcherMeshShaderTruePBR::loadFormat(Settings::dataFolder());
         pbrConfigsMs = lap();
     }
 

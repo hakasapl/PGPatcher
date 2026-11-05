@@ -417,6 +417,7 @@ int mainRunner(PGToolsCLIArgs& args)
             meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::shaderType(),
                                                 PatcherMeshShaderTruePBR::factory());
             PatcherMeshShaderTruePBR::loadStatics(pgd.pbrJSONs(), args.multithreading);
+            PatcherMeshShaderTruePBR::loadFormat(pgd.dataPath());
             PatcherMeshShaderTruePBR::loadOptions(patcherDefs["truepbr"]);
         }
         if (patcherDefs.contains("parallaxtocm")) {

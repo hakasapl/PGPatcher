@@ -12,6 +12,7 @@
 - [PGLite] Added `PGLite_Open`, `PGLite_Close`, `PGLite_IsMenuOpen` and `PGLite_SetHotkeyEnabled` DLL exports so Risa's All In One Menu can open and close the PGLite menu with its own hotkeys
 - [Common] Fixed a possible crash when a PBR JSON entry with `"delete": true` removed a shape that a later entry of the same JSON also matched: the later entry was still applied to the deleted shape, and could change the shader it shared with another shape
 - [PGLite] Fixed enabling PGLite with Apply in a session that started with it disabled: the Apply failed with "Fix Vanilla Subsurface Scattering" or "Upgrade Parallax to Complex Material" on, and no mesh was patched with the parallax or complex material patcher on
+- [Common] Added support for the TruePBR format of Community Shaders 2.0: PG reads the version in `Shaders\Features\TruePBR.ini` and writes the new format for version 2.0 and later or when the file is missing, and the old format for older versions. PBR meshes in the old format that mods ship are converted as well
 
 ## [2.3.1] - 2026-10-19
 

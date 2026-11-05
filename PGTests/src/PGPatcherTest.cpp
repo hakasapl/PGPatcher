@@ -878,6 +878,41 @@ TEST(PGPatcherSortTest,
 }
 
 TEST_F(PGPatcherTest,
+       TruePBRReachesTheOutputMeshInTheFormatOfCommunityShaders)
+{
+    for (const auto* texture : {
+             L"textures\\pbr\\pgtest\\plain.dds",
+             L"textures\\pbr\\pgtest\\plain_n.dds",
+             L"textures\\pbr\\pgtest\\plain_rmaos.dds",
+             L"textures\\pbr\\pgtest\\plain_s.dds",
+         }) {
+        TestUtil::DDSBuilder::writeDDS(dataDir() / texture, 16, 16);
+    }
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\plain.json",
+                        R"([{"texture": "pgtest\\plain", "roughness_scale": 0.5, "subsurface": true}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadOptions(true, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\plain.json" }, false);
+
+    PatcherUtil::PatcherMeshSet meshPatchers;
+    meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::shaderType(), PatcherMeshShaderDefault::factory());
+    meshPatchers.shaderPatchers.emplace(PatcherMeshShaderTruePBR::shaderType(), PatcherMeshShaderTruePBR::factory());
+    PGPatcher::loadPatchers(meshPatchers, { });
+
+    PGPatcher::patchMeshes(false, true);
+    PGGlobals::fileSaver().waitForCompletion();
+
+    ASSERT_TRUE(std::filesystem::exists(outDir() / plainPath));
+    const auto plain = loadOutput(plainPath);
+    auto* const shader = dynamic_cast<nifly::BSLightingShaderProperty*>(plain.GetShader(plain.GetShapes().at(0)));
+    ASSERT_NE(shader, nullptr);
+    EXPECT_EQ(shader->GetShaderType(), nifly::BSLSP_TRUEPBR);
+    EXPECT_EQ(shader->truePBR.features, nifly::TRUEPBR_SUBSURFACE);
+    EXPECT_FLOAT_EQ(shader->truePBR.roughnessScale, 0.5F);
+    EXPECT_EQ(PGNIFUtil::textureSlots(&plain, plain.GetShapes().at(0))[5], L"textures\\pbr\\pgtest\\plain_rmaos.dds");
+}
+
+TEST_F(PGPatcherTest,
        TheMatchesDigestFollowsTheSlotsAndThePatchers)
 {
     const auto stone = slots(L"textures\\pgtest\\stone.dds", L"textures\\pgtest\\stone_n.dds");

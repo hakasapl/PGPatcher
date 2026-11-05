@@ -194,7 +194,7 @@
     },
     "entry": {
       "type": "object",
-      "description": "One PBR entry. When it matches a shape, the shape is switched to the TruePBR shader and its texture slots are rebuilt from the PBR prefix, written as <prefix> below. The prefix is the matched texture path with pbr\\ inserted after textures\\, for example textures\\pbr\\landscape\\rock01. Texture slots are numbered 1 diffuse, 2 normal, 3 emissive, 4 height, 5 cubemap, 6 RMAOS, 7 coat normal/fuzz, 8 subsurface. Keys with a value of the wrong type are ignored.",
+      "description": "One PBR entry. When it matches a shape, the shape is switched to the TruePBR shader and its texture slots are rebuilt from the PBR prefix, written as <prefix> below. The prefix is the matched texture path with pbr\\ inserted after textures\\, for example textures\\pbr\\landscape\\rock01. Texture slots are numbered 1 diffuse, 2 normal, 3 emissive, 4 height, 5 cubemap, 6 RMAOS, 7 coat normal/fuzz, 8 subsurface. Keys with a value of the wrong type are ignored. The flags and shader types named below are how meshes store the material for Community Shaders before 2.0. For Community Shaders 2.0 and later, which PGPatcher detects from Shaders\\Features\\TruePBR.ini, the same keys fill the PBR payload of the TruePBR shader type instead, and slots 5 and 9 are always cleared.",
       "properties": {
         "match_diffuse": {
           "type": "string",
@@ -340,7 +340,7 @@
         },
         "cubemap": {
           "type": "string",
-          "description": "Path for slot 5, for example \"textures\\cubemaps\\mycube.dds\". textures\\ is not prepended. Entries without this key clear slot 5."
+          "description": "Path for slot 5, for example \"textures\\cubemaps\\mycube.dds\". textures\\ is not prepended. Entries without this key clear slot 5. Ignored for Community Shaders 2.0 and later, which has no cubemap slot for PBR."
         },
         "lock_cubemap": {
           "type": "boolean",
@@ -428,7 +428,7 @@
         },
         "inner_uv_scale": {
           "type": "number",
-          "description": "UV scale of the coat layer. Requires multilayer."
+          "description": "UV scale of the coat layer. Requires multilayer. Ignored for Community Shaders 2.0 and later."
         },
         "glint": {
           "type": "object",
