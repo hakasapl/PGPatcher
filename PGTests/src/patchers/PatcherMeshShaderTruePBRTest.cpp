@@ -5,6 +5,7 @@
 #include "PGGlobals.hpp"
 #include "PGPlugin.hpp"
 #include "TestUtil.hpp"
+#include "patchers/PatcherMeshPreConvertLegacyPBR.hpp"
 #include "patchers/base/PatcherMeshShader.hpp"
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGNIFUtil.hpp"
@@ -721,6 +722,13 @@ protected:
         return prePatched;
     }
 
+    /// @brief Runs the legacy PBR pre patcher on the shape.
+    bool convertLegacy(PGTypes::TextureSet& slotsToConvert)
+    {
+        PatcherMeshPreConvertLegacyPBR patcher(meshPath, &m_builder.nif());
+        return patcher.applyPatch(slotsToConvert, *m_shape);
+    }
+
     /// @brief Applies the pre-patched match of a shape.
     void applyPrePatchedMatch(PGTypes::TextureSet& slotsToPatch)
     {
@@ -1049,7 +1057,7 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
     m_shader->parallaxRefractionScale = 0.2F;
     m_shader->parallaxInnerLayerTextureScale = nifly::Vector2(0.3F, 0.4F);
 
-    applyPrePatchedMatch(prePatched);
+    EXPECT_TRUE(convertLegacy(prePatched));
 
     const auto& pbr = m_shader->truePBR;
     EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_TRUEPBR);
@@ -1080,7 +1088,7 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
     m_shader->parallaxInnerLayerThickness = 0.1F;
     m_shader->parallaxRefractionScale = 0.2F;
 
-    applyPrePatchedMatch(prePatched);
+    EXPECT_TRUE(convertLegacy(prePatched));
 
     const auto& coat = m_shader->truePBR;
     EXPECT_EQ(coat.features, nifly::TRUEPBR_TWO_LAYER | nifly::TRUEPBR_COLORED_COAT);
@@ -1100,7 +1108,7 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
     m_shader->parallaxRefractionScale = 20;
     m_shader->parallaxInnerLayerTextureScale = nifly::Vector2(0.02F, 3);
 
-    applyPrePatchedMatch(prePatched);
+    EXPECT_TRUE(convertLegacy(prePatched));
 
     const auto& pbr = m_shader->truePBR;
     EXPECT_EQ(pbr.features, nifly::TRUEPBR_GLINT);
@@ -1123,6 +1131,7 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
     PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF2_FIT_SLOPE);
     const auto textures = prePatched;
 
+    EXPECT_FALSE(convertLegacy(prePatched));
     applyPrePatchedMatch(prePatched);
 
     EXPECT_EQ(m_shader->truePBR.features, nifly::TRUEPBR_FOLIAGE);
@@ -1138,11 +1147,76 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
     const auto textures = prePatched;
     PatcherMeshShaderTruePBR::setFormat(PGEnums::TruePBRFormat::Legacy);
 
+    EXPECT_FALSE(convertLegacy(prePatched));
     applyPrePatchedMatch(prePatched);
 
     EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
     EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
     EXPECT_EQ(prePatched, textures);
+}
+
+TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
+       OnlyThePrePatcherConvertsLegacyShapes)
+{
+    auto prePatched = markLegacyPrePatched();
+    const auto textures = prePatched;
+
+    applyPrePatchedMatch(prePatched);
+
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_EQ(prePatched, textures);
+}
+
+TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
+       LegacyShapesWithoutARequiredTextureAreNotConverted)
+{
+    const auto prePatched = markLegacyPrePatched();
+    for (const size_t slot : { 0U, 1U, 5U }) {
+        auto missingTexture = prePatched;
+        missingTexture.at(slot).clear();
+        EXPECT_FALSE(convertLegacy(missingTexture));
+        EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
+        EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
+    }
+}
+
+TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
+       ShapesThatAreNotLegacyPBROrHavePGIgnoreAreNotConverted)
+{
+    // No flag, so a vanilla shape, even with an RMAOS texture.
+    auto vanilla = slots(L"textures\\a\\rmaos.dds", L"textures\\a\\stone_n.dds");
+    vanilla[5] = L"textures\\a\\rmaos_rmaos.dds";
+    m_builder.setTextures(m_shape, vanilla);
+    EXPECT_FALSE(convertLegacy(vanilla));
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
+
+    auto ignored = markLegacyPrePatched();
+    m_builder.addBooleanExtraData(m_shape, "PG_IGNORE", true);
+    const auto textures = ignored;
+    EXPECT_FALSE(convertLegacy(ignored));
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
+    EXPECT_EQ(ignored, textures);
+}
+
+TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
+       EntriesBuildOnTheMaterialOfAConvertedShape)
+{
+    loadConfig(R"([{"texture": "a\\stone", "specular_level": 0.5}])");
+    auto legacy = markLegacyPrePatched();
+    m_shader->specularStrength = 1.25F;
+    m_shader->glossiness = 0.1F;
+    legacy[0] = L"textures\\a\\stone.dds";
+    EXPECT_TRUE(convertLegacy(legacy));
+    EXPECT_FLOAT_EQ(m_shader->truePBR.specularLevel, 0.1F);
+
+    PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
+    auto matches = matchesFor(patcher, legacy);
+    ASSERT_EQ(matches.size(), 1U);
+    patcher.applyPatch(legacy, *m_shape, matches[0]);
+
+    EXPECT_FLOAT_EQ(m_shader->truePBR.specularLevel, 0.5F);
+    EXPECT_FLOAT_EQ(m_shader->truePBR.roughnessScale, 1.25F);
 }
 
 TEST_F(PatcherMeshShaderTruePBRStandaloneTest,

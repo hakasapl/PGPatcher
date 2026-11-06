@@ -18,6 +18,7 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
+#include "patchers/PatcherMeshPreConvertLegacyPBR.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshPreStockMarker.hpp"
@@ -308,8 +309,7 @@ uint64_t computeConfigFingerprint(const PGConfig::PGParams& params,
     hasher.add(params.shaderPatcher.isParallaxEnabled);
     hasher.add(params.shaderPatcher.isComplexMaterialEnabled);
     hasher.add(params.shaderPatcher.isTruePBREnabled);
-    if (params.shaderPatcher.isTruePBREnabled)
-        hasher.add(PatcherMeshShaderTruePBR::format());
+    hasher.add(PatcherMeshShaderTruePBR::format());
     hasher.add(params.shaderTransforms.isParallaxToCMEnabled);
     hasher.add(params.postPatcher.disablePrePatchedMaterials);
     hasher.add(params.postPatcher.isFixSSSEnabled);
@@ -449,9 +449,9 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     if (updateOutput && params.output.zip)
         Logger::warn("Zip output is enabled, so the previous output cannot be updated and is generated from scratch");
 
-    // The format is part of the configuration of the update cache.
-    if (params.shaderPatcher.isTruePBREnabled)
-        PatcherMeshShaderTruePBR::loadFormat(bg->gameDataPath());
+    // The format is part of the configuration of the update cache, and the legacy PBR conversion needs it even with
+    // the TruePBR patcher off.
+    PatcherMeshShaderTruePBR::loadFormat(bg->gameDataPath());
 
     // Nothing reads the cache before the file map is populated, so a previous output is loaded in the background
     // until then.
@@ -690,6 +690,9 @@ bool mainRunnerPrep(const ParallaxGenCLIArgs& args,
     // mode it also records the stock state of every patched shape, which PGLite reverts the output's meshes from.
     meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
     PatcherMeshPreStockMarker::loadOptions(params.processing.isPGLiteMode);
+    // The other patchers then see legacy PBR shapes in the format the installed Community Shaders reads.
+    Logger::debug("Adding Legacy PBR Conversion pre-patcher");
+    meshPatchers.prePatchers.emplace_back(PatcherMeshPreConvertLegacyPBR::factory());
     if (params.prePatcher.isFixMeshLightingEnabled) {
         Logger::debug("Adding Mesh Lighting Fix pre-patcher");
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());

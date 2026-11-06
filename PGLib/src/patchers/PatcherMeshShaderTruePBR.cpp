@@ -688,6 +688,24 @@ PGEnums::TruePBRFormat PatcherMeshShaderTruePBR::format() { return s_format; }
 
 void PatcherMeshShaderTruePBR::setFormat(PGEnums::TruePBRFormat format) { s_format = format; }
 
+bool PatcherMeshShaderTruePBR::convertLegacyShape(nifly::NifFile& nif,
+                                                  nifly::NiShape& nifShape,
+                                                  PGTypes::TextureSet& slots)
+{
+    auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nif.GetShader(&nifShape));
+    if (!nifShaderBSLSP || nifShaderBSLSP->GetShaderType() == nifly::BSLSP_TRUEPBR
+        || !PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01) || !hasStandaloneTextures(slots)) {
+        return false;
+    }
+
+    convertToStandalone(*nifShaderBSLSP);
+    slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)].clear();
+    slots[static_cast<size_t>(PGEnums::TextureSlots::Unused)].clear();
+    finalizeStandalone(*nifShaderBSLSP, slots);
+    PGNIFUtil::setTextureSlots(&nif, &nifShape, slots);
+    return true;
+}
+
 PGEnums::ShapeShader PatcherMeshShaderTruePBR::shaderType() { return PGEnums::ShapeShader::TruePBR; }
 
 bool PatcherMeshShaderTruePBR::canApply([[maybe_unused]] nifly::NiShape& nifShape,
@@ -1037,19 +1055,7 @@ void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
                                           const PatcherMatch& match)
 {
     if (!match.extraData) {
-        // No extra data, so this is a pre-patched mesh, do nothing. Only a shape with the legacy flag needs work, since
-        // Community Shaders no longer reads that format once it writes the standalone one.
-        auto* const nifShaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(nif()->GetShader(&nifShape));
-        if (s_format != PGEnums::TruePBRFormat::Standalone || !nifShaderBSLSP
-            || !PGNIFUtil::hasShaderFlag(nifShaderBSLSP, nifly::SLSF2_UNUSED01) || !hasStandaloneTextures(slots)) {
-            return;
-        }
-
-        convertToStandalone(*nifShaderBSLSP);
-        slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)].clear();
-        slots[static_cast<size_t>(PGEnums::TextureSlots::Unused)].clear();
-        finalizeStandalone(*nifShaderBSLSP, slots);
-        PGNIFUtil::setTextureSlots(nif(), &nifShape, slots);
+        // No extra data, so this is a pre-patched mesh, do nothing.
         return;
     }
 

@@ -181,6 +181,22 @@ public:
     static void setFormat(PGEnums::TruePBRFormat format);
 
     /**
+     * @brief Converts a shape with the legacy PBR flag to the standalone format, keeping its material. The slots are
+     * also written to the mesh, for the reason applyPatch() gives
+     *
+     * A shape that has no diffuse, normal or RMAOS texture stays as it is, since Community Shaders would not draw it,
+     * and so does a shape that already has the standalone shader type.
+     *
+     * @param nif NIF of the shape
+     * @param nifShape Shape to convert
+     * @param[in,out] slots Slots of the shape, without the ones the standalone format has to leave empty afterwards
+     * @return true if the shape was converted
+     */
+    static bool convertLegacyShape(nifly::NifFile& nif,
+                                   nifly::NiShape& nifShape,
+                                   PGTypes::TextureSet& slots);
+
+    /**
      * @brief Get the Shader Type object (TruePBR)
      *
      * @return PGEnums::ShapeShader Shader type (TruePBR)
@@ -235,7 +251,7 @@ public:
 
     /**
      * @brief Apply every entry of a match to a shape, in config order. A match without extra data leaves the shape
-     * alone (pre-patched mesh), except that the standalone format converts a shape with the legacy PBR flag to itself
+     * alone (pre-patched mesh). PatcherMeshPreConvertLegacyPBR has already converted a legacy one by then
      *
      * In the standalone format the slots are also written to the mesh, even for an alternate texture: Community Shaders
      * checks the texture set of the mesh itself when it loads and does not draw a shape with an invalid one.

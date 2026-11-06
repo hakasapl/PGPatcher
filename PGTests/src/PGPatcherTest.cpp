@@ -15,6 +15,7 @@
 #include "TestUtil.hpp"
 #include "common/BethesdaGame.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
+#include "patchers/PatcherMeshPreConvertLegacyPBR.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshPreStockMarker.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -910,6 +911,41 @@ TEST_F(PGPatcherTest,
     EXPECT_EQ(shader->truePBR.features, nifly::TRUEPBR_SUBSURFACE);
     EXPECT_FLOAT_EQ(shader->truePBR.roughnessScale, 0.5F);
     EXPECT_EQ(PGNIFUtil::textureSlots(&plain, plain.GetShapes().at(0))[5], L"textures\\pbr\\pgtest\\plain_rmaos.dds");
+}
+
+TEST_F(PGPatcherTest,
+       LegacyPBRMeshesAreConvertedWithoutTheTruePBRPatcher)
+{
+    auto legacySlots = slots(L"textures\\pgtest\\plain.dds", L"textures\\pgtest\\plain_n.dds");
+    legacySlots[4] = L"textures\\cubemaps\\c_e.dds";
+    legacySlots[5] = L"textures\\pgtest\\plain_rmaos.dds";
+    NIFBuilder legacy;
+    auto* const legacyShader = legacy.lightingShader(legacy.addShape("Shape", legacySlots));
+    PGNIFUtil::setShaderFlag(legacyShader, nifly::SLSF2_UNUSED01);
+    PGNIFUtil::setShaderFlag(legacyShader, nifly::SLSF2_RIM_LIGHTING);
+    legacyShader->specularStrength = 0.5F;
+    legacy.save(dataDir() / plainPath);
+    m_pgd->populateFileMap(false, false);
+
+    PatcherUtil::PatcherMeshSet meshPatchers;
+    meshPatchers.prePatchers.emplace_back(PatcherMeshPreConvertLegacyPBR::factory());
+    meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::shaderType(), PatcherMeshShaderDefault::factory());
+    PGPatcher::loadPatchers(meshPatchers, { });
+
+    PGPatcher::patchMeshes(false, true);
+    PGGlobals::fileSaver().waitForCompletion();
+
+    ASSERT_TRUE(std::filesystem::exists(outDir() / plainPath));
+    const auto plain = loadOutput(plainPath);
+    auto* const shader = dynamic_cast<nifly::BSLightingShaderProperty*>(plain.GetShader(plain.GetShapes().at(0)));
+    ASSERT_NE(shader, nullptr);
+    EXPECT_EQ(shader->GetShaderType(), nifly::BSLSP_TRUEPBR);
+    EXPECT_EQ(shader->truePBR.features, nifly::TRUEPBR_SUBSURFACE);
+    EXPECT_FLOAT_EQ(shader->truePBR.roughnessScale, 0.5F);
+    EXPECT_FALSE(PGNIFUtil::hasShaderFlag(shader, nifly::SLSF2_UNUSED01));
+    const auto outputSlots = PGNIFUtil::textureSlots(&plain, plain.GetShapes().at(0));
+    EXPECT_TRUE(outputSlots[4].empty());
+    EXPECT_EQ(outputSlots[5], L"textures\\pgtest\\plain_rmaos.dds");
 }
 
 TEST_F(PGPatcherTest,

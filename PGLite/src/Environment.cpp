@@ -11,6 +11,7 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
+#include "patchers/PatcherMeshPreConvertLegacyPBR.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshPreStockMarker.hpp"
@@ -223,12 +224,14 @@ void Environment::initialize(ClassificationCache& cache,
     classifyTextures(cache, reportProgress);
     const auto meshesMs = lap();
 
+    // The legacy PBR conversion needs the format even with the TruePBR patcher off.
+    PatcherMeshShaderTruePBR::loadFormat(Settings::dataFolder());
+
     long long pbrConfigsMs = 0;
     if (m_params.shaderPatcher.isTruePBREnabled) {
         stage("pglite.stages.loadingTruePBRConfigs");
         Logger::info("Loading {} TruePBR configs", m_directory->pbrJSONs().size());
         PatcherMeshShaderTruePBR::loadStatics(m_directory->pbrJSONs(), m_params.processing.multithread);
-        PatcherMeshShaderTruePBR::loadFormat(Settings::dataFolder());
         pbrConfigsMs = lap();
     }
 
@@ -539,6 +542,8 @@ void Environment::registerPatchers(const PGParams& params,
 
     // The stock marker reverts pre-patched shapes to stock, so it has to run before every other patcher.
     meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
+    // The other patchers then see legacy PBR shapes in the format the installed Community Shaders reads.
+    meshPatchers.prePatchers.emplace_back(PatcherMeshPreConvertLegacyPBR::factory());
     if (params.prePatcher.isFixMeshLightingEnabled)
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
 
