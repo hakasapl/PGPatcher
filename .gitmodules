@@ -1,6 +1,7 @@
 [submodule "external/nifly"]
 	path = external/nifly
-	url = https://github.com/ousnius/nifly.git
+	url = https://github.com/hakasapl/nifly.git
+	branch = newpbrspec
 [submodule "external/CommonLibSSE-NG"]
 	path = external/CommonLibSSE-NG
 	url = https://github.com/alandtse/CommonLibSSE-NG

@@ -95,6 +95,32 @@ TEST_F(PatcherMeshPreStockMarkerTest,
 }
 
 TEST_F(PatcherMeshPreStockMarkerTest,
+       TheTruePBRPayloadIsOnlyRecordedForAStandaloneStockShape)
+{
+    // A shape that only became standalone by the patch has no payload to go back to.
+    auto stock = Marker::captureStock(nif(), *m_shape);
+    m_shader->SetShaderType(nifly::BSLSP_TRUEPBR);
+    m_shader->truePBR.features = nifly::TRUEPBR_SUBSURFACE;
+    auto differences = Marker::diffStock(nif(), *m_shape, stock);
+    EXPECT_EQ(differences["shader"], nlohmann::json({ { "shader_type", 0 } }));
+
+    // A stock shape that is standalone gets its payload back.
+    stock = Marker::captureStock(nif(), *m_shape);
+    m_shader->truePBR.features = nifly::TRUEPBR_FUZZ;
+    m_shader->truePBR.fuzzWeight = 0.5F;
+    differences = Marker::diffStock(nif(), *m_shape, stock);
+    ASSERT_TRUE(differences["shader"].contains("true_pbr"));
+    EXPECT_EQ(differences["shader"]["true_pbr"], stock["shader"]["true_pbr"]);
+
+    Marker::writeMarker(nif(), *m_shape, differences);
+    Marker patcher(meshPath, &nif());
+    auto current = PGNIFUtil::textureSlots(&nif(), m_shape);
+    EXPECT_TRUE(patcher.applyPatch(current, *m_shape));
+    EXPECT_EQ(m_shader->truePBR.features, nifly::TRUEPBR_SUBSURFACE);
+    EXPECT_FLOAT_EQ(m_shader->truePBR.fuzzWeight, 0);
+}
+
+TEST_F(PatcherMeshPreStockMarkerTest,
        MarkersAreFoundWrittenAndRemoved)
 {
     EXPECT_EQ(Marker::findMarker(nif(), *m_shape), nullptr);

@@ -119,6 +119,31 @@
         },
         "eye_right_reflection_center": {
           "$ref": "#/definitions/vector3"
+        },
+        "true_pbr": {
+          "description": "Stock PBR payload of a shape whose stock shader_type is 21, the TruePBR shader type of Community Shaders 2.0 and later.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "features",
+            "parameters"
+          ],
+          "properties": {
+            "features": {
+              "description": "PBR feature flags.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "parameters": {
+              "description": "The 25 PBR parameters in the order of the mesh format.",
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 25,
+              "maxItems": 25
+            }
+          }
         }
       }
     },

@@ -525,6 +525,7 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
             StringUtil::toLowerASCIIFastInPlace(texture); // Lowercase for comparison
 
             const auto shaderType = shader->GetShaderType();
+            const bool isStandalonePBR = shaderType == nifly::BSLSP_TRUEPBR;
             PGEnums::TextureType textureType = { };
 
             // Check to make sure appropriate shaders are set for a given texture.
@@ -554,7 +555,8 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
                 // Glowmap check.
                 if ((shaderType == nifly::BSLSP_GLOWMAP && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_GLOW_MAP))
                     || (shaderType == nifly::BSLSP_DEFAULT
-                        && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01))) {
+                        && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01))
+                    || isStandalonePBR) {
                     // This is an emmissive map (either vanilla glowmap shader or PBR).
                     textureType = PGEnums::TextureType::Emissive;
                     break;
@@ -584,8 +586,8 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
                     break;
                 }
 
-                if ((shaderType == nifly::BSLSP_DEFAULT
-                     && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01))) {
+                if ((shaderType == nifly::BSLSP_DEFAULT && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01))
+                    || isStandalonePBR) {
                     // This is a height map for PBR.
                     textureType = PGEnums::TextureType::HeightPBR;
                     break;
@@ -609,13 +611,25 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
                     break;
                 }
 
-                if (shaderType == nifly::BSLSP_DEFAULT && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01)) {
+                if ((shaderType == nifly::BSLSP_DEFAULT && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01))
+                    || isStandalonePBR) {
                     textureType = PGEnums::TextureType::RMAOS;
                     break;
                 }
 
                 continue;
             case PGEnums::TextureSlots::MultiLayer:
+                // The standalone PBR shader has a fuzz map here unless it has a coat.
+                if (isStandalonePBR) {
+                    const auto* const shaderBSLSP = dynamic_cast<nifly::BSLightingShaderProperty*>(shader);
+                    if (shaderBSLSP && (shaderBSLSP->truePBR.features & nifly::TRUEPBR_TWO_LAYER)) {
+                        textureType = PGEnums::TextureType::CoatNormalRoughness;
+                        break;
+                    }
+
+                    continue;
+                }
+
                 // Tint check.
                 if (shaderType == nifly::BSLSP_MULTILAYERPARALLAX
                     && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_MULTI_LAYER_PARALLAX)) {
@@ -632,8 +646,9 @@ bool PGDirectory::readTextureVotesFromNIF(const std::filesystem::path& nifPath,
                 continue;
             case PGEnums::TextureSlots::Backlight:
                 // Backlight check.
-                if (shaderType == nifly::BSLSP_MULTILAYERPARALLAX
-                    && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01)) {
+                if ((shaderType == nifly::BSLSP_MULTILAYERPARALLAX
+                     && PGNIFUtil::hasShaderFlag(shaderBSSP, nifly::SLSF2_UNUSED01))
+                    || isStandalonePBR) {
                     textureType = PGEnums::TextureType::SubsurfacePBR;
                     break;
                 }

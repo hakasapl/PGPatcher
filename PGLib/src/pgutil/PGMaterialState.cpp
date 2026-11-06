@@ -153,6 +153,30 @@ ShaderField unsignedField(const char* key,
     };
 }
 
+ShaderField textureClampModeField()
+{
+    return {
+        .key = "texture_clamp_mode",
+        .read =
+            [](const nifly::BSLightingShaderProperty& shader) {
+                return nlohmann::json(static_cast<uint32_t>(shader.textureClampMode));
+            },
+        .write =
+            [](nifly::BSLightingShaderProperty& shader, const nlohmann::json& value) {
+                uint32_t newValue = 0;
+                if (!PGMaterialState::unsignedFromJSON(value, newValue)
+                    || static_cast<uint32_t>(shader.textureClampMode) == newValue) {
+                    return false;
+                }
+
+                shader.textureClampMode = static_cast<nifly::TexClampMode>(newValue);
+                return true;
+            },
+        .isEqual = [](const nifly::BSLightingShaderProperty& a,
+                      const nifly::BSLightingShaderProperty& b) { return a.textureClampMode == b.textureClampMode; },
+    };
+}
+
 ShaderField vector2Field(const char* key,
                          ShaderVector2Member member)
 {
@@ -233,6 +257,118 @@ ShaderField color4Field(const char* key,
     };
 }
 
+/// @brief Number of parameters in a True PBR payload.
+constexpr size_t numTruePBRParameters = 25;
+
+/// @brief The parameters of a True PBR payload, in the order of the mesh format.
+std::array<float,
+           numTruePBRParameters>
+truePBRParameters(const nifly::TruePBRData& pbr)
+{
+    return {
+        pbr.roughnessScale,
+        pbr.specularLevel,
+        pbr.displacementScale,
+        pbr.subsurfaceColor.x,
+        pbr.subsurfaceColor.y,
+        pbr.subsurfaceColor.z,
+        pbr.subsurfaceOpacity,
+        pbr.coatColor.x,
+        pbr.coatColor.y,
+        pbr.coatColor.z,
+        pbr.coatStrength,
+        pbr.coatRoughness,
+        pbr.coatSpecularLevel,
+        pbr.fuzzColor.x,
+        pbr.fuzzColor.y,
+        pbr.fuzzColor.z,
+        pbr.fuzzWeight,
+        pbr.glintScreenSpaceScale,
+        pbr.glintLogMicrofacetDensity,
+        pbr.glintMicrofacetRoughness,
+        pbr.glintDensityRandomization,
+        pbr.subsurfaceBalance,
+        pbr.thinSurfaceFrontSpecularWeight,
+        pbr.thinSurfaceBackSpecularWeight,
+        pbr.thinSurfaceBackRoughnessScale,
+    };
+}
+
+void setTruePBRParameters(nifly::TruePBRData& pbr,
+                          const std::array<float,
+                                           numTruePBRParameters>& parameters)
+{
+    pbr.roughnessScale = parameters.at(0);
+    pbr.specularLevel = parameters.at(1);
+    pbr.displacementScale = parameters.at(2);
+    pbr.subsurfaceColor = nifly::Vector3(parameters.at(3), parameters.at(4), parameters.at(5));
+    pbr.subsurfaceOpacity = parameters.at(6);
+    pbr.coatColor = nifly::Vector3(parameters.at(7), parameters.at(8), parameters.at(9));
+    pbr.coatStrength = parameters.at(10);
+    pbr.coatRoughness = parameters.at(11);
+    pbr.coatSpecularLevel = parameters.at(12);
+    pbr.fuzzColor = nifly::Vector3(parameters.at(13), parameters.at(14), parameters.at(15));
+    pbr.fuzzWeight = parameters.at(16);
+    pbr.glintScreenSpaceScale = parameters.at(17);
+    pbr.glintLogMicrofacetDensity = parameters.at(18);
+    pbr.glintMicrofacetRoughness = parameters.at(19);
+    pbr.glintDensityRandomization = parameters.at(20);
+    pbr.subsurfaceBalance = parameters.at(21);
+    pbr.thinSurfaceFrontSpecularWeight = parameters.at(22);
+    pbr.thinSurfaceBackSpecularWeight = parameters.at(23);
+    pbr.thinSurfaceBackRoughnessScale = parameters.at(24);
+}
+
+/// @brief The True PBR payload, which a mesh only stores for the standalone True PBR shader type. It reads as null for
+/// any other shader, which leaves the key out of the JSON.
+ShaderField truePBRField()
+{
+    return {
+        .key = "true_pbr",
+        .read =
+            [](const nifly::BSLightingShaderProperty& shader) {
+                if (shader.GetShaderType() != nifly::BSLSP_TRUEPBR)
+                    return nlohmann::json();
+
+                nlohmann::json parameters = nlohmann::json::array();
+                for (const auto parameter : truePBRParameters(shader.truePBR))
+                    parameters.push_back(jsonFloat(parameter));
+
+                nlohmann::json out = nlohmann::json::object();
+                out["features"] = shader.truePBR.features;
+                out["parameters"] = parameters;
+                return out;
+            },
+        .write =
+            [](nifly::BSLightingShaderProperty& shader, const nlohmann::json& value) {
+                if (!value.is_object() || !value.contains("features") || !value.contains("parameters"))
+                    return false;
+
+                uint32_t newFeatures = 0;
+                std::array<float, numTruePBRParameters> newParameters { };
+                if (!PGMaterialState::unsignedFromJSON(value["features"], newFeatures)
+                    || !floatsFromJSON(value["parameters"], newParameters)) {
+                    return false;
+                }
+
+                if (shader.truePBR.features == newFeatures && truePBRParameters(shader.truePBR) == newParameters)
+                    return false;
+
+                shader.truePBR.features = newFeatures;
+                setTruePBRParameters(shader.truePBR, newParameters);
+                return true;
+            },
+        .isEqual =
+            [](const nifly::BSLightingShaderProperty& a, const nifly::BSLightingShaderProperty& b) {
+                if (a.GetShaderType() != nifly::BSLSP_TRUEPBR || b.GetShaderType() != nifly::BSLSP_TRUEPBR)
+                    return true;
+
+                return a.truePBR.features == b.truePBR.features
+                    && truePBRParameters(a.truePBR) == truePBRParameters(b.truePBR);
+            },
+    };
+}
+
 /// @brief Every field the SSE mesh format stores for a BSLightingShaderProperty, including the BSShaderProperty ones.
 /// The fields of later formats (the Fallout 4 wetness values, the Fallout 76 subsurface color and so on) are never
 /// read from or written to a Skyrim SE mesh, so they are left out on purpose. The "subsurface_color" of a PBR JSON is
@@ -247,7 +383,7 @@ const std::vector<ShaderField>& shaderFields()
         vector2Field("uv_scale", &nifly::BSLightingShaderProperty::uvScale),
         vector3Field("emissive_color", &nifly::BSLightingShaderProperty::emissiveColor),
         floatField("emissive_multiple", &nifly::BSLightingShaderProperty::emissiveMultiple),
-        unsignedField("texture_clamp_mode", &nifly::BSLightingShaderProperty::textureClampMode),
+        textureClampModeField(),
         floatField("alpha", &nifly::BSLightingShaderProperty::alpha),
         floatField("refraction_strength", &nifly::BSLightingShaderProperty::refractionStrength),
         floatField("glossiness", &nifly::BSLightingShaderProperty::glossiness),
@@ -269,6 +405,7 @@ const std::vector<ShaderField>& shaderFields()
         floatField("eye_cubemap_scale", &nifly::BSLightingShaderProperty::eyeCubemapScale),
         vector3Field("eye_left_reflection_center", &nifly::BSLightingShaderProperty::eyeLeftReflectionCenter),
         vector3Field("eye_right_reflection_center", &nifly::BSLightingShaderProperty::eyeRightReflectionCenter),
+        truePBRField(),
     };
 
     return fields;
@@ -279,8 +416,11 @@ const std::vector<ShaderField>& shaderFields()
 nlohmann::json PGMaterialState::shaderToJSON(const nifly::BSLightingShaderProperty& shader)
 {
     nlohmann::json out = nlohmann::json::object();
-    for (const auto& field : shaderFields())
-        out[field.key] = field.read(shader);
+    for (const auto& field : shaderFields()) {
+        auto value = field.read(shader);
+        if (!value.is_null())
+            out[field.key] = std::move(value);
+    }
 
     return out;
 }

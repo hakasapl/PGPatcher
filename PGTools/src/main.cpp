@@ -6,6 +6,7 @@
 #include "patchers/PatcherMeshPostFixSSS.hpp"
 #include "patchers/PatcherMeshPostHairFlowMap.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
+#include "patchers/PatcherMeshPreConvertLegacyPBR.hpp"
 #include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshPreStockMarker.hpp"
@@ -400,6 +401,9 @@ int mainRunner(PGToolsCLIArgs& args)
         PatcherUtil::PatcherMeshSet meshPatchers;
         // The stock marker reverts pre-patched shapes to stock, so it has to run before every other patcher.
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
+        // The other patchers then see legacy PBR shapes in the format the installed Community Shaders reads.
+        PatcherMeshShaderTruePBR::loadFormat(pgd.dataPath());
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreConvertLegacyPBR::factory());
         if (patcherDefs.contains("fixmeshlighting"))
             meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
         if (patcherDefs.contains("fixtextureslotcount"))
