@@ -1,6 +1,7 @@
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 
 #include "patchers/base/PatcherMeshPre.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 
 #include "Geometry.hpp"
@@ -34,13 +35,12 @@ bool PatcherMeshPreFixTextureSlotCount::applyPatch([[maybe_unused]] PGTypes::Tex
         return false;
     }
 
-    auto* txstRec = nif()->GetHeader().GetBlock(nifShader->TextureSetRef());
+    const auto* txstRec = nif()->GetHeader().GetBlock(nifShader->TextureSetRef());
     if (!txstRec)
         return false;
 
     if (txstRec->textures.size() >= slotCount)
         return false;
 
-    txstRec->textures.resize(slotCount);
-    return true;
+    return PGNIFUtil::setTextureSlotCount(*nif(), nifShape, slotCount);
 }

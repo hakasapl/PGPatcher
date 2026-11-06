@@ -99,7 +99,8 @@ public:
      * @brief Removes the emptied PG_STOCK blocks of a NIF
      *
      * Called once per NIF after every shape went through finalizeMarker(). Blocks are only deleted here, after all
-     * shapes are done, because deleting a block renumbers the blocks behind it.
+     * shapes are done, because deleting a block renumbers the blocks behind it. A shape
+     * PGNIFUtil::isUntouchableShape() reports keeps its block.
      *
      * @param nif NIF to clean up
      */
@@ -162,7 +163,7 @@ public:
      *
      * Shapes are matched by name. A shape that only exists on one side is reported as a warning: a shape the patch
      * deleted cannot be restored. Shapes without differences get no block, and a stale block on such a shape is
-     * removed.
+     * removed. A shape PGNIFUtil::isUntouchableShape() reports stays as it is.
      *
      * @param stockNif Unpatched mesh
      * @param patchedNif Patched mesh, which receives the blocks

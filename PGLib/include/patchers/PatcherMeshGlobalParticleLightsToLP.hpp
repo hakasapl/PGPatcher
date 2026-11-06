@@ -50,6 +50,8 @@ public:
     /**
      * @brief Convert every particle light of the NIF and delete its billboard node (and blocks only it referenced)
      *
+     * A billboard node with an ignored shape below it (see PGNIFUtil::isIgnoredShape()) is not a particle light.
+     *
      * @return true At least one particle light was converted
      * @return false Nothing was changed
      */

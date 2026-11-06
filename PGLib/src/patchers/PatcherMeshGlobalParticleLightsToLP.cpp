@@ -2,6 +2,7 @@
 
 #include "PGGlobals.hpp"
 #include "patchers/base/PatcherMeshGlobal.hpp"
+#include "pgutil/PGNIFUtil.hpp"
 
 #include "Animation.hpp"
 #include "BasicTypes.hpp"
@@ -17,6 +18,7 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -70,6 +72,16 @@ bool PatcherMeshGlobalParticleLightsToLP::applyPatch()
             // No children.
             continue;
         }
+
+        // A patched node is deleted with everything below it, so a node above an ignored shape stays.
+        std::vector<nifly::NiObject*> subtree;
+        nif()->GetTree(subtree, billboardNode);
+        const bool hasIgnoredShape = std::ranges::any_of(subtree, [this](nifly::NiObject* block) {
+            auto* const subtreeShape = dynamic_cast<nifly::NiShape*>(block);
+            return subtreeShape != nullptr && PGNIFUtil::isIgnoredShape(*nif(), *subtreeShape);
+        });
+        if (hasIgnoredShape)
+            continue;
 
         // Get relevant objects.
         nifly::NiShape* shape = nullptr;

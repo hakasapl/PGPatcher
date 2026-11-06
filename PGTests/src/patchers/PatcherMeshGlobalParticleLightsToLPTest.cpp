@@ -4,6 +4,7 @@
 #include "PGDirectory.hpp"
 #include "PGGlobals.hpp"
 #include "TestUtil.hpp"
+#include "pgutil/PGTypes.hpp"
 
 #include "Animation.hpp"
 #include "BasicTypes.hpp"
@@ -204,6 +205,40 @@ TEST_F(PatcherMeshGlobalParticleLightsToLPTest,
     std::filesystem::remove(outputJSON());
     PatcherMeshGlobalParticleLightsToLP::finalize();
     EXPECT_FALSE(std::filesystem::exists(outputJSON()));
+}
+
+TEST_F(PatcherMeshGlobalParticleLightsToLPTest,
+       ANodeAboveAnIgnoredShapeStays)
+{
+    // The marker on the shape of the light, on its shader, and on a shape further down that would go with the node.
+    addParticleLight("OnShape", nifly::Vector3(1, 0, 0), 5, { 255, 128, 0, 255 });
+    nifly::NiShape* onShape = nullptr;
+    for (auto* const shape : m_builder.nif().GetShapes())
+        if (shape->name.get() == "OnShapeShape")
+            onShape = shape;
+    ASSERT_NE(onShape, nullptr);
+    m_builder.addBooleanExtraData(onShape, "PG_IGNORE", true);
+
+    auto* onShader = addParticleLight("OnShader", nifly::Vector3(2, 0, 0), 5, { 255, 128, 0, 255 });
+    m_builder.addBooleanExtraData(effectShaderOf(onShader), "PG_IGNORE", true);
+
+    auto* above = addParticleLight("Above", nifly::Vector3(3, 0, 0), 5, { 255, 128, 0, 255 });
+    auto* below = m_builder.addNode("Below", above);
+    auto* hidden = m_builder.addShape("Hidden", PGTypes::TextureSet(), nifly::BSLSP_DEFAULT, below);
+    m_builder.addBooleanExtraData(hidden, "PG_IGNORE", true);
+
+    // Only the light without a marker goes.
+    addParticleLight("Plain", nifly::Vector3(4, 0, 0), 5, { 255, 128, 0, 255 });
+    const auto numShapesBefore = m_builder.nif().GetShapes().size();
+
+    PatcherMeshGlobalParticleLightsToLP patcher(meshPath, &m_builder.nif());
+    EXPECT_TRUE(patcher.applyPatch());
+
+    EXPECT_EQ(m_builder.nif().GetShapes().size(), numShapesBefore - 1);
+    const auto json = writtenJSON();
+    ASSERT_EQ(json.size(), 1U);
+    ASSERT_EQ(json[0]["lights"].size(), 1U);
+    EXPECT_EQ(json[0]["lights"][0]["points"], nlohmann::json::array({ { 4, 0, 0 } }));
 }
 
 TEST_F(PatcherMeshGlobalParticleLightsToLPTest,

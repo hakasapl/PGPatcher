@@ -514,6 +514,32 @@ TEST_F(PatcherMeshShaderTruePBRTest,
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
+       ADeletedShapeLeavesTheAlphaPropertyItSharesWithAnIgnoredShape)
+{
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\delete.json", R"([{"texture": "b\\brick", "delete": true}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\delete.json" }, false);
+
+    NIFBuilder builder;
+    const auto brickTextures = slots(L"textures\\b\\brick.dds", L"textures\\b\\brick_n.dds");
+    auto* ignored = builder.addShape("Ignored", brickTextures);
+    builder.addBooleanExtraData(ignored, "PG_IGNORE", true);
+    const auto* const alpha = builder.addAlphaProperty(ignored);
+    auto* brick = builder.addShape("Brick", brickTextures);
+    brick->AlphaPropertyRef()->index = ignored->AlphaPropertyRef()->index;
+    PatcherMeshShaderTruePBR patcher(meshPath, &builder.nif());
+
+    std::vector<PatcherMatch> matches;
+    EXPECT_TRUE(patcher.shouldApply(*brick, matches));
+    ASSERT_EQ(matches.size(), 1U);
+    auto brickSlots = brickTextures;
+    patcher.applyPatch(brickSlots, *brick, matches[0]);
+
+    EXPECT_EQ(builder.nif().GetBlockID(brick), nifly::NIF_NPOS);
+    EXPECT_EQ(builder.nif().GetAlphaProperty(ignored), alpha);
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
        ApplyShaderAndGeometryAttributes)
 {
     PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
