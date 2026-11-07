@@ -8,14 +8,21 @@
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGTypes.hpp"
 
+#include "NifFile.hpp"
+#include <nlohmann/json.hpp>
+
 #include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace PGLite {
@@ -66,6 +73,18 @@ public:
 
     /// @brief How the patch of a family ended.
     enum class State : uint8_t { Unpatched, Patched, Failed, IgnoredByMod };
+
+    /// @brief Describes one shape of a member's mesh, see describe(); a null description leaves the shape out.
+    using ShapeDescriber = std::function<
+        nlohmann::json(const nifly::NifFile& nif, nifly::NiShape& shape, const PGTypes::TextureSet& slots)>;
+
+    /// @brief What describe() found, by the shapes' 3D indices in the original mesh.
+    struct ShapeDescriptions {
+        /// @brief The shapes as the member's stream serves them; a shape the patch deleted is left out.
+        std::map<unsigned, nlohmann::json> patched;
+        /// @brief The shapes the patch deleted, in 3D index order.
+        std::vector<unsigned> deleted;
+    };
 
     /// @brief The outcome of a member's patch for one file of the family.
     struct MemberOutput {
@@ -129,6 +148,42 @@ public:
                                                                       unsigned generation);
 
     /**
+     * @brief Gives a family no open patched yet the first patch the first open of one of its streams would give it
+     * (bytes()): every member of every file, the record edits and the state for the session, the read failure retries
+     * included. The bytes are not served to anyone; the opens that follow produce their own. For the exports, which
+     * describe a family as the game keeps it (DynDOLODExport). Never while the family's bytes are served on the same
+     * thread.
+     *
+     * @return false while the family is unpatched because an input could not be read and a later attempt may still
+     * patch it: after readFailureRetryInterval, until maxPatchReadFailures attempts failed.
+     */
+    bool settle(TextureSetFactory& textureSets,
+                unsigned generation);
+
+    /**
+     * @brief Patches one member of one file again on a copy of the original mesh, as produce() patches it for an
+     * open, and describes every shape after the patch, for the exports that tell other tools how PGLite patches a
+     * record (DynDOLODExport). The describer runs on the patch's thread, so it can read what the patch collected there.
+     * The family's state and its records stay as they are, and the result is not serialized; the patch registers its
+     * texture hooks as every patch does. A texture the patch cannot read fails the description as it fails a first
+     * patch, see bytes(). Never while the family's bytes are served on the same thread.
+     *
+     * @param member Index of the member.
+     * @param pathIndex Index of the file of the family; a file the engine cannot resolve is described through the
+     * resolved file of the pair, as its records are served.
+     * @param describer Describes a shape with the textures it is drawn with: the member's patched alternate texture
+     * for the shape (for a family patched for the session, the one its records carry from the first patch) or the
+     * shape's own texture set.
+     * @return The descriptions, or nothing when the family's streams serve the original mesh: its patch failed for
+     * the session, its mod's meshes are ignored, or it has no file the engine can resolve.
+     * @throws EngineReadError if the mesh or a texture it needs cannot be read, std::runtime_error if a shape cannot
+     * be processed.
+     */
+    [[nodiscard]] std::optional<ShapeDescriptions> describe(std::size_t member,
+                                                            std::size_t pathIndex,
+                                                            const ShapeDescriber& describer);
+
+    /**
      * @brief Counts a texture file a lookup of the patch running on the calling thread could not read, as the run
      * observer reports it: the patch is not kept, see bytes().
      */
@@ -136,11 +191,11 @@ public:
 
     [[nodiscard]] State state() const { return m_state; }
 
-private:
     /// @brief How many attempts of the first patch may end in a read failure before the family stops retrying, see
     /// bytes().
     static constexpr unsigned maxPatchReadFailures = 3;
 
+private:
     /// @brief The bytes of bytes(), or throws. Under m_patchMutex.
     [[nodiscard]] std::shared_ptr<const std::vector<std::byte>> serve(std::size_t member,
                                                                       std::size_t pathIndex,
@@ -172,8 +227,12 @@ private:
     /// @brief Posts the main-thread task that points the records of merged members at their group's path.
     void retargetMergedMembers(unsigned generation);
 
+    /// @brief Whether the mod of the family's mesh has its meshes ignored: the family is not patched then.
+    [[nodiscard]] bool isIgnoredByMod() const;
+
     /**
-     * @brief Runs the patchers over a staged copy of the mesh for one member, see PGPatcher::processNIF().
+     * @brief Runs the patchers over a staged copy of the mesh for one member, see PGPatcher::processNIF(), and
+     * commits the result to the tracker.
      *
      * @param shouldCompareWithOriginal Whether a result equal to the original is dropped instead of becoming an
      * output, see PGMeshPermutationTracker::commitMesh().
@@ -183,6 +242,22 @@ private:
                                    std::size_t pathIndex,
                                    MemberOutput& output,
                                    bool shouldCompareWithOriginal = true);
+
+    /**
+     * @brief Runs the patchers of one member over a staged mesh, see PGPatcher::processNIF(). A texture header a
+     * lookup could not read throws EngineReadError while the first patch may still be retried, see bytes(); later the
+     * result treats the texture as missing.
+     *
+     * @param[in,out] alternateTextures The member's alternate textures, patched in place.
+     * @param[out] nonAltTexShapes The 3D indices of the shapes patched without an alternate texture.
+     * @return false if a shape could not be processed.
+     */
+    [[nodiscard]] bool runPatchers(nifly::NifFile& staged,
+                                   std::size_t member,
+                                   std::size_t pathIndex,
+                                   std::unordered_map<unsigned,
+                                                      PGTypes::TextureSet>& alternateTextures,
+                                   std::unordered_set<unsigned>& nonAltTexShapes);
 
     std::mutex m_patchMutex;
     std::atomic<State> m_state { State::Unpatched };

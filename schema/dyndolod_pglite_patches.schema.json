@@ -1,0 +1,406 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/dyndolod_pglite_patches.schema.json",
+  "title": "PGLite DynDOLOD patches file",
+  "description": "SKSE\\Plugins\\PGLite\\dyndolod_pglite_patches.json, which PGLite writes when its \"Generate DynDOLOD File\" button on the 3rd Party tab is used. PGLite patches meshes while the game loads them and never writes them to disk; this file tells DynDOLOD how PGLite patches the full model (MODL) of every base record of the record types DynDOLOD reads full models from (ACTI, CONT, DOOR, FURN, MSTT, STAT, TREE and GRAS), with the record's alternate textures. So far it describes the PBR materials. A record is listed when PGLite applies a PBR config entry to a shape of its model, with every shape of the model an entry applies to and every shape an entry deletes; a shape or a record that is not listed is drawn as its mesh on disk says, also one that is PBR there already. The file is compact JSON written whole, and the keys of its objects are sorted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "materials",
+    "records"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional link to this schema for editor support. PGLite never writes it."
+    },
+    "version": {
+      "description": "Version of this format.",
+      "type": "integer",
+      "const": 1
+    },
+    "materials": {
+      "description": "Every distinct material the records use, each listed once and referred to by its index in this array.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/material"
+      }
+    },
+    "records": {
+      "description": "The listed records by the plugin that defines them (the plugin of the form ID's master, as named in the load order), so the file holds for any load order of the same plugins. Compare plugin names without regard to case.",
+      "type": "object",
+      "additionalProperties": {
+        "description": "The records of one plugin by their form ID within it: six upper case hexadecimal digits, the load order index left out (a light plugin's records use the lowest three digits).",
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^[0-9A-F]{6}$"
+        },
+        "additionalProperties": {
+          "$ref": "#/definitions/record"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "rgb": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "rgba": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "record": {
+      "description": "The shapes of the record's model PBR config entries apply to and the shapes they delete, by each shape's 3D index in the mesh on disk (the index alternate textures use, counting the shapes and particle systems in block tree order), each with the index of its material in \"materials\". A shape that is not listed is drawn as the mesh on disk says, PBR there or not.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^(0|[1-9][0-9]*)$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "material": {
+      "description": "One material: a deleted shape, or a material whose \"shader_type\" names its kind and decides its other keys.",
+      "oneOf": [
+        {
+          "description": "A shape PGLite deletes, as the delete attribute of the PBR configs does.",
+          "type": "object",
+          "required": [
+            "delete"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "delete": {
+              "const": true
+            }
+          }
+        },
+        {
+          "description": "A PBR material: what the PBR configs (PBRNifPatcher\\*.json, see pbr.schema.json) applied to the shape define, under the same attribute names and with the values the configs give, a file's defaults included; what they leave out is the mesh's own, as on disk. Only a value the patch applied is written: not one of another type or out of range, a color with too few numbers, a coat attribute of an entry that is not multilayer, glint under multilayer, fuzz under multilayer or glint, a cubemap or parallax whose slot the entry locks, an alpha property value of a shape that has none and gets none, or alphaprop_create or alphaprop_delete while off. One config wins a shape, and every entry of it that matches the shape applies, in file order. When several do, each attribute has the value of the last entry that applied it, except: multilayer, hair, glint, fuzz, cubemap, subsurface_foliage and the locks of the slots every entry fills are the last entry's alone, since every entry decides them again; lock_emissive and lock_parallax go with the entry that sets emissive or parallax; alphaprop_delete drops the alpha attributes of the entries before it, and an alphaprop_create after it that adds a property drops the delete; subsurface_color and coat_color, and subsurface_opacity and coat_strength, write one shader field each, so both of a pair hold the value the field has; the vertex color multipliers compound. Not written either: the attributes that pick the shapes and the texture prefix (texture, match_diffuse, match_normal, match1 to match8, path_contains, nif_filter, rename), the legacy ones (pbr, env_mapping, env_map_scale, env_map_scale_mult), auto_uv, whose result uv_scale holds, the slot attributes, whose results slot1 to slot8 hold, and delete, which makes the material a deletion.",
+          "type": "object",
+          "required": [
+            "shader_type"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "shader_type": {
+              "description": "The kind of material. Always present on a material that is not a deletion.",
+              "const": "pbr"
+            },
+            "multilayer": {
+              "type": "boolean",
+              "description": "As in the PBR configs: the two-layer coat material."
+            },
+            "hair": {
+              "type": "boolean",
+              "description": "As in the PBR configs: the PBR hair shader."
+            },
+            "glint": {
+              "type": "object",
+              "description": "As in the PBR configs: the glint (sparkle) shader with its parameters. A parameter the config leaves out is not written.",
+              "additionalProperties": false,
+              "properties": {
+                "screen_space_scale": {
+                  "type": "number",
+                  "description": "Scale of the glints in screen space."
+                },
+                "log_microfacet_density": {
+                  "type": "number",
+                  "description": "Logarithm of the microfacet density."
+                },
+                "microfacet_roughness": {
+                  "type": "number",
+                  "description": "Roughness of the glint microfacets."
+                },
+                "density_randomization": {
+                  "type": "number",
+                  "description": "Randomization of the microfacet density."
+                }
+              }
+            },
+            "fuzz": {
+              "type": "object",
+              "description": "As in the PBR configs: the fuzz (cloth sheen) shader. A member the config leaves out is not written; the PBR configs default color to [0, 0, 0] and weight to 1.",
+              "additionalProperties": false,
+              "properties": {
+                "texture": {
+                  "type": "boolean",
+                  "description": "Whether the fuzz map (<prefix>_f.dds) is used; it is in slot 7 then."
+                },
+                "color": {
+                  "description": "RGB fuzz color.",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/rgb"
+                    }
+                  ]
+                },
+                "weight": {
+                  "type": "number",
+                  "description": "Fuzz weight."
+                }
+              }
+            },
+            "specular_level": {
+              "type": "number",
+              "description": "Specular level."
+            },
+            "roughness_scale": {
+              "type": "number",
+              "description": "Multiplier for the roughness read from the RMAOS map."
+            },
+            "displacement_scale": {
+              "type": "number",
+              "description": "Scale of the height map displacement."
+            },
+            "uv_scale": {
+              "type": "number",
+              "description": "As in the PBR configs: the texture scale for both directions. For auto_uv, which is not written itself, the scale it computed from the shape's geometry (the same for both directions). When several entries set a scale, the last one applied wins; an entry applies its uv_scale after its auto_uv."
+            },
+            "emissive": {
+              "type": "boolean",
+              "description": "As in the PBR configs: the emissive map in slot 3 and the External_Emittance flag."
+            },
+            "lock_emissive": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "emissive_scale": {
+              "type": "number",
+              "description": "Emissive multiplier."
+            },
+            "emissive_color": {
+              "description": "RGBA emissive color.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/rgba"
+                }
+              ]
+            },
+            "parallax": {
+              "type": "boolean",
+              "description": "As in the PBR configs: the height map in slot 4."
+            },
+            "lock_parallax": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "cubemap": {
+              "type": "string",
+              "description": "As in the PBR configs: the cubemap path for slot 5."
+            },
+            "lock_cubemap": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "lock_diffuse": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "lock_normal": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "lock_rmaos": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "lock_cnr": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "lock_subsurface": {
+              "type": "boolean",
+              "description": "As in the PBR configs."
+            },
+            "subsurface": {
+              "type": "boolean",
+              "description": "As in the PBR configs: subsurface scattering (the Rim_Lighting flag)."
+            },
+            "subsurface_foliage": {
+              "type": "boolean",
+              "description": "As in the PBR configs: foliage subsurface scattering with the map in slot 8."
+            },
+            "subsurface_color": {
+              "description": "RGB subsurface color.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/rgb"
+                }
+              ]
+            },
+            "subsurface_opacity": {
+              "type": "number",
+              "description": "Opacity of the subsurface layer."
+            },
+            "coat_color": {
+              "description": "RGB color of the coat layer.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/rgb"
+                }
+              ]
+            },
+            "coat_specular_level": {
+              "type": "number",
+              "description": "Specular level of the coat layer."
+            },
+            "coat_roughness": {
+              "type": "number",
+              "description": "Roughness of the coat layer."
+            },
+            "coat_strength": {
+              "type": "number",
+              "description": "Strength of the coat layer."
+            },
+            "coat_diffuse": {
+              "type": "boolean",
+              "description": "As in the PBR configs: the coat diffuse map in slot 8 and, with multilayer, the Effect_Lighting flag."
+            },
+            "coat_normal": {
+              "type": "boolean",
+              "description": "As in the PBR configs: the coat normal map in slot 7 and, with multilayer, the Back_Lighting flag."
+            },
+            "coat_parallax": {
+              "type": "boolean",
+              "description": "As in the PBR configs: coat parallax (the Soft_Lighting flag), with multilayer."
+            },
+            "inner_uv_scale": {
+              "type": "number",
+              "description": "UV scale of the coat layer."
+            },
+            "zbuffer_write": {
+              "type": "boolean",
+              "description": "As in the PBR configs: the ZBuffer_Write flag."
+            },
+            "vertex_colors": {
+              "type": "boolean",
+              "description": "As in the PBR configs: vertex colors on or off for the shape and its shader."
+            },
+            "smooth_angle": {
+              "type": "number",
+              "description": "The normals and tangents of the shape were recalculated, smoothing across edges whose angle is below this many degrees. The mesh on disk has the normals before that."
+            },
+            "vertex_color_lum_mult": {
+              "type": "number",
+              "description": "The distance of every vertex color to full HSL lightness was multiplied by this, as in the PBR configs. The mesh on disk has the colors before that. Only where the patch changed the colors (a shape with vertex colors in its vertex data); when several entries did, the product of their values."
+            },
+            "vertex_color_sat_mult": {
+              "type": "number",
+              "description": "The HSL saturation of every vertex color was multiplied by this, as in the PBR configs. The mesh on disk has the colors before that. Only where the patch changed the colors (a shape with vertex colors in its vertex data); when several entries did, the product of their values."
+            },
+            "alphaprop_flags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535,
+              "description": "As in the PBR configs: the flags of the shape's NiAlphaProperty."
+            },
+            "alphaprop_thresh": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255,
+              "description": "As in the PBR configs: the alpha test threshold of the shape's NiAlphaProperty."
+            },
+            "alphaprop_create": {
+              "type": "boolean",
+              "description": "As in the PBR configs: whether a missing NiAlphaProperty is created."
+            },
+            "alphaprop_delete": {
+              "type": "boolean",
+              "description": "As in the PBR configs: whether the NiAlphaProperty is removed."
+            },
+            "slot1": {
+              "type": "string",
+              "description": "Texture of slot 1, the diffuse (base color), as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            },
+            "slot2": {
+              "type": "string",
+              "description": "Texture of slot 2, the normal map, as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            },
+            "slot3": {
+              "type": "string",
+              "description": "Texture of slot 3, the emissive map, as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            },
+            "slot4": {
+              "type": "string",
+              "description": "Texture of slot 4, the height map (displacement), as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            },
+            "slot5": {
+              "type": "string",
+              "description": "Texture of slot 5, the cubemap, as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            },
+            "slot6": {
+              "type": "string",
+              "description": "Texture of slot 6, the RMAOS map, as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            },
+            "slot7": {
+              "type": "string",
+              "description": "Texture of slot 7, the coat normal and roughness map, or fuzz map, as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            },
+            "slot8": {
+              "type": "string",
+              "description": "Texture of slot 8, the subsurface map, or coat diffuse map, as the shape ends up with it after every entry, relative to the textures folder. Not the slot attribute of the PBR configs: an empty slot is not written."
+            }
+          }
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "version": 1,
+      "materials": [
+        {
+          "shader_type": "pbr",
+          "slot1": "pbr\\architecture\\whiterun\\wrwoodplank01.dds",
+          "slot2": "pbr\\architecture\\whiterun\\wrwoodplank01_n.dds",
+          "slot6": "pbr\\architecture\\whiterun\\wrwoodplank01_rmaos.dds",
+          "specular_level": 0.04,
+          "roughness_scale": 1
+        },
+        {
+          "shader_type": "pbr",
+          "multilayer": true,
+          "coat_normal": true,
+          "coat_roughness": 0.2,
+          "slot1": "pbr\\clutter\\silver.dds",
+          "slot2": "pbr\\clutter\\silver_n.dds",
+          "slot6": "pbr\\clutter\\silver_rmaos.dds",
+          "slot7": "pbr\\clutter\\silver_cnr.dds"
+        },
+        {
+          "delete": true
+        }
+      ],
+      "records": {
+        "Skyrim.esm": {
+          "01A2B3": {
+            "0": 0,
+            "2": 0,
+            "3": 2
+          },
+          "0C4D5E": {
+            "1": 1
+          }
+        },
+        "Dawnguard.esm": {
+          "00F00D": {
+            "4": 1
+          }
+        }
+      }
+    }
+  ]
+}

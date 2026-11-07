@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DynDOLODExport.hpp"
 #include "Gif.hpp"
 #include "PGModManager.hpp"
 #include "PGParams.hpp"
@@ -27,7 +28,8 @@ class Runtime;
 
 /**
  * @brief The Dear ImGui menu (DESIGN.md section 4.10): the status of the plugin, the patcher settings, the allowed
- * record types, the mesh and texture rules, the mod manager and the mod list, the warnings, and Apply.
+ * record types, the mesh and texture rules, the mod manager and the mod list, the files for 3rd party tools, the
+ * warnings, and Apply.
  *
  * Everything runs on the thread that draws the game's interface: the loading-screen thread while the game loads, the
  * main thread afterwards, never both at once, and the input events are applied there. The menu is drawn right after
@@ -67,13 +69,14 @@ public:
 
     [[nodiscard]] bool isOpen() const { return m_isOpen; }
 
-    /// @brief True while Apply runs on its worker thread; the interface draw keeps presenting progress frames then.
+    /// @brief True while Apply, or another job that pauses the game the same way (Job), runs on its worker thread; the
+    /// interface draw keeps presenting progress frames then.
     [[nodiscard]] bool isApplying() const { return m_isApplying; }
 
     /**
-     * @brief Starts an Apply that was asked for in the previous frame, before the game draws its interface: the frame
-     * as the game rendered it is kept for the progress frames, and the runtime's apply starts on the worker thread.
-     * Called before every interface draw; does nothing without a pending Apply.
+     * @brief Starts an Apply or another job that was asked for in the previous frame, before the game draws its
+     * interface: the frame as the game rendered it is kept for the progress frames, and the job starts on the worker
+     * thread. Called before every interface draw; does nothing without a pending job.
      */
     void startPendingApply();
 
@@ -84,9 +87,9 @@ public:
     void restoreGameFrame();
 
     /**
-     * @brief One progress frame of Apply over the interface drawn again: the menu with the elapsed time and the step
-     * the runtime is at. Called while isApplying(); the frame that sees the worker done shows the result and ends the
-     * sequence.
+     * @brief One progress frame of Apply or another job over the interface drawn again: the menu with the elapsed time
+     * and the step the runtime is at. Called while isApplying(); the frame that sees the worker done shows the result
+     * and ends the sequence.
      */
     void renderApplyFrame();
 
@@ -117,8 +120,13 @@ private:
         int typeIndex = 0;
     };
 
-    /// @brief An Apply the menu asked for, which the next interface draw starts.
-    struct PendingApply {
+    /// @brief What the worker thread runs while the game waits inside Present: Apply, or the DynDOLOD file.
+    enum class Job : std::uint8_t { Apply, DynDOLODExport };
+
+    /// @brief A job the menu asked for, which the next interface draw starts.
+    struct PendingJob {
+        Job job = Job::Apply;
+        /// @brief What Apply applies.
         PGParams params;
         bool isEnabled = true;
     };
@@ -169,6 +177,11 @@ private:
     /// @brief Writes the settings and the mod rules, then asks the next interface draw to start the runtime's apply
     /// (startPendingApply).
     void startApply(bool isEnabled);
+
+    /// @brief Asks the next interface draw to start writing the DynDOLOD file (startPendingApply).
+    void startDynDOLODExport();
+
+    /// @brief Joins the worker of the job that ran and shows its result.
     void finishApply();
 
     /**
@@ -225,6 +238,9 @@ private:
     void drawMeshRules();
     void drawTextureRules();
     void drawConflictManager();
+
+    /// @brief The files for 3rd party tools: the DynDOLOD file, behind a confirmation.
+    void drawThirdParty();
     static void drawMessages();
     void drawSettings();
 
@@ -293,8 +309,9 @@ private:
     std::string m_language;
     static inline std::string s_clipboard;
 
-    // Apply in progress.
-    std::optional<PendingApply> m_pendingApply;
+    // Apply or another job in progress.
+    std::optional<PendingJob> m_pendingJob;
+    Job m_job = Job::Apply;
     std::atomic<bool> m_isApplying { false };
     std::atomic<bool> m_isApplyDone { false };
     bool m_didApplySucceed = false;
@@ -331,6 +348,9 @@ private:
     std::string m_newTexturePath;
     int m_newTextureType = 0;
     std::string m_applyMessage;
+    DynDOLODExport::Result m_dynDOLODResult;
+    /// @brief The result of the last DynDOLOD file, or why it was not started.
+    std::string m_dynDOLODMessage;
 };
 
 }

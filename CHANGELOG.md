@@ -2,6 +2,7 @@
 
 ## UNRELEASED
 
+- [PGLite] Added a 3rd Party tab whose "Generate DynDOLOD File" button writes `SKSE\Plugins\PGLite\dyndolod_pglite_patches.json`, which tells DynDOLOD how PGLite patches the full model of each base record (the PBR materials, alternate textures included)
 - [PGPatcher] Fixed the conflict manager not noticing unsaved changes to the mod list (order, enabled, Ignore Meshes): Apply and Discard Changes stayed disabled, closing it did not ask to discard them, and a cancelled change came back the next time it was opened
 - [PGLite] Added the `pgblock` and `pgallow` console commands to block selected meshes quicker
 - [PGPatcher] BodySlide ShapeData meshes are only patched with the new "Patch BodySlide ShapeData" processing option

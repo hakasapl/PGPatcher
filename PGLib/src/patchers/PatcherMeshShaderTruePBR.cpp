@@ -31,17 +31,22 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include <algorithm>
+#include <array>
+#include <charconv>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -55,6 +60,327 @@ bool isEnabled(const nlohmann::json& truePBRData,
 {
     const auto it = truePBRData.find(key);
     return it != truePBRData.end() && it->is_boolean() && it->get<bool>();
+}
+
+/// @brief A float as a JSON number with the shortest decimal that reads back as the same float, so that 0.04F is
+/// written as 0.04 and not as the 17 digits of the double it widens to.
+double jsonNumber(float value)
+{
+    std::array<char, 32> buffer { };
+    auto number = static_cast<double>(value);
+    const auto [end, ec] = std::to_chars(buffer.data(), std::to_address(buffer.end()), value);
+    if (ec == std::errc())
+        std::ignore = std::from_chars(buffer.data(), end, number);
+
+    return number;
+}
+
+/// @brief What a material attribute is applied for. A value of another kind is ignored, as the patch ignores it.
+enum class AttributeType : uint8_t { Number, Boolean, String, Color3, Color4, AlphaFlags, AlphaThreshold, Glint, Fuzz };
+
+/**
+ * @brief The attributes of an entry that describe the material, see PatcherMeshShaderTruePBR::material(). Left out
+ * are the attributes that pick the shapes and the prefix (texture, match_*, match1 ... match8, path_contains,
+ * nif_filter, rename, and the json the configs are read from), delete, whose shape is gone, the legacy ones the patch
+ * ignores (pbr, env_*), and those whose result the material holds instead: auto_uv, as uv_scale, and slot1 ... slot8.
+ */
+const std::unordered_map<std::string,
+                         AttributeType>&
+materialAttributeTypes()
+{
+    static const std::unordered_map<std::string, AttributeType> types = {
+        { "uv_scale", AttributeType::Number },
+        { "specular_level", AttributeType::Number },
+        { "roughness_scale", AttributeType::Number },
+        { "displacement_scale", AttributeType::Number },
+        { "subsurface_opacity", AttributeType::Number },
+        { "emissive_scale", AttributeType::Number },
+        { "coat_specular_level", AttributeType::Number },
+        { "coat_roughness", AttributeType::Number },
+        { "coat_strength", AttributeType::Number },
+        { "inner_uv_scale", AttributeType::Number },
+        { "smooth_angle", AttributeType::Number },
+        { "vertex_color_lum_mult", AttributeType::Number },
+        { "vertex_color_sat_mult", AttributeType::Number },
+        { "alphaprop_flags", AttributeType::AlphaFlags },
+        { "alphaprop_thresh", AttributeType::AlphaThreshold },
+        { "emissive", AttributeType::Boolean },
+        { "parallax", AttributeType::Boolean },
+        { "subsurface", AttributeType::Boolean },
+        { "subsurface_foliage", AttributeType::Boolean },
+        { "hair", AttributeType::Boolean },
+        { "multilayer", AttributeType::Boolean },
+        { "coat_diffuse", AttributeType::Boolean },
+        { "coat_normal", AttributeType::Boolean },
+        { "coat_parallax", AttributeType::Boolean },
+        { "vertex_colors", AttributeType::Boolean },
+        { "zbuffer_write", AttributeType::Boolean },
+        { "alphaprop_create", AttributeType::Boolean },
+        { "alphaprop_delete", AttributeType::Boolean },
+        { "lock_diffuse", AttributeType::Boolean },
+        { "lock_normal", AttributeType::Boolean },
+        { "lock_emissive", AttributeType::Boolean },
+        { "lock_parallax", AttributeType::Boolean },
+        { "lock_cubemap", AttributeType::Boolean },
+        { "lock_rmaos", AttributeType::Boolean },
+        { "lock_cnr", AttributeType::Boolean },
+        { "lock_subsurface", AttributeType::Boolean },
+        { "cubemap", AttributeType::String },
+        { "subsurface_color", AttributeType::Color3 },
+        { "coat_color", AttributeType::Color3 },
+        { "emissive_color", AttributeType::Color4 },
+        { "glint", AttributeType::Glint },
+        { "fuzz", AttributeType::Fuzz },
+    };
+
+    return types;
+}
+
+/// @brief The first numbers of a color as the patch reads them, or nothing when the color has fewer numbers.
+std::optional<nlohmann::json> colorOf(const nlohmann::json& value,
+                                      std::size_t count)
+{
+    if (!value.is_array() || value.size() < count)
+        return std::nullopt;
+
+    auto color = nlohmann::json::array();
+    for (std::size_t i = 0; i < count; i++) {
+        if (!value.at(i).is_number())
+            return std::nullopt;
+
+        color.push_back(value.at(i));
+    }
+
+    return color;
+}
+
+/// @brief The members of an object attribute the patch applies, of the kinds it applies them for; the object itself
+/// counts even when none does (an empty glint or fuzz object still asks for its shader).
+std::optional<nlohmann::json> membersOf(const nlohmann::json& value,
+                                        const std::vector<std::pair<const char*,
+                                                                    AttributeType>>& members);
+
+/// @brief A value of a material attribute as the patch applies it, or nothing for a value the patch ignores.
+std::optional<nlohmann::json> appliedValue(const nlohmann::json& value,
+                                           AttributeType type)
+{
+    switch (type) {
+    case AttributeType::Number:
+        return value.is_number() ? std::optional(value) : std::nullopt;
+    case AttributeType::Boolean:
+        return value.is_boolean() ? std::optional(value) : std::nullopt;
+    case AttributeType::String:
+        return value.is_string() ? std::optional(value) : std::nullopt;
+    case AttributeType::Color3:
+        return colorOf(value, 3);
+    case AttributeType::Color4:
+        return colorOf(value, 4);
+    case AttributeType::Glint:
+        return membersOf(value,
+                         {
+                             { "screen_space_scale", AttributeType::Number },
+                             { "log_microfacet_density", AttributeType::Number },
+                             { "microfacet_roughness", AttributeType::Number },
+                             { "density_randomization", AttributeType::Number },
+                         });
+    case AttributeType::Fuzz: {
+        // The color counts only with exactly three numbers.
+        auto fuzz = membersOf(value, { { "texture", AttributeType::Boolean }, { "weight", AttributeType::Number } });
+        if (fuzz && value.contains("color") && value.at("color").is_array() && value.at("color").size() == 3) {
+            if (auto color = colorOf(value.at("color"), 3))
+                (*fuzz)["color"] = std::move(*color);
+        }
+        return fuzz;
+    }
+    case AttributeType::AlphaFlags: {
+        uint16_t flags = 0;
+        return PGMaterialState::unsignedFromJSON(value, flags) ? std::optional(nlohmann::json(flags)) : std::nullopt;
+    }
+    case AttributeType::AlphaThreshold: {
+        uint8_t threshold = 0;
+        return PGMaterialState::unsignedFromJSON(value, threshold) ? std::optional(nlohmann::json(threshold))
+                                                                   : std::nullopt;
+    }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<nlohmann::json> membersOf(const nlohmann::json& value,
+                                        const std::vector<std::pair<const char*,
+                                                                    AttributeType>>& members)
+{
+    if (!value.is_object())
+        return std::nullopt;
+
+    auto result = nlohmann::json::object();
+    for (const auto& [key, type] : members) {
+        if (!value.contains(key))
+            continue;
+
+        if (auto applied = appliedValue(value.at(key), type))
+            result[key] = std::move(*applied);
+    }
+
+    return result;
+}
+
+/// @brief The attributes every entry decides again, whether it has them or not: the shader it asks for, the cubemap
+/// and the slots it locks. What an earlier entry said about them is gone once a later one applies.
+constexpr std::array<const char*, 12> entryDecidedAttributes = {
+    "multilayer",   "hair",        "glint",      "fuzz",     "cubemap",         "lock_cubemap",
+    "lock_diffuse", "lock_normal", "lock_rmaos", "lock_cnr", "lock_subsurface", "subsurface_foliage",
+};
+
+/// @brief The slot locks an entry decides again when it sets the slot's attribute.
+constexpr std::array<std::pair<const char*, const char*>, 2> attributeLocks = {
+    std::pair { "emissive", "lock_emissive" },
+    std::pair { "parallax", "lock_parallax" },
+};
+
+/// @brief The attributes only a multilayer entry applies; their textures, if any, are in the slots either way.
+constexpr std::array<const char*, 8> multilayerAttributes = {
+    "coat_color",   "coat_specular_level", "coat_roughness", "coat_strength",
+    "coat_diffuse", "coat_parallax",       "coat_normal",    "inner_uv_scale",
+};
+
+/// @brief The pairs of attributes that write one shader field: the first one for every entry, the second one for a
+/// multilayer entry, after the first.
+constexpr std::array<std::pair<const char*, const char*>, 2> sharedFieldAttributes = {
+    std::pair { "subsurface_color", "coat_color" },
+    std::pair { "subsurface_opacity", "coat_strength" },
+};
+
+constexpr std::array<const char*, 2> vertexColorMultipliers = { "vertex_color_lum_mult", "vertex_color_sat_mult" };
+
+/// @brief Whether an entry applies one of its material attributes where it has it, beyond the type of its value (the
+/// precedence of the shaders and the slot locks). The alpha property, the vertex color multipliers and the UV scales
+/// have rules of their own, see recordAppliedAttributes().
+bool isAppliedByEntry(const std::string& key,
+                      const nlohmann::json& truePBRData)
+{
+    const bool isMultilayer = isEnabled(truePBRData, "multilayer");
+    if (std::ranges::find(multilayerAttributes, key) != multilayerAttributes.end())
+        return isMultilayer;
+
+    // The patch applies one of multilayer, glint and fuzz, in that order.
+    if (key == "glint")
+        return !isMultilayer;
+
+    if (key == "fuzz") {
+        const auto glint = truePBRData.find("glint");
+        return !isMultilayer && (glint == truePBRData.end() || !glint->is_object());
+    }
+
+    if (key == "cubemap")
+        return !isEnabled(truePBRData, "lock_cubemap");
+
+    if (key == "parallax")
+        return !isEnabled(truePBRData, "lock_parallax");
+
+    return true;
+}
+
+/**
+ * @brief Adds the attributes one entry applies to a shape to those of the entries applied to it before, see
+ * PatcherMeshShaderTruePBR::AppliedAttributes. Before the entry is applied: the shape is as the earlier entries left
+ * it.
+ */
+void recordAppliedAttributes(nlohmann::json& attributes,
+                             const nlohmann::json& truePBRData,
+                             const nifly::NifFile& nif,
+                             nifly::NiShape& shape)
+{
+    // A shape's first entry finds nothing collected yet.
+    if (!attributes.is_object())
+        attributes = nlohmann::json::object();
+
+    for (const auto* const key : entryDecidedAttributes)
+        attributes.erase(key);
+
+    const auto& types = materialAttributeTypes();
+    const auto applied = [&truePBRData, &types](const char* key) -> std::optional<nlohmann::json> {
+        const auto value = truePBRData.find(key);
+        if (value == truePBRData.end() || !isAppliedByEntry(key, truePBRData))
+            return std::nullopt;
+
+        return appliedValue(*value, types.at(key));
+    };
+
+    for (const auto& [attribute, lock] : attributeLocks)
+        if (applied(attribute))
+            attributes.erase(lock);
+
+    // The material attributes with the value the patch applies, those with rules of their own below.
+    for (const auto& [key, type] : types) {
+        if (key.starts_with("alphaprop_") || key == "uv_scale"
+            || std::ranges::find(vertexColorMultipliers, key) != vertexColorMultipliers.end()) {
+            continue;
+        }
+
+        if (auto value = applied(key.c_str()))
+            attributes[key] = std::move(*value);
+    }
+
+    // An attribute of a pair an earlier entry set says what the field holds after this entry.
+    for (const auto& [first, second] : sharedFieldAttributes) {
+        const bool didWriteFirst = applied(first).has_value();
+        const bool didWriteSecond = applied(second).has_value();
+        if (didWriteSecond && !didWriteFirst && attributes.contains(first))
+            attributes[first] = attributes[second];
+        else if (didWriteFirst && !didWriteSecond && attributes.contains(second))
+            attributes[second] = attributes[first];
+    }
+
+    // The alpha property. alphaprop_delete removes it, and the entry's other alpha attributes do nothing then; both
+    // booleans act only when on, and a shape without a property gets one only with alphaprop_create.
+    if (isEnabled(truePBRData, "alphaprop_delete")) {
+        for (const auto* const key : { "alphaprop_create", "alphaprop_flags", "alphaprop_thresh" })
+            attributes.erase(key);
+        attributes["alphaprop_delete"] = true;
+    } else if (shape.AlphaPropertyRef()) {
+        const bool hasProperty = nif.GetAlphaProperty(&shape) != nullptr;
+        if (!hasProperty && isEnabled(truePBRData, "alphaprop_create")) {
+            attributes.erase("alphaprop_delete");
+            attributes["alphaprop_create"] = true;
+        }
+
+        if (hasProperty || isEnabled(truePBRData, "alphaprop_create")) {
+            for (const auto* const key : { "alphaprop_flags", "alphaprop_thresh" })
+                if (auto value = applied(key))
+                    attributes[key] = std::move(*value);
+        }
+    }
+
+    // Each vertex color multiplier applies to the colors the previous one left, on a shape that has vertex colors once
+    // the entry's vertex_colors applied and keeps them in its vertex data.
+    const auto vertexColors = truePBRData.find("vertex_colors");
+    const bool hasVertexColors = vertexColors != truePBRData.end() && vertexColors->is_boolean()
+        ? vertexColors->get<bool>()
+        : shape.HasVertexColors();
+    if (hasVertexColors && dynamic_cast<const nifly::BSTriShape*>(&shape)) {
+        for (const auto* const key : vertexColorMultipliers) {
+            const auto value = truePBRData.find(key);
+            if (value == truePBRData.end() || !value->is_number())
+                continue;
+
+            const auto previous = attributes.find(key);
+            attributes[key] = previous != attributes.end()
+                ? nlohmann::json(previous->get<double>() * value->get<double>())
+                : *value;
+        }
+    }
+
+    // An entry's UV scale replaces the one before it; the patch applies its uv_scale after its auto_uv.
+    for (const auto* const key : { "auto_uv", "uv_scale" }) {
+        const auto value = truePBRData.find(key);
+        if (value == truePBRData.end() || !value->is_number())
+            continue;
+
+        attributes.erase("auto_uv");
+        attributes.erase("uv_scale");
+        attributes[key] = *value;
+    }
 }
 
 } // namespace
@@ -643,6 +969,10 @@ void PatcherMeshShaderTruePBR::applyPatch(PGTypes::TextureSet& slots,
         // Apply one patch.
         auto truePBRData = std::get<0>(data);
         const auto matchedPath = std::get<1>(data);
+        if (s_appliedAttributes) {
+            // Recorded first: an entry that deletes the shape is still an entry applied to it.
+            recordAppliedAttributes(s_appliedAttributes->m_attributes[&nifShape], truePBRData, *nif(), nifShape);
+        }
         applyOnePatch(&nifShape, truePBRData, matchedPath, slots);
 
         if (nif()->GetBlockID(&nifShape) == nifly::NIF_NPOS) {
@@ -1240,6 +1570,79 @@ bool PatcherMeshShaderTruePBR::enableTruePBROnShape(nifly::NiShader* nifShader,
     }
 
     return isChanged;
+}
+
+PatcherMeshShaderTruePBR::AppliedAttributes::AppliedAttributes()
+    : m_previous(s_appliedAttributes)
+{
+    s_appliedAttributes = this;
+}
+
+PatcherMeshShaderTruePBR::AppliedAttributes::~AppliedAttributes() { s_appliedAttributes = m_previous; }
+
+const nlohmann::json* PatcherMeshShaderTruePBR::AppliedAttributes::of(const nifly::NiShape& shape) const
+{
+    const auto it = m_attributes.find(&shape);
+    return it == m_attributes.end() ? nullptr : &it->second;
+}
+
+nlohmann::json PatcherMeshShaderTruePBR::material(const nifly::NifFile& nif,
+                                                  nifly::NiShape& nifShape,
+                                                  const PGTypes::TextureSet& slots,
+                                                  const nlohmann::json& attributes)
+{
+    // Community Shaders loads a lighting shader with the PBR flag as PBR, nothing else.
+    const auto* const shader = dynamic_cast<const nifly::BSLightingShaderProperty*>(nif.GetShader(&nifShape));
+    if (!shader || !PGNIFUtil::hasShaderFlag(shader, nifly::SLSF2_UNUSED01))
+        return nullptr;
+
+    nlohmann::json result = nlohmann::json::object();
+    result["shader_type"] = "pbr";
+
+    // The attributes of the applied entries as the configs give them, those with a value the patch applies.
+    const auto& types = materialAttributeTypes();
+    for (const auto& [key, value] : attributes.items()) {
+        const auto type = types.find(key);
+        if (type == types.end())
+            continue;
+
+        if (auto applied = appliedValue(value, type->second))
+            result[key] = std::move(*applied);
+    }
+
+    // A product of vertex color multipliers as the float the patch used; one past the range of a float applied none.
+    for (const auto* const key : vertexColorMultipliers) {
+        if (!result.contains(key) || !result[key].is_number_float())
+            continue;
+
+        const auto product = result[key].get<double>();
+        if (std::abs(product) <= std::numeric_limits<float>::max())
+            result[key] = jsonNumber(static_cast<float>(product));
+        else
+            result.erase(key);
+    }
+
+    // The UV scale auto_uv computed from the geometry, for both directions as uv_scale gives it.
+    const auto autoUV = attributes.find("auto_uv");
+    if (!result.contains("uv_scale") && autoUV != attributes.end() && autoUV->is_number()
+        && std::isfinite(shader->uvScale.u)) {
+        result["uv_scale"] = jsonNumber(shader->uvScale.u);
+    }
+
+    // The textures as the slot attributes take them, relative to the textures folder.
+    const std::wstring texturesPrefix = L"textures\\";
+    for (std::size_t slot = 0; slot < numTextureSlots - 1; slot++) {
+        const auto& path = slots.at(slot);
+        if (path.empty())
+            continue;
+
+        const bool hasPrefix = path.size() > texturesPrefix.size()
+            && StringUtil::asciiFastIEquals(path.substr(0, texturesPrefix.size()), texturesPrefix);
+        result["slot" + std::to_string(slot + 1)]
+            = StringUtil::utf16toUTF8(hasPrefix ? path.substr(texturesPrefix.size()) : path);
+    }
+
+    return result;
 }
 
 //
