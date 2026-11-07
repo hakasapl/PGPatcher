@@ -180,6 +180,12 @@ bool PGPatcher::processNIFShape(nifly::NifFile* nif,
     if (!nifShape)
         throw std::runtime_error("NIFShape is null");
 
+    // Mod authors opt a shape out of PG with PG_IGNORE, so no step below may change it, its alternate texture included.
+    if (PGNIFUtil::isUntouchableShape(*nif, *nifShape)) {
+        Logger::trace(L"Skipping: Shape is ignored or cannot change without changing an ignored shape");
+        return true;
+    }
+
     // A shader other shapes share is copied for this shape before any patcher writes it, see PGNIFUtil.
     PGNIFUtil::unshareShader(*nif, *nifShape);
 

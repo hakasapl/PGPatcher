@@ -748,6 +748,8 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
 
     // "delete" attribute.
     if (truePBRData.contains("delete") && truePBRData["delete"].is_boolean() && truePBRData["delete"]) {
+        // nifly deletes the alpha property of a deleted shape even when another shape, maybe an ignored one, uses it.
+        PGNIFUtil::deleteAlphaProperty(*nif(), *nifShape);
         nif()->DeleteShape(nifShape);
         isChanged = true;
         return isChanged;

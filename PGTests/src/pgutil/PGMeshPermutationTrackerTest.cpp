@@ -604,6 +604,31 @@ TEST_F(PGMeshPermutationTrackerTest,
 }
 
 TEST_F(PGMeshPermutationTrackerTest,
+       RecalculatedBoundingSpheresLeaveAnIgnoredShapeAlone)
+{
+    const nifly::BoundingSphere stale(nifly::Vector3(500, 500, 500), 1);
+    NIFBuilder builder;
+    auto* ignored = builder.addShape("Ignored", stoneTextures());
+    ignored->SetBounds(stale);
+    builder.addBooleanExtraData(ignored, "PG_IGNORE", true);
+    builder.addShape("Patched", stoneTextures())->SetBounds(stale);
+
+    PGMeshPermutationTracker tracker(meshPath);
+    tracker.load(std::make_shared<nifly::NifFile>(builder.nif()), 0);
+    stageWithTexture(tracker, "textures\\a\\patched.dds", 1);
+    ASSERT_EQ(tracker.commitMesh(s_useA, false, { }, { 0, 1 }), CommitResult::Added);
+    tracker.saveMeshes(true, false);
+    waitForFiles();
+
+    const auto saved = PGNIFUtil::loadNIFFromBytes(FileUtil::fileBytes(outDir() / meshPath));
+    ASSERT_EQ(saved.GetShapes().size(), 2U);
+    for (auto* const shape : saved.GetShapes()) {
+        const float expectedCenter = shape->name.get() == "Ignored" ? 500 : 0.5F;
+        EXPECT_NEAR(shape->GetBounds().center.x, expectedCenter, 1e-3F) << shape->name.get();
+    }
+}
+
+TEST_F(PGMeshPermutationTrackerTest,
        SavedMeshesGetTheirBoundingSpheresRecalculatedWhenAsked)
 {
     NIFBuilder builder;
