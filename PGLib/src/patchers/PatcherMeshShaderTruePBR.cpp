@@ -57,6 +57,31 @@ bool isEnabled(const nlohmann::json& truePBRData,
     return it != truePBRData.end() && it->is_boolean() && it->get<bool>();
 }
 
+/**
+ * @brief Finds a key of a PBR entry that has to hold a string but holds something else. These keys decide which shapes
+ * the entry applies to and which textures it points them to, so an entry with one of another type cannot be used.
+ * @return The first such key, or an empty string if there is none.
+ */
+std::string nonStringSelectorKey(const nlohmann::json& entry)
+{
+    const auto isNonString = [&entry](const std::string& key) {
+        const auto it = entry.find(key);
+        return it != entry.end() && !it->is_string();
+    };
+
+    for (const auto* key : { "texture", "match_diffuse", "match_normal", "path_contains", "nif_filter", "rename" })
+        if (isNonString(key))
+            return key;
+
+    for (unsigned slot = 1; slot < numTextureSlots; slot++) {
+        auto key = "match" + std::to_string(slot);
+        if (isNonString(key))
+            return key;
+    }
+
+    return { };
+}
+
 } // namespace
 
 PatcherMeshShaderTruePBR::PatcherMeshShaderTruePBR(std::filesystem::path nifPath,
@@ -226,11 +251,35 @@ void PatcherMeshShaderTruePBR::loadStatics(const std::vector<std::filesystem::pa
         }
 
         // Loop through each Element.
+        size_t entryNumber = 0;
         for (auto& element : jEntries) {
+            entryNumber++;
+
+            // An entry of another type cannot take the defaults or the fields added below.
+            if (!element.is_object()) {
+                Logger::warn(L"Skipping entry {} of PBR json \"{}\": the entry is not an object ({})",
+                             entryNumber,
+                             config.wstring(),
+                             StringUtil::utf8toUTF16(element.type_name()));
+                continue;
+            }
+
             // Merge defaults with element.
             for (const auto& [key, value] : jDefaults.items())
                 if (!element.contains(key))
                     element[key] = value;
+
+            // The lookup tables and the matching read these keys as strings, so the entry is skipped rather than
+            // matched in a way it does not ask for.
+            const auto nonStringKey = nonStringSelectorKey(element);
+            if (!nonStringKey.empty()) {
+                Logger::warn(L"Skipping entry {} of PBR json \"{}\": \"{}\" is not a string ({})",
+                             entryNumber,
+                             config.wstring(),
+                             StringUtil::utf8toUTF16(nonStringKey),
+                             StringUtil::utf8toUTF16(element[nonStringKey].type_name()));
+                continue;
+            }
 
             // Preprocessing steps here.
             if (element.contains("texture"))
@@ -1113,9 +1162,9 @@ bool PatcherMeshShaderTruePBR::enableTruePBROnShape(nifly::NiShader* nifShader,
         isChanged |= PGNIFUtil::setShaderFlag(nifShaderBSLSP, nifly::SLSF2_MULTI_LAYER_PARALLAX);
 
         // "coat_color" attribute.
-        if (truePBRData.contains("coat_color") && truePBRData["coat_color"].size() >= 3
-            && truePBRData["coat_color"][0].is_number() && truePBRData["coat_color"][1].is_number()
-            && truePBRData["coat_color"][2].is_number()) {
+        if (truePBRData.contains("coat_color") && truePBRData["coat_color"].is_array()
+            && truePBRData["coat_color"].size() >= 3 && truePBRData["coat_color"][0].is_number()
+            && truePBRData["coat_color"][1].is_number() && truePBRData["coat_color"][2].is_number()) {
             const auto newCoatColor = nifly::Vector3(truePBRData["coat_color"][0].get<float>(),
                                                      truePBRData["coat_color"][1].get<float>(),
                                                      truePBRData["coat_color"][2].get<float>());
