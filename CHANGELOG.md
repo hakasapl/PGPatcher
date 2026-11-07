@@ -2,18 +2,17 @@
 
 ## UNRELEASED
 
-- [PGPatcher] Fixed the conflict manager not noticing unsaved changes to the mod list (order, enabled, Ignore Meshes): Apply and Discard Changes stayed disabled, closing it did not ask to discard them, and a cancelled change came back the next time it was opened
-- [PGLite] Added the `pgblock` and `pgallow` console commands to block selected meshes quicker
+- [PGPatcher] Fixed the conflict manager not noticing unsaved changes to the mod list (order, enabled, Ignore Meshes)
 - [PGPatcher] BodySlide ShapeData meshes are only patched with the new "Patch BodySlide ShapeData" processing option
-- [PGLite] Ignore Meshes also leaves the facegen heads of the mod unpatched, as PGPatcher does
 - [PGPatcher] Renamed the PGLite Mode processing option to "Generate DynDOLOD Files" and locked it behind PBR being enabled
-- [PGPatcher] "Recalculate Bounds" no longer replaces the bounding sphere of a mesh when it already holds every vertex and fits them closely, and a sphere it does replace is centered on the middle of the mesh; a sphere moved to the edge of a wall made it invisible in some places in game
-- [Common] Fixed Ignore Meshes not applying to the meshes a Vortex mod ships in a BSA, and Vortex mods that only ship BSAs missing from the conflict manager
-- [PGLite] Added `PGLite_Open`, `PGLite_Close`, `PGLite_IsMenuOpen` and `PGLite_SetHotkeyEnabled` DLL exports so Risa's All In One Menu can open and close the PGLite menu with its own hotkeys
-- [Common] Fixed a possible crash when a PBR JSON entry with `"delete": true` removed a shape that a later entry of the same JSON also matched: the later entry was still applied to the deleted shape, and could change the shader it shared with another shape
-- [PGLite] Fixed enabling PGLite with Apply in a session that started with it disabled: the Apply failed with "Fix Vanilla Subsurface Scattering" or "Upgrade Parallax to Complex Material" on, and no mesh was patched with the parallax or complex material patcher on
-- [Common] Fixed `PG_IGNORE` only keeping the shader patchers away: a shape with the marker now comes out exactly as the mesh shipped it, without pre or post patches, stock markers, a recalculated bounding sphere or changes to its alternate textures. A shape that cannot change without changing such a shape, such as one on the same animated shader, is left alone as well
-- [Common] Fixed a crash when a PBR JSON entry has a `texture`, `match_*`, `path_contains`, `nif_filter` or `rename` value that is not a string, or is not an object itself: the entry is skipped with a warning naming the JSON. A `coat_color` that is not an array is ignored like the other colors
+- [PGPatcher] Fixed "Recalculate Bounds" patcher making some meshes turn invisible
+- [PGLite] Added the `pgblock` and `pgallow` console commands to block selected meshes quicker
+- [PGLite] Ignore Meshes now also leaves the facegen heads of the mod unpatched, as PGPatcher does
+- [PGLite] Added `PGLite_Open`, `PGLite_Close`, `PGLite_IsMenuOpen` and `PGLite_SetHotkeyEnabled` DLL exports
+- [PGLite] Fixed certain patchers breaking after enabling PGLite with Apply in a session that started with it disabled
+- [Common] Fixed a possible crash when a PBR JSON entry with `"delete": true` removed a shape that a later entry of the same JSON also matched
+- [Common] Fixed `PG_IGNORE` only keeping the shader patchers away, those shapes will never be touched by any patcher now
+- [Common] Fixed a crash when a PBR JSON entry has a `texture`, `match_*`, `path_contains`, `nif_filter` or `rename` value that is the wrong type
 
 ## [2.3.1] - 2026-10-19
 
