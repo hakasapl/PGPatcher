@@ -216,6 +216,70 @@ TEST_F(PatcherMeshShaderTruePBRTest,
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
+       EntriesWithAKeyOfTheWrongTypeAreSkippedWithAWarning)
+{
+    // Every entry but the last is not an object or has a key that selects shapes or textures with a value of another
+    // type. Each of them used to throw, while loading or while matching the first shape.
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\types.json", R"([
+  {"match_diffuse": 5},
+  {"texture": ["a\\stone"]},
+  {"match_normal": true, "specular_level": 0.3},
+  {"path_contains": 5},
+  {"match1": {"path": "a\\exact.dds"}},
+  {"texture": "a\\stone", "nif_filter": 5},
+  {"texture": "a\\stone", "rename": null},
+  5,
+  "a\\stone",
+  {"texture": "a\\stone", "specular_level": 0.5}
+])");
+    // The defaults are merged into an entry before it is checked, and the values of an object holding the entries are
+    // the entries.
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\defaults.json",
+                        R"({"default": {"path_contains": 5}, "entries": [{"texture": "c\\metal"}]})");
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\entries.json",
+                        R"({"default": {}, "entries": {"texture": "c\\cloth"}})");
+    m_pgd->populateFileMap(false, false);
+    ASSERT_NO_THROW(PatcherMeshShaderTruePBR::loadStatics(
+        { L"pbrnifpatcher\\types.json", L"pbrnifpatcher\\defaults.json", L"pbrnifpatcher\\entries.json" }, false));
+
+    const auto& configs = PatcherMeshShaderTruePBR::truePBRConfigs();
+    ASSERT_EQ(configs.size(), 1U);
+    EXPECT_EQ(configs.at(0)["specular_level"], 0.5);
+    EXPECT_EQ(PatcherMeshShaderTruePBR::truePBRDiffuseInverse().size(), 1U);
+    EXPECT_TRUE(PatcherMeshShaderTruePBR::truePBRNormalInverse().empty());
+    EXPECT_TRUE(PatcherMeshShaderTruePBR::pathLookupJSONs().empty());
+    EXPECT_TRUE(PatcherMeshShaderTruePBR::truePBRMatchXMap().empty());
+
+    // The warning names the file, the position of the entry in it and the key.
+    for (const auto* message : {
+             R"(Skipping entry 1 of PBR json "pbrnifpatcher\types.json": "match_diffuse" is not a string (number))",
+             R"(Skipping entry 2 of PBR json "pbrnifpatcher\types.json": "texture" is not a string (array))",
+             R"(Skipping entry 3 of PBR json "pbrnifpatcher\types.json": "match_normal" is not a string (boolean))",
+             R"(Skipping entry 4 of PBR json "pbrnifpatcher\types.json": "path_contains" is not a string (number))",
+             R"(Skipping entry 5 of PBR json "pbrnifpatcher\types.json": "match1" is not a string (object))",
+             R"(Skipping entry 6 of PBR json "pbrnifpatcher\types.json": "nif_filter" is not a string (number))",
+             R"(Skipping entry 7 of PBR json "pbrnifpatcher\types.json": "rename" is not a string (null))",
+             R"(Skipping entry 8 of PBR json "pbrnifpatcher\types.json": the entry is not an object (number))",
+             R"(Skipping entry 9 of PBR json "pbrnifpatcher\types.json": the entry is not an object (string))",
+             R"(Skipping entry 1 of PBR json "pbrnifpatcher\defaults.json": "path_contains" is not a string (number))",
+             R"(Skipping entry 1 of PBR json "pbrnifpatcher\entries.json": the entry is not an object (string))",
+         }) {
+        EXPECT_TRUE(TestLog::contains(spdlog::level::warn, message)) << message;
+    }
+    EXPECT_EQ(TestLog::count(spdlog::level::warn, "Skipping entry"), 11U);
+
+    // Only the valid entry matches, and matching no longer throws.
+    PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
+    const auto matches = matchesFor(patcher, slots(L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds"));
+    ASSERT_EQ(matches.size(), 1U);
+    ASSERT_EQ(entriesOf(matches[0]).size(), 1U);
+    EXPECT_EQ(entriesOf(matches[0])[0]["specular_level"], 0.5);
+    EXPECT_TRUE(matchesFor(patcher, slots(L"textures\\a\\exact.dds")).empty());
+    EXPECT_TRUE(matchesFor(patcher, slots(L"textures\\c\\metal.dds")).empty());
+    EXPECT_TRUE(matchesFor(patcher, slots(L"textures\\c\\cloth.dds")).empty());
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
        EntriesMatchByDiffuseNormalPathAndSlot)
 {
     PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
@@ -452,6 +516,32 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
     EXPECT_FLOAT_EQ(m_shader->glossiness, 0.2F);
     EXPECT_TRUE(metal[3].empty()); // parallax false from the defaults
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
+       ACoatColorThatIsNotAnArrayIsIgnored)
+{
+    // An object with three members passes the size check of the coat color.
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\coat.json",
+                        R"([{"texture": "a\\stone", "multilayer": true, "coat_color": {"r": 1, "g": 0, "b": 0},
+                             "coat_strength": 0.7}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\coat.json" }, false);
+
+    PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
+    const auto stone = slots(L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds");
+    const auto matches = matchesFor(patcher, stone);
+    ASSERT_EQ(matches.size(), 1U);
+    const auto specularColor = m_shader->specularColor;
+    auto patched = stone;
+    EXPECT_NO_THROW(patcher.applyPatch(patched, *m_shape, matches[0]));
+
+    // The rest of the entry still applies.
+    EXPECT_EQ(patched[0], L"textures\\pbr\\a\\stone.dds");
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_MULTILAYERPARALLAX);
+    EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_MULTI_LAYER_PARALLAX));
+    EXPECT_EQ(m_shader->specularColor, specularColor);
+    EXPECT_FLOAT_EQ(m_shader->softlighting, 0.7F); // coat strength
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
