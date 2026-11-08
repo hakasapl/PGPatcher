@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+## [2.4.0] - 2026-11-08
+
 - [PGPatcher] Fixed the conflict manager not noticing unsaved changes to the mod list (order, enabled, Ignore Meshes)
 - [PGPatcher] BodySlide ShapeData meshes are only patched with the new "Patch BodySlide ShapeData" processing option
 - [PGPatcher] Renamed the PGLite Mode processing option to "Generate DynDOLOD Files" and locked it behind PBR being enabled
