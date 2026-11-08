@@ -114,7 +114,7 @@
       "title": "全局补丁",
       "recalculateBounds": {
         "label": "重新计算边界",
-        "tooltip": "重新计算 PG 输出的每个网格的边界，以及使用这些网格的树木和草地记录的 OBND，即使这些网格未被输出。TexGen 会读取 OBND 来决定哪些树木和草地获得 LOD 广告牌。会修改插件记录。"
+        "tooltip": "重新计算 PG 输出的网格的边界球（当其不正确时），以及使用这些网格的树木和草地记录的 OBND，即使这些网格未被输出。TexGen 会读取 OBND 来决定哪些树木和草地获得 LOD 广告牌。会修改插件记录。"
       }
     },
     "buttons": {
@@ -149,9 +149,13 @@
         "label": "启用追踪日志",
         "tooltip": "在输出日志中启用追踪日志（非常详细）"
       },
-      "pgliteMode": {
-        "label": "PGLite 模式",
-        "tooltip": "启用后，PGPatcher 只打补丁第三方工具所需的内容"
+      "patchShapeData": {
+        "label": "修补 BodySlide ShapeData",
+        "tooltip": "仅当你希望在 Outfit Studio 中查看打补丁后的形态时才需要启用，游戏本身不需要"
+      },
+      "generateDynDOLOD": {
+        "label": "生成 DynDOLOD 文件",
+        "tooltip": "生成 DynDOLOD 生成过程所需的文件（仅 PBR 用户需要）"
       }
     },
     "browse": {
@@ -455,6 +459,16 @@
       "allowlist": "如果此处存在任何规则，则只有匹配规则的网格才会被打补丁。输入网格路径，如 \"meshes/armor/helmet.nif\"，或使用通配符（* 为通配符）将整个文件夹/文件加入白名单。右键单击可添加/删除条目。",
       "blocklist": "匹配此处规则的网格将不会被打补丁。输入网格路径，如 \"meshes/armor/helmet.nif\"，或使用通配符（* 为通配符）将整个文件夹/文件加入黑名单。右键单击可添加/删除条目。"
     },
+    "console": {
+      "blockHelp": "将所选对象的网格加入 PGLite 网格黑名单",
+      "allowHelp": "将所选对象的网格从 PGLite 网格黑名单中移除",
+      "noMesh": "未选中带网格的对象。请在控制台打开时点击一个对象，然后再次运行该命令。",
+      "blocked": "已将 %s 加入 PGLite 网格黑名单。在 PGLite 菜单中按“应用”或下次启动游戏后生效。",
+      "allowed": "已将 %s 从 PGLite 网格黑名单中移除。在 PGLite 菜单中按“应用”或下次启动游戏后生效。",
+      "alreadyBlocked": "%s 已在 PGLite 网格黑名单中。",
+      "notBlocked": "%s 在 PGLite 网格黑名单中没有单独的规则。",
+      "notWritten": "无法写入 PGLite 设置，请查看日志。黑名单未更改。"
+    },
     "textureRules": {
       "description": "当自动检测出错时（极少发生），可用此功能告诉 PGLite 某张贴图的类型。输入贴图的完整路径，如 \"textures/armor/helmet.dds\"，然后选择贴图类型。此处不支持通配符。将贴图设为 \"unknown\" 可将其忽略。"
     },
@@ -480,7 +494,7 @@
       "notice": "PGLite 已禁用，原因：%s。",
       "addressLibraryMissing": "缺少适用于此游戏版本的 Address Library（%s）",
       "noMessaging": "SKSE 消息接口不可用",
-      "offlineOutput": "加载顺序中存在未以 PGLite 模式生成的离线 PGPatcher 输出；请启用 PGLite 模式后重新生成，或禁用该 Mod",
+      "offlineOutput": "加载顺序中存在未启用“生成 DynDOLOD 文件”选项生成的离线 PGPatcher 输出；请启用该选项后重新生成，或禁用该 Mod",
       "autoParallax": "已安装 Auto Parallax，它会修改相同的材质",
       "noShaderFramework": "既未加载 Community Shaders 也未加载 ENB，而打补丁后的材质需要其中之一",
       "initializationFailed": "其初始化失败：%s",
