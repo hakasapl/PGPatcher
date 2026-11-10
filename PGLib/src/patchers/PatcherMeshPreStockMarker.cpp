@@ -173,8 +173,10 @@ void PatcherMeshPreStockMarker::removeEmptyMarkers(nifly::NifFile& nif)
         uint32_t position = 0;
         for (const auto& extraDataRef : nifShape->extraDataRefs) {
             const auto* const block = dynamic_cast<nifly::NiStringExtraData*>(nif.GetHeader().GetBlock(extraDataRef));
-            if (block && block->name == extraDataName && block->stringData.get().empty())
+            if (block && block->name == extraDataName && block->stringData.get().empty()
+                && !PGNIFUtil::isUntouchableShape(nif, *nifShape)) {
                 emptyMarkers.emplace_back(extraDataRef.index, nifShape, position);
+            }
 
             position++;
         }
@@ -328,6 +330,10 @@ size_t PatcherMeshPreStockMarker::markPatchedShapes(nifly::NifFile& stockNif,
 
         matchedShapes.insert(patchedShape);
 
+        // Nothing is written to a shape PG has to leave as it is.
+        if (PGNIFUtil::isUntouchableShape(patchedNif, *patchedShape))
+            continue;
+
         const auto differences = diffStock(patchedNif, *patchedShape, captureStock(stockNif, *stockShape));
         if (isEmptyStock(differences)) {
             // A stale block from an earlier run has nothing to say anymore.
@@ -407,16 +413,14 @@ bool PatcherMeshPreStockMarker::restoreStock(nifly::NifFile& nif,
     // Texture set. It is only restored while the slots the patchers see mirror it, which they do not when the plugin
     // use has an alternate texture for this shape: that one is patched in its own right. A texture set other shapes
     // share is copied for this shape before its textures change, so they keep their textures (see PGNIFUtil); the
-    // slot count is changed in place for every sharer.
-    auto* const textureSet = textureSetOf(nif, shader);
+    // slot count changes for every sharer but an ignored shape.
+    const auto* const textureSet = textureSetOf(nif, shader);
     if (textureSet && slots == PGNIFUtil::textureSlots(&nif, &nifShape)) {
         // The count comes from mod authored JSON, so it is bounded before it drives an allocation.
         const auto textureCountIt = stock.find(keyTextureCount);
         if (textureCountIt != stock.end() && textureCountIt->is_number_unsigned()
-            && textureCountIt->get<uint64_t>() <= numTextureSlots
-            && textureCountIt->get<unsigned>() != static_cast<unsigned>(textureSet->textures.size())) {
-            textureSet->textures.resize(textureCountIt->get<unsigned>());
-            isChanged = true;
+            && textureCountIt->get<uint64_t>() <= numTextureSlots) {
+            isChanged |= PGNIFUtil::setTextureSlotCount(nif, nifShape, textureCountIt->get<unsigned>());
         }
 
         const auto texturesIt = stock.find(keyTextures);

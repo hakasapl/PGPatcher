@@ -318,7 +318,7 @@ private:
     /**
      * @brief Patches one shape: a shader shared with other shapes is copied for it, then pre patchers, the winning
      * shader match (first enabled match of matches()) with its transform, post patchers, then the texture set is
-     * written back
+     * written back. A shape PGNIFUtil::isUntouchableShape() reports keeps its blocks and its alternate texture.
      *
      * @param nif mesh the shape belongs to
      * @param nifShape shape to patch

@@ -380,7 +380,7 @@ auto PGMeshPermutationTracker::serializeMeshes(const bool& shouldUpdateBounds,
         // every staged copy would.
         if (shouldUpdateBounds) {
             for (auto* shape : mesh.GetShapes())
-                if (PGNIFUtil::hasVertexPositions(shape))
+                if (PGNIFUtil::hasVertexPositions(shape) && !PGNIFUtil::isUntouchableShape(mesh, *shape))
                     recalculateBoundingSphere(mesh, shape);
         }
 

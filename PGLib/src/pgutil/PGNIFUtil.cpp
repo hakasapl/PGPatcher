@@ -382,6 +382,46 @@ nifly::BSShaderTextureSet* unshareTextureSet(nifly::NifFile& nif,
     return unshareBlock(nif.GetHeader(), *shader->TextureSetRef());
 }
 
+/// @brief Checks whether two references point at the same block
+template<typename T>
+bool isSameBlock(const nifly::NiBlockRef<T>* refA,
+                 const nifly::NiBlockRef<T>* refB)
+{
+    return refA != nullptr && refB != nullptr && !refA->IsEmpty() && refA->index == refB->index;
+}
+
+/// @brief Checks whether changing a shape would change an ignored shape, see PGNIFUtil::isUntouchableShape()
+bool isTiedToShape(const nifly::NiHeader& header,
+                   nifly::NiShape& nifShape,
+                   nifly::NiShape& ignoredShape)
+{
+    if (isSameBlock(nifShape.DataRef(), ignoredShape.DataRef())
+        || isSameBlock(nifShape.SkinInstanceRef(), ignoredShape.SkinInstanceRef())) {
+        return true;
+    }
+
+    for (const auto& extraDataRef : nifShape.extraDataRefs) {
+        const auto isSameExtraData = [&extraDataRef](const auto& ref) { return ref.index == extraDataRef.index; };
+        if (std::ranges::any_of(ignoredShape.extraDataRefs, isSameExtraData))
+            return true;
+    }
+
+    if (isSameBlock(nifShape.ShaderPropertyRef(), ignoredShape.ShaderPropertyRef())) {
+        const auto* const shader
+            = header.GetBlock<nifly::BSLightingShaderProperty>(nifShape.ShaderPropertyRef()->index);
+        if (!shader || header.GetBlock(shader->controllerRef))
+            return true;
+    }
+
+    if (isSameBlock(nifShape.AlphaPropertyRef(), ignoredShape.AlphaPropertyRef())) {
+        const auto* const alphaProperty = header.GetBlock(*nifShape.AlphaPropertyRef());
+        if (alphaProperty && header.GetBlock(alphaProperty->controllerRef))
+            return true;
+    }
+
+    return false;
+}
+
 /// @brief Adds blocks, and every block they reach through their references, to a set
 ///
 /// Scene graph blocks (nodes and shapes) are never reached: a property tree does not contain them, so a reference to
@@ -631,6 +671,31 @@ bool PGNIFUtil::setTextureSlots(nifly::NifFile* nif,
     return true;
 }
 
+bool PGNIFUtil::setTextureSlotCount(nifly::NifFile& nif,
+                                    nifly::NiShape& nifShape,
+                                    uint32_t slotCount)
+{
+    const auto* const shader = nif.GetShader(&nifShape);
+    if (!shader || !shader->TextureSetRef())
+        return false;
+
+    auto* textureSet = nif.GetHeader().GetBlock(*shader->TextureSetRef());
+    if (!textureSet || textureSet->textures.size() == slotCount)
+        return false;
+
+    const auto isOnIgnoredShape = [&nif, textureSetID = shader->TextureSetRef()->index](nifly::NiShape* shape) {
+        const auto* const curShader = nif.GetShader(shape);
+        return curShader != nullptr && curShader->TextureSetRef() != nullptr
+            && curShader->TextureSetRef()->index == textureSetID && isIgnoredShape(nif, *shape);
+    };
+
+    if (std::ranges::any_of(nif.GetShapes(), isOnIgnoredShape))
+        textureSet = unshareTextureSet(nif, nifShape);
+
+    textureSet->textures.resize(slotCount);
+    return true;
+}
+
 std::string PGNIFUtil::textureSlot(const nifly::NifFile* nif,
                                    nifly::NiShape* nifShape,
                                    const PGEnums::TextureSlots& slot)
@@ -837,7 +902,35 @@ bool PGNIFUtil::isPatchableShape(const nifly::NifFile& nif,
     return nifShader != nullptr;
 }
 
-bool PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
+bool PGNIFUtil::isIgnoredShape(const nifly::NifFile& nif,
+                               nifly::NiShape& nifShape)
+{
+    // Check if PG_IGNORE is set on shader or shape.
+    const auto checkIgnoreFlag = [&nif](auto& extraDataRefs) {
+        return std::ranges::any_of(extraDataRefs, [&nif](const auto& extraDataRef) {
+            auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
+            const auto* const booleanBlock = dynamic_cast<nifly::NiBooleanExtraData*>(curBlock);
+            return booleanBlock != nullptr && booleanBlock->name == "PG_IGNORE" && booleanBlock->booleanData;
+        });
+    };
+
+    auto* const nifShader = nif.GetShader(&nifShape);
+    return checkIgnoreFlag(nifShape.extraDataRefs)
+        || (nifShader != nullptr && checkIgnoreFlag(nifShader->extraDataRefs));
+}
+
+bool PGNIFUtil::isUntouchableShape(const nifly::NifFile& nif,
+                                   nifly::NiShape& nifShape)
+{
+    if (isIgnoredShape(nif, nifShape))
+        return true;
+
+    return std::ranges::any_of(nif.GetShapes(), [&nif, &nifShape](nifly::NiShape* shape) {
+        return shape != &nifShape && isIgnoredShape(nif, *shape) && isTiedToShape(nif.GetHeader(), nifShape, *shape);
+    });
+}
+
+bool PGNIFUtil::isShaderPatchableShape(const nifly::NifFile& nif,
                                        nifly::NiShape& nifShape)
 {
     const std::string shapeBlockName = nifShape.GetBlockName();
@@ -855,18 +948,7 @@ bool PGNIFUtil::isShaderPatchableShape(nifly::NifFile& nif,
     if (!nifShader->HasTextureSet())
         return false;
 
-    // Check if PG_IGNORE is set on shader or shape.
-    const auto checkIgnoreFlag = [&nif](auto& extraDataRefs) {
-        for (const auto& extraDataRef : extraDataRefs) {
-            auto* const curBlock = nif.GetHeader().GetBlock(extraDataRef);
-            const auto* const booleanBlock = dynamic_cast<nifly::NiBooleanExtraData*>(curBlock);
-            if (booleanBlock && booleanBlock->name == "PG_IGNORE" && booleanBlock->booleanData)
-                return true; // PG_IGNORE found and set to true
-        }
-        return false;
-    };
-
-    return !checkIgnoreFlag(nifShader->extraDataRefs) && !checkIgnoreFlag(nifShape.extraDataRefs);
+    return !isIgnoredShape(nif, nifShape);
 }
 
 bool PGNIFUtil::isFacegenMesh(const std::filesystem::path& path)

@@ -231,7 +231,8 @@ public:
      * The first output takes the original path unless ignoreBaseMesh() was called, the others go under
      * _pgpatcher_dups. Each result carries the shape index corrections the plugin needs.
      *
-     * @param shouldUpdateBounds whether to recompute the bounding sphere of every shape of each saved mesh
+     * @param shouldUpdateBounds whether to recompute the bounding sphere of every shape of each saved mesh, except
+     * those PGNIFUtil::isUntouchableShape() reports
      * @param shouldComputeObjectBounds whether to compute the bounding box of each saved mesh
      * (MeshResult::objectBounds)
      * @return The results, and a pair of the original mesh's CRC32 and the CRC32 of the saved base mesh (0 when the
@@ -257,7 +258,8 @@ public:
      * @brief Sorts the blocks of every output mesh and serializes it in memory: the same outputs, index corrections and
      * bytes saveMeshes() writes, without touching the output directory. Call once per tracker.
      *
-     * @param shouldUpdateBounds whether to recompute the bounding sphere of every shape of each output mesh
+     * @param shouldUpdateBounds whether to recompute the bounding sphere of every shape of each output mesh, except
+     * those PGNIFUtil::isUntouchableShape() reports
      * @param shouldComputeObjectBounds whether to compute the bounding box of each output mesh
      * (MeshResult::objectBounds)
      * @return One entry per output mesh, in output order. Empty when a mesh could not be serialized (logged as

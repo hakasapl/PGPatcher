@@ -415,6 +415,30 @@ TEST_F(PatcherMeshPreStockMarkerTest,
 }
 
 TEST_F(PatcherMeshPreStockMarkerTest,
+       AnIgnoredShapeKeepsItsEmptyBlockAndGetsNoBlockFromADiff)
+{
+    m_builder.addBooleanExtraData(m_shape, "PG_IGNORE", true);
+    const auto* const ignoredMarker = m_builder.addStringExtraData(m_shape, Marker::extraDataName, "");
+    auto* plain = m_builder.addShape("Plain", slots(L"textures\\a\\stone.dds"));
+    m_builder.addStringExtraData(plain, Marker::extraDataName, "");
+
+    Marker::removeEmptyMarkers(nif());
+    EXPECT_EQ(Marker::findMarker(nif(), *m_shape), ignoredMarker);
+    EXPECT_EQ(Marker::findMarker(nif(), *plain), nullptr);
+
+    // Both shapes differ from their stock meshes, but only the second one is marked.
+    NIFBuilder stock;
+    stock.addShape("Stone", slots(L"textures\\a\\other.dds"));
+    stock.addShape("Plain", slots(L"textures\\a\\other.dds"));
+    const auto numDataBefore = m_shape->extraDataRefs.GetSize();
+    EXPECT_EQ(Marker::markPatchedShapes(stock.nif(), nif(), L"meshes\\x.nif"), 1U);
+    EXPECT_EQ(m_shape->extraDataRefs.GetSize(), numDataBefore);
+    EXPECT_EQ(Marker::findMarker(nif(), *m_shape), ignoredMarker);
+    EXPECT_TRUE(ignoredMarker->stringData.get().empty());
+    EXPECT_NE(Marker::findMarker(nif(), *plain), nullptr);
+}
+
+TEST_F(PatcherMeshPreStockMarkerTest,
        RestoringASharedTextureSetCopiesItForTheMarkedShape)
 {
     Marker patcher(meshPath, &nif());

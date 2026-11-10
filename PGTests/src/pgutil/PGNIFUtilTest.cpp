@@ -12,6 +12,7 @@
 #include "NifFile.hpp"
 #include "Object3d.hpp"
 #include "Shaders.hpp"
+#include "Skin.hpp"
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -772,7 +773,7 @@ TEST(PGNIFUtilTest,
     builder.addShape("First", stoneTextures());
     builder.addShape("Second");
 
-    auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
+    const auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
     ASSERT_TRUE(loaded.IsValid());
     const auto shapes = loaded.GetShapes();
     ASSERT_EQ(shapes.size(), 2U);
@@ -918,12 +919,140 @@ TEST(PGNIFUtilTest,
     EXPECT_TRUE(PGNIFUtil::isShaderPatchableShape(builder.nif(), *notIgnored));
 
     // The flags survive a round trip through the file format.
-    auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
+    const auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
     const auto shapes = loaded.GetShapes();
     ASSERT_EQ(shapes.size(), 3U);
     EXPECT_FALSE(PGNIFUtil::isShaderPatchableShape(loaded, *shapes[0]));
     EXPECT_FALSE(PGNIFUtil::isShaderPatchableShape(loaded, *shapes[1]));
     EXPECT_TRUE(PGNIFUtil::isShaderPatchableShape(loaded, *shapes[2]));
+}
+
+TEST(PGNIFUtilTest,
+     IsIgnoredShapeChecksTheShapeAndItsShader)
+{
+    NIFBuilder builder;
+    const auto& nif = builder.nif();
+
+    auto* onShape = builder.addShape("OnShape", stoneTextures());
+    builder.addBooleanExtraData(onShape, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isIgnoredShape(nif, *onShape));
+
+    auto* onShader = builder.addShape("OnShader", stoneTextures());
+    builder.addBooleanExtraData(builder.lightingShader(onShader), "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isIgnoredShape(nif, *onShader));
+
+    // A shape does not need a shader, or anything else that can be patched, to be ignored.
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_FALSE(PGNIFUtil::isIgnoredShape(nif, *shaderless));
+    builder.addBooleanExtraData(shaderless, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isIgnoredShape(nif, *shaderless));
+
+    // The flag only counts when it is a boolean set to true.
+    auto* notIgnored = builder.addShape("NotIgnored", stoneTextures());
+    builder.addBooleanExtraData(notIgnored, "PG_IGNORE", false);
+    builder.addStringExtraData(notIgnored, "PG_IGNORE", "true");
+    EXPECT_FALSE(PGNIFUtil::isIgnoredShape(nif, *notIgnored));
+}
+
+TEST(PGNIFUtilTest,
+     IsUntouchableShapeFollowsTheBlocksAnIgnoredShapeCannotBeSeparatedFrom)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto* ignored = builder.addShape("Ignored", stoneTextures());
+    builder.addBooleanExtraData(ignored, "PG_IGNORE", true);
+    builder.addAlphaProperty(ignored);
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *ignored));
+
+    // A mesh without a marker has nothing to protect, whatever its shapes share.
+    NIFBuilder unmarked;
+    auto* first = unmarked.addShape("First", stoneTextures());
+    auto* second = unmarked.addShaderlessShape("Second");
+    second->ShaderPropertyRef()->index = first->ShaderPropertyRef()->index;
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(unmarked.nif(), *first));
+
+    // A shader and an alpha property are copied on write, so sharing them is fine.
+    auto* sharer = builder.addShaderlessShape("Sharer");
+    sharer->ShaderPropertyRef()->index = ignored->ShaderPropertyRef()->index;
+    sharer->AlphaPropertyRef()->index = ignored->AlphaPropertyRef()->index;
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(nif, *sharer));
+
+    // Not when a controller keeps them shared. The alpha property of the ignored shape gets one.
+    addAlphaController(nif, *ignored);
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *sharer));
+    auto* animatedShader = builder.addShape("AnimatedShader", stoneTextures());
+    auto* animatedSharer = builder.addShape("AnimatedSharer", stoneTextures());
+    animatedSharer->ShaderPropertyRef()->index = animatedShader->ShaderPropertyRef()->index;
+    builder.addBooleanExtraData(animatedShader, "PG_IGNORE", true);
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(nif, *animatedSharer));
+    auto controller = std::make_unique<nifly::BSLightingShaderPropertyFloatController>();
+    controller->targetRef.index = animatedShader->ShaderPropertyRef()->index;
+    builder.lightingShader(animatedShader)->controllerRef.index = nif.GetHeader().AddBlock(std::move(controller));
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *animatedSharer));
+
+    // An effect shader is never copied.
+    auto* effect = builder.addEffectShape("Effect", "textures\\fx.dds");
+    auto* effectSharer = builder.addShaderlessShape("EffectSharer");
+    effectSharer->ShaderPropertyRef()->index = effect->ShaderPropertyRef()->index;
+    builder.addBooleanExtraData(effect, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *effectSharer));
+
+    // Neither is geometry data, a skin instance or extra data.
+    auto* legacyIgnored = builder.addNiTriShape("LegacyIgnored", stoneTextures());
+    builder.addBooleanExtraData(legacyIgnored, "PG_IGNORE", true);
+    auto* legacy = builder.addNiTriShape("Legacy", stoneTextures());
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(nif, *legacy));
+    legacy->DataRef()->index = legacyIgnored->DataRef()->index;
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *legacy));
+
+    auto* skinned = builder.addShape("Skinned", stoneTextures());
+    auto* skinnedIgnored = builder.addShape("SkinnedIgnored", stoneTextures());
+    builder.addBooleanExtraData(skinnedIgnored, "PG_IGNORE", true);
+    const auto skinID = nif.GetHeader().AddBlock(std::make_unique<nifly::NiSkinInstance>());
+    skinned->SkinInstanceRef()->index = skinID;
+    skinnedIgnored->SkinInstanceRef()->index = skinID;
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *skinned));
+
+    auto* marked = builder.addShape("Marked", stoneTextures());
+    auto* markedIgnored = builder.addShape("MarkedIgnored", stoneTextures());
+    builder.addBooleanExtraData(markedIgnored, "PG_IGNORE", true);
+    auto* const sharedData = builder.addStringExtraData(markedIgnored, "PG_STOCK", "{}");
+    marked->extraDataRefs.AddBlockRef(nif.GetBlockID(sharedData));
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *marked));
+}
+
+TEST(PGNIFUtilTest,
+     SetTextureSlotCountChangesEverySharerButAnIgnoredShape)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+
+    // Sharers of a texture set follow the change, which stays one block.
+    auto* first = builder.addShape("First", stoneTextures());
+    auto* second = builder.addShape("Second", stoneTextures());
+    builder.lightingShader(second)->TextureSetRef()->index = builder.lightingShader(first)->TextureSetRef()->index;
+    const auto textureSetID = builder.lightingShader(first)->TextureSetRef()->index;
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::setTextureSlotCount(nif, *first, 6));
+    EXPECT_EQ(builder.textureSet(second)->textures.size(), 6U);
+    EXPECT_EQ(builder.lightingShader(first)->TextureSetRef()->index, textureSetID);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks);
+    EXPECT_FALSE(PGNIFUtil::setTextureSlotCount(nif, *first, 6));
+
+    // With an ignored shape among them, the shape gets its own texture set and the ignored one keeps the count.
+    builder.addBooleanExtraData(second, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::setTextureSlotCount(nif, *first, 9));
+    EXPECT_EQ(builder.textureSet(first)->textures.size(), 9U);
+    EXPECT_EQ(builder.textureSet(second)->textures.size(), 6U);
+    EXPECT_EQ(builder.lightingShader(second)->TextureSetRef()->index, textureSetID);
+    EXPECT_NE(builder.lightingShader(first)->TextureSetRef()->index, textureSetID);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 2); // the marker and the copy
+
+    // Shapes without a texture set have no slots to count.
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_FALSE(PGNIFUtil::setTextureSlotCount(nif, *shaderless, 9));
+    auto* effect = builder.addEffectShape("Effect", "textures\\fx.dds");
+    EXPECT_FALSE(PGNIFUtil::setTextureSlotCount(nif, *effect, 9));
 }
 
 TEST(PGNIFUtilTest,

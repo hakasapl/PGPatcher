@@ -148,9 +148,10 @@ bool configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
 // patched; the copy keeps the texture set until a write copies that too. PGNIFUtil.cpp implements this once for every
 // kind of block. A block with a controller is the exception: the controller animates that one block, so the block
 // stays shared and changes for every shape that uses it; shapes on a shader that stays shared also share its texture
-// set and every change to it. The number of texture slots is also changed in place for every sharer.
-// deleteAlphaProperty() follows the same rule: it only deletes blocks the shape alone uses, and the links of an
-// animation sequence to a deleted controller go with it, together with what only those links used.
+// set and every change to it. setTextureSlotCount() changes the number of texture slots in place for every sharer as
+// well, unless one of them is an ignored shape (see isIgnoredShape()), which keeps its count. deleteAlphaProperty()
+// follows the same rule: it only deletes blocks the shape alone uses, and the links of an animation sequence to a
+// deleted controller go with it, together with what only those links used.
 
 /// @brief Give a shape its own lighting shader if other shapes share it
 ///
@@ -234,6 +235,19 @@ bool setTextureSlots(nifly::NifFile* nif,
                      nifly::NiShape* nifShape,
                      const PGTypes::TextureSet& newSlots);
 
+/// @brief Set the number of texture slots of the texture set of a shape
+///
+/// The count changes in place for every shape that shares the texture set, unless an ignored shape uses it: then the
+/// texture set is copied for the shape first, see the note on shared blocks above.
+///
+/// @param nif the NIF
+/// @param nifShape the shape
+/// @param[in] slotCount the new number of slots
+/// @return true if the number of slots changed
+bool setTextureSlotCount(nifly::NifFile& nif,
+                         nifly::NiShape& nifShape,
+                         uint32_t slotCount);
+
 /// @brief Get the texture of one slot of a shape
 /// @param nif the NIF
 /// @param nifShape the shape
@@ -305,9 +319,23 @@ bool isPatchableShape(const nifly::NifFile& nif,
 /// and so does a BSDynamicTriShape, whose positions live in its dynamic data, so none of them can give bounds.
 bool hasVertexPositions(nifly::NiShape* nifShape);
 
+/// @brief Check whether a shape is opted out of PG: the shape or its shader carries a PG_IGNORE boolean extra data set
+/// to true
+bool isIgnoredShape(const nifly::NifFile& nif,
+                    nifly::NiShape& nifShape);
+
+/// @brief Check whether PG has to leave a shape exactly as the mesh ships it
+///
+/// That is an ignored shape (see isIgnoredShape()), and a shape that cannot change without changing an ignored one: it
+/// shares geometry data, a skin instance or extra data with it, none of which are copied, or a shader or alpha property
+/// that stays shared (see the note on shared blocks above). A shader or alpha property that is copied on write does not
+/// tie two shapes together.
+bool isUntouchableShape(const nifly::NifFile& nif,
+                        nifly::NiShape& nifShape);
+
 /// @brief Check whether a shape can get a different shader: it is patchable, its shader is a BSLightingShaderProperty
-/// with a texture set, and neither the shape nor the shader carries a PG_IGNORE boolean extra data set to true
-bool isShaderPatchableShape(nifly::NifFile& nif,
+/// with a texture set, and it is not an ignored shape (see isIgnoredShape())
+bool isShaderPatchableShape(const nifly::NifFile& nif,
                             nifly::NiShape& nifShape);
 
 /// @brief The folder of the facegen head meshes, relative to the data folder, lower case.
