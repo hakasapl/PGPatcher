@@ -418,7 +418,7 @@ TEST_F(PGPatcherTest,
 TEST_F(PGPatcherTest,
        AnIgnoredShapeComesOutOfThePipelineAsTheMeshShippedIt)
 {
-    // Every shape would get a stock marker, as with the "Generate DynDOLOD Files" option.
+    // Every shape would get a stock marker, as with the "Only Generate DynDOLOD Files" option.
     PatcherMeshPreStockMarker::loadOptions(true);
 
     NIFBuilder builder;
