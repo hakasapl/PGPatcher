@@ -15,7 +15,6 @@
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
-#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -74,14 +73,11 @@ public:
     /// @brief How the patch of a family ended.
     enum class State : uint8_t { Unpatched, Patched, Failed, IgnoredByMod };
 
-    /// @brief Describes one shape of a member's mesh, see describe(); a null description leaves the shape out.
-    using ShapeDescriber = std::function<
-        nlohmann::json(const nifly::NifFile& nif, nifly::NiShape& shape, const PGTypes::TextureSet& slots)>;
-
     /// @brief What describe() found, by the shapes' 3D indices in the original mesh.
     struct ShapeDescriptions {
-        /// @brief The shapes as the member's stream serves them; a shape the patch deleted is left out.
-        std::map<unsigned, nlohmann::json> patched;
+        /// @brief What the patch changed on each shape it changed, see PGShapeChanges::changes(); a shape the patch
+        /// deleted is left out.
+        std::map<unsigned, nlohmann::json> changed;
         /// @brief The shapes the patch deleted, in 3D index order.
         std::vector<unsigned> deleted;
     };
@@ -162,26 +158,24 @@ public:
 
     /**
      * @brief Patches one member of one file again on a copy of the original mesh, as produce() patches it for an
-     * open, and describes every shape after the patch, for the exports that tell other tools how PGLite patches a
-     * record (DynDOLODExport). The describer runs on the patch's thread, so it can read what the patch collected there.
-     * The family's state and its records stay as they are, and the result is not serialized; the patch registers its
-     * texture hooks as every patch does. A texture the patch cannot read fails the description as it fails a first
-     * patch, see bytes(). Never while the family's bytes are served on the same thread.
+     * open, and lists what the patch changed on every shape, for the exports that tell other tools how PGLite patches
+     * a record (DynDOLODExport). A shape is compared as the game draws it: with the member's alternate texture for
+     * the shape, the original one before the patch and the patched one after it (for a family patched for the
+     * session, the one its records carry from the first patch). The family's state and its records stay as they are,
+     * and the result is not serialized; the patch registers its texture hooks as every patch does. A texture the
+     * patch cannot read fails the description as it fails a first patch, see bytes(). Never while the family's bytes
+     * are served on the same thread.
      *
      * @param member Index of the member.
      * @param pathIndex Index of the file of the family; a file the engine cannot resolve is described through the
      * resolved file of the pair, as its records are served.
-     * @param describer Describes a shape with the textures it is drawn with: the member's patched alternate texture
-     * for the shape (for a family patched for the session, the one its records carry from the first patch) or the
-     * shape's own texture set.
      * @return The descriptions, or nothing when the family's streams serve the original mesh: its patch failed for
      * the session, its mod's meshes are ignored, or it has no file the engine can resolve.
      * @throws EngineReadError if the mesh or a texture it needs cannot be read, std::runtime_error if a shape cannot
      * be processed.
      */
     [[nodiscard]] std::optional<ShapeDescriptions> describe(std::size_t member,
-                                                            std::size_t pathIndex,
-                                                            const ShapeDescriber& describer);
+                                                            std::size_t pathIndex);
 
     /**
      * @brief Counts a texture file a lookup of the patch running on the calling thread could not read, as the run

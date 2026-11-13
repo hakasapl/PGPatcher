@@ -493,16 +493,15 @@
     "thirdParty": {
       "dynDOLOD": {
         "title": "DynDOLOD",
-        "description": "PGLite patches meshes while the game loads them and never writes them to disk, so DynDOLOD cannot see what PGLite changes. This file tells DynDOLOD how PGLite patches the full model of every base record it draws as LOD: for now the PBR materials, alternate textures included. It follows the applied settings and mod list, so apply your changes first, and generate it again after changing PBR mods or the settings of PGLite, before running DynDOLOD.",
+        "description": "PGLite patches meshes while the game loads them and never writes them to disk, so DynDOLOD cannot see what PGLite changes. This file tells DynDOLOD how PGLite patches the full model of every base record it draws as LOD: the shader and texture set changes its patchers make to the shapes, alternate textures included. It follows the applied settings and mod list, so apply your changes first, and generate it again after changing mods or the settings of PGLite, before running DynDOLOD.",
         "generate": "Generate DynDOLOD File",
         "notRunning": "PGLite is not running, see the Status tab.",
-        "needsTruePBR": "TruePBR is not enabled in the applied settings. Enable it on the Patchers tab and apply first.",
         "confirmationTitle": "Generate DynDOLOD File",
-        "confirmation": "This will generate a file DynDOLOD will use to properly account for PBR mods. You only need this if you use PBR mods. This will take some time - begin?",
+        "confirmation": "This will generate a file DynDOLOD will use to properly account for the meshes PGLite patches. This will take some time - begin?",
         "begin": "Begin",
         "loading": "The DynDOLOD file cannot be generated during a loading screen.",
         "failed": "The DynDOLOD file could not be written, see the log.",
-        "done": "Wrote %zu records with %zu distinct materials to %s in %.1f s.",
+        "done": "Wrote %zu records with %zu distinct shape changes to %s in %.1f s.",
         "someFailed": "%zu mesh variants could not be patched and their records are not listed, see the log."
       }
     },
@@ -528,7 +527,7 @@
       "registeringFacegenStreams": "Registering the facegen streams",
       "loadingTruePBRConfigs": "Loading the TruePBR configs",
       "orderingMods": "Ordering the mods",
-      "describingMeshes": "Patching the meshes for their PBR materials",
+      "describingMeshes": "Patching the meshes to list their changes",
       "writingFile": "Writing the file"
     }
   }

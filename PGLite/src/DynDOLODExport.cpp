@@ -8,12 +8,9 @@
 #include "Resources.hpp"
 #include "Settings.hpp"
 #include "Uses.hpp"
-#include "patchers/PatcherMeshShaderTruePBR.hpp"
-#include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
-#include "NifFile.hpp"
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -108,7 +105,8 @@ struct Item {
     std::vector<std::pair<std::size_t, std::size_t>> memberPaths;
 };
 
-/// @brief A record the file lists: the shapes PBR entries apply to and the deleted shapes of its model by 3D index.
+/// @brief A record the file lists: what the patch changed on the shapes of its model, by 3D index; null for a shape
+/// the patch deleted.
 struct RecordEntry {
     std::wstring plugin;
     unsigned formID = 0;
@@ -160,9 +158,9 @@ std::vector<Item> itemsOf(const Plan& plan,
 }
 
 /**
- * @brief The records of one family the file lists: those of every member whose patch applies a PBR entry to a shape.
- * The texture hooks the patches register are left for the opens that serve the meshes to generate (each open registers
- * them again); the registrations stay with the calling thread, which ends with the write.
+ * @brief The records of one family the file lists: those of every member whose patch changes a shape. The texture
+ * hooks the patches register are left for the opens that serve the meshes to generate (each open registers them
+ * again); the registrations stay with the calling thread, which ends with the write.
  *
  * @return The members that could not be described (logged).
  */
@@ -173,24 +171,14 @@ std::size_t describeFamily(const Item& item,
     std::size_t failed = 0;
     for (const auto& [member, pathIndex] : item.memberPaths) {
         try {
-            // Only the shapes the patch applies an entry to have a material: a shape that is PBR on disk without one
-            // is drawn as the mesh says.
-            const PatcherMeshShaderTruePBR::AppliedAttributes applied;
-            const auto descriptions = item.family->describe(
-                member,
-                pathIndex,
-                [&applied](const nifly::NifFile& nif, nifly::NiShape& shape, const PGTypes::TextureSet& slots) {
-                    const auto* const attributes = applied.of(shape);
-                    return attributes ? PatcherMeshShaderTruePBR::material(nif, shape, slots, *attributes)
-                                      : nlohmann::json();
-                });
+            const auto descriptions = item.family->describe(member, pathIndex);
             if (!descriptions)
                 continue;
 
-            // A shape the patch deleted is described by that alone.
-            auto patched = descriptions->patched;
+            // A shape the patch deleted has no material: its index stands for null in the record.
+            auto patched = descriptions->changed;
             for (const auto index3D : descriptions->deleted)
-                patched[index3D] = nlohmann::json { { "delete", true } };
+                patched[index3D] = nullptr;
             if (patched.empty())
                 continue;
 
@@ -209,12 +197,12 @@ std::size_t describeFamily(const Item& item,
                 });
             }
         } catch (const std::exception& e) {
-            Logger::error(L"Unable to describe the PBR materials of {} for DynDOLOD, its records are not listed: {}",
+            Logger::error(L"Unable to describe the patch of {} for DynDOLOD, its records are not listed: {}",
                           item.family->basePaths.at(pathIndex).wstring(),
                           StringUtil::utf8toUTF16(e.what()));
             failed++;
         } catch (...) {
-            Logger::error(L"Unable to describe the PBR materials of {} for DynDOLOD, its records are not listed",
+            Logger::error(L"Unable to describe the patch of {} for DynDOLOD, its records are not listed",
                           item.family->basePaths.at(pathIndex).wstring());
             failed++;
         }
@@ -271,7 +259,8 @@ DynDOLODExport::Result DynDOLODExport::write(const Plan& plan,
         }
         result.failed = failed;
 
-        // The records by plugin and form ID, each distinct material once, numbered in the order the records name them.
+        // The records by plugin and form ID, each distinct material once, numbered in the order the records name them;
+        // a deleted shape is null.
         reportStage("pglite.stages.writingFile");
         std::map<std::wstring, std::map<unsigned, const RecordEntry*>> records;
         for (const auto& entries : entriesPerItem)
@@ -287,6 +276,11 @@ DynDOLODExport::Result DynDOLODExport::write(const Plan& plan,
                 auto& recordJSON = pluginJSON[std::format("{:06X}", formID)];
                 recordJSON = nlohmann::json::object();
                 for (const auto& [index3D, material] : entry->shapes) {
+                    if (material.is_null()) {
+                        recordJSON[std::to_string(index3D)] = nullptr;
+                        continue;
+                    }
+
                     const auto key = material.dump();
                     const auto [it, isNew] = materialIndices.try_emplace(key, materialIndices.size());
                     if (isNew)

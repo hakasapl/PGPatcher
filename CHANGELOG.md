@@ -2,7 +2,7 @@
 
 ## UNRELEASED
 
-- [PGLite] Added a 3rd Party tab whose "Generate DynDOLOD File" button writes `SKSE\Plugins\PGLite\dyndolod_pglite_patches.json`, which tells DynDOLOD how PGLite patches the full model of each base record (the PBR materials, alternate textures included)
+- [PGLite] Added a 3rd Party tab whose "Generate DynDOLOD File" button writes `SKSE\Plugins\PGLite\dyndolod_pglite_patches.json`, which tells DynDOLOD how PGLite patches the full model of each base record: the shader and texture set changes its patchers make to each shape, alternate textures included
 
 ## [2.4.0] - 2026-11-08
 

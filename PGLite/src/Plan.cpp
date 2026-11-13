@@ -13,6 +13,7 @@
 #include "Uses.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGShapeChanges.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
@@ -396,8 +397,7 @@ bool Family::settle(TextureSetFactory& textureSets,
 }
 
 std::optional<Family::ShapeDescriptions> Family::describe(std::size_t member,
-                                                          std::size_t pathIndex,
-                                                          const ShapeDescriber& describer)
+                                                          std::size_t pathIndex)
 {
     const std::scoped_lock lock(m_patchMutex);
     const Logger::Prefix prefix(basePaths.at(pathIndex).wstring());
@@ -411,11 +411,18 @@ std::optional<Family::ShapeDescriptions> Family::describe(std::size_t member,
     if (!originalBytes)
         throw EngineReadError("the original mesh cannot be read");
 
-    // The staged copy is patched as produce() patches it, and described after.
+    // The staged copy is patched as produce() patches it. Every shape is recorded as the mesh on disk has it before;
+    // which textures a shape is drawn with is known once the patch told which shapes it drew with an alternate texture.
     PGMeshPermutationTracker tracker(basePaths.at(pathIndex), *originalBytes);
     auto& staged = *tracker.stageMesh();
-    auto alternateTextures = members.at(member).context.alternateTextures;
+    const auto& originalAlternates = members.at(member).context.alternateTextures;
+    auto alternateTextures = originalAlternates;
     const auto shapes = PGNIFUtil::shapesWith3DIdx(&staged);
+    std::unordered_map<unsigned, PGShapeChanges::State> originalStates;
+    for (const auto& [shape, index3D] : shapes) {
+        originalStates.emplace(static_cast<unsigned>(index3D),
+                               PGShapeChanges::stateOf(staged, *shape, PGNIFUtil::textureSlots(&staged, shape)));
+    }
 
     std::unordered_set<unsigned> nonAltTexShapes;
     if (!runPatchers(staged, member, pathIndex, alternateTextures, nonAltTexShapes))
@@ -430,19 +437,27 @@ std::optional<Family::ShapeDescriptions> Family::describe(std::size_t member,
         = m_state == State::Patched ? m_outputs.at(pathIndex).at(member).altTexResults : alternateTextures;
     ShapeDescriptions descriptions;
     for (const auto& [shape, index3D] : shapes) {
+        const auto index = static_cast<unsigned>(index3D);
         if (!remainingShapes.contains(shape)) {
-            descriptions.deleted.push_back(static_cast<unsigned>(index3D));
+            descriptions.deleted.push_back(index);
             continue;
         }
 
-        // The patched alternate texture of a shape that was patched with one, the shape's texture set otherwise.
-        const auto index = static_cast<unsigned>(index3D);
-        const auto alternate = patchedAlternates.find(index);
-        const bool hasAlternate = alternate != patchedAlternates.end() && !nonAltTexShapes.contains(index);
-        auto description
-            = describer(staged, *shape, hasAlternate ? alternate->second : PGNIFUtil::textureSlots(&staged, shape));
-        if (!description.is_null())
-            descriptions.patched.emplace(index, std::move(description));
+        // A shape patched with an alternate texture is drawn with the record's texture set before and after the patch,
+        // every other shape with its own.
+        auto& original = originalStates.at(index);
+        const auto originalAlternate = originalAlternates.find(index);
+        const auto patchedAlternate = patchedAlternates.find(index);
+        const bool hasAlternate = originalAlternate != originalAlternates.end()
+            && patchedAlternate != patchedAlternates.end() && !nonAltTexShapes.contains(index);
+        if (hasAlternate)
+            original.slots = originalAlternate->second;
+
+        const auto patched = PGShapeChanges::stateOf(
+            staged, *shape, hasAlternate ? patchedAlternate->second : PGNIFUtil::textureSlots(&staged, shape));
+        auto changes = PGShapeChanges::changes(original, patched);
+        if (!changes.empty())
+            descriptions.changed.emplace(index, std::move(changes));
     }
 
     return descriptions;

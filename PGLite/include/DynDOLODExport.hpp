@@ -12,27 +12,29 @@ class TextureSetFactory;
 
 /**
  * @brief The file that tells DynDOLOD how PGLite patches the full models of its base records. DynDOLOD reads the meshes
- * on disk, which PGLite never patches, so its LOD would miss what the game shows. The file describes the PBR materials
- * today; its name and its "shader_type" leave room for more.
+ * on disk, which PGLite never patches, so its LOD would miss what the game shows.
  *
  * The file is Data\SKSE\Plugins\PGLite\dyndolod_pglite_patches.json (schema\dyndolod_pglite_patches.schema.json),
  * written whole from the current plan: every record of a type DynDOLOD reads full models from
  * (PGPlugin::dynDOLODRecTypeSet()) whose model PGLite patches is described with the member of its family it belongs
- * to, alternate textures included, and listed when the patch applies a PBR entry to a shape of its model (MODL). A
- * record whose model string another plugin replaced after PGLite planned loads another mesh, so it is not listed. The
- * format, compact JSON:
+ * to, alternate textures included, and listed when the patch changes a shape of its model (MODL). A record whose
+ * model string another plugin replaced after PGLite planned loads another mesh, so it is not listed. The format,
+ * compact JSON:
  *
  *   {"version": 1,
- *    "materials": [{"shader_type": "pbr", "multilayer": true, "slot1": "pbr\\a.dds", ...}, {"delete": true}, ...],
- *    "records": {"<plugin>": {"<local form ID, 6 hex digits>": {"<3D index>": <material index>, ...}, ...}, ...}}
+ *    "materials": [{"BSLightingShaderProperty": {"bslspShaderType": 11, "shaderFlags2": 25198593, ...},
+ *                   "BSShaderTextureSet": {"0": "pbr\\a.dds", ...}}, ...],
+ *    "records": {"<plugin>": {"<local form ID, 6 hex digits>": {"<3D index>": <material index or null>, ...}, ...},
+ *                ...}}
  *
- * A material is described as PatcherMeshShaderTruePBR::material() describes a shape: the attributes of the PBR
- * entries applied to it as the configs give them, the rest is the mesh's own; a shape the patch deleted has the
- * material {"delete": true}. Every distinct material is listed once. A record lists every shape of its model a PBR
- * entry applies to and every deleted shape by the shape's 3D index in the original mesh, the index alternate textures
- * use. A shape it does not list, and every shape of a record the file does not list, is drawn as the mesh on disk
- * says, also one that is PBR there already. Records are keyed by the plugin that defines them and their form ID within
- * it, so the file holds for any load order of the same plugins.
+ * A material is what the patch of every patcher PGLite runs changed on a shape as the game draws it
+ * (PGShapeChanges::changes()): the shader and texture set fields that differ from the mesh on disk (nothing else it
+ * changes), under nifly's names with the raw values the mesh stores, the slots it emptied included. Every distinct
+ * material is listed once. A record lists every shape of its model the patch changed, with the index of its material,
+ * and every shape the patch deleted, with null, by the shape's 3D index in the original mesh, the index alternate
+ * textures use. A shape it does not list, and every shape of a record the file does not list, is drawn as the mesh on
+ * disk says. Records are keyed by the plugin that defines them and their form ID within it, so the file holds for any
+ * load order of the same plugins.
  */
 class DynDOLODExport {
 public:
@@ -41,7 +43,7 @@ public:
         bool didSucceed = false;
         /// @brief The records the file lists.
         std::size_t records = 0;
-        /// @brief The distinct materials the file lists, the deletion included.
+        /// @brief The distinct materials the file lists.
         std::size_t materials = 0;
         /// @brief The variants of a mesh (a member's file) that could not be described (logged); their records are not
         /// listed.

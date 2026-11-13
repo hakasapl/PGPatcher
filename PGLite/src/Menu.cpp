@@ -1913,10 +1913,9 @@ void Menu::drawThirdParty()
     ImGui::SeparatorText(tr("pglite.thirdParty.dynDOLOD.title").c_str());
     textWrapped(tr("pglite.thirdParty.dynDOLOD.description"));
 
-    // The file describes what PGLite serves now: the applied settings, with TruePBR among the patchers.
+    // The file describes what PGLite serves now, with the applied settings, whichever patchers they turn on.
     const bool isRunning = m_runtime->isActive() && m_runtime->isReady() && !m_runtime->disableReason();
-    const bool isTruePBRApplied = m_runtime->params().shaderPatcher.isTruePBREnabled;
-    const bool isGenerateAllowed = isRunning && m_runtime->isEnabled() && isTruePBRApplied;
+    const bool isGenerateAllowed = isRunning && m_runtime->isEnabled();
     constexpr const char* confirmationID = "###dyndolodConfirmation";
     ImGui::BeginDisabled(!isGenerateAllowed);
     if (ImGui::Button(tr("pglite.thirdParty.dynDOLOD.generate").c_str()))
@@ -1927,8 +1926,6 @@ void Menu::drawThirdParty()
         textWrapped(tr("pglite.thirdParty.dynDOLOD.notRunning"));
     else if (!m_runtime->isEnabled())
         textWrapped(tr("pglite.apply.disabled"));
-    else if (!isTruePBRApplied)
-        textWrapped(tr("pglite.thirdParty.dynDOLOD.needsTruePBR"));
     if (!m_dynDOLODMessage.empty())
         textWrapped(m_dynDOLODMessage);
 
