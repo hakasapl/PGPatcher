@@ -3,7 +3,6 @@
 #include "pgutil/PGEnums.hpp"
 #include "pgutil/PGTypes.hpp"
 
-#include "Animation.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Object3d.hpp"
@@ -12,7 +11,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -197,19 +195,17 @@ bool setAlphaProperty(nifly::NifFile& nif,
 bool deleteAlphaProperty(nifly::NifFile& nif,
                          nifly::NiShape& nifShape);
 
-/// @brief Remove controllers from the controller chain of the shader of a shape
+/// @brief Remove every controller of the shader of a shape
 ///
-/// Each controller that shouldDelete selects is taken out of the chain, which keeps the other controllers in their
-/// order, and deleted together with every block only it uses, such as its interpolator; the links of an animation
-/// sequence to it go with it, together with the interpolators only those links used.
+/// Each controller of the chain is deleted together with every block only it uses, such as its interpolator; the links
+/// of an animation sequence to it go with it, together with the interpolators only those links used. Other controllers,
+/// such as the ones of other shaders or of the alpha property, and their links stay.
 ///
 /// @param nif the NIF
 /// @param nifShape the shape
-/// @param shouldDelete whether a controller of the chain is removed
 /// @return true if a controller was removed
 bool deleteShaderControllers(nifly::NifFile& nif,
-                             nifly::NiShape& nifShape,
-                             const std::function<bool(const nifly::NiTimeController&)>& shouldDelete);
+                             nifly::NiShape& nifShape);
 
 /// @brief Set the texture of one slot of a shape, wide string variant (the path must be ASCII)
 ///

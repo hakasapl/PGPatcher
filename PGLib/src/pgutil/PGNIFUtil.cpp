@@ -328,7 +328,7 @@ bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
 }
 
 // Shared block helpers, see the note on shared blocks in PGNIFUtil.hpp. Shaders, alpha properties and texture sets are
-// copied through unshareBlock(), and alpha properties and controllers are deleted through deleteBlockTree().
+// copied through unshareBlock(), and alpha properties and controllers are deleted through deleteBlockTrees().
 namespace {
 
 /// @brief Checks whether more than one reference points at a block.
@@ -458,26 +458,35 @@ void addReachableBlocks(const nifly::NiHeader& header,
     }
 }
 
-/// @brief Deletes a block together with every block only it uses
+/// @brief Deletes blocks together with every block only they use
 ///
-/// A block it reaches that a block outside of its reach references stays for that block, with everything that one
-/// reaches or points at. References to the root block itself do not count: the root goes unless a kept block points
+/// A block they reach that a block outside of their reach references stays for that block, with everything that one
+/// reaches or points at. References to the root blocks themselves do not count: a root goes unless a kept block points
 /// at it. The links of an animation sequence follow the controllers they drive instead of keeping them: a link to a
 /// deleted controller is removed, together with what only that link used, while a link whose controller stays keeps
-/// its interpolator.
-void deleteBlockTree(nifly::NifFile& nif,
-                     nifly::NiObject& root)
+/// its interpolator. nifly walks every block for each block it deletes, so all of them are found first and deleted in
+/// one go, after the links to them are gone.
+void deleteBlockTrees(nifly::NifFile& nif,
+                      const std::vector<nifly::NiObject*>& roots)
 {
     auto& header = nif.GetHeader();
 
     std::unordered_set<nifly::NiObject*> treeBlocks;
-    addReachableBlocks(header, { &root }, treeBlocks);
+    addReachableBlocks(header, roots, treeBlocks);
+    const std::unordered_set<nifly::NiObject*> rootBlocks(roots.begin(), roots.end());
 
+    // NifFile::GetBlockID() searches every block, so the IDs of the tree are collected in the same walk.
+    std::unordered_map<const nifly::NiObject*, uint32_t> treeBlockIDs;
     std::vector<nifly::NiObject*> sharedBlocks;
     for (uint32_t blockID = 0; blockID < header.GetNumBlocks(); blockID++) {
         auto* const block = header.GetBlock<nifly::NiObject>(blockID);
-        if (!block || treeBlocks.contains(block))
+        if (!block)
             continue;
+
+        if (treeBlocks.contains(block)) {
+            treeBlockIDs.emplace(block, blockID);
+            continue;
+        }
 
         std::set<nifly::NiRef*> refs;
         auto* const sequence = dynamic_cast<nifly::NiSequence*>(block);
@@ -491,7 +500,7 @@ void deleteBlockTree(nifly::NifFile& nif,
 
         for (const auto* const ref : refs) {
             auto* const child = header.GetBlock<nifly::NiObject>(ref);
-            if (child && child != &root && treeBlocks.contains(child))
+            if (child && !rootBlocks.contains(child) && treeBlocks.contains(child))
                 sharedBlocks.push_back(child);
         }
     }
@@ -502,7 +511,7 @@ void deleteBlockTree(nifly::NifFile& nif,
     std::unordered_set<uint32_t> deletedBlockIDs;
     for (auto* const block : treeBlocks)
         if (!keptBlocks.contains(block))
-            deletedBlockIDs.insert(nif.GetBlockID(block));
+            deletedBlockIDs.insert(treeBlockIDs.at(block));
 
     // The links of an animation sequence to deleted blocks go with them. Their interpolators are deleted below if the
     // links were their only users.
@@ -534,11 +543,33 @@ void deleteBlockTree(nifly::NifFile& nif,
     for (const auto blockID : sortedBlockIDs)
         header.DeleteBlock(blockID);
 
-    for (auto* const interpolator : linkInterpolators) {
-        const auto interpolatorID = nif.GetBlockID(interpolator);
-        if (interpolatorID != nifly::NIF_NPOS && !header.IsBlockReferenced(interpolatorID, false))
-            deleteBlockTree(nif, *interpolator);
+    if (linkInterpolators.empty())
+        return;
+
+    // The interpolators no block references any more were used by the erased links alone. One walk finds them.
+    std::unordered_set<uint32_t> referencedBlockIDs;
+    std::unordered_map<nifly::NiObject*, uint32_t> interpolatorIDs;
+    std::vector<uint32_t> childIDs;
+    for (uint32_t blockID = 0; blockID < header.GetNumBlocks(); blockID++) {
+        auto* const block = header.GetBlock<nifly::NiObject>(blockID);
+        if (!block)
+            continue;
+
+        if (linkInterpolators.contains(block))
+            interpolatorIDs.emplace(block, blockID);
+
+        childIDs.clear();
+        block->GetChildIndices(childIDs);
+        referencedBlockIDs.insert(childIDs.begin(), childIDs.end());
     }
+
+    std::vector<nifly::NiObject*> unusedInterpolators;
+    for (const auto& [interpolator, interpolatorID] : interpolatorIDs)
+        if (!referencedBlockIDs.contains(interpolatorID))
+            unusedInterpolators.push_back(interpolator);
+
+    if (!unusedInterpolators.empty())
+        deleteBlockTrees(nif, unusedInterpolators);
 }
 
 } // namespace
@@ -562,38 +593,30 @@ bool PGNIFUtil::unshareShader(nifly::NifFile& nif,
 }
 
 bool PGNIFUtil::deleteShaderControllers(nifly::NifFile& nif,
-                                        nifly::NiShape& nifShape,
-                                        const std::function<bool(const nifly::NiTimeController&)>& shouldDelete)
+                                        nifly::NiShape& nifShape)
 {
     auto* const shader = nif.GetShader(&nifShape);
     if (!shader)
         return false;
 
+    // The chain is taken apart first, so the block tree of each controller holds no other controller of it. Every step
+    // clears the link it follows, so a broken chain that loops back to a controller ends there.
     const auto& header = nif.GetHeader();
-    bool isDeleted = false;
-
-    // Deleting a block renumbers the blocks behind it, and nifly updates every reference to them, so the walk goes on
-    // from the reference that pointed at a deleted controller. Only a broken file has a chain that comes back to a
-    // controller the walk passed already.
-    std::unordered_set<const nifly::NiTimeController*> keptControllers;
-    auto* controllerRef = &shader->controllerRef;
-    while (auto* const controller = header.GetBlock(*controllerRef)) {
-        if (!shouldDelete(*controller)) {
-            if (!keptControllers.insert(controller).second)
-                break;
-
-            controllerRef = &controller->nextControllerRef;
-            continue;
-        }
-
-        // The chain skips the controller, so the controllers behind it stay in the chain and out of its block tree.
-        controllerRef->index = controller->nextControllerRef.index;
+    std::vector<nifly::NiObject*> controllers;
+    auto* controller = header.GetBlock(shader->controllerRef);
+    shader->controllerRef.Clear();
+    while (controller) {
+        controllers.push_back(controller);
+        auto* const next = header.GetBlock(controller->nextControllerRef);
         controller->nextControllerRef.Clear();
-        deleteBlockTree(nif, *controller);
-        isDeleted = true;
+        controller = next;
     }
 
-    return isDeleted;
+    if (controllers.empty())
+        return false;
+
+    deleteBlockTrees(nif, controllers);
+    return true;
 }
 
 // Alpha property helpers.
@@ -650,7 +673,7 @@ bool PGNIFUtil::deleteAlphaProperty(nifly::NifFile& nif,
 
     alphaPropertyRef->Clear();
     if (!header.IsBlockReferenced(nif.GetBlockID(alphaProperty), false))
-        deleteBlockTree(nif, *alphaProperty);
+        deleteBlockTrees(nif, { alphaProperty });
 
     return true;
 }

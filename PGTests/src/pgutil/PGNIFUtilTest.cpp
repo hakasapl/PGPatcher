@@ -687,35 +687,42 @@ TEST(PGNIFUtilTest,
 }
 
 TEST(PGNIFUtilTest,
-     DeleteShaderControllersKeepsTheOtherControllers)
+     DeleteShaderControllersRemovesTheChainAndItsSequenceLinks)
 {
     constexpr uint32_t envMapScale = 8;
     constexpr uint32_t emissiveMultiple = 11;
     constexpr uint32_t alpha = 12;
-    const auto isEnvMapScale = [](const nifly::NiTimeController& controller) {
-        const auto* const floatController
-            = dynamic_cast<const nifly::BSLightingShaderPropertyFloatController*>(&controller);
-        return floatController != nullptr && floatController->typeOfControlledVariable == envMapScale;
-    };
+    constexpr uint32_t specularColor = 0;
 
     NIFBuilder builder;
     auto& nif = builder.nif();
     auto& header = nif.GetHeader();
     auto* puddle = builder.addShape("Puddle", stoneTextures(), nifly::BSLSP_ENVMAP);
-    auto* const shader = builder.lightingShader(puddle);
-    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *puddle, isEnvMapScale)); // no controllers
+    const auto* const shader = builder.lightingShader(puddle);
+    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *puddle)); // no controllers
 
-    // The chain of a vanilla puddle, with environment map scale controllers first and twice in a row in the middle.
-    auto* const firstEnvMap = builder.addShaderFloatController(puddle, envMapScale);
-    auto* const emissive = builder.addShaderFloatController(puddle, emissiveMultiple);
-    auto* const middleEnvMap = builder.addShaderFloatController(puddle, envMapScale);
-    auto* const lastEnvMap = builder.addShaderFloatController(puddle, envMapScale);
-    auto* const alphaController = builder.addShaderFloatController(puddle, alpha);
+    // The chain of a vanilla puddle, with an alpha test controller on its alpha property, and a second shape whose
+    // shader is animated by the same sequence.
+    const std::vector<nifly::NiTimeController*> puddleControllers {
+        builder.addShaderFloatController(puddle, envMapScale),
+        builder.addShaderFloatController(puddle, emissiveMultiple),
+        builder.addShaderColorController(puddle, specularColor),
+        builder.addShaderFloatController(puddle, alpha),
+    };
+    const auto* const puddleAlpha = builder.addAlphaProperty(puddle);
+    addAlphaController(nif, *puddle);
+    auto* rim = builder.addShape("Rim", stoneTextures());
+    auto* const rimEmissive = builder.addShaderFloatController(rim, emissiveMultiple);
+    auto* const alphaTest = header.GetBlock(puddleAlpha->controllerRef);
+    ASSERT_NE(alphaTest, nullptr);
 
     // An animation sequence links every controller with an interpolator of its own, as the vanilla ones do.
     auto sequence = std::make_unique<nifly::NiControllerSequence>();
     auto* const sequencePtr = sequence.get();
-    for (auto* const controller : { firstEnvMap, emissive, middleEnvMap, lastEnvMap, alphaController }) {
+    auto linkedControllers = puddleControllers;
+    linkedControllers.push_back(rimEmissive);
+    linkedControllers.push_back(alphaTest);
+    for (auto* const controller : linkedControllers) {
         nifly::ControllerLink link;
         link.controllerRef.index = nif.GetBlockID(controller);
         link.interpolatorRef.index = addFloatInterpolator(nif);
@@ -727,55 +734,51 @@ TEST(PGNIFUtilTest,
     nif.GetRootNode()->controllerRef.index = header.AddBlock(std::move(manager));
 
     const auto blocksWithControllers = header.GetNumBlocks();
-    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *puddle, isEnvMapScale));
-    // Each environment map scale controller with its interpolator and data, and the interpolator and data of its link.
-    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers - 15);
-    EXPECT_EQ(header.GetBlock(shader->controllerRef), emissive);
-    EXPECT_EQ(header.GetBlock(emissive->nextControllerRef), alphaController);
-    EXPECT_TRUE(alphaController->nextControllerRef.IsEmpty());
-    for (const auto* const controller : { emissive, alphaController }) {
-        EXPECT_EQ(controller->targetRef.index, nif.GetBlockID(shader));
-        EXPECT_NE(header.GetBlock<nifly::NiFloatInterpolator>(controller->interpolatorRef.index), nullptr);
-    }
+    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *puddle));
+    // Each controller with its interpolator and data, and the interpolator and data of its link.
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers - 20);
+    EXPECT_TRUE(shader->controllerRef.IsEmpty());
+    EXPECT_EQ(shader->GetShaderType(), nifly::BSLSP_ENVMAP); // the shader itself is left alone
+
+    // The alpha test controller, the other shader's controller and their links stay.
+    EXPECT_EQ(header.GetBlock(puddleAlpha->controllerRef), alphaTest);
+    EXPECT_EQ(header.GetBlock(builder.lightingShader(rim)->controllerRef), rimEmissive);
     ASSERT_EQ(sequencePtr->controlledBlocks.size(), 2U);
-    EXPECT_EQ(sequencePtr->controlledBlocks[0].controllerRef.index, nif.GetBlockID(emissive));
-    EXPECT_EQ(sequencePtr->controlledBlocks[1].controllerRef.index, nif.GetBlockID(alphaController));
+    EXPECT_EQ(sequencePtr->controlledBlocks[0].controllerRef.index, nif.GetBlockID(rimEmissive));
+    EXPECT_EQ(sequencePtr->controlledBlocks[1].controllerRef.index, nif.GetBlockID(alphaTest));
     for (const auto& link : sequencePtr->controlledBlocks)
         EXPECT_NE(header.GetBlock<nifly::NiFloatInterpolator>(link.interpolatorRef.index), nullptr);
     expectNoLooseBlocks(nif);
-    EXPECT_EQ(shader->GetShaderType(), nifly::BSLSP_ENVMAP); // the shader itself is left alone
 
-    // Every controller left in the chain is offered once, in chain order, and nothing else is deleted.
-    std::vector<const nifly::NiTimeController*> offered;
-    const auto keepAll = [&offered](const nifly::NiTimeController& controller) {
-        offered.push_back(&controller);
-        return false;
-    };
-    const auto blocksWithoutEnvMap = header.GetNumBlocks();
-    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *puddle, keepAll));
-    EXPECT_EQ(offered, (std::vector<const nifly::NiTimeController*> { emissive, alphaController }));
-    EXPECT_EQ(header.GetNumBlocks(), blocksWithoutEnvMap);
+    const auto blocksWithoutPuddleControllers = header.GetNumBlocks();
+    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *puddle));
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithoutPuddleControllers);
 
-    // The controllers of an effect shader are walked the same way, and a shape without a shader has none.
-    const auto deleteAll = [](const nifly::NiTimeController&) { return true; };
+    // The controllers of an effect shader go the same way, and a shape without a shader has none.
     auto* effect = builder.addEffectShape("Effect");
     auto effectController = std::make_unique<nifly::BSEffectShaderPropertyFloatController>();
     effectController->targetRef.index = effect->ShaderPropertyRef()->index;
     nif.GetShader(effect)->controllerRef.index = header.AddBlock(std::move(effectController));
     auto* shaderless = builder.addShaderlessShape("Shaderless");
     const auto blocksWithEffect = header.GetNumBlocks();
-    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *effect, deleteAll));
+    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *effect));
     EXPECT_TRUE(nif.GetShader(effect)->controllerRef.IsEmpty());
-    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *shaderless, deleteAll));
+    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *shaderless));
     EXPECT_EQ(header.GetNumBlocks(), blocksWithEffect - 1);
 
-    // A broken chain that comes back to a controller ends there, after the environment map scale one in it is gone.
-    auto* looped = builder.addShape("Looped", stoneTextures(), nifly::BSLSP_ENVMAP);
+    // A broken chain that loops back to a controller, or to itself, ends once every controller in it is gone.
+    auto* looped = builder.addShape("Looped", stoneTextures());
     auto* const loopStart = builder.addShaderFloatController(looped, emissiveMultiple);
-    builder.addShaderFloatController(looped, envMapScale)->nextControllerRef.index = nif.GetBlockID(loopStart);
-    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *looped, isEnvMapScale));
-    EXPECT_EQ(header.GetBlock(builder.lightingShader(looped)->controllerRef), loopStart);
-    EXPECT_EQ(header.GetBlock(loopStart->nextControllerRef), loopStart);
+    builder.addShaderFloatController(looped, alpha)->nextControllerRef.index = nif.GetBlockID(loopStart);
+    auto* selfLooped = builder.addShape("SelfLooped", stoneTextures());
+    auto* const selfLoop = builder.addShaderFloatController(selfLooped, alpha);
+    selfLoop->nextControllerRef.index = nif.GetBlockID(selfLoop);
+    const auto blocksWithLoops = header.GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *looped));
+    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *selfLooped));
+    EXPECT_TRUE(builder.lightingShader(looped)->controllerRef.IsEmpty());
+    EXPECT_TRUE(builder.lightingShader(selfLooped)->controllerRef.IsEmpty());
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithLoops - 9); // three controllers, their interpolators and data
 }
 
 TEST(PGNIFUtilTest,

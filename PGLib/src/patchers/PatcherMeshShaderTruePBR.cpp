@@ -13,7 +13,6 @@
 #include "util/StringUtil.hpp"
 #include "util/TaskPoolRunner.hpp"
 
-#include "Animation.hpp"
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -81,35 +80,6 @@ std::string nonStringSelectorKey(const nlohmann::json& entry)
     }
 
     return { };
-}
-
-/**
- * @brief Checks whether a controller of a lighting shader animates a value that a PBR shader does not have or reads as
- * something else
- *
- * Only an environment map shader has an environment map scale, and the game crashes loading a PBR shape whose shader
- * keeps a controller for it. Community Shaders reads the glossiness as the specular level, the specular strength as the
- * roughness scale and the specular color as the subsurface or coat color, so keys made for the vanilla values would
- * drive those. The emissive, alpha, refraction and UV values mean the same on a PBR shader.
- */
-bool isNonPBRController(const nifly::NiTimeController& controller)
-{
-    // Controlled variables of a BSLightingShaderPropertyFloatController.
-    constexpr uint32_t envMapScale = 8;
-    constexpr uint32_t glossiness = 9;
-    constexpr uint32_t specularStrength = 10;
-    // Controlled color of a BSLightingShaderPropertyColorController.
-    constexpr uint32_t specularColor = 0;
-
-    if (const auto* const floatController
-        = dynamic_cast<const nifly::BSLightingShaderPropertyFloatController*>(&controller)) {
-        const auto variable = floatController->typeOfControlledVariable;
-        return variable == envMapScale || variable == glossiness || variable == specularStrength;
-    }
-
-    const auto* const colorController
-        = dynamic_cast<const nifly::BSLightingShaderPropertyColorController*>(&controller);
-    return colorController != nullptr && colorController->typeOfControlledColor == specularColor;
 }
 
 } // namespace
@@ -770,7 +740,8 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_DETAIL_MAP);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_RGB_TINT);
 
-    PGNIFUtil::deleteShaderControllers(*nif(), nifShape, isNonPBRController);
+    // A PBR shader only takes the values its PBR entries set, and those cannot animate it.
+    PGNIFUtil::deleteShaderControllers(*nif(), nifShape);
 }
 
 uint64_t PatcherMeshShaderTruePBR::matchExtraDataHash(const PatcherMatch& match) const
@@ -1030,7 +1001,11 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
     // Enable PBR on the shape (always on, the legacy "pbr" JSON field is ignored).
     isChanged |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
 
-    isChanged |= PGNIFUtil::deleteShaderControllers(*nif(), *nifShape, isNonPBRController);
+    // A PBR shader only takes the values its PBR entries set, and those cannot animate it. The controllers of the other
+    // shader types do not fit it either: the game crashes on an environment map scale controller, and Community Shaders
+    // reads the glossiness, specular strength and specular color as the specular level, roughness and subsurface or
+    // coat color.
+    isChanged |= PGNIFUtil::deleteShaderControllers(*nif(), *nifShape);
 
     return isChanged;
 }
