@@ -150,8 +150,8 @@ bool configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
 // stays shared and changes for every shape that uses it; shapes on a shader that stays shared also share its texture
 // set and every change to it. setTextureSlotCount() changes the number of texture slots in place for every sharer as
 // well, unless one of them is an ignored shape (see isIgnoredShape()), which keeps its count. deleteAlphaProperty()
-// and deleteShaderControllers() follow the same rule: they only delete blocks the shape alone uses, and the links
-// of an animation sequence to a deleted controller go with it, together with what only those links used.
+// follows the same rule: it only deletes blocks the shape alone uses, and the links of an animation sequence to a
+// deleted controller go with it, together with what only those links used.
 
 /// @brief Give a shape its own lighting shader if other shapes share it
 ///
@@ -195,16 +195,17 @@ bool setAlphaProperty(nifly::NifFile& nif,
 bool deleteAlphaProperty(nifly::NifFile& nif,
                          nifly::NiShape& nifShape);
 
-/// @brief Remove every controller of the shader of a shape
+/// @brief Take every controller off the shader of a shape, so nothing drives them any more
 ///
-/// Each controller of the chain is deleted together with every block only it uses, such as its interpolator; the links
-/// of an animation sequence to it go with it, together with the interpolators only those links used. Other controllers,
-/// such as the ones of other shaders or of the alpha property, and their links stay.
+/// The controller chain of the shader is cleared and the links of animation sequences to its controllers are erased.
+/// A controller no other block references loses its target too. The blocks stay in the file without a reference: nifly
+/// walks every block for each block it deletes, which makes deleting them slow on big animated meshes, and the game
+/// loads such blocks but never updates a controller nothing drives.
 ///
 /// @param nif the NIF
 /// @param nifShape the shape
-/// @return true if a controller was removed
-bool deleteShaderControllers(nifly::NifFile& nif,
+/// @return true if the shader had a controller
+bool unlinkShaderControllers(nifly::NifFile& nif,
                              nifly::NiShape& nifShape);
 
 /// @brief Set the texture of one slot of a shape, wide string variant (the path must be ASCII)

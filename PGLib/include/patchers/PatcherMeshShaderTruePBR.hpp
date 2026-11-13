@@ -224,7 +224,7 @@ public:
                          const PatcherMatch& match) override;
 
     /**
-     * @brief Set the plain PBR shader (default type with the PBR flag) on a shape and remove the controllers of the
+     * @brief Set the plain PBR shader (default type with the PBR flag) on a shape and take the controllers off the
      * shader, as applyPatch() does. Only used when a plugin use needs the generic PBR shader; entries apply their own
      * shader through applyPatch()
      *

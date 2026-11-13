@@ -701,17 +701,22 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     // environment map scale controller.
     m_shader->SetShaderType(nifly::BSLSP_ENVMAP);
     PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF1_ENVIRONMENT_MAPPING);
+    std::vector<const nifly::NiTimeController*> controllers;
     for (const auto variable : floatVariables)
-        m_builder.addShaderFloatController(m_shape, variable);
+        controllers.push_back(m_builder.addShaderFloatController(m_shape, variable));
     for (const auto color : colors)
-        m_builder.addShaderColorController(m_shape, color);
+        controllers.push_back(m_builder.addShaderColorController(m_shape, color));
     const auto blocksWithControllers = header.GetNumBlocks();
     apply(*m_shape, L"textures\\a\\stone.dds");
     EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
     EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
     EXPECT_TRUE(m_shader->controllerRef.IsEmpty());
-    // Each controller with its interpolator and data.
-    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers - (3 * (floatVariables.size() + colors.size())));
+    // The controllers are left in the file without a target or a next controller, so nothing can drive them.
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers);
+    for (const auto* const controller : controllers) {
+        EXPECT_TRUE(controller->targetRef.IsEmpty());
+        EXPECT_TRUE(controller->nextControllerRef.IsEmpty());
+    }
 
     // A multilayer entry makes another PBR shader type.
     auto* metal = m_builder.addShape("Metal", slots(L"textures\\c\\metal.dds"), nifly::BSLSP_ENVMAP);
