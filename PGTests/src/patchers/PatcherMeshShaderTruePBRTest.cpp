@@ -10,6 +10,7 @@
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 
+#include "Animation.hpp"
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -20,6 +21,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -667,6 +669,70 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     const auto fromFactory = PatcherMeshShaderTruePBR::factory()(meshPath, &m_builder.nif());
     ASSERT_TRUE(fromFactory);
     EXPECT_EQ(fromFactory->patcherName(), "TruePBR");
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
+       PBRShapesLoseTheirShaderControllers)
+{
+    // Controlled variables of BSLightingShaderPropertyFloatController and colors of the color controller.
+    constexpr uint32_t envMapScale = 8;
+    constexpr uint32_t emissiveMultiple = 11;
+    constexpr uint32_t vOffset = 22;
+    constexpr uint32_t emissiveColor = 1;
+    const std::vector<uint32_t> floatVariables { 0, 8, 9, 10, 11, 12, 20, 21, 22, 23 };
+    const std::vector<uint32_t> colors { 0, 1 };
+
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\envmap.json",
+                        R"([{"texture": "a\\stone"}, {"texture": "c\\metal", "multilayer": true}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\envmap.json" }, false);
+    auto& nif = m_builder.nif();
+    const auto& header = nif.GetHeader();
+    PatcherMeshShaderTruePBR patcher(meshPath, &nif);
+    const auto apply = [&](nifly::NiShape& shape, const std::wstring& diffuse) {
+        auto patched = slots(diffuse);
+        const auto matches = matchesFor(patcher, patched);
+        ASSERT_EQ(matches.size(), 1U) << TestUtil::pathToUTF8(diffuse);
+        patcher.applyPatch(patched, shape, matches[0]);
+    };
+
+    // An environment map shape like the vanilla ghost ash pile puddles, with a controller for every value a lighting
+    // shader can animate. A PBR entry cannot animate a shader, and the game crashes loading a PBR shape that keeps the
+    // environment map scale controller.
+    m_shader->SetShaderType(nifly::BSLSP_ENVMAP);
+    PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF1_ENVIRONMENT_MAPPING);
+    std::vector<const nifly::NiTimeController*> controllers;
+    for (const auto variable : floatVariables)
+        controllers.push_back(m_builder.addShaderFloatController(m_shape, variable));
+    for (const auto color : colors)
+        controllers.push_back(m_builder.addShaderColorController(m_shape, color));
+    const auto blocksWithControllers = header.GetNumBlocks();
+    apply(*m_shape, L"textures\\a\\stone.dds");
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
+    EXPECT_TRUE(m_shader->controllerRef.IsEmpty());
+    // The controllers are left in the file without a target or a next controller, so nothing can drive them.
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers);
+    for (const auto* const controller : controllers) {
+        EXPECT_TRUE(controller->targetRef.IsEmpty());
+        EXPECT_TRUE(controller->nextControllerRef.IsEmpty());
+    }
+
+    // A multilayer entry makes another PBR shader type.
+    auto* metal = m_builder.addShape("Metal", slots(L"textures\\c\\metal.dds"), nifly::BSLSP_ENVMAP);
+    m_builder.addShaderFloatController(metal, envMapScale);
+    m_builder.addShaderFloatController(metal, vOffset);
+    apply(*metal, L"textures\\c\\metal.dds");
+    EXPECT_EQ(m_builder.lightingShader(metal)->GetShaderType(), nifly::BSLSP_MULTILAYERPARALLAX);
+    EXPECT_TRUE(m_builder.lightingShader(metal)->controllerRef.IsEmpty());
+
+    // The plain PBR shader of a plugin use, on a glow shader with a pulsing glow like the vanilla heartstones.
+    auto* plain = m_builder.addShape("Plain", slots(L"textures\\c\\cloth.dds"), nifly::BSLSP_GLOWMAP);
+    m_builder.addShaderFloatController(plain, emissiveMultiple);
+    m_builder.addShaderColorController(plain, emissiveColor);
+    patcher.applyShader(*plain);
+    EXPECT_EQ(m_builder.lightingShader(plain)->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_TRUE(m_builder.lightingShader(plain)->controllerRef.IsEmpty());
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,

@@ -687,6 +687,119 @@ TEST(PGNIFUtilTest,
 }
 
 TEST(PGNIFUtilTest,
+     UnlinkShaderControllersLeavesNothingDrivingThem)
+{
+    constexpr uint32_t envMapScale = 8;
+    constexpr uint32_t emissiveMultiple = 11;
+    constexpr uint32_t alpha = 12;
+    constexpr uint32_t specularColor = 0;
+
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto& header = nif.GetHeader();
+    auto* puddle = builder.addShape("Puddle", stoneTextures(), nifly::BSLSP_ENVMAP);
+    const auto* const shader = builder.lightingShader(puddle);
+    EXPECT_FALSE(PGNIFUtil::unlinkShaderControllers(nif, *puddle)); // no controllers
+
+    // The chain of a vanilla puddle, with an alpha test controller on its alpha property, and a second shape whose
+    // shader is animated by the same sequence.
+    const std::vector<nifly::NiTimeController*> puddleControllers {
+        builder.addShaderFloatController(puddle, envMapScale),
+        builder.addShaderFloatController(puddle, emissiveMultiple),
+        builder.addShaderColorController(puddle, specularColor),
+        builder.addShaderFloatController(puddle, alpha),
+    };
+    const auto* const puddleAlpha = builder.addAlphaProperty(puddle);
+    addAlphaController(nif, *puddle);
+    auto* rim = builder.addShape("Rim", stoneTextures());
+    auto* const rimEmissive = builder.addShaderFloatController(rim, emissiveMultiple);
+    auto* const alphaTest = header.GetBlock(puddleAlpha->controllerRef);
+    ASSERT_NE(alphaTest, nullptr);
+
+    // An animation sequence links every controller with an interpolator of its own, as the vanilla ones do.
+    auto sequence = std::make_unique<nifly::NiControllerSequence>();
+    auto* const sequencePtr = sequence.get();
+    auto linkedControllers = puddleControllers;
+    linkedControllers.push_back(rimEmissive);
+    linkedControllers.push_back(alphaTest);
+    for (auto* const controller : linkedControllers) {
+        nifly::ControllerLink link;
+        link.controllerRef.index = nif.GetBlockID(controller);
+        link.interpolatorRef.index = addFloatInterpolator(nif);
+        sequence->controlledBlocks.push_back(link);
+    }
+    auto manager = std::make_unique<nifly::NiControllerManager>();
+    manager->controllerSequenceRefs.AddBlockRef(header.AddBlock(std::move(sequence)));
+    manager->targetRef.index = nif.GetBlockID(nif.GetRootNode());
+    nif.GetRootNode()->controllerRef.index = header.AddBlock(std::move(manager));
+
+    const auto blocksWithControllers = header.GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *puddle));
+    EXPECT_TRUE(shader->controllerRef.IsEmpty());
+    EXPECT_EQ(shader->GetShaderType(), nifly::BSLSP_ENVMAP); // the shader itself is left alone
+
+    // The controllers stay in the file with their interpolators, but no block references them and they target nothing.
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers);
+    for (auto* const controller : puddleControllers) {
+        EXPECT_TRUE(controller->nextControllerRef.IsEmpty());
+        EXPECT_TRUE(controller->targetRef.IsEmpty());
+        EXPECT_FALSE(header.IsBlockReferenced(nif.GetBlockID(controller)));
+    }
+
+    // The alpha test controller, the other shader's controller and their links stay as they were.
+    EXPECT_EQ(header.GetBlock(puddleAlpha->controllerRef), alphaTest);
+    EXPECT_EQ(alphaTest->targetRef.index, nif.GetBlockID(nif.GetAlphaProperty(puddle)));
+    EXPECT_EQ(header.GetBlock(builder.lightingShader(rim)->controllerRef), rimEmissive);
+    EXPECT_EQ(rimEmissive->targetRef.index, rim->ShaderPropertyRef()->index);
+    ASSERT_EQ(sequencePtr->controlledBlocks.size(), 2U);
+    EXPECT_EQ(sequencePtr->controlledBlocks[0].controllerRef.index, nif.GetBlockID(rimEmissive));
+    EXPECT_EQ(sequencePtr->controlledBlocks[1].controllerRef.index, nif.GetBlockID(alphaTest));
+    for (const auto& link : sequencePtr->controlledBlocks)
+        EXPECT_NE(header.GetBlock<nifly::NiFloatInterpolator>(link.interpolatorRef.index), nullptr);
+
+    EXPECT_FALSE(PGNIFUtil::unlinkShaderControllers(nif, *puddle));
+
+    // A controller that the chain of another shader also starts with, which only a broken file has, keeps its target
+    // for that chain.
+    auto* sharer = builder.addShape("Sharer", stoneTextures());
+    auto* const shared = builder.addShaderFloatController(sharer, emissiveMultiple);
+    builder.lightingShader(puddle)->controllerRef.index = nif.GetBlockID(shared);
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *puddle));
+    EXPECT_TRUE(shader->controllerRef.IsEmpty());
+    EXPECT_EQ(header.GetBlock(builder.lightingShader(sharer)->controllerRef), shared);
+    EXPECT_EQ(shared->targetRef.index, sharer->ShaderPropertyRef()->index);
+
+    // The controllers of an effect shader are taken off the same way, and a shape without a shader has none.
+    auto* effect = builder.addEffectShape("Effect");
+    auto effectController = std::make_unique<nifly::BSEffectShaderPropertyFloatController>();
+    const auto* const effectControllerPtr = effectController.get();
+    effectController->targetRef.index = effect->ShaderPropertyRef()->index;
+    nif.GetShader(effect)->controllerRef.index = header.AddBlock(std::move(effectController));
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *effect));
+    EXPECT_TRUE(nif.GetShader(effect)->controllerRef.IsEmpty());
+    EXPECT_TRUE(effectControllerPtr->targetRef.IsEmpty());
+    EXPECT_FALSE(PGNIFUtil::unlinkShaderControllers(nif, *shaderless));
+
+    // A broken chain that loops back to a controller, or to itself, ends once every link in it is cleared.
+    auto* looped = builder.addShape("Looped", stoneTextures());
+    auto* const loopStart = builder.addShaderFloatController(looped, emissiveMultiple);
+    auto* const loopEnd = builder.addShaderFloatController(looped, alpha);
+    loopEnd->nextControllerRef.index = nif.GetBlockID(loopStart);
+    auto* selfLooped = builder.addShape("SelfLooped", stoneTextures());
+    auto* const selfLoop = builder.addShaderFloatController(selfLooped, alpha);
+    selfLoop->nextControllerRef.index = nif.GetBlockID(selfLoop);
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *looped));
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *selfLooped));
+    EXPECT_TRUE(builder.lightingShader(looped)->controllerRef.IsEmpty());
+    EXPECT_TRUE(builder.lightingShader(selfLooped)->controllerRef.IsEmpty());
+    for (const auto* const controller : { loopStart, loopEnd, selfLoop }) {
+        EXPECT_TRUE(controller->nextControllerRef.IsEmpty());
+        EXPECT_TRUE(controller->targetRef.IsEmpty());
+    }
+}
+
+TEST(PGNIFUtilTest,
      TextureSetToStrConvertsEverySlot)
 {
     PGTypes::TextureSet set;

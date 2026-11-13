@@ -561,6 +561,63 @@ bool PGNIFUtil::unshareShader(nifly::NifFile& nif,
     return unshareBlock(header, *shaderRef) != shader;
 }
 
+bool PGNIFUtil::unlinkShaderControllers(nifly::NifFile& nif,
+                                        nifly::NiShape& nifShape)
+{
+    auto* const shader = nif.GetShader(&nifShape);
+    if (!shader)
+        return false;
+
+    // Every step clears the link it follows, so a broken chain that loops back to a controller ends there.
+    const auto& header = nif.GetHeader();
+    std::unordered_set<uint32_t> controllerIDs;
+    std::vector<std::pair<uint32_t, nifly::NiTimeController*>> controllers;
+    auto controllerID = shader->controllerRef.index;
+    shader->controllerRef.Clear();
+    while (auto* const controller = header.GetBlock<nifly::NiTimeController>(controllerID)) {
+        if (controllerIDs.insert(controllerID).second)
+            controllers.emplace_back(controllerID, controller);
+
+        controllerID = controller->nextControllerRef.index;
+        controller->nextControllerRef.Clear();
+    }
+
+    if (controllers.empty())
+        return false;
+
+    // A sequence link would drive its controller once the sequence starts, so the links to the controllers go. The
+    // same walk finds the controllers another block still references, which only a broken file has.
+    std::unordered_set<uint32_t> referencedIDs;
+    std::vector<uint32_t> childIDs;
+    for (uint32_t blockID = 0; blockID < header.GetNumBlocks(); blockID++) {
+        auto* const block = header.GetBlock<nifly::NiObject>(blockID);
+        if (!block)
+            continue;
+
+        auto* const sequence = dynamic_cast<nifly::NiSequence*>(block);
+        if (sequence) {
+            auto& links = sequence->controlledBlocks;
+            for (uint32_t i = links.size(); i > 0; i--)
+                if (controllerIDs.contains(links[i - 1].controllerRef.index))
+                    links.erase(i - 1);
+        }
+
+        childIDs.clear();
+        block->GetChildIndices(childIDs);
+        for (const auto childID : childIDs)
+            if (controllerIDs.contains(childID))
+                referencedIDs.insert(childID);
+    }
+
+    // The game updates a controller through its target without checking it, so only a controller nothing can drive
+    // any more loses it.
+    for (const auto& [id, controller] : controllers)
+        if (!referencedIDs.contains(id))
+            controller->targetRef.Clear();
+
+    return true;
+}
+
 // Alpha property helpers.
 bool PGNIFUtil::setAlphaProperty(nifly::NifFile& nif,
                                  nifly::NiShape& nifShape,

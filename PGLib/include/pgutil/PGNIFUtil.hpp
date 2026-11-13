@@ -195,6 +195,19 @@ bool setAlphaProperty(nifly::NifFile& nif,
 bool deleteAlphaProperty(nifly::NifFile& nif,
                          nifly::NiShape& nifShape);
 
+/// @brief Take every controller off the shader of a shape, so nothing drives them any more
+///
+/// The controller chain of the shader is cleared and the links of animation sequences to its controllers are erased.
+/// A controller no other block references loses its target too. The blocks stay in the file without a reference: nifly
+/// walks every block for each block it deletes, which makes deleting them slow on big animated meshes, and the game
+/// loads such blocks but never updates a controller nothing drives.
+///
+/// @param nif the NIF
+/// @param nifShape the shape
+/// @return true if the shader had a controller
+bool unlinkShaderControllers(nifly::NifFile& nif,
+                             nifly::NiShape& nifShape);
+
 /// @brief Set the texture of one slot of a shape, wide string variant (the path must be ASCII)
 ///
 /// A texture set other shapes share is copied for the shape first, see the note on shared blocks above.
