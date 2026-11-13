@@ -672,10 +672,19 @@ TEST_F(PatcherMeshShaderTruePBRTest,
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
-       PBRShapesLoseTheirEnvMapScaleControllers)
+       PBRShapesLoseTheControllersOfValuesPBRDoesNotHave)
 {
+    // Controlled variables of BSLightingShaderPropertyFloatController and colors of the color controller.
+    constexpr uint32_t refraction = 0;
     constexpr uint32_t envMapScale = 8;
+    constexpr uint32_t glossiness = 9;
+    constexpr uint32_t specularStrength = 10;
     constexpr uint32_t emissiveMultiple = 11;
+    constexpr uint32_t alpha = 12;
+    constexpr uint32_t uOffset = 20;
+    constexpr uint32_t vScale = 23;
+    constexpr uint32_t specularColor = 0;
+    constexpr uint32_t emissiveColor = 1;
 
     TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\envmap.json",
                         R"([{"texture": "a\\stone"}, {"texture": "c\\metal", "multilayer": true}])");
@@ -691,30 +700,50 @@ TEST_F(PatcherMeshShaderTruePBRTest,
         patcher.applyPatch(patched, shape, matches[0]);
     };
 
-    // An environment map shape like the vanilla ghost ash pile puddles, which animate the scale and the emissive
-    // multiple. The game crashes loading a PBR shape that keeps the first controller.
+    // An environment map shape like the vanilla ghost ash pile puddles. The game crashes loading a PBR shape that keeps
+    // the environment map scale controller, and PBR reads the glossiness, specular strength and specular color as
+    // other values. The emissive, alpha, refraction and UV controllers mean the same on PBR and stay, in their order.
     m_shader->SetShaderType(nifly::BSLSP_ENVMAP);
     PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF1_ENVIRONMENT_MAPPING);
     m_builder.addShaderFloatController(m_shape, envMapScale);
-    auto* const emissive = m_builder.addShaderFloatController(m_shape, emissiveMultiple);
+    const auto* const emissive = m_builder.addShaderFloatController(m_shape, emissiveMultiple);
+    m_builder.addShaderFloatController(m_shape, glossiness);
+    m_builder.addShaderColorController(m_shape, specularColor);
+    const auto* const alphaController = m_builder.addShaderFloatController(m_shape, alpha);
+    m_builder.addShaderFloatController(m_shape, specularStrength);
+    const auto* const emissiveColorController = m_builder.addShaderColorController(m_shape, emissiveColor);
+    const auto* const refractionController = m_builder.addShaderFloatController(m_shape, refraction);
+    const auto* const uOffsetController = m_builder.addShaderFloatController(m_shape, uOffset);
+    const auto* const vScaleController = m_builder.addShaderFloatController(m_shape, vScale);
     const auto blocksWithControllers = header.GetNumBlocks();
     apply(*m_shape, L"textures\\a\\stone.dds");
     EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
     EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
-    EXPECT_EQ(header.GetBlock(m_shader->controllerRef), emissive);
-    EXPECT_TRUE(emissive->nextControllerRef.IsEmpty());
-    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers - 3); // the controller, its interpolator and data
+    std::vector<const nifly::NiTimeController*> chain;
+    for (const auto* controller = header.GetBlock(m_shader->controllerRef); controller;
+         controller = header.GetBlock(controller->nextControllerRef))
+        chain.push_back(controller);
+    EXPECT_EQ(chain,
+              (std::vector<const nifly::NiTimeController*> { emissive,
+                                                             alphaController,
+                                                             emissiveColorController,
+                                                             refractionController,
+                                                             uOffsetController,
+                                                             vScaleController }));
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers - 12); // 4 controllers, their interpolators and data
 
-    // A multilayer entry makes another PBR shader type.
+    // A multilayer entry makes another PBR shader type, which reads the specular color as the coat color.
     auto* metal = m_builder.addShape("Metal", slots(L"textures\\c\\metal.dds"), nifly::BSLSP_ENVMAP);
     m_builder.addShaderFloatController(metal, envMapScale);
+    m_builder.addShaderColorController(metal, specularColor);
     apply(*metal, L"textures\\c\\metal.dds");
     EXPECT_EQ(m_builder.lightingShader(metal)->GetShaderType(), nifly::BSLSP_MULTILAYERPARALLAX);
     EXPECT_TRUE(m_builder.lightingShader(metal)->controllerRef.IsEmpty());
 
-    // The plain PBR shader of a plugin use.
-    auto* plain = m_builder.addShape("Plain", slots(L"textures\\c\\cloth.dds"), nifly::BSLSP_ENVMAP);
-    m_builder.addShaderFloatController(plain, envMapScale);
+    // The plain PBR shader of a plugin use, on a glow shader like the vanilla heartstones.
+    auto* plain = m_builder.addShape("Plain", slots(L"textures\\c\\cloth.dds"), nifly::BSLSP_GLOWMAP);
+    m_builder.addShaderFloatController(plain, glossiness);
+    m_builder.addShaderFloatController(plain, specularStrength);
     patcher.applyShader(*plain);
     EXPECT_EQ(m_builder.lightingShader(plain)->GetShaderType(), nifly::BSLSP_DEFAULT);
     EXPECT_TRUE(m_builder.lightingShader(plain)->controllerRef.IsEmpty());

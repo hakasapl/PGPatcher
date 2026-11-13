@@ -561,12 +561,10 @@ bool PGNIFUtil::unshareShader(nifly::NifFile& nif,
     return unshareBlock(header, *shaderRef) != shader;
 }
 
-bool PGNIFUtil::deleteEnvMapScaleControllers(nifly::NifFile& nif,
-                                             nifly::NiShape& nifShape)
+bool PGNIFUtil::deleteShaderControllers(nifly::NifFile& nif,
+                                        nifly::NiShape& nifShape,
+                                        const std::function<bool(const nifly::NiTimeController&)>& shouldDelete)
 {
-    // The controlled variable of a BSLightingShaderPropertyFloatController that animates the environment map scale.
-    constexpr uint32_t envMapScaleVariable = 8;
-
     auto* const shader = nif.GetShader(&nifShape);
     if (!shader)
         return false;
@@ -580,9 +578,7 @@ bool PGNIFUtil::deleteEnvMapScaleControllers(nifly::NifFile& nif,
     std::unordered_set<const nifly::NiTimeController*> keptControllers;
     auto* controllerRef = &shader->controllerRef;
     while (auto* const controller = header.GetBlock(*controllerRef)) {
-        const auto* const floatController
-            = dynamic_cast<const nifly::BSLightingShaderPropertyFloatController*>(controller);
-        if (!floatController || floatController->typeOfControlledVariable != envMapScaleVariable) {
+        if (!shouldDelete(*controller)) {
             if (!keptControllers.insert(controller).second)
                 break;
 

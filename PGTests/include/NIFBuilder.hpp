@@ -31,6 +31,12 @@ private:
     nifly::BSTriShape* addTriShape(const std::string& name,
                                    nifly::NiNode* parent);
 
+    /// @brief Appends a controller with an interpolator and its data to the shader chain of a shape.
+    template<typename Controller,
+             typename Interpolator,
+             typename Data>
+    Controller* addShaderController(nifly::NiShape* shape);
+
 public:
     /// @brief Creates an empty SSE mesh with a "Scene Root" node.
     NIFBuilder();
@@ -94,6 +100,16 @@ public:
      */
     nifly::BSLightingShaderPropertyFloatController* addShaderFloatController(nifly::NiShape* shape,
                                                                              uint32_t controlledVariable);
+
+    /**
+     * @brief Appends a BSLightingShaderPropertyColorController to the controller chain of the shader of a shape, with a
+     * point3 interpolator and its data, as vanilla meshes have.
+     *
+     * @param shape Shape with a lighting shader
+     * @param controlledColor Shader color the controller animates, 0 is the specular color and 1 the emissive color
+     */
+    nifly::BSLightingShaderPropertyColorController* addShaderColorController(nifly::NiShape* shape,
+                                                                             uint32_t controlledColor);
 
     /// @brief Attaches a NiStringExtraData block to a shape, node or shader.
     nifly::NiStringExtraData* addStringExtraData(nifly::NiObjectNET* target,

@@ -3,6 +3,7 @@
 ## UNRELEASED
 
 - [Common] Fixed a crash when TruePBR patches a shape whose environment map scale is animated, such as the vanilla ghost ash piles, oil puddles and glass cuirass (the controller is removed, PBR has no environment map)
+- [Common] TruePBR removes glossiness, specular strength and specular color animations from the shapes it patches, PBR reads those values as the specular level, roughness and subsurface or coat color
 
 ## [2.4.0] - 2026-11-08
 

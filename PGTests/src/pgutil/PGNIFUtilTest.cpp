@@ -687,18 +687,23 @@ TEST(PGNIFUtilTest,
 }
 
 TEST(PGNIFUtilTest,
-     DeleteEnvMapScaleControllersKeepsTheOtherControllers)
+     DeleteShaderControllersKeepsTheOtherControllers)
 {
     constexpr uint32_t envMapScale = 8;
     constexpr uint32_t emissiveMultiple = 11;
     constexpr uint32_t alpha = 12;
+    const auto isEnvMapScale = [](const nifly::NiTimeController& controller) {
+        const auto* const floatController
+            = dynamic_cast<const nifly::BSLightingShaderPropertyFloatController*>(&controller);
+        return floatController != nullptr && floatController->typeOfControlledVariable == envMapScale;
+    };
 
     NIFBuilder builder;
     auto& nif = builder.nif();
     auto& header = nif.GetHeader();
     auto* puddle = builder.addShape("Puddle", stoneTextures(), nifly::BSLSP_ENVMAP);
     auto* const shader = builder.lightingShader(puddle);
-    EXPECT_FALSE(PGNIFUtil::deleteEnvMapScaleControllers(nif, *puddle)); // no controllers
+    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *puddle, isEnvMapScale)); // no controllers
 
     // The chain of a vanilla puddle, with environment map scale controllers first and twice in a row in the middle.
     auto* const firstEnvMap = builder.addShaderFloatController(puddle, envMapScale);
@@ -722,7 +727,7 @@ TEST(PGNIFUtilTest,
     nif.GetRootNode()->controllerRef.index = header.AddBlock(std::move(manager));
 
     const auto blocksWithControllers = header.GetNumBlocks();
-    EXPECT_TRUE(PGNIFUtil::deleteEnvMapScaleControllers(nif, *puddle));
+    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *puddle, isEnvMapScale));
     // Each environment map scale controller with its interpolator and data, and the interpolator and data of its link.
     EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers - 15);
     EXPECT_EQ(header.GetBlock(shader->controllerRef), emissive);
@@ -740,27 +745,35 @@ TEST(PGNIFUtilTest,
     expectNoLooseBlocks(nif);
     EXPECT_EQ(shader->GetShaderType(), nifly::BSLSP_ENVMAP); // the shader itself is left alone
 
+    // Every controller left in the chain is offered once, in chain order, and nothing else is deleted.
+    std::vector<const nifly::NiTimeController*> offered;
+    const auto keepAll = [&offered](const nifly::NiTimeController& controller) {
+        offered.push_back(&controller);
+        return false;
+    };
     const auto blocksWithoutEnvMap = header.GetNumBlocks();
-    EXPECT_FALSE(PGNIFUtil::deleteEnvMapScaleControllers(nif, *puddle));
+    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *puddle, keepAll));
+    EXPECT_EQ(offered, (std::vector<const nifly::NiTimeController*> { emissive, alphaController }));
     EXPECT_EQ(header.GetNumBlocks(), blocksWithoutEnvMap);
 
-    // The same variable of an effect shader controller is another value, and a shape without a shader has nothing.
+    // The controllers of an effect shader are walked the same way, and a shape without a shader has none.
+    const auto deleteAll = [](const nifly::NiTimeController&) { return true; };
     auto* effect = builder.addEffectShape("Effect");
     auto effectController = std::make_unique<nifly::BSEffectShaderPropertyFloatController>();
-    effectController->typeOfControlledVariable = envMapScale;
     effectController->targetRef.index = effect->ShaderPropertyRef()->index;
     nif.GetShader(effect)->controllerRef.index = header.AddBlock(std::move(effectController));
     auto* shaderless = builder.addShaderlessShape("Shaderless");
     const auto blocksWithEffect = header.GetNumBlocks();
-    EXPECT_FALSE(PGNIFUtil::deleteEnvMapScaleControllers(nif, *effect));
-    EXPECT_FALSE(PGNIFUtil::deleteEnvMapScaleControllers(nif, *shaderless));
-    EXPECT_EQ(header.GetNumBlocks(), blocksWithEffect);
+    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *effect, deleteAll));
+    EXPECT_TRUE(nif.GetShader(effect)->controllerRef.IsEmpty());
+    EXPECT_FALSE(PGNIFUtil::deleteShaderControllers(nif, *shaderless, deleteAll));
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithEffect - 1);
 
     // A broken chain that comes back to a controller ends there, after the environment map scale one in it is gone.
     auto* looped = builder.addShape("Looped", stoneTextures(), nifly::BSLSP_ENVMAP);
     auto* const loopStart = builder.addShaderFloatController(looped, emissiveMultiple);
     builder.addShaderFloatController(looped, envMapScale)->nextControllerRef.index = nif.GetBlockID(loopStart);
-    EXPECT_TRUE(PGNIFUtil::deleteEnvMapScaleControllers(nif, *looped));
+    EXPECT_TRUE(PGNIFUtil::deleteShaderControllers(nif, *looped, isEnvMapScale));
     EXPECT_EQ(header.GetBlock(builder.lightingShader(looped)->controllerRef), loopStart);
     EXPECT_EQ(header.GetBlock(loopStart->nextControllerRef), loopStart);
 }
