@@ -224,8 +224,9 @@ public:
                          const PatcherMatch& match) override;
 
     /**
-     * @brief Set the plain PBR shader (default type with the PBR flag) on a shape. Only used when a plugin use needs
-     * the generic PBR shader; entries apply their own shader through applyPatch()
+     * @brief Set the plain PBR shader (default type with the PBR flag) on a shape and remove the environment map scale
+     * controllers of the shader. Only used when a plugin use needs the generic PBR shader; entries apply their own
+     * shader through applyPatch()
      *
      * @param nifShape Shape to apply shader to
      */
@@ -257,7 +258,8 @@ public:
 private:
     /**
      * @brief Applies a single config entry to a shape: geometry attributes (delete, smooth_angle, auto_uv, vertex
-     * colors), shader fields, then enableTruePBROnShape()
+     * colors), shader fields, then enableTruePBROnShape(). The environment map scale controllers of the shader are
+     * removed (see PGNIFUtil::deleteEnvMapScaleControllers())
      *
      * @param nifShape Shape to patch
      * @param truePBRData Entry to apply

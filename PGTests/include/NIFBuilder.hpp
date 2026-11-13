@@ -2,6 +2,7 @@
 
 #include "pgutil/PGTypes.hpp"
 
+#include "Animation.hpp"
 #include "ExtraData.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -83,6 +84,16 @@ public:
     nifly::NiAlphaProperty* addAlphaProperty(nifly::NiShape* shape,
                                              uint16_t flags = 4844,
                                              uint8_t threshold = 128);
+
+    /**
+     * @brief Appends a BSLightingShaderPropertyFloatController to the controller chain of the shader of a shape, with a
+     * float interpolator and its data, as vanilla meshes have.
+     *
+     * @param shape Shape with a lighting shader
+     * @param controlledVariable Shader value the controller animates, 8 is the environment map scale
+     */
+    nifly::BSLightingShaderPropertyFloatController* addShaderFloatController(nifly::NiShape* shape,
+                                                                             uint32_t controlledVariable);
 
     /// @brief Attaches a NiStringExtraData block to a shape, node or shader.
     nifly::NiStringExtraData* addStringExtraData(nifly::NiObjectNET* target,

@@ -3,6 +3,7 @@
 #include "pgutil/PGTypes.hpp"
 #include "util/StringUtil.hpp"
 
+#include "Animation.hpp"
 #include "BasicTypes.hpp"
 #include "ExtraData.hpp"
 #include "Geometry.hpp"
@@ -165,6 +166,30 @@ nifly::NiAlphaProperty* NIFBuilder::addAlphaProperty(nifly::NiShape* shape,
     alpha->threshold = threshold;
     auto* result = alpha.get();
     shape->AlphaPropertyRef()->index = m_nif.GetHeader().AddBlock(std::move(alpha));
+    return result;
+}
+
+nifly::BSLightingShaderPropertyFloatController* NIFBuilder::addShaderFloatController(nifly::NiShape* shape,
+                                                                                     uint32_t controlledVariable)
+{
+    auto* const shader = lightingShader(shape);
+    if (!shader)
+        throw std::invalid_argument("shape has no lighting shader");
+
+    auto& header = m_nif.GetHeader();
+    auto interpolator = std::make_unique<nifly::NiFloatInterpolator>();
+    interpolator->dataRef.index = header.AddBlock(std::make_unique<nifly::NiFloatData>());
+    auto controller = std::make_unique<nifly::BSLightingShaderPropertyFloatController>();
+    controller->typeOfControlledVariable = controlledVariable;
+    controller->interpolatorRef.index = header.AddBlock(std::move(interpolator));
+    controller->targetRef.index = m_nif.GetBlockID(shader);
+    auto* result = controller.get();
+    const auto controllerID = header.AddBlock(std::move(controller));
+
+    auto* chainEnd = &shader->controllerRef;
+    while (auto* const last = header.GetBlock(*chainEnd))
+        chainEnd = &last->nextControllerRef;
+    chainEnd->index = controllerID;
     return result;
 }
 

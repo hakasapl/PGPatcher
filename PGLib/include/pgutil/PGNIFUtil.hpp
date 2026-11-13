@@ -150,8 +150,8 @@ bool configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
 // stays shared and changes for every shape that uses it; shapes on a shader that stays shared also share its texture
 // set and every change to it. setTextureSlotCount() changes the number of texture slots in place for every sharer as
 // well, unless one of them is an ignored shape (see isIgnoredShape()), which keeps its count. deleteAlphaProperty()
-// follows the same rule: it only deletes blocks the shape alone uses, and the links of an animation sequence to a
-// deleted controller go with it, together with what only those links used.
+// and deleteEnvMapScaleControllers() follow the same rule: they only delete blocks the shape alone uses, and the links
+// of an animation sequence to a deleted controller go with it, together with what only those links used.
 
 /// @brief Give a shape its own lighting shader if other shapes share it
 ///
@@ -194,6 +194,20 @@ bool setAlphaProperty(nifly::NifFile& nif,
 /// @return true if the shape had an alpha property
 bool deleteAlphaProperty(nifly::NifFile& nif,
                          nifly::NiShape& nifShape);
+
+/// @brief Remove the controllers that animate the environment map scale from the shader of a shape
+///
+/// Only an environment map shader has an environment map scale. The game crashes loading a True PBR shape whose shader
+/// keeps such a controller, so a shader that becomes another type must lose them. Each one is taken out of the
+/// controller chain of the shader, which keeps its other controllers, and deleted together with every block only it
+/// uses, such as its interpolator; the links of an animation sequence to it go with it, together with the interpolators
+/// only those links used.
+///
+/// @param nif the NIF
+/// @param nifShape the shape
+/// @return true if a controller was removed
+bool deleteEnvMapScaleControllers(nifly::NifFile& nif,
+                                  nifly::NiShape& nifShape);
 
 /// @brief Set the texture of one slot of a shape, wide string variant (the path must be ASCII)
 ///

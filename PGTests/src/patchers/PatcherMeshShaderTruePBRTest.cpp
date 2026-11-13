@@ -10,6 +10,7 @@
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 
+#include "Animation.hpp"
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -20,6 +21,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -667,6 +669,55 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     const auto fromFactory = PatcherMeshShaderTruePBR::factory()(meshPath, &m_builder.nif());
     ASSERT_TRUE(fromFactory);
     EXPECT_EQ(fromFactory->patcherName(), "TruePBR");
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
+       PBRShapesLoseTheirEnvMapScaleControllers)
+{
+    constexpr uint32_t envMapScale = 8;
+    constexpr uint32_t emissiveMultiple = 11;
+
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\envmap.json",
+                        R"([{"texture": "a\\stone"}, {"texture": "c\\metal", "multilayer": true}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\envmap.json" }, false);
+    auto& nif = m_builder.nif();
+    const auto& header = nif.GetHeader();
+    PatcherMeshShaderTruePBR patcher(meshPath, &nif);
+    const auto apply = [&](nifly::NiShape& shape, const std::wstring& diffuse) {
+        auto patched = slots(diffuse);
+        const auto matches = matchesFor(patcher, patched);
+        ASSERT_EQ(matches.size(), 1U) << TestUtil::pathToUTF8(diffuse);
+        patcher.applyPatch(patched, shape, matches[0]);
+    };
+
+    // An environment map shape like the vanilla ghost ash pile puddles, which animate the scale and the emissive
+    // multiple. The game crashes loading a PBR shape that keeps the first controller.
+    m_shader->SetShaderType(nifly::BSLSP_ENVMAP);
+    PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF1_ENVIRONMENT_MAPPING);
+    m_builder.addShaderFloatController(m_shape, envMapScale);
+    auto* const emissive = m_builder.addShaderFloatController(m_shape, emissiveMultiple);
+    const auto blocksWithControllers = header.GetNumBlocks();
+    apply(*m_shape, L"textures\\a\\stone.dds");
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
+    EXPECT_EQ(header.GetBlock(m_shader->controllerRef), emissive);
+    EXPECT_TRUE(emissive->nextControllerRef.IsEmpty());
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers - 3); // the controller, its interpolator and data
+
+    // A multilayer entry makes another PBR shader type.
+    auto* metal = m_builder.addShape("Metal", slots(L"textures\\c\\metal.dds"), nifly::BSLSP_ENVMAP);
+    m_builder.addShaderFloatController(metal, envMapScale);
+    apply(*metal, L"textures\\c\\metal.dds");
+    EXPECT_EQ(m_builder.lightingShader(metal)->GetShaderType(), nifly::BSLSP_MULTILAYERPARALLAX);
+    EXPECT_TRUE(m_builder.lightingShader(metal)->controllerRef.IsEmpty());
+
+    // The plain PBR shader of a plugin use.
+    auto* plain = m_builder.addShape("Plain", slots(L"textures\\c\\cloth.dds"), nifly::BSLSP_ENVMAP);
+    m_builder.addShaderFloatController(plain, envMapScale);
+    patcher.applyShader(*plain);
+    EXPECT_EQ(m_builder.lightingShader(plain)->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_TRUE(m_builder.lightingShader(plain)->controllerRef.IsEmpty());
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,

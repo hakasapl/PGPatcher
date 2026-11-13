@@ -328,7 +328,7 @@ bool PGNIFUtil::configureShaderFlag(nifly::BSShaderProperty* nifShaderBSLSP,
 }
 
 // Shared block helpers, see the note on shared blocks in PGNIFUtil.hpp. Shaders, alpha properties and texture sets are
-// copied through unshareBlock(), and an alpha property is deleted through deleteBlockTree().
+// copied through unshareBlock(), and alpha properties and controllers are deleted through deleteBlockTree().
 namespace {
 
 /// @brief Checks whether more than one reference points at a block.
@@ -559,6 +559,45 @@ bool PGNIFUtil::unshareShader(nifly::NifFile& nif,
         return false;
 
     return unshareBlock(header, *shaderRef) != shader;
+}
+
+bool PGNIFUtil::deleteEnvMapScaleControllers(nifly::NifFile& nif,
+                                             nifly::NiShape& nifShape)
+{
+    // The controlled variable of a BSLightingShaderPropertyFloatController that animates the environment map scale.
+    constexpr uint32_t envMapScaleVariable = 8;
+
+    auto* const shader = nif.GetShader(&nifShape);
+    if (!shader)
+        return false;
+
+    const auto& header = nif.GetHeader();
+    bool isDeleted = false;
+
+    // Deleting a block renumbers the blocks behind it, and nifly updates every reference to them, so the walk goes on
+    // from the reference that pointed at a deleted controller. Only a broken file has a chain that comes back to a
+    // controller the walk passed already.
+    std::unordered_set<const nifly::NiTimeController*> keptControllers;
+    auto* controllerRef = &shader->controllerRef;
+    while (auto* const controller = header.GetBlock(*controllerRef)) {
+        const auto* const floatController
+            = dynamic_cast<const nifly::BSLightingShaderPropertyFloatController*>(controller);
+        if (!floatController || floatController->typeOfControlledVariable != envMapScaleVariable) {
+            if (!keptControllers.insert(controller).second)
+                break;
+
+            controllerRef = &controller->nextControllerRef;
+            continue;
+        }
+
+        // The chain skips the controller, so the controllers behind it stay in the chain and out of its block tree.
+        controllerRef->index = controller->nextControllerRef.index;
+        controller->nextControllerRef.Clear();
+        deleteBlockTree(nif, *controller);
+        isDeleted = true;
+    }
+
+    return isDeleted;
 }
 
 // Alpha property helpers.

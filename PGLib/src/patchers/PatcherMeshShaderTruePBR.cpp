@@ -739,6 +739,9 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_HAIR_SOFT_LIGHTING);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_DETAIL_MAP);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_RGB_TINT);
+
+    // A PBR shader has no environment map, and the game crashes on a controller that animates its scale.
+    PGNIFUtil::deleteEnvMapScaleControllers(*nif(), nifShape);
 }
 
 uint64_t PatcherMeshShaderTruePBR::matchExtraDataHash(const PatcherMatch& match) const
@@ -997,6 +1000,9 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
 
     // Enable PBR on the shape (always on, the legacy "pbr" JSON field is ignored).
     isChanged |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
+
+    // A PBR shader has no environment map, and the game crashes on a controller that animates its scale.
+    isChanged |= PGNIFUtil::deleteEnvMapScaleControllers(*nif(), *nifShape);
 
     return isChanged;
 }
