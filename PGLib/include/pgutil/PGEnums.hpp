@@ -36,6 +36,12 @@ std::string strFromShader(const ShapeShader& shader);
 /// @return the shader type, ShapeShader::Unknown if the name is not known
 ShapeShader shaderFromStr(const std::string& shader);
 
+/// @brief How a mesh stores True PBR, which depends on the Community Shaders version that renders it
+enum class TruePBRFormat : uint8_t {
+    Legacy, // Before 2.0: a flag on a vanilla shader type, with the values in the fields of that type
+    Standalone, // 2.0 and later: a shader type of its own, with the values in its PBR payload
+};
+
 /// @brief zero-based index of texture in BSShaderTextureSet
 /// there can be more than one type of textures assigned to a a texture slot, the slot name describes the default one
 enum class TextureSlots : uint8_t {

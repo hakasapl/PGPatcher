@@ -32,6 +32,11 @@ constexpr unsigned textureStrLength = 9;
  * An entry matches a shape by its normal or diffuse texture (match_normal, match_diffuse, path_contains) or by the
  * exact content of a slot (match1 ... match8). Every matching entry is applied in config order, each one setting the
  * shader flags, fields and texture slots its attributes ask for. The configs are loaded once with loadStatics().
+ *
+ * Shapes are written in the format of the installed Community Shaders, see loadFormat(). The legacy format keeps the
+ * material in the flags and fields of vanilla shader types. The standalone format has a shader type of its own, whose
+ * payload holds the material. Community Shaders does not draw a standalone shape with an invalid material at all, so
+ * this patcher keeps the values, features, flags and texture slots of such a shape within what it accepts.
  */
 class PatcherMeshShaderTruePBR : public PatcherMeshShader {
 private:
@@ -56,6 +61,7 @@ private:
     // Options.
     inline static bool s_checkPaths = true;
     inline static bool s_printNonExistentPaths = false;
+    inline static PGEnums::TruePBRFormat s_format = PGEnums::TruePBRFormat::Standalone;
 
 public:
     /**
@@ -151,6 +157,48 @@ public:
                             const bool& shouldMultithread = true);
 
     /**
+     * @brief Picks the format to write from the version of the TruePBR feature of Community Shaders, which its INI in
+     * the data folder (Shaders\Features\TruePBR.ini) holds. Call once per run, before patching
+     *
+     * A version below 2 picks the legacy format. Everything else picks the standalone format: version 2 and later, a
+     * data folder without the INI, and an INI whose version cannot be read (with a warning).
+     *
+     * @param dataDir Data folder as the game sees it. The INI is read from there directly: Community Shaders only reads
+     * it as a loose file, and the file map does not cover the shaders folder.
+     */
+    static void loadFormat(const std::filesystem::path& dataDir);
+
+    /**
+     * @brief Get the format shapes are written in
+     *
+     * @return PGEnums::TruePBRFormat Format, the standalone one until loadFormat() or setFormat() says otherwise
+     */
+    static PGEnums::TruePBRFormat format();
+
+    /**
+     * @brief Set the format shapes are written in
+     *
+     * @param format Format to write
+     */
+    static void setFormat(PGEnums::TruePBRFormat format);
+
+    /**
+     * @brief Converts a shape with the legacy PBR flag to the standalone format, keeping its material. The slots are
+     * also written to the mesh, for the reason applyPatch() gives
+     *
+     * A shape that has no diffuse, normal or RMAOS texture stays as it is, since Community Shaders would not draw it,
+     * and so does a shape that already has the standalone shader type.
+     *
+     * @param nif NIF of the shape
+     * @param nifShape Shape to convert
+     * @param[in,out] slots Slots of the shape, without the ones the standalone format has to leave empty afterwards
+     * @return true if the shape was converted
+     */
+    static bool convertLegacyShape(nifly::NifFile& nif,
+                                   nifly::NiShape& nifShape,
+                                   PGTypes::TextureSet& slots);
+
+    /**
      * @brief Get the Shader Type object (TruePBR)
      *
      * @return PGEnums::ShapeShader Shader type (TruePBR)
@@ -176,8 +224,8 @@ public:
                   const PGPlugin::ModelRecordType& modelRecordType) override;
 
     /**
-     * @brief Find the matches for a shape's texture set. A shape that already has the PBR flag and an existing RMAOS
-     * texture gets a match without extra data first, which keeps it as it is
+     * @brief Find the matches for a shape's texture set. A shape that is already PBR in either format and has an
+     * existing RMAOS texture gets a match without extra data first, which keeps it as it is
      *
      * @param nifShape Shape to check
      * @param[out] matches Matches found
@@ -191,8 +239,9 @@ public:
      * @brief Find the PBR config entries that match the slots, grouped by config file
      *
      * Each match stands for one config file and carries its matching entries (in config order) as extra data. A match
-     * whose resulting textures do not all exist is dropped unless path checks are disabled. Slots that already hold an
-     * RMAOS texture without any matching entry get a match without extra data.
+     * whose resulting textures do not all exist is dropped unless path checks are disabled. In the standalone format a
+     * match without a diffuse, normal or RMAOS texture is always dropped, since the shape would not be drawn. Slots
+     * that already hold an RMAOS texture without any matching entry get a match without extra data.
      *
      * @param oldSlots Slots to check
      * @param[out] matches Matches found, sorted so that the earliest config wins
@@ -204,7 +253,10 @@ public:
 
     /**
      * @brief Apply every entry of a match to a shape, in config order. A match without extra data leaves the shape
-     * alone (pre-patched mesh)
+     * alone (pre-patched mesh). PatcherMeshPreConvertLegacyPBR has already converted a legacy one by then
+     *
+     * In the standalone format the slots are also written to the mesh, even for an alternate texture: Community Shaders
+     * checks the texture set of the mesh itself when it loads and does not draw a shape with an invalid one.
      *
      * @param[in,out] slots Slots of the shape, updated by the entries
      * @param nifShape Shape to patch
@@ -224,9 +276,9 @@ public:
                          const PatcherMatch& match) override;
 
     /**
-     * @brief Set the plain PBR shader (default type with the PBR flag) on a shape and take the controllers off the
-     * shader, as applyPatch() does. Only used when a plugin use needs the generic PBR shader; entries apply their own
-     * shader through applyPatch()
+     * @brief Set the plain PBR shader on a shape: the default type with the PBR flag in the legacy format, the
+     * standalone shader type otherwise. The controllers come off the shader, as applyPatch() does. Only used when a
+     * plugin use needs the generic PBR shader; entries apply their own shader through applyPatch()
      *
      * @param nifShape Shape to apply shader to
      */
@@ -285,8 +337,9 @@ private:
                                    const std::wstring& matchedPath);
 
     /**
-     * @brief Enables True PBR on a shape for a config entry: applies its slots, sets the PBR flag, clears the flags of
-     * other shaders and sets the shader type and fields of the entry's multilayer, glint or fuzz attributes
+     * @brief Enables True PBR on a shape for a config entry. Applies its slots, then in the legacy format sets the PBR
+     * flag, clears the flags of other shaders and sets the shader type and fields of the entry's multilayer, glint or
+     * fuzz attributes. In the standalone format it sets the shader type and the features and values of the PBR payload.
      *
      * @param nifShader Shader of shape
      * @param nifShaderBSLSP The same shader as a BSLightingShaderProperty
