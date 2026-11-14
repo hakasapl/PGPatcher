@@ -11,6 +11,7 @@
 #include "pgutil/PGNIFUtil.hpp"
 #include "pgutil/PGTypes.hpp"
 
+#include "Animation.hpp"
 #include "BasicTypes.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
@@ -21,6 +22,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -216,6 +218,70 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     EXPECT_TRUE(PatcherMeshShaderTruePBR::pathLookupJSONs().empty());
     EXPECT_EQ(PatcherMeshShaderTruePBR::truePBRDiffuseInverse().at(L"enots\\a\\"), (std::vector<size_t> { 0 }));
     EXPECT_EQ(PatcherMeshShaderTruePBR::shaderType(), PGEnums::ShapeShader::TruePBR);
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
+       EntriesWithAKeyOfTheWrongTypeAreSkippedWithAWarning)
+{
+    // Every entry but the last is not an object or has a key that selects shapes or textures with a value of another
+    // type. Each of them used to throw, while loading or while matching the first shape.
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\types.json", R"([
+  {"match_diffuse": 5},
+  {"texture": ["a\\stone"]},
+  {"match_normal": true, "specular_level": 0.3},
+  {"path_contains": 5},
+  {"match1": {"path": "a\\exact.dds"}},
+  {"texture": "a\\stone", "nif_filter": 5},
+  {"texture": "a\\stone", "rename": null},
+  5,
+  "a\\stone",
+  {"texture": "a\\stone", "specular_level": 0.5}
+])");
+    // The defaults are merged into an entry before it is checked, and the values of an object holding the entries are
+    // the entries.
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\defaults.json",
+                        R"({"default": {"path_contains": 5}, "entries": [{"texture": "c\\metal"}]})");
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\entries.json",
+                        R"({"default": {}, "entries": {"texture": "c\\cloth"}})");
+    m_pgd->populateFileMap(false, false);
+    ASSERT_NO_THROW(PatcherMeshShaderTruePBR::loadStatics(
+        { L"pbrnifpatcher\\types.json", L"pbrnifpatcher\\defaults.json", L"pbrnifpatcher\\entries.json" }, false));
+
+    const auto& configs = PatcherMeshShaderTruePBR::truePBRConfigs();
+    ASSERT_EQ(configs.size(), 1U);
+    EXPECT_EQ(configs.at(0)["specular_level"], 0.5);
+    EXPECT_EQ(PatcherMeshShaderTruePBR::truePBRDiffuseInverse().size(), 1U);
+    EXPECT_TRUE(PatcherMeshShaderTruePBR::truePBRNormalInverse().empty());
+    EXPECT_TRUE(PatcherMeshShaderTruePBR::pathLookupJSONs().empty());
+    EXPECT_TRUE(PatcherMeshShaderTruePBR::truePBRMatchXMap().empty());
+
+    // The warning names the file, the position of the entry in it and the key.
+    for (const auto* message : {
+             R"(Skipping entry 1 of PBR json "pbrnifpatcher\types.json": "match_diffuse" is not a string (number))",
+             R"(Skipping entry 2 of PBR json "pbrnifpatcher\types.json": "texture" is not a string (array))",
+             R"(Skipping entry 3 of PBR json "pbrnifpatcher\types.json": "match_normal" is not a string (boolean))",
+             R"(Skipping entry 4 of PBR json "pbrnifpatcher\types.json": "path_contains" is not a string (number))",
+             R"(Skipping entry 5 of PBR json "pbrnifpatcher\types.json": "match1" is not a string (object))",
+             R"(Skipping entry 6 of PBR json "pbrnifpatcher\types.json": "nif_filter" is not a string (number))",
+             R"(Skipping entry 7 of PBR json "pbrnifpatcher\types.json": "rename" is not a string (null))",
+             R"(Skipping entry 8 of PBR json "pbrnifpatcher\types.json": the entry is not an object (number))",
+             R"(Skipping entry 9 of PBR json "pbrnifpatcher\types.json": the entry is not an object (string))",
+             R"(Skipping entry 1 of PBR json "pbrnifpatcher\defaults.json": "path_contains" is not a string (number))",
+             R"(Skipping entry 1 of PBR json "pbrnifpatcher\entries.json": the entry is not an object (string))",
+         }) {
+        EXPECT_TRUE(TestLog::contains(spdlog::level::warn, message)) << message;
+    }
+    EXPECT_EQ(TestLog::count(spdlog::level::warn, "Skipping entry"), 11U);
+
+    // Only the valid entry matches, and matching no longer throws.
+    PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
+    const auto matches = matchesFor(patcher, slots(L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds"));
+    ASSERT_EQ(matches.size(), 1U);
+    ASSERT_EQ(entriesOf(matches[0]).size(), 1U);
+    EXPECT_EQ(entriesOf(matches[0])[0]["specular_level"], 0.5);
+    EXPECT_TRUE(matchesFor(patcher, slots(L"textures\\a\\exact.dds")).empty());
+    EXPECT_TRUE(matchesFor(patcher, slots(L"textures\\c\\metal.dds")).empty());
+    EXPECT_TRUE(matchesFor(patcher, slots(L"textures\\c\\cloth.dds")).empty());
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
@@ -458,6 +524,32 @@ TEST_F(PatcherMeshShaderTruePBRTest,
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
+       ACoatColorThatIsNotAnArrayIsIgnored)
+{
+    // An object with three members passes the size check of the coat color.
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\coat.json",
+                        R"([{"texture": "a\\stone", "multilayer": true, "coat_color": {"r": 1, "g": 0, "b": 0},
+                             "coat_strength": 0.7}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\coat.json" }, false);
+
+    PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
+    const auto stone = slots(L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds");
+    const auto matches = matchesFor(patcher, stone);
+    ASSERT_EQ(matches.size(), 1U);
+    const auto specularColor = m_shader->specularColor;
+    auto patched = stone;
+    EXPECT_NO_THROW(patcher.applyPatch(patched, *m_shape, matches[0]));
+
+    // The rest of the entry still applies.
+    EXPECT_EQ(patched[0], L"textures\\pbr\\a\\stone.dds");
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_MULTILAYERPARALLAX);
+    EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_MULTI_LAYER_PARALLAX));
+    EXPECT_EQ(m_shader->specularColor, specularColor);
+    EXPECT_FLOAT_EQ(m_shader->softlighting, 0.7F); // coat strength
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
        DeleteEntriesRemoveTheShape)
 {
     NIFBuilder builder;
@@ -517,6 +609,32 @@ TEST_F(PatcherMeshShaderTruePBRTest,
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
+       ADeletedShapeLeavesTheAlphaPropertyItSharesWithAnIgnoredShape)
+{
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\delete.json", R"([{"texture": "b\\brick", "delete": true}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\delete.json" }, false);
+
+    NIFBuilder builder;
+    const auto brickTextures = slots(L"textures\\b\\brick.dds", L"textures\\b\\brick_n.dds");
+    auto* ignored = builder.addShape("Ignored", brickTextures);
+    builder.addBooleanExtraData(ignored, "PG_IGNORE", true);
+    const auto* const alpha = builder.addAlphaProperty(ignored);
+    auto* brick = builder.addShape("Brick", brickTextures);
+    brick->AlphaPropertyRef()->index = ignored->AlphaPropertyRef()->index;
+    PatcherMeshShaderTruePBR patcher(meshPath, &builder.nif());
+
+    std::vector<PatcherMatch> matches;
+    EXPECT_TRUE(patcher.shouldApply(*brick, matches));
+    ASSERT_EQ(matches.size(), 1U);
+    auto brickSlots = brickTextures;
+    patcher.applyPatch(brickSlots, *brick, matches[0]);
+
+    EXPECT_EQ(builder.nif().GetBlockID(brick), nifly::NIF_NPOS);
+    EXPECT_EQ(builder.nif().GetAlphaProperty(ignored), alpha);
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
        ApplyShaderAndGeometryAttributes)
 {
     PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
@@ -554,6 +672,70 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     const auto fromFactory = PatcherMeshShaderTruePBR::factory()(meshPath, &m_builder.nif());
     ASSERT_TRUE(fromFactory);
     EXPECT_EQ(fromFactory->patcherName(), "TruePBR");
+}
+
+TEST_F(PatcherMeshShaderTruePBRTest,
+       PBRShapesLoseTheirShaderControllers)
+{
+    // Controlled variables of BSLightingShaderPropertyFloatController and colors of the color controller.
+    constexpr uint32_t envMapScale = 8;
+    constexpr uint32_t emissiveMultiple = 11;
+    constexpr uint32_t vOffset = 22;
+    constexpr uint32_t emissiveColor = 1;
+    const std::vector<uint32_t> floatVariables { 0, 8, 9, 10, 11, 12, 20, 21, 22, 23 };
+    const std::vector<uint32_t> colors { 0, 1 };
+
+    TestUtil::writeFile(dataDir() / L"pbrnifpatcher\\envmap.json",
+                        R"([{"texture": "a\\stone"}, {"texture": "c\\metal", "multilayer": true}])");
+    m_pgd->populateFileMap(false, false);
+    PatcherMeshShaderTruePBR::loadStatics({ L"pbrnifpatcher\\envmap.json" }, false);
+    auto& nif = m_builder.nif();
+    const auto& header = nif.GetHeader();
+    PatcherMeshShaderTruePBR patcher(meshPath, &nif);
+    const auto apply = [&](nifly::NiShape& shape, const std::wstring& diffuse) {
+        auto patched = slots(diffuse);
+        const auto matches = matchesFor(patcher, patched);
+        ASSERT_EQ(matches.size(), 1U) << TestUtil::pathToUTF8(diffuse);
+        patcher.applyPatch(patched, shape, matches[0]);
+    };
+
+    // An environment map shape like the vanilla ghost ash pile puddles, with a controller for every value a lighting
+    // shader can animate. A PBR entry cannot animate a shader, and the game crashes loading a PBR shape that keeps the
+    // environment map scale controller.
+    m_shader->SetShaderType(nifly::BSLSP_ENVMAP);
+    PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF1_ENVIRONMENT_MAPPING);
+    std::vector<const nifly::NiTimeController*> controllers;
+    for (const auto variable : floatVariables)
+        controllers.push_back(m_builder.addShaderFloatController(m_shape, variable));
+    for (const auto color : colors)
+        controllers.push_back(m_builder.addShaderColorController(m_shape, color));
+    const auto blocksWithControllers = header.GetNumBlocks();
+    apply(*m_shape, L"textures\\a\\stone.dds");
+    EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_TRUE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
+    EXPECT_TRUE(m_shader->controllerRef.IsEmpty());
+    // The controllers are left in the file without a target or a next controller, so nothing can drive them.
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers);
+    for (const auto* const controller : controllers) {
+        EXPECT_TRUE(controller->targetRef.IsEmpty());
+        EXPECT_TRUE(controller->nextControllerRef.IsEmpty());
+    }
+
+    // A multilayer entry makes another PBR shader type.
+    auto* metal = m_builder.addShape("Metal", slots(L"textures\\c\\metal.dds"), nifly::BSLSP_ENVMAP);
+    m_builder.addShaderFloatController(metal, envMapScale);
+    m_builder.addShaderFloatController(metal, vOffset);
+    apply(*metal, L"textures\\c\\metal.dds");
+    EXPECT_EQ(m_builder.lightingShader(metal)->GetShaderType(), nifly::BSLSP_MULTILAYERPARALLAX);
+    EXPECT_TRUE(m_builder.lightingShader(metal)->controllerRef.IsEmpty());
+
+    // The plain PBR shader of a plugin use, on a glow shader with a pulsing glow like the vanilla heartstones.
+    auto* plain = m_builder.addShape("Plain", slots(L"textures\\c\\cloth.dds"), nifly::BSLSP_GLOWMAP);
+    m_builder.addShaderFloatController(plain, emissiveMultiple);
+    m_builder.addShaderColorController(plain, emissiveColor);
+    patcher.applyShader(*plain);
+    EXPECT_EQ(m_builder.lightingShader(plain)->GetShaderType(), nifly::BSLSP_DEFAULT);
+    EXPECT_TRUE(m_builder.lightingShader(plain)->controllerRef.IsEmpty());
 }
 
 TEST_F(PatcherMeshShaderTruePBRTest,
@@ -748,6 +930,8 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
     PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF1_ENVIRONMENT_MAPPING);
     PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF2_GLOW_MAP);
     PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF2_RIM_LIGHTING);
+    constexpr uint32_t envMapScale = 8;
+    m_builder.addShaderFloatController(m_shape, envMapScale);
     const auto glossiness = m_shader->glossiness;
     const auto specularStrength = m_shader->specularStrength;
     const auto softlighting = m_shader->softlighting;
@@ -761,6 +945,7 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
     patcher.applyPatch(patched, *m_shape, matches[1]); // the a.json entry
 
     EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_TRUEPBR);
+    EXPECT_TRUE(m_shader->controllerRef.IsEmpty());
     const auto& pbr = m_shader->truePBR;
     EXPECT_EQ(pbr.version, 2U);
     EXPECT_EQ(pbr.features, nifly::TRUEPBR_SUBSURFACE);
@@ -1224,9 +1409,12 @@ TEST_F(PatcherMeshShaderTruePBRStandaloneTest,
 {
     PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
     PGNIFUtil::setShaderFlag(m_shader, nifly::SLSF1_PARALLAX);
+    constexpr uint32_t emissiveMultiple = 11;
+    m_builder.addShaderFloatController(m_shape, emissiveMultiple);
     patcher.applyShader(*m_shape);
 
     EXPECT_EQ(m_shader->GetShaderType(), nifly::BSLSP_TRUEPBR);
+    EXPECT_TRUE(m_shader->controllerRef.IsEmpty());
     EXPECT_EQ(m_shader->truePBR.features, 0U);
     EXPECT_FALSE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF2_UNUSED01));
     EXPECT_FALSE(PGNIFUtil::hasShaderFlag(m_shader, nifly::SLSF1_PARALLAX));

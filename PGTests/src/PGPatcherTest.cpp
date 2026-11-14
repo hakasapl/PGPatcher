@@ -16,6 +16,7 @@
 #include "common/BethesdaGame.hpp"
 #include "patchers/PatcherMeshPostRestoreDefaultShaders.hpp"
 #include "patchers/PatcherMeshPreConvertLegacyPBR.hpp"
+#include "patchers/PatcherMeshPreFixMeshLighting.hpp"
 #include "patchers/PatcherMeshPreFixTextureSlotCount.hpp"
 #include "patchers/PatcherMeshPreStockMarker.hpp"
 #include "patchers/PatcherMeshShaderComplexMaterial.hpp"
@@ -29,6 +30,8 @@
 #include "pgutil/PGTypes.hpp"
 #include "util/FileUtil.hpp"
 
+#include "Animation.hpp"
+#include "ExtraData.hpp"
 #include "Geometry.hpp"
 #include "NifFile.hpp"
 #include "Shaders.hpp"
@@ -43,6 +46,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -89,6 +94,23 @@ PatcherUtil::ShaderPatcherMatch shaderMatch(const std::shared_ptr<PGModManager::
     match.match.matchedPath = path;
     match.shaderTransformTo = transformTo;
     return match;
+}
+
+/// @brief Everything about a shape a patcher could change: its material, the blocks it uses and its extra data.
+nlohmann::json shapeState(nifly::NifFile& nif,
+                          nifly::NiShape& shape)
+{
+    auto state = PatcherMeshPreStockMarker::captureStock(nif, shape);
+    state["shader_block"] = shape.ShaderPropertyRef()->index;
+    state["texture_set_block"] = nif.GetShader(&shape)->TextureSetRef()->index;
+    state["alpha_block"] = shape.AlphaPropertyRef()->index;
+    state["extra_data"] = shape.extraDataRefs.GetSize();
+
+    const auto* const marker = PatcherMeshPreStockMarker::findMarker(nif, shape);
+    if (marker)
+        state["marker"] = marker->stringData.get();
+
+    return state;
 }
 
 /**
@@ -177,6 +199,7 @@ protected:
 
         PatcherUtil::PatcherMeshSet meshPatchers;
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreStockMarker::factory());
+        meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixMeshLighting::factory());
         meshPatchers.prePatchers.emplace_back(PatcherMeshPreFixTextureSlotCount::factory());
         meshPatchers.shaderPatchers.emplace(PatcherMeshShaderDefault::shaderType(),
                                             PatcherMeshShaderDefault::factory());
@@ -190,6 +213,7 @@ protected:
 
     void TearDown() override
     {
+        PatcherMeshPreStockMarker::loadOptions(false);
         PGGlobals::fileSaver().waitForCompletion();
         PGRunCache::discard();
         PGRunCache::initialize(outDir() / PGRunCache::s_cacheFilename, false);
@@ -203,6 +227,33 @@ protected:
     [[nodiscard]] nifly::NifFile loadOutput(const std::filesystem::path& relPath) const
     {
         return PGNIFUtil::loadNIFFromBytes(FileUtil::fileBytes(outDir() / relPath), false);
+    }
+
+    /// @brief Runs a mesh through the shape pipeline for one plugin use.
+    static PGPatcher::MeshMeta runPipeline(nifly::NifFile& nif,
+                                           std::unordered_map<unsigned,
+                                                              PGTypes::TextureSet>& alternateTextures)
+    {
+        PGPatcher::MeshMeta meta;
+        std::unordered_set<unsigned> nonAltTexShapes;
+        const bool isProcessed = PGPatcher::processNIF(L"meshes\\pgtest\\ignored.nif",
+                                                       &nif,
+                                                       meta,
+                                                       PGPlugin::MeshUseAttributes(),
+                                                       false,
+                                                       FormKey(),
+                                                       PGPlugin::ModelRecordType::Unknown,
+                                                       alternateTextures,
+                                                       nonAltTexShapes);
+        EXPECT_TRUE(isProcessed);
+        return meta;
+    }
+
+    /// @brief Runs a mesh through the shape pipeline for one plugin use without alternate textures.
+    static PGPatcher::MeshMeta runPipeline(nifly::NifFile& nif)
+    {
+        std::unordered_map<unsigned, PGTypes::TextureSet> alternateTextures;
+        return runPipeline(nif, alternateTextures);
     }
 };
 
@@ -363,6 +414,129 @@ TEST_F(PGPatcherTest,
     EXPECT_FALSE(PGNIFUtil::hasShaderFlag(ignoredShader, nifly::SLSF1_ENVIRONMENT_MAPPING));
     EXPECT_EQ(PGNIFUtil::textureSlots(&shared, ignored),
               slots(L"textures\\pgtest\\stone.dds", L"textures\\pgtest\\stone_n.dds"));
+}
+
+TEST_F(PGPatcherTest,
+       AnIgnoredShapeComesOutOfThePipelineAsTheMeshShippedIt)
+{
+    // Every shape would get a stock marker, as with the "Only Generate DynDOLOD Files" option.
+    PatcherMeshPreStockMarker::loadOptions(true);
+
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    const auto stoneSlots = slots(L"textures\\pgtest\\stone.dds", L"textures\\pgtest\\stone_n.dds");
+
+    // The marker on the shape. Its PG_STOCK block and the other pre patchers would change it, and it matches the
+    // complex material.
+    auto* onShape = builder.addShape("OnShape", stoneSlots);
+    builder.addBooleanExtraData(onShape, "PG_IGNORE", true);
+    builder.lightingShader(onShape)->softlighting = 0.9F;
+    builder.textureSet(onShape)->textures.resize(3);
+    builder.addAlphaProperty(onShape, 4845, 64);
+    builder.addStringExtraData(onShape,
+                               PatcherMeshPreStockMarker::extraDataName,
+                               R"({"alpha_property": null, "textures": {"0": "textures\\pgtest\\wood.dds"}})");
+
+    // The marker on the shader. The post patcher would restore the default shader and clear the height map, which does
+    // not exist, from the alternate texture.
+    auto* onShader = builder.addShape("OnShader", stoneSlots, nifly::BSLSP_PARALLAX);
+    builder.addBooleanExtraData(builder.lightingShader(onShader), "PG_IGNORE", true);
+    builder.addAlphaProperty(onShader);
+
+    // A shape behind them gets the whole pipeline.
+    auto* plain = builder.addShape("Plain", stoneSlots);
+
+    auto onShaderAlternate = stoneSlots;
+    onShaderAlternate[3] = L"textures\\pgtest\\missing_p.dds";
+    std::unordered_map<unsigned, PGTypes::TextureSet> alternateTextures = { { 1, onShaderAlternate } };
+
+    const auto onShapeBefore = shapeState(nif, *onShape);
+    const auto onShaderBefore = shapeState(nif, *onShader);
+    const auto meta = runPipeline(nif, alternateTextures);
+
+    EXPECT_EQ(shapeState(nif, *onShape), onShapeBefore);
+    EXPECT_EQ(shapeState(nif, *onShader), onShaderBefore);
+    EXPECT_EQ(alternateTextures.at(1), onShaderAlternate);
+
+    // Both still show up in the conflict viewer metadata, with nothing applied.
+    ASSERT_EQ(meta.shapeMeta.size(), 3U);
+    for (size_t shapeIdx = 0; shapeIdx < 2; shapeIdx++) {
+        EXPECT_TRUE(meta.shapeMeta.at(shapeIdx).prePatchersApplied.empty());
+        EXPECT_TRUE(meta.shapeMeta.at(shapeIdx).postPatchersApplied.empty());
+        EXPECT_TRUE(meta.shapeMeta.at(shapeIdx).matches.empty());
+    }
+
+    EXPECT_EQ(builder.lightingShader(plain)->GetShaderType(), nifly::BSLSP_ENVMAP);
+    EXPECT_EQ(PGNIFUtil::textureSlots(&nif, plain)[5], L"textures\\pgtest\\stone_m.dds");
+    EXPECT_NE(PatcherMeshPreStockMarker::findMarker(nif, *plain), nullptr);
+}
+
+TEST_F(PGPatcherTest,
+       AnIgnoredShapeKeepsTheBlocksItSharesWithAPatchedShape)
+{
+    for (const bool isIgnoredFirst : { true, false }) {
+        NIFBuilder builder;
+        auto& nif = builder.nif();
+
+        // Shapes are patched in order, so the result must not depend on which of the two comes first.
+        nifly::BSTriShape* ignored = nullptr;
+        if (isIgnoredFirst)
+            ignored = builder.addShaderlessShape("Ignored");
+
+        auto* patched
+            = builder.addShape("Patched", slots(L"textures\\pgtest\\stone.dds", L"textures\\pgtest\\stone_n.dds"));
+        builder.textureSet(patched)->textures.resize(3);
+        builder.addAlphaProperty(patched, 4845, 64);
+
+        // Restoring the stock alpha threshold writes the alpha property of the patched shape.
+        builder.addStringExtraData(
+            patched, PatcherMeshPreStockMarker::extraDataName, R"({"alpha_property": {"threshold": 200}})");
+
+        if (!isIgnoredFirst)
+            ignored = builder.addShaderlessShape("Ignored");
+
+        ignored->ShaderPropertyRef()->index = patched->ShaderPropertyRef()->index;
+        ignored->AlphaPropertyRef()->index = patched->AlphaPropertyRef()->index;
+        builder.addBooleanExtraData(ignored, "PG_IGNORE", true);
+
+        const auto ignoredBefore = shapeState(nif, *ignored);
+        std::ignore = runPipeline(nif);
+
+        EXPECT_EQ(shapeState(nif, *ignored), ignoredBefore) << isIgnoredFirst;
+
+        EXPECT_NE(patched->ShaderPropertyRef()->index, ignored->ShaderPropertyRef()->index);
+        EXPECT_EQ(builder.lightingShader(patched)->GetShaderType(), nifly::BSLSP_ENVMAP);
+        EXPECT_EQ(builder.textureSet(patched)->textures.size(), 9U);
+        EXPECT_EQ(PGNIFUtil::textureSlots(&nif, patched)[5], L"textures\\pgtest\\stone_m.dds");
+        ASSERT_NE(nif.GetAlphaProperty(patched), nullptr);
+        EXPECT_EQ(nif.GetAlphaProperty(patched)->threshold, 200U);
+    }
+}
+
+TEST_F(PGPatcherTest,
+       AShapeThatCannotChangeWithoutChangingAnIgnoredShapeIsLeftAlone)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+
+    // A shader with a controller stays shared, so every write to the first shape would reach the second one.
+    auto* tied = builder.addShape("Tied", slots(L"textures\\pgtest\\stone.dds", L"textures\\pgtest\\stone_n.dds"));
+    auto* ignored = builder.addShaderlessShape("Ignored");
+    ignored->ShaderPropertyRef()->index = tied->ShaderPropertyRef()->index;
+    builder.addBooleanExtraData(ignored, "PG_IGNORE", true);
+    auto controller = std::make_unique<nifly::BSLightingShaderPropertyFloatController>();
+    controller->targetRef.index = tied->ShaderPropertyRef()->index;
+    builder.lightingShader(tied)->controllerRef.index = nif.GetHeader().AddBlock(std::move(controller));
+
+    const auto tiedBefore = shapeState(nif, *tied);
+    const auto ignoredBefore = shapeState(nif, *ignored);
+    const auto meta = runPipeline(nif);
+
+    EXPECT_EQ(shapeState(nif, *tied), tiedBefore);
+    EXPECT_EQ(shapeState(nif, *ignored), ignoredBefore);
+    EXPECT_EQ(builder.lightingShader(tied)->GetShaderType(), nifly::BSLSP_DEFAULT);
+    ASSERT_EQ(meta.shapeMeta.size(), 2U);
+    EXPECT_TRUE(meta.shapeMeta.at(0).matches.empty());
 }
 
 TEST_F(PGPatcherTest,

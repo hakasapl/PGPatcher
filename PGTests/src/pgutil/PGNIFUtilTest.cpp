@@ -12,6 +12,7 @@
 #include "NifFile.hpp"
 #include "Object3d.hpp"
 #include "Shaders.hpp"
+#include "Skin.hpp"
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -686,6 +687,119 @@ TEST(PGNIFUtilTest,
 }
 
 TEST(PGNIFUtilTest,
+     UnlinkShaderControllersLeavesNothingDrivingThem)
+{
+    constexpr uint32_t envMapScale = 8;
+    constexpr uint32_t emissiveMultiple = 11;
+    constexpr uint32_t alpha = 12;
+    constexpr uint32_t specularColor = 0;
+
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto& header = nif.GetHeader();
+    auto* puddle = builder.addShape("Puddle", stoneTextures(), nifly::BSLSP_ENVMAP);
+    const auto* const shader = builder.lightingShader(puddle);
+    EXPECT_FALSE(PGNIFUtil::unlinkShaderControllers(nif, *puddle)); // no controllers
+
+    // The chain of a vanilla puddle, with an alpha test controller on its alpha property, and a second shape whose
+    // shader is animated by the same sequence.
+    const std::vector<nifly::NiTimeController*> puddleControllers {
+        builder.addShaderFloatController(puddle, envMapScale),
+        builder.addShaderFloatController(puddle, emissiveMultiple),
+        builder.addShaderColorController(puddle, specularColor),
+        builder.addShaderFloatController(puddle, alpha),
+    };
+    const auto* const puddleAlpha = builder.addAlphaProperty(puddle);
+    addAlphaController(nif, *puddle);
+    auto* rim = builder.addShape("Rim", stoneTextures());
+    auto* const rimEmissive = builder.addShaderFloatController(rim, emissiveMultiple);
+    auto* const alphaTest = header.GetBlock(puddleAlpha->controllerRef);
+    ASSERT_NE(alphaTest, nullptr);
+
+    // An animation sequence links every controller with an interpolator of its own, as the vanilla ones do.
+    auto sequence = std::make_unique<nifly::NiControllerSequence>();
+    auto* const sequencePtr = sequence.get();
+    auto linkedControllers = puddleControllers;
+    linkedControllers.push_back(rimEmissive);
+    linkedControllers.push_back(alphaTest);
+    for (auto* const controller : linkedControllers) {
+        nifly::ControllerLink link;
+        link.controllerRef.index = nif.GetBlockID(controller);
+        link.interpolatorRef.index = addFloatInterpolator(nif);
+        sequence->controlledBlocks.push_back(link);
+    }
+    auto manager = std::make_unique<nifly::NiControllerManager>();
+    manager->controllerSequenceRefs.AddBlockRef(header.AddBlock(std::move(sequence)));
+    manager->targetRef.index = nif.GetBlockID(nif.GetRootNode());
+    nif.GetRootNode()->controllerRef.index = header.AddBlock(std::move(manager));
+
+    const auto blocksWithControllers = header.GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *puddle));
+    EXPECT_TRUE(shader->controllerRef.IsEmpty());
+    EXPECT_EQ(shader->GetShaderType(), nifly::BSLSP_ENVMAP); // the shader itself is left alone
+
+    // The controllers stay in the file with their interpolators, but no block references them and they target nothing.
+    EXPECT_EQ(header.GetNumBlocks(), blocksWithControllers);
+    for (auto* const controller : puddleControllers) {
+        EXPECT_TRUE(controller->nextControllerRef.IsEmpty());
+        EXPECT_TRUE(controller->targetRef.IsEmpty());
+        EXPECT_FALSE(header.IsBlockReferenced(nif.GetBlockID(controller)));
+    }
+
+    // The alpha test controller, the other shader's controller and their links stay as they were.
+    EXPECT_EQ(header.GetBlock(puddleAlpha->controllerRef), alphaTest);
+    EXPECT_EQ(alphaTest->targetRef.index, nif.GetBlockID(nif.GetAlphaProperty(puddle)));
+    EXPECT_EQ(header.GetBlock(builder.lightingShader(rim)->controllerRef), rimEmissive);
+    EXPECT_EQ(rimEmissive->targetRef.index, rim->ShaderPropertyRef()->index);
+    ASSERT_EQ(sequencePtr->controlledBlocks.size(), 2U);
+    EXPECT_EQ(sequencePtr->controlledBlocks[0].controllerRef.index, nif.GetBlockID(rimEmissive));
+    EXPECT_EQ(sequencePtr->controlledBlocks[1].controllerRef.index, nif.GetBlockID(alphaTest));
+    for (const auto& link : sequencePtr->controlledBlocks)
+        EXPECT_NE(header.GetBlock<nifly::NiFloatInterpolator>(link.interpolatorRef.index), nullptr);
+
+    EXPECT_FALSE(PGNIFUtil::unlinkShaderControllers(nif, *puddle));
+
+    // A controller that the chain of another shader also starts with, which only a broken file has, keeps its target
+    // for that chain.
+    auto* sharer = builder.addShape("Sharer", stoneTextures());
+    auto* const shared = builder.addShaderFloatController(sharer, emissiveMultiple);
+    builder.lightingShader(puddle)->controllerRef.index = nif.GetBlockID(shared);
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *puddle));
+    EXPECT_TRUE(shader->controllerRef.IsEmpty());
+    EXPECT_EQ(header.GetBlock(builder.lightingShader(sharer)->controllerRef), shared);
+    EXPECT_EQ(shared->targetRef.index, sharer->ShaderPropertyRef()->index);
+
+    // The controllers of an effect shader are taken off the same way, and a shape without a shader has none.
+    auto* effect = builder.addEffectShape("Effect");
+    auto effectController = std::make_unique<nifly::BSEffectShaderPropertyFloatController>();
+    const auto* const effectControllerPtr = effectController.get();
+    effectController->targetRef.index = effect->ShaderPropertyRef()->index;
+    nif.GetShader(effect)->controllerRef.index = header.AddBlock(std::move(effectController));
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *effect));
+    EXPECT_TRUE(nif.GetShader(effect)->controllerRef.IsEmpty());
+    EXPECT_TRUE(effectControllerPtr->targetRef.IsEmpty());
+    EXPECT_FALSE(PGNIFUtil::unlinkShaderControllers(nif, *shaderless));
+
+    // A broken chain that loops back to a controller, or to itself, ends once every link in it is cleared.
+    auto* looped = builder.addShape("Looped", stoneTextures());
+    auto* const loopStart = builder.addShaderFloatController(looped, emissiveMultiple);
+    auto* const loopEnd = builder.addShaderFloatController(looped, alpha);
+    loopEnd->nextControllerRef.index = nif.GetBlockID(loopStart);
+    auto* selfLooped = builder.addShape("SelfLooped", stoneTextures());
+    auto* const selfLoop = builder.addShaderFloatController(selfLooped, alpha);
+    selfLoop->nextControllerRef.index = nif.GetBlockID(selfLoop);
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *looped));
+    EXPECT_TRUE(PGNIFUtil::unlinkShaderControllers(nif, *selfLooped));
+    EXPECT_TRUE(builder.lightingShader(looped)->controllerRef.IsEmpty());
+    EXPECT_TRUE(builder.lightingShader(selfLooped)->controllerRef.IsEmpty());
+    for (const auto* const controller : { loopStart, loopEnd, selfLoop }) {
+        EXPECT_TRUE(controller->nextControllerRef.IsEmpty());
+        EXPECT_TRUE(controller->targetRef.IsEmpty());
+    }
+}
+
+TEST(PGNIFUtilTest,
      TextureSetToStrConvertsEverySlot)
 {
     PGTypes::TextureSet set;
@@ -772,7 +886,7 @@ TEST(PGNIFUtilTest,
     builder.addShape("First", stoneTextures());
     builder.addShape("Second");
 
-    auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
+    const auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
     ASSERT_TRUE(loaded.IsValid());
     const auto shapes = loaded.GetShapes();
     ASSERT_EQ(shapes.size(), 2U);
@@ -918,12 +1032,140 @@ TEST(PGNIFUtilTest,
     EXPECT_TRUE(PGNIFUtil::isShaderPatchableShape(builder.nif(), *notIgnored));
 
     // The flags survive a round trip through the file format.
-    auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
+    const auto loaded = PGNIFUtil::loadNIFFromBytes(builder.bytes());
     const auto shapes = loaded.GetShapes();
     ASSERT_EQ(shapes.size(), 3U);
     EXPECT_FALSE(PGNIFUtil::isShaderPatchableShape(loaded, *shapes[0]));
     EXPECT_FALSE(PGNIFUtil::isShaderPatchableShape(loaded, *shapes[1]));
     EXPECT_TRUE(PGNIFUtil::isShaderPatchableShape(loaded, *shapes[2]));
+}
+
+TEST(PGNIFUtilTest,
+     IsIgnoredShapeChecksTheShapeAndItsShader)
+{
+    NIFBuilder builder;
+    const auto& nif = builder.nif();
+
+    auto* onShape = builder.addShape("OnShape", stoneTextures());
+    builder.addBooleanExtraData(onShape, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isIgnoredShape(nif, *onShape));
+
+    auto* onShader = builder.addShape("OnShader", stoneTextures());
+    builder.addBooleanExtraData(builder.lightingShader(onShader), "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isIgnoredShape(nif, *onShader));
+
+    // A shape does not need a shader, or anything else that can be patched, to be ignored.
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_FALSE(PGNIFUtil::isIgnoredShape(nif, *shaderless));
+    builder.addBooleanExtraData(shaderless, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isIgnoredShape(nif, *shaderless));
+
+    // The flag only counts when it is a boolean set to true.
+    auto* notIgnored = builder.addShape("NotIgnored", stoneTextures());
+    builder.addBooleanExtraData(notIgnored, "PG_IGNORE", false);
+    builder.addStringExtraData(notIgnored, "PG_IGNORE", "true");
+    EXPECT_FALSE(PGNIFUtil::isIgnoredShape(nif, *notIgnored));
+}
+
+TEST(PGNIFUtilTest,
+     IsUntouchableShapeFollowsTheBlocksAnIgnoredShapeCannotBeSeparatedFrom)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+    auto* ignored = builder.addShape("Ignored", stoneTextures());
+    builder.addBooleanExtraData(ignored, "PG_IGNORE", true);
+    builder.addAlphaProperty(ignored);
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *ignored));
+
+    // A mesh without a marker has nothing to protect, whatever its shapes share.
+    NIFBuilder unmarked;
+    auto* first = unmarked.addShape("First", stoneTextures());
+    auto* second = unmarked.addShaderlessShape("Second");
+    second->ShaderPropertyRef()->index = first->ShaderPropertyRef()->index;
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(unmarked.nif(), *first));
+
+    // A shader and an alpha property are copied on write, so sharing them is fine.
+    auto* sharer = builder.addShaderlessShape("Sharer");
+    sharer->ShaderPropertyRef()->index = ignored->ShaderPropertyRef()->index;
+    sharer->AlphaPropertyRef()->index = ignored->AlphaPropertyRef()->index;
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(nif, *sharer));
+
+    // Not when a controller keeps them shared. The alpha property of the ignored shape gets one.
+    addAlphaController(nif, *ignored);
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *sharer));
+    auto* animatedShader = builder.addShape("AnimatedShader", stoneTextures());
+    auto* animatedSharer = builder.addShape("AnimatedSharer", stoneTextures());
+    animatedSharer->ShaderPropertyRef()->index = animatedShader->ShaderPropertyRef()->index;
+    builder.addBooleanExtraData(animatedShader, "PG_IGNORE", true);
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(nif, *animatedSharer));
+    auto controller = std::make_unique<nifly::BSLightingShaderPropertyFloatController>();
+    controller->targetRef.index = animatedShader->ShaderPropertyRef()->index;
+    builder.lightingShader(animatedShader)->controllerRef.index = nif.GetHeader().AddBlock(std::move(controller));
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *animatedSharer));
+
+    // An effect shader is never copied.
+    auto* effect = builder.addEffectShape("Effect", "textures\\fx.dds");
+    auto* effectSharer = builder.addShaderlessShape("EffectSharer");
+    effectSharer->ShaderPropertyRef()->index = effect->ShaderPropertyRef()->index;
+    builder.addBooleanExtraData(effect, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *effectSharer));
+
+    // Neither is geometry data, a skin instance or extra data.
+    auto* legacyIgnored = builder.addNiTriShape("LegacyIgnored", stoneTextures());
+    builder.addBooleanExtraData(legacyIgnored, "PG_IGNORE", true);
+    auto* legacy = builder.addNiTriShape("Legacy", stoneTextures());
+    EXPECT_FALSE(PGNIFUtil::isUntouchableShape(nif, *legacy));
+    legacy->DataRef()->index = legacyIgnored->DataRef()->index;
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *legacy));
+
+    auto* skinned = builder.addShape("Skinned", stoneTextures());
+    auto* skinnedIgnored = builder.addShape("SkinnedIgnored", stoneTextures());
+    builder.addBooleanExtraData(skinnedIgnored, "PG_IGNORE", true);
+    const auto skinID = nif.GetHeader().AddBlock(std::make_unique<nifly::NiSkinInstance>());
+    skinned->SkinInstanceRef()->index = skinID;
+    skinnedIgnored->SkinInstanceRef()->index = skinID;
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *skinned));
+
+    auto* marked = builder.addShape("Marked", stoneTextures());
+    auto* markedIgnored = builder.addShape("MarkedIgnored", stoneTextures());
+    builder.addBooleanExtraData(markedIgnored, "PG_IGNORE", true);
+    auto* const sharedData = builder.addStringExtraData(markedIgnored, "PG_STOCK", "{}");
+    marked->extraDataRefs.AddBlockRef(nif.GetBlockID(sharedData));
+    EXPECT_TRUE(PGNIFUtil::isUntouchableShape(nif, *marked));
+}
+
+TEST(PGNIFUtilTest,
+     SetTextureSlotCountChangesEverySharerButAnIgnoredShape)
+{
+    NIFBuilder builder;
+    auto& nif = builder.nif();
+
+    // Sharers of a texture set follow the change, which stays one block.
+    auto* first = builder.addShape("First", stoneTextures());
+    auto* second = builder.addShape("Second", stoneTextures());
+    builder.lightingShader(second)->TextureSetRef()->index = builder.lightingShader(first)->TextureSetRef()->index;
+    const auto textureSetID = builder.lightingShader(first)->TextureSetRef()->index;
+    const auto numBlocks = nif.GetHeader().GetNumBlocks();
+    EXPECT_TRUE(PGNIFUtil::setTextureSlotCount(nif, *first, 6));
+    EXPECT_EQ(builder.textureSet(second)->textures.size(), 6U);
+    EXPECT_EQ(builder.lightingShader(first)->TextureSetRef()->index, textureSetID);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks);
+    EXPECT_FALSE(PGNIFUtil::setTextureSlotCount(nif, *first, 6));
+
+    // With an ignored shape among them, the shape gets its own texture set and the ignored one keeps the count.
+    builder.addBooleanExtraData(second, "PG_IGNORE", true);
+    EXPECT_TRUE(PGNIFUtil::setTextureSlotCount(nif, *first, 9));
+    EXPECT_EQ(builder.textureSet(first)->textures.size(), 9U);
+    EXPECT_EQ(builder.textureSet(second)->textures.size(), 6U);
+    EXPECT_EQ(builder.lightingShader(second)->TextureSetRef()->index, textureSetID);
+    EXPECT_NE(builder.lightingShader(first)->TextureSetRef()->index, textureSetID);
+    EXPECT_EQ(nif.GetHeader().GetNumBlocks(), numBlocks + 2); // the marker and the copy
+
+    // Shapes without a texture set have no slots to count.
+    auto* shaderless = builder.addShaderlessShape("Shaderless");
+    EXPECT_FALSE(PGNIFUtil::setTextureSlotCount(nif, *shaderless, 9));
+    auto* effect = builder.addEffectShape("Effect", "textures\\fx.dds");
+    EXPECT_FALSE(PGNIFUtil::setTextureSlotCount(nif, *effect, 9));
 }
 
 TEST(PGNIFUtilTest,

@@ -3,6 +3,7 @@
 #include "pgutil/PGTypes.hpp"
 #include "util/StringUtil.hpp"
 
+#include "Animation.hpp"
 #include "BasicTypes.hpp"
 #include "ExtraData.hpp"
 #include "Geometry.hpp"
@@ -166,6 +167,51 @@ nifly::NiAlphaProperty* NIFBuilder::addAlphaProperty(nifly::NiShape* shape,
     auto* result = alpha.get();
     shape->AlphaPropertyRef()->index = m_nif.GetHeader().AddBlock(std::move(alpha));
     return result;
+}
+
+template<typename Controller,
+         typename Interpolator,
+         typename Data>
+Controller* NIFBuilder::addShaderController(nifly::NiShape* shape)
+{
+    auto* const shader = lightingShader(shape);
+    if (!shader)
+        throw std::invalid_argument("shape has no lighting shader");
+
+    auto& header = m_nif.GetHeader();
+    auto interpolator = std::make_unique<Interpolator>();
+    interpolator->dataRef.index = header.AddBlock(std::make_unique<Data>());
+    auto controller = std::make_unique<Controller>();
+    controller->interpolatorRef.index = header.AddBlock(std::move(interpolator));
+    controller->targetRef.index = m_nif.GetBlockID(shader);
+    auto* result = controller.get();
+    const auto controllerID = header.AddBlock(std::move(controller));
+
+    auto* chainEnd = &shader->controllerRef;
+    while (auto* const last = header.GetBlock(*chainEnd))
+        chainEnd = &last->nextControllerRef;
+    chainEnd->index = controllerID;
+    return result;
+}
+
+nifly::BSLightingShaderPropertyFloatController* NIFBuilder::addShaderFloatController(nifly::NiShape* shape,
+                                                                                     uint32_t controlledVariable)
+{
+    auto* const controller = addShaderController<nifly::BSLightingShaderPropertyFloatController,
+                                                 nifly::NiFloatInterpolator,
+                                                 nifly::NiFloatData>(shape);
+    controller->typeOfControlledVariable = controlledVariable;
+    return controller;
+}
+
+nifly::BSLightingShaderPropertyColorController* NIFBuilder::addShaderColorController(nifly::NiShape* shape,
+                                                                                     uint32_t controlledColor)
+{
+    auto* const controller = addShaderController<nifly::BSLightingShaderPropertyColorController,
+                                                 nifly::NiPoint3Interpolator,
+                                                 nifly::NiPosData>(shape);
+    controller->typeOfControlledColor = controlledColor;
+    return controller;
 }
 
 nifly::NiStringExtraData* NIFBuilder::addStringExtraData(nifly::NiObjectNET* target,

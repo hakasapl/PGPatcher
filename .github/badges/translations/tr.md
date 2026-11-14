@@ -18,7 +18,7 @@ To help, edit [`tr.json`](https://github.com/hakasapl/PGPatcher/blob/main/PGPatc
 | `launcher.buttons.updateOutputTooltip` | `Update the previous output in the output location: only meshes whose inputs changed since that output was generated are patched again. Available when the output location contains a previous output and zip output is disabled.` |
 | `launcher.processing.patchShapeData.label` | `Patch BodySlide ShapeData` |
 | `launcher.processing.patchShapeData.tooltip` | `You only need this if you want to visualize patched shapes in Outfit Studio, otherwise it is not needed for gameplay` |
-| `launcher.processing.generateDynDOLOD.label` | `Generate DynDOLOD Files` |
+| `launcher.processing.generateDynDOLOD.label` | `Only Generate DynDOLOD Files (For PGLite Users)` |
 | `launcher.processing.generateDynDOLOD.tooltip` | `Generate files needed for a DynDOLOD generation (Only required for PBR users)` |
 | `launcher.validation.gameLocationRequired` | `Game Location is required` |
 | `launcher.validation.gameLocationInvalid` | `Game Location is not valid. Verify your game type and location are correct.` |
@@ -102,7 +102,7 @@ To help, edit [`tr.json`](https://github.com/hakasapl/PGPatcher/blob/main/PGPatc
 | `pglite.disabled.notice` | `PGLite is disabled because %s.` |
 | `pglite.disabled.addressLibraryMissing` | `the Address Library for this game version is missing (%s)` |
 | `pglite.disabled.noMessaging` | `the SKSE messaging interface is unavailable` |
-| `pglite.disabled.offlineOutput` | `an offline PGPatcher output that was not generated with the Generate DynDOLOD Files option is in the load order; generate it again with that option enabled, or disable the mod` |
+| `pglite.disabled.offlineOutput` | `an offline PGPatcher output that was not generated with the Only Generate DynDOLOD Files option is in the load order; generate it again with that option enabled, or disable the mod` |
 | `pglite.disabled.autoParallax` | `Auto Parallax is installed, which edits the same materials` |
 | `pglite.disabled.noShaderFramework` | `neither Community Shaders nor ENB is loaded, and the patched materials need one of them` |
 | `pglite.disabled.initializationFailed` | `its initialization failed: %s` |

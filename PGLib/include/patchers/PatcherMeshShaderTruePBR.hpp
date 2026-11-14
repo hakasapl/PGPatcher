@@ -149,7 +149,9 @@ public:
      * @param pbrJSONs PBR json files to load as PBR configs, in load order
      * @param shouldMultithread Read and parse the files on the task pool (entries keep the order of pbrJSONs).
      * @throws std::runtime_error on the calling thread if a config is missing from the file map or from its archive.
-     * A config that cannot be opened or parsed is reported as an error and skipped.
+     * A config that cannot be opened or parsed is reported as an error and skipped. An entry that is not an object, or
+     * whose texture, match, path_contains, nif_filter or rename key holds something other than a string, is reported as
+     * a warning and skipped.
      */
     static void loadStatics(const std::vector<std::filesystem::path>& pbrJSONs,
                             const bool& shouldMultithread = true);
@@ -275,8 +277,8 @@ public:
 
     /**
      * @brief Set the plain PBR shader on a shape: the default type with the PBR flag in the legacy format, the
-     * standalone shader type otherwise. Only used when a plugin use needs the generic PBR shader; entries apply their
-     * own shader through applyPatch()
+     * standalone shader type otherwise. The controllers come off the shader, as applyPatch() does. Only used when a
+     * plugin use needs the generic PBR shader; entries apply their own shader through applyPatch()
      *
      * @param nifShape Shape to apply shader to
      */
@@ -308,7 +310,8 @@ public:
 private:
     /**
      * @brief Applies a single config entry to a shape: geometry attributes (delete, smooth_angle, auto_uv, vertex
-     * colors), shader fields, then enableTruePBROnShape()
+     * colors), shader fields, then enableTruePBROnShape(). The shader loses its controllers: a PBR entry cannot animate
+     * a shader, and the controllers of other shader types do not fit a PBR one
      *
      * @param nifShape Shape to patch
      * @param truePBRData Entry to apply
