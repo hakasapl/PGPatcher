@@ -5,6 +5,7 @@
 - [Common] Fixed a crash when TruePBR patches a shape whose environment map scale is animated, such as the vanilla ghost ash piles, oil puddles and glass cuirass (the controller is removed, PBR has no environment map)
 - [Common] TruePBR removes every shader animation from the shapes it patches, a PBR shader only takes the values of its PBR JSON entries
 - [PGPatcher] Renamed the "Generate DynDOLOD Files" processing option to "Only Generate DynDOLOD Files (For PGLite Users)"
+- [PGLite] Fixed a Dear ImGui error box showing when hovering the checkbox of the first mod in the Conflict Manager
 
 ## [2.4.0] - 2026-11-08
 
