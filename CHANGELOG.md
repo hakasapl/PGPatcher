@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+## [2.4.1] - 2026-11-19
+
 - [Common] Fixed a crash when TruePBR patches a shape whose environment map scale is animated
 - [Common] TruePBR patcher now removes every shader animation from the shapes it patches
 - [Common] Updated RU and ZH_CN translations
