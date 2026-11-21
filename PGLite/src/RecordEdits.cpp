@@ -109,6 +109,18 @@ bool RecordSnapshot::isModelOwned(const RE::TESModel& model) const
     return it == m_captured.end() || model.model == m_elements.at(it->second).writtenPath;
 }
 
+const RE::TESModelTextureSwap* RecordSnapshot::swap(const RE::TESModel& model) const
+{
+    const auto it = m_captured.find(&model);
+    return it == m_captured.end() ? nullptr : m_elements.at(it->second).swap;
+}
+
+auto RecordSnapshot::originalAlternateTextures(const RE::TESModel& model) const -> const std::vector<AlternateTexture>*
+{
+    const auto it = m_captured.find(&model);
+    return it == m_captured.end() ? nullptr : &m_elements.at(it->second).alternateTextures;
+}
+
 bool RecordSnapshot::setAlternateTexture(RE::TESModel& model,
                                          RE::TESModelTextureSwap& swap,
                                          std::uint32_t entryIndex,

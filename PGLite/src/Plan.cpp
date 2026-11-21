@@ -165,6 +165,24 @@ std::shared_ptr<const std::vector<std::byte>> Family::bytes(std::size_t member,
     }
 }
 
+std::filesystem::path Family::groupPath(std::size_t member,
+                                        std::size_t pathIndex)
+{
+    const std::scoped_lock lock(m_patchMutex);
+    const auto leader = m_state == State::Patched && member < m_leaders.size() ? m_leaders.at(member) : member;
+    return members.at(leader).paths.at(pathIndex);
+}
+
+void Family::forgetPatch()
+{
+    const std::scoped_lock lock(m_patchMutex);
+    // A failed patch or a mod that ignores its meshes edited no record; a patched family's records keep its edits until
+    // the next patch makes new ones.
+    m_hasForgottenEdits = m_hasForgottenEdits || m_state == State::Patched;
+    m_state = State::Unpatched;
+    m_readFailures = 0;
+}
+
 std::shared_ptr<const std::vector<std::byte>> Family::serve(std::size_t member,
                                                             std::size_t pathIndex,
                                                             TextureSetFactory& textureSets,
@@ -301,6 +319,7 @@ void Family::patch(std::size_t wantedMember,
     m_outputs = std::move(outputs);
     editRecords(textureSets);
     retargetMergedMembers(generation);
+    m_hasForgottenEdits = false;
     m_state = State::Patched;
 
     std::size_t groups = 0;
@@ -424,11 +443,17 @@ void Family::editRecords(TextureSetFactory& textureSets)
             // the pair (the engine derives the resolved file's variant for such a record).
             const auto& output = m_outputs.at(resolvedPathIndex(ref.pathIndex)).at(member);
             const auto entries = Uses::alternateTextures(*swap);
+            // The entries are corrected from their values before the first plan, which a first patch finds in the
+            // record: a patch that runs again after forgetPatch() does not correct the last patch's corrections.
+            const auto* const originals = snapshot.originalAlternateTextures(*model);
             for (std::uint32_t i = 0; i < entries.size(); i++) {
                 const auto& entry = entries[i];
-                const auto oldIndex = entry.index3D;
+                const auto original = originals && i < originals->size()
+                    ? originals->at(i)
+                    : RecordSnapshot::AlternateTexture { .textureSet = entry.textureSet, .index3D = entry.index3D };
+                const auto oldIndex = original.index3D;
                 auto index3D = oldIndex;
-                auto* textureSet = entry.textureSet;
+                auto* textureSet = original.textureSet;
 
                 // The shape's index in the sorted output, -1 when the shape was deleted (the engine skips the entry).
                 const auto corrected = output.idxCorrections.find(static_cast<int>(oldIndex));
@@ -437,12 +462,12 @@ void Family::editRecords(TextureSetFactory& textureSets)
 
                 const auto patched = output.altTexResults.find(oldIndex);
                 if (patched != output.altTexResults.end()
-                    && !isSameTextureSet(patched->second, Uses::textureSet(entry.textureSet))) {
+                    && !isSameTextureSet(patched->second, Uses::textureSet(original.textureSet))) {
                     if (auto* const set = textureSets.textureSet(patched->second))
                         textureSet = set;
                 }
 
-                if (index3D == oldIndex && textureSet == entry.textureSet)
+                if (index3D == entry.index3D && textureSet == entry.textureSet)
                     continue;
 
                 // false: the entry keeps the value another plugin set after PGLite planned.
@@ -454,10 +479,12 @@ void Family::editRecords(TextureSetFactory& textureSets)
 
 void Family::retargetMergedMembers(unsigned generation)
 {
+    // After a forgotten patch a member that leads now may have been merged into another: every member is pointed at
+    // its group's path then, a leader at its own.
     std::vector<std::pair<RE::TESModel*, std::filesystem::path>> edits;
     for (std::size_t member = 0; member < members.size(); member++) {
         const auto leader = m_leaders.at(member);
-        if (leader == member)
+        if (leader == member && !m_hasForgottenEdits)
             continue;
 
         for (const auto& ref : members.at(member).uses)
@@ -473,8 +500,10 @@ void Family::retargetMergedMembers(unsigned generation)
         if (generation != runtime.planGeneration())
             return;
 
+        // A record that loads the path already, a leader the forgotten patch did not merge, is left as it is.
         for (const auto& [model, path] : edits)
-            runtime.snapshot().setModel(*model, path);
+            if (Uses::normalizedModelPath(model->GetModel()) != path)
+                runtime.snapshot().setModel(*model, path);
     });
 }
 

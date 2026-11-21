@@ -31,6 +31,14 @@ namespace PGLite {
  */
 class RecordSnapshot {
 public:
+    /// @brief An alternate texture entry of a record: the texture set and the shape index.
+    struct AlternateTexture {
+        RE::BGSTextureSet* textureSet = nullptr;
+        std::uint32_t index3D = 0;
+
+        bool operator==(const AlternateTexture& other) const = default;
+    };
+
     /// @brief Captures every model element of the uses, each once. At data load.
     void capture(const Uses& uses);
 
@@ -48,6 +56,14 @@ public:
      * the record apply; true for a model that was not captured.
      */
     [[nodiscard]] bool isModelOwned(const RE::TESModel& model) const;
+
+    /// @brief The component of a captured record model that holds its alternate texture entries, nullptr for a plain
+    /// model and for a model that was not captured.
+    [[nodiscard]] const RE::TESModelTextureSwap* swap(const RE::TESModel& model) const;
+
+    /// @brief The alternate texture entries of a captured record model as they were before the first plan, by entry
+    /// index; nullptr for a model that was not captured.
+    [[nodiscard]] const std::vector<AlternateTexture>* originalAlternateTextures(const RE::TESModel& model) const;
 
     /**
      * @brief Sets an alternate texture entry of a record (the shape index and the texture set), unless another plugin
@@ -73,13 +89,6 @@ public:
     [[nodiscard]] std::size_t size() const { return m_elements.size(); }
 
 private:
-    struct AlternateTexture {
-        RE::BGSTextureSet* textureSet = nullptr;
-        std::uint32_t index3D = 0;
-
-        bool operator==(const AlternateTexture& other) const = default;
-    };
-
     struct ElementState {
         RE::TESModel* model = nullptr;
         RE::TESModelTextureSwap* swap = nullptr;

@@ -420,6 +420,7 @@
     "status": {
       "applying": "Applying, the game is paused: %s (%.1f s)",
       "applyingShort": "Applying the settings.",
+      "reloading": "Applying, reloading the meshes it changed: %zu of %zu done (%.1f s)",
       "working": "working",
       "waitingForData": "Waiting for the game data.",
       "initializing": "Loading, current step: %s.",
@@ -448,6 +449,7 @@
     },
     "apply": {
       "applied": "Applied in %.1f s. Meshes loaded from now on use the new settings",
+      "appliedReloaded": "Applied in %.1f s. The loaded meshes it changed are reloaded",
       "disabled": "PGLite is currently disabled",
       "failed": "Apply failed, see the log.",
       "loading": "Apply is not available during a loading screen.",
@@ -508,7 +510,8 @@
       "readingMeshes": "Reading the meshes",
       "registeringFacegenStreams": "Registering the facegen streams",
       "loadingTruePBRConfigs": "Loading the TruePBR configs",
-      "orderingMods": "Ordering the mods"
+      "orderingMods": "Ordering the mods",
+      "patchingLoadedMeshes": "Patching the loaded meshes"
     }
   }
 }

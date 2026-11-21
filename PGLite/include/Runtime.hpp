@@ -2,6 +2,7 @@
 
 #include "ClassificationCache.hpp"
 #include "Environment.hpp"
+#include "MeshReloadFramework.h"
 #include "OfflineOutput.hpp"
 #include "PGD3D.hpp"
 #include "PGParams.hpp"
@@ -14,6 +15,7 @@
 #include "Uses.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -26,6 +28,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -140,10 +143,34 @@ public:
     }
 
     /**
+     * @brief The main-thread half of Apply, right before apply() starts on the menu's worker: with MeshReloadFramework
+     * loaded, records the models the loaded game shows, so that apply() has the ones whose meshes it changes reloaded.
+     */
+    void prepareApply();
+
+    /// @brief Whether the last Apply checked the loaded models and had the changed ones reloaded. Any thread.
+    [[nodiscard]] bool didCheckLoadedMeshes() const { return m_didCheckLoadedMeshes; }
+
+    /**
+     * @brief Whether MeshReloadFramework has yet to report done a reload the last Apply asked it for: the menu holds
+     * the Apply until it reported them all, while the game's frames run its reload passes. Gives up with a warning once
+     * the reports took longer than maxReloadWait. Any thread.
+     */
+    [[nodiscard]] bool isReloadPending();
+
+    /// @brief The reloads of the last Apply MeshReloadFramework reported done, and the reloads it was asked for. Any
+    /// thread.
+    [[nodiscard]] std::pair<std::size_t,
+                            std::size_t>
+    reloadProgress() const;
+
+    /**
      * @brief Apply (DESIGN.md section 4.8): restores the records, rebuilds the environment and the plan with fresh
-     * variant numbers and registers the new variant streams. The caller saves the settings first. Runs on the menu's
-     * worker thread while the game's main thread waits inside Present, so no 3D is built while the records change;
-     * blocks until in-flight patches finished.
+     * variant numbers and registers the new variant streams. The caller saves the settings first and calls
+     * prepareApply(). Runs on the menu's worker thread while the game's main thread waits inside Present, so no 3D is
+     * built while the records change; blocks until in-flight patches finished. The loaded models whose meshes changed
+     * are reloaded right after, after a failed apply too: the reloads run in the frames that follow, and are pending
+     * until MeshReloadFramework reports them done (isReloadPending()).
      *
      * @param isEnabled false restores the records and installs an empty plan instead, so every stream serves the
      * original mesh until the next apply with true.
@@ -184,6 +211,35 @@ private:
         std::shared_ptr<SourceStream> source;
     };
 
+    /// @brief What a registered path serves under the current plan.
+    struct ProducedMesh {
+        std::shared_ptr<const std::vector<std::byte>> bytes;
+        /// @brief Whether the bytes are the engine's original because no current family serves the path.
+        bool isOriginal = false;
+        /// @brief The path the records of the served member load once the patch pointed merged members at their group
+        /// (Family::groupPath), which serves the same bytes; empty when it is the served path.
+        std::string groupPath;
+    };
+
+    /// @brief The served content of a path whose bytes are not settled: no mesh has it, so the next Apply finds the
+    /// path changed whatever it serves then.
+    static constexpr std::uint64_t unknownContent = ~std::uint64_t { 0 };
+    /// @brief The served content of the engine's original. No mesh has it either: a key holds the size in its upper
+    /// half, and no mesh is 4 GB large.
+    static constexpr std::uint64_t originalServed = ~std::uint64_t { 1 };
+
+    /// @brief A model the loaded game showed when Apply was asked for (MRF_ForEachLoadedModel).
+    struct LoadedModel {
+        std::string path;
+        const RE::TESModel* model = nullptr;
+        RE::FormID formID = 0;
+        bool isWeightCounterpart = false;
+        /// @brief The served content of what it shows.
+        std::uint64_t shown = originalServed;
+        /// @brief Its record's alternate textures, by shape index.
+        std::vector<std::pair<std::int32_t, const RE::BGSTextureSet*>> alternateTextures;
+    };
+
     Runtime();
 
     static void onMessage(SKSE::MessagingInterface::Message* message);
@@ -191,6 +247,55 @@ private:
     /// @brief The data-load work, after onMessage() checked the disable conditions: the uses, the plan, the streams,
     /// the background thread.
     void onDataLoaded();
+
+    /**
+     * @brief Registers with MeshReloadFramework, when it is loaded: the callback of its done reports, which Apply holds
+     * for, and PGLite as the watch provider of the paths it serves, so that a watch of such a path reloads it when a
+     * mesh file it is patched from changes. At data load, once the streams are registered.
+     */
+    void connectMeshReloadFramework();
+
+    /// @brief MeshReloadFramework's report of finished reloads (MRF_ReloadDoneCallback): the reloads Apply asked for
+    /// that it names are done. Main thread.
+    static void onReloadDone(const MRF_ReloadDone& done,
+                             void* context);
+
+    /// @brief The watch provider's watch (MRF_WatchProviderWatchFn): MeshReloadFramework watches a path PGLite serves.
+    static bool onWatch(const char* path,
+                        void* context);
+
+    /// @brief The watch provider's unwatch (MRF_WatchProviderUnwatchFn): no watch is left for a path.
+    static void onUnwatch(const char* path,
+                          void* context);
+
+    /// @brief MRF_FileChangedFn: a mesh file a watched path is patched from changed. MeshReloadFramework's watcher
+    /// thread.
+    static void onFileChanged(const char* file,
+                              void* context);
+
+    /**
+     * @brief Takes MeshReloadFramework's watch of a path PGLite serves: watches the loose mesh files its bytes are
+     * patched from (looseInputs()).
+     *
+     * @return false, declining the watch, for a path patched from no loose file, or not a mesh stream of PGLite's.
+     */
+    bool watchPath(const std::string& path);
+
+    /// @brief Ends the watch of a path, and the watches of the files no other watched path is patched from.
+    void unwatchPath(const std::string& path);
+
+    /**
+     * @brief The loose mesh files under Data the bytes of a registered path are patched from: the file its stream
+     * reads and the other file of its family's weighted pair, which the family's patch reads too. Spelled as
+     * MeshReloadFramework spells files; a file only in an archive is left out, since the engine reads the archive.
+     */
+    [[nodiscard]] std::vector<std::string> looseInputs(const std::string& path);
+
+    /**
+     * @brief A mesh file watched paths are patched from changed: the families patched from it forget their patch, and
+     * MeshReloadFramework reloads the watched paths (MRF_NotifyStreamChanged) and the other loaded paths made of it.
+     */
+    void reloadChangedFile(const std::string& file);
 
     /**
      * @brief The input-loaded work, before the engine loads the plugins: the settings and, with PGLite enabled, the
@@ -231,6 +336,9 @@ private:
      * @return The source, or nullptr if the engine cannot resolve the path.
      */
     [[nodiscard]] std::shared_ptr<SourceStream> resolveSource(const std::filesystem::path& path);
+
+    /// @brief The engine's own stream of a registered path, nullptr for a path nothing is registered for.
+    [[nodiscard]] std::shared_ptr<SourceStream> registeredSource(const std::string& path) const;
 
     /**
      * @brief Registers a stream for a path unless one is registered already.
@@ -275,6 +383,42 @@ private:
      */
     [[nodiscard]] bool waitUntilReady();
 
+    /**
+     * @brief The bytes a registered path serves under the current plan: what the family of its target produces, or the
+     * original mesh for a path of no current family. Under the pipeline lock, shared for an open and exclusive for
+     * Apply.
+     */
+    [[nodiscard]] ProducedMesh produce(const std::string& path,
+                                       SourceStream& source);
+
+    /// @brief The original mesh of a stream, or nullptr if the engine's stream cannot be read.
+    [[nodiscard]] static std::shared_ptr<const std::vector<std::byte>> readOriginal(const std::string& path,
+                                                                                    SourceStream& source);
+
+    /// @brief The size and the CRC32 of mesh bytes, which tell two versions of a mesh apart.
+    [[nodiscard]] static std::uint64_t contentKey(const std::vector<std::byte>& bytes);
+
+    /**
+     * @brief The content key of the original mesh of a path: read through the engine's own stream of a registered
+     * path, or through the engine for any other path.
+     *
+     * @return The key, or nothing if the mesh cannot be read.
+     */
+    [[nodiscard]] std::optional<std::uint64_t> originalContent(const std::string& path);
+
+    /// @brief The alternate textures of a captured record, by shape index.
+    [[nodiscard]] std::vector<std::pair<std::int32_t,
+                                        const RE::BGSTextureSet*>>
+    alternateTextures(const RE::TESModel& model) const;
+
+    /**
+     * @brief Patches the paths the loaded models load now and has MeshReloadFramework reload the changed ones: a path
+     * whose bytes differ from what a model shows, and the record of a model whose alternate textures changed. A path
+     * whose bytes are not settled (a first patch that could not read an input) is left as it is. A failure only logs.
+     * Apply's worker, under the exclusive pipeline lock, after the new plan is in place.
+     */
+    void reloadChangedMeshes(const std::optional<std::vector<LoadedModel>>& models);
+
     Settings::Ini m_ini;
     PGParams m_params;
     ShaderFrameworks::Detected m_shaderFrameworks;
@@ -305,11 +449,40 @@ private:
 
     std::unordered_map<std::string, StreamEntry> m_streams;
     mutable std::mutex m_streamsMutex;
-    /// @brief Whether the grass loader was told to take the registered grass streams (registerPlanStreams).
-    bool m_didRefreshGrassStreams = false;
 
     /// @brief Shared by every patch, exclusive for Apply.
     std::shared_mutex m_pipelineLock;
+
+    /// @brief What prepareApply() found the loaded game shows, used by the apply() that follows.
+    std::optional<std::vector<LoadedModel>> m_loadedModels;
+    /// @brief The content key PGLite last served each path: originalServed for the engine's original, unknownContent
+    /// for bytes not settled. A path without an entry was never served. Recorded with MeshReloadFramework loaded only.
+    std::unordered_map<std::string, std::uint64_t> m_servedContent;
+    /// @brief The bytes of the changed paths Apply patched, served once to the reload's load.
+    std::unordered_map<std::string, std::shared_ptr<const std::vector<std::byte>>> m_reloadBytes;
+    /// @brief Guards m_servedContent and m_reloadBytes.
+    std::mutex m_contentMutex;
+    /// @brief See didCheckLoadedMeshes().
+    std::atomic<bool> m_didCheckLoadedMeshes { false };
+
+    /// @brief The reloads the last Apply asked MeshReloadFramework for that it has not reported done (onReloadDone).
+    struct PendingReloads {
+        /// @brief Spelled as the framework reports them.
+        std::unordered_set<std::string> paths;
+        std::unordered_set<RE::FormID> bases;
+        /// @brief The reloads asked for, done or not.
+        std::size_t askedCount = 0;
+        std::chrono::steady_clock::time_point askedTime;
+    };
+    PendingReloads m_pendingReloads;
+    mutable std::mutex m_pendingReloadsMutex;
+
+    /// @brief The paths MeshReloadFramework watches through PGLite's streams, as it spells them, with the files each
+    /// one is patched from (looseInputs()).
+    std::unordered_map<std::string, std::vector<std::string>> m_watchedPaths;
+    /// @brief Guards m_watchedPaths, and is held while the framework's file watches change, so that the file watches
+    /// always match the watched paths.
+    std::mutex m_watchedPathsMutex;
 
     std::atomic<bool> m_isActive { false };
     std::atomic<bool> m_isReady { false };

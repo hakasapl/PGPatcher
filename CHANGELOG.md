@@ -2,6 +2,9 @@
 
 ## UNRELEASED
 
+- [PGLite] With MeshReloadFramework installed, Apply reloads in place only the loaded meshes it changed, so a cell or save reload is no longer needed to see the new settings, and finishes once they are reloaded
+- [PGLite] MeshReloadFramework's watches work on the meshes PGLite patches: a watched mesh whose file changes is patched again and reloaded
+
 ## [2.4.1] - 2026-11-19
 
 - [Common] Fixed a crash when TruePBR patches a shape whose environment map scale is animated

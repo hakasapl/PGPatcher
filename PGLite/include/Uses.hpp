@@ -90,6 +90,15 @@ public:
     [[nodiscard]] static std::filesystem::path weightCounterpart(const std::filesystem::path& path);
 
     /**
+     * @brief The model the engine loads for a reference, picked as TESObjectREFR's model lookup picks it (1.7.99
+     * sub_1402EEBE0): the model swap of the reference, the model of its base object, or the world model of an armor for
+     * the sex of the NPC that owns the reference.
+     *
+     * @return The model, or nullptr for an actor and for an object without a model.
+     */
+    [[nodiscard]] static RE::TESModel* referenceModel(RE::TESObjectREFR& reference);
+
+    /**
      * @brief The form types of the 36 record types with models, in the order build() reads them.
      */
     [[nodiscard]] static std::vector<RE::FormType> modelFormTypes();
