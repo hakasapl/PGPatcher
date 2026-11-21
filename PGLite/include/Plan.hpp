@@ -134,6 +134,22 @@ public:
      */
     static void noteTextureReadFailure(const std::filesystem::path& texPath);
 
+    /**
+     * @brief The path the records of a member load once the first patch pointed the records of merged members at the
+     * member that leads their group (a main-thread task): that member's path, or the member's own before the first
+     * patch.
+     */
+    [[nodiscard]] std::filesystem::path groupPath(std::size_t member,
+                                                  std::size_t pathIndex);
+
+    /**
+     * @brief Forgets the outcome of the patch, so that the next open patches the family again from its files as they
+     * are then, as a first patch does: for a file of the family that changed on disk. That patch edits the records
+     * again from their values before the first plan and points every member's records at its group's path; until it
+     * runs, the records keep the edits of the last patch. Any thread.
+     */
+    void forgetPatch();
+
     [[nodiscard]] State state() const { return m_state; }
 
 private:
@@ -190,6 +206,9 @@ private:
     /// Under m_patchMutex.
     unsigned m_readFailures = 0;
     std::chrono::steady_clock::time_point m_readFailureTime;
+    /// @brief Whether the records carry the edits of a patch that forgetPatch() forgot, so the next patch points the
+    /// leaders' records back at their own paths too. Under m_patchMutex.
+    bool m_hasForgottenEdits = false;
     /// @brief The outcome per file and member, once patched.
     std::vector<std::vector<MemberOutput>> m_outputs;
     /// @brief Per member, the first member whose results it shares in every file (itself when it leads).

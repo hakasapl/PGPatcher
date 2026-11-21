@@ -452,6 +452,12 @@ bool Menu::initialize()
 
 void Menu::render()
 {
+    // Apply holds until MeshReloadFramework reported the reloads it asked for, which these frames run (endApplyWorker).
+    if (m_isAwaitingReloads && !m_runtime->isReloadPending()) {
+        m_isAwaitingReloads = false;
+        finishApply();
+    }
+
     if (m_didFailInitialization)
         return;
 
@@ -617,7 +623,7 @@ void Menu::renderApplyFrame()
 {
     const bool isDone = m_isApplyDone;
     if (isDone)
-        finishApply();
+        endApplyWorker();
 
     try {
         if (m_isInitialized) {
@@ -780,7 +786,7 @@ void Menu::syncModifiers()
 void Menu::applyInput(const InputRecord& record)
 {
     // While Apply runs the menu stays open and takes no input; the cursor still follows the mouse (syncMousePosition).
-    if (m_isApplying)
+    if (isApplyInProgress())
         return;
 
     if (record.kind == InputRecord::Kind::Hotkey) {
@@ -1117,6 +1123,9 @@ void Menu::startPendingApply()
     if (!keepGameFrame())
         Logger::warn("The game image could not be kept for the progress frames of Apply");
 
+    // What the loaded references show is read here, on the main thread, before the worker changes the records.
+    m_runtime->prepareApply();
+
     // The runtime's apply runs on a worker thread; the interface draw shows the progress until it is done
     // (renderApplyFrame).
     m_isApplyEnabling = pending.isEnabled;
@@ -1130,11 +1139,22 @@ void Menu::startPendingApply()
     });
 }
 
-void Menu::finishApply()
+void Menu::endApplyWorker()
 {
     if (m_applyThread.joinable())
         m_applyThread.join();
 
+    // The game's frames run again once the progress frames end, and the framework's reload passes run in them.
+    if (m_runtime->isReloadPending()) {
+        m_isAwaitingReloads = true;
+        return;
+    }
+
+    finishApply();
+}
+
+void Menu::finishApply()
+{
     const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
     if (!m_didApplySucceed) {
         m_applyMessage = tr("pglite.apply.failed");
@@ -1142,8 +1162,11 @@ void Menu::finishApply()
         // The Apply row says so for as long as PGLite is disabled.
         m_applyMessage.clear();
     } else {
-        // The string carries a printf placeholder for the seconds, as every translated string does.
-        const auto text = tr("pglite.apply.applied");
+        // The string carries a printf placeholder for the seconds, as every translated string does. When the Apply
+        // found the loaded references whose meshes changed, those are reloaded; otherwise only the meshes loaded from
+        // now on use the new settings.
+        const auto text
+            = tr(m_runtime->didCheckLoadedMeshes() ? "pglite.apply.appliedReloaded" : "pglite.apply.applied");
         std::vector<char> buffer(text.size() + 32);
         std::snprintf(buffer.data(), buffer.size(), text.c_str(), seconds); // NOLINT(cppcoreguidelines-pro-type-vararg)
         m_applyMessage = buffer.data();
@@ -1174,7 +1197,7 @@ void Menu::draw()
         : 0;
     const auto title = std::format("{}PGLite {}###PGLite", std::string(spaceCount, ' '), PG_FULL_VERSION);
     bool isOpen = true;
-    if (!ImGui::Begin(title.c_str(), m_isApplying ? nullptr : &isOpen, ImGuiWindowFlags_NoCollapse)) {
+    if (!ImGui::Begin(title.c_str(), isApplyInProgress() ? nullptr : &isOpen, ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         return;
     }
@@ -1190,16 +1213,23 @@ void Menu::draw()
         drawList->PopClipRect();
     }
 
-    if (m_isApplying) {
+    if (isApplyInProgress()) {
         const auto seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_applyStart).count();
-        const auto* const stage = m_runtime->stage();
-        textColored(
-            ImVec4(1, 0.85F, 0.4F, 1),
-            formatText(tr("pglite.status.applying"), tr(stage ? stage : "pglite.status.working").c_str(), seconds));
+        std::string text;
+        if (m_isApplying) {
+            const auto* const stage = m_runtime->stage();
+            text = formatText(
+                tr("pglite.status.applying"), tr(stage ? stage : "pglite.status.working").c_str(), seconds);
+        } else {
+            // The worker is done and the game runs again: the framework reloads the changed meshes in its frames.
+            const auto [done, total] = m_runtime->reloadProgress();
+            text = formatText(tr("pglite.status.reloading"), done, total, seconds);
+        }
+        textColored(ImVec4(1, 0.85F, 0.4F, 1), text);
         ImGui::Separator();
     }
 
-    ImGui::BeginDisabled(m_isApplying);
+    ImGui::BeginDisabled(isApplyInProgress());
     // The pages fill the window above the Apply row, which every page shares.
     const auto applyRowHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
     if (ImGui::BeginChild("pages", ImVec2(0, -applyRowHeight)) && ImGui::BeginTabBar("pages")) {

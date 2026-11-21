@@ -70,6 +70,10 @@ public:
     /// @brief True while Apply runs on its worker thread; the interface draw keeps presenting progress frames then.
     [[nodiscard]] bool isApplying() const { return m_isApplying; }
 
+    /// @brief True while Apply runs on its worker thread and, after it, while the reloads it asked MeshReloadFramework
+    /// for are not done (Runtime::isReloadPending()), which the game's frames run.
+    [[nodiscard]] bool isApplyInProgress() const { return m_isApplying || m_isAwaitingReloads; }
+
     /**
      * @brief Starts an Apply that was asked for in the previous frame, before the game draws its interface: the frame
      * as the game rendered it is kept for the progress frames, and the runtime's apply starts on the worker thread.
@@ -169,6 +173,10 @@ private:
     /// @brief Writes the settings and the mod rules, then asks the next interface draw to start the runtime's apply
     /// (startPendingApply).
     void startApply(bool isEnabled);
+
+    /// @brief The worker of Apply is done: Apply finishes now, or once MeshReloadFramework reported the reloads it
+    /// asked for (render).
+    void endApplyWorker();
     void finishApply();
 
     /**
@@ -297,6 +305,8 @@ private:
     std::optional<PendingApply> m_pendingApply;
     std::atomic<bool> m_isApplying { false };
     std::atomic<bool> m_isApplyDone { false };
+    /// @brief Whether the worker is done and Apply holds for the reloads it asked for, see isApplyInProgress().
+    std::atomic<bool> m_isAwaitingReloads { false };
     bool m_didApplySucceed = false;
     /// @brief Whether the running Apply enables PGLite.
     bool m_isApplyEnabling = true;

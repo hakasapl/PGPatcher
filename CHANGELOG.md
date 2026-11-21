@@ -6,6 +6,8 @@
 - [Common] TruePBR removes every shader animation from the shapes it patches, a PBR shader only takes the values of its PBR JSON entries
 - [PGPatcher] Renamed the "Generate DynDOLOD Files" processing option to "Only Generate DynDOLOD Files (For PGLite Users)"
 - [PGLite] Fixed a Dear ImGui error box showing when hovering the checkbox of the first mod in the Conflict Manager
+- [PGLite] With MeshReloadFramework installed, Apply reloads in place only the loaded meshes it changed, so a cell or save reload is no longer needed to see the new settings, and finishes once they are reloaded
+- [PGLite] MeshReloadFramework's watches work on the meshes PGLite patches: a watched mesh whose file changes is patched again and reloaded
 
 ## [2.4.0] - 2026-11-08
 

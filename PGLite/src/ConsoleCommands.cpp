@@ -4,6 +4,7 @@
 
 #include "PGTranslation.hpp"
 #include "Runtime.hpp"
+#include "Uses.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
@@ -32,46 +33,12 @@ void print(const std::string& text)
         console->Print("%s", text.c_str()); // NOLINT(cppcoreguidelines-pro-type-vararg)
 }
 
-/**
- * @brief The model the engine loads for a reference, picked as TESObjectREFR's model lookup picks it (1.7.99
- * sub_1402EEBE0): the model swap of the reference, the model of its base object, or the world model of an armor for the
- * sex of the NPC that owns the reference.
- *
- * @return The model, or nullptr for an actor and for an object without a model.
- */
-RE::TESModel* referenceModel(RE::TESObjectREFR& reference)
-{
-    if (const auto* const swap = reference.extraList.GetByType<RE::ExtraModelSwap>(); swap && swap->modelSwap)
-        return swap->modelSwap;
-
-    auto* const base = reference.GetBaseObject();
-    if (!base || base->Is(RE::FormType::NPC))
-        return nullptr;
-
-    if (auto* const model = base->As<RE::TESModel>())
-        return model;
-
-    auto* const biped = base->As<RE::TESBipedModelForm>();
-    if (!biped)
-        return nullptr;
-
-    // The male world model unless a female NPC owns the reference and the armor has a female one (1.7.99
-    // sub_1401DF750).
-    const auto* const owner = reference.GetOwner();
-    const auto* const npc = owner ? owner->As<RE::TESNPC>() : nullptr;
-    auto& femaleModel = biped->worldModels[RE::TESBipedModelForm::Sexes::kFemale];
-    if (npc && npc->IsFemale() && !femaleModel.model.empty())
-        return &femaleModel;
-
-    return &biped->worldModels[RE::TESBipedModelForm::Sexes::kMale];
-}
-
 /// @brief Changes the block list for the mesh of the selected reference and says in the console what happened.
 void run(RE::TESObjectREFR* reference,
          bool isBlocked)
 {
     auto& runtime = Runtime::instance();
-    const auto* const model = reference ? referenceModel(*reference) : nullptr;
+    const auto* const model = reference ? Uses::referenceModel(*reference) : nullptr;
     const auto meshPath = model ? runtime.originalMeshPath(*model) : std::filesystem::path();
     if (meshPath.empty()) {
         print(PGTranslation::tr("pglite.console.noMesh"));

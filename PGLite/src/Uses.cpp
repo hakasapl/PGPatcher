@@ -491,6 +491,33 @@ std::filesystem::path Uses::weightCounterpart(const std::filesystem::path& path)
     return { };
 }
 
+RE::TESModel* Uses::referenceModel(RE::TESObjectREFR& reference)
+{
+    if (const auto* const swap = reference.extraList.GetByType<RE::ExtraModelSwap>(); swap && swap->modelSwap)
+        return swap->modelSwap;
+
+    auto* const base = reference.GetBaseObject();
+    if (!base || base->Is(RE::FormType::NPC))
+        return nullptr;
+
+    if (auto* const model = base->As<RE::TESModel>())
+        return model;
+
+    auto* const biped = base->As<RE::TESBipedModelForm>();
+    if (!biped)
+        return nullptr;
+
+    // The male world model unless a female NPC owns the reference and the armor has a female one (1.7.99
+    // sub_1401DF750).
+    const auto* const owner = reference.GetOwner();
+    const auto* const npc = owner ? owner->As<RE::TESNPC>() : nullptr;
+    auto& femaleModel = biped->worldModels[RE::TESBipedModelForm::Sexes::kFemale];
+    if (npc && npc->IsFemale() && !femaleModel.model.empty())
+        return &femaleModel;
+
+    return &biped->worldModels[RE::TESBipedModelForm::Sexes::kMale];
+}
+
 std::vector<RE::FormType> Uses::modelFormTypes()
 {
     std::vector<RE::FormType> formTypes;

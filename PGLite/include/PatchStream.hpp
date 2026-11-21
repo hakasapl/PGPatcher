@@ -16,6 +16,9 @@ namespace PGLite {
  */
 struct SourceStream {
     RE::BSTSmartPointer<RE::BSResource::Stream> stream;
+    /// @brief The mesh the stream reads, lower case with the meshes\ prefix; empty for the source of a generated
+    /// texture, which has no stream.
+    std::string path;
     std::mutex mutex;
 };
 
