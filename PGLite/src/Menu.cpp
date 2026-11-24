@@ -1682,7 +1682,9 @@ void Menu::drawConflictManager()
         return;
 
     ImGui::TableSetupScrollFreeze(0, 1);
-    ImGui::TableSetupColumn("##enabled", ImGuiTableColumnFlags_WidthFixed);
+    // TableHeadersRow pushes the column index before the header's label, as each row pushes its own index before its
+    // checkbox: the header of the first column must not be named like the checkbox of the first row.
+    ImGui::TableSetupColumn("##enabledColumn", ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableSetupColumn(tr("conflictManager.columns.mod").c_str(), ImGuiTableColumnFlags_WidthStretch);
     ImGui::TableSetupColumn(tr("conflictManager.columns.shader").c_str(), ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableSetupColumn(tr("components.checkedDragList.ignoreMeshes").c_str(), ImGuiTableColumnFlags_WidthFixed);

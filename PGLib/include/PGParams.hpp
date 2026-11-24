@@ -61,7 +61,8 @@ struct PGParams {
         bool enableTraceLogging = false;
         /// @brief Whether only what the 3rd party tools (TexGen and DynDOLOD) read is patched, with the stock state of
         /// every patched shape and record recorded for PGLite, which then runs next to the output. The launcher shows
-        /// it as "Generate DynDOLOD Files" and only offers it with the TruePBR shader patcher.
+        /// it as "Only Generate DynDOLOD Files (For PGLite Users)" and only offers it with the TruePBR shader
+        /// patcher.
         bool isPGLiteMode = false;
         /// @brief Whether the BodySlide ShapeData meshes are patched, which only Outfit Studio shows.
         bool shouldPatchShapeData = false;

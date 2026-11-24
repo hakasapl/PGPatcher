@@ -739,6 +739,9 @@ void PatcherMeshShaderTruePBR::applyShader(nifly::NiShape& nifShape)
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_HAIR_SOFT_LIGHTING);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_DETAIL_MAP);
     PGNIFUtil::clearShaderFlag(nifShaderBSLSP, nifly::SLSF1_FACEGEN_RGB_TINT);
+
+    // A PBR shader only takes the values its PBR entries set, and those cannot animate it.
+    PGNIFUtil::unlinkShaderControllers(*nif(), nifShape);
 }
 
 uint64_t PatcherMeshShaderTruePBR::matchExtraDataHash(const PatcherMatch& match) const
@@ -997,6 +1000,12 @@ bool PatcherMeshShaderTruePBR::applyOnePatch(nifly::NiShape* nifShape,
 
     // Enable PBR on the shape (always on, the legacy "pbr" JSON field is ignored).
     isChanged |= enableTruePBROnShape(nifShader, nifShaderBSLSP, truePBRData, matchedPath, newSlots);
+
+    // A PBR shader only takes the values its PBR entries set, and those cannot animate it. The controllers of the other
+    // shader types do not fit it either: the game crashes on an environment map scale controller, and Community Shaders
+    // reads the glossiness, specular strength and specular color as the specular level, roughness and subsurface or
+    // coat color.
+    isChanged |= PGNIFUtil::unlinkShaderControllers(*nif(), *nifShape);
 
     return isChanged;
 }

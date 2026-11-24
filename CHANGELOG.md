@@ -4,6 +4,14 @@
 
 - [PGLite] Added a 3rd Party tab whose "Generate DynDOLOD File" button writes `SKSE\Plugins\PGLite\dyndolod_pglite_patches.json`, which tells DynDOLOD how PGLite patches the full model of each base record: the shader and texture set changes its patchers make to each shape, alternate textures included
 
+## [2.4.1] - 2026-11-19
+
+- [Common] Fixed a crash when TruePBR patches a shape whose environment map scale is animated
+- [Common] TruePBR patcher now removes every shader animation from the shapes it patches
+- [Common] Updated RU and ZH_CN translations
+- [PGPatcher] Renamed the "Generate DynDOLOD Files" processing option to "Only Generate DynDOLOD Files (For PGLite Users)"
+- [PGLite] Fixed a Dear ImGui error box showing when hovering the checkbox of the first mod in the Conflict Manager
+
 ## [2.4.0] - 2026-11-08
 
 - [PGPatcher] Fixed the conflict manager not noticing unsaved changes to the mod list (order, enabled, Ignore Meshes)
