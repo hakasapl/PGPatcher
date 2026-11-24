@@ -15,8 +15,9 @@
  * and its NiAlphaProperty.
  *
  * One table lists every field the SSE mesh format stores for a BSLightingShaderProperty. The permutation tracker
- * compares materials with it to tell patched meshes apart, and the stock marker records and restores materials with
- * it, so a field a patcher writes cannot be covered by one and forgotten by the other.
+ * compares materials with it to tell patched meshes apart, the stock marker records and restores materials with it,
+ * and the exports list what a patch changed with it (shaderChanges()), so a field a patcher writes cannot be covered by
+ * one and forgotten by the others.
  */
 namespace PGMaterialState {
 
@@ -43,6 +44,33 @@ nlohmann::json shaderToJSON(const nifly::BSLightingShaderProperty& shader);
  */
 bool shaderFromJSON(nifly::BSLightingShaderProperty& shader,
                     const nlohmann::json& fields);
+
+/**
+ * @brief The shader fields that differ between two shaders, with the value of the second, for the exports that tell
+ * other tools how a mesh is patched
+ *
+ * The values are raw, as the mesh stores them: the shader type (bslspShaderType) and the flag words (shaderFlags1,
+ * shaderFlags2) are their unsigned numbers, colors and vectors arrays of floats. The keys are the names of the nifly
+ * members (glossiness, softlighting, uvScale, ...), and floats have the shortest decimals that read back as the same
+ * float (shortestFloat()). A field the mesh stores for one shader type only, as NifSkope shows it (environmentMapScale
+ * for BSLSP_ENVMAP, the parallax fields for BSLSP_MULTILAYERPARALLAX, ...), is listed only when the patched shader
+ * has that type. A field whose new value is not finite is left out, since JSON cannot write it.
+ *
+ * @param base Shader before the patch
+ * @param patched Shader after the patch
+ * @return JSON object with one entry per field that changed, empty when none did
+ */
+nlohmann::json shaderChanges(const nifly::BSLightingShaderProperty& base,
+                             const nifly::BSLightingShaderProperty& patched);
+
+/**
+ * @brief A float as the double with the shortest decimals that read back as the same float, so that 0.04F is written
+ * as 0.04 and not as the digits of the double it widens to
+ *
+ * @param value Float to write
+ * @return The double to write as JSON
+ */
+double shortestFloat(float value);
 
 /**
  * @brief Compares every shader field exactly

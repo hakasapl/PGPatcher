@@ -1,0 +1,330 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/hakasapl/PGPatcher/main/schema/dyndolod_pglite_patches.schema.json",
+  "title": "PGLite DynDOLOD patches file",
+  "description": "SKSE\\Plugins\\PGLite\\dyndolod_pglite_patches.json, which PGLite writes when its \"Generate DynDOLOD File\" button on the 3rd Party tab is used. PGLite patches meshes while the game loads them and never writes them to disk; this file tells DynDOLOD how PGLite patches the full model (MODL) of every base record of the record types DynDOLOD reads full models from (ACTI, CONT, DOOR, FURN, MSTT, STAT, TREE and GRAS), with the record's alternate textures: the shader and texture set changes of its shapes, and the shapes it deletes. A record is listed when PGLite changes a shape of its model that way, with every such shape; a shape or a record that is not listed is drawn as its mesh on disk says. The file is compact JSON written whole, and the keys of its objects are sorted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "materials",
+    "records"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional link to this schema for editor support. PGLite never writes it."
+    },
+    "version": {
+      "description": "Version of this format.",
+      "type": "integer",
+      "const": 1
+    },
+    "materials": {
+      "description": "Every distinct change of a shape the records use, each listed once and referred to by its index in this array.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/material"
+      }
+    },
+    "records": {
+      "description": "The listed records by the plugin their form ID belongs to (the master of the form ID, as named in the load order; a record a plugin injected into a master's range is the master's), so the file holds for any load order of the same plugins. Compare plugin names without regard to case.",
+      "type": "object",
+      "additionalProperties": {
+        "description": "The records of one plugin by their form ID within it: six upper case hexadecimal digits, the load order index left out (a light plugin's records use the lowest three digits).",
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^[0-9A-F]{6}$"
+        },
+        "additionalProperties": {
+          "$ref": "#/definitions/record"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "vector2": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "vector3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "color4": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "record": {
+      "description": "The shapes of the record's model that PGLite changes, by each shape's 3D index in the mesh on disk (the index alternate textures use, counting the shapes and particle systems in block tree order): the index of its change in \"materials\", or null for a shape PGLite deletes. A shape that is not listed is drawn as the mesh on disk says.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^(0|[1-9][0-9]*)$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "integer",
+            "minimum": 0
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "material": {
+      "description": "The shader and texture set fields of the shape that differ from the mesh on disk, with their values after the patch of every patcher PGLite runs, as the game draws the shape (with the record's alternate texture); nothing else the patch changes is listed, and a value the patch wrote over the same value is no change. The blocks are named after their nifly classes and the shader fields after the nifly members, with the raw values the mesh stores; a slot the patch emptied is listed too. Floats have the shortest decimals that read back as the same 32 bit float; a field whose new value is not a finite number, which JSON cannot write, is left out.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "BSLightingShaderProperty": {
+          "description": "The fields of the shape's BSLightingShaderProperty that changed, with their new raw values as the mesh stores them, named after the nifly members. A field that is not listed keeps its value. A field the mesh stores for one Shader Type only is listed only when the patched shader has that type, as NifSkope shows it.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "bslspShaderType": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Shader Type, the raw number the mesh stores (nifly's BSLightingShaderPropertyShaderType: 1 Environment Map, 5 Skin Tint, 6 Hair Tint, 7 Parallax Occ, 11 Multilayer Parallax, 14 Sparkle Snow, 16 Eye Envmap, ...). It decides which of the fields that only some types have the shader stores."
+            },
+            "shaderFlags1": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295,
+              "description": "Shader Flags 1, the raw 32 bit value the mesh stores, every flag of it."
+            },
+            "shaderFlags2": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295,
+              "description": "Shader Flags 2, the raw 32 bit value the mesh stores, every flag of it. Its bit 23 (SLSF2_UNUSED01) is the PBR flag of Community Shaders."
+            },
+            "uvOffset": {
+              "description": "UV Offset.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector2"
+                }
+              ]
+            },
+            "uvScale": {
+              "description": "UV Scale.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector2"
+                }
+              ]
+            },
+            "emissiveColor": {
+              "description": "Emissive Color (RGB).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector3"
+                }
+              ]
+            },
+            "emissiveMultiple": {
+              "type": "number",
+              "description": "Emissive Multiple."
+            },
+            "textureClampMode": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Texture Clamp Mode."
+            },
+            "alpha": {
+              "type": "number",
+              "description": "Alpha."
+            },
+            "refractionStrength": {
+              "type": "number",
+              "description": "Refraction Strength."
+            },
+            "glossiness": {
+              "type": "number",
+              "description": "Glossiness (the specular level of a PBR shape)."
+            },
+            "specularColor": {
+              "description": "Specular Color (RGB; the subsurface or coat color of a PBR shape).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector3"
+                }
+              ]
+            },
+            "specularStrength": {
+              "type": "number",
+              "description": "Specular Strength (the roughness scale of a PBR shape)."
+            },
+            "softlighting": {
+              "type": "number",
+              "description": "Lighting Effect 1 (the subsurface opacity or coat strength of a PBR shape)."
+            },
+            "rimlightPower": {
+              "type": "number",
+              "description": "Lighting Effect 2 (the displacement scale of a PBR shape)."
+            },
+            "environmentMapScale": {
+              "type": "number",
+              "description": "Environment Map Scale. Only for Shader Type 1 (Environment Map)."
+            },
+            "skinTintColor": {
+              "description": "Skin Tint Color (RGB). Only for Shader Type 5 (Skin Tint).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector3"
+                }
+              ]
+            },
+            "hairTintColor": {
+              "description": "Hair Tint Color (RGB). Only for Shader Type 6 (Hair Tint).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector3"
+                }
+              ]
+            },
+            "maxPasses": {
+              "type": "number",
+              "description": "Max Passes. Only for Shader Type 7 (Parallax Occ)."
+            },
+            "scale": {
+              "type": "number",
+              "description": "Scale. Only for Shader Type 7 (Parallax Occ)."
+            },
+            "parallaxInnerLayerThickness": {
+              "type": "number",
+              "description": "Parallax Inner Layer Thickness. Only for Shader Type 11 (Multilayer Parallax)."
+            },
+            "parallaxRefractionScale": {
+              "type": "number",
+              "description": "Parallax Refraction Scale. Only for Shader Type 11 (Multilayer Parallax)."
+            },
+            "parallaxInnerLayerTextureScale": {
+              "description": "Parallax Inner Layer Texture Scale. Only for Shader Type 11 (Multilayer Parallax).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector2"
+                }
+              ]
+            },
+            "parallaxEnvmapStrength": {
+              "type": "number",
+              "description": "Parallax Envmap Strength. Only for Shader Type 11 (Multilayer Parallax)."
+            },
+            "sparkleParameters": {
+              "description": "Sparkle Parameters. Only for Shader Type 14 (Sparkle Snow).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/color4"
+                }
+              ]
+            },
+            "eyeCubemapScale": {
+              "type": "number",
+              "description": "Eye Cubemap Scale. Only for Shader Type 16 (Eye Envmap)."
+            },
+            "eyeLeftReflectionCenter": {
+              "description": "Eye Left Reflection Center. Only for Shader Type 16 (Eye Envmap).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector3"
+                }
+              ]
+            },
+            "eyeRightReflectionCenter": {
+              "description": "Eye Right Reflection Center. Only for Shader Type 16 (Eye Envmap).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/vector3"
+                }
+              ]
+            }
+          }
+        },
+        "BSShaderTextureSet": {
+          "description": "The texture slots of the shape that changed, as the shape is drawn with them (its texture set, or the record's alternate texture for the shape), by their index in the textures of the BSShaderTextureSet. Relative to the textures folder; an empty string for a slot the patch emptied.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "enum": [
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8"
+            ]
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": 1,
+      "materials": [
+        {
+          "BSLightingShaderProperty": {
+            "glossiness": 0.04,
+            "shaderFlags1": 2185232384,
+            "shaderFlags2": 8421377,
+            "specularStrength": 1.2
+          },
+          "BSShaderTextureSet": {
+            "0": "pbr\\architecture\\whiterun\\wrwoodplank01.dds",
+            "1": "pbr\\architecture\\whiterun\\wrwoodplank01_n.dds",
+            "4": "",
+            "5": "pbr\\architecture\\whiterun\\wrwoodplank01_rmaos.dds"
+          }
+        },
+        {
+          "BSLightingShaderProperty": {
+            "bslspShaderType": 11,
+            "shaderFlags2": 25198593,
+            "parallaxInnerLayerThickness": 0.2
+          }
+        }
+      ],
+      "records": {
+        "Skyrim.esm": {
+          "01A2B3": {
+            "0": 0,
+            "2": 0,
+            "3": null
+          },
+          "0C4D5E": {
+            "1": 1
+          }
+        },
+        "Dawnguard.esm": {
+          "00F00D": {
+            "4": 1
+          }
+        }
+      }
+    }
+  ]
+}

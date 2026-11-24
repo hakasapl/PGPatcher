@@ -11,7 +11,9 @@
 #include <nlohmann/json.hpp>
 
 #include <cstdint>
+#include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -248,6 +250,83 @@ TEST(PGMaterialStateTest,
     b->wetnessSpecScale = 5;
     b->backlightPower = 3;
     EXPECT_TRUE(PGMaterialState::isShaderEqual(*a, *b));
+}
+
+TEST(PGMaterialStateTest,
+     ShaderChangesListTheRawValuesTheMeshStores)
+{
+    NIFBuilder builder;
+    auto* base = builder.lightingShader(builder.addShape("Base"));
+    auto* patched = builder.lightingShader(builder.addShape("Patched"));
+    ASSERT_NE(base, nullptr);
+    ASSERT_NE(patched, nullptr);
+    EXPECT_EQ(PGMaterialState::shaderChanges(*base, *patched), nlohmann::json::object());
+
+    // Every field every shader type stores changed: one entry each, named after the nifly member, with the raw value.
+    // The patched shader is a parallax shader, which stores none of the fields of other types.
+    setNonDefaultValues(*patched);
+    auto changes = PGMaterialState::shaderChanges(*base, *patched);
+    const std::vector<std::string> commonKeys {
+        "bslspShaderType", "shaderFlags1",     "shaderFlags2",     "uvOffset",     "uvScale",
+        "emissiveColor",   "emissiveMultiple", "textureClampMode", "alpha",        "refractionStrength",
+        "glossiness",      "specularColor",    "specularStrength", "softlighting", "rimlightPower",
+    };
+    EXPECT_EQ(changes.size(), commonKeys.size()) << changes.dump();
+    for (const auto& key : commonKeys)
+        EXPECT_TRUE(changes.contains(key)) << key;
+
+    EXPECT_EQ(changes["bslspShaderType"], nifly::BSLSP_PARALLAX);
+    EXPECT_EQ(changes["shaderFlags1"], 0x12345678U);
+    EXPECT_EQ(changes["shaderFlags2"], 0x9ABCDEF0U);
+    EXPECT_EQ(changes["softlighting"].dump(), "0.7");
+    EXPECT_EQ(changes["emissiveColor"].dump(), "[0.1,0.2,0.3]");
+    EXPECT_EQ(changes["uvScale"], nlohmann::json::array({ 2, 3 }));
+    EXPECT_EQ(changes["textureClampMode"], 0);
+
+    // The fields the mesh stores for one shader type only, listed when the patched shader has that type.
+    const std::vector<std::pair<nifly::BSLightingShaderPropertyShaderType, std::vector<std::string>>> typeKeys {
+        { nifly::BSLSP_ENVMAP, { "environmentMapScale" } },
+        { nifly::BSLSP_SKINTINT, { "skinTintColor" } },
+        { nifly::BSLSP_HAIRTINT, { "hairTintColor" } },
+        { nifly::BSLSP_PARALLAXOCC, { "maxPasses", "scale" } },
+        {
+            nifly::BSLSP_MULTILAYERPARALLAX,
+            {
+                "parallaxInnerLayerThickness",
+                "parallaxRefractionScale",
+                "parallaxInnerLayerTextureScale",
+                "parallaxEnvmapStrength",
+            },
+        },
+        { nifly::BSLSP_MULTIINDEXSNOW, { "sparkleParameters" } },
+        { nifly::BSLSP_EYE, { "eyeCubemapScale", "eyeLeftReflectionCenter", "eyeRightReflectionCenter" } },
+    };
+    for (const auto& [type, keys] : typeKeys) {
+        patched->SetShaderType(type);
+        changes = PGMaterialState::shaderChanges(*base, *patched);
+        EXPECT_EQ(changes.size(), commonKeys.size() + keys.size()) << type;
+        for (const auto& key : keys)
+            EXPECT_TRUE(changes.contains(key)) << type << " " << key;
+    }
+
+    // A type-dependent field the patch did not change is left out, as every other one is: the patched shader keeps
+    // the values its new type starts with.
+    patched->SetShaderType(nifly::BSLSP_MULTILAYERPARALLAX);
+    patched->parallaxInnerLayerThickness = base->parallaxInnerLayerThickness;
+    EXPECT_FALSE(PGMaterialState::shaderChanges(*base, *patched).contains("parallaxInnerLayerThickness"));
+
+    // A shader type nifly has no name for is its number as well.
+    patched->SetShaderType(21);
+    EXPECT_EQ(PGMaterialState::shaderChanges(*base, *patched)["bslspShaderType"], 21);
+
+    // JSON has no number for a value that is not finite, so such a field is left out, also one that was not finite
+    // before and compares unequal to itself.
+    patched->glossiness = std::numeric_limits<float>::quiet_NaN();
+    base->glossiness = patched->glossiness;
+    patched->uvScale = nifly::Vector2(std::numeric_limits<float>::infinity(), 1);
+    changes = PGMaterialState::shaderChanges(*base, *patched);
+    EXPECT_FALSE(changes.contains("glossiness"));
+    EXPECT_FALSE(changes.contains("uvScale"));
 }
 
 TEST(PGMaterialStateTest,

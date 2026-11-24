@@ -13,11 +13,14 @@
 #include "Uses.hpp"
 #include "pgutil/PGMeshPermutationTracker.hpp"
 #include "pgutil/PGNIFUtil.hpp"
+#include "pgutil/PGShapeChanges.hpp"
 #include "pgutil/PGTypes.hpp"
 #include "util/Logger.hpp"
 #include "util/StringUtil.hpp"
 
+#include "NifFile.hpp"
 #include <fmt/xchar.h>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -26,11 +29,13 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -199,18 +204,9 @@ void Family::patch(std::size_t wantedMember,
                    unsigned generation,
                    std::shared_ptr<const std::vector<std::byte>>& wantedBytes)
 {
-    // Mod-level "meshes ignored" is a per-path rule that needs the mod manager, so it is applied here (DESIGN.md 4.4).
-    // Facegen heads are no exception: offline, PGPatcher::patchNIF checks the mod before anything else.
-    if (PGGlobals::isPGMMSet()) {
-        const auto mod = PGGlobals::pgmm()->modByFileSmart(basePaths.front());
-        if (mod) {
-            const std::shared_lock modLock(mod->mutex);
-            if (mod->areMeshesIgnored) {
-                Logger::trace(L"Skipping NIF patching for mod with ignored meshes: {}", mod->name);
-                m_state = State::IgnoredByMod;
-                return;
-            }
-        }
+    if (isIgnoredByMod()) {
+        m_state = State::IgnoredByMod;
+        return;
     }
 
     std::vector<std::vector<MemberOutput>> outputs(basePaths.size());
@@ -312,22 +308,58 @@ void Family::patch(std::size_t wantedMember,
         L"Patched {} ({} contexts, {} distinct outputs)", basePaths.front().wstring(), members.size(), groups);
 }
 
+bool Family::isIgnoredByMod() const
+{
+    // Mod-level "meshes ignored" is a per-path rule that needs the mod manager, so it is applied here (DESIGN.md 4.4).
+    // Facegen heads are no exception: offline, PGPatcher::patchNIF checks the mod before anything else.
+    if (!PGGlobals::isPGMMSet())
+        return false;
+
+    const auto mod = PGGlobals::pgmm()->modByFileSmart(basePaths.front());
+    if (!mod)
+        return false;
+
+    const std::shared_lock modLock(mod->mutex);
+    if (!mod->areMeshesIgnored)
+        return false;
+
+    Logger::trace(L"Skipping NIF patching for mod with ignored meshes: {}", mod->name);
+    return true;
+}
+
 bool Family::patchMember(PGMeshPermutationTracker& tracker,
                          std::size_t member,
                          std::size_t pathIndex,
                          MemberOutput& output,
                          bool shouldCompareWithOriginal)
 {
+    auto* const staged = tracker.stageMesh();
+    auto alternateTextures = members.at(member).context.alternateTextures;
+    std::unordered_set<unsigned> nonAltTexShapes;
+    if (!runPatchers(*staged, member, pathIndex, alternateTextures, nonAltTexShapes))
+        return false;
+
+    const auto result
+        = tracker.commitMesh(memberKey(member), false, alternateTextures, nonAltTexShapes, shouldCompareWithOriginal);
+    output.isOriginalKept = result == PGMeshPermutationTracker::CommitResult::UnchangedFromOriginal;
+    output.altTexResults = std::move(alternateTextures);
+    return true;
+}
+
+bool Family::runPatchers(nifly::NifFile& staged,
+                         std::size_t member,
+                         std::size_t pathIndex,
+                         std::unordered_map<unsigned,
+                                            PGTypes::TextureSet>& alternateTextures,
+                         std::unordered_set<unsigned>& nonAltTexShapes)
+{
     const auto& memberInfo = members.at(member);
     const Logger::Prefix dupPrefix(useLabel(memberInfo.formKey));
 
-    auto* const staged = tracker.stageMesh();
     PGPatcher::MeshMeta meshMeta;
-    auto alternateTextures = memberInfo.context.alternateTextures;
-    std::unordered_set<unsigned> nonAltTexShapes;
     const auto readFailuresBefore = s_textureReadFailures;
     const bool isProcessed = PGPatcher::processNIF(basePaths.at(pathIndex),
-                                                   staged,
+                                                   &staged,
                                                    meshMeta,
                                                    memberInfo.attributes,
                                                    memberInfo.context.isSinglepassMATO,
@@ -349,14 +381,86 @@ bool Family::patchMember(PGMeshPermutationTracker& tracker,
                      basePaths.at(pathIndex).wstring(),
                      s_lastTextureReadFailure.wstring());
     }
-    if (!isProcessed)
-        return false;
 
-    const auto result
-        = tracker.commitMesh(memberKey(member), false, alternateTextures, nonAltTexShapes, shouldCompareWithOriginal);
-    output.isOriginalKept = result == PGMeshPermutationTracker::CommitResult::UnchangedFromOriginal;
-    output.altTexResults = std::move(alternateTextures);
-    return true;
+    return isProcessed;
+}
+
+bool Family::settle(TextureSetFactory& textureSets,
+                    unsigned generation)
+{
+    // A family the game never opens is never patched either.
+    if (isFacegen || sources.empty() || members.empty() || m_state != State::Unpatched)
+        return true;
+
+    std::ignore = bytes(0, resolvedPathIndex(0), textureSets, generation);
+    return m_state != State::Unpatched;
+}
+
+std::optional<Family::ShapeDescriptions> Family::describe(std::size_t member,
+                                                          std::size_t pathIndex)
+{
+    const std::scoped_lock lock(m_patchMutex);
+    const Logger::Prefix prefix(basePaths.at(pathIndex).wstring());
+
+    // The streams of such a family serve the original mesh, which their records keep.
+    if (isFacegen || sources.empty() || m_state == State::Failed || m_state == State::IgnoredByMod || isIgnoredByMod())
+        return std::nullopt;
+
+    pathIndex = resolvedPathIndex(pathIndex);
+    const auto originalBytes = original(pathIndex);
+    if (!originalBytes)
+        throw EngineReadError("the original mesh cannot be read");
+
+    // The staged copy is patched as produce() patches it. Every shape is recorded as the mesh on disk has it before;
+    // which textures a shape is drawn with is known once the patch told which shapes it drew with an alternate texture.
+    PGMeshPermutationTracker tracker(basePaths.at(pathIndex), *originalBytes);
+    auto& staged = *tracker.stageMesh();
+    const auto& originalAlternates = members.at(member).context.alternateTextures;
+    auto alternateTextures = originalAlternates;
+    const auto shapes = PGNIFUtil::shapesWith3DIdx(&staged);
+    std::unordered_map<unsigned, PGShapeChanges::State> originalStates;
+    for (const auto& [shape, index3D] : shapes) {
+        originalStates.emplace(static_cast<unsigned>(index3D),
+                               PGShapeChanges::stateOf(staged, *shape, PGNIFUtil::textureSlots(&staged, shape)));
+    }
+
+    std::unordered_set<unsigned> nonAltTexShapes;
+    if (!runPatchers(staged, member, pathIndex, alternateTextures, nonAltTexShapes))
+        throw std::runtime_error("a shape could not be processed");
+
+    // A shape the patch deleted is gone from the mesh; its pointer is only compared with the shapes that are left,
+    // since the patchers delete shapes but never add one.
+    const auto remaining = staged.GetShapes();
+    const std::unordered_set<nifly::NiShape*> remainingShapes(remaining.begin(), remaining.end());
+    // The records of a family patched for the session carry the alternate textures of its first patch (editRecords()).
+    const auto& patchedAlternates
+        = m_state == State::Patched ? m_outputs.at(pathIndex).at(member).altTexResults : alternateTextures;
+    ShapeDescriptions descriptions;
+    for (const auto& [shape, index3D] : shapes) {
+        const auto index = static_cast<unsigned>(index3D);
+        if (!remainingShapes.contains(shape)) {
+            descriptions.deleted.push_back(index);
+            continue;
+        }
+
+        // A shape patched with an alternate texture is drawn with the record's texture set before and after the patch,
+        // every other shape with its own.
+        auto& original = originalStates.at(index);
+        const auto originalAlternate = originalAlternates.find(index);
+        const auto patchedAlternate = patchedAlternates.find(index);
+        const bool hasAlternate = originalAlternate != originalAlternates.end()
+            && patchedAlternate != patchedAlternates.end() && !nonAltTexShapes.contains(index);
+        if (hasAlternate)
+            original.slots = originalAlternate->second;
+
+        const auto patched = PGShapeChanges::stateOf(
+            staged, *shape, hasAlternate ? patchedAlternate->second : PGNIFUtil::textureSlots(&staged, shape));
+        auto changes = PGShapeChanges::changes(original, patched);
+        if (!changes.empty())
+            descriptions.changed.emplace(index, std::move(changes));
+    }
+
+    return descriptions;
 }
 
 std::shared_ptr<const std::vector<std::byte>> Family::produce(std::size_t member,
