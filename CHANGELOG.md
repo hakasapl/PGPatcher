@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+- [PGLite] The `pgblock` and `pgallow` console commands are commands of their own now instead of taking over two unused commands of the game, so the game's `help` no longer lists them; `pgblock help` and `pgallow help` print what they do
+
 ## [2.4.1] - 2026-11-19
 
 - [Common] Fixed a crash when TruePBR patches a shape whose environment map scale is animated
