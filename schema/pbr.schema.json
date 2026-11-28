@@ -339,12 +339,12 @@
           "description": "Scale of the height map displacement."
         },
         "cubemap": {
-          "type": "string",
-          "description": "Path for slot 5, for example \"textures\\cubemaps\\mycube.dds\". textures\\ is not prepended. Entries without this key clear slot 5."
+          "description": "Removed after PGPatcher 2.4.1 and has no effect; delete this key. Slot 5 is always cleared, unless slot5 sets it.",
+          "not": {}
         },
         "lock_cubemap": {
-          "type": "boolean",
-          "description": "true ignores the cubemap key, which leaves slot 5 cleared."
+          "description": "Removed after PGPatcher 2.4.1 and has no effect; delete this key. Slot 5 is always cleared, unless slot5 sets it.",
+          "not": {}
         },
         "lock_rmaos": {
           "type": "boolean",

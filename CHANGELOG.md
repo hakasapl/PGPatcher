@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+- [Common] BREAKING CHANGE Removed the "cubemap" and "lock_cubemap" PBR json fields, which went with environment mapping: the PBR shader has no cubemap, so slot 5 is always cleared unless "slot5" sets it
+
 ## [2.4.1] - 2026-11-19
 
 - [Common] Fixed a crash when TruePBR patches a shape whose environment map scale is animated
