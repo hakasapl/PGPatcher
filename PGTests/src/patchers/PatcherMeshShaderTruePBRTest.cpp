@@ -819,4 +819,30 @@ TEST_F(PatcherMeshShaderTruePBRTest,
     EXPECT_EQ(nif.GetAlphaProperty(sharedA)->flags, 4845U);
     EXPECT_EQ(nif.GetAlphaProperty(sharedA)->threshold, 64U);
 }
+
+TEST_F(PatcherMeshShaderTruePBRTest,
+       TheRemovedCubemapFieldsLeaveSlotFiveEmpty)
+{
+    // cubemap and lock_cubemap went with environment mapping: slot 5 is cleared whatever they say, and slot5 alone sets
+    // it.
+    PatcherMeshShaderTruePBR patcher(meshPath, &m_builder.nif());
+    const auto cubemapSlotFor = [&patcher](const char* entryText) {
+        PatcherMatch match;
+        match.matchedPath = L"pbrnifpatcher\\x.json";
+        match.extraData = std::make_shared<ExtraData>(
+            ExtraData { { 0, { nlohmann::json::parse(entryText), L"textures\\pbr\\a\\stone" } } });
+        auto patched = slots(L"textures\\a\\stone.dds", L"textures\\a\\stone_n.dds");
+        patched[4] = L"textures\\cubemaps\\old_e.dds";
+        patcher.applyPatchSlots(patched, match);
+        return patched[4];
+    };
+
+    EXPECT_TRUE(cubemapSlotFor(R"({"texture": "a\\stone", "cubemap": "textures\\cubemaps\\x_e.dds"})").empty());
+    EXPECT_TRUE(cubemapSlotFor(R"({"texture": "a\\stone", "cubemap": "textures\\cubemaps\\x_e.dds",
+                                   "lock_cubemap": false})")
+                    .empty());
+    EXPECT_TRUE(cubemapSlotFor(R"({"texture": "a\\stone", "lock_cubemap": true})").empty());
+    EXPECT_EQ(cubemapSlotFor(R"({"texture": "a\\stone", "slot5": "textures\\cubemaps\\x_e.dds"})"),
+              L"textures\\cubemaps\\x_e.dds");
+}
 }
