@@ -8,13 +8,15 @@ namespace PGLite {
  * console what it did. They change the settings only: the meshes follow at the next Apply in the menu or at the next
  * game start.
  *
- * The game's console table has no free entry, so each command takes over the entry of a command that only the
- * PlayStation 3 build of the game used, as the console commands of other SKSE plugins do. An entry another plugin took
- * over first no longer has its original name and is passed over.
+ * The commands take over no command of the game's. The console menu's ExecuteCommand callback, which its Scaleform
+ * delegate calls with the line typed, is wrapped: a line whose first word is a PGLite command runs here, and every
+ * other line goes on to the callback that was there. A line the console menu does not run (a batch file's, one a plugin
+ * compiles itself) never reaches PGLite, and the game's help lists the game's commands only.
  */
 class ConsoleCommands {
 public:
-    /// @brief Installs both commands. At data load, once.
+    /// @brief Wraps the callback, now and whenever the console menu opens with a delegate PGLite has not wrapped. At
+    /// data load, once.
     static void install();
 };
 
