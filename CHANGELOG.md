@@ -3,6 +3,7 @@
 ## UNRELEASED
 
 - [PGLite] The `pgblock` and `pgallow` console commands are commands of their own now instead of taking over two unused commands of the game, so the game's `help` no longer lists them; `pgblock help` and `pgallow help` print what they do
+- [Common] Removed the "cubemap" and "lock_cubemap" PBR json fields, which went with environment mapping: the PBR shader has no cubemap, so slot 5 is always cleared unless "slot5" sets it
 
 ## [2.4.1] - 2026-11-19
 

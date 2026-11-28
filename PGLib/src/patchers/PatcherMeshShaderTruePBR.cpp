@@ -1050,15 +1050,9 @@ void PatcherMeshShaderTruePBR::applyOnePatchSlots(PGTypes::TextureSet& slots,
         slots[static_cast<size_t>(PGEnums::TextureSlots::Parallax)] = newParallax;
     }
 
-    // "cubemap" attribute.
-    if (truePBRData.contains("cubemap") && truePBRData["cubemap"].is_string()
-        && !(truePBRData.contains("lock_cubemap") && truePBRData["lock_cubemap"].is_boolean()
-             && truePBRData["lock_cubemap"].get<bool>())) {
-        const auto newCubemap = StringUtil::utf8toUTF16(truePBRData["cubemap"].get<std::string>());
-        slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)] = newCubemap;
-    } else {
-        slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)] = L"";
-    }
+    // The PBR shader has no cubemap. The "cubemap" and "lock_cubemap" fields went with environment mapping; only an
+    // explicit slot5 (below) puts a texture there.
+    slots[static_cast<size_t>(PGEnums::TextureSlots::Cubemap)] = L"";
 
     // "lock_rmaos" attribute.
     if (!(truePBRData.contains("lock_rmaos") && truePBRData["lock_rmaos"].is_boolean()
